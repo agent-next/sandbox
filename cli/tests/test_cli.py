@@ -1,0 +1,97 @@
+import sys
+import types
+
+import pytest
+
+from sbx import cli
+
+
+class FakeResult:
+    def __init__(self, stdout="", stderr="", exit_code=0):
+        self.stdout, self.stderr, self.exit_code = stdout, stderr, exit_code
+
+
+class FakeExit(Exception):
+    def __init__(self, stdout, stderr, exit_code):
+        super().__init__("exit")
+        self.stdout, self.stderr, self.exit_code = stdout, stderr, exit_code
+
+
+class FakeSandbox:
+    calls = []
+    killed = True
+
+    def __init__(self, sid="sbx-1"):
+        self.sandbox_id = sid
+        self.commands = self
+
+    @classmethod
+    def create(cls, template=None, timeout=None):
+        cls.calls.append(("create", template, timeout))
+        return cls()
+
+    @classmethod
+    def connect(cls, sid):
+        cls.calls.append(("connect", sid))
+        return cls(sid)
+
+    @classmethod
+    def kill(cls, sid):
+        cls.calls.append(("kill", sid))
+        return cls.killed
+
+    def run(self, line, timeout=None):
+        FakeSandbox.calls.append(("run", line, timeout))
+        if line == "false":
+            raise FakeExit("", "boom\n", 1)
+        return FakeResult("hello\n", "", 0)
+
+
+@pytest.fixture(autouse=True)
+def fake_e2b(monkeypatch):
+    FakeSandbox.calls = []
+    FakeSandbox.killed = True
+    mod = types.ModuleType("e2b")
+    mod.Sandbox = FakeSandbox
+    mod.CommandExitException = FakeExit
+    monkeypatch.setitem(sys.modules, "e2b", mod)
+    monkeypatch.setenv("E2B_API_KEY", "k")
+    monkeypatch.delenv("E2B_DOMAIN", raising=False)
+
+
+def test_create_prints_id_and_converts_minutes(capsys):
+    assert cli.main(["create", "--timeout-min", "2"]) == 0
+    assert capsys.readouterr().out == "sbx-1\n"
+    assert FakeSandbox.calls == [("create", None, 120)]
+
+
+def test_exec_passes_exit_code_and_streams(capsys):
+    assert cli.main(["exec", "sbx-1", "echo hello"]) == 0
+    assert capsys.readouterr().out == "hello\n"
+    assert cli.main(["exec", "sbx-1", "--", "false"]) == 1
+    assert capsys.readouterr().err == "boom\n"
+
+
+def test_exec_joins_argv_with_quoting():
+    cli.main(["exec", "sbx-1", "--", "echo", "a b"])
+    assert ("run", "echo 'a b'", 60) in FakeSandbox.calls
+
+
+def test_kill_gone_is_not_an_error(capsys):
+    FakeSandbox.killed = False
+    assert cli.main(["kill", "sbx-1"]) == 0
+    assert "already gone" in capsys.readouterr().err
+
+
+def test_missing_key_is_a_usage_error(monkeypatch, capsys):
+    monkeypatch.delenv("E2B_API_KEY", raising=False)
+    monkeypatch.delenv("SBX_API_KEY", raising=False)
+    assert cli.main(["create"]) == 2
+    assert "no API key" in capsys.readouterr().err
+
+
+def test_sbx_api_key_is_accepted(monkeypatch):
+    monkeypatch.delenv("E2B_API_KEY", raising=False)
+    monkeypatch.setenv("SBX_API_KEY", "k2")
+    assert cli.main(["create"]) == 0
+    assert cli.os.environ["E2B_DOMAIN"] == "sbx.agent-next.com"
