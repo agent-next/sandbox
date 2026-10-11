@@ -139,3 +139,25 @@ def test_list_error_shows_status_only(monkeypatch, capsys):
     assert cli.main(["list"]) == 2
     err = capsys.readouterr().err
     assert secret not in err and "HTTP 500" in err
+
+
+@pytest.mark.parametrize("name", ["E2B_API_KEY", "SBX_API_KEY"])
+def test_parser_errors_and_command_output_are_scrubbed(name, monkeypatch, capsys):
+    secret = "k-very-secret-value"
+    monkeypatch.delenv("E2B_API_KEY", raising=False)
+    monkeypatch.setenv(name, secret)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["create", "--timeout-min", secret])
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert secret not in err and "[redacted]" in err
+
+    monkeypatch.setattr(FakeSandbox, "run", lambda self, line, timeout=None: FakeResult(f"{secret}\n", f"{secret}\n", 0))
+    assert cli.main(["exec", "sbx-1", "echo hi"]) == 0
+    out = capsys.readouterr()
+    assert secret not in out.out + out.err
+
+
+def test_exec_separator_form_keeps_command_options():
+    cli.main(["exec", "sbx-1", "--timeout", "30", "--", "ls", "-l", "/tmp"])
+    assert ("run", "ls -l /tmp", 30.0) in FakeSandbox.calls

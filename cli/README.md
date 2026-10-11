@@ -22,6 +22,7 @@ export E2B_API_KEY=<your key>     # SBX_API_KEY also works
 
 id=$(sbx create)                  # prints the sandbox id
 sbx exec "$id" 'echo hello'       # stdout/stderr pass through; exit code is the command's
+sbx exec "$id" --timeout 30 -- ls -l /tmp   # several words: put -- first
 sbx kill "$id"
 ```
 
@@ -30,7 +31,7 @@ sbx kill "$id"
 | command | what it does |
 | --- | --- |
 | `sbx create [--template T] [--timeout-min N]` | Start a sandbox and print its id. `--timeout-min` is a hard lifetime (default 5). |
-| `sbx exec ID [--timeout S] COMMAND...` | Run a command. One argument is a shell line; several are quoted and joined. Exits with the command's exit code. |
+| `sbx exec ID [--timeout S] -- COMMAND...` | Run a command. One argument is a shell line; several are quoted and joined. Put `--` before the command so its own options (`ls -l`) are not read as `sbx` options. Exits with the command's exit code. |
 | `sbx list` | List the live sandboxes held by your key (id, template, start time). |
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |
 

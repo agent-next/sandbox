@@ -81,8 +81,8 @@ def cmd_exec(args: argparse.Namespace) -> int:
         result = sbx.commands.run(line, timeout=args.timeout)
     except CommandExitException as exc:
         result = exc
-    sys.stdout.write(result.stdout)
-    sys.stderr.write(result.stderr)
+    sys.stdout.write(_scrub(result.stdout))
+    sys.stderr.write(_scrub(result.stderr))
     return result.exit_code
 
 
@@ -118,13 +118,19 @@ def cmd_kill(args: argparse.Namespace) -> int:
     return 0
 
 
+class _Parser(argparse.ArgumentParser):
+    def error(self, message: str):
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: {_scrub(message)}\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(
+    ap = _Parser(
         prog="sbx",
         description="Create, use and kill agent-next cloud sandboxes.",
     )
     ap.add_argument("--version", action="version", version=_version())
-    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub = ap.add_subparsers(dest="cmd", required=True, parser_class=_Parser)
 
     p = sub.add_parser("create", help="start a sandbox and print its id")
     p.add_argument("--template", default=None, help="template name (default: the default template)")
@@ -142,7 +148,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "command",
         nargs="+",
-        help="command: one string is run as a shell line; use -- before a command that starts with a dash",
+        help="command: one string is run as a shell line; put -- before it when it has several words or options",
     )
     p.set_defaults(func=cmd_exec)
 
