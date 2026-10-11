@@ -161,3 +161,29 @@ def test_parser_errors_and_command_output_are_scrubbed(name, monkeypatch, capsys
 def test_exec_separator_form_keeps_command_options():
     cli.main(["exec", "sbx-1", "--timeout", "30", "--", "ls", "-l", "/tmp"])
     assert ("run", "ls -l /tmp", 30.0) in FakeSandbox.calls
+
+
+@pytest.mark.parametrize("name", ["E2B_API_KEY", "SBX_API_KEY"])
+def test_every_output_path_is_scrubbed(name, monkeypatch, capsys):
+    secret = "k-very-secret-value"
+    monkeypatch.delenv("E2B_API_KEY", raising=False)
+    monkeypatch.setenv(name, secret)
+
+    FakeSandbox.killed = True
+    cli.main(["kill", secret])
+    FakeSandbox.killed = False
+    cli.main(["kill", secret])
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(lambda cls, t=None, timeout=None: cls(secret)))
+    cli.main(["create"])
+
+    class Resp:
+        status_code = 200
+
+        def json(self):
+            return [{"sandboxID": secret, "alias": secret, "startedAt": secret}]
+
+    monkeypatch.setattr(cli.httpx, "get", lambda *a, **k: Resp())
+    cli.main(["list"])
+    out = capsys.readouterr()
+    assert secret not in out.out + out.err
+    assert "[redacted]" in out.out

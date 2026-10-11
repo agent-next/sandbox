@@ -42,6 +42,10 @@ def _scrub(text: str) -> str:
     return text
 
 
+def _say(text: str, *, err: bool = False) -> None:
+    print(_scrub(text), file=sys.stderr if err else sys.stdout)
+
+
 def _positive_seconds(value: float, what: str, maximum: float | None = None) -> float:
     if not math.isfinite(value) or value <= 0 or (maximum and value > maximum):
         limit = f" up to {maximum:g}" if maximum else ""
@@ -61,7 +65,7 @@ def cmd_create(args: argparse.Namespace) -> int:
     sbx = _sandbox_cls().create(
         args.template, timeout=max(1, round(args.timeout_min * 60))
     )
-    print(sbx.sandbox_id)
+    _say(sbx.sandbox_id)
     return 0
 
 
@@ -104,7 +108,7 @@ def cmd_list(args: argparse.Namespace) -> int:
         sid = item.get("sandboxID") or item.get("sandbox_id") or "?"
         template = item.get("alias") or item.get("templateID") or "-"
         started = item.get("startedAt") or "-"
-        print(f"{sid}\t{template}\t{started}")
+        _say(f"{sid}\t{template}\t{started}")
     return 0
 
 
@@ -112,9 +116,9 @@ def cmd_kill(args: argparse.Namespace) -> int:
     _credentials()
     killed = _sandbox_cls().kill(args.sandbox_id)
     if killed:
-        print(f"killed {args.sandbox_id}")
+        _say(f"killed {args.sandbox_id}")
     else:
-        print(f"{args.sandbox_id}: not found (already gone)", file=sys.stderr)
+        _say(f"{args.sandbox_id}: not found (already gone)", err=True)
     return 0
 
 
@@ -175,10 +179,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.func(args)
     except SbxError as exc:
-        print(f"sbx: {_scrub(str(exc))}", file=sys.stderr)
+        _say(f"sbx: {exc}", err=True)
         return 2
     except Exception as exc:  # SDK errors carry the gateway's message
-        print(f"sbx: {type(exc).__name__}: {_scrub(str(exc))}", file=sys.stderr)
+        _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
         return 1
 
 
