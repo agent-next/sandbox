@@ -33,9 +33,8 @@ Codex:
 ```bash
 codex plugin marketplace add agent-next/sandbox
 codex plugin add sandbox@agent-next
+export SBX_API_KEY=<your key>     # Codex sends it as a bearer token
 ```
-
-Codex asks for the API key when it connects the server.
 
 ## Install the CLI
 

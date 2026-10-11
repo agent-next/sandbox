@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "e2b==2.40.0",
-    "httpx>=0.28",
+    "httpx>=0.28,<1",
 ]
 
 [project.optional-dependencies]
@@ -20,7 +20,7 @@ Homepage = "https://agent-next.com"
 Repository = "https://github.com/agent-next/sandbox"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

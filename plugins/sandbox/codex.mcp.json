@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sandbox": {
+      "url": "https://api.sbx.agent-next.com/mcp/v1",
+      "bearer_token_env_var": "SBX_API_KEY"
+    }
+  }
+}

@@ -9,8 +9,8 @@ Contents:
 
 - `.claude-plugin/plugin.json`, `.mcp.json`: Claude Code manifest and MCP
   config (header `X-API-Key: ${SBX_API_KEY}`).
-- `plugin.json`, `mcp.json`: Codex manifest and MCP config (API-key auth,
-  sent as a bearer token).
+- `.codex-plugin/plugin.json`, `codex.mcp.json`: Codex manifest and MCP
+  config (`SBX_API_KEY` sent as a bearer token).
 - `skills/sandbox/SKILL.md`: when to use the sandbox and the rules to follow.
 
 Tools: `sandboxes_list`, `sandbox_create`, `sandbox_exec`,
@@ -21,8 +21,9 @@ Tools: `sandboxes_list`, `sandbox_create`, `sandbox_exec`,
 ## API key
 
 Create a key at <https://sbx.agent-next.com/console> and export it as
-`SBX_API_KEY` in the environment that launches Claude Code. If the variable
-is unset, the literal `${SBX_API_KEY}` is sent and authentication fails.
+`SBX_API_KEY` in the environment that launches Claude Code or Codex. For
+Claude Code, if the variable is unset the literal `${SBX_API_KEY}` is sent and
+authentication fails.
 
 ## Privacy
 

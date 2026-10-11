@@ -1,0 +1,16 @@
+{
+  "name": "sandbox",
+  "version": "0.0.1",
+  "description": "Cloud sandboxes from agent-next: create, exec, read/write files, public preview URLs, kill.",
+  "author": {
+    "name": "agent-next",
+    "url": "https://agent-next.com"
+  },
+  "homepage": "https://agent-next.com",
+  "skills": "./skills/",
+  "mcpServers": "./codex.mcp.json",
+  "interface": {
+    "displayName": "agent-next sandbox",
+    "privacyPolicyURL": "https://agent-next.com/privacy"
+  }
+}

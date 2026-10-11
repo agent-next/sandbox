@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import shlex
 import sys
@@ -11,6 +12,7 @@ import httpx
 
 DEFAULT_DOMAIN = "sbx.agent-next.com"
 DEFAULT_TIMEOUT_MIN = 5
+MAX_TIMEOUT_MIN = 1440
 
 
 class SbxError(Exception):
@@ -31,6 +33,22 @@ def _credentials() -> tuple[str, str]:
     return key, domain
 
 
+def _scrub(text: str) -> str:
+    """Remove any configured API key value from text bound for the terminal."""
+    for name in ("E2B_API_KEY", "SBX_API_KEY"):
+        value = os.environ.get(name)
+        if value:
+            text = text.replace(value, "[redacted]")
+    return text
+
+
+def _positive_seconds(value: float, what: str, maximum: float | None = None) -> float:
+    if not math.isfinite(value) or value <= 0 or (maximum and value > maximum):
+        limit = f" up to {maximum:g}" if maximum else ""
+        raise SbxError(f"{what} must be a positive number{limit}")
+    return value
+
+
 def _sandbox_cls():
     from e2b import Sandbox
 
@@ -38,9 +56,10 @@ def _sandbox_cls():
 
 
 def cmd_create(args: argparse.Namespace) -> int:
+    _positive_seconds(args.timeout_min, "--timeout-min", MAX_TIMEOUT_MIN)
     _credentials()
     sbx = _sandbox_cls().create(
-        args.template, timeout=int(args.timeout_min * 60)
+        args.template, timeout=max(1, round(args.timeout_min * 60))
     )
     print(sbx.sandbox_id)
     return 0
@@ -49,6 +68,7 @@ def cmd_create(args: argparse.Namespace) -> int:
 def cmd_exec(args: argparse.Namespace) -> int:
     from e2b import CommandExitException
 
+    _positive_seconds(args.timeout, "--timeout")
     _credentials()
     command = args.command
     if command and command[0] == "--":
@@ -77,7 +97,7 @@ def cmd_list(args: argparse.Namespace) -> int:
     if resp.status_code == 401:
         raise SbxError("the gateway rejected the API key (401)")
     if resp.status_code != 200:
-        raise SbxError(f"GET /sandboxes: {resp.status_code} {resp.text[:200]}")
+        raise SbxError(f"GET /sandboxes failed with HTTP {resp.status_code}")
     data = resp.json()
     items = data if isinstance(data, list) else data.get("sandboxes", [])
     for item in items:
@@ -119,7 +139,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("exec", help="run a command in a sandbox; exit code is the command's")
     p.add_argument("sandbox_id")
     p.add_argument("--timeout", type=float, default=60, help="command timeout in seconds (default 60)")
-    p.add_argument("command", nargs=argparse.REMAINDER, help="command (a single string is run as a shell line)")
+    p.add_argument(
+        "command",
+        nargs="+",
+        help="command: one string is run as a shell line; use -- before a command that starts with a dash",
+    )
     p.set_defaults(func=cmd_exec)
 
     p = sub.add_parser("list", help="list live sandboxes held by this key")
@@ -145,10 +169,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.func(args)
     except SbxError as exc:
-        print(f"sbx: {exc}", file=sys.stderr)
+        print(f"sbx: {_scrub(str(exc))}", file=sys.stderr)
         return 2
     except Exception as exc:  # SDK errors carry the gateway's message
-        print(f"sbx: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"sbx: {type(exc).__name__}: {_scrub(str(exc))}", file=sys.stderr)
         return 1
 
 

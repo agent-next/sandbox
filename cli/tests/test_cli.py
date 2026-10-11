@@ -95,3 +95,47 @@ def test_sbx_api_key_is_accepted(monkeypatch):
     monkeypatch.setenv("SBX_API_KEY", "k2")
     assert cli.main(["create"]) == 0
     assert cli.os.environ["E2B_DOMAIN"] == "sbx.agent-next.com"
+
+
+def test_exec_options_before_command_are_parsed(capsys):
+    assert cli.main(["exec", "sbx-1", "--timeout", "10", "echo hello"]) == 0
+    assert ("run", "echo hello", 10.0) in FakeSandbox.calls
+
+
+@pytest.mark.parametrize("bad", ["nan", "inf", "-1", "0"])
+def test_invalid_timeouts_are_usage_errors(bad, capsys):
+    assert cli.main(["create", "--timeout-min", bad]) == 2
+    assert cli.main(["exec", "sbx-1", "--timeout", bad, "true"]) == 2
+    assert "positive number" in capsys.readouterr().err
+
+
+def test_tiny_lifetime_rounds_up_to_one_second():
+    cli.main(["create", "--timeout-min", "0.001"])
+    assert FakeSandbox.calls == [("create", None, 1)]
+
+
+def test_errors_never_print_the_key(monkeypatch, capsys):
+    secret = "k-very-secret-value"
+    monkeypatch.setenv("E2B_API_KEY", secret)
+
+    def boom(*a, **k):
+        raise RuntimeError(f"auth failed for {secret}")
+
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(boom))
+    assert cli.main(["create"]) == 1
+    err = capsys.readouterr().err
+    assert secret not in err and "[redacted]" in err
+
+
+def test_list_error_shows_status_only(monkeypatch, capsys):
+    secret = "k-very-secret-value"
+    monkeypatch.setenv("E2B_API_KEY", secret)
+
+    class Resp:
+        status_code = 500
+        text = f"echo {secret}"
+
+    monkeypatch.setattr(cli.httpx, "get", lambda *a, **k: Resp())
+    assert cli.main(["list"]) == 2
+    err = capsys.readouterr().err
+    assert secret not in err and "HTTP 500" in err
