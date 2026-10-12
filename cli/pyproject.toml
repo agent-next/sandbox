@@ -4,6 +4,7 @@ version = "0.0.1"
 description = "sbx: create, exec and kill agent-next cloud sandboxes from the shell"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
     "e2b==2.40.0",

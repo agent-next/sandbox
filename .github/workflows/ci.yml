@@ -41,3 +41,23 @@ jobs:
           set -e
           src=$(python -c "import json;print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['source'])")
           test -d "$src/.claude-plugin" && echo "plugin dir present: $src"
+      - name: Plugin manifests have required fields
+        run: |
+          python - <<'EOF'
+          import json, sys
+          def require(path, keys):
+              d = json.load(open(path))
+              missing = [k for k in keys if not d.get(k)]
+              if missing:
+                  sys.exit(f"{path}: missing {missing}")
+              print(f"OK {path}")
+          require(".claude-plugin/marketplace.json", ["name"])
+          for p in json.load(open(".claude-plugin/marketplace.json"))["plugins"]:
+              missing = [k for k in ("name", "source", "description") if not p.get(k)]
+              if missing:
+                  sys.exit(f"marketplace plugin entry: missing {missing}")
+          print("OK marketplace plugin entries")
+          require("plugins/sandbox/.claude-plugin/plugin.json", ["name", "description", "version"])
+          require("plugins/sandbox/.codex-plugin/plugin.json", ["name", "version"])
+          require(".agents/plugins/marketplace.json", ["name"])
+          EOF
