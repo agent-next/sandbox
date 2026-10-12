@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: pip install "./cli[test]"
+      - name: Test
+        run: pytest -q
+        working-directory: cli
+
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Validate JSON manifests
+        run: |
+          ok=1
+          for f in $(git ls-files '*.json'); do
+            python -m json.tool "$f" > /dev/null && echo "OK $f" || { echo "INVALID $f"; ok=0; }
+          done
+          [ "$ok" = 1 ]
+      - name: Marketplace plugin path exists
+        run: |
+          set -e
+          src=$(python -c "import json;print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['source'])")
+          test -d "$src/.claude-plugin" && echo "plugin dir present: $src"

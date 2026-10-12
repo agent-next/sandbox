@@ -62,7 +62,7 @@ tells the agent when to use them and to kill what it creates.
 
 ## License
 
-License: pending. No license is granted until one is added to this repo.
+MIT — see [LICENSE](LICENSE).
 
 ## Security
 
