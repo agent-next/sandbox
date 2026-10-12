@@ -11,7 +11,8 @@ pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 ```
 
 Needs Python 3.10 or newer. The PyPI name `agent-next-sandbox` is reserved
-for a later release; today, install from GitHub as above.
+for a later release; today, install from GitHub as above. If pip warns that
+`sbx` was installed outside `PATH`, add `~/.local/bin` to your `PATH`.
 
 ## Use
 
