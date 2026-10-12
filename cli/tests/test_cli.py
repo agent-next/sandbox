@@ -1,0 +1,189 @@
+import sys
+import types
+
+import pytest
+
+from sbx import cli
+
+
+class FakeResult:
+    def __init__(self, stdout="", stderr="", exit_code=0):
+        self.stdout, self.stderr, self.exit_code = stdout, stderr, exit_code
+
+
+class FakeExit(Exception):
+    def __init__(self, stdout, stderr, exit_code):
+        super().__init__("exit")
+        self.stdout, self.stderr, self.exit_code = stdout, stderr, exit_code
+
+
+class FakeSandbox:
+    calls = []
+    killed = True
+
+    def __init__(self, sid="sbx-1"):
+        self.sandbox_id = sid
+        self.commands = self
+
+    @classmethod
+    def create(cls, template=None, timeout=None):
+        cls.calls.append(("create", template, timeout))
+        return cls()
+
+    @classmethod
+    def connect(cls, sid):
+        cls.calls.append(("connect", sid))
+        return cls(sid)
+
+    @classmethod
+    def kill(cls, sid):
+        cls.calls.append(("kill", sid))
+        return cls.killed
+
+    def run(self, line, timeout=None):
+        FakeSandbox.calls.append(("run", line, timeout))
+        if line == "false":
+            raise FakeExit("", "boom\n", 1)
+        return FakeResult("hello\n", "", 0)
+
+
+@pytest.fixture(autouse=True)
+def fake_e2b(monkeypatch):
+    FakeSandbox.calls = []
+    FakeSandbox.killed = True
+    mod = types.ModuleType("e2b")
+    mod.Sandbox = FakeSandbox
+    mod.CommandExitException = FakeExit
+    monkeypatch.setitem(sys.modules, "e2b", mod)
+    monkeypatch.setenv("E2B_API_KEY", "k")
+    monkeypatch.delenv("E2B_DOMAIN", raising=False)
+
+
+def test_create_prints_id_and_converts_minutes(capsys):
+    assert cli.main(["create", "--timeout-min", "2"]) == 0
+    assert capsys.readouterr().out == "sbx-1\n"
+    assert FakeSandbox.calls == [("create", None, 120)]
+
+
+def test_exec_passes_exit_code_and_streams(capsys):
+    assert cli.main(["exec", "sbx-1", "echo hello"]) == 0
+    assert capsys.readouterr().out == "hello\n"
+    assert cli.main(["exec", "sbx-1", "--", "false"]) == 1
+    assert capsys.readouterr().err == "boom\n"
+
+
+def test_exec_joins_argv_with_quoting():
+    cli.main(["exec", "sbx-1", "--", "echo", "a b"])
+    assert ("run", "echo 'a b'", 60) in FakeSandbox.calls
+
+
+def test_kill_gone_is_not_an_error(capsys):
+    FakeSandbox.killed = False
+    assert cli.main(["kill", "sbx-1"]) == 0
+    assert "already gone" in capsys.readouterr().err
+
+
+def test_missing_key_is_a_usage_error(monkeypatch, capsys):
+    monkeypatch.delenv("E2B_API_KEY", raising=False)
+    monkeypatch.delenv("SBX_API_KEY", raising=False)
+    assert cli.main(["create"]) == 2
+    assert "no API key" in capsys.readouterr().err
+
+
+def test_sbx_api_key_is_accepted(monkeypatch):
+    monkeypatch.delenv("E2B_API_KEY", raising=False)
+    monkeypatch.setenv("SBX_API_KEY", "k2")
+    assert cli.main(["create"]) == 0
+    assert cli.os.environ["E2B_DOMAIN"] == "sbx.agent-next.com"
+
+
+def test_exec_options_before_command_are_parsed(capsys):
+    assert cli.main(["exec", "sbx-1", "--timeout", "10", "echo hello"]) == 0
+    assert ("run", "echo hello", 10.0) in FakeSandbox.calls
+
+
+@pytest.mark.parametrize("bad", ["nan", "inf", "-1", "0"])
+def test_invalid_timeouts_are_usage_errors(bad, capsys):
+    assert cli.main(["create", "--timeout-min", bad]) == 2
+    assert cli.main(["exec", "sbx-1", "--timeout", bad, "true"]) == 2
+    assert "positive number" in capsys.readouterr().err
+
+
+def test_tiny_lifetime_rounds_up_to_one_second():
+    cli.main(["create", "--timeout-min", "0.001"])
+    assert FakeSandbox.calls == [("create", None, 1)]
+
+
+def test_errors_never_print_the_key(monkeypatch, capsys):
+    secret = "k-very-secret-value"
+    monkeypatch.setenv("E2B_API_KEY", secret)
+
+    def boom(*a, **k):
+        raise RuntimeError(f"auth failed for {secret}")
+
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(boom))
+    assert cli.main(["create"]) == 1
+    err = capsys.readouterr().err
+    assert secret not in err and "[redacted]" in err
+
+
+def test_list_error_shows_status_only(monkeypatch, capsys):
+    secret = "k-very-secret-value"
+    monkeypatch.setenv("E2B_API_KEY", secret)
+
+    class Resp:
+        status_code = 500
+        text = f"echo {secret}"
+
+    monkeypatch.setattr(cli.httpx, "get", lambda *a, **k: Resp())
+    assert cli.main(["list"]) == 2
+    err = capsys.readouterr().err
+    assert secret not in err and "HTTP 500" in err
+
+
+@pytest.mark.parametrize("name", ["E2B_API_KEY", "SBX_API_KEY"])
+def test_parser_errors_and_command_output_are_scrubbed(name, monkeypatch, capsys):
+    secret = "k-very-secret-value"
+    monkeypatch.delenv("E2B_API_KEY", raising=False)
+    monkeypatch.setenv(name, secret)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["create", "--timeout-min", secret])
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert secret not in err and "[redacted]" in err
+
+    monkeypatch.setattr(FakeSandbox, "run", lambda self, line, timeout=None: FakeResult(f"{secret}\n", f"{secret}\n", 0))
+    assert cli.main(["exec", "sbx-1", "echo hi"]) == 0
+    out = capsys.readouterr()
+    assert secret not in out.out + out.err
+
+
+def test_exec_separator_form_keeps_command_options():
+    cli.main(["exec", "sbx-1", "--timeout", "30", "--", "ls", "-l", "/tmp"])
+    assert ("run", "ls -l /tmp", 30.0) in FakeSandbox.calls
+
+
+@pytest.mark.parametrize("name", ["E2B_API_KEY", "SBX_API_KEY"])
+def test_every_output_path_is_scrubbed(name, monkeypatch, capsys):
+    secret = "k-very-secret-value"
+    monkeypatch.delenv("E2B_API_KEY", raising=False)
+    monkeypatch.setenv(name, secret)
+
+    FakeSandbox.killed = True
+    cli.main(["kill", secret])
+    FakeSandbox.killed = False
+    cli.main(["kill", secret])
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(lambda cls, t=None, timeout=None: cls(secret)))
+    cli.main(["create"])
+
+    class Resp:
+        status_code = 200
+
+        def json(self):
+            return [{"sandboxID": secret, "alias": secret, "startedAt": secret}]
+
+    monkeypatch.setattr(cli.httpx, "get", lambda *a, **k: Resp())
+    cli.main(["list"])
+    out = capsys.readouterr()
+    assert secret not in out.out + out.err
+    assert "[redacted]" in out.out

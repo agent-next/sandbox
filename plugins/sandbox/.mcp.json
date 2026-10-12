@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "sandbox": {
+      "type": "http",
+      "url": "https://api.sbx.agent-next.com/mcp/v1",
+      "headers": {
+        "X-API-Key": "${SBX_API_KEY}"
+      }
+    }
+  }
+}

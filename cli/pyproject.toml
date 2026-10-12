@@ -1,0 +1,32 @@
+[project]
+name = "agent-next-sandbox"
+version = "0.0.1"
+description = "sbx: create, exec and kill agent-next cloud sandboxes from the shell"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = [
+    "e2b==2.40.0",
+    "httpx>=0.28,<1",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[project.scripts]
+sbx = "sbx.cli:main"
+
+[project.urls]
+Homepage = "https://agent-next.com"
+Repository = "https://github.com/agent-next/sandbox"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sbx"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
