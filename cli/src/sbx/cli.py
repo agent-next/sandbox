@@ -160,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--timeout-min",
         type=float,
         default=DEFAULT_TIMEOUT_MIN,
-        help=f"hard lifetime in minutes (default {DEFAULT_TIMEOUT_MIN})",
+        help=f"idle minutes before deletion (default {DEFAULT_TIMEOUT_MIN})",
     )
     p.set_defaults(func=cmd_create)
 

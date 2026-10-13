@@ -53,8 +53,10 @@ sbx kill "$id"                    # always kill what you create
 ```
 
 `sbx exec` passes stdout and stderr through and exits with the command's own
-exit code. A sandbox has a hard lifetime (default 5 minutes, set with
-`sbx create --timeout-min N`); copy results out before it ends.
+exit code. `sbx create --timeout-min N` sets an idle keep-alive (default
+5 minutes); activity restarts the clock. The CLI opts into deletion at idle
+expiry, so copy durable results out. CPU sandboxes created by the MCP plugin
+instead pause at idle expiry and resume on the next exec or files call.
 
 The same three steps from your agent: the plugin's tools are
 `sandbox_create`, `sandbox_exec` and `sandbox_kill`, and the `sandbox` skill
