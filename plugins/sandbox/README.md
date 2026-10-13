@@ -13,9 +13,9 @@ Contents:
   config (`SBX_API_KEY` sent as a bearer token).
 - `skills/sandbox/SKILL.md`: when to use the sandbox and the rules to follow.
 
-Tools: `sandboxes_list`, `sandbox_create`, `sandbox_exec`,
-`sandbox_exec_output`, `sandbox_files_read`, `sandbox_files_write`,
-`sandbox_preview_url`, `sandbox_kill`. Server URL:
+Tools: `sandboxes_list`, `sandbox_templates`, `sandbox_create`,
+`sandbox_exec`, `sandbox_exec_output`, `sandbox_files_read`,
+`sandbox_files_write`, `sandbox_preview_url`, `sandbox_kill`. Server URL:
 `https://api.sbx.agent-next.com/mcp/v1`.
 
 ## API key
