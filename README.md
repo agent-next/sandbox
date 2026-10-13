@@ -62,6 +62,11 @@ The same three steps from your agent: the plugin's tools are
 `sandbox_create`, `sandbox_exec` and `sandbox_kill`, and the `sandbox` skill
 tells the agent when to use them and to kill what it creates.
 
+For CUDA work, try the [1 GiB small-GPU quickstart](cookbook/small-gpu/README.md).
+It includes a Python client that checks a tiny GPU computation and destroys
+the lease. GPU-enabled keys and available capacity are required. This MIT
+repository contains the client kit; the hosted service's backend is separate.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
