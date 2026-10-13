@@ -35,16 +35,20 @@ cloud, not on the user's machine.
 ## Rules
 
 - **Always kill sandboxes after use.** A forgotten sandbox holds a quota
-  slot until its TTL ends. Kill every sandbox you create once it is no
+  slot and consumes running credit while it is active. Kill every sandbox you create once it is no
   longer needed, and tell the user if a kill fails. Killing one that is
   already gone answers `sandbox not found`: treat that as gone.
-- **`timeout_min` is a hard TTL, not an idle timer.** The sandbox is killed
-  that many minutes after creation (default 5, max 1440) whatever its
-  activity, and its files go with it. Ask for the time the job needs, and
-  copy results out before then. Separately, a sandbox idle for 300 s is
-  paused and resumes on the next call.
-- **Concurrency is per key.** The free tier runs 2 sandboxes at once; the
-  real number for the key in use is `limits.max_concurrent` in
+- **CPU `timeout_min` is an idle keep-alive.** After that many idle minutes
+  (default 5, max 1440), the sandbox auto-pauses, preserving files, memory
+  and running processes. Activity restarts the clock; CPU usage alone does
+  not count. Pausing never fires before the 300 s idle floor and may land a
+  reaper sweep late. The next exec or files call auto-resumes an MCP-created
+  CPU sandbox. A full paused quota keeps it running and billing until a
+  paused slot is available. Continuously paused sandboxes expire after
+  7 days, so copy durable results out. The separate `sbx` CLI uses the SDK's
+  kill-on-timeout mode; its `--timeout-min` does not promise MCP auto-pause.
+- **Concurrency is per key.** The actual limit for the key in use is
+  `limits.max_concurrent` in
   `GET /v0/account` (and `quota_running` in `GET /v0/usage`). A create over
   the limit fails with `quota exceeded, retry in 5s`: kill finished
   sandboxes or wait, do not retry in a tight loop.
@@ -62,11 +66,15 @@ cloud, not on the user's machine.
   roughly 3.5 GiB is OOM-killed (exit 137) and its buffered stdout is lost,
   so flush output to a file. Larger sizes are template-level classes
   (`small` 2 vCPU / 8 GiB, `standard` 4 / 16, `large` 8 / 32 where
-  enabled), not an argument of `sandbox_create`. GPU sandboxes are a
-  separate lease with a hard VRAM slice (`accel.vram_gb`, 0.5 to 32 GiB),
-  not available through these tools; CUDA allocations past the slice fail
-  with a normal out-of-memory error, while graphics memory past it kills
-  the job.
+  enabled), not an argument of `sandbox_create`.
+- **GPU leases are available through MCP.** Call `sandbox_templates` for
+  the live catalog, then `sandbox_create` with a GPU template (`gpu`,
+  `gpu-lease-v06`, `mujoco` or `kernel`) and `vram_gb` (default 4, range
+  0.5–32). GPU sandboxes support `sandbox_exec` and `sandbox_kill`, consume
+  separate GPU credit, and have a hard VRAM cap. They cannot pause, expose
+  preview URLs, or use the files tools. `timeout_min` is validated but is
+  not applied (`timeout_min_applied: false`): kill them explicitly when
+  done. Their maximum lease age appears as `end_at` in `sandboxes_list`.
 - **Preview URLs are public by default.** Anyone with
   `https://<port>-<sandbox-id>.sbx.agent-next.com` can reach the port, with
   no sign-in, and it answers 502 after the sandbox is killed. Do not serve

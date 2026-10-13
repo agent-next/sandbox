@@ -31,7 +31,7 @@ sbx kill "$id"
 
 | command | what it does |
 | --- | --- |
-| `sbx create [--template T] [--timeout-min N]` | Start a sandbox and print its id. `--timeout-min` is a hard lifetime (default 5). |
+| `sbx create [--template T] [--timeout-min N]` | Start a sandbox and print its id. `--timeout-min` is the idle keep-alive in minutes (default 5); expiry deletes this CLI-created sandbox. |
 | `sbx exec ID [--timeout S] -- COMMAND...` | Run a command. One argument is a shell line; several are quoted and joined. Put `--` before the command so its own options (`ls -l`) are not read as `sbx` options. Exits with the command's exit code. |
 | `sbx list` | List the live sandboxes held by your key (id, template, start time). |
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |
@@ -39,8 +39,14 @@ sbx kill "$id"
 Environment: `E2B_API_KEY` (or `SBX_API_KEY`) is required. `E2B_DOMAIN`
 defaults to `sbx.agent-next.com`.
 
-Always kill what you create: a forgotten sandbox holds one of your
-concurrent slots until its lifetime ends.
+The CLI uses the SDK's kill-on-timeout mode (`autoPause=false`). Activity
+restarts the idle clock; this is not a fixed wall-clock deadline. When the
+idle timeout expires, the sandbox and its files are deleted. MCP-created CPU
+sandboxes instead pause at expiry and resume on the next exec or files call.
+
+Always kill what you create: a forgotten running sandbox holds one of your
+concurrent slots and consumes credit until it is killed or its idle timeout
+expires.
 
 ## Develop
 

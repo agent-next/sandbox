@@ -102,13 +102,31 @@ def cmd_list(args: argparse.Namespace) -> int:
         raise SbxError("the gateway rejected the API key (401)")
     if resp.status_code != 200:
         raise SbxError(f"GET /sandboxes failed with HTTP {resp.status_code}")
-    data = resp.json()
-    items = data if isinstance(data, list) else data.get("sandboxes", [])
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise SbxError("GET /sandboxes returned invalid JSON") from exc
+    items = data.get("sandboxes") if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        raise SbxError("GET /sandboxes returned an invalid sandbox list")
+    # Validate the entire response before printing any rows: malformed data
+    # must never look like a successful empty or partial inventory.
+    rows = []
     for item in items:
-        sid = item.get("sandboxID") or item.get("sandbox_id") or "?"
+        if not isinstance(item, dict):
+            raise SbxError("GET /sandboxes returned an invalid sandbox entry")
+        sid = item.get("sandboxID") or item.get("sandbox_id")
+        if not isinstance(sid, str) or not sid or not sid.isprintable() or any(c.isspace() for c in sid):
+            raise SbxError("GET /sandboxes returned an entry without a sandbox id")
+        for name in ("alias", "templateID", "startedAt"):
+            value = item.get(name)
+            if value is not None and (not isinstance(value, str) or (value and not value.isprintable())):
+                raise SbxError("GET /sandboxes returned an invalid sandbox column")
         template = item.get("alias") or item.get("templateID") or "-"
         started = item.get("startedAt") or "-"
-        _say(f"{sid}\t{template}\t{started}")
+        rows.append(f"{sid}\t{template}\t{started}")
+    for row in rows:
+        _say(row)
     return 0
 
 
@@ -142,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--timeout-min",
         type=float,
         default=DEFAULT_TIMEOUT_MIN,
-        help=f"hard lifetime in minutes (default {DEFAULT_TIMEOUT_MIN})",
+        help=f"idle minutes before deletion (default {DEFAULT_TIMEOUT_MIN})",
     )
     p.set_defaults(func=cmd_create)
 

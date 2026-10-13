@@ -53,12 +53,19 @@ sbx kill "$id"                    # always kill what you create
 ```
 
 `sbx exec` passes stdout and stderr through and exits with the command's own
-exit code. A sandbox has a hard lifetime (default 5 minutes, set with
-`sbx create --timeout-min N`); copy results out before it ends.
+exit code. `sbx create --timeout-min N` sets an idle keep-alive (default
+5 minutes); activity restarts the clock. The CLI opts into deletion at idle
+expiry, so copy durable results out. CPU sandboxes created by the MCP plugin
+instead pause at idle expiry and resume on the next exec or files call.
 
 The same three steps from your agent: the plugin's tools are
 `sandbox_create`, `sandbox_exec` and `sandbox_kill`, and the `sandbox` skill
 tells the agent when to use them and to kill what it creates.
+
+For CUDA work, try the [1 GiB small-GPU quickstart](cookbook/small-gpu/README.md).
+It includes a Python client that checks a tiny GPU computation and destroys
+the lease. GPU-enabled keys and available capacity are required. This MIT
+repository contains the client kit; the hosted service's backend is separate.
 
 ## License
 
