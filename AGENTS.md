@@ -1,109 +1,91 @@
-# AGENTS.md
+# Coding in agent-next/sandbox
 
-Agent instructions for `agent-next/sandbox`. Read this before editing; `CLAUDE.md` imports it.
+Read the [org agent standard](https://github.com/agent-next/.github/blob/main/AGENT-STANDARD.md)
+and these repo-specific instructions. `CLAUDE.md` imports this file.
 
-## Repo map
+## Map and setup
 
-| path | what it is |
-| --- | --- |
-| `plugins/sandbox` | Claude Code + Codex plugin: `sandbox` skill, MCP configs, manifests |
-| `plugins/sandbox/skills/sandbox/SKILL.md` | agent-facing rules for live sandboxes (kill what you create, hard TTL, per-key concurrency) |
-| `cli` | `sbx` CLI: source `cli/src/sbx`, tests `cli/tests`, package `agent-next-sandbox` |
-| `cookbook` | prompt examples for the plugin; review-gated, not run by CI |
-| `.github/workflows/ci.yml` | the whole CI: job `cli` (pytest on 3.10 and 3.13) and job `manifests` (JSON + marketplace checks) |
-| `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json` | the two marketplace manifests |
+- `cli/src/sbx/cli.py`: `sbx` CLI; `cli/tests`: CLI regression tests.
+- `cli/pyproject.toml`: Python >=3.10, dependencies, test extra and package entrypoint.
+- `plugins/sandbox`: Claude/Codex manifests, MCP configs and `skills/sandbox/SKILL.md`.
+- `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`: marketplaces.
+- `cookbook`: examples; `.github/workflows/ci.yml`: current executable CI checks.
 
-Facts worth keeping: `sbx` reads `E2B_API_KEY` (or `SBX_API_KEY`), defaults
-`E2B_DOMAIN` to `sbx.agent-next.com`, and `sbx list` uses `httpx` against
-`https://api.$E2B_DOMAIN/sandboxes`. The plugin's MCP server is
-`https://api.sbx.agent-next.com/mcp/v1`, credentialed with `SBX_API_KEY`.
-Python >= 3.10; deps and the `test` extra live in `cli/pyproject.toml`.
-
-## Setup
+From the repo root, in an isolated checkout:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install './cli[test]'
+.venv/bin/python -m pytest -q cli/tests
 ```
 
-Run pytest from the repo root, not from `cli/`: `cli/tests` has no `conftest.py`
-and does `from sbx import cli`, so the package must be installed.
+Keep the virtualenv untracked. CI tests Python 3.10 and 3.13; name the version you
+actually ran. Root and `cli/` invocations both work after installing the package.
 
-## Checks (these are what CI runs)
+## Manifest checks
 
-| check | command |
-| --- | --- |
-| CLI tests (CI matrix: Python 3.10 and 3.13) | `.venv/bin/python -m pytest -q cli/tests` |
-
-Same as CI's `pytest -q` with `working-directory: cli`. JSON manifests come from the
-`manifests` job of `.github/workflows/ci.yml`: that job is the executable copy of these
-rules, so make manifest edits match it rather than forking it into a script.
+The `manifests` CI job is authoritative. Run its checks for plugin/manifest edits;
+the following root command mirrors its JSON, path and required-field checks:
 
 ```bash
-# every tracked *.json must parse
-for f in $(git ls-files '*.json'); do python -m json.tool "$f" >/dev/null || echo "INVALID $f"; done
-
-# the marketplace plugin source directory must exist
-src=$(python -c "import json;print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['source'])")
-test -d "$src/.claude-plugin" && echo "plugin dir present: $src"    # ./plugins/sandbox
+python3 - <<'PY'
+import json, pathlib, subprocess
+files = subprocess.check_output(['git', 'ls-files', '-z', '*.json']).split(b'\0')
+for name in filter(None, files):
+    json.loads(pathlib.Path(name.decode()).read_text())
+def require(path, keys):
+    data = json.loads(pathlib.Path(path).read_text())
+    missing = [key for key in keys if not data.get(key)]
+    if missing:
+        raise SystemExit(f'{path}: missing {missing}')
+    return data
+market = require('.claude-plugin/marketplace.json', ['name'])
+for plugin in market['plugins']:
+    if any(not plugin.get(key) for key in ('name', 'source', 'description')):
+        raise SystemExit('marketplace plugin entry missing required field')
+if not pathlib.Path(market['plugins'][0]['source'], '.claude-plugin').is_dir():
+    raise SystemExit('marketplace plugin source directory missing')
+require('plugins/sandbox/.claude-plugin/plugin.json', ['name', 'description', 'version'])
+require('plugins/sandbox/.codex-plugin/plugin.json', ['name', 'version'])
+require('.agents/plugins/marketplace.json', ['name'])
+print('Manifest checks passed')
+PY
 ```
 
-Required fields the same job enforces:
+## Development loop
 
-- `.claude-plugin/marketplace.json`: `name`; every `plugins[]` entry: `name`, `source`, `description`.
-- `plugins/sandbox/.claude-plugin/plugin.json`: `name`, `description`, `version`.
-- `plugins/sandbox/.codex-plugin/plugin.json`: `name`, `version`.
-- `.agents/plugins/marketplace.json`: `name`.
+1. Fetch and pin the base SHA; inspect local changes, open PRs and worktrees for
+   overlap. Use an owned branch/worktree and preserve other lanes' state.
+2. State the expected user result and reproduce the actual reported input on its
+   CLI/plugin path. Make the smallest fix and check related callers/subcommands.
+3. For bug fixes, add a regression that fails on the original behavior and passes
+   after the fix. A collection/import error or skipped test is not that proof.
+   Documentation edits need accurate commands and links, not ceremonial tests.
+4. Run relevant checks and independent review by a different model family on
+   the exact head. Recheck changed
+   content after review fixes. Simplify unnecessary code and duplicated rules.
+5. Record SHA, commands, real results, reviewer verdict and untested surfaces in
+   the PR receipt. A new head invalidates earlier review. A red baseline needs its
+   fetched SHA, output and tracked follow-up; do not silently waive it.
+6. Turn a confirmed recurring failure into a targeted regression or review rule.
+   Report implementation, tests, review, merge and live acceptance separately.
 
-## Tests: hermetic vs live
+`cli/tests` substitutes SDK and HTTP behavior; passing it proves simulated CLI
+behavior. It does not prove the plugin connects or a deployed sandbox works.
+For changes to those surfaces, separately verify the installed plugin or CLI
+against the intended service when authorized, recording create -> exec -> kill
+and cleanup of the exact IDs created. Docs-only changes need no live allocation.
+If access is unavailable, record the remaining acceptance check and its owner.
 
-`cli/tests` is hermetic: an autouse fixture injects a fake `e2b` module into
-`sys.modules` plus a dummy key, so no network, gateway or sandbox is involved.
-Never add a test that reaches the service.
+## Boundaries and closeout
 
-Live acceptance (create, exec, kill against `sbx.agent-next.com`) is opt-in and
-never part of CI or of the normal loop: it needs a real `SBX_API_KEY` and spends
-sandbox minutes and per-key concurrency. Run it deliberately, kill what you
-created, and report what you saw. A green hermetic run is not proof that a live
-sandbox works.
+This repo is public: no credentials, private host paths or internal operations
+material in code, logs or receipts. Never read or rewrite real agent config for
+unit tests. Use isolated fixtures. Do not alter dependencies or CI without owner
+approval; publishing, releases, deployment and merges retain their existing
+approval gates. Prepare reviewable changes and async decision cards for those
+steps; ordinary implementation and verification run headlessly.
 
-## The loop
-
-issue -> reproduce -> minimal fix -> regression test -> independent review -> receipt
-
-1. **Issue.** Name the failing input and the execution path in this repo it goes
-   through (a `sbx` subcommand, a test, a manifest field).
-2. **Reproduce.** Run the reporter's input and capture the failing output.
-3. **Prove regression.** Show the reproduction fails on the original behaviour,
-   then fix only that, minimally.
-4. **Sibling paths.** The same bug often sits in a neighbour: other `sbx`
-   subcommands and the helpers they share in `cli/src/sbx/cli.py`. Fix it there
-   too or say why it does not apply.
-5. **Regression test.** Cover the path in `cli/tests`, hermetic, like the existing
-   fixtures. Docs-only changes need no new test — say so instead of adding a
-   ceremonial one.
-6. **Independent review.** Have a different agent or session read the diff and the
-   test output; the author does not review its own change.
-7. **Receipt.** Report the exact commands, test counts, the full commit SHA,
-   limitations and any follow-up.
-
-Skips and pre-existing reds need the exact commit SHA and output plus a tracked
-follow-up — never a silent skip.
-
-A green `.venv/bin/python -m pytest -q cli/tests` proves only that the paths
-covered by `cli/tests` pass on this machine. It is not merge approval, not a
-deploy and not live-service proof.
-
-## Limits (owner-level, not negotiable in a PR)
-
-No secrets in code, tests, logs or commit messages (the CLI scrubs key values from
-its output; keep tests asserting that). No unrelated edits. No dependency,
-workflow or CI changes. No releases, publishing, deploys or merges — the platform
-runner pushes your branch and a human decides the rest. Keep these facts generic
-enough for a public repo: no internal host paths, no operational details.
-
-## Cleanup rule for live runs
-
-Kill only sandbox ids this run created. Never `sbx list` and pick an id from the
-listing — other agents, lanes and the user hold those. If a kill fails, report the
-id and the error rather than retrying in a loop or guessing an id.
+Clean only your own scratch. Preserve unpushed work and useful evidence before
+ending an attempt. Never select sandboxes to delete from a shared listing: kill
+only IDs this run created, and report any cleanup failure with its exact ID.
