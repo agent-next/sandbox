@@ -60,6 +60,17 @@ The same three steps from your agent: the plugin's tools are
 `sandbox_create`, `sandbox_exec` and `sandbox_kill`, and the `sandbox` skill
 tells the agent when to use them and to kill what it creates.
 
+## Development
+
+Agent and contributor instructions, the repo map and the checks CI actually runs
+live in [AGENTS.md](AGENTS.md).
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install './cli[test]'
+.venv/bin/python -m pytest -q cli/tests
+```
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
