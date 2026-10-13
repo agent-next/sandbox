@@ -210,6 +210,12 @@ def test_list_accepts_empty_and_populated_inventory(wrapped, items, monkeypatch,
     {}, {"message": "upstream unavailable"}, {"sandboxes": None},
     {"sandboxes": {}}, None, "not a list", 0,
     [None], ["sbx-1"], [{}], [{"sandboxID": 123}], [{"sandboxID": " "}],
+    [{"sandboxID": "sbx-1\nINJECTED\trow"}], [{"sandboxID": "sbx-1\x1b[31m"}],
+    [{"sandboxID": "sbx 1"}], [{"sandboxID": "sbx-1", "alias": {"a": 1}}],
+    [{"sandboxID": "sbx-1", "alias": "base\trow"}],
+    [{"sandboxID": "sbx-1", "startedAt": "now\nrow"}],
+    [{"sandboxID": "sbx-1", "alias": []}], [{"sandboxID": "sbx-1", "templateID": False}],
+    [{"sandboxID": "sbx-1", "startedAt": 0}],
     [{"sandboxID": "sbx-valid"}, {"message": "bad row"}],
 ])
 def test_list_rejects_invalid_inventory_without_partial_output(payload, monkeypatch, capsys):
@@ -218,3 +224,11 @@ def test_list_rejects_invalid_inventory_without_partial_output(payload, monkeypa
     output = capsys.readouterr()
     assert output.out == ""
     assert "GET /sandboxes returned" in output.err
+
+
+def test_list_rejects_non_json_without_echoing_body(monkeypatch, capsys):
+    monkeypatch.setattr(cli.httpx, "get", lambda *a, **kw: cli.httpx.Response(200, content="<html>upstream failure</html>"))
+    assert cli.main(["list"]) == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert output.err == "sbx: GET /sandboxes returned invalid JSON\n"

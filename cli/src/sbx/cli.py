@@ -102,7 +102,10 @@ def cmd_list(args: argparse.Namespace) -> int:
         raise SbxError("the gateway rejected the API key (401)")
     if resp.status_code != 200:
         raise SbxError(f"GET /sandboxes failed with HTTP {resp.status_code}")
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise SbxError("GET /sandboxes returned invalid JSON") from exc
     items = data.get("sandboxes") if isinstance(data, dict) else data
     if not isinstance(items, list):
         raise SbxError("GET /sandboxes returned an invalid sandbox list")
@@ -113,8 +116,12 @@ def cmd_list(args: argparse.Namespace) -> int:
         if not isinstance(item, dict):
             raise SbxError("GET /sandboxes returned an invalid sandbox entry")
         sid = item.get("sandboxID") or item.get("sandbox_id")
-        if not isinstance(sid, str) or not sid.strip():
+        if not isinstance(sid, str) or not sid or not sid.isprintable() or any(c.isspace() for c in sid):
             raise SbxError("GET /sandboxes returned an entry without a sandbox id")
+        for name in ("alias", "templateID", "startedAt"):
+            value = item.get(name)
+            if value is not None and (not isinstance(value, str) or (value and not value.isprintable())):
+                raise SbxError("GET /sandboxes returned an invalid sandbox column")
         template = item.get("alias") or item.get("templateID") or "-"
         started = item.get("startedAt") or "-"
         rows.append(f"{sid}\t{template}\t{started}")
