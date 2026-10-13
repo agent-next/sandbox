@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 
@@ -57,6 +58,8 @@ def fake_e2b(monkeypatch):
     monkeypatch.setitem(sys.modules, "e2b", mod)
     monkeypatch.setenv("E2B_API_KEY", "k")
     monkeypatch.delenv("E2B_DOMAIN", raising=False)
+    monkeypatch.delenv("SBX_API_KEY", raising=False)
+    monkeypatch.delenv("E2B_API_URL", raising=False)
 
 
 def test_create_prints_id_and_converts_minutes(capsys):
@@ -187,3 +190,31 @@ def test_every_output_path_is_scrubbed(name, monkeypatch, capsys):
     out = capsys.readouterr()
     assert secret not in out.out + out.err
     assert "[redacted]" in out.out
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("items", [[], [
+    {"sandboxID": "sbx-1", "alias": "base", "startedAt": "2026-10-12T00:00:00Z"},
+    {"sandbox_id": "sbx-2", "templateID": "agent-full"},
+]])
+def test_list_accepts_empty_and_populated_inventory(wrapped, items, monkeypatch, capsys):
+    payload = {"sandboxes": items} if wrapped else items
+    monkeypatch.setattr(cli.httpx, "get", lambda *a, **kw: cli.httpx.Response(200, json=payload))
+    assert cli.main(["list"]) == 0
+    output = capsys.readouterr()
+    assert output.err == ""
+    assert output.out == ("sbx-1\tbase\t2026-10-12T00:00:00Z\nsbx-2\tagent-full\t-\n" if items else "")
+
+
+@pytest.mark.parametrize("payload", [
+    {}, {"message": "upstream unavailable"}, {"sandboxes": None},
+    {"sandboxes": {}}, None, "not a list", 0,
+    [None], ["sbx-1"], [{}], [{"sandboxID": 123}], [{"sandboxID": " "}],
+    [{"sandboxID": "sbx-valid"}, {"message": "bad row"}],
+])
+def test_list_rejects_invalid_inventory_without_partial_output(payload, monkeypatch, capsys):
+    monkeypatch.setattr(cli.httpx, "get", lambda *a, **kw: cli.httpx.Response(200, content=json.dumps(payload)))
+    assert cli.main(["list"]) != 0
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "GET /sandboxes returned" in output.err

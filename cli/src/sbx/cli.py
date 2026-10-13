@@ -103,12 +103,23 @@ def cmd_list(args: argparse.Namespace) -> int:
     if resp.status_code != 200:
         raise SbxError(f"GET /sandboxes failed with HTTP {resp.status_code}")
     data = resp.json()
-    items = data if isinstance(data, list) else data.get("sandboxes", [])
+    items = data.get("sandboxes") if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        raise SbxError("GET /sandboxes returned an invalid sandbox list")
+    # Validate the entire response before printing any rows: malformed data
+    # must never look like a successful empty or partial inventory.
+    rows = []
     for item in items:
-        sid = item.get("sandboxID") or item.get("sandbox_id") or "?"
+        if not isinstance(item, dict):
+            raise SbxError("GET /sandboxes returned an invalid sandbox entry")
+        sid = item.get("sandboxID") or item.get("sandbox_id")
+        if not isinstance(sid, str) or not sid.strip():
+            raise SbxError("GET /sandboxes returned an entry without a sandbox id")
         template = item.get("alias") or item.get("templateID") or "-"
         started = item.get("startedAt") or "-"
-        _say(f"{sid}\t{template}\t{started}")
+        rows.append(f"{sid}\t{template}\t{started}")
+    for row in rows:
+        _say(row)
     return 0
 
 
