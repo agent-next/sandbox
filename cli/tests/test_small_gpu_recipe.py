@@ -44,3 +44,26 @@ def test_cleanup_acknowledgement_without_death_is_failure(recipe, monkeypatch):
     monkeypatch.setattr(recipe, "request", lambda *args, **kwargs: next(replies))
     with pytest.raises(RuntimeError, match="cleanup unconfirmed"):
         recipe.main()
+
+
+@pytest.mark.parametrize("gone", [True, False])
+def test_lost_destroy_reply_still_checks_lease(recipe, monkeypatch, gone):
+    calls = []
+
+    def request(key, method, path, body=None):
+        calls.append(method)
+        if method == "DELETE":
+            raise TimeoutError("destroy reply lost")
+        if method == "GET":
+            return (404, None) if gone else (200, {"phase": "resident"})
+        if path.endswith("/exec"):
+            return 200, {"result": {"ok": True, "report": {"sum": 523776}}}
+        return 201, {"sandboxID": "gl-test-1"}
+
+    monkeypatch.setattr(recipe, "request", request)
+    if gone:
+        recipe.main()
+    else:
+        with pytest.raises(RuntimeError, match="cleanup unconfirmed for gl-test-1"):
+            recipe.main()
+    assert calls[-2:] == ["DELETE", "GET"]

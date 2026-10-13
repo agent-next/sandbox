@@ -61,14 +61,19 @@ def main():
             raise RuntimeError("GPU job did not return the expected CUDA result")
         print(json.dumps({"sandbox_id": sid, "report": report}, indent=2))
     finally:
-        status, _ = request(key, "DELETE", f"/sandboxes/{sid}")
-        if status not in (200, 204, 404):
-            raise RuntimeError(f"cleanup {sid}: HTTP {status}; run sandbox_kill for this id")
-        status, remaining = request(key, "GET", f"/sandboxes/{sid}")
+        try:
+            request(key, "DELETE", f"/sandboxes/{sid}")
+        except Exception:
+            # A lost destroy reply may still mean the lease was released.
+            pass
+        try:
+            status, remaining = request(key, "GET", f"/sandboxes/{sid}")
+        except Exception as exc:
+            raise RuntimeError(f"cleanup unconfirmed for {sid}; run sandbox_kill for this id") from exc
         if status != 404 and not (
             status == 200 and isinstance(remaining, dict) and remaining.get("phase") == "dead"
         ):
-            raise RuntimeError(f"cleanup unconfirmed for {sid}: HTTP {status}; inspect your inventory")
+            raise RuntimeError(f"cleanup unconfirmed for {sid}: HTTP {status}; run sandbox_kill for this id")
         print(f"destroyed {sid}; verified absent or dead", flush=True)
 
 

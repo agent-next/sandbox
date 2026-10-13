@@ -26,6 +26,11 @@ printed by the script. CPU `--timeout-min` does not apply to this lease.
 The CUDA allocation shown is the job's tensor allocation, not the enforced
 VRAM cap; the lease's requested slice is 1 GiB.
 
+Cleanup uses `DELETE /sandboxes/{id}`, followed by `GET /sandboxes/{id}`.
+The check accepts HTTP 404 (absent), or HTTP 200 with `{"phase":"dead"}`
+(a terminal lease record). A lost DELETE response still triggers the GET;
+a running lease or failed confirmation is an error naming the id to kill.
+
 With the plugin, ask your agent:
 
 > List the live sandbox templates. Create a GPU sandbox with template `gpu`
