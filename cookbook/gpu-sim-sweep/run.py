@@ -19,7 +19,7 @@ image already has Python 3.13, mujoco 3.8.1, mujoco-warp 3.8.1, warp 1.13.0,
 numpy 1.26.4 on an RTX 5090 slice (cc 12.0); no pip needed.
 
 Without --gpu the sandbox is a plain CPU sandbox (via sbx CLI) and the judge
-auto-falls back to --cpu-check (structure gate only).
+auto-falls back to cpu-check mode (structure + a live CPU physics oracle).
 
 Standard library only. Wall time is printed per step.
 """

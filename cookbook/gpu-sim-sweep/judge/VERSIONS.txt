@@ -1,0 +1,13 @@
+## mujoco 3.8.1, mujoco-warp 3.8.1, warp 1.13.0, numpy 1.26.4, python 3.12
+absl-py==2.5.1
+etils==1.14.0
+fsspec==2026.9.0
+glfw==2.10.2
+mujoco==3.8.1
+mujoco-warp==3.8.1
+numpy==1.26.4
+pip==25.0.1
+PyOpenGL==3.1.10
+typing_extensions==4.16.0
+warp-lang==1.13.0
+zipp==4.1.1
