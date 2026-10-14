@@ -136,9 +136,9 @@ def main():
                  f"trace at 2.45 GHz = {s11_at:.1f} dB\n(G4 rule: below the "
                  f"red -{abs(S11_TARGET):.0f} dB line)",
                  fontsize=10.5, va="bottom"), axA, "s11-at-target")
-    reg(axA.text(band[0] + 0.003, -24.0,
+    reg(axA.text(band[0] + 0.003, -0.5,
                  f"G5 resonance window\n2.45 GHz ±{F_RES_TOL*100:.0f} %",
-                 fontsize=9, va="center", ha="left", color="0.30"),
+                 fontsize=9, va="top", ha="left", color="0.30"),
         axA, "band-label")
     reg(axA.text(0.015, 0.03,
                  f"gate verdicts (verdict JSON):\n"
