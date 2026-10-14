@@ -17,8 +17,8 @@ map matches the repository's true module-dependency graph.
   repo; the judge supplies the ground truth by parsing imports statically.
 - Target repository: **httpx 0.28.1**
   (`encode/httpx` commit `26d48e0634e6ee9cdc0533996db289ce4b430177`),
-  a flat package of 16 top-level modules. Only top-level modules of the
-  `httpx` package are graded.
+  a flat package of 17 top-level modules (including `__init__.py`).
+  Only top-level modules of the `httpx` package are graded.
 
 The shipped known-good artifact `examples/good/httpx-map/` was produced
 by running exactly this pipeline in a sandbox: clone the target, derive
@@ -47,10 +47,17 @@ A directory containing exactly two files:
 └── diagram.html   # the result of `archify render architecture diagram.json diagram.html`
 ```
 
-- Every graded `components[].id` **must equal the module file's stem**
-  (`_client` for `httpx/_client.py`, `__init__` for `httpx/__init__.py`).
-  If a `components[].sources[].path` entry is present it must be
-  `httpx/<id>.py`. Nodes without a `sources` path are still graded by id.
+- Every graded `components[]` must be traceable to a module file:
+  `components[].sources[].path` must exist (at least one source per
+  graded node) and be of the form `httpx/<stem>.py`; the stem extracted
+  from that path is the node's identity for grading. (`sources` is
+  mandatory for graded nodes.) Component `id`s are freeing drawing
+  handles — archify forbids leading underscores (`^_?[a-zA-Z]...`), so
+  the id of `_client.py` may be `client` while its `sources[].path`
+  remains `httpx/_client.py`.
+- Every graded `connections[]` is `{"from": <idA>, "to": <idB>}` and
+  asserts a direct import from the module idA traces to, to the module
+  idB traces to.
 - Every graded `connections[]` is `{"from": "<module>", "to": "<module>"}`
   and asserts that module `from` imports module `to` directly.
 - The judge re-derives ground truth from the pinned httpx source tree
@@ -79,13 +86,14 @@ All gates run in `judge/grade.sh <artifact_dir> [--seed N] [--json out.json]`.
   saturated pixels coming from node fills (non-background).
 
 ### Gate 3 — node recall + no hallucination
-- Ground truth: the 16 top-level module stems of the pinned httpx tree
+- Ground truth: the 17 top-level module stems of the pinned httpx tree
   (computed, not hard-coded).
-- Node recall = |graded nodes ∩ truth| / |truth| must be >= 0.9
-  (>= 15 of 16 modules present).
-- No hallucinated components: every graded node id must be a real
-  module stem (each `sources[].path`, when present, must also resolve to
-  a file in the pinned tree). Counts more than 16 "module" nodes fail.
+- Each graded node resolves to a stem via its `sources[0].path`
+  (`httpx/<stem>.py`); nodes with no `sources` fail the gate.
+- Node recall = |resolved stems ∩ truth| / |truth| must be >= 0.9
+  (>= 16 of 17 modules present).
+- No hallucinated components: every resolved stem must be a real file in
+  the pinned tree; every additional `sources[].path` must also exist.
 
 ### Gate 4 — edge precision and recall with correct direction
 - Ground truth: the directed module→module import edges of the pinned
