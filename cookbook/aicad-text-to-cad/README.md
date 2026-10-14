@@ -35,11 +35,11 @@ and confirms removal via `sbx list`. `--keep` leaves it up for
 exploration. Exit non-zero on any failure.
 
 Measured wall time per step (2 vCPU sandbox, RECEIPT.md has the full
-transcript): setup ≈ 4 min (first run; ~40 s cached), selftest ≈ 8 min
-(3 good parts + 8 mutants + determinism re-runs), grade ≈ 30 s per
-part. Limits stated plainly: the judge needs ≥ CPython 3.12 (pinned
-numpy/scipy wheels ship no cp311 build) and ~2 GB disk for the venv;
-every grade is CPU-only.
+transcript): setup 1 m 44 s cold (≈ 40 s with a warm pip cache),
+selftest 8 m 21 s (3 good parts + 8 mutants + determinism re-runs),
+grade 22 s per part. Limits stated plainly: the judge needs ≥ CPython
+3.12 (pinned numpy/scipy wheels ship no cp311 build) and ~2 GB disk
+for the venv; every grade is CPU-only.
 
 ## Ask your agent
 
