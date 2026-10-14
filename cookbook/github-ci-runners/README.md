@@ -168,6 +168,38 @@ Serve's `spawn` → `sandbox` timestamps measure VM-ready delay; `spawn` →
 stay `null` in JSON (`?` in text), and skipped steps have no duration.
 Unassigned jobs and other self-hosted runners are excluded.
 
+## Debug a failed job
+
+Opt in to keeping the exact machine after a failed job:
+
+```bash
+sbx runners serve --repo <owner>/<repo> --snapshot "$snap" --keep-failed
+sbx runners debug --list
+sbx runners debug <job-id-or-job-url> --exec 'cat /tmp/failure-proof'
+sbx runners debug --delete <job-id>
+```
+
+`--keep-failed=10` changes the default cap of five snapshots. The oldest is
+deleted when the cap is exceeded. Successful and cancelled jobs leave no
+snapshot. A `kept_failed` JSONL event includes the job ID, URL, repository,
+commit SHA and snapshot ID; lookup or snapshot errors are logged and the
+runner sandbox is still killed.
+
+`debug` prints the restored sandbox ID and copyable `sbx exec` commands to
+inspect its workspace, plus `sbx kill` to clean up. `--exec` runs a command
+immediately and returns its exit code. The debug sandbox lives for 30 minutes
+by default (`--timeout-min` changes that); kill it when finished. Deleting a
+snapshot does not kill an already restored sandbox.
+
+The job index is local to the serving machine, API endpoint and key, under
+`$XDG_STATE_HOME/sbx/failed-runners` (default `~/.local/state/sbx/failed-runners`).
+Run `debug` with the same state directory and credentials. For an org pool,
+use `--watch <owner>/<repo>` to limit job lookups; without it, lookup searches
+the org's repositories. GitHub results can take a moment to arrive, so lookup
+retries within a 60-second budget. Snapshots may contain job files, secrets
+and process state. Enable retention only for trusted jobs and delete snapshots
+when they are no longer needed.
+
 ## Coming next
 
-Runner debugging and demand scaling are in review.
+Demand scaling is in review.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import shlex
@@ -206,6 +207,8 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
         raise SbxError("runners serve: need 0 <= --warm <= --max")
     if not args.prefix.strip():
         raise SbxError("runners serve: --prefix must not be empty (it decides which runners this pool owns)")
+    if args.keep_failed < 0:
+        raise SbxError("--keep-failed must be a positive snapshot cap")
     if args.webhook_port is not None and args.watch:
         raise SbxError("runners serve: --watch and --webhook-port are alternatives; give one")
     secret = os.environ.get("GH_WEBHOOK_SECRET")
@@ -220,6 +223,8 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     boot = runners.sandbox_boot(
         gh, _sandbox_cls(), snapshot=args.snapshot, labels=labels, group_id=args.group_id,
         job_timeout_s=round(args.job_timeout_min * 60), idle_ttl_s=round(args.idle_min * 60),
+        **({"failed_jobs": _failed_jobs(key, domain), "keep_failed": args.keep_failed,
+            "repos": watch} if args.keep_failed else {}),
     )
     wake = threading.Event()
     if args.webhook_port is not None:
@@ -308,6 +313,57 @@ def cmd_runners_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def _failed_jobs(key: str, domain: str):
+    from .runner_debug import FailedJobs, state_directory
+
+    endpoint = os.environ.get("E2B_API_URL") or f"https://api.{domain}"
+    return FailedJobs(state_directory(key, endpoint), _sandbox_cls())
+
+
+def cmd_runners_debug(args: argparse.Namespace) -> int:
+    from .runner_debug import job_reference
+
+    if sum(bool(x) for x in (args.job, args.list, args.delete)) != 1:
+        raise SbxError("runners debug: give one job, --list, or --delete JOB")
+    if args.exec is not None and not args.job:
+        raise SbxError("--exec needs a job to restore")
+    _positive_seconds(args.timeout_min, "--timeout-min", MAX_TIMEOUT_MIN)
+    _positive_seconds(args.timeout, "--timeout")
+    if args.job or args.delete:
+        job_reference(args.job or args.delete)
+    key, domain = _credentials()
+    store = _failed_jobs(key, domain)
+    if args.list:
+        for record in store.list():
+            _say(json.dumps(record))
+        return 0
+    if args.delete:
+        record = store.delete(args.delete)
+        _say(f"deleted snapshot {record['snapshot_id']} for job {record['job_id']}")
+        return 0
+    record = store.find(args.job)
+    sbx = _sandbox_cls().create(
+        record["snapshot_id"], timeout=max(1, round(args.timeout_min * 60)),
+        metadata={"sbx-debug-job": str(record["job_id"])}, lifecycle={"on_timeout": "kill"},
+    )
+    sid = shlex.quote(sbx.sandbox_id)
+    _say(sbx.sandbox_id)
+    _say(f"sbx exec {sid} -- 'cd /opt/actions-runner/_work && pwd && ls -la'")
+    _say(f"sbx exec {sid} -- 'cat /path/to/file'")
+    _say(f"sbx kill {sid}")
+    if args.exec is not None:
+        from e2b import CommandExitException
+
+        try:
+            result = sbx.commands.run(args.exec, timeout=args.timeout)
+        except CommandExitException as exc:
+            result = exc
+        sys.stdout.write(_scrub(result.stdout))
+        sys.stderr.write(_scrub(result.stderr))
+        return result.exit_code
+    return 0
+
+
 class _Parser(argparse.ArgumentParser):
     def error(self, message: str):
         self.print_usage(sys.stderr)
@@ -376,6 +432,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--job-timeout-min", type=float, default=360, help="longest job; bounds sandbox lifetime (default 360)")
     r.add_argument("--prefix", default="sbx-", help="runner name prefix this pool owns (default sbx-)")
     r.add_argument("--interval", type=float, default=5, help="seconds between pool checks (default 5)")
+    r.add_argument("--keep-failed", type=int, nargs="?", const=5, default=0, metavar="N",
+                   help="snapshot failed jobs; retain the newest N (default 5 when enabled)")
     r.epilog = "Ctrl-C drains (idle runners go, busy ones finish their job); a second Ctrl-C kills them all."
     r.set_defaults(func=cmd_runners_serve)
 
@@ -403,6 +461,15 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--serve-log", help="serve stdout JSONL, joined by runner name for VM-ready/reclaim timing")
     r.add_argument("--json", action="store_true", help="machine-readable report; unknown timings are null")
     r.set_defaults(func=cmd_runners_stats)
+
+    r = rsub.add_parser("debug", help="restore, list, or delete retained failed-job snapshots")
+    r.add_argument("job", nargs="?", help="job id or GitHub Actions job URL")
+    r.add_argument("--list", action="store_true", help="print retained jobs as JSONL")
+    r.add_argument("--delete", metavar="JOB", help="delete a job's snapshot")
+    r.add_argument("--exec", metavar="CMD", help="run CMD in the restored machine")
+    r.add_argument("--timeout-min", type=float, default=30, help="debug sandbox lifetime (default 30 minutes)")
+    r.add_argument("--timeout", type=float, default=60, help="--exec command timeout (default 60 seconds)")
+    r.set_defaults(func=cmd_runners_debug)
     return ap
 
 

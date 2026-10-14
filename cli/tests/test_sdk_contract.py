@@ -86,3 +86,38 @@ def test_runner_reattach_uses_the_sdk_connect_and_its_error_taxonomy():
     assert list(inspect.signature(Commands.connect).parameters)[:3] == ["self", "pid", "timeout"]
     assert issubclass(e2b.SandboxNotFoundException, e2b.NotFoundException)
     assert not issubclass(e2b.TimeoutException, e2b.NotFoundException)
+
+
+def test_failed_job_snapshot_and_debug_restore_use_real_sdk(monkeypatch, tmp_path, capsys):
+    from sbx.runner_debug import FailedJobs
+
+    monkeypatch.setenv("E2B_API_KEY", TEST_KEY)
+    monkeypatch.setenv("E2B_DOMAIN", "sandbox.example")
+    monkeypatch.delenv("E2B_API_URL", raising=False)
+    requests = []
+
+    def send(self, request, **kwargs):
+        requests.append(request)
+        if request.url.path.endswith("/snapshots"):
+            return httpx.Response(201, request=request, json={"snapshotID": "snap-failed", "names": []})
+        if request.method == "DELETE":
+            return httpx.Response(204, request=request)
+        return httpx.Response(201, request=request, json={
+            "sandboxID": "debug-sandbox", "templateID": "base",
+            "clientID": "contract-client", "envdVersion": "0.2.0", "domain": "sandbox.example",
+        })
+
+    monkeypatch.setattr(httpx.Client, "send", send)
+    sandbox_cls = cli._sandbox_cls()
+    sbx = sandbox_cls.create("base")
+    store = FailedJobs(tmp_path, sandbox_cls)
+    store.keep(sbx, {"id": 7, "html_url": "https://github.com/acme/app/actions/runs/1/job/7",
+                     "repo": "acme/app", "head_sha": "a" * 40}, "sbx-test", maximum=5)
+    monkeypatch.setattr(cli, "_failed_jobs", lambda *a: store)
+    assert cli.main(["runners", "debug", "7"]) == 0
+    assert cli.main(["runners", "debug", "--delete", "7"]) == 0
+    create, snapshot, restore, delete = requests
+    assert snapshot.method == "POST" and snapshot.url.path == "/sandboxes/debug-sandbox/snapshots"
+    assert json.loads(restore.content)["templateID"] == "snap-failed"
+    assert json.loads(restore.content)["autoPause"] is False
+    assert delete.method == "DELETE" and delete.url.path == "/templates/snap-failed"

@@ -186,6 +186,59 @@ class GitHub:
                         page += 1
         return count
 
+    def job(self, runner: str, repos: list[str]) -> dict:
+        """Resolve a single-use runner to its terminal job, including rerun attempts.
+
+        GitHub has no runner-to-job endpoint. Search watched repositories (or the
+        registration scope), paging runs and jobs, then allow for result propagation.
+        """
+        deadline = time.monotonic() + 60
+
+        def get(path: str, **kwargs):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RunnerError(f"GitHub job lookup timed out for runner {runner}")
+            return self.http.get(path, timeout=min(30, remaining), **kwargs)
+
+        if not repos:
+            if self.scope.startswith("repos/"):
+                repos = [self.scope.removeprefix("repos/")]
+            else:
+                repos = []
+                page = 1
+                while True:
+                    resp = get(f"/{self.scope}/repos", params={"per_page": 100, "page": page})
+                    batch = self._check(resp, "list repositories").json()
+                    repos.extend(r["full_name"] for r in batch)
+                    if len(batch) < 100:
+                        break
+                    page += 1
+        for attempt in range(3):
+            if attempt:
+                time.sleep(2)
+            for repo in repos:
+                page = 1
+                while True:
+                    resp = get(f"/repos/{repo}/actions/runs", params={"per_page": 100, "page": page})
+                    runs = self._check(resp, "list runs for failed runner").json()["workflow_runs"]
+                    for run in runs:
+                        job_page = 1
+                        while True:
+                            resp = get(f"/repos/{repo}/actions/runs/{run['id']}/jobs",
+                                       params={"per_page": 100, "page": job_page, "filter": "all"})
+                            jobs = self._check(resp, "list jobs for failed runner").json()["jobs"]
+                            for job in jobs:
+                                if job.get("runner_name") == runner and job.get("conclusion") is not None:
+                                    return {**job, "repo": repo,
+                                            "head_sha": job.get("head_sha") or run["head_sha"]}
+                            if len(jobs) < 100:
+                                break
+                            job_page += 1
+                    if len(runs) < 100:
+                        break
+                    page += 1
+        raise RunnerError(f"no completed GitHub job found for runner {runner}")
+
 
 @dataclass
 class Slot:
@@ -197,6 +250,7 @@ class Slot:
     busy: bool = False
     done: bool = False
     retiring: bool = False
+    finishing: bool = False
     sandbox_id: str | None = None
     kill: Callable[[], None] | None = field(default=None, repr=False)
 
@@ -252,6 +306,8 @@ class Pool:
 
     def retire(self, slot: Slot, registered: dict | None, why: str) -> bool:
         """Deregister then kill. A runner GitHub reports busy is left alone."""
+        if slot.finishing:
+            return False
         if registered is not None and not self.gh.delete(registered["id"]):
             return False
         slot.retiring = True
@@ -277,7 +333,7 @@ class Pool:
                         emit("orphan_removed", runner=name)
             starting, idle, busy = [], [], []
             for slot in self.slots.values():
-                if slot.retiring:
+                if slot.retiring or slot.finishing:
                     continue
                 reg = seen.get(slot.name)
                 if reg is None or reg["status"] != "online":
@@ -378,7 +434,8 @@ def sweep(gh: GitHub, sandbox_cls, prefix: str) -> None:
 
 
 def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], group_id: int,
-                 job_timeout_s: int, idle_ttl_s: int) -> Callable[[Slot], None]:
+                 job_timeout_s: int, idle_ttl_s: int, failed_jobs=None, keep_failed: int = 0,
+                 repos: list[str] | None = None) -> Callable[[Slot], None]:
     """boot() for Pool: JIT-register, start the runner in a fresh sandbox, kill it after one job."""
 
     lifetime = job_timeout_s + idle_ttl_s + 300
@@ -406,9 +463,18 @@ def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], g
             )
             # bounded like the sandbox: a stream from a sandbox killed under the job never ends
             handle = sbx.commands.run(run, background=True, timeout=lifetime, user="root")
-            _wait_runner(sbx, handle, slot, deadline=time.monotonic() + lifetime)
+            exited = _wait_runner(sbx, handle, slot, deadline=time.monotonic() + lifetime)
+            if exited and keep_failed and not slot.retiring:
+                slot.finishing = True
+                try:
+                    job = gh.job(slot.name, repos or [])
+                    if job["conclusion"] == "failure":
+                        failed_jobs.keep(sbx, job, slot.name, maximum=keep_failed)
+                except Exception as exc:
+                    emit("keep_failed_error", runner=slot.name, sandbox=sbx.sandbox_id, error=_error(exc))
         finally:
             _kill(sbx, slot)
+            slot.finishing = False
 
     return boot
 
@@ -417,7 +483,7 @@ def _error(exc: Exception) -> str:
     return f"{type(exc).__name__}: {str(exc)[:200]}"
 
 
-def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 600) -> None:
+def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 600) -> bool:
     """Wait for the runner to exit. A dropped stream (gateway restart, network) is not an exit:
     reattach to the runner process, or a blip would kill the job it is running. Reattaching
     gives up after `outage` seconds without a stream that holds for a minute."""
@@ -427,24 +493,24 @@ def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 60
     while True:
         try:
             emit("runner_exit", runner=slot.name, code=handle.wait().exit_code)
-            return
+            return True
         except (CommandExitException, TimeoutException) as exc:
             if not slot.retiring:
                 emit("runner_exit", runner=slot.name, error=_error(exc))
-            return
+            return isinstance(exc, CommandExitException)
         except Exception as exc:
             if slot.retiring:  # killed on retire
-                return
+                return False
             emit("stream_lost", runner=slot.name, error=_error(exc))
         if time.monotonic() - attached >= 60:  # the last stream held: a new outage
             delay, give_up = 2, None
         give_up = give_up or min(deadline, time.monotonic() + outage)
         while True:
             if slot.retiring:
-                return
+                return False
             if time.monotonic() >= give_up:
                 emit("runner_exit", runner=slot.name, error="could not reattach to the runner")
-                return
+                return False
             time.sleep(delay)  # also paces a flapping gateway that drops each new stream at once
             delay = min(delay * 2, 15)
             try:
@@ -454,10 +520,10 @@ def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 60
             except (SandboxNotFoundException, TimeoutException) as exc:  # the sandbox is gone
                 if not slot.retiring:
                     emit("runner_exit", runner=slot.name, error=_error(exc))
-                return
+                return False
             except NotFoundException:  # the runner exited while the stream was down
                 emit("runner_exit", runner=slot.name, code=None, note="exited while disconnected")
-                return
+                return True
             except Exception:
                 continue
 
