@@ -1,0 +1,22 @@
+# Pinned judge toolchain for sim-tuner (pip --require-hashes).
+# x86-64 Linux, CPython 3.10-3.13. Hashes from PyPI, fetched 2026-10-14.
+# numpy differs per CPython: 1.26.4 (3.10-3.12, matching the GPU lease image)
+# and 2.1.3 on 3.13 (1.26.4 has no cp313 wheel). The judge's numeric outputs
+# do not depend on the numpy version (muJoCo does the physics; numpy does
+# RMS only), so the pin difference cannot change a verdict.
+mujoco==3.8.1 ; python_version == "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:9c2d779d9c47cf53da8399493ca9059e068ccabb60bc4e5dc0c924ade8da6c65
+mujoco==3.8.1 ; python_version == "3.11" and platform_machine == "x86_64" \
+    --hash=sha256:9347b9715ab26512d8bfce652ae554e8a667cf8271ebae840b97296bbfc1d840
+mujoco==3.8.1 ; python_version == "3.12" and platform_machine == "x86_64" \
+    --hash=sha256:2970c90913a52b31eade56f27e5439905f08f1479e7991e257144ca829fa1267
+mujoco==3.8.1 ; python_version == "3.13" and platform_machine == "x86_64" \
+    --hash=sha256:ad3cfa1c809bf70a6308aa1db7b1e44d019f7a499c0b0ac8a4ddff102f4fae54
+numpy==1.26.4 ; python_version == "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:ffa75af20b44f8dba823498024771d5ac50620e6915abac414251bd971b4529f
+numpy==1.26.4 ; python_version == "3.11" and platform_machine == "x86_64" \
+    --hash=sha256:666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5
+numpy==1.26.4 ; python_version == "3.12" and platform_machine == "x86_64" \
+    --hash=sha256:675d61ffbfa78604709862923189bad94014bef562cc35cf61d3a07bba02a7ed
+numpy==2.1.3 ; python_version == "3.13" and platform_machine == "x86_64" \
+    --hash=sha256:5641516794ca9e5f8a4d17bb45446998c6554704d888f86df9b200e66bdcce56
