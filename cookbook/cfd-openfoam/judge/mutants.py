@@ -52,7 +52,8 @@ def patch_block(content, patch, new_body):
 def set_nu(case, nu):
     p = os.path.join(case, 'constant', 'transportProperties')
     s = read(p)
-    s2 = re.sub(r'(\bnu\s+)[\d.eE+-]+(\s*;)', r'\g<1>%g\g<2>' % nu, s)
+    s2 = re.sub(r'(\bnu\s+(?:nu\s+)?(?:\[[^\]]*\]\s*)?)[\d.eE+-]+(\s*;)',
+                r'\g<1>%g\g<2>' % nu, s)
     if s2 == s:
         raise RuntimeError('nu not patched')
     write(p, s2)

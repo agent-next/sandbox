@@ -82,7 +82,10 @@ def read_dict(path):
 
 
 def parse_scalar_entry(content, key):
-    m = re.search(r'\b' + re.escape(key) + r'\s+(-?[\d.eE+-]+)\s*;', content)
+    # accepts `nu 0.01;`, `nu [0 2 -1 0 0 0 0] 0.01;` and `nu nu [...] 0.01;`
+    k = re.escape(key)
+    m = re.search(r'\b' + k + r'\s+(?:' + k + r'\s+)?(?:\[[^\]]*\]\s*)?'
+                  r'(-?[\d.eE+-]+)\s*;', content)
     return float(m.group(1)) if m else None
 
 

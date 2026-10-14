@@ -141,8 +141,9 @@ def main():
             if gone:
                 print(f"[run] confirmed: {sid} is gone", flush=True)
             else:
-                print(f"[run] WARNING: could not confirm cleanup of {sid}; "
+                print(f"[run] ERROR: could not confirm cleanup of {sid}; "
                       f"run `sbx kill {sid}`", file=sys.stderr, flush=True)
+                failed = failed or "cleanup"
 
     if failed:
         sys.exit(f"run.py: failed at step '{failed}' (sandbox {sid})")
