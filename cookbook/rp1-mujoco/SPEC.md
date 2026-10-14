@@ -17,8 +17,17 @@ t = 5 s.
 The robot model is the upstream
 [rp1_description](https://github.com/Roboparty/rp1_description) repository
 at commit `84529a55649b5c9796d49093c266208c879f9f29` (2026-08-20):
-`mjcf/rp1_flat.xml` (scene: floor + `robot_24dof.xml`), `mjcf/robot_24dof.xml`
-(the robot), `urdf/rp1_24dof.urdf` (the URDF it was converted from).
+`mjcf/rp1_flat.xml` (scene: floor + include), `mjcf/robot_24dof.xml`
+(the 24-dof robot), `urdf/rp1_24dof.urdf` (the URDF it was converted
+from).
+
+Note that at this SHA, upstream's `rp1_flat.xml` includes `robot.xml`
+(the 30-dof variant), not `robot_24dof.xml`. The judged model is the
+24-dof one, so the judge builds the scene locally: it copies
+`mjcf/` + `meshes/` into a scratch directory and rewrites the scene's
+`<include file="robot.xml"/>` to `<include file="robot_24dof.xml"/>`.
+That scene — not the upstream include graph — is what is compiled and
+compared against `urdf/rp1_24dof.urdf`.
 
 **Licence:** the upstream robot-model repository carries no licence file.
 This demo therefore never copies its files into this repository;

@@ -1,0 +1,18 @@
+# VERSIONS.txt -- recorded by judge/setup.sh
+# One entry per tool this demo judges with: the pinned version, the
+# sha256 the download was verified against, and the tool's own
+# --version output as actually installed.
+
+mujoco 3.14.0 (pip, pinned sha256 in judge/requirements.txt)
+  mujoco 3.14.0
+
+numpy 2.5.4 (pip, pinned sha256 in judge/requirements.txt)
+  numpy 2.5.4
+
+python3
+  Python 3.12.15
+
+rp1_description
+  url : https://github.com/Roboparty/rp1_description
+  sha : 84529a55649b5c9796d49093c266208c879f9f29
+    84529a55649b5c9796d49093c266208c879f9f29 2026-08-20T14:39:10+08:00 update collision
