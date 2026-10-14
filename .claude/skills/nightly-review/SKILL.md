@@ -12,8 +12,8 @@ reviewer catches the same mistake next time. Promote a lesson into
 ## Window
 
 `git fetch origin main` first. The window is the `reviewed-through` sha in
-`LESSONS.md` .. `$end`, where `$end` is the newest main commit older than 20 h
-(`end=$(git rev-list -1 --before='20 hours ago' origin/main)`) — the night's
+`LESSONS.md` .. `$end`, where `$end` is the newest mainline commit older than 20 h
+(`end=$(git rev-list -1 --first-parent --before='20 hours ago' origin/main)`) — the night's
 merges may still be landing after it. An empty window means nothing to review.
 
 ## For each commit
@@ -21,7 +21,8 @@ merges may still be landing after it. An empty window means nothing to review.
 1. `git show --stat <sha>` and read the diff.
 2. When the subject carries a PR number, `gh pr view <N> --json
    title,body,comments,reviews,mergedAt,statusCheckRollup` and read the PR
-   and any linked issues.
+   and any linked issues. `statusCheckRollup` is the PR head's checks; also
+   read the merge commit's own (`gh api repos/{owner}/{repo}/commits/<sha>/check-runs`).
 3. Look ahead for follow-up fixes: a later commit that fixes, reverts or
    finishes this one settles whether the first merge was right.
 
