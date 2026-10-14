@@ -79,10 +79,23 @@ $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y \
     "nodejs=$NODE_VERSION" \
     "chromium=$CHROMIUM_VERSION" >/dev/null
 
-node_v="$(node --version)"
+# apt's nodejs goes to /usr/bin. If a third-party Node shadows it on PATH
+# (e.g. /usr/local/bin/node on a builder image), invoke the pinned binary
+# explicitly for the check and tell run.sh how to find it.
+node_bin="$(command -v node || true)"
+if [[ -x /usr/bin/node ]] && [[ "$(/usr/bin/node --version)" == "v18.20.4" ]]; then
+    if [[ "$node_bin" != "/usr/bin/node" ]]; then
+        log "note: PATH node is $node_bin; using /usr/bin/node for the demo"
+    fi
+    node_bin=/usr/bin/node
+fi
+node_v="$("$node_bin" --version)"
 chr_v="$(chromium --version)"
-[[ "$node_v" == "v18.20.4" ]] || { log "ERROR: node reports $node_v"; exit 1; }
+[[ "$node_v" == "v18.20.4" ]] || {
+    log "ERROR: node reports $node_v, expected v18.20.4 (pinned $NODE_VERSION)";
+    exit 1; }
 [[ "$chr_v" == "Chromium 155."* ]] || { log "ERROR: chromium reports $chr_v"; exit 1; }
+echo "$node_bin" > "$HOME/.archify_demo_node"
 
 # ---------------------------------------------------------------------------
 # 2. sha256-checked tarballs; never trust the download.
@@ -102,6 +115,7 @@ curl -fsSL --retry 3 --max-time 120 -o httpx.tar.gz "$HTTPX_URL"
 got=$(sha256sum httpx.tar.gz | cut -d' ' -f1)
 [[ "$got" == "$HTTPX_SHA256" ]] || {
     log "ERROR: httpx sha256 mismatch (want $HTTPX_SHA256, got $got)"; exit 1; }
+log "httpx tarball sha256 verified (this tarball is the integrity baseline)."
 
 # ---------------------------------------------------------------------------
 # 3. Unpack to fixed homes (replace any partial previous install).
@@ -115,14 +129,30 @@ tar xzf archify.tar.gz -C "$ARCHIFY_DIR" --strip-components=1
 
 mkdir -p "$(dirname "$TRUTH_DIR")"
 rm -rf "$TRUTH_DIR"
-mkdir -p "$TRUTH_DIR"
-tar xzf httpx.tar.gz -C "$TRUTH_DIR" --strip-components=1
+# archify's repository-evidence mode requires a real git checkout at the
+# pinned commit; the tarball above is kept as the integrity baseline whose
+# sha256 we verified. We clone (git itself verifies the tag/commit chain)
+# and then verify the checked-out tree matches the tarball's httpx/ dir
+# file-for-file so the tarball's sha256 still vouches for what we grade.
+git clone --quiet https://github.com/encode/httpx "$TRUTH_DIR"
+git -C "$TRUTH_DIR" checkout --quiet 26d48e0634e6ee9cdc0533996db289ce4b430177
+git -C "$TRUTH_DIR" remote set-url origin https://github.com/encode/httpx
+
+# Cross-check tree == tarball (so the sha256 above is meaningful for the
+# actual directory the judge reads).
+TMP_TREE="$(mktemp -d /tmp/httpx-truth.XXXXXX)"
+tar xzf httpx.tar.gz -C "$TMP_TREE" --strip-components=1
+diff -r "$TMP_TREE/httpx" "$TRUTH_DIR/httpx" >/dev/null || {
+    log "ERROR: tarball httpx/ tree does not match cloned checkout";
+    rm -rf "$TMP_TREE"; exit 1; }
+rm -rf "$TMP_TREE"
+log "cross-checked git checkout == sha256-verified tarball tree"
 
 # ---------------------------------------------------------------------------
 # 4. Verify the render path end-to-end: validate a known example.
 # ---------------------------------------------------------------------------
 log "Verifying archify renders..."
-node "$ARCHIFY_DIR/archify/bin/archify.mjs" validate architecture \
+"$node_bin" "$ARCHIFY_DIR/archify/bin/archify.mjs" validate architecture \
     "$ARCHIFY_DIR/archify/examples/web-app.architecture.json" >/dev/null
 
 log "Verifying httpx tree has the expected package dir..."

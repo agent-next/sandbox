@@ -1,0 +1,4 @@
+node                v18.20.4            (Debian bookworm nodejs=18.20.4+dfsg-1~deb12u3)
+chromium            Chromium 155.0.8059.39 built on Debian GNU/Linux 12 (bookworm)     (Debian bookworm chromium=155.0.8059.39-1~deb12u1)
+archify             v3.0.1, commit 2ab3cae7ac2c2a55d7386ca789d03c4fcd31816c, MIT
+httpx (target repo) 0.28.1, commit 26d48e0634e6ee9cdc0533996db289ce4b430177, BSD-3-Clause

@@ -16,7 +16,8 @@ SEED="${SEED:-42}"
 
 if [[ ! -f "$GOOD_DIR/diagram.html" ]]; then
     echo "[selftest] rendering shipped diagram.html for good example..."
-    node "$HOME/archify-skill/archify/bin/archify.mjs" render architecture \
+    NODE_BIN="$(cat "$HOME/.archify_demo_node" 2>/dev/null || echo node)"
+    "$NODE_BIN" "$HOME/archify-skill/archify/bin/archify.mjs" render architecture \
         "$GOOD_DIR/diagram.json" "$GOOD_DIR/diagram.html" \
         --repo-root "$HOME/ground-truth/httpx-0.28.1" >/dev/null
 fi

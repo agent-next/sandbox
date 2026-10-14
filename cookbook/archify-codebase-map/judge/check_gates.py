@@ -21,6 +21,19 @@ import tempfile
 ARCHIFY_CLI = os.path.expanduser("~/archify-skill/archify/bin/archify.mjs")
 TRUTH_ROOT = os.path.expanduser("~/ground-truth/httpx-0.28.1")
 TRUTH_PKG = os.path.join(TRUTH_ROOT, "httpx")
+_NODE_MARKER = os.path.expanduser("~/.archify_demo_node")
+
+
+def node_bin():
+    """Prefer the pinned binary setup.sh recorded; fall back to PATH."""
+    try:
+        with open(_NODE_MARKER) as f:
+            p = f.read().strip()
+            if p and os.path.isfile(p):
+                return p
+    except OSError:
+        pass
+    return "node"
 
 # Grade only stems that look like modules of a real package; the judge
 # never grades 'external' type components (those are non-code deps).
@@ -113,7 +126,7 @@ def gate_valid_and_reproducible(artifact, scratch, v):
         v.add("valid+reproducible", False, f"diagram.json not valid JSON: {e}")
         return None
 
-    p = run(["node", ARCHIFY_CLI, "validate", "architecture", djson,
+    p = run([node_bin(), ARCHIFY_CLI, "validate", "architecture", djson,
              "--repo-root", TRUTH_ROOT])
     if p.returncode != 0:
         tail = (p.stdout + p.stderr).strip().splitlines()
@@ -122,7 +135,7 @@ def gate_valid_and_reproducible(artifact, scratch, v):
         return None
 
     rendered = os.path.join(scratch, "rendered.html")
-    p = run(["node", ARCHIFY_CLI, "render", "architecture", djson, rendered,
+    p = run([node_bin(), ARCHIFY_CLI, "render", "architecture", djson, rendered,
              "--repo-root", TRUTH_ROOT])
     if p.returncode != 0 or not os.path.isfile(rendered):
         tail = (p.stdout + p.stderr).strip().splitlines()
