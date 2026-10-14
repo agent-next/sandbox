@@ -59,6 +59,56 @@ PINS = {
     "power:PWR_FLAG": {"1": (0, 0)},
 }
 
+# Default Reference/Value anchors per library symbol, in .kicad_sym
+# coordinates: (dx mm, dy mm, text angle, justify).  These mirror the
+# stock library defaults so fields land where KiCad would autoplace
+# them instead of stacking every field at the symbol origin.  The
+# instance "at" = origin + rot_local(dx, dy, rot) with the sheet's
+# inverted y axis (same transform as PINS).  Power-symbol references
+# (#PWR, #FLG) are hidden, as KiCad hides them.
+FIELD_AT = {
+    "Timer:NE555D":  {"ref": (-10.16, 8.89, 0, "left"),
+                      "val": (2.54, 8.89, 0, "left")},
+    "Device:R":      {"ref": (2.032, 0, 90, None), "val": (0, 0, 90, None)},
+    "Device:C":      {"ref": (0.635, 2.54, 0, "left"),
+                      "val": (0.635, -2.54, 0, "left")},
+    "Device:LED":    {"ref": (0, 2.54, 0, None), "val": (0, -2.54, 0, None)},
+    "Connector_Generic:Conn_01x02":
+                     {"ref": (0, 2.54, 0, None), "val": (0, -5.08, 0, None)},
+    "power:VCC":     {"ref": (0, -3.81, 0, None), "val": (0, 3.556, 0, None)},
+    "power:GND":     {"ref": (0, -6.35, 0, None), "val": (0, -3.81, 0, None)},
+    "power:PWR_FLAG": {"ref": (0, 1.905, 0, None), "val": (0, 3.81, 0, None)},
+}
+
+
+def field_at(libid, ref, pname, x, y, rot, fix):
+    """Sheet (x, y, angle, justify) for an instance property, in grid
+    units.  `fix` optionally overrides "Reference"/"Value" with a
+    sheet-relative offset in grid units:
+    {"Value": (dgx, dgy, angle, justify)}.
+    """
+    if fix and pname in fix:
+        dgx, dgy, ang, jus = fix[pname]
+        return x + dgx, y + dgy, ang, jus
+    key = {"Reference": "ref", "Value": "val"}.get(pname)
+    if key is None:
+        return x, y, 0, None
+    dx, dy, ang, jus = FIELD_AT[libid][key]
+    rx, ry = rot_local(dx, dy, rot)
+    return x + rx / 1.27, y - ry / 1.27, ang, jus
+
+# Per-instance field nudges (sheet-relative, grid units) for spots where
+# the library defaults collide: {"Reference"/"Value": (dx, dy, angle,
+# justify)}.
+FIELD_FIX = {
+    "#FLG01": {"Value": (-1, -1, 0, "right")},
+    "#FLG02": {"Value": (-1, 1, 0, "right")},
+    "U1":     {"Value": (3, -7, 0, "left")},
+    "C2":     {"Reference": (-2, -2, 0, "right"),
+               "Value": (-2, -1, 0, "right")},
+    "D1":     {"Value": (0, -3, 0, None)},
+}
+
 FPS = {
     "J1": "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical",
     "U1": "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
@@ -110,7 +160,8 @@ class Gen:
     def emit(self, s):
         self.lines.append(s)
 
-    def symbol_inst(self, lib, name, ref, value, x, y, rot=0, power=False):
+    def symbol_inst(self, lib, name, ref, value, x, y, rot=0, power=False,
+                    fix=None):
         libid = f"{lib}:{name}"
         pins = PINS[libid]
         bom = "no" if power else "yes"
@@ -119,13 +170,16 @@ class Gen:
              ' (unit 1)\n')
         s += f'    (in_bom {bom}) (on_board {board}) (dnp no)\n'
         s += f'    (uuid {uuid.uuid4()})\n'
-        for pname, pval, hide in [("Reference", ref, False),
+        for pname, pval, hide in [("Reference", ref, power),
                                   ("Value", value, False),
                                   ("Footprint", FPS.get(ref, ""), True),
                                   ("Datasheet", "~", True)]:
+            ax, ay, ang, jus = field_at(libid, ref, pname, x, y, rot, fix)
+            j = f" (justify {jus})" if jus else ""
             h = " (hide yes)" if hide else ""
-            s += (f'    (property "{pname}" "{pval}" (at {mm(x)} {mm(y)} 0)\n'
-                  f'      (effects (font (size 1.27 1.27)){h})\n    )\n')
+            s += (f'    (property "{pname}" "{pval}" (at {mm(ax)} '
+                  f'{mm(ay)} {ang})\n'
+                  f'      (effects (font (size 1.27 1.27)){j}{h})\n    )\n')
         for pn in pins:
             s += f'    (pin "{pn}" (uuid {uuid.uuid4()}))\n'
         s += ('    (instances\n      (project "555-blinker"\n'
@@ -183,17 +237,20 @@ def main():
     g.wire(43, 63, 40, 63)
     g.symbol_inst("power", "VCC", "#PWR01", "VCC", 40, 63, power=True)
     g.wire(40, 63, 37, 63)
-    g.symbol_inst("power", "PWR_FLAG", "#FLG01", "PWR_FLAG", 37, 63, power=True)
+    g.symbol_inst("power", "PWR_FLAG", "#FLG01", "PWR_FLAG", 37, 63,
+                  power=True, fix=FIELD_FIX["#FLG01"])
     g.wire(43, 65, 40, 65)
     g.symbol_inst("power", "GND", "#PWR02", "GND", 40, 65, power=True)
     g.wire(40, 65, 37, 65)
-    g.symbol_inst("power", "PWR_FLAG", "#FLG02", "PWR_FLAG", 37, 65, power=True)
+    g.symbol_inst("power", "PWR_FLAG", "#FLG02", "PWR_FLAG", 37, 65,
+                  power=True, fix=FIELD_FIX["#FLG02"])
 
     # ---- U1 (NE555D at grid 87,63) ------------------------------------------
     # p1 GND (87,71) bot | p8 VCC (89,55) top | p5 CONT (87,55) top
     # p3 OUT (95,63) | left col: p4 RST (79,59), p7 DIS (79,61),
     #                            p6 THR (79,65), p2 TRG (79,67)
-    P["U1"] = g.symbol_inst("Timer", "NE555D", "U1", "NE555", 87, 63)
+    P["U1"] = g.symbol_inst("Timer", "NE555D", "U1", "NE555", 87, 63,
+                            fix=FIELD_FIX["U1"])
     g.wire(87, 71, 87, 74)                              # GND
     g.symbol_inst("power", "GND", "#PWR03", "GND", 87, 74, power=True)
     g.wire(89, 55, 89, 52)                              # VCC
@@ -202,7 +259,8 @@ def main():
     g.wire(75, 59, 75, 56)
     g.symbol_inst("power", "VCC", "#PWR05", "VCC", 75, 56, power=True)
     # CONT -> C2.2 -> GND   (C2 at grid (87,50): p2 bot (87,53), p1 top (87,47))
-    P["C2"] = g.symbol_inst("Device", "C", "C2", "10n", 87, 50)
+    P["C2"] = g.symbol_inst("Device", "C", "C2", "10n", 87, 50,
+                            fix=FIELD_FIX["C2"])
     g.wire(87, 55, 87, 53)
     g.label("CTRL", 87, 54)
     g.wire(87, 47, 87, 44)
@@ -254,7 +312,8 @@ def main():
     g.label("OUT", 98, 63)
 
     # D1 rot180 (107,75): p2 A left (104,75)=LED, p1 K right (110,75)=GND
-    P["D1"] = g.symbol_inst("Device", "LED", "D1", "LED", 107, 75, rot=180)
+    P["D1"] = g.symbol_inst("Device", "LED", "D1", "LED", 107, 75, rot=180,
+                            fix=FIELD_FIX["D1"])
     g.wire(102, 69, 102, 75)
     g.wire(102, 75, 104, 75)
     g.label("LED", 103, 75)
