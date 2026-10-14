@@ -1,0 +1,28 @@
+{
+  "machine": "four-stroke-engine",
+  "description": "Reference parts for a single-cylinder four-stroke engine, from the standard textbook description of the Otto cycle: 'The piston, sealed by rings in the cylinder, is driven by combustion pressure through the connecting rod to the crankshaft; valves in the cylinder head, timed by the camshaft, let the mixture in and the exhaust out; the flywheel carries the crankshaft between power strokes.'",
+  "sources": [
+    "J. B. Heywood, Internal Combustion Engine Fundamentals, McGraw-Hill (1988), ch. 1.2 'Engine components' — canonical spark-ignition component list",
+    "Wikipedia, 'Four-stroke engine' and 'Piston engine' component figures (retrieved 2026-10-14)"
+  ],
+  "parts": [
+    "piston",
+    "piston rings",
+    "piston pin",
+    "connecting rod",
+    "crankshaft",
+    "crankcase",
+    "cylinder",
+    "cylinder head",
+    "combustion chamber",
+    "intake valve",
+    "exhaust valve",
+    "valve spring",
+    "camshaft",
+    "spark plug",
+    "intake manifold",
+    "exhaust manifold",
+    "flywheel"
+  ],
+  "notes": "17 lowercase names. Gate 3 requires recall >= 0.8 (>= 14 of 17) among the figure's [data-part] names, casefolded. Matching is exact on the casefolded trimmed string; synonyms are not credited — the figure must use the textbook name."
+}

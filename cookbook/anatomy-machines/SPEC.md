@@ -64,12 +64,14 @@ deterministic under SwiftShader at a fixed viewport).
   >= 480x360 CSS px, and `canvas.getContext('webgl')` returns a context;
   console error count (severity `error`, plus uncaught page errors) == 0
   over the settle window.
-- **Gate 2 — non-blank canvas that rotates.** The judge drags the camera to
-  3 fixed angles (0°, +60°, +120° yaw) with real pointer events. At each
-  angle it screenshots the canvas: per-pixel variance of grayscale
-  >= 50 (0–255 scale) at every angle (not blank), and mean absolute
-  per-pixel difference >= 10 between consecutive angles (rotation really
-  changes the image).
+- **Gate 2 — non-blank canvas that rotates.** The judge performs three
+  identical pointer drags across the canvas (240 px in 12 steps) and
+  screenshots the canvas after each. Per-pixel grayscale variance
+  >= 50 (0–255 scale) at every angle (not blank), and between consecutive
+  angles mean absolute pixel difference >= 3 **and** >= 2 % of pixels
+  differing by more than 30 levels (rotation really changes the image; a
+  sparse wireframe has a low mean but ~6 % of pixels move, while a frozen
+  camera gives exactly 0).
 - **Gate 3 — parts coverage vs a textbook reference.** The `[data-part]`
   names (casefolded, whitespace-trimmed) are matched against
   `judge/reference/four-stroke-engine.json` (16 reference parts from a
