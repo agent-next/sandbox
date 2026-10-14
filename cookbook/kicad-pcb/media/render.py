@@ -551,9 +551,17 @@ def gate_chips(fig, y, verdict, fontsize=13):
                                     facecolor=col, edgecolor="none",
                                     transform=ax.transAxes,
                                     clip_on=False))
-        ax.text(0.5, 0.5, GATE_SHORT[g], transform=ax.transAxes,
-                ha="center", va="center", fontsize=fontsize,
-                color="white", weight="bold")
+        if ok:
+            ax.text(0.5, 0.5, GATE_SHORT[g], transform=ax.transAxes,
+                    ha="center", va="center", fontsize=fontsize,
+                    color="white", weight="bold")
+        else:
+            ax.text(0.5, 0.70, GATE_SHORT[g], transform=ax.transAxes,
+                    ha="center", va="center", fontsize=fontsize,
+                    color="white", weight="bold")
+            ax.text(0.5, 0.28, fail_metric(g, r["details"]).replace("\n", " "),
+                    transform=ax.transAxes, ha="center", va="center",
+                    fontsize=fontsize - 3, color="white")
         x += w + 0.008
 
 
