@@ -325,11 +325,11 @@ def test_duplicate_ubuntu_items_keep_their_comments():
 
 
 def test_pr_body_serve_matches_custom_labels_and_installs_from_github():
-    body = migrate.pr_body("o/r", ["self-hosted", "sbx", "big"], [migrate.Finding("a.yml", "j", 1, "x", "y")])
+    body = migrate.pr_body("o/r", ["self-hosted", "sbx", "big"], [migrate.Finding("a.yml", "j", 1, "x", "y", effective=("self-hosted", "sbx", "big"))])
     assert '--labels "sbx,big"' in body
     assert 'pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"' in body
     assert "pip install agent-next-sandbox" not in body
-    only = migrate.pr_body("o/r", ["self-hosted"], [migrate.Finding("a.yml", "j", 1, "x", "y")])
+    only = migrate.pr_body("o/r", ["self-hosted"], [migrate.Finding("a.yml", "j", 1, "x", "y", effective=("self-hosted",))])
     assert '--labels ""' in only
 
 

@@ -13,6 +13,8 @@ import difflib
 import re
 from dataclasses import dataclass
 
+from urllib.parse import quote
+
 import httpx
 
 from .cli import SbxError
@@ -35,6 +37,7 @@ class Finding:
     old: str
     new: str  # empty when skipped
     skipped: str = ""
+    effective: tuple[str, ...] = ()  # every label the job ends up with
 
 
 def _indent(line: str) -> int:
@@ -92,6 +95,13 @@ def _job_runs_on(lines: list[str]):
             yield job, i
 
 
+def _q(label: str) -> str:
+    """A label as a YAML flow scalar: bare when plain, else double-quoted."""
+    if re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.\-/]*", label):
+        return label
+    return '"' + label.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def _fmt(labels: list[str]) -> str:
     return "[" + ", ".join(labels) + "]"
 
@@ -108,6 +118,7 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
         value, comment = _split_comment(raw)
         value = value.strip()
         items: list[str] | None = None
+        raws: list[str] = []
         item_lines: list[tuple[int, re.Match]] = []
         if not value:  # block list
             items, j, mapping = [], i + 1, False
@@ -128,12 +139,14 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
             findings.append(Finding(name, job, i + 1, value, "", "multi-line flow list"))
             continue
         elif value.startswith("["):
-            items = [_unquote(x) for x in value.strip("[]").split(",") if x.strip()]
+            raws = [x.strip() for x in value.strip("[]").split(",") if x.strip()]
+            items = [_unquote(x) for x in raws]
             display = value
         elif "${{" in value or value.startswith(("{", "$")):
             findings.append(Finding(name, job, i + 1, value, "", "expression or mapping (matrix, group, ...)"))
             continue
         else:
+            raws = [value]
             display = _unquote(value)
         labs = items if items is not None else [display]
         if any(x.lower() == "self-hosted" for x in labs):
@@ -144,12 +157,15 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
             continue
         if not any(x in UBUNTU for x in labs):
             continue
-        new_labs = [y for x in labs for y in (labels if x in UBUNTU else [x])]
-        # duplicates (e.g. two ubuntu labels) collapse to one copy of the new labels
+        # existing labels keep their original text (and quotes); duplicates collapse to one copy
+        new = [_q(y) for y in labels]
+        kept = raws or labs
         seen: list[str] = []
-        for x in new_labs:
-            if x not in seen:
-                seen.append(x)
+        for lab, raw in zip(labs, kept):
+            for out in new if lab in UBUNTU else [raw]:
+                if out not in seen:
+                    seen.append(out)
+        effective = tuple(dict.fromkeys(y for x in labs for y in (labels if x in UBUNTU else [x])))
         if value:
             edits.append((i, i + 1, [f"{indent}runs-on: {_fmt(seen)}{comment}{eol}"]))
         else:  # rewrite only the ubuntu items so every comment stays where it was
@@ -158,14 +174,14 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
                 if im.group(3).strip() not in UBUNTU:
                     continue
                 pad, tail, e = im.group(1), im.group(4), im.group(5) or eol
-                block = [f"{pad}- {x}{e}" for x in labels] if first else []
+                block = [f"{pad}- {_q(x)}{e}" for x in labels] if first else []
                 if block and tail:
-                    block[-1] = f"{pad}- {labels[-1]}  {tail}{e}"
+                    block[-1] = f"{pad}- {_q(labels[-1])}  {tail}{e}"
                 elif tail:  # a dropped duplicate keeps its comment
                     block = [f"{pad}{tail}{e}"]
                 edits.append((k, k + 1, block))
                 first = False
-        findings.append(Finding(name, job, i + 1, display, _fmt(seen)))
+        findings.append(Finding(name, job, i + 1, display, _fmt(seen), effective=effective))
     for start, stop, repl in sorted(edits, reverse=True):
         lines[start:stop] = repl
     return "".join(lines), findings
@@ -192,7 +208,8 @@ def parse_labels(spec: str) -> list[str]:
 
 def pr_body(repo: str, labels: list[str], findings: list[Finding]) -> str:
     changed = [f for f in findings if f.new]
-    extra = ",".join(x for x in labels if x != "self-hosted")  # serve adds self-hosted itself
+    # serve adds self-hosted itself; it must register every label any migrated job still asks for
+    extra = ",".join(dict.fromkeys(x for f in changed for x in f.effective if x != "self-hosted"))
     lines = "\n".join(f"- `{f.file}` job `{f.job}`: `{f.old}` -> `{f.new}`" for f in changed)
     return (
         f"Moves {len(changed)} job(s) from GitHub-hosted runners to single-use sandbox runners ({', '.join(labels)}).\n\n"
@@ -246,7 +263,7 @@ class Migrator:
                 continue
             if only and only not in (entry["name"], entry["path"]):
                 continue
-            blob = self._get(f"/repos/{self.repo}/contents/{entry['path']}", f"read {entry['path']}", ref=ref).json()
+            blob = self._get(f"/repos/{self.repo}/contents/{quote(entry['path'])}", f"read {entry['path']}", ref=ref).json()
             out.append((entry["path"], base64.b64decode(blob["content"]).decode("utf-8"), blob["sha"]))
         if only and not out:
             raise SbxError(f"--only {only}: no such workflow file in .github/workflows")
@@ -254,14 +271,14 @@ class Migrator:
 
     def propose(self, base: str, files: list[tuple[str, str, str, str]], title: str, body: str) -> str:
         """Branch off base, commit each (path, new text, blob sha, message), open the PR; return its URL."""
-        head = self._get(f"/repos/{self.repo}/git/ref/heads/{base}", f"read branch {base}").json()["object"]["sha"]
+        head = self._get(f"/repos/{self.repo}/git/ref/heads/{quote(base)}", f"read branch {base}").json()["object"]["sha"]
         resp = self.http.post(f"/repos/{self.repo}/git/refs", json={"ref": f"refs/heads/{BRANCH}", "sha": head})
         if resp.status_code == 422:
             raise SbxError(f"branch {BRANCH} already exists in {self.repo}; delete it or close its PR first")
         if not resp.is_success:
             raise SbxError(f"GitHub create branch failed: HTTP {resp.status_code} {resp.text[:200]}")
         for path, text, sha, message in files:
-            resp = self.http.put(f"/repos/{self.repo}/contents/{path}", json={
+            resp = self.http.put(f"/repos/{self.repo}/contents/{quote(path)}", json={
                 "message": message, "branch": BRANCH, "sha": sha,
                 "content": base64.b64encode(text.encode("utf-8")).decode("ascii")})
             if not resp.is_success:
