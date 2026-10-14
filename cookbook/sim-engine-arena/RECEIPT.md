@@ -138,7 +138,14 @@ versions: mujoco 3.8.1, mujoco_warp 3.8.1, warp 1.13.0, python 3.13.5
 
 The 117 s exec round trip includes the one-time warp kernel compile
 (reported as setup time) plus the four replays; the simulations themselves
-are ~13 k timesteps total. The GPU row is reported, never gating.
+are ~13 k timesteps total. The GPU row is reported, never gating. The
+measured lane numbers (lease versions, compile/sim wall times, per-scenario
+scores) are kept in `examples/good/gpu-replay.json`, written by
+`python3 cookbook/sim-engine-arena/run.py --ref sbx/arena-r2 --gpu
+--report-json cookbook/sim-engine-arena/examples/good/gpu-replay.json`
+(seed 0; the file in git is that run's output, last regenerated for this
+receipt); `examples/good/loop.json` keeps the per-iteration agent-loop
+scores from `python3 cookbook/sim-engine-arena/examples/loop.py`.
 
 ## Key numbers side by side
 

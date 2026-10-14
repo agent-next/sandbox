@@ -180,7 +180,7 @@ def score_gpu_lane(report, _grade, spec):
     return scored
 
 
-def run_gpu_lane(key, demo_path):
+def run_gpu_lane(key, demo_path, report_json=None):
     """Replay the good port's MJCF on a GPU slice with mujoco_warp; report only."""
     mjdir = os.path.join(demo_path, "examples", "good", "mjcf")
     want = ["model_%s.xml" % n for n in
@@ -358,6 +358,17 @@ def main():
     if not verdict:
         die("no verdict JSON returned from the sandbox")
     if args.report_json:
+        if gpu_report:
+            # keep every measured number (lease versions, compile/sim wall
+            # times, per-scenario scores) in one JSON for later media rounds
+            verdict["gpu"] = {k: gpu_report.get(k) for k in
+                              ("versions", "lease_stack_ok",
+                               "lease_stack_problems", "scored")}
+            verdict["gpu"]["wall_s"] = {
+                n: {"compile_s": (gpu_report.get(n) or {}).get("compile_s"),
+                    "sim_s": (gpu_report.get(n) or {}).get("sim_s")}
+                for n in ("drop", "incline_stick", "incline_slide", "pendulum")
+                if isinstance(gpu_report.get(n), dict)}
         with open(args.report_json, "w") as fh:
             json.dump(verdict, fh, indent=2, sort_keys=True)
         print(f"wrote verdict JSON: {args.report_json}")
