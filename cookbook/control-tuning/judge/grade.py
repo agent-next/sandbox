@@ -26,7 +26,7 @@ def load_artifact(path):
     if raw["type"] != "lqr":
         raise ValueError(f"type must be \"lqr\", got {raw['type']!r}")
     weights = []
-    for key, n, positive in (("Q", 4, (0, 2)), ("R", 2, (0, 1))):
+    for key, n in (("Q", 4), ("R", 2)):
         val = raw[key]
         if not isinstance(val, list) or len(val) != n:
             raise ValueError(f"{key} must be a list of {n} numbers")

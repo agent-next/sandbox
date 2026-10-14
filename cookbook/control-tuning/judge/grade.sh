@@ -25,10 +25,12 @@ trap 'rm -rf "$WORK"' EXIT
 cp -r "$HERE" "$WORK/judge"
 BEFORE="$(find "$WORK/judge" -type f -exec sha256sum {} + | sort | sha256sum)"
 
-"$PY" -B -I "$WORK/judge/grade.py" "$ARTIFACT" "$@"
+RC=0
+"$PY" -B -I "$WORK/judge/grade.py" "$ARTIFACT" "$@" || RC=$?
 
 AFTER="$(find "$WORK/judge" -type f -exec sha256sum {} + | sort | sha256sum)"
 if [ "$BEFORE" != "$AFTER" ]; then
   echo "grade.sh: judge/ was modified during grading" >&2
   exit 3
 fi
+exit "$RC"
