@@ -39,6 +39,25 @@ RUNNER_PACKAGES = (
     "libgl1 libglib2.0-0 libsm6 libxext6 libxrender1"  # native deps of opencv/matplotlib-style wheels
 )
 
+TOOL_CACHE = "/opt/hostedtoolcache"  # where GitHub's image keeps them; setup-python/-node look here first
+# the newest stable build per minor, from the same sources actions/setup-python and setup-node download
+TOOLCACHE_PYTHON = (
+    "manifest=$(curl -fsSL https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json) "
+    "&& for v in 3.12 3.13; do url=$(echo \"$manifest\" | python3 -c '"
+    "import json, sys; v = sys.argv[1]; print(next(f[\"download_url\"] for r in json.load(sys.stdin) "
+    "if r[\"stable\"] and r[\"version\"].startswith(v + \".\") for f in r[\"files\"] "
+    "if f[\"platform\"] == \"linux\" and f.get(\"platform_version\") == \"24.04\" and f[\"arch\"] == \"x64\"))' $v) "
+    "&& d=$(mktemp -d) && curl -fsSL \"$url\" | tar xz -C $d && (cd $d && bash setup.sh >/dev/null) && rm -rf $d || exit 1; done"
+)
+TOOLCACHE_NODE = (
+    "index=$(curl -fsSL https://nodejs.org/dist/index.json) "
+    "&& for v in 20 22; do ver=$(echo \"$index\" | python3 -c '"
+    "import json, sys; print(next(r[\"version\"] for r in json.load(sys.stdin) if r[\"version\"].startswith(\"v\" + sys.argv[1] + \".\")))' $v) "
+    f"&& d={TOOL_CACHE}/node/${{ver#v}}/x64 && mkdir -p $d "
+    "&& curl -fsSL https://nodejs.org/dist/$ver/node-$ver-linux-x64.tar.gz | tar xz -C $d --strip-components=1 "
+    "&& touch $d.complete || exit 1; done"
+)
+
 DOCKER_UP = (
     "pgrep -x dockerd >/dev/null || (sudo nohup dockerd >/tmp/dockerd.log 2>&1 &); "
     "for _ in $(seq 100); do [ -S /var/run/docker.sock ] && break; sleep 0.1; done; "
@@ -344,7 +363,7 @@ def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], g
             sbx.files.write("/tmp/jit", gh.jit(slot.name, labels, group_id))
             run = (
                 # .env: the runner hands these to every job, so a job can name its sandbox
-                f"{DOCKER_UP}; cd {RUNNER_DIR} && echo \"E2B_SANDBOX_ID=$E2B_SANDBOX_ID\" > .env "
+                f"{DOCKER_UP}; cd {RUNNER_DIR} && echo \"E2B_SANDBOX_ID=$E2B_SANDBOX_ID\" >> .env "
                 f"&& jit=$(cat /tmp/jit) && rm -f /tmp/jit "
                 f'&& exec sudo -n -u {RUNNER_USER} -H ./run.sh --jitconfig "$jit"'
             )
@@ -466,6 +485,9 @@ def build_image(sandbox_cls, *, template: str | None, runner_version: str) -> st
             f"mkdir -p {RUNNER_DIR} && cd {RUNNER_DIR} && curl -fsSL {url} | tar xz "
             f"&& chown -R {RUNNER_USER}: {RUNNER_DIR}",
             f"cd {RUNNER_DIR} && ./bin/installdependencies.sh >/tmp/deps.log 2>&1 || (tail -20 /tmp/deps.log; false)",
+            f"export AGENT_TOOLSDIRECTORY={TOOL_CACHE} && mkdir -p {TOOL_CACHE} && {TOOLCACHE_PYTHON}",
+            f"{TOOLCACHE_NODE} && chown -R {RUNNER_USER}: {TOOL_CACHE} "
+            f"&& echo AGENT_TOOLSDIRECTORY={TOOL_CACHE} > {RUNNER_DIR}/.env",
             DOCKER_UP,
             "docker run --rm hello-world >/dev/null && docker image rm hello-world >/dev/null",
         ]

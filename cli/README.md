@@ -74,8 +74,10 @@ jobs:
 
 `image` imports `ubuntu:24.04` once as your key's own template (GitHub's
 hosted runners are Ubuntu; `actions/setup-python` ships Ubuntu-only builds),
-then adds build tools, Python 3, Docker with Compose and buildx, and the
-runner, and snapshots it. `--size standard` bakes 4 vCPU / 16 GB runners
+then adds build tools, Docker with Compose and buildx, Python 3.12/3.13 and
+Node 20/22 in the tool cache (where `actions/setup-python` and
+`actions/setup-node` find them, as on GitHub's image), and the runner, and
+snapshots it. `--size standard` bakes 4 vCPU / 16 GB runners
 instead of 2 vCPU / 8 GB; `--from-image` or `--template` choose another base.
 
 `serve` keeps `--warm` single-use (JIT) runners registered and idle, so a

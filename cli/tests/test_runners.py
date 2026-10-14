@@ -288,7 +288,7 @@ def test_boot_registers_runs_one_job_and_kills(fake_sbx, capsys):
     assert run_kw == {"background": True, "timeout": 960, "user": "root"}  # never an unbounded stream
     assert "dockerd" in cmd and "rm -f /tmp/jit" in cmd
     assert 'exec sudo -n -u user -H ./run.sh --jitconfig "$jit"' in cmd  # the job never runs as root
-    assert 'echo "E2B_SANDBOX_ID=$E2B_SANDBOX_ID" > .env' in cmd
+    assert 'echo "E2B_SANDBOX_ID=$E2B_SANDBOX_ID" >> .env' in cmd  # keeps the image's AGENT_TOOLSDIRECTORY
     assert sbx.killed == 1 and slot.sandbox_id == sbx.sandbox_id
     events = [json.loads(line)["event"] for line in capsys.readouterr().out.splitlines()]
     assert events == ["sandbox", "runner_exit", "killed"]
@@ -571,6 +571,10 @@ def test_image_bakes_runner_and_docker_then_snapshots(fake_sbx, monkeypatch):
     assert "libgl1" in sbx.ran[0][0]  # a real CI run failed on a missing libGL.so.1
     assert "useradd -m -s /bin/bash user" in script and "NOPASSWD" in script and "get.docker.com" in script
     assert "chown -R user: /opt/actions-runner" in script
+    # setup-python/-node find these preinstalled, as on GitHub's image
+    assert "python-versions/main/versions-manifest.json" in script and "for v in 3.12 3.13" in script
+    assert "nodejs.org/dist/index.json" in script and "for v in 20 22" in script
+    assert "echo AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache > /opt/actions-runner/.env" in script
     assert sbx.killed == 1
 
 
