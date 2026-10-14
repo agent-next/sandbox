@@ -76,6 +76,15 @@ def check_no_overlap(fig, artists):
             die(f"overlapping text in figure: {t1!r} vs {t2!r}")
 
 
+def check_inside_cells(fig, pairs):
+    """Die if a cell label's bounding box leaves its cell rectangle."""
+    fig.canvas.draw()
+    for text, rect in pairs:
+        t, r = text.get_window_extent(), rect.get_window_extent()
+        if t.x0 < r.x0 or t.x1 > r.x1 or t.y0 < r.y0 or t.y1 > r.y1:
+            die(f"cell label {text.get_text()!r} overflows its cell")
+
+
 def build_result_png(report, out_path):
     verdict = need(report, "good", "verdict")
     cases = need(report, "good", "verdict", "cases")
@@ -182,7 +191,7 @@ def build_loop_png(report, out_path):
     cell_w, cell_h = 2.6, 0.72
     fig, ax = plt.subplots(figsize=(cell_w * n_cols + 4.4,
                                     cell_h * n_rows + 1.8))
-    texts = []
+    texts, cells = [], []
     styles = {True: ("#e3f1e4", "#2e7d32", "pass"),
               False: ("#c62828", "white", "FAIL"),
               None: ("#eeeeee", "#757575", "not run")}
@@ -195,12 +204,13 @@ def build_loop_png(report, out_path):
                 err = re.search(r"\b\w+(?:Error|Exception)\b", detail[name][gate])
                 short = err.group(0) if err else detail[name][gate]
                 label = "FAIL\n" + "\n".join(textwrap.wrap(short, 20)[:2])
-            ax.add_patch(Rectangle((c, y), 1, 1, facecolor=face,
-                                   edgecolor="white", linewidth=2))
+            rect = ax.add_patch(Rectangle((c, y), 1, 1, facecolor=face,
+                                          edgecolor="white", linewidth=2))
             texts.append(ax.text(
                 c + 0.5, y + 0.5, label, ha="center", va="center",
                 fontsize=9, fontweight="bold" if st is False else "normal",
                 color=fg))
+            cells.append((texts[-1], rect))
     ax.add_patch(Rectangle((0, n_rows - 1), n_cols, 1, fill=False,
                            edgecolor="#1565c0", linewidth=2.5))
     for c, gate in enumerate(gates):
@@ -221,6 +231,7 @@ def build_loop_png(report, out_path):
                  "(judge stops at the first failing gate; later gates not run)",
                  fontsize=13, pad=14)
 
+    check_inside_cells(fig, cells)
     check_no_overlap(fig, texts)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
