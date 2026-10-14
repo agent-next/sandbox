@@ -92,52 +92,73 @@ def pack_judge_and_examples(demo_path):
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tf:
         for sub in ("judge", "examples"):
-            tf.add(os.path.join(demo_path, sub), arcname=sub)
+            tf.add(os.path.join(demo_path, sub), arcname=sub,
+                   filter=lambda ti: None if (
+                       "__pycache__" in ti.name or
+                       ti.name.endswith(".pyc")) else ti)
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def gpu_exec_job(payload_b64):
-    """Return the Python code to exec on the GPU lease.
+JOB_ROOT = "~/gsims-job"  # under $HOME: persists across exec calls on a lease
 
-    The judge runs the simulation itself: each grade is a subprocess so a
-    point that crashes the CUDA context cannot take the whole job down with
-    it, and every grade pays (or reuses the kernel cache of) the real
-    toolchain. Expect minutes — a fresh lease cold-compiles the Warp kernels
-    once (~60-100 s, reported as setup time)."""
+# Exec 1: unpack judge/ + examples/ and generate the mutants. Every later
+# exec grades ONE artifact as its own subprocess: the whole run takes minutes
+# (9 real sim grades), which no single exec request could outlive, and a
+# point that crashes the CUDA context cannot take the job down with it.
+def gpu_unpack_job(payload_b64):
     return f"""
-import base64, io, json, os, subprocess, sys, tarfile, tempfile
-root = tempfile.mkdtemp(prefix='gsims-')
+import base64, io, json, os, shutil, subprocess, sys, tarfile
+root = os.path.expanduser({JOB_ROOT!r})
+shutil.rmtree(root, ignore_errors=True)
+os.makedirs(root)
 tarfile.open(fileobj=io.BytesIO(base64.b64decode({payload_b64!r})), mode='r:gz').extractall(root)
 j = os.path.join(root, 'judge')
-def grade(art, out):
-    r = subprocess.run([sys.executable, os.path.join(j, '_grade.py'), art, '--seed', '0',
-                        '--json', out, '--judge-dir', j], capture_output=True, text=True, timeout=1800)
-    v = json.load(open(out)) if os.path.exists(out) else None
-    return r.returncode, v, r.stderr[-400:]
-rc, v, err = grade(os.path.join(root, 'examples', 'good', 'sweep.json'), os.path.join(root, 'good.json'))
-report['good'] = dict(rc=rc, verdict=v, stderr=err)
 mdir = os.path.join(root, 'mutants')
-lines = subprocess.run([sys.executable, os.path.join(j, 'mutants.py'), mdir],
-                       capture_output=True, text=True).stdout.splitlines()
-kills = {{}}
-for line in lines:
-    if not line.strip():
-        continue
-    n, mode = line.split('\t')
-    rc, v, err = grade(os.path.join(mdir, n + '.json'), os.path.join(mdir, n + '.json'))
-    gs = {{g: x for g, x in ((v or {{}}).get('gates') or {{}}).items() if isinstance(x, dict)}}
-    failed = [g for g, x in gs.items() if x.get('pass') is False]
-    probs = {{g: [str(p)[:110] for p in (x.get('problems') or [])[:3]] for g, x in gs.items()}}
-    kills[n] = dict(mode=mode, rc=rc, failed=failed,
-                    gates={{g: x.get('pass') for g, x in gs.items()}}, problems=probs,
-                    judge_error=None if v else err[-300:])
-report['mutants'] = kills
+r = subprocess.run([sys.executable, os.path.join(j, 'mutants.py'), mdir],
+                   capture_output=True, text=True, timeout=120)
+names = [l.split('\\t') for l in r.stdout.splitlines() if l.strip()]
+report.update(root=root, python=sys.version.split()[0],
+              mutants=[{{'name': n, 'mode': m}} for n, m in names],
+              mutants_stderr=r.stderr[-300:])
 """
+
+
+def gpu_grade_job(artifact_rel):
+    """Exec code grading one artifact under JOB_ROOT (real sim, minutes)."""
+    return f"""
+import json, os, subprocess, sys, time
+root = os.path.expanduser({JOB_ROOT!r})
+j = os.path.join(root, 'judge')
+art = os.path.join(root, {artifact_rel!r})
+out = art + '.verdict.json'
+t0 = time.perf_counter()
+r = subprocess.run([sys.executable, os.path.join(j, '_grade.py'), art,
+                    '--seed', '0', '--json', out, '--judge-dir', j],
+                   capture_output=True, text=True, timeout=600)
+report.update(rc=r.returncode,
+              verdict=json.load(open(out)) if os.path.exists(out) else None,
+              grade_wall_s=round(time.perf_counter() - t0, 1),
+              stderr=r.stderr[-400:])
+"""
+
+
+def gpu_exec(key, sid, code, timeout_s, label):
+    """One exec call on the lease; returns the report dict."""
+    t0 = time.monotonic()
+    st, executed = request(key, "POST", f"/sandboxes/{sid}/exec",
+                           {"code": code, "timeout_s": timeout_s})
+    dt = time.monotonic() - t0
+    if st != 200 or not isinstance(executed, dict):
+        die(f"GPU exec ({label}): HTTP {st}")
+    result = executed.get("result") or {}
+    if result.get("ok") is not True:
+        die(f"GPU job ({label}) failed: {(result.get('stderr') or '')[-500:]}")
+    print(f"  [{label}] exec ok ({dt:.0f} s)", flush=True)
+    return result.get("report") or {}
 
 
 def run_gpu_path(key, demo_path, report_json=None):
     """Run the GPU path using the REST API (4 GiB VRAM slice lease)."""
-    job = gpu_exec_job(pack_judge_and_examples(demo_path))
     print("create GPU lease (4 GiB VRAM slice)...", flush=True)
     st, created = request(key, "POST", "/sandboxes", {"accel": {"vram_gb": 4, "reserve": "exec"}})
     if st != 201:
@@ -151,29 +172,45 @@ def run_gpu_path(key, demo_path, report_json=None):
     print(f"created {sid} (4 GiB VRAM slice)", flush=True)
 
     try:
-        print("exec grading job on GPU lease (good + all mutants; "
-              "Warp cold-compile ~1-2 min once, then real sims)...", flush=True)
-        st, executed = request(key, "POST", f"/sandboxes/{sid}/exec", {
-            "code": job,
-            "timeout_s": 2400,
-        })
-        if st != 200 or not isinstance(executed, dict):
-            die(f"GPU exec: HTTP {st}")
-        result = executed.get("result") or {}
-        report = result.get("report") or {}
-        if result.get("ok") is not True:
-            stderr = result.get("stderr", "")
-            die(f"GPU job failed: {stderr[-500:]}")
+        print("exec unpack + mutant generation on GPU lease...", flush=True)
+        rep = gpu_exec(key, sid,
+                       gpu_unpack_job(pack_judge_and_examples(demo_path)),
+                       180, "unpack")
+        mutant_list = rep.get("mutants") or []
+        print(f"lease python {rep.get('python')}; "
+              f"{len(mutant_list)} mutants generated", flush=True)
 
+        print("grade known-good (full mode: CPU baseline + real GPU sweep; "
+              "first grade pays the Warp cold-compile)...", flush=True)
+        good = gpu_exec(key, sid, gpu_grade_job("examples/good/sweep.json"),
+                        720, "grade good")
+        verdict = good.get("verdict") or {}
+
+        kills = {}
+        for m in mutant_list:
+            name, mode = m["name"], m["mode"]
+            r = gpu_exec(key, sid, gpu_grade_job(f"mutants/{name}.json"),
+                         720, f"grade {name}")
+            v = r.get("verdict") or {}
+            gs = {g: x for g, x in (v.get("gates") or {}).items()
+                  if isinstance(x, dict)}
+            failed = [g for g, x in gs.items() if x.get("pass") is False]
+            probs = {g: [str(p)[:110] for p in (x.get("problems") or [])[:3]]
+                     for g, x in gs.items()}
+            kills[name] = dict(mode=mode, rc=r.get("rc"), failed=failed,
+                               gates={g: x.get("pass") for g, x in gs.items()},
+                               problems=probs,
+                               grade_wall_s=r.get("grade_wall_s"),
+                               judge_error=None if v else
+                               (r.get("stderr") or "")[-300:])
+
+        report = {"unpack": rep, "good": good, "mutants": kills}
         if report_json:
             with open(report_json, "w") as fh:
                 json.dump(report, fh, indent=2, sort_keys=True)
             print(f"wrote exec report: {report_json}")
 
-        good = report.get("good", {})
-        verdict = good.get("verdict", {})
-        mutants = report.get("mutants", {})
-
+        mutants = kills
         if verdict:
             gates = verdict.get("gates", {})
             ok = all(g.get("pass") for g in gates.values()) and verdict.get("judge_intact", False)

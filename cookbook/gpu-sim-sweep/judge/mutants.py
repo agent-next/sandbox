@@ -74,8 +74,9 @@ def main():
     mutants.append(("solver_iter_1", "cpu", m))
 
     # The headline bug: under-sized contact buffers. nconmax=8/njmax=32 drops
-    # contacts once the 8 boxes land; measured tunnelling (box z -> -2.4) at
-    # nworld >= 512. Only observable on GPU — CPU mj_step ignores these.
+    # contacts once the 8 boxes land; measured tunnelling (box min z -5.7 at
+    # nworld=64, and world-0 diverges from the CPU trajectory > 0.05 rad).
+    # Only observable on GPU — CPU mj_step ignores these.
     m = copy.deepcopy(good)
     m["nconmax"] = 8
     m["njmax"] = 32

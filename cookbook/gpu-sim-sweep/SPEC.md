@@ -108,9 +108,9 @@ its failure:
 | missing_nconmax | deletes `nconmax` | structure — cpu |
 | tiny_timestep | `timestep` 0.001 → 0.0001 | boxes still falling at read-back — cpu |
 | short_settle | `settle_steps` 800 → 20 | arm unconverged, boxes mid-air — cpu |
-| solver_iter_1 | `solver_iterations` 100 → 1 | CPU contact solver explodes (box speed > 17000 m/s); GPU diverges — cpu-physics / cpu-parity |
-| low_capacity | `nconmax`/`njmax` → 8/32 | observed tunnelling (box z → −2.4) once boxes land — gpu |
-| over_ladder | ladder + 65536 | observed clean OOM at put_data — gpu |
+| solver_iter_1 | `solver_iterations` 100 → 1 | CPU contact solver explodes (box speed > 17000 m/s); GPU trajectory diverges (world-0 parity err 131 rad) — cpu-physics / cpu-parity |
+| low_capacity | `nconmax`/`njmax` → 8/32 | observed tunnelling once boxes land (box min z −5.7 at nworld=64; world-0 parity err 0.067 rad) — gpu |
+| over_ladder | ladder + 65536 | observed clean OOM at put_data (MemoryError, counted as an observed point failure) — gpu |
 
 `judge/selftest.sh` grades the known-good (must pass) in auto mode, then
 every mutant its mode can observe (each must fail ≥ 1 gate; gpu-tagged
