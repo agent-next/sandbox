@@ -70,7 +70,7 @@ def cmd_create(args: argparse.Namespace) -> int:
 
 
 def cmd_exec(args: argparse.Namespace) -> int:
-    from e2b import CommandExitException
+    from e2b import CommandExitException, SandboxNotFoundException, TimeoutException
 
     _positive_seconds(args.timeout, "--timeout")
     _credentials()
@@ -80,11 +80,33 @@ def cmd_exec(args: argparse.Namespace) -> int:
     if not command:
         raise SbxError("exec: no command given")
     line = command[0] if len(command) == 1 else shlex.join(command)
-    sbx = _sandbox_cls().connect(args.sandbox_id)
     try:
-        result = sbx.commands.run(line, timeout=args.timeout)
-    except CommandExitException as exc:
-        result = exc
+        sbx = _sandbox_cls().connect(args.sandbox_id)
+        try:
+            result = sbx.commands.run(line, timeout=args.timeout)
+        except CommandExitException as exc:
+            result = exc
+    except SandboxNotFoundException:
+        # The SDK says "Paused sandbox <id> not found" even for an id that
+        # never existed; say what an agent can act on instead. Exit code
+        # stays 1, as it was when the SDK exception leaked through.
+        _say(
+            f"sbx: exec: sandbox {args.sandbox_id} not found "
+            "(it was killed, expired, or the id is wrong)",
+            err=True,
+        )
+        return 1
+    except TimeoutException:
+        # The SDK's text addresses SDK callers ("pass 'timeout' when making
+        # the request"); point at the CLI flag instead, and warn that the
+        # command may still be running. Exit code stays 1.
+        _say(
+            f"sbx: exec: no result within --timeout {args.timeout:g}s; the command may "
+            "still be running in the sandbox. Raise --timeout, or run the command "
+            "detached with output redirected to a file and read the file back.",
+            err=True,
+        )
+        return 1
     sys.stdout.write(_scrub(result.stdout))
     sys.stderr.write(_scrub(result.stderr))
     return result.exit_code

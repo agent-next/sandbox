@@ -18,6 +18,14 @@ class FakeExit(Exception):
         self.stdout, self.stderr, self.exit_code = stdout, stderr, exit_code
 
 
+class FakeTimeout(Exception):
+    pass
+
+
+class FakeNotFound(Exception):
+    pass
+
+
 class FakeSandbox:
     calls = []
     killed = True
@@ -55,6 +63,8 @@ def fake_e2b(monkeypatch):
     mod = types.ModuleType("e2b")
     mod.Sandbox = FakeSandbox
     mod.CommandExitException = FakeExit
+    mod.TimeoutException = FakeTimeout
+    mod.SandboxNotFoundException = FakeNotFound
     monkeypatch.setitem(sys.modules, "e2b", mod)
     monkeypatch.setenv("E2B_API_KEY", "k")
     monkeypatch.delenv("E2B_DOMAIN", raising=False)
@@ -164,6 +174,43 @@ def test_parser_errors_and_command_output_are_scrubbed(name, monkeypatch, capsys
 def test_exec_separator_form_keeps_command_options():
     cli.main(["exec", "sbx-1", "--timeout", "30", "--", "ls", "-l", "/tmp"])
     assert ("run", "ls -l /tmp", 30.0) in FakeSandbox.calls
+
+
+def test_exec_timeout_names_the_flag_and_value(monkeypatch, capsys):
+    def slow(self, line, timeout=None):
+        raise FakeTimeout(
+            "Request timed out: This error is likely due to exceeding 'timeout' "
+            "or 'request_timeout' when making the request."
+        )
+
+    monkeypatch.setattr(FakeSandbox, "run", slow)
+    assert cli.main(["exec", "sbx-1", "--timeout", "2", "sleep 10"]) == 1
+    err = capsys.readouterr().err
+    assert "--timeout 2" in err
+    assert "still be running" in err
+    # The old text addressed SDK callers, not CLI users; the raw SDK text and
+    # the command line (which may hold secrets) must not be echoed.
+    assert "request_timeout" not in err
+    assert "sleep" not in err
+
+
+def test_exec_missing_sandbox_names_the_id_without_sdk_wording(monkeypatch, capsys):
+    # A realistic key length, so _scrub's redaction does not collide with
+    # ordinary words in the message (the autouse fixture uses "k").
+    monkeypatch.setenv("E2B_API_KEY", "k-very-secret-value")
+
+    def missing(cls, sid):
+        raise FakeNotFound(f"Paused sandbox {sid} not found")
+
+    monkeypatch.setattr(FakeSandbox, "connect", classmethod(missing))
+    assert cli.main(["exec", "sbx-gone", "echo hi"]) == 1
+    err = capsys.readouterr().err
+    assert "sbx-gone" in err
+    assert "not found" in err
+    assert "killed, expired, or the id is wrong" in err
+    # The SDK claims the sandbox was "Paused" even for ids that never existed.
+    assert "Paused" not in err
+    assert "echo" not in err
 
 
 @pytest.mark.parametrize("name", ["E2B_API_KEY", "SBX_API_KEY"])
