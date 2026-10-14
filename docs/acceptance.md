@@ -41,11 +41,8 @@ posted it, then merges that exact head with `--match-head-commit`:
 
     AGENT_REVIEW_POSTERS=<reviewer logins> agent-merge.sh agent-next/sandbox <N>
 
-The script fails closed on a repo with no required checks declared. Until this
-repo declares them, the merger checks the same two things by hand (the latest
-`agent-review` status is success and its creator is a reviewer identity; every
-check on the head is green), then runs
-`gh pr merge <N> --squash --match-head-commit <reviewed sha>`.
+The script fails closed while this repo declares no required checks; the merge
+waits until they are declared — never a by-hand gate.
 
 ## Moved from LESSONS.md
 
