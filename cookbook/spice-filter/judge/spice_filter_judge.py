@@ -189,6 +189,8 @@ def run_ngspice(deck: str, workdir: Path, raw_name: str = "out.raw") -> tuple[di
                               timeout=180)
     except FileNotFoundError:
         raise GateFail("parse", "ngspice not on PATH; run judge/setup.sh")
+    except subprocess.TimeoutExpired:
+        raise GateFail("parse", "ngspice did not finish within 180 s")
     out = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode != 0:
         raise GateFail("parse", f"ngspice exited {proc.returncode}: "
@@ -392,8 +394,10 @@ def _grade(artifact: Path, seed: int, gates: dict,
         if toks and toks[0] in ("ac", ".ac"):
             if len(toks) < 5:
                 continue
-            mode, pts, f1, f2 = toks[1], int(float(toks[2])), \
-                spice_value(toks[3]), spice_value(toks[4])
+            mode, f1, f2 = toks[1], spice_value(toks[3]), spice_value(toks[4])
+            pts = spice_value(toks[2])
+            if pts is None or f1 is None or f2 is None:
+                continue
             span_ok = f1 <= FMIN and f2 >= FMAX
             density_ok = (mode == "dec" and pts >= 20) or \
                          (mode == "oct" and pts >= 60) or \

@@ -129,11 +129,16 @@ def main() -> int:
                 print(f"run: --keep: sandbox {sid} left running "
                      "(remember: sbx kill when done)", flush=True)
             else:
-                killed = sbx("kill", sid, timeout=180)
-                if killed.returncode != 0:
-                    print(f"run: WARNING kill exit {killed.returncode}",
-                          file=sys.stderr)
-                listing = sbx("list", timeout=120)
+                try:
+                    killed = sbx("kill", sid, timeout=180)
+                    if killed.returncode != 0:
+                        print(f"run: WARNING kill exit {killed.returncode}",
+                              file=sys.stderr)
+                    listing = sbx("list", timeout=120)
+                except subprocess.TimeoutExpired:
+                    print(f"run: FAILED cleanup: sbx kill/list timed out; "
+                          f"run sbx kill {sid}", file=sys.stderr)
+                    sys.exit(1)
                 if sid in (listing.stdout or ""):
                     print(f"run: FAILED cleanup: sandbox {sid} still live; "
                           "run sbx kill for this id", file=sys.stderr)
