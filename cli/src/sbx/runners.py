@@ -100,6 +100,43 @@ class GitHub:
     def check_repo(self, repo: str) -> None:
         self._check(self.http.get(f"/repos/{repo}"), f"read repo {repo}")
 
+    def workflow_run(self, repo: str, run_id: int) -> dict:
+        return self._check(self.http.get(f"/repos/{repo}/actions/runs/{run_id}"), "read run").json()
+
+    def workflow_runs(self, repo: str, since: str, until: str) -> list[dict]:
+        """Runs created in a bounded window; fail rather than truncate GitHub's 1,000-run search cap."""
+        runs, page = [], 1
+        while True:
+            body = self._check(self.http.get(
+                f"/repos/{repo}/actions/runs",
+                params={"created": f"{since}..{until}", "per_page": 100, "page": page},
+            ), "list runs").json()
+            if body["total_count"] > 1000:
+                raise RunnerError("runners stats: GitHub limits run searches to 1,000 results; narrow --since")
+            batch = body["workflow_runs"]
+            runs.extend(batch)
+            if len(runs) >= body["total_count"]:
+                return runs
+            if not batch:
+                raise RunnerError("runners stats: incomplete run listing; retry or narrow --since")
+            page += 1
+
+    def jobs(self, repo: str, run_id: int, attempt: int) -> list[dict]:
+        """Only the selected attempt, never mix a rerun with historical jobs."""
+        jobs, page = [], 1
+        while True:
+            body = self._check(self.http.get(
+                f"/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs",
+                params={"per_page": 100, "page": page},
+            ), "list jobs").json()
+            batch = body["jobs"]
+            jobs.extend(batch)
+            if len(jobs) >= body["total_count"]:
+                return jobs
+            if not batch:
+                raise RunnerError("runners stats: incomplete job listing; retry")
+            page += 1
+
     def jit(self, name: str, labels: list[str], group_id: int) -> str:
         resp = self.http.post(
             f"/{self.scope}/actions/runners/generate-jitconfig",
@@ -526,10 +563,10 @@ def latest_runner_version(http: httpx.Client) -> str:
     return resp.json()["tag_name"].lstrip("v")
 
 
-def github_token() -> str:
+def github_token(*, access: str = "admin rights on the org or repo") -> str:
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if not token:
-        raise RunnerError("no GitHub token: export GH_TOKEN with admin rights on the org or repo")
+        raise RunnerError(f"no GitHub token: export GH_TOKEN with {access}")
     return token
 
 

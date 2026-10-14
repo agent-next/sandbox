@@ -135,6 +135,39 @@ steps:
 | `503 host disk nearly full: refusing new sandbox starts` on create or `image` | platform admission guard | wait a minute and retry; plain creates recover first |
 | job never starts | label mismatch or runner group | the job needs `runs-on: [self-hosted, sbx]` (or your `--labels`); check `--group-id` lets the repo use the runners |
 
+## Per-job stats for humans and agents
+
+```bash
+export GH_TOKEN="$(gh auth token)"  # token needs repository Actions read access
+sbx runners stats --repo OWNER/REPO --run ID
+sbx runners stats --repo OWNER/REPO --since 24h --json
+# Capture serve stdout, then join its lifecycle events to completed jobs:
+sbx runners stats --repo OWNER/REPO --run ID --serve-log serve.jsonl \
+  --size standard --price-per-vcpu-min 0.002
+```
+
+Stats reports each sbx job's runner, conclusion, created-to-started wait,
+runtime and API step timings, plus median/nearest-rank p95 wait and runtime,
+failures, vCPU-minutes and estimated dollars. It also compares sbx and
+GitHub-hosted job cohorts in the same run attempt when both are present;
+these are not automatically matched workloads. Use `--prefix` if serve
+uses a runner name prefix other than `sbx-`.
+
+Only the latest attempt is counted. `--since` selects runs by creation time
+(default `24h`), so use `--run` for a recent rerun of an older workflow.
+Wait can include dependencies and approvals, not just runner scheduling.
+The jobs API does not record VM size: `--size small` (2 vCPU, default) or
+`--size standard` (4 vCPU) is an explicit assumption unless job labels
+include `small`, `standard`, `sbx-small` or `sbx-standard`.
+Cost covers completed job runtime only, not boot, warm-pool idle or reclaim
+time, and is not a billing receipt.
+
+Serve's `spawn` → `sandbox` timestamps measure VM-ready delay; `spawn` →
+`online` measures runner-online delay, and job completion → successful
+`killed` measures reclaim delay. `online` is poll-observed. Missing timestamps
+stay `null` in JSON (`?` in text), and skipped steps have no duration.
+Unassigned jobs and other self-hosted runners are excluded.
+
 ## Coming next
 
-Runner debugging, stats, migration and demand scaling are in review.
+Runner debugging and demand scaling are in review.

@@ -252,6 +252,62 @@ def cmd_runners_migrate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_runners_stats(args: argparse.Namespace) -> int:
+    from datetime import datetime, timedelta, timezone
+    import json
+    import re
+
+    from . import runners, runner_stats
+
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo):
+        raise SbxError("runners stats: --repo must be OWNER/REPO")
+    if not args.prefix.strip():
+        raise SbxError("runners stats: --prefix must not be empty")
+    if args.run is not None and args.run < 1:
+        raise SbxError("runners stats: --run must be a positive ID")
+    if not math.isfinite(args.price_per_vcpu_min) or args.price_per_vcpu_min < 0:
+        raise SbxError("--price-per-vcpu-min must be finite and nonnegative")
+    since = None
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    if args.run is None:
+        duration = re.fullmatch(r"(\d+(?:\.\d+)?)([mhd])", args.since or "24h")
+        if not duration:
+            raise SbxError("runners stats: --since needs a duration such as 30m, 24h or 7d")
+        seconds = float(duration[1]) * {"m": 60, "h": 3600, "d": 86400}[duration[2]]
+        _positive_seconds(seconds, "--since", 365 * 86400)
+        since = (now - timedelta(seconds=seconds)).isoformat().replace("+00:00", "Z")
+    events = []
+    if args.serve_log:
+        line_no = 0
+        try:
+            with open(args.serve_log) as stream:
+                for line_no, line in enumerate(stream, 1):
+                    if not line.strip():
+                        continue
+                    event = json.loads(line)
+                    if not isinstance(event, dict):
+                        raise ValueError("expected event object")
+                    events.append(event)
+        except (OSError, ValueError) as exc:
+            detail = f"invalid JSONL at line {line_no}" if isinstance(exc, ValueError) else "cannot read file"
+            raise SbxError(f"runners stats: --serve-log {detail}") from exc
+    gh = runners.GitHub(runners.github_token(access="Actions read access on the repo"), f"repos/{args.repo}")
+    try:
+        runs = [gh.workflow_run(args.repo, args.run)] if args.run is not None else gh.workflow_runs(
+            args.repo, since, now.isoformat().replace("+00:00", "Z"),
+        )
+        jobs = [job for run in runs for job in gh.jobs(args.repo, run["id"], run["run_attempt"])]
+    finally:
+        gh.http.close()
+    report = runner_stats.build_report(
+        args.repo, jobs, prefix=args.prefix, size=args.size,
+        price_per_vcpu_min=args.price_per_vcpu_min, events=events,
+    )
+    report["selection"] = {"run": args.run, "since": since, "attempts": "latest"}
+    _say(json.dumps(report, allow_nan=False) if args.json else runner_stats.format_report(report))
+    return 0
+
+
 class _Parser(argparse.ArgumentParser):
     def error(self, message: str):
         self.print_usage(sys.stderr)
@@ -333,6 +389,20 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--jobs", default=None, help="only these comma-separated job ids")
     r.add_argument("--base", default=None, help="branch to read and target (default: the repo's default branch)")
     r.set_defaults(func=cmd_runners_migrate)
+
+    r = rsub.add_parser("stats", help="job/step timing, runtime cost and hosted comparison (Actions read access)")
+    r.add_argument("--repo", required=True, help="OWNER/REPO to inspect")
+    selection = r.add_mutually_exclusive_group()
+    selection.add_argument("--run", type=int, help="workflow run ID (latest attempt)")
+    selection.add_argument("--since", help="runs created in this duration: 30m, 24h, 7d (default 24h)")
+    r.add_argument("--prefix", default="sbx-", help="runner name prefix used by serve (default sbx-)")
+    r.add_argument("--size", choices=["small", "standard"], default="small",
+                   help="assumed size when jobs lack a small/standard size label (default small, 2 vCPU)")
+    r.add_argument("--price-per-vcpu-min", type=float, default=0.002,
+                   help="estimated dollars per vCPU-minute of job runtime (default 0.002)")
+    r.add_argument("--serve-log", help="serve stdout JSONL, joined by runner name for VM-ready/reclaim timing")
+    r.add_argument("--json", action="store_true", help="machine-readable report; unknown timings are null")
+    r.set_defaults(func=cmd_runners_stats)
     return ap
 
 
