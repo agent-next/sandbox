@@ -44,6 +44,10 @@ pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 
 ## Quickstart: create, exec, kill
 
+There is no `sbx login`: the key comes only from the environment. Agents
+and CI have no browser for the console — load an existing key from your
+secret store and export it.
+
 ```bash
 export E2B_API_KEY=<your key>     # SBX_API_KEY also works
 

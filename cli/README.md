@@ -27,6 +27,10 @@ sbx exec "$id" --timeout 30 -- ls -l /tmp   # several words: put -- first
 sbx kill "$id"
 ```
 
+Agents and CI have no browser for the console: load an existing key from
+your secret store and export it. There is no interactive login; the key is
+read from the environment.
+
 ## Commands
 
 | command | what it does |
