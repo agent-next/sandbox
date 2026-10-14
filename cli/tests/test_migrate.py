@@ -331,3 +331,32 @@ def test_pr_body_serve_matches_custom_labels_and_installs_from_github():
     assert "pip install agent-next-sandbox" not in body
     only = migrate.pr_body("o/r", ["self-hosted"], [migrate.Finding("a.yml", "j", 1, "x", "y")])
     assert '--labels ""' in only
+
+
+def test_new_labels_are_yaml_safe_and_existing_quotes_kept():
+    new, _ = migrate.migrate_text("ci.yml", STRING, ["self-hosted", "gpu: nvidia", 'a"b'])
+    assert 'runs-on: [self-hosted, "gpu: nvidia", "a\\"b"]' in new
+    text = "jobs:\n  a:\n    runs-on: [ubuntu-latest, 'x: y']\n"
+    new, _ = migrate.migrate_text("ci.yml", text, LABELS)
+    assert new == "jobs:\n  a:\n    runs-on: [self-hosted, sbx, 'x: y']\n"
+
+
+def test_serve_labels_cover_retained_labels_of_every_migrated_job():
+    _, found = migrate.migrate_text("ci.yml", LIST, LABELS)
+    body = migrate.pr_body("o/r", LABELS, found)
+    assert '--labels "sbx,extra"' in body
+
+
+def test_paths_with_special_characters_are_encoded():
+    seen = []
+
+    def handler(req):
+        seen.append(req.url.raw_path.decode())
+        if req.url.path.endswith("/contents/.github/workflows"):
+            return httpx.Response(200, json=[{"type": "file", "name": "ci#1.yml", "path": ".github/workflows/ci#1.yml"}])
+        return httpx.Response(200, json={"content": base64.b64encode(STRING.encode()).decode(), "sha": "s"})
+
+    client = httpx.Client(base_url="https://api.github.com", transport=httpx.MockTransport(handler))
+    assert migrate.Migrator("o/r", client).workflows("feat/x y")[0][0] == ".github/workflows/ci#1.yml"
+    assert "/repos/o/r/contents/.github/workflows/ci%231.yml?ref=feat%2Fx+y" in seen or \
+        "/repos/o/r/contents/.github/workflows/ci%231.yml?ref=feat%2Fx%20y" in seen
