@@ -67,7 +67,7 @@ g = v["gates"]["mc_pass_fraction"]
 sys.exit(0 if (v["passed"] and g["pass"]) else 1)
 ' "$D1"; then
   echo "PASS (expected pass): full grade of the good example, \
-Monte-Carlo $("$PY" -I -c 'import json,sys; v=json.load(open(sys.argv[1])); print(f"{v[\"mc_pass\"]}/{v[\"mc_n\"]}")' "$D1")"
+Monte-Carlo $("$PY" -I -c 'import json,sys; v=json.load(open(sys.argv[1])); print("%d/%d" % (v["mc_pass"], v["mc_n"]))' "$D1")"
 else
   echo "FAIL (expected pass): full grade rejected the good example" >&2
   fail=1
@@ -105,7 +105,7 @@ sys.exit(0 if (not mc["pass"] and others) else 1)
 ' "$MCJSON"; then
     killed=$((killed+1))
     echo "PASS (expected reject): Monte-Carlo gate kills mc-marginal alone: \
-$("$PY" -I -c 'import json,sys; v=json.load(open(sys.argv[1])); print(f"mc_pass_fraction {v[\"gates\"][\"mc_pass_fraction\"][\"value\"]:.3f} < 0.95 ({v[\"mc_pass\"]}/{v[\"mc_n\"]})")' "$MCJSON")"
+$("$PY" -I -c 'import json,sys; v=json.load(open(sys.argv[1])); g=v["gates"]["mc_pass_fraction"]; print("mc_pass_fraction %.3f < 0.95 (%d/%d)" % (g["value"], v["mc_pass"], v["mc_n"]))' "$MCJSON")"
   else
     echo "FAIL (expected a pure Monte-Carlo kill, another gate fired)" >&2
     fail=1
