@@ -69,7 +69,7 @@ is written from this spec **by hand** and never derived from an artifact.
 |---|---|
 | `spec.txt` | the short text spec the agent was given (checked in) |
 | `model.py` | the agent-written text-to-cad model script that delivers the part (checked in) |
-| `model.step`, `model.stl` | what the tool wrote when it executed `model.py` (rebuilt by the judge; git-ignored build products) |
+| `model.step`, `model.stl` | what the tool wrote when the agent executed `model.py` (checked in for `examples/good/`; small, < 120 KB each) |
 
 The judge copies the artifact into a temp dir, re-executes `model.py` with the
 pinned tool, requires the regenerated STEP/STL to equal the delivered files
@@ -82,7 +82,7 @@ delivered file the tool would not have produced fails.
 The judge never trusts the artifact to describe itself. Four independent
 sources of truth:
 
-1. **The CAD kernel** (CadQuery/OCP 7.9.3.1, via pinned `cadquery-ocp-novtk`)
+1. **The CAD kernel** (OCP 7.9.3.1.1, via pinned `cadquery-ocp-novtk`)
    — STEP re-import, `BRepCheck_Analyzer` validity, exact B-rep volume, exact
    bounding box, cylindrical-face radii/axes/positions.
 2. **trimesh 4.12.2** — STL watertightness, winding consistency, mesh volume,
@@ -107,7 +107,7 @@ reported in the gate detail.
 | # | gate | measure | pass rule |
 |---|---|---|---|
 | 1 | `tool_runs` | pinned `cadgen` executes the artifact's `model.py` in a copy of the part dir | exit 0 **and** it wrote `model.step` and `model.stl` |
-| 2 | `delivery_matches` | sha256 of delivered `model.step`/`model.stl` vs the fresh regeneration | byte-identical unless `spec.json:dims.stl_regen_free: true` |
+| 2 | `delivery_matches` | sha256 of delivered `model.step`/`model.stl` vs the fresh regeneration | byte-identical (the tool's exports are deterministic: cadgen pins the STEP header timestamp) |
 | 3 | `step_valid` | OCP STEP re-import | import succeeds **and** `BRepCheck_Analyzer` valid **and** exactly one solid |
 | 4 | `stl_valid` | trimesh | `is_watertight` **and** `is_winding_consistent`, one body |
 | 5 | `bbox` | OCP STEP bounds and trimesh STL bounds vs spec | every axis extent within **0.05 mm** of spec; STEP vs STL agree within the STL chord tolerance |
@@ -145,7 +145,7 @@ with the tool) or of the delivered STL (mesh mutants):
 |---|---|---|---|
 | `plate-hole-count` | adapter_plate | `4 → 3` in the hole-count loop | features (+ volume, xor) |
 | `plate-hole-diameter` | adapter_plate | `3.25 → 2.5` hole radius | features (+ volume) |
-| `bracket-missing-fillet` | bracket | delete the fillet call | features (+ xor) |
+| `bracket-missing-fillet` | bracket | replace the fillet arc with its chord | features (+ volume_analytic; the XOR gate is deliberately insensitive below 1 %) |
 | `bushing-scale-25_4` | bushing | `SHAFT_D = 20.0 → 20.0 * 25.4` (inch slip) | bbox (+ xor) |
 | `bushing-non-watertight` | bushing | delete one triangle from the delivered STL | stl_valid |
 | `plate-flipped-facet` | adapter_plate | flip one facet's winding in the delivered STL | stl_valid (winding) |

@@ -9,20 +9,57 @@
         "flange_height_mm": 8.0,
         "bore_d_mm": 10.0
       },
-      "bbox_mm": [36.0, 36.0, 40.0],
+      "bbox_mm": [
+        36.0,
+        36.0,
+        40.0
+      ],
       "analytic_volume_expr": "pi*(10^2-5^2)*32 + pi*(18^2-5^2)*8",
       "analytic_volume_pi_scale": 4792.0,
       "cylinders": [
-        {"class": "shaft_od", "count": 1, "radius_mm": 10.0, "axis": "Z", "z_range": [0.0, 32.0]},
-        {"class": "flange_od", "count": 1, "radius_mm": 18.0, "axis": "Z", "z_range": [32.0, 40.0]},
-        {"class": "bore", "count": 1, "radius_mm": 5.0, "axis": "Z", "z_range": [0.0, 40.0]}
+        {
+          "class": "shaft_od",
+          "count": 1,
+          "radius_mm": 10.0,
+          "axis": "Z",
+          "z_range": [
+            0.0,
+            32.0
+          ]
+        },
+        {
+          "class": "flange_od",
+          "count": 1,
+          "radius_mm": 18.0,
+          "axis": "Z",
+          "z_range": [
+            32.0,
+            40.0
+          ]
+        },
+        {
+          "class": "bore",
+          "count": 1,
+          "radius_mm": 5.0,
+          "axis": "Z",
+          "z_range": [
+            0.0,
+            40.0
+          ]
+        }
       ],
       "hole_centres": [
-        {"class": "bore", "count": 1, "centre": [0.0, 0.0]}
+        {
+          "class": "bore",
+          "count": 1,
+          "centre": [
+            0.0,
+            0.0
+          ]
+        }
       ],
       "min_wall_mm": 5.0,
-      "min_wall_desc": "bore wall (r 5) to shaft OD (r 10)",
-      "stl_regen_free": false
+      "min_wall_desc": "bore wall (r 5) to shaft OD (r 10)"
     },
     "adapter_plate": {
       "dims": {
@@ -34,23 +71,59 @@
         "bolt_holes": 4,
         "first_hole_angle_deg": 45.0
       },
-      "bbox_mm": [60.0, 60.0, 8.0],
+      "bbox_mm": [
+        60.0,
+        60.0,
+        8.0
+      ],
       "analytic_volume_expr": "60*60*8 - pi*6^2*8 - 4*pi*3.25^2*8",
       "analytic_volume_mm3": 26833.36299885279,
       "cylinders": [
-        {"class": "centre_bore", "count": 1, "radius_mm": 6.0, "axis": "Z", "z_range": [0.0, 8.0]},
-        {"class": "bolt_hole", "count": 4, "radius_mm": 3.25, "axis": "Z", "z_range": [0.0, 8.0]}
+        {
+          "class": "centre_bore",
+          "count": 1,
+          "radius_mm": 6.0,
+          "axis": "Z",
+          "z_range": [
+            0.0,
+            8.0
+          ]
+        },
+        {
+          "class": "bolt_hole",
+          "count": 4,
+          "radius_mm": 3.25,
+          "axis": "Z",
+          "z_range": [
+            0.0,
+            8.0
+          ]
+        }
       ],
       "hole_centres": [
-        {"class": "centre_bore", "count": 1, "centre": [0.0, 0.0]},
-        {"class": "bolt_hole", "count": 4,
-         "bolt_circle_radius_mm": 22.0,
-         "angles_deg": [45.0, 135.0, 225.0, 315.0]}
+        {
+          "class": "centre_bore",
+          "count": 1,
+          "centre": [
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "class": "bolt_hole",
+          "count": 4,
+          "bolt_circle_radius_mm": 22.0,
+          "angles_deg": [
+            45.0,
+            135.0,
+            225.0,
+            315.0
+          ]
+        }
       ],
       "bolt_spacing_deg": 90.0,
       "min_wall_mm": null,
-      "min_wall_desc": "not graded for the plate (through holes in a flat plate)",
-      "stl_regen_free": false
+      "min_wall_desc": "not graded for the plate (through holes in a flat plate)"
     },
     "bracket": {
       "dims": {
@@ -62,24 +135,84 @@
         "mount_hole_d_mm": 5.0,
         "holes_per_leg": 2
       },
-      "bbox_mm": [50.0, 40.0, 60.0],
+      "bbox_mm": [
+        50.0,
+        40.0,
+        60.0
+      ],
       "footprint_xz": [
-        [0.0, 0.0], [50.0, 0.0], [50.0, 10.0], [10.0, 10.0], [10.0, 60.0], [0.0, 60.0]
+        [
+          0.0,
+          0.0
+        ],
+        [
+          50.0,
+          0.0
+        ],
+        [
+          50.0,
+          10.0
+        ],
+        [
+          10.0,
+          10.0
+        ],
+        [
+          10.0,
+          60.0
+        ],
+        [
+          0.0,
+          60.0
+        ]
       ],
       "analytic_volume_expr": "40000 - 4*pi*2.5^2*40 + 40*5^2*(1-pi/4)",
       "analytic_volume_mm3": 37073.00918301276,
       "cylinders": [
-        {"class": "mount_hole", "count": 4, "radius_mm": 2.5, "axis": "Y"},
-        {"class": "fillet", "count": 1, "radius_mm": 5.0, "axis": "Y"}
+        {
+          "class": "mount_hole",
+          "count": 4,
+          "radius_mm": 2.5,
+          "axis": "Y"
+        },
+        {
+          "class": "fillet",
+          "count": 1,
+          "radius_mm": 5.0,
+          "axis": "Y"
+        }
       ],
       "hole_centres": [
-        {"class": "mount_hole", "count": 4,
-         "positions_xz": [[5.0, 35.0], [5.0, 55.0], [25.0, 5.0], [45.0, 5.0]]}
+        {
+          "class": "mount_hole",
+          "count": 4,
+          "positions_xz": [
+            [
+              5.0,
+              35.0
+            ],
+            [
+              5.0,
+              55.0
+            ],
+            [
+              25.0,
+              5.0
+            ],
+            [
+              45.0,
+              5.0
+            ]
+          ]
+        }
       ],
-      "fillet": {"count": 1, "radius_mm": 5.0, "where": "re-entrant inner corner along Y"},
+      "fillet": {
+        "count": 1,
+        "radius_mm": 5.0,
+        "where": "re-entrant inner corner along Y"
+      },
       "min_wall_mm": 2.5,
-      "min_wall_desc": "hole edge (r 2.5 at x=5, z=35/55) to outer face x=0: 5-2.5",
-      "stl_regen_free": false
+      "min_wall_desc": "hole edge (r 2.5 at x=5, z=35/55) to outer face x=0: 5-2.5"
     }
   }
 }
