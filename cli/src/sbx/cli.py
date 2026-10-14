@@ -242,6 +242,16 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_runners_migrate(args: argparse.Namespace) -> int:
+    from . import migrate, runners
+
+    jobs = {x.strip() for x in args.jobs.split(",") if x.strip()} if args.jobs else None
+    _say(migrate.run(
+        args.repo, runners.github_token(), apply=args.apply, labels=migrate.parse_labels(args.label),
+        only=args.only, jobs=jobs, base=args.base))
+    return 0
+
+
 class _Parser(argparse.ArgumentParser):
     def error(self, message: str):
         self.print_usage(sys.stderr)
@@ -312,6 +322,17 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--interval", type=float, default=5, help="seconds between pool checks (default 5)")
     r.epilog = "Ctrl-C drains (idle runners go, busy ones finish their job); a second Ctrl-C kills them all."
     r.set_defaults(func=cmd_runners_serve)
+
+    r = rsub.add_parser("migrate", help="propose moving a repo's ubuntu-* jobs onto sbx runners (diff, or a pull request)")
+    r.add_argument("--repo", required=True, help="OWNER/REPO whose workflows to migrate")
+    mode = r.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="print the diff and a job table only (default)")
+    mode.add_argument("--apply", action="store_true", help="push branch sbx-runners-migrate and open a pull request")
+    r.add_argument("--label", default="[self-hosted, sbx]", help="new runs-on labels (default '[self-hosted, sbx]')")
+    r.add_argument("--only", default=None, help="only this workflow file (name or path)")
+    r.add_argument("--jobs", default=None, help="only these comma-separated job ids")
+    r.add_argument("--base", default=None, help="branch to read and target (default: the repo's default branch)")
+    r.set_defaults(func=cmd_runners_migrate)
     return ap
 
 

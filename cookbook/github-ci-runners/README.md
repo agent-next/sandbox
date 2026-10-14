@@ -18,6 +18,15 @@ snap=$(sbx runners image | tail -1)
 sbx runners serve --org <your-org> --snapshot "$snap" --warm 4 --max 10
 ```
 
+Moving an existing repo over is one command. It rewrites only the `runs-on` lines of jobs on `ubuntu-latest`, `ubuntu-24.04` or `ubuntu-22.04` (matrix and other expressions are listed as skipped):
+
+```bash
+sbx runners migrate --repo OWNER/REPO            # dry run: unified diff + job table
+sbx runners migrate --repo OWNER/REPO --apply    # branch sbx-runners-migrate + pull request
+```
+
+Options: `--label '[self-hosted, sbx]'`, `--only ci.yml`, `--jobs lint,test`, `--base BRANCH`. Revert by reverting the pull request.
+
 ```yaml
 # .github/workflows/sandbox-ci.yml
 on: push
