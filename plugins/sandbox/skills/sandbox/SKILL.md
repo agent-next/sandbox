@@ -52,6 +52,17 @@ cloud, not on the user's machine.
   `GET /v0/account` (and `quota_running` in `GET /v0/usage`). A create over
   the limit fails with `quota exceeded, retry in 5s`: kill finished
   sandboxes or wait, do not retry in a tight loop.
+- **A NOT_FOUND just after create can be a registration race.** In the
+  first seconds after `sandbox_create` answers, `sandbox_exec` or a files
+  call can answer `NOT_FOUND: sandbox not found` for a sandbox that is
+  alive (issue #23). Wait a few seconds and retry once before treating the
+  sandbox as dead; if unsure it existed at all, check `sandboxes_list`
+  first — a `running` row means retry, not abandon.
+- **Gateway errors that carry a "retry in Ns" hint are transient.** Besides
+  quota, a node at capacity answers `host disk nearly full: refusing new
+  sandbox starts ... (retry in 5s)` — back off for the hinted time and
+  retry, do not report the key or request as broken and do not retry in a
+  tight loop.
 - **Check the exit code.** `sandbox_exec` returns `status: exited` with
   `exit_code` (0 included) when the command ends within `wait_s` (default
   and max 45). If it returns `status: running`, `exit_code` is null: call
