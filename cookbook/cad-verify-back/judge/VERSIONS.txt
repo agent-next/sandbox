@@ -1,0 +1,26 @@
+# What judge/setup.sh actually installed (reference install, 2026-10-14)
+# Python 3.12.15 (system), pip 25.0.1
+#
+# Every python package is sha256-pinned in requirements.txt and installed
+# with `pip install --require-hashes`. Direct tool versions:
+cadquery==2.7.0
+cadquery-ocp==7.8.1.1.post1        # OCCT 7.8.1 kernel bindings
+ezdxf==1.4.4
+numpy==2.5.4
+nlopt==2.11.0
+casadi==3.8.1
+multimethod==1.12
+runtype==0.5.3
+path==17.1.1
+trame==4.0.0
+# (remaining transitive wheels: see requirements.txt)
+
+# apt packages (Debian 12 bookworm):
+libgl1 1.6.0-1
+libegl1 1.6.0-1
+libglu1-mesa 9.0.2-1.1
+libxkbcommon0 1.5.0-1
+libxrender1 1:0.9.10-1.1
+
+# judge itself: python3 stdlib only (struct, math, json, argparse, ezdxf
+# for DXF reading, cadquery/OCP only to re-import the delivered STEP)

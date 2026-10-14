@@ -28,8 +28,10 @@ python3 - <<'EOF' >/dev/null 2>&1 || { echo "grade: cadquery/ezdxf not importabl
 import cadquery, ezdxf
 EOF
 
-# hash the judge before any artifact content is read
-JUDGE_HASH_BEFORE="$(find "$HERE" -type f ! -name 'RECEIPT.md' ! -name 'VERSIONS.txt' \
+# hash the judge before any artifact content is read (python bytecode
+# caches are excluded: they are created by running the judge itself)
+JUDGE_HASH_BEFORE="$(find "$HERE" -type f ! -path '*/__pycache__/*' \
+                     ! -name 'RECEIPT.md' ! -name 'VERSIONS.txt' \
                      -exec sha256sum {} + | sort | sha256sum)"
 
 # scratch copy so the artifact cannot modify the judge's inputs
@@ -41,8 +43,10 @@ cp "${ARTIFACT}"/part.step "${ARTIFACT}"/part.stl "${ARTIFACT}"/part.dxf "$SCRAT
 # label instead of the random scratch directory it actually reads
 python3 "${HERE}/grade.py" "$SCRATCH" --artifact-name "$(basename "${ARTIFACT%/}")" "$@"
 
-# the artifact must not have touched the judge
-JUDGE_HASH_AFTER="$(find "$HERE" -type f ! -name 'RECEIPT.md' ! -name 'VERSIONS.txt' \
+# the artifact must not have touched the judge (bytecode caches excluded:
+# they are created by running the judge itself, not by the artifact)
+JUDGE_HASH_AFTER="$(find "$HERE" -type f ! -path '*/__pycache__/*' \
+                     ! -name 'RECEIPT.md' ! -name 'VERSIONS.txt' \
                      -exec sha256sum {} + | sort | sha256sum)"
 [ "$JUDGE_HASH_BEFORE" = "$JUDGE_HASH_AFTER" ] \
     || { echo "grade: judge sources changed during grading (checksum mismatch)" >&2; exit 1; }

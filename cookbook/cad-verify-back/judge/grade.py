@@ -155,7 +155,7 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
         rel = abs(v - ve) / ve
         if rel > TOL_VOL_STEP:
             g.fail(f"volume {v:.4f} vs closed-form {ve:.4f} "
-                   f"(rel err {rel:.6%} > {TOL_VOL_STEP:.0%})")
+                   f"(rel err {rel:.6%} > {TOL_VOL_STEP:.4%})")
         g.ok(volume_mm3=v, expected_mm3=ve, rel_err=rel,
              terms=exp["volume_terms"])
 
@@ -246,7 +246,7 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
         rel = abs(v_stl - v_step) / v_step
         if rel > TOL_VOL_STL:
             g.fail(f"STL volume {v_stl:.4f} vs STEP {v_step:.4f} "
-                   f"(rel err {rel:.4%} > {TOL_VOL_STL:.0%})")
+                   f"(rel err {rel:.4%} > {TOL_VOL_STL:.2%})")
         g.ok(stl_volume_mm3=v_stl, step_volume_mm3=v_step, rel_err=rel)
 
     # ---- G9/G10: DXF ------------------------------------------------------
