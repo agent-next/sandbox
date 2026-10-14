@@ -1,0 +1,11 @@
+# sha256 <source-url> -- one line per pinned .deb for cookbook/hyperframes-video
+# verified by judge/setup.sh: download by URL, check sha256, then apt-get install ./<file>.deb
+62b08a77d985d4253894b1f69aebda5925034ca4e294add364167fad8cb64a44  ca-certificates_20250419~deb12u1_all.deb  http://deb.debian.org/debian-security/pool/updates/main/c/ca-certificates/ca-certificates_20250419%7edeb12u1_all.deb
+7fbecf6ffc963be6ec4b24aabea894fc34e3d476571477facedfe78fb95bbb18  chromium-common_155.0.8059.39-1~deb12u1_amd64.deb  http://deb.debian.org/debian-security/pool/updates/main/c/chromium/chromium-common_155.0.8059.39-1%7edeb12u1_amd64.deb
+9fc7e25eb050101a808467e4efbf9ca138136412243b2426de624bb0514d243a  chromium-sandbox_155.0.8059.39-1~deb12u1_amd64.deb  http://deb.debian.org/debian-security/pool/updates/main/c/chromium/chromium-sandbox_155.0.8059.39-1%7edeb12u1_amd64.deb
+a3ffb89479162c43d1f0f997344c228b2ea63dce5725bf737cd38da0acefe694  chromium_155.0.8059.39-1~deb12u1_amd64.deb  http://deb.debian.org/debian-security/pool/updates/main/c/chromium/chromium_155.0.8059.39-1%7edeb12u1_amd64.deb
+2ba8ead87657c123ce6de2de5ecdbc1fb4ead9a4b317b85b8ec41e16c890fe01  ffmpeg_5.1.9-0+deb12u1_amd64.deb  http://deb.debian.org/debian/pool/main/f/ffmpeg/ffmpeg_5.1.9-0%2bdeb12u1_amd64.deb
+8892669e51aab4dc56682c8e39d8ddb7d70fad83c369344e1e240bf3ca22bb76    
+19b1719f30235eaf209866b219d4dbdd4dddd813758a8d5b9715c78c40702ff1    
+9242d054563262398f8cf41fbd96fcc72f9dde70db16de18539882a6cff74f9d  tesseract-ocr-eng_4.1.0-2_all.deb  http://deb.debian.org/debian/pool/main/t/tesseract-lang/tesseract-ocr-eng_4.1.0-2_all.deb
+311fed91c7311cfee54c28a0f21d700377b8131a9d114628d36d2563f99e1730    
