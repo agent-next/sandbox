@@ -45,16 +45,18 @@ it.
 | `plate_w` | 80.0 mm | plate width (Y) |
 | `plate_t` | 6.0 mm | plate thickness (Z) |
 | `bore_d` | 24.0 mm | central through-bore diameter, on the plate centre |
-| `boss_od` | 40.0 mm | raised boss outer diameter, concentric with the bore |
+| `boss_od` | 36.0 mm | raised boss outer diameter, concentric with the bore |
 | `boss_h` | 5.0 mm | boss height above the top face |
 | `bolt_n` | 6 | number of bolt holes |
 | `bolt_d` | 7.0 mm | bolt hole diameter |
-| `pcd` | 100.0 mm | bolt-hole pitch-circle diameter, centred on the plate |
+| `pcd` | 56.0 mm | bolt-hole pitch-circle diameter, centred on the plate |
 | `min_edge` | 8.0 mm | minimum distance from any hole to the plate edge |
 | `min_lig` | 6.0 mm | minimum ligament (solid web) between adjacent holes |
 
 Bolt holes are evenly spaced on the PCD starting at angle 0° (along +X).
 The plate is centred on the origin in X and Y; the bottom face is Z=0.
+With these values the tightest measured design margins are 12.25 mm edge
+distance (±60° holes, along Y) and 6.5 mm ligament (bolt hole to boss OD).
 
 ## Artifact
 
@@ -90,13 +92,16 @@ export cannot be laundered by the exporting library.
 
 ## Acceptance oracle
 
-The oracle is **closed-form analytic geometry from the spec**: expected bbox,
-`V = l·w·t + π/4·(boss_od² − bore_d²)·boss_h − π/4·(bore_d² + bolt_n·bolt_d²)·t`,
-expected hole positions `(pcd/2·cos θᵢ, pcd/2·sin θᵢ)` with
-`θᵢ = 360°·i/bolt_n`, DXF circle positions, edge distances
-`min_edge = (plate_w/2 − pcd/2 − bolt_d/2)` along Y for the two bolt rows
-this spec admits, and ligaments between adjacent bolt holes. The judge writes
-these numbers into the verdict JSON so a pass can be checked by hand.
+The oracle is **closed-form analytic geometry from the spec**: expected bbox
+`plate_l × plate_w × (plate_t + boss_h)`; expected volume
+`V = l·w·t + π/4·boss_od²·boss_h − π/4·bore_d²·(t + boss_h) − bolt_n·π/4·bolt_d²·t`
+(solid boss annulus, bore drilled through plate and boss, bolts through plate
+only); expected hole positions `(pcd/2·cos θᵢ, pcd/2·sin θᵢ)` with
+`θᵢ = 360°·i/bolt_n`; DXF circle positions; and design-rule margins computed
+from the analytic hole centres (edge distance of each hole to the nearest
+plate edge minus its radius; ligaments between adjacent bolt holes, between
+the bore and bolt holes, and between the boss OD and bolt holes). The judge
+writes these numbers into the verdict JSON so a pass can be checked by hand.
 
 ## Self-test (mandatory)
 
@@ -116,7 +121,7 @@ these numbers into the verdict JSON so a pass can be checked by hand.
 |---|---|---|
 | CadQuery | 2.7.0 | pip wheel, sha256 checked by setup.sh |
 | ezdxf | 1.4.4 | pip wheel, sha256 checked by setup.sh |
-| OCCT | 7.7.2 (wheel `cadquery-ocp==7.7.2.1` dependency of CadQuery 2.7.0) | pip wheel, sha256 of the wheel checked by setup.sh |
+| OCCT | 7.8.1 (wheel `cadquery-ocp==7.8.1.1.post1`, the CadQuery 2.7.0 constraint `>=7.8.1,<7.9`) | pip wheel, sha256 of the wheel checked by setup.sh |
 | Python | 3.12 (system) | system; stdlib only for the judge's own parsing |
 | libgl1, libglu1-mesa, libxrender1, libxkbcommon0, libegl1 | Debian 12 bookworm versions | apt; exact recorded versions in `judge/VERSIONS.txt` |
 

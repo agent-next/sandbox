@@ -1,0 +1,13 @@
+{
+  "plate_l": 120.0,
+  "plate_w": 80.0,
+  "plate_t": 6.0,
+  "bore_d": 24.0,
+  "boss_od": 36.0,
+  "boss_h": 5.0,
+  "bolt_n": 6,
+  "bolt_d": 7.0,
+  "pcd": 56.0,
+  "min_edge": 8.0,
+  "min_lig": 6.0
+}

@@ -1,0 +1,5 @@
+# generated CAD outputs are never committed; the good example regenerates
+# them with `python3 examples/good/part.py`
+examples/good/part.step
+examples/good/part.stl
+examples/good/part.dxf
