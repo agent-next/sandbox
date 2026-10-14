@@ -14,6 +14,7 @@ and the command to run it. Entries are added only after they pass review.
 | [gpu-kernel](gpu-kernel/README.md) | Grade a Triton softmax kernel on a 1 GiB GPU slice: correctness on 10 cases, 11/11 mutants caught, lease destroyed; CPU check mode included. |
 | [spice-filter](spice-filter/README.md) | Design a 4th-order active low-pass in ngspice from E24/E12 parts and grade it against a ripple/stopband mask, a closed-form cross-check and Monte-Carlo tolerance; 9/9 mutants caught, independently reproduced. |
 | [fea-calculix](fea-calculix/README.md) | Design the lightest steel cantilever and grade it with CalculiX + gmsh: stress and deflection limits, mesh convergence and an Euler-Bernoulli cross-check; 9/9 mutants caught, independently reproduced. |
+| [plc-st](plc-st/README.md) | Compile an IEC 61131-3 Structured Text tank controller with MATIEC and grade it against a simulated plant in 8 scenarios (overflow, dry run, E-stop, recovery, random faults); 6/6 mutants caught, independently reproduced. |
 
 The first three prompts passed review as demo videos. They have not been
 re-run from this repo, so treat them as starting points, not guarantees.

@@ -1,0 +1,72 @@
+{
+  "pass": false,
+  "scenarios": 8,
+  "results": [
+    {
+      "name": "cycle",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 14.99999999999483,
+      "max_level": 85.01999999999957
+    },
+    {
+      "name": "overflow_guard",
+      "pass": false,
+      "failures": [
+        "max_level<=94"
+      ],
+      "n_scans": 12000,
+      "min_level": 70.0,
+      "max_level": 100.0
+    },
+    {
+      "name": "dry_run",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 10.0,
+      "max_level": 85.01999999999822
+    },
+    {
+      "name": "dry_interlock_fault",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 14.999999999996977,
+      "max_level": 85.01999999999957
+    },
+    {
+      "name": "lowsw_false_trip",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 62.54999999999815,
+      "max_level": 85.019999999999
+    },
+    {
+      "name": "estop",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 40.0,
+      "max_level": 48.00000000000125
+    },
+    {
+      "name": "recovery",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 14.99999999999483,
+      "max_level": 85.01999999999957
+    },
+    {
+      "name": "random_faults",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 40.0,
+      "max_level": 55.24000000000238
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "result.png": {
+    "sha256": "31ff1ae1a0ae94bae0beda3960c9dea66eb967fdccb281b9965d7d79ac39ac84",
+    "size": 108454
+  },
+  "loop.png": {
+    "sha256": "e17db7bba5386d706fc1a3c08472400feb13d305c334817123dda4a19bdb2db9",
+    "size": 116394
+  },
+  "demo.mp4": {
+    "sha256": "45db0438981f9b917d2f08bcd67c1c00fd1ba687e7d075caecf129d37861721c",
+    "size": 875945
+  },
+  "data/grade_estop_not_safe.json": {
+    "sha256": "094f956e9740ad22e0e2f77c037b3e7b5e69c8c82c4610cc576254fc4867de84",
+    "size": 1542
+  },
+  "data/grade_good.json": {
+    "sha256": "bf1dd3a491fe06a8e0225d3e8db79acf3a36ac48b4d561407cbcff0d9afc6f02",
+    "size": 1465
+  },
+  "data/grade_good_replica.json": {
+    "sha256": "bf1dd3a491fe06a8e0225d3e8db79acf3a36ac48b4d561407cbcff0d9afc6f02",
+    "size": 1465
+  },
+  "data/grade_inverted_dryrun.json": {
+    "sha256": "d5a5214838f183bd4e17e858ff89e5b07c9618a95702d92d8f24cba131d27206",
+    "size": 1475
+  },
+  "data/grade_missing_estop_latch.json": {
+    "sha256": "094f956e9740ad22e0e2f77c037b3e7b5e69c8c82c4610cc576254fc4867de84",
+    "size": 1542
+  },
+  "data/grade_missing_overflow_guard.json": {
+    "sha256": "572c525ceec20f22eecf83e1fc24f6ee1fde39956e29744e4bc156da919d43cf",
+    "size": 1486
+  },
+  "data/grade_no_dry_restart.json": {
+    "sha256": "7dd9c51257f2cbd4009ade7046273c6f1f2a58d2f6999d852a46e69576bb7c3e",
+    "size": 1530
+  },
+  "data/grade_swapped_valves.json": {
+    "sha256": "3e9b39a0a6757882e90e5677cedda48179da385db0c29847191c53c4a3de5ebe",
+    "size": 1558
+  },
+  "data/selftest_output.txt": {
+    "sha256": "5086c5846e12356043ad763dabeff77a959c6d99956f080aeabb604b695cb693",
+    "size": 386
+  },
+  "data/traces_good/trace_cycle.csv": {
+    "sha256": "9d78b011d433e027cf550e23ef44f210cd0b72869912c399baf4f26ae71561c5",
+    "size": 301046
+  },
+  "data/traces_good/trace_dry_interlock_fault.csv": {
+    "sha256": "11cfc262c30e33a6ce0b29fedbbb75da395998715c4289754e828144e5ac121f",
+    "size": 301046
+  },
+  "data/traces_good/trace_dry_run.csv": {
+    "sha256": "00efaa9152057bfe222f3835edd96cab876311faf2aded7cc3935a32e5b3d6f5",
+    "size": 301046
+  },
+  "data/traces_good/trace_estop.csv": {
+    "sha256": "5b48f58b0aa5ce86ae95c2c5dc270c2973b5ce577292dc1b8ff4ecd5d1fdadab",
+    "size": 301046
+  },
+  "data/traces_good/trace_lowsw_false_trip.csv": {
+    "sha256": "2fd260d9b44613982264bd5470d7325f6154b317ad3d02985b383741908fe6c4",
+    "size": 301046
+  },
+  "data/traces_good/trace_overflow_guard.csv": {
+    "sha256": "79bec30008ef33dbbaf300aa0fedeb6f2147ccfac0796c59efc4560a453898ca",
+    "size": 301046
+  },
+  "data/traces_good/trace_random_faults.csv": {
+    "sha256": "be74c6d74ec980a0551b1f819b4712ef2b3f3f103e1f5fa478c688eb97a7aba7",
+    "size": 301046
+  },
+  "data/traces_good/trace_recovery.csv": {
+    "sha256": "04f92f3ca095659c86822492c841f713e945daa34dd1f9f62c3b9a1632c4fbc9",
+    "size": 301046
+  },
+  "command": "bash make_data.sh && bash make_media.sh",
+  "ffmpeg_version": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers"
+}

@@ -1,0 +1,8 @@
+# Python dependencies for cookbook/plc-st judge
+# This judge uses Python standard library only (no external packages required).
+# The entry below is a placeholder to satisfy tooling that expects a requirements.txt.
+# Actual dependencies are pinned in VERSIONS.txt and installed via setup.sh (system packages).
+# If any Python package becomes necessary in the future, add it here with exact version and sha256.
+
+# --no-deps placeholder
+# python-stdlib==3.11.*

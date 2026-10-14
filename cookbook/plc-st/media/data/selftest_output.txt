@@ -1,0 +1,10 @@
+selftest: known-good PASS
+selftest: mutant KILLED: estop_not_safe
+selftest: mutant KILLED: inverted_dryrun
+selftest: mutant KILLED: missing_estop_latch
+selftest: mutant KILLED: missing_overflow_guard
+selftest: mutant KILLED: no_dry_restart
+selftest: mutant KILLED: swapped_valves
+selftest: kill rate 6/6 (100%)
+selftest: determinism PASS (same seed -> identical verdict)
+selftest: PASS
