@@ -17,7 +17,7 @@ Gates (see SPEC.md):
   G9 judge/ directory checksums unchanged
 """
 import os, sys, json, time, hashlib, subprocess, shutil, tempfile, \
-    py_compile, ast, importlib.util
+    py_compile, ast
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -186,13 +186,22 @@ def main():
             os.path.exists(os.path.join(simdir, "port_it_1"))
         result_line = any(l.startswith("RESULT ") for l in
                           proc.stdout.splitlines())
-        ok = (proc.returncode == 0 and raw_ok and result_line
+        try:
+            freqs_a = np.asarray(results["freqs_GHz"], float)
+            s11_a = np.asarray(results["S11_dB"], float)
+            s11_at = float(results["S11_dB_at_target"])
+            f_res = float(results["f_res_GHz"])
+            fields_ok = len(s11_a) == len(freqs_a)
+        except (KeyError, TypeError, ValueError):
+            fields_ok = False
+        ok = (proc.returncode == 0 and raw_ok and result_line and fields_ok
               and len(freqs) >= 21
               and min(freqs) <= SWEEP_LO_GHZ + 1e-9
               and max(freqs) >= SWEEP_HI_GHZ - 1e-9)
         add("G3_sim_runs", ok,
             f"rc={proc.returncode} raw={'yes' if raw_ok else 'no'} "
-            f"result_line={result_line}")
+            f"result_line={result_line}"
+            + ("" if fields_ok else " fields=missing/malformed"))
         if not ok:
             for g in ("G4_S11_at_target", "G5_resonance",
                       "G6_raw_crosscheck", "G7_oracle_msline",
@@ -206,10 +215,7 @@ def main():
         add("G3_sim_runs", False, repr(e))
         return _finish(verdict, args, t0, pre_hash)
 
-    freqs = np.asarray(results["freqs_GHz"], float)
-    s11 = np.asarray(results["S11_dB"], float)
-    s11_at = float(results["S11_dB_at_target"])
-    f_res = float(results["f_res_GHz"])
+    freqs, s11 = freqs_a, s11_a
 
     # trace: S11 curve of the artifact's own reported sweep (G3 output).
     # Caller gives each run its own DIR (fixed filenames inside), so
@@ -281,13 +287,31 @@ def main():
     else:
         try:
             tc = time.time()
-            spec = importlib.util.spec_from_file_location("artifact_mod", art)
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
             p2 = dict(params)
             p2["mesh_res"] = params["mesh_res"] * G["conv_mesh_factor"]
             cdir = tempfile.mkdtemp(prefix="rfconv-")
-            r2 = mod.simulate(p2, os.path.join(cdir, "oems_sim"))
+            # run the artifact's simulate() in its own process: importing it
+            # here would let its top-level code patch or exit the judge
+            runner = os.path.join(cdir, "run_fine.py")
+            with open(runner, "w") as fh:
+                fh.write(
+                    "import importlib.util, json, sys\n"
+                    "spec = importlib.util.spec_from_file_location('artifact_mod', sys.argv[1])\n"
+                    "mod = importlib.util.module_from_spec(spec)\n"
+                    "spec.loader.exec_module(mod)\n"
+                    "r = mod.simulate(json.loads(sys.argv[2]), sys.argv[3])\n"
+                    "json.dump({'S11_dB': [float(x) for x in r['S11_dB']],\n"
+                    "           'freqs_GHz': [float(x) for x in r['freqs_GHz']]},\n"
+                    "          open(sys.argv[4], 'w'))\n")
+            out2 = os.path.join(cdir, "fine.json")
+            pr = subprocess.run([sys.executable, runner, art, json.dumps(p2),
+                                 os.path.join(cdir, "oems_sim"), out2],
+                                capture_output=True, text=True,
+                                timeout=args.timeout, cwd=cdir)
+            if pr.returncode != 0 or not os.path.exists(out2):
+                raise RuntimeError(f"fine-mesh run rc={pr.returncode}: "
+                                   f"{(pr.stderr or '').strip()[-200:]}")
+            r2 = json.load(open(out2))
             verdict["timing"]["convergence_s"] = round(time.time() - tc, 1)
             s2 = np.asarray(r2["S11_dB"], float)
             f2 = np.asarray(r2["freqs_GHz"], float)
@@ -335,4 +359,9 @@ def _finish(verdict, args, t0, pre_hash=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    tempfile.tempdir = tempfile.mkdtemp(prefix="rfjudge-")
+    try:
+        rc = main()
+    finally:
+        shutil.rmtree(tempfile.tempdir, ignore_errors=True)
+    sys.exit(rc)

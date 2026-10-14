@@ -2,7 +2,7 @@
 """One-command run for the rf-openems demo.
 
 Creates a disposable agent-next sandbox, clones this repository at `--ref`,
-installs the pinned MEEP environment, runs judge/selftest.sh, then
+installs the pinned openEMS environment, runs judge/selftest.sh, then
 judge/grade.sh on the known-good example, prints the verdict JSON and a
 short summary, and *always* tears the sandbox down.
 
@@ -25,7 +25,7 @@ def run(cmd, check=True, capture=True, timeout=None):
     dt = time.time() - t0
     if check and r.returncode != 0:
         sys.stderr.write((r.stdout or "")[-3000:] + (r.stderr or "")[-3000:])
-        raise SystemExit(f"command failed ({r.returncode}): {cmd}")
+        raise RuntimeError(f"command failed ({r.returncode}): {cmd}")
     return r, dt
 
 
