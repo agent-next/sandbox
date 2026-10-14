@@ -1,0 +1,16 @@
+# PyPI packages installed into $HOME/.rf-openems/pylibs by judge/setup.sh.
+# Pip hash-pin format (pkg==ver --hash=sha256:...). setup.sh resolves each
+# pin through the PyPI JSON API, selects the wheel file whose recorded
+# digest equals the pinned sha256, downloads it and re-verifies the sha256
+# before unpacking (wheels are plain zip archives; no pip in the sysroot).
+matplotlib==3.9.2 --hash=sha256:8912ef7c2362f7193b5819d17dae8629b34a95c58603d781329712ada83f9447
+contourpy==1.3.0 --hash=sha256:637f674226be46f6ba372fd29d9523dd977a291f66ab2a74fbeb5530bb3f445d
+cycler==0.12.1 --hash=sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30
+fonttools==4.54.1 --hash=sha256:82834962b3d7c5ca98cb56001c33cf20eb110ecf442725dc5fdf36d16ed1ab07
+kiwisolver==1.4.7 --hash=sha256:18077b53dc3bb490e330669a99920c5e6a496889ae8c63b58fbc57c3d7f33a18
+pillow==11.0.0 --hash=sha256:6f4dba50cfa56f910241eb7f883c20f1e7b1d8f7d91c750cd0b318bad443f4d5
+pyparsing==3.2.0 --hash=sha256:93d9577b88da0bbea8cc8334ee8b918ed014968fd2ec383e868fb8afb1ccef84
+python-dateutil==2.9.0.post0 --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
+packaging==24.1 --hash=sha256:5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124
+six==1.16.0 --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
+imageio-ffmpeg==0.5.1 --hash=sha256:5289f75c7f755b499653f3209fea4efd1430cba0e39831c381aad2d458f7a316

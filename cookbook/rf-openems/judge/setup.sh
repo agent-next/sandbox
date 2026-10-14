@@ -7,7 +7,8 @@
 #               pinned manifest (judge/packages.txt) AND against the signed
 #               apt metadata.
 #   - pylibs/:  PyPI wheels (matplotlib stack + imageio-ffmpeg) resolved via
-#               the PyPI JSON API and sha256-checked against judge/wheels.txt.
+#               the PyPI JSON API and sha256-checked against the hash pins in
+#               judge/requirements.txt.
 #   - bin/ffmpeg: static ffmpeg extracted from the imageio-ffmpeg wheel.
 #
 # Everything is pinned to exact versions with sha256 verification. Nothing
@@ -109,27 +110,31 @@ export LD_LIBRARY_PATH="$SYSROOT/usr/lib/x86_64-linux-gnu"
 # ------------------------------------------------------------ wheels ----
 if [ ! -f "$PYLIBS/.wheels_done" ]; then
     echo "[setup] downloading pinned wheels (resolved via PyPI JSON API) ..."
-    while read -r pkg ver fname want_sha; do
-        [ -z "${pkg:-}" ] && continue
-        [ "${pkg:0:1}" = "#" ] && continue
-        url="$(python3 - "$pkg" "$ver" "$fname" "$want_sha" <<'PYEOF'
+    while read -r line; do
+        [ -z "${line:-}" ] && continue
+        [ "${line:0:1}" = "#" ] && continue
+        spec="${line%% *}"                # pkg==version
+        pkg="${spec%%==*}"; ver="${spec##*==}"
+        want_sha="${line##*sha256:}"
+        url="$(python3 - "$pkg" "$ver" "$want_sha" <<'PYEOF'
 import json, sys, urllib.request
-pkg, ver, fname, want_sha = sys.argv[1:5]
+pkg, ver, want_sha = sys.argv[1:4]
 d = json.load(urllib.request.urlopen(
     f"https://pypi.org/pypi/{pkg}/{ver}/json", timeout=60))
 for u in d["urls"]:
-    if u["filename"] == fname:
-        assert u["digests"]["sha256"] == want_sha, f"sha256 mismatch on PyPI for {fname}"
+    if u["filename"].endswith(".whl") and \
+            u["digests"]["sha256"] == want_sha:
         print(u["url"]); break
 else:
-    sys.exit(f"wheel {fname} not found on PyPI for {pkg}=={ver}")
+    sys.exit(f"no wheel matching pinned sha256 for {pkg}=={ver}")
 PYEOF
 )"
+        fname="${url##*/}"
         curl -sfLo "$PYLIBS/$fname" "$url"
         echo "$want_sha  $PYLIBS/$fname" | sha256sum -c - >/dev/null
         python3 -m zipfile -e "$PYLIBS/$fname" "$PYLIBS/"
         rm -f "$PYLIBS/$fname"
-    done < "$HERE/wheels.txt"
+    done < "$HERE/requirements.txt"
     # static ffmpeg binary out of the imageio-ffmpeg wheel
     ff="$(find "$PYLIBS" -name 'ffmpeg-linux*' -type f | head -1)"
     [ -n "$ff" ] && cp "$ff" "$BINDIR/ffmpeg" && chmod +x "$BINDIR/ffmpeg"

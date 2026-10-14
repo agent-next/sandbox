@@ -33,8 +33,19 @@ def sbx(*args, **kw):
     return run(["sbx", *args], **kw)
 
 
-def sbx_exec(sid, script, **kw):
-    run(["sbx", "exec", sid, "--", "bash", "-c", script], **kw)
+def sbx_exec(sid, script, timeout_s, **kw):
+    """sbx exec with an explicit server-side timeout: the sbx default is 60 s,
+    far below what setup/selftest/grade need (see RECEIPT.md wall times)."""
+    run(["sbx", "exec", sid, "--timeout", str(timeout_s), "--",
+         "bash", "-c", script], timeout=timeout_s + 120, **kw)
+
+
+# Per-step sbx exec timeouts in seconds: measured wall time on a 2-core
+# sandbox (see RECEIPT.md) plus >= 3x headroom for a slower fresh sandbox.
+T_CLONE = 300        # measured ~10-30 s
+T_SETUP = 600        # measured ~45 s
+T_SELFTEST = 2700    # measured ~14-16 min (good + 7 mutants + determinism)
+T_GRADE = 1200       # measured ~5-6 min (sim + oracle + convergence re-run)
 
 
 def main():
@@ -58,22 +69,24 @@ def main():
         print(f"sandbox id: {sid}")
 
         t0 = time.time()
-        sbx_exec(sid, f"git clone --depth 1 -b {shlex.quote(args.ref)} {shlex.quote(REPO)} w")
+        sbx_exec(sid, f"git clone --depth 1 -b {shlex.quote(args.ref)} {shlex.quote(REPO)} w",
+                 timeout_s=T_CLONE)
         walls["clone"] = round(time.time() - t0, 1)
 
         t0 = time.time()
-        sbx_exec(sid, f"bash w/{DEMO}/judge/setup.sh")
+        sbx_exec(sid, f"bash w/{DEMO}/judge/setup.sh", timeout_s=T_SETUP)
         walls["setup"] = round(time.time() - t0, 1)
 
         t0 = time.time()
-        sbx_exec(sid, f"bash w/{DEMO}/judge/selftest.sh")
+        sbx_exec(sid, f"bash w/{DEMO}/judge/selftest.sh", timeout_s=T_SELFTEST)
         walls["selftest"] = round(time.time() - t0, 1)
 
         t0 = time.time()
-        sbx_exec(sid, f"bash w/{DEMO}/judge/grade.sh w/{DEMO}/examples/good/antenna.py --json /tmp/verdict.json")
+        sbx_exec(sid, f"bash w/{DEMO}/judge/grade.sh w/{DEMO}/examples/good/antenna.py --json /tmp/verdict.json",
+                 timeout_s=T_GRADE)
         walls["grade"] = round(time.time() - t0, 1)
 
-        r, _ = sbx("exec", sid, "--", "cat", "/tmp/verdict.json")
+        r, _ = sbx("exec", sid, "--timeout", "60", "--", "cat", "/tmp/verdict.json")
         verdict = json.loads(r.stdout)
         print("\n=== verdict ===")
         print(json.dumps(verdict, indent=1))
