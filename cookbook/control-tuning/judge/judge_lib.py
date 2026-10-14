@@ -17,6 +17,7 @@ torque)]; theta measured from upright. Actuator limits |F| <= FMAX,
 measured before clamping.
 """
 import math
+import os
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -98,8 +99,33 @@ def demands(K, Y):
     return F, T
 
 
+def save_trace(path, t, Y, F, T):
+    """Write one simulation trace as CSV: time, states, unclamped demands.
+
+    Trace output only (gate numbers never read it back); the verdict is
+    byte-identical whether or not traces are written.
+    """
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("t_s,x_m,xdot_m_s,theta_rad,thetadot_rad_s,"
+                 "F_demand_N,tau_demand_Nm\n")
+        for j in range(len(t)):
+            row = (t[j], Y[0, j], Y[1, j], Y[2, j], Y[3, j], F[j], T[j])
+            fh.write(",".join(f"{v:.10e}" for v in row) + "\n")
+
+
 GM_NO_CROSSING_DB = 99.0   # phase never crosses -180 deg in the sweep band
 W_SWEEP = np.logspace(-2.0, 3.0, 6000)
+
+
+def loop_response(Ki, bi):
+    """Loop-at-a-time frequency response L(jw) = Ki (jwI - A0)^-1 bi.
+
+    Returns (mag, ph) sampled on W_SWEEP, ph unwrapped — the curves the
+    margin gate is measured on.
+    """
+    L = np.array([Ki @ np.linalg.solve(1j * wi * np.eye(4) - A0, bi)
+                  for wi in W_SWEEP])
+    return np.abs(L), np.unwrap(np.angle(L))
 
 
 def siso_margins(Ki, bi):
@@ -108,10 +134,7 @@ def siso_margins(Ki, bi):
     Returns (gm_db, pm_deg); gm_db is GM_NO_CROSSING_DB when the phase never
     crosses -180 deg, pm_deg is 180.0 when |L| never crosses 1.
     """
-    L = np.array([Ki @ np.linalg.solve(1j * wi * np.eye(4) - A0, bi)
-                  for wi in W_SWEEP])
-    mag = np.abs(L)
-    ph = np.unwrap(np.angle(L))
+    mag, ph = loop_response(Ki, bi)
     gms, pms = [], []
     for i in range(len(W_SWEEP) - 1):
         if (mag[i] - 1.0) * (mag[i + 1] - 1.0) <= 0 and mag[i] != mag[i + 1]:
@@ -157,8 +180,13 @@ MC_X_SETTLE_MAX = 7.0          # s, displacement-IC x settling (spec value)
 XDISP_BAND = 0.02              # m, 2 % settling band for x (displacement IC)
 
 
-def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True):
-    """Run every gate. Q, R are validated numpy arrays. Returns verdict."""
+def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True, trace_dir=None):
+    """Run every gate. Q, R are validated numpy arrays. Returns verdict.
+
+    trace_dir, when set, additionally receives CSV traces of the two
+    deterministic scenarios (time, states, unclamped demands) and of the
+    margin-gate frequency sweeps. Writing traces changes no gate value.
+    """
     import control
 
     if Q.ndim == 1:
@@ -194,6 +222,8 @@ def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True):
         verdict["error"] = "nonlinear sim diverged (scenario 1)"
         return verdict
     F1, T1 = demands(K, Y1)
+    if trace_dir:
+        save_trace(os.path.join(trace_dir, "s1_trace.csv"), t1, Y1, F1, T1)
     gate("s1_F_demand_max_N", float(np.abs(F1).max()),
          np.abs(F1).max() <= FMAX)
     gate("s1_tau_demand_max_Nm", float(np.abs(T1).max()),
@@ -215,6 +245,8 @@ def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True):
         verdict["error"] = "nonlinear sim diverged (scenario 2)"
         return verdict
     F2, T2 = demands(K, Y2)
+    if trace_dir:
+        save_trace(os.path.join(trace_dir, "s2_trace.csv"), t2, Y2, F2, T2)
     gate("s2_peak_theta_rad", float(np.abs(th2).max()),
          np.abs(th2).max() <= PEAK_THETA_MAX)
     gate("s2_F_demand_max_N", float(np.abs(F2).max()),
@@ -233,6 +265,17 @@ def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True):
     gate("pm_force_deg", pmf, pmf >= PM_MIN_DEG)
     gate("gm_torque_db", gmt, gmt >= GM_MIN_DB)
     gate("pm_torque_deg", pmt, pmt >= PM_MIN_DEG)
+    if trace_dir:
+        for name, Ki, bi in (("force", K[0], B0[:, 0]),
+                             ("torque", K[1], B0[:, 1])):
+            mag, ph = loop_response(Ki, bi)
+            with open(os.path.join(trace_dir, f"margins_{name}.csv"),
+                      "w", encoding="utf-8") as fh:
+                fh.write("w_rad_s,mag,mag_db,phase_deg\n")
+                for wi, mi, pi in zip(W_SWEEP, mag, ph):
+                    fh.write(f"{wi:.10e},{mi:.10e},"
+                             f"{20.0 * math.log10(mi):.10e},"
+                             f"{math.degrees(pi):.10e}\n")
 
     # Monte-Carlo robustness: +-20 % on M, m, l, nonlinear plant. Each
     # sample runs BOTH spec scenarios — the 0.15 rad lean (gate 3) and the

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Grade one controller artifact. Prints a JSON verdict, exits 0 only if all
 gates pass. Usage: grade.py <artifact.json> [--seed N] [--json out.json]
-[--no-mc]"""
+[--no-mc] [--trace DIR]"""
 import argparse
 import json
 import math
@@ -57,7 +57,13 @@ def main():
                     help="also write the verdict JSON to this path")
     ap.add_argument("--no-mc", action="store_true",
                     help="skip the Monte-Carlo gate (selftest speed-up)")
+    ap.add_argument("--trace", default=None, metavar="DIR",
+                    help="write simulation traces (CSV) to DIR (media only; "
+                         "does not affect the verdict)")
     args = ap.parse_args()
+
+    if args.trace:
+        os.makedirs(args.trace, exist_ok=True)
 
     try:
         Q, R = load_artifact(args.artifact)
@@ -71,7 +77,8 @@ def main():
         return 1
 
     verdict = judge_lib.evaluate(Q, R, seed=args.seed,
-                                 run_mc=not args.no_mc)
+                                 run_mc=not args.no_mc,
+                                 trace_dir=args.trace)
     print(json.dumps(verdict, indent=2))
     if args.json_out:
         with open(args.json_out, "w", encoding="utf-8") as fh:

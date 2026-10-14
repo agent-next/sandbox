@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Grade one controller artifact against all gates.
 # Usage: grade.sh <artifact.json> [--seed N] [--json out.json] [--no-mc]
+#                 [--trace DIR]
 # Exits 0 only if every gate passes. The artifact is graded against a
 # checksummed copy of judge/: any modification of the judge fails loudly.
+# --trace DIR makes the judge also dump the simulation traces it measured
+# (CSV, media only — the verdict is identical without it).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
