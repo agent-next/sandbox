@@ -55,10 +55,17 @@ Q_PCT = 0.1                   # percent reporting grid
 
 
 def sha256_tree(path):
+    """sha256 over judge source files. Generated files are excluded:
+    VERSIONS.txt is rewritten by setup.sh (possibly concurrently when
+    several environments share one checkout) and *.pyc is interpreter
+    bytecode — neither is judge code an artifact could tamper with."""
+    SKIP = {"VERSIONS.txt"}
     h = hashlib.sha256()
     for root, dirs, files in sorted(os.walk(path)):
         dirs[:] = sorted(d for d in dirs if d != "__pycache__")
         for f in sorted(files):
+            if f in SKIP or f.endswith(".pyc"):
+                continue
             fp = os.path.join(root, f)
             h.update(fp.encode())
             with open(fp, "rb") as fh:
