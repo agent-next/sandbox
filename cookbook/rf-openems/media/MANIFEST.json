@@ -1,0 +1,90 @@
+{
+  "demo": "cookbook/rf-openems",
+  "regenerate_data": "bash media/make_data.sh   (re-runs the judge)",
+  "regenerate_media": "bash media/make_media.sh (reads media/data/)",
+  "tools": {
+    "python": "3.11.2 (judge/setup.sh sysroot)",
+    "matplotlib": "3.9.2 (judge/setup.sh, hash-pinned wheel)",
+    "numpy": "1.24.2 (judge/setup.sh, sha256-pinned .deb)",
+    "ffmpeg": "imageio-ffmpeg 0.5.1 static build (judge/setup.sh, hash-pinned wheel)"
+  },
+  "files": {
+    "result.png": {
+      "shows": "S11(dB) vs frequency of the judged-good antenna from the grader's real sweep trace (good__s11_artifact.csv), the judge's independent re-derivation from the raw openEMS port time series (G6) and the fine-mesh re-run (G8); red dashed -10 dB pass line (G4), shaded 2.45 GHz +-2 % band (G5), measured min S11 annotated; right panel: oracle line probe phases and eeff vs Hammerstad-Jensen (G7).",
+      "sources": [
+        "data/verdicts/good.json",
+        "data/traces/good__s11_artifact.csv",
+        "data/traces/good__s11_judge.csv",
+        "data/traces/good__s11_fine.csv"
+      ],
+      "command": "media/make_media.sh -> $RF_PY media/fig_result.py",
+      "sha256": "565f4abab0e0255c60a2ad0817b5fa2bfe7091dbdbe253cb00af40c7997e9b57",
+      "bytes": 401598,
+      "source_sha256": {
+        "data/verdicts/good.json": "e746a86156d7a6f40a38a27f87f99dd4da5ae42f30dbb77b846f14d2c765b1e9",
+        "data/traces/good__s11_artifact.csv": "7a422a015d355a462f6b02e4b239b2eaed629749a3899e7d481e575bc096dece",
+        "data/traces/good__s11_judge.csv": "042d93b1aa5abd573de868c435f40ba3d100abd0d4ad58217a715bbf91ea7e71",
+        "data/traces/good__s11_fine.csv": "7c2f7d7eb2d31b21dcafab45c352ae5a2b0d1eb8eed2bef799bbda7c03f77316"
+      }
+    },
+    "loop.png": {
+      "shows": "Agent-loop replay (bad -> partly fixed -> good; a replay of real grade.sh JSONs, not a live agent trace) with the per-iteration verdict, and the self-test kill table: each mutant's killer gate with the measured value vs limit parsed from its verdict JSON, plus the good row and the kill rate from selftest.txt.",
+      "sources": [
+        "data/verdicts/good.json",
+        "data/verdicts/bad_nan_er.json",
+        "data/verdicts/bad_substrate_er.json",
+        "data/verdicts/bad_thick_substrate.json",
+        "data/verdicts/bad_coarse_mesh.json",
+        "data/verdicts/bad_patch_length.json",
+        "data/verdicts/bad_no_ground.json",
+        "data/verdicts/bad_feed_center.json",
+        "data/selftest.txt"
+      ],
+      "command": "media/make_media.sh -> $RF_PY media/fig_loop.py",
+      "sha256": "eac87745d5073ed7486bda14554fde17591b812759874e6825c68c44a1bf688a",
+      "bytes": 325496,
+      "source_sha256": {
+        "data/verdicts/good.json": "e746a86156d7a6f40a38a27f87f99dd4da5ae42f30dbb77b846f14d2c765b1e9",
+        "data/verdicts/bad_nan_er.json": "ac1d35d1cbfc3e06c21b349c704351d971a57792c1c462d81fa75450ce35429c",
+        "data/verdicts/bad_substrate_er.json": "3832cbfd5bb408c47c45f596666054c3f73c23894ac5abc6562c48ccae28ff55",
+        "data/verdicts/bad_thick_substrate.json": "5aa3460a2b01bba282d5ab88d04b150c4782b4c288f320c75ddc26b4d93ab074",
+        "data/verdicts/bad_coarse_mesh.json": "77611d206f65ffc46032591a41fecb613dbf89419b438063f57e67fe4bc43b88",
+        "data/verdicts/bad_patch_length.json": "cd7c15d5a8656dcd1d24b82c2e4e4b01b1bf9d344aa2dd5ca645cf5183402013",
+        "data/verdicts/bad_no_ground.json": "22fc3e4f4f27b80e37160549ac7701bcbbb81aebc2551cbbdb065e57f361b2f7",
+        "data/verdicts/bad_feed_center.json": "63faca529b42b36d97cd5dc18214638ff4fada474f77d925da0ad70b7562e2ba",
+        "data/selftest.txt": "41971bfa53f58fb1f96486e1db9bea761bf072f7c5615bea11a534a9ae559f93"
+      }
+    },
+    "demo.mp4": {
+      "shows": "30 s, 1920x1080 30 fps: title; S11 curves of the replayed iterations in a fixing agent's order (each from its own grade.py --trace CSV, with the gate that killed it and the measured value vs limit; sanity-killed cases show no trace, honestly); the good design with G6/G8 overlays and all-gate readout; closing selftest kill rate. Labelled on the title card as a replay of real grade runs, not a live agent trace. No field snapshots: this openEMS setup writes no 3D field dumps (see media/REVIEW.md).",
+      "sources": [
+        "data/verdicts/*.json",
+        "data/traces/*.csv",
+        "data/selftest.txt"
+      ],
+      "command": "media/make_media.sh -> $RF_PY media/make_video.py (lossless master: media/master/demo_lossless.mp4, -crf 0, git-ignored)",
+      "sha256": "4b9231883645b7e61fe05f810c18000d266f9eaeb3a54cf8ea5f532de3ba9c2a",
+      "bytes": 527340,
+      "source_sha256": {
+        "data/verdicts/bad_coarse_mesh.json": "77611d206f65ffc46032591a41fecb613dbf89419b438063f57e67fe4bc43b88",
+        "data/verdicts/bad_feed_center.json": "63faca529b42b36d97cd5dc18214638ff4fada474f77d925da0ad70b7562e2ba",
+        "data/verdicts/bad_nan_er.json": "ac1d35d1cbfc3e06c21b349c704351d971a57792c1c462d81fa75450ce35429c",
+        "data/verdicts/bad_no_ground.json": "22fc3e4f4f27b80e37160549ac7701bcbbb81aebc2551cbbdb065e57f361b2f7",
+        "data/verdicts/bad_patch_length.json": "cd7c15d5a8656dcd1d24b82c2e4e4b01b1bf9d344aa2dd5ca645cf5183402013",
+        "data/verdicts/bad_substrate_er.json": "3832cbfd5bb408c47c45f596666054c3f73c23894ac5abc6562c48ccae28ff55",
+        "data/verdicts/bad_thick_substrate.json": "5aa3460a2b01bba282d5ab88d04b150c4782b4c288f320c75ddc26b4d93ab074",
+        "data/verdicts/good.json": "e746a86156d7a6f40a38a27f87f99dd4da5ae42f30dbb77b846f14d2c765b1e9",
+        "data/traces/bad_feed_center__s11_artifact.csv": "0d7a7113f4daf56fda82088d66601e160929f4968970ad50c7d2199f52bf7f47",
+        "data/traces/bad_feed_center__s11_judge.csv": "040c04d0c00bb8214f8f3e0b2ab61c35a8e2912cf292b5f61bc654c75d902808",
+        "data/traces/bad_no_ground__s11_artifact.csv": "af71afa03a3674adbeadeb8abe43d7352f2e91f744d378d09c0b6d78c1bb6cf4",
+        "data/traces/bad_no_ground__s11_judge.csv": "2af9e121a79da23d3d86e4ceb03d54c891d6c664dd1a41305c61eb9c015778c8",
+        "data/traces/bad_patch_length__s11_artifact.csv": "91754c93ec3801b12d0c10f2a79dca7230712ce05a7ce6043a2814ad39800930",
+        "data/traces/bad_patch_length__s11_judge.csv": "d3b24377fa8b7285b011709cb2e9998ba3e2bfaf2106ca86b476de68df46779d",
+        "data/traces/good__s11_artifact.csv": "7a422a015d355a462f6b02e4b239b2eaed629749a3899e7d481e575bc096dece",
+        "data/traces/good__s11_fine.csv": "7c2f7d7eb2d31b21dcafab45c352ae5a2b0d1eb8eed2bef799bbda7c03f77316",
+        "data/traces/good__s11_judge.csv": "042d93b1aa5abd573de868c435f40ba3d100abd0d4ad58217a715bbf91ea7e71",
+        "data/selftest.txt": "41971bfa53f58fb1f96486e1db9bea761bf072f7c5615bea11a534a9ae559f93"
+      }
+    }
+  }
+}
