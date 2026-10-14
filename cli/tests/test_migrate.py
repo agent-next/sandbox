@@ -295,3 +295,39 @@ def test_non_2xx_without_redirect_is_a_clear_error():
 def test_pr_body_captures_only_the_snapshot_line():
     body = migrate.pr_body("o/r", LABELS, [migrate.Finding("a.yml", "j", 1, "ubuntu-latest", "[self-hosted, sbx]")])
     assert "snap=$(sbx runners image | tail -1)" in body
+
+
+def test_multiline_flow_list_is_skipped_not_broken():
+    text = "jobs:\n  a:\n    runs-on: [ubuntu-latest,\n      linux]\n"
+    new, found = migrate.migrate_text("ci.yml", text, LABELS)
+    assert new == text
+    assert [(f.new, "multi-line" in f.skipped) for f in found] == [("", True)]
+
+
+def test_indentless_block_list_is_migrated():
+    text = "jobs:\n  a:\n    runs-on:\n    - ubuntu-latest\n    steps: []\n"
+    new, found = migrate.migrate_text("ci.yml", text, LABELS)
+    assert new == "jobs:\n  a:\n    runs-on:\n    - self-hosted\n    - sbx\n    steps: []\n"
+    assert [f.job for f in found] == ["a"]
+
+
+def test_block_mapping_runs_on_is_skipped():
+    text = "jobs:\n  a:\n    runs-on:\n      group: ${{ matrix.group }}\n      labels:\n        - ubuntu-latest\n"
+    new, found = migrate.migrate_text("ci.yml", text, LABELS)
+    assert new == text
+    assert [(f.new, "mapping" in f.skipped) for f in found] == [("", True)]
+
+
+def test_duplicate_ubuntu_items_keep_their_comments():
+    text = "jobs:\n  a:\n    runs-on:\n      - ubuntu-latest  # one\n      - ubuntu-24.04  # two\n"
+    new, _ = migrate.migrate_text("ci.yml", text, LABELS)
+    assert new == "jobs:\n  a:\n    runs-on:\n      - self-hosted\n      - sbx  # one\n      # two\n"
+
+
+def test_pr_body_serve_matches_custom_labels_and_installs_from_github():
+    body = migrate.pr_body("o/r", ["self-hosted", "sbx", "big"], [migrate.Finding("a.yml", "j", 1, "x", "y")])
+    assert '--labels "sbx,big"' in body
+    assert 'pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"' in body
+    assert "pip install agent-next-sandbox" not in body
+    only = migrate.pr_body("o/r", ["self-hosted"], [migrate.Finding("a.yml", "j", 1, "x", "y")])
+    assert '--labels ""' in only
