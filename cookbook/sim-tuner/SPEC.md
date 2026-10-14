@@ -86,7 +86,7 @@ promise — the full judge always needs the GPU check.
   so that mutants fail on the informative gate.
 - **G3 held-out error** — CPU MuJoCo re-simulation against the four held-out
   recordings (different initial conditions, same hidden rig): pass iff
-  `heldout_err < 0.018` AND `heldout_err < 0.30 × default_err`, where
+  `heldout_err < 0.025` AND `heldout_err < 0.30 × default_err`, where
   `default_err` is the held-out error of the uncalibrated MJCF defaults.
   `--cpu-only` grades G1–G3.
 - **G4 GPU/CPU agreement** — the artifact is scored once more on a fresh 4 GiB
@@ -104,23 +104,37 @@ promise — the full judge always needs the GPU check.
 
 | quantity | measured |
 |---|---|
-| noise floor: hidden truth vs held-out, with the 1.5 % noise | 0.01492 |
-| default (uncalibrated MJCF) parameters vs held-out | 0.07795 |
-| 30 % of the default error (the G3 relative cap) | 0.02338 |
-| held-out error of the shipped `examples/good/params.json` | 0.01638 (frac 0.210 of default) |
-| per-parameter range-edge mutants from the good fit | 0.017–0.67 for the two `solref` edges … the `mu` edge |
-| the train-overfitted ("fits the noise") mutant | 0.04135 |
-| the "every parameter 6 % of range off truth" mutant | 0.10641 |
+| noise floor: hidden truth vs held-out, with the 1.5 % noise | 0.01400 |
+| default (uncalibrated MJCF) parameters vs held-out | 0.88275 |
+| 30 % of the default error (the G3 relative cap) | 0.26482 |
+| weakest range-edge mutant (`solref_dr` at 0.80) | 0.03948 (2.82× floor) |
+| strongest range-edge mutant (`mu` at 0.15) | 0.62888 (44.9× floor) |
+| all ten range-edge mutants | 0.039–0.629 (2.8×–44.9× floor) |
+| honest-fit scatter: one parameter ± 5 % of range off truth | 1.05×–7.0× floor |
+| honest-fit scatter: one parameter ± 20 % of range off truth | 1.35×–16.3× floor |
 
-G3's absolute cap 0.018 is 1.2× the measured noise floor: close enough that
-only a genuine fit inside the noise band passes, far enough that the shipped
-artifact (0.01638, well inside its own search's GPU estimate) passes with ~8 %
-margin. The two weakly-identifiable `solref` edge mutants land at
-0.0167–0.0226 and are the floor of the mutant band; at 0.018 they are either
-killed outright or — where borderline — carried by the band of remaining
-mutants and by the kill-rate rule (the mutants exist to prove the judge kills,
-and it does on 14 of 15 by G3/G1). The relative cap (30 % of default) is the
-independently meaningful "much better than doing nothing" rule.
+Two scene choices make this band wide enough to gate on, both measured:
+
+1. **The `box_zdot` channel is recorded** (vertical velocity of the box). The
+   box is airborne until its landing, so this channel is ~0 everywhere except
+   the landing transient, which is exactly what `solref_tc`/`solref_dr` shape.
+   Without it, `solref` edge mutants score 1.01–1.08× the noise floor — inside
+   the honest-fit scatter — and no threshold separates them.
+2. **That channel is normalised by a peak scale** (95th percentile of
+   |signal|), not its RMS. The RMS of a mostly-zero channel sits ~4× below the
+   transient amplitude; RMS normalisation then amplifies landing-timing error
+   at the 8 ms observation frame until the metric has a sub-1 % needle at
+   truth (0.0149 at truth, 0.19 at one 13×13-grid step — 1.3 % of range —
+   away in `solref_tc`). Peak normalisation keeps the transient the channel's
+   content (edge mutants 2.8–45×) while making the neighbourhood of a fit
+   continuous (approaching truth the metric descends 0.30 → 0.15 → 0.075).
+
+G3's absolute cap 0.025 is 1.6× the noise floor and 1.6× below the weakest
+edge mutant: a genuine fit must land within a few percent of range per
+parameter (the honest-fit scatter at ± 5 % of range reaches 7× floor), and
+every range-edge mutant fails by ≥ 1.6×. The relative cap (30 % of default =
+0.265) is the independently meaningful "much better than doing nothing" rule
+and independently rejects the defaults and the extreme mutants.
 
 ## Acceptance oracle
 
@@ -172,10 +186,7 @@ swapped-units pair (damping ×10, armature ÷10), plus structure violations:
 extra key, `NaN`, string value, out-of-range. `judge/selftest.sh` grades the
 good artifact (must pass G1–G4 on a real GPU lease), then every mutant (each
 must fail ≥ 1 gate), prints the kill rate (must be ≥ 90 %, exits non-zero
-otherwise) and checks determinism. Note on the two `solref` edge mutants:
-contact solref is weakly identifiable in this 1 s scene — a parameter fitted
-near the opposite edge still scores within the honest-fit band. The judge
-tolerates that band on purpose (it is what a real system-ID campaign on this
-rig would look like) and still rejects it once the fit is biased on the
-strongly-identifiable parameters. The self-test reports per-mutant survival;
-a survival on a `solref` edge is documented in RECEIPT.md.
+otherwise) and checks determinism. With the `box_zdot` channel and peak
+normalisation, every range-edge mutant fails G3 by ≥ 1.6× (2.82× floor at the
+weakest, `solref_dr` at 0.80) — contact parameters are identifiable from the
+landing transient, so no edge survival is expected or tolerated.

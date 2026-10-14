@@ -61,25 +61,41 @@ RANGES = {p[0]: (p[1], p[2]) for p in PARAM_SPEC}
 
 NSTEP, SUB, HALF = 500, 4, 250     # 1.0 s at 2 ms; ctrl step at t = 0.5 s; sampled every 8 ms
 NOBS = NSTEP // SUB                # 125
-NSIG = 6
-SIG_NAMES = ["box_x", "box_z", "q1", "q2", "q1dot", "q2dot"]
+NSIG = 7
+# Signal order. box_zdot (vertical box velocity) is what makes the contact
+# parameters identifiable: the box is airborne in every recording until the
+# landing, so box_zdot is ~0 elsewhere and the landing transient is the entire
+# content of its channel. Two normalisation consequences, both measured on
+# CPU MuJoCo 3.8.1 (seed 7, see SPEC.md):
+#   * without this channel, solref range-edge mutants of a converged fit are
+#     statistically indistinguishable from the fit itself (1.01-1.08x the
+#     noise floor); with it they sit at 2.8-45x.
+#   * the channel is normalised by a PEAK scale (95th percentile of |signal|),
+#     not its RMS: the RMS of a mostly-zero channel is ~4x below the transient
+#     amplitude, which amplifies sample-frame timing error at the landing
+#     (~8 ms per observation) until the metric is a needle — 0.0149 at truth
+#     vs 0.19 one grid step (1.3 % of range) away in solref_tc, a basin no
+#     gradient method can enter. Peak normalisation keeps the transient the
+#     channel's content (edge mutants 2.8-45x) while making the honest-fit
+#     neighbourhood continuous (grid: 0.30 -> 0.15 -> 0.075 approaching truth).
+SIG_NAMES = ["box_x", "box_z", "box_zdot", "q1", "q2", "q1dot", "q2dot"]
+ZDOT = 2                           # index of the box_zdot channel
 
 NOISE_FRAC = 0.015                 # 1.5 % of each signal's RMS, seeded
 N_TRAIN, N_HOLDOUT = 6, 4
 DOF_H = 6                          # hinge dofs are nv-2 .. nv-1 (after the 6-dof free joint)
 
 # Gate thresholds, calibrated on CPU MuJoCo 3.8.1 (seed 7, see SPEC.md):
-# the noise floor (hidden-truth params vs held-out recordings, WITH the
-# 1.5 % measurement noise) is 0.01492; the default-parameter error is 0.07795.
-# The search loop's own result scores 0.01638 (train 0.01697). The strongest
-# range-edge mutants on held-out (solref_dr edges: 0.0150/0.0151) are partially
-# INSIDE the band honest fits scatter into on other seeds: contact solref is
-# weakly identifiable from this scene. They are not separately gated; G3's
-# absolute cap (1.2x the noise floor) is calibrated to keep the honest-fit
-# band, reject the "fitted but shifted" band (overfit mutant 0.041, 6 %-of-
-# range band mutant 0.106) and every strong edge mutant, per-signal and in
-# total.
-ORACLE_ABS_ERR = 0.018
+# with peak normalisation of box_zdot, the noise floor (hidden-truth params vs
+# held-out recordings, WITH the 1.5 % measurement noise) is 0.01400 and the
+# default-parameter error is 0.88275, so G3's relative cap (30 %) is 0.26482
+# and the absolute threshold does the mutant rejection. Held-out range-edge
+# mutants measure 0.03948 (solref_dr lo, the strongest survivor) up to 0.62888;
+# ORACLE_ABS_ERR sits a factor >= 1.6 below the weakest of them and >= 1.6
+# above the floor, which is the band honest fits land in (single-parameter
+# offsets of +/- 5 % of range score 1.05-7.0x the floor; the fit must land
+# within a few percent of range per parameter).
+ORACLE_ABS_ERR = 0.025
 ORACLE_REL_FRAC = 0.30             # and below 30 % of the default-parameter error
 GPU_CPU_ABS = 0.003                # |gpu train err - cpu train err|
 GPU_CPU_TOL = 0.10                 # and within 10 % of the CPU error
@@ -218,12 +234,13 @@ def simulate(params, ic):
             d.ctrl[:] = [ic["c1b"], ic["c2b"]]
         mujoco.mj_step(m, d)
         if (k + 1) % SUB == 0:
-            rows.append([d.qpos[0], d.qpos[2], d.qpos[7], d.qpos[8], d.qvel[6], d.qvel[7]])
+            rows.append([d.qpos[0], d.qpos[2], d.qvel[2], d.qpos[7], d.qpos[8],
+                         d.qvel[6], d.qvel[7]])
     return np.array(rows)
 
 
 def error_of(params, refs, ics, scale):
-    """RMS mismatch over all recordings, normalised per signal by the train RMS."""
+    """RMS mismatch over all recordings, per-signal scaled (see SIG_NAMES)."""
     tot = []
     for ref, ic in zip(refs, ics):
         sim = simulate(params, ic)
@@ -259,10 +276,14 @@ def gen_scenario(seed, expected_versions=None):
     ics_hold = _gen_ics(N_HOLDOUT, seed + 101)
     refs_train = [simulate(truth, ic) for ic in ics_train]
     refs_hold = [simulate(truth, ic) for ic in ics_hold]
-    scale = np.sqrt(np.mean(np.concatenate([r ** 2 for r in refs_train]), axis=0))
+    rms = np.sqrt(np.mean(np.concatenate([r ** 2 for r in refs_train]), axis=0))
+    scale = rms.copy()
+    # the mostly-zero box_zdot channel is metric-normalised by a peak scale
+    # (see SIG_NAMES above); the measurement noise stays on the RMS sigma
+    scale[ZDOT] = np.percentile(np.abs(np.concatenate(refs_train)[:, ZDOT]), 95)
     noise = np.random.default_rng(seed + 7)   # one stream: each recording gets its own noise
     for r in refs_train + refs_hold:          # measurement noise on the recorded signals
-        r += noise.normal(0, NOISE_FRAC * scale, size=r.shape)
+        r += noise.normal(0, NOISE_FRAC * rms, size=r.shape)
     return {"seed": seed, "noise_frac": NOISE_FRAC, "truth": truth,
             "ics_train": ics_train, "ics_hold": ics_hold,
             "refs_train": refs_train, "refs_hold": refs_hold, "scale": scale,
@@ -383,7 +404,8 @@ def run_eval(payload):
                 wp.synchronize()
                 qp = dd.qpos.numpy(); qv = dd.qvel.numpy()
                 zmin = min(zmin, float(qp[:, 2].min()))
-                sig = np.stack([qp[:, 0], qp[:, 2], qp[:, 7], qp[:, 8], qv[:, 6], qv[:, 7]], axis=1)
+                sig = np.stack([qp[:, 0], qp[:, 2], qv[:, 2], qp[:, 7], qp[:, 8],
+                                qv[:, 6], qv[:, 7]], axis=1)
                 d = (sig.reshape(n_ic, NC, NSIG) - refs[:, obs, :].reshape(n_ic, 1, NSIG)) / scale
                 acc += (d ** 2).sum(axis=(0, 2))
                 obs += 1

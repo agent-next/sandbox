@@ -71,8 +71,11 @@ passes — that loop is the demo:
 > `armature`) must be calibrated from the 6 train recordings. Write a batched
 > `mujoco_warp` evaluator on the lease (one world per candidate × recording,
 > per-world model fields `geom_friction`, `geom_solref`, `dof_damping`,
-> `dof_armature`; `nconmax=16`, `njmax=72`) and search — quasi-random first,
-> then a shrinking elite resample. When your best candidate scores well below
+> `dof_armature`; `nconmax=16`, `njmax=72`) and search — a broad uniform
+> pre-sample first, then quasi-Newton (BFGS) descent with batched
+> finite-difference gradients (one GPU chunk per gradient; the valley is
+> narrow and diagonal, so population resampling alone stalls). When your best
+> candidate scores well below
 > the noise-floor band on the train split, submit it as `params.json` and grade
 > it: `bash cookbook/sim-tuner/judge/grade.sh params.json --seed 7`. Iterate
 > until every gate passes, then report the verdict JSON (held-out error and

@@ -3,10 +3,13 @@
 
 Imitates what the user's agent does: batches of candidates are scored in one
 batched mujoco_warp run per chunk on a 4 GiB GPU slice (nworld = candidates x
-6 train recordings), then a cross-entropy style resample shrinks around the
-elite. Every batch's scores are appended to examples/good/loop.json (the
-media round turns it into loop.png). The resulting artifact is written to
-examples/good/params.json.
+6 train recordings). The loop is a broad uniform pre-sample (plus the
+uncalibrated defaults as candidate 0) followed by BFGS descent with batched
+finite-difference gradients — the valley around a genuine fit is narrow and
+diagonal, and population resampling (CEM/DE) measurably stalls in its outer
+basins while a quasi-Newton walk descends it. Every batch's scores are
+appended to examples/good/loop.json (the media round turns it into
+loop.png). The resulting artifact is written to examples/good/params.json.
 
     SIM_TUNER_PYTHON=~/.venvs/sim-tuner/bin/python \
     python3 cookbook/sim-tuner/tools/search.py [--seed 7] [--budget 2000]
@@ -84,43 +87,89 @@ def main():
         versions = None
 
         # --- iteration 0: broad uniform + the uncalibrated defaults as candidate 0
-        pop = 170
+        pop = min(511, args.budget - 1)
         cands = [dict(DEFAULT_PARAMS)] + [
             {n: float(v) for n, v in zip(PARAM_NAMES, lo + (hi - lo) * rng.random(5))}
-            for _ in range(pop - 1)]
+            for _ in range(pop)]
         iterations.append({"iter": 0, "kind": "uniform", "n": len(cands), "chunks": []})
         errs, versions = gpu_score(cands)
         iterations[-1]["errors"] = errs
-        i = min(range(len(errs)), key=lambda k: errs[k])
-        best = {"err": errs[i], "params": cands[i]}
+        order = sorted(range(len(errs)), key=lambda k: errs[k])
+        pre_x = np.array([[c["mu"], c["solref_tc"], c["solref_dr"],
+                           c["damping"], c["armature"]] for c in cands])
+        pre_e = np.array(errs)
+        best = {"err": errs[order[0]], "params": cands[order[0]]}
         n_done += len(cands)
         print(f"[search] iter 0 uniform {len(cands)} -> best {best['err']:.5f}", flush=True)
 
-        # --- cross-entropy resample rounds around the elite
-        centre = np.array([best["params"][n] for n in PARAM_NAMES])
-        spread = (hi - lo) * 0.15
+        # --- BFGS descent with batched finite-difference gradients, restarted
+        # from the next-best uniform samples when a walk stalls. Two GPU calls
+        # per iteration: one chunk with the 5 FD points for the gradient, one
+        # chunk with 4 line-search step sizes evaluated at once.
         it = 1
-        while n_done < args.budget:
-            if it == 4:
-                break
-            k = min(128, args.budget - n_done)
-            pop_x = np.clip(centre + spread * rng.standard_normal((k, 5)), lo, hi)
-            cands = [{n: float(v) for n, v in zip(PARAM_NAMES, row)} for row in pop_x]
-            iterations.append({"iter": it, "kind": "cem", "centre": list(map(float, centre)),
-                               "spread": list(map(float, spread)), "n": len(cands), "chunks": []})
-            errs, _ = gpu_score(cands)
-            iterations[-1]["errors"] = errs
-            order = sorted(range(len(errs)), key=lambda k: errs[k])
-            elite = max(4, k // 8)
-            centres = np.array([[cands[j][n] for n in PARAM_NAMES] for j in order[:elite]])
-            centre = centres.mean(axis=0)
-            spread = np.maximum(centres.std(axis=0) * 1.5, (hi - lo) * 0.002)
-            n_done += len(cands)
-            if errs[order[0]] < best["err"]:
-                best = {"err": errs[order[0]], "params": cands[order[0]]}
-            print(f"[search] iter {it} cem {len(cands)} -> best-so-far {best['err']:.5f} "
-                  f"(this round {errs[order[0]]:.5f})", flush=True)
-            it += 1
+        start_idx = 0
+        while n_done < args.budget and start_idx < 4:
+            x = pre_x[order[start_idx]].copy()
+            fx = float(pre_e[order[start_idx]])
+            eps = 0.03 * (hi - lo)
+            I5 = np.eye(5)
+            B = np.eye(5)
+            stall = 0
+            start_idx += 1
+            while n_done + 14 <= args.budget and stall < 6 and it <= 400:
+                # gradient chunk: forward differences at the current point
+                cands = [{n: float(v) for n, v in zip(PARAM_NAMES, row)}
+                         for row in (x + eps * I5)]
+                iterations.append({"iter": it, "kind": "bfgs-grad", "at": list(map(float, x)),
+                                   "start": start_idx, "n": len(cands), "chunks": []})
+                gerrs, _ = gpu_score(cands)
+                g = (np.array(gerrs) - fx) / eps
+                n_done += len(cands)
+                if not np.all(np.isfinite(g)) or float(g @ B @ g) <= 0:
+                    eps = np.maximum(eps / 2.0, 1e-4 * (hi - lo))
+                    stall += 1
+                    it += 1
+                    continue
+                p = -(B @ g)
+                # line-search chunk: four step sizes evaluated together
+                alphas = np.array([1.0, 0.5, 0.25, 0.125])
+                trials = np.clip(x + alphas[:, None] * p, lo, hi)
+                cands = [{n: float(v) for n, v in zip(PARAM_NAMES, row)} for row in trials]
+                iterations.append({"iter": it, "kind": "bfgs-line", "n": len(cands), "chunks": []})
+                Terrs, _ = gpu_score(cands)
+                n_done += len(cands)
+                k = int(np.argmin(Terrs))
+                if Terrs[k] < fx - 1e-9:
+                    xt, ft = trials[k], float(Terrs[k])
+                    # gradient at the accepted point (one more chunk)
+                    cands = [{n: float(v) for n, v in zip(PARAM_NAMES, row)}
+                             for row in (xt + eps * I5)]
+                    iterations.append({"iter": it, "kind": "bfgs-grad2", "n": len(cands),
+                                       "chunks": []})
+                    g2errs, _ = gpu_score(cands)
+                    gn = (np.array(g2errs) - ft) / eps
+                    n_done += len(cands)
+                    s, y = xt - x, gn - g
+                    sy = float(s @ y)
+                    if sy > 1e-12:
+                        rho = 1.0 / sy
+                        V = np.eye(5) - rho * np.outer(s, y)
+                        B = V.T @ B @ V + rho * np.outer(s, s)
+                    else:
+                        B = np.eye(5)
+                    x, fx = xt, ft
+                    stall = 0
+                    if fx < best["err"] - 1e-9:
+                        best = {"err": fx,
+                                "params": {n: float(v) for n, v in zip(PARAM_NAMES, x)}}
+                    it += 1
+                else:
+                    stall += 1
+                    eps = np.maximum(eps / 2.0, 1e-4 * (hi - lo))
+                    B = np.eye(5)
+                    it += 1
+            print(f"[search] start {start_idx}: walk ended at {fx:.5f} "
+                  f"(best {best['err']:.5f}, {n_done} evals)", flush=True)
 
         final = {n: round(float(best["params"][n]), 6) for n in PARAM_NAMES}
         cpu_train = error_of(final, scen["refs_train"], scen["ics_train"], scen["scale"])
