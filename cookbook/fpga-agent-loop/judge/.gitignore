@@ -1,0 +1,46 @@
+# Judge kit - generated/bulky artifacts not tracked
+# Toolchain installations
+~/.local/oss-cad-suite/
+~/.local/riscv-gcc/
+~/.local/riscv-tests/
+
+# Build artifacts
+*.vvp
+*.vcd
+*.json
+*.config
+*.log
+/tmp/*.log
+/tmp/*.json
+/tmp/*.config
+
+# Test outputs
+*.out
+*.dump
+*.hex
+!tests/*.hex
+
+# Synthesis/P&R
+yosys.log
+pnr.log
+*.bit
+*.svf
+
+# Coverage
+*.ucdb
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
