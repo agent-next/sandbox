@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import signal
@@ -23,6 +24,29 @@ UNIT_FIELDS = {"baseWeight", "baseMetalness", "baseDiffuseRoughness",
                "specularWeight", "specularRoughness", "coatWeight",
                "coatRoughness", "fuzzWeight", "fuzzRoughness"}
 MATERIAL_FIELDS = COLOR_FIELDS | UNIT_FIELDS | {"emissionLuminance", "emissive"}
+
+
+def kill_owned_tree(pid):
+    """Include browser processes even when they create their own process groups."""
+    parents = {}
+    for status in Path("/proc").glob("[0-9]*/status"):
+        try:
+            line = next(line for line in status.read_text().splitlines()
+                        if line.startswith("PPid:"))
+            parents[int(status.parent.name)] = int(line.split()[1])
+        except (OSError, StopIteration, ValueError):
+            continue
+    owned = {pid}
+    while True:
+        expanded = owned | {child for child, parent in parents.items() if parent in owned}
+        if expanded == owned:
+            break
+        owned = expanded
+    for child in sorted(owned, reverse=True):
+        try:
+            os.kill(child, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
 
 
 def checksum():
@@ -329,14 +353,28 @@ def main():
                 command.append("--wrong-albedo")
             if args.hdr_out:
                 command += ["--hdr-out", str(args.hdr_out.resolve())]
-            proc = subprocess.run(command, text=True, capture_output=True)
-            if proc.stderr:
-                print(proc.stderr, file=sys.stderr, end="")
+            started = time.monotonic()
+            proc = subprocess.Popen(command, text=True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, start_new_session=True)
+            expired = False
             try:
-                verdict = json.loads(proc.stdout)
+                stdout, stderr = proc.communicate(timeout=595)
+            except subprocess.TimeoutExpired:
+                expired = True
+                kill_owned_tree(proc.pid)
+                stdout, stderr = proc.communicate(timeout=2)
+            if stderr:
+                print(stderr, file=sys.stderr, end="")
+            try:
+                verdict = json.loads(stdout) if not expired else {}
             except ValueError:
                 verdict = {"pass": False, "error": "judge subprocess returned no JSON",
                            "gates": {}, "timing": {}}
+            if expired:
+                verdict = {"pass": False, "error": "judge exceeded 595-second process budget",
+                           "error_kind": "renderer", "requested_backend": args.backend,
+                           "seed": args.seed, "gates": {},
+                           "timing": {"total_seconds": round(time.monotonic()-started, 3)}}
             verdict["judge_unchanged"] = (verdict.get("judge_unchanged", False)
                                            and before == checksum())
             verdict["pass"] = bool(verdict["pass"] and verdict["judge_unchanged"]

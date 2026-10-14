@@ -6,12 +6,14 @@ import importlib.util
 import json
 from pathlib import Path
 import unittest
+import subprocess
 from unittest.mock import Mock, patch
 
 import numpy as np
 
 from grade import g1, g3, g4, masks, validate
 from driver import Renderer
+import grade as judge
 
 HERE = Path(__file__).resolve().parent
 GOOD = json.loads((HERE.parent / "examples/good/scene.json").read_text())
@@ -89,6 +91,17 @@ class ContractTests(unittest.TestCase):
         result["adapter_info"] = {"architecture": "hardware"}
         with self.assertRaisesRegex(AssertionError, "not SwiftShader"):
             renderer.render(GOOD, 32, 17)
+
+    def test_process_deadline_fails_closed(self):
+        process = Mock(pid=123)
+        process.communicate.side_effect = [
+            subprocess.TimeoutExpired("fixture", 595), ("", "")
+        ]
+        with patch.object(judge.subprocess, "Popen", return_value=process), \
+             patch.object(judge, "kill_owned_tree") as kill, \
+             patch("sys.argv", ["grade.py", str(HERE.parent / "examples/good/scene.json")]):
+            self.assertEqual(judge.main(), 1)
+            kill.assert_called_once_with(123)
 
     def test_runner_cleanup_on_step_failure(self):
         calls = []
