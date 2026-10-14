@@ -155,7 +155,8 @@ class RV32ISS:
             elif f3 == 0x2:
                 r = int(self.s32(a) < simm)
             elif f3 == 0x3:
-                r = int(a < (imm & 0xFFFFFFFF))
+                # SLTIU: sign-extend imm to 32 bits, then compare unsigned
+                r = int(a < (simm & 0xFFFFFFFF))
             elif f3 == 0x4:
                 r = a ^ (simm & 0xFFFFFFFF)
             elif f3 == 0x6:
