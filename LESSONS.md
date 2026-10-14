@@ -45,16 +45,6 @@ lesson seen on 3 or more distinct days moves into `docs/acceptance.md`.
 - 1a793d8 (#8): `sbx exec` leaked SDK exceptions — a timeout said to pass 'timeout' or 'request_timeout' "when making the request", never naming --timeout, and hid that the command may still be running; a wrong or dead id answered "Paused sandbox <id> not found" even when the id never existed. Fixed in 1a793d8.
 - Seen 1× (2026-10-14).
 
-## Tests prove the change
-
-**A behavior change ships a test that fails without the change.**
-- 60b2634 (#3): ten malformed inventory payloads, each asserted to exit non-zero with no partial output.
-- 9c9a8e5 (#6): runners survive a gateway blip without killing the job or leaking the sandbox.
-- d5fc63a (#9): template aliases, lookup/cleanup errors, gone sandboxes and quota-cap validation.
-- 1a793d8 (#8): exec timeout and not-found errors address the CLI user.
-- Done right: bbae8c3 (#5) shipped 954 lines of runner tests with the feature.
-- Seen 3× (2026-10-12, 2026-10-13, 2026-10-14). Promoted to docs/acceptance.md.
-
 ## A standard nobody checks
 
 **A standard that nothing checks is violated on first use.**
@@ -74,3 +64,7 @@ lesson seen on 3 or more distinct days moves into `docs/acceptance.md`.
 **Appending to a config file must not clobber what is already there.**
 - aafc261 (#7): `echo ... > .env` would have clobbered an existing .env; changed to `>>`.
 - Seen 1× (2026-10-13).
+
+## Moved to docs/acceptance.md
+
+- A behavior change ships a test that fails without the change (seen 2026-10-12, 10-13, 10-14; 60b2634, 9c9a8e5, d5fc63a, 1a793d8).
