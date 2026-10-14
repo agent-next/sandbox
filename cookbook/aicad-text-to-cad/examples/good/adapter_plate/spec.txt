@@ -1,0 +1,8 @@
+Adapter plate.
+
+- Plate: 60 mm × 60 mm × 8 mm thick, centred on the Z axis.
+- Centre bore: Ø 12 mm straight through.
+- 4 × Ø 6.5 mm through holes on a Ø 44 mm bolt circle,
+  first hole at 45°, then every 90° (45/135/225/315°).
+- All dimensions in mm.
+- Frame: plate spans z = 0..8; hole axes parallel to Z.

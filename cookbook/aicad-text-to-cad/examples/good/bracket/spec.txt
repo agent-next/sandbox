@@ -1,0 +1,12 @@
+L-bracket.
+
+- L cross-section in the XZ plane through the points
+  (0,0), (50,0), (50,10), (10,10), (10,60), (0,60), extruded 40 mm in Y.
+- Legs 10 mm thick.  Overall 50 wide × 60 tall × 40 deep.
+- One R 5 mm fillet on the re-entrant inner corner (the corner at
+  (10,10)), running the full 40 mm depth.
+- 2 × Ø 5 mm mounting holes per leg, through the 40 mm depth:
+  vertical leg: axes at (x=5, z=35) and (x=5, z=55);
+  horizontal leg: axes at (x=25, z=5) and (x=45, z=5).
+- All dimensions in mm.
+- Frame: hole axes parallel to Y; profile in z = 0..60.

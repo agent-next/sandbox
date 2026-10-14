@@ -1,0 +1,7 @@
+Flanged bushing.
+
+- Shaft: Ø 20 mm, 32 mm long.
+- Flange: Ø 36 mm × 8 mm thick, at the far end of the shaft.
+- Bore: Ø 10 mm straight through the whole 40 mm height.
+- All dimensions in mm.
+- Frame: bore axis on Z; shaft starts at z=0; flange sits on top (z=32..40).
