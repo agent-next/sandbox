@@ -93,11 +93,11 @@ def run_shard(k: int, targets: list[str], template: str, out: Path, keep: bool) 
                                        capture_output=True, text=True, timeout=4000)
             except subprocess.TimeoutExpired:
                 log(f"download {mode} timed out", k)
-                keep = True
+                keep, status = True, f"failed:download{mode}"
                 continue
             log(f"download {mode} exit {fetch.returncode}: {(fetch.stdout + fetch.stderr).strip().splitlines()[-1:]}", k)
             if fetch.returncode:
-                keep = True
+                keep, status = True, f"failed:download{mode}"
         return status
     finally:
         if keep:
