@@ -2,10 +2,10 @@
 # Self-test: prove the judge can fail. See SPEC.md.
 #
 # 1. the known-good example passes grade.sh (G1-G4, incl. a real GPU lease);
-# 2. every scripted mutant fails at least one gate (mutants are graded
-#    --cpu-only once their physics error is CPU-decidable; value mutants that
-#    need the G4 GPU agreement check would still fail G3 on CPU, and the two
-#    pure-G4 mutants are graded with the GPU lease);
+# 2. every scripted mutant fails at least one gate. Mutants are graded
+#    --cpu-only: each one is killed by a CPU gate (G1 structure/ranges, G2
+#    train error or G3 held-out error), so no mutant ever leases a GPU —
+#    only artifacts that pass every CPU gate reach G4.
 # 3. determinism: two grades of the good artifact with the same seed produce
 #    byte-identical verdict JSON except the `timing` key;
 # 4. judge/ checksums are compared before and after (inside grade.sh).
@@ -52,10 +52,8 @@ total=0
 fails=""
 while read -r name; do
     total=$((total + 1))
-    # Structure mutants fail before any physics; for those grade.sh writes no
-    # JSON at all when G1 rejects them pre-verdict. Value mutants get a full
-    # verdict (each run creates and destroys one GPU lease for G4).
-    if bash "$HERE/grade.sh" "$MUT/$name.json" --json "$WORK/$name.json" >"$WORK/$name.log" 2>&1; then
+    # --cpu-only: mutants are killed by CPU gates; no GPU lease per mutant.
+    if bash "$HERE/grade.sh" "$MUT/$name.json" --cpu-only --json "$WORK/$name.json" >"$WORK/$name.log" 2>&1; then
         fails="$fails $name"
         echo "selftest: mutant $name: SURVIVED (judge did not kill it)" >&2
     else

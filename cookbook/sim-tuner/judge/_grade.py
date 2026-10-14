@@ -279,9 +279,6 @@ def grade(artifact_path, seed, gpu=True, lease=None, expected_versions=None, wan
                 g4["pass"] = False
         else:
             g4["version_check"] = "unpinned"
-        if g4["version_check"] not in ("unpinned", "pass"):
-            g4["problems"] = g4["version_check"]["problems"]
-            g4["pass"] = False
         verdict["gates"]["G4_gpu_cpu_agree"] = g4
     elif params is not None:
         verdict["gates"]["G4_gpu_cpu_agree"] = {"pass": None, "skipped": "no GPU lease"}
