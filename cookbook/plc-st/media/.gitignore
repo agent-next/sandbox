@@ -1,0 +1,4 @@
+# Generated media master frames (lossless) - git ignored per standard
+master/
+.venv/
+*.mkv

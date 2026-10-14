@@ -1,0 +1,78 @@
+{
+  "pass": false,
+  "scenarios": 8,
+  "results": [
+    {
+      "name": "cycle",
+      "pass": false,
+      "failures": [
+        "no_pump_inlet",
+        "autocycle>=2"
+      ],
+      "n_scans": 12000,
+      "min_level": 40.0,
+      "max_level": 88.01999999999897
+    },
+    {
+      "name": "overflow_guard",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 70.0,
+      "max_level": 88.01999999999641
+    },
+    {
+      "name": "dry_run",
+      "pass": false,
+      "failures": [
+        "no_pump_inlet",
+        "autocycle>=2"
+      ],
+      "n_scans": 12000,
+      "min_level": 10.0,
+      "max_level": 88.01999999999975
+    },
+    {
+      "name": "dry_interlock_fault",
+      "pass": false,
+      "failures": [
+        "no_pump_inlet"
+      ],
+      "n_scans": 12000,
+      "min_level": 40.0,
+      "max_level": 88.01999999999897
+    },
+    {
+      "name": "lowsw_false_trip",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 80.0,
+      "max_level": 88.0199999999984
+    },
+    {
+      "name": "estop",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 40.0,
+      "max_level": 48.00000000000125
+    },
+    {
+      "name": "recovery",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 40.0,
+      "max_level": 88.01999999999897
+    },
+    {
+      "name": "random_faults",
+      "pass": true,
+      "failures": [],
+      "n_scans": 12000,
+      "min_level": 40.0,
+      "max_level": 55.24000000000238
+    }
+  ]
+}
