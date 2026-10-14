@@ -1,0 +1,34 @@
+{
+  "data": {
+    "data/gpu-run.log": {
+      "sha256": "1f72f3304b3935af2b2925c9e7a3d30a603c8a1900473004f4a2ade350ba9ee2"
+    },
+    "data/report.json": {
+      "sha256": "6ed7619ea5ad438d853447bca1da7ea8644ecaab5cc52a2c5112cc67c8d5d77b"
+    }
+  },
+  "generated_by": "media/make_media.sh",
+  "outputs": {
+    "demo.mp4": {
+      "sha256": "2b4289a383065695e3b6f314ce4bd37580efb9da3ae381af2b5d1d6e22c104c8",
+      "source_data": {
+        "data/gpu-run.log": "1f72f3304b3935af2b2925c9e7a3d30a603c8a1900473004f4a2ade350ba9ee2",
+        "data/report.json": "6ed7619ea5ad438d853447bca1da7ea8644ecaab5cc52a2c5112cc67c8d5d77b",
+        "loop.png": "d3dc4ca6d3e04df6c39eb98e543fa7eb99278b422de0f881a2efed3c5dd36d1e",
+        "result.png": "4b67b968fd63995db5666df74eaaad3147cbd95d1c58d914736f3594a49b215d"
+      }
+    },
+    "loop.png": {
+      "sha256": "d3dc4ca6d3e04df6c39eb98e543fa7eb99278b422de0f881a2efed3c5dd36d1e",
+      "source_data": {
+        "data/report.json": "6ed7619ea5ad438d853447bca1da7ea8644ecaab5cc52a2c5112cc67c8d5d77b"
+      }
+    },
+    "result.png": {
+      "sha256": "4b67b968fd63995db5666df74eaaad3147cbd95d1c58d914736f3594a49b215d",
+      "source_data": {
+        "data/report.json": "6ed7619ea5ad438d853447bca1da7ea8644ecaab5cc52a2c5112cc67c8d5d77b"
+      }
+    }
+  }
+}

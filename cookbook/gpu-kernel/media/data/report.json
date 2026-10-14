@@ -1,0 +1,388 @@
+{
+  "good": {
+    "rc": 0,
+    "stderr": "using default: /tmp/cudevshr.cache\n[HAMI-core Msg(13:131997714097984:libvgpu.c:901)]: Initialized\n[HAMI-core Msg(13:131997714097984:multiprocess_memory_limit.c:947)]: Cleanup on exit for PID 13\n[HAMI-core Msg(13:131997714097984:multiprocess_memory_limit.c:983)]: Exit cleanup complete for PID 13\n[HAMI-core Warn(13:131997714097984:multiprocess_memory_limit.c:702)]: Process slot not found for pid 13\n",
+    "verdict": {
+      "artifact": "kernel.py",
+      "cases": [
+        {
+          "allclose": true,
+          "dist": "randn",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 3.725290298461914e-09,
+          "ok": true,
+          "rowsum_err": 2.384185791015625e-07,
+          "rowsum_ok": true,
+          "seed": 0,
+          "shape": [
+            4096,
+            4096
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "randn64",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 2.384185791015625e-07,
+          "ok": true,
+          "rowsum_err": 2.384185791015625e-07,
+          "rowsum_ok": true,
+          "seed": 1,
+          "shape": [
+            4096,
+            4096
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "big",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 1.862645149230957e-09,
+          "ok": true,
+          "rowsum_err": 2.384185791015625e-07,
+          "rowsum_ok": true,
+          "seed": 2,
+          "shape": [
+            4096,
+            4096
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "randn",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 1.3969838619232178e-09,
+          "ok": true,
+          "rowsum_err": 1.7881393432617188e-07,
+          "rowsum_ok": true,
+          "seed": 3,
+          "shape": [
+            128,
+            4093
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "last_max",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 5.806016262426647e-28,
+          "ok": true,
+          "rowsum_err": 0.0,
+          "rowsum_ok": true,
+          "seed": 4,
+          "shape": [
+            128,
+            4093
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "randn",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 2.9802322387695312e-08,
+          "ok": true,
+          "rowsum_err": 1.1920928955078125e-07,
+          "rowsum_ok": true,
+          "seed": 5,
+          "shape": [
+            37,
+            65
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "randn",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 0.0,
+          "ok": true,
+          "rowsum_err": 0.0,
+          "rowsum_ok": true,
+          "seed": 6,
+          "shape": [
+            3,
+            1
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "randn",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 4.656612873077393e-10,
+          "ok": true,
+          "rowsum_err": 1.1920928955078125e-07,
+          "rowsum_ok": true,
+          "seed": 7,
+          "shape": [
+            1,
+            4096
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "zeros",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 0.0,
+          "ok": true,
+          "rowsum_err": 0.0,
+          "rowsum_ok": true,
+          "seed": 8,
+          "shape": [
+            1000,
+            1000
+          ]
+        },
+        {
+          "allclose": true,
+          "dist": "shift",
+          "finite01": true,
+          "input_intact": true,
+          "launched": true,
+          "max_abs_err": 7.450580596923828e-09,
+          "ok": true,
+          "rowsum_err": 1.1920928955078125e-07,
+          "rowsum_ok": true,
+          "seed": 9,
+          "shape": [
+            64,
+            512
+          ],
+          "shift_err": 1.0468065738677979e-06,
+          "shift_ok": true
+        }
+      ],
+      "gates": {
+        "correctness": {
+          "cases": 10,
+          "failed": [],
+          "pass": true,
+          "worst": {
+            "max_abs": 2.384185791015625e-07,
+            "rowsum": 2.384185791015625e-07,
+            "shift": 1.0468065738677979e-06
+          }
+        },
+        "device-compile": {
+          "pass": true,
+          "problems": []
+        },
+        "structure": {
+          "pass": true,
+          "problems": []
+        }
+      },
+      "judge_intact": true,
+      "mode": "full",
+      "seed": 0,
+      "timing": {
+        "eager_ms": 0.07932800054550171,
+        "kernel_ms": 0.077504001557827,
+        "speedup": 1.023534255664384
+      }
+    }
+  },
+  "mutants": {
+    "compile_error": {
+      "detail": {
+        "device-compile": "sm_80: CompilationError: at 8:12:\ndef KERNEL(X, Y, n_cols, B",
+        "structure": ""
+      },
+      "failed": [
+        "device-compile"
+      ],
+      "gates": {
+        "device-compile": false,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "delegate_method": {
+      "detail": {
+        "correctness": "10/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "masked_other_zero": {
+      "detail": {
+        "correctness": "3/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "min_for_max": {
+      "detail": {
+        "correctness": "5/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "no_max_sub": {
+      "detail": {
+        "correctness": "4/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "no_max_sub_other_form": {
+      "detail": {
+        "correctness": "7/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "no_normalise": {
+      "detail": {
+        "correctness": "8/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "off_by_one": {
+      "detail": {
+        "correctness": "10/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "store_off_by_one": {
+      "detail": {
+        "correctness": "10/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "wrong_block_reduction": {
+      "detail": {
+        "correctness": "10/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    },
+    "wrong_row_stride": {
+      "detail": {
+        "correctness": "7/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
+      "rc": 1
+    }
+  }
+}
