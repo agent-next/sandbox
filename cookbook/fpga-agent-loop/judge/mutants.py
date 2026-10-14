@@ -10,7 +10,7 @@ edit is a semantic no-op, which must be shown equivalent).
 
 T1 shipped the three mandatory mutants (branch flip, dropped wstrb lane,
 ignored mem_ready); T2 added the two J-immediate mutants + bimm control.
-T3 brings the total to 26: operator swaps, off-by-ones, sign/zero-extension
+T3 brings the total to 32: operator swaps, off-by-ones, sign/zero-extension
 drops, dropped write enables, branch-condition flips, and targeted
 G2/G3 hits. Every anchor is checked against the pinned picorv32.v and the
 script fails loudly (exit != 0) if any anchor is missing or not unique.
@@ -257,7 +257,13 @@ MUTANTS = [
         "instr_ecall_ebreak <= ((mem_rdata_q[6:0] == 7'b1110011 && !mem_rdata_q[31:21] && !mem_rdata_q[19:7]) ||",
         "instr_ecall_ebreak <= ((mem_rdata_q[6:0] == 7'b1110011 && !mem_rdata_q[31:20] && !mem_rdata_q[19:7]) ||",
         "the SYSTEM-imm window shrinks from bits[31:21] to [31:20]: "
-        "EBREAK (imm=1) is no longer caught - ECALL still traps (G3)",
+        "EBREAK (imm=1) is no longer *specially* decoded. SURVIVOR BY "
+        "CONSTRUCTION in the judge's config (WITH_PCPI=0, ENABLE_IRQ=0, "
+        "CATCH_ILLINSN=1): EBREAK still traps through the instr_trap "
+        "illegal-instruction path (picorv32.v:1585), and instr_ecall_ebreak "
+        "has no other observable fanout, so no directed test can see the "
+        "edit. Proven equivalent by lec.sh netlist identity (yosys "
+        "optimizes the signal away on BOTH sides)",
     ),
     (
         "lw-misalign-blind",
