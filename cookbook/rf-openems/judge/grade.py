@@ -121,6 +121,11 @@ def main():
                     help="recorded only; the FDTD run is deterministic")
     ap.add_argument("--skip-convergence", action="store_true")
     ap.add_argument("--timeout", type=int, default=540)
+    ap.add_argument("--trace", default=None,
+                    help="DIR to write trace CSV files: s11_artifact.csv (artifact's "
+                         "reported S11 sweep), s11_judge.csv (judge's own re-"
+                         "derivation from raw port files), s11_fine.csv (G8 "
+                         "fine-mesh sweep)")
     args = ap.parse_args()
 
     from oracle import ANTENNA_GATES as G, patch_resonance_ghz
@@ -206,6 +211,15 @@ def main():
     s11_at = float(results["S11_dB_at_target"])
     f_res = float(results["f_res_GHz"])
 
+    # trace: S11 curve from the artifact's own sweep (as it returns in G3 judged
+    # with the artifact-filename prefix so make_media.sh can compare runs).
+    if args.trace:
+        os.makedirs(args.trace, exist_ok=True)
+        with open(os.path.join(args.trace, "s11_artifact.csv"), "w") as f:
+            f.write("freq_ghz,s11_db\n")
+            for fq, s in zip(results["freqs_GHz"], results["S11_dB"]):
+                f.write(f"{fq:.4f},{s:.2f}\n")
+
     # ---- G4/G5 ---------------------------------------------------------
     add("G4_S11_at_target", s11_at <= G["s11_target_db"],
         f"S11={q(s11_at, Q_DB)} dB (need <= {G['s11_target_db']})")
@@ -222,6 +236,11 @@ def main():
     # ---- G6: re-derive S11 from raw port files --------------------------
     try:
         s11_j = s11_from_raw(simdir, freqs * 1e9)
+        if args.trace:
+            with open(os.path.join(args.trace, "s11_judge.csv"), "w") as f:
+                f.write("freq_ghz,s11_db\n")
+                for fq, s in zip(results["freqs_GHz"], s11_j):
+                    f.write(f"{fq:.4f},{s:.1f}\n")
         dmax = float(np.max(np.abs(s11_j - s11)))
         verdict["raw_crosscheck_maxdiff_db"] = q(dmax, Q_DB)
         add("G6_raw_crosscheck", dmax <= G["crosscheck_tol_db"],
@@ -280,6 +299,11 @@ def main():
                 "f_res_fine_GHz": q(fres_2, QSTEP_DEFAULT),
                 "f_res_shift_pct": q(dfres * 100, Q_PCT),
             }
+            if args.trace:
+                with open(os.path.join(args.trace, "s11_fine.csv"), "w") as f:
+                    f.write("freq_ghz,s11_db\n")
+                    for fq, s in zip(f2, s2):
+                        f.write(f"{fq:.4f},{s:.1f}\n")
             ok = (s11_2 <= G["s11_target_db"]
                   and dfres <= G["conv_fres_tol"])
             add("G8_convergence", ok,
