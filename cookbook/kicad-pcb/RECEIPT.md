@@ -133,6 +133,23 @@ from `sbx list`.
    warning type, exercised by the new `erc_off_grid` mutant.
    G5 now reports per-layer aperture/op counts and the measured
    extents delta (0.0 mm).
+6. **SPEC.md allow-list claim verified.** The claim that "KiCad's own
+   shipped demos produce the same warning under kicad-cli" was checked
+   against the `video` demo shipped inside the pinned 9.0.9 AppImage
+   (`appimage/share/kicad/demos/video/video.kicad_sch`), run headless
+   with the same command the judge uses:
+
+   ```
+   $ kicad-cli sch erc video.kicad_sch --format json --severity-all \
+         -o /tmp/erc_video.json
+   Found 21 violations
+   Saved ERC Report to /tmp/erc_video.json
+   ```
+
+   Violation tally: 18 `lib_symbol_issues` + 3 `footprint_link_issues`
+   warnings, 0 errors. First `lib_symbol_issues` item: `"The current
+   configuration does not include the symbol library 'power'"` — the
+   same warning class the self-contained artifact produces.
 
 ## Deviations
 
