@@ -235,3 +235,7 @@ All CPU-path steps from README.md succeed with exit code 0. Every numeric result
 ## 9. Clean-up
 
 Scratch files deleted: `/tmp/v.json`, `/tmp/det1.json`, `/tmp/det2.json`. No other sandbox-created files outside the repo.
+> Note: this reproduction ran against the judge before the review round that
+> added the runtime delegation guard and the 11th mutant (see RECEIPT.md,
+> "Review round"). The guard was then power-checked and the self-test re-run
+> (11/11) in a fresh sandbox.

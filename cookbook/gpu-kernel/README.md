@@ -40,7 +40,7 @@ To try the judge locally on a CPU-only Linux box instead:
 
 ```bash
 bash cookbook/gpu-kernel/judge/setup.sh      # pinned venv in ~/.venvs/gpu-kernel
-bash cookbook/gpu-kernel/judge/selftest.sh   # known-good passes, 10/10 mutants killed
+bash cookbook/gpu-kernel/judge/selftest.sh   # known-good passes, 11/11 mutants killed
 bash cookbook/gpu-kernel/judge/grade.sh cookbook/gpu-kernel/examples/good/kernel.py
 ```
 
@@ -57,7 +57,7 @@ The `--gpu` flag creates a 1 GiB VRAM slice lease via the agent-next REST API:
 - `POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": N}` — runs the grading job
 - `DELETE /sandboxes/{id}` + `GET /sandboxes/{id}` → 404/dead — confirms cleanup
 
-The lease image already has Python 3.13, torch 2.10.0+cu128, triton 3.6.0, numpy 1.26.4 on an RTX 5090 slice (cc 12.0); no nvcc, no pip needed. The grading job packs `judge/` and `examples/` as a base64 tar.gz, extracts them on the lease, runs the full judge (structure, device-compile for sm_80/sm_90, 10 correctness cases on CUDA, speed measurement on 4096x4096), and grades all 10 mutants.
+The lease image already has Python 3.13, torch 2.10.0+cu128, triton 3.6.0, numpy 1.26.4 on an RTX 5090 slice (cc 12.0); no nvcc, no pip needed. The grading job packs `judge/` and `examples/` as a base64 tar.gz, extracts them on the lease, runs the full judge (structure, device-compile for sm_80/sm_90, 10 correctness cases on CUDA, speed measurement on 4096x4096), and grades all 11 mutants.
 
 ## Media
 

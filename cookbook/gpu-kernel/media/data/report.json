@@ -1,7 +1,7 @@
 {
   "good": {
     "rc": 0,
-    "stderr": "using default: /tmp/cudevshr.cache\n[HAMI-core Msg(13:139022188595008:libvgpu.c:901)]: Initialized\n[HAMI-core Msg(13:139022188595008:multiprocess_memory_limit.c:947)]: Cleanup on exit for PID 13\n[HAMI-core Msg(13:139022188595008:multiprocess_memory_limit.c:983)]: Exit cleanup complete for PID 13\n[HAMI-core Warn(13:139022188595008:multiprocess_memory_limit.c:702)]: Process slot not found for pid 13\n",
+    "stderr": "using default: /tmp/cudevshr.cache\n[HAMI-core Msg(13:131997714097984:libvgpu.c:901)]: Initialized\n[HAMI-core Msg(13:131997714097984:multiprocess_memory_limit.c:947)]: Cleanup on exit for PID 13\n[HAMI-core Msg(13:131997714097984:multiprocess_memory_limit.c:983)]: Exit cleanup complete for PID 13\n[HAMI-core Warn(13:131997714097984:multiprocess_memory_limit.c:702)]: Process slot not found for pid 13\n",
     "verdict": {
       "artifact": "kernel.py",
       "cases": [
@@ -192,9 +192,9 @@
       "mode": "full",
       "seed": 0,
       "timing": {
-        "eager_ms": 0.07852800190448761,
-        "kernel_ms": 0.07622399926185608,
-        "speedup": 1.0302267352138856
+        "eager_ms": 0.07932800054550171,
+        "kernel_ms": 0.077504001557827,
+        "speedup": 1.023534255664384
       }
     }
   },
@@ -211,6 +211,24 @@
         "device-compile": false,
         "structure": true
       },
+      "judge_error": null,
+      "rc": 1
+    },
+    "delegate_method": {
+      "detail": {
+        "correctness": "10/10 cases",
+        "device-compile": "",
+        "structure": ""
+      },
+      "failed": [
+        "correctness"
+      ],
+      "gates": {
+        "correctness": false,
+        "device-compile": true,
+        "structure": true
+      },
+      "judge_error": null,
       "rc": 1
     },
     "masked_other_zero": {
@@ -227,6 +245,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     },
     "min_for_max": {
@@ -243,6 +262,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     },
     "no_max_sub": {
@@ -259,6 +279,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     },
     "no_max_sub_other_form": {
@@ -275,6 +296,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     },
     "no_normalise": {
@@ -291,6 +313,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     },
     "off_by_one": {
@@ -307,6 +330,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     },
     "store_off_by_one": {
@@ -323,6 +347,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     },
     "wrong_block_reduction": {
@@ -339,6 +364,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     },
     "wrong_row_stride": {
@@ -355,6 +381,7 @@
         "device-compile": true,
         "structure": true
       },
+      "judge_error": null,
       "rc": 1
     }
   }

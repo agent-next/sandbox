@@ -1,5 +1,5 @@
 create GPU lease (1 GiB VRAM slice)...
-created gl-2835a2-11 (1 GiB VRAM slice)
+created gl-2835a2-12 (1 GiB VRAM slice)
 exec grading job on GPU lease...
 wrote exec report: media/data/report.json
 
@@ -7,11 +7,12 @@ gpu-kernel demo: PASS (mode full)
   gate correctness: pass
   gate device-compile: pass
   gate structure: pass
-  kernel 0.076 ms vs eager 0.079 ms (speedup x1.03)
-  effective throughput: 1760.8 GB/s (the 64 MiB tensor can stay cache-resident across timed runs, so this is not a DRAM-bandwidth figure)
+  kernel 0.078 ms vs eager 0.079 ms (speedup x1.02)
+  effective throughput: 1731.8 GB/s (the 64 MiB tensor can stay cache-resident across timed runs, so this is not a DRAM-bandwidth figure)
 
-mutants: 10/10 killed
+mutants: 11/11 killed
   compile_error: FAIL (device-compile)
+  delegate_method: FAIL (correctness)
   masked_other_zero: FAIL (correctness)
   min_for_max: FAIL (correctness)
   no_max_sub: FAIL (correctness)
@@ -21,6 +22,6 @@ mutants: 10/10 killed
   store_off_by_one: FAIL (correctness)
   wrong_block_reduction: FAIL (correctness)
   wrong_row_stride: FAIL (correctness)
-destroying gl-2835a2-11...
-destroyed gl-2835a2-11; verified absent or dead
-total: 34 s
+destroying gl-2835a2-12...
+destroyed gl-2835a2-12; verified absent or dead
+total: 38 s

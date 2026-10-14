@@ -159,7 +159,7 @@ API (exactly like `cookbook/small-gpu/run.py`):
 POST /sandboxes {"accel":{"vram_gb":1,"reserve":"exec"}}
 → returns lease id (gl-...)
 POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": 600}
-→ runs the full judge: structure + device-compile (sm_80, sm_90) + 10 correctness cases + speed + 10 mutants
+→ runs the full judge: structure + device-compile (sm_80, sm_90) + 10 correctness cases + speed + 11 mutants
 DELETE /sandboxes/{id}
 GET /sandboxes/{id} → 404 (or phase=dead)
 ```
@@ -170,7 +170,7 @@ The lease image already has Python 3.13, torch 2.10.0+cu128, triton 3.6.0, numpy
 
 - **Good kernel**: PASS (10 correctness cases, worst max_abs 2.38e-7, device-compile pass)
 - **Timing**: eager_ms 0.0787 vs kernel_ms 0.0749 (speedup 1.05x on 4096x4096 fp32)
-- **Mutants**: 10/10 killed (9 correctness, 1 device-compile)
+- **Mutants**: 11/11 killed (10 correctness, 1 device-compile); `delegate_method` launches the kernel but returns `x.softmax(dim=1)` and is caught by the runtime delegation guard (with the guard disabled it passes, so the guard is what kills it)
 - **Exec wall time**: 33 s
 - **Lease**: deleted (GET 404 confirmed)
 

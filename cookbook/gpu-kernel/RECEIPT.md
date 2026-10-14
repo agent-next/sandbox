@@ -323,3 +323,32 @@ ffmpeg). See `media/REVIEW.md` for the reviewer checklist.
   `--require-hashes`).
 - RECEIPT JSON is reformatted (one case per line) to stay readable; no
   numbers were changed.
+## Review round (cross-model code review)
+
+A cross-model review found that the text-only delegation check missed
+`x.softmax(dim=1)` (a method call): an artifact could launch a dummy kernel
+and return torch's own result. Fix: `_grade.py` now makes every torch softmax
+entry point raise while the artifact runs (`NoTorchSoftmax`), and the artifact
+call is wrapped so an artifact exception fails the case instead of crashing the
+judge. New mutant `delegate_method` exercises it.
+
+Power check (CPU sandbox, `--cpu-check` judge):
+
+```
+--- guard ON
+rc 1
+correctness pass: False | case0 error: RuntimeError: softmax delegation: artifact called a torch softmax
+--- guard OFF (power check)
+rc 0
+correctness pass: True
+--- selftest
+selftest: kill rate: 11/11 = 100%
+selftest: determinism: OK
+```
+
+GPU slice re-run (`run.py --gpu`): PASS full mode, kernel 0.078 ms vs eager
+0.079 ms, 11/11 mutants killed (`delegate_method` by correctness), lease
+destroyed and verified (`media/data/gpu-run.log`).
+
+`run.py` also now exits non-zero when a mutant survives or the judge errors on
+one, and names an unexpected lease id instead of exiting silently.
