@@ -58,3 +58,19 @@ def test_kill_uses_real_sdk_class_method(sdk_http, capsys):
     assert request.url.host == "api.sandbox.example"
     assert request.url.path == "/sandboxes/contract-sandbox"
     assert request.headers["X-API-Key"] == TEST_KEY
+
+
+def test_runner_sandbox_create_uses_real_sdk_serialization(sdk_http, capsys):
+    from sbx import runners
+
+    gh = type("GH", (), {"jit": lambda self, *a: "unused"})()
+    boot = runners.sandbox_boot(gh, cli._sandbox_cls(), snapshot="snap-1", labels=["self-hosted", "sbx"],
+                                group_id=1, job_timeout_s=600, idle_ttl_s=60)
+    boot(runners.Slot("sbx-abc", 0.0, retiring=True))  # retired during create: no runner starts
+    create, kill = sdk_http
+    body = json.loads(create.content)
+    assert (create.method, kill.method) == ("POST", "DELETE")
+    assert body["templateID"] == "snap-1" and body["timeout"] == 960
+    assert body["metadata"] == {"sbx-runner": "sbx-abc"}
+    assert body["autoPause"] is False  # on_timeout kill: a runner sandbox never lingers paused
+    assert kill.url.path == "/sandboxes/contract-sandbox"

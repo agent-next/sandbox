@@ -34,8 +34,8 @@ def _credentials() -> tuple[str, str]:
 
 
 def _scrub(text: str) -> str:
-    """Remove any configured API key value from text bound for the terminal."""
-    for name in ("E2B_API_KEY", "SBX_API_KEY"):
+    """Remove any configured API key or GitHub token value from text bound for the terminal."""
+    for name in ("E2B_API_KEY", "SBX_API_KEY", "GH_TOKEN", "GITHUB_TOKEN", "GH_WEBHOOK_SECRET"):
         value = os.environ.get(name)
         if value:
             text = text.replace(value, "[redacted]")
@@ -140,6 +140,63 @@ def cmd_kill(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_runners_image(args: argparse.Namespace) -> int:
+    from . import runners
+
+    _credentials()
+    with httpx.Client() as http:
+        version = args.runner_version or runners.latest_runner_version(http)
+    snapshot = runners.build_image(_sandbox_cls(), template=args.template, runner_version=version)
+    _say(snapshot)
+    return 0
+
+
+def cmd_runners_serve(args: argparse.Namespace) -> int:
+    import threading
+
+    from . import runners
+
+    _credentials()
+    for value, flag in ((args.interval, "--interval"), (args.idle_min, "--idle-min"),
+                        (args.job_timeout_min, "--job-timeout-min")):
+        _positive_seconds(value, flag)
+    if args.job_timeout_min + args.idle_min + 5 > MAX_TIMEOUT_MIN:
+        raise SbxError(f"--job-timeout-min + --idle-min must leave 5 minutes under the {MAX_TIMEOUT_MIN}-minute sandbox lifetime")
+    if bool(args.org) == bool(args.repo):
+        raise SbxError("runners serve: give exactly one of --org or --repo")
+    if not args.prefix.strip():
+        raise SbxError("runners serve: --prefix must not be empty (it decides which runners this pool owns)")
+    if args.webhook_port is not None and args.watch:
+        raise SbxError("runners serve: --watch and --webhook-port are alternatives; give one")
+    secret = os.environ.get("GH_WEBHOOK_SECRET")
+    if args.webhook_port is not None and not secret:
+        raise SbxError("--webhook-port needs GH_WEBHOOK_SECRET (the webhook's secret)")
+    scope = f"orgs/{args.org}" if args.org else f"repos/{args.repo}"
+    labels = ["self-hosted", *[x.strip() for x in args.labels.split(",") if x.strip()]]
+    gh = runners.GitHub(runners.github_token(), scope)
+    watch = args.watch or ([args.repo] if args.repo else [])
+    for repo in args.watch or []:
+        gh.check_repo(repo)
+    boot = runners.sandbox_boot(
+        gh, _sandbox_cls(), snapshot=args.snapshot, labels=labels, group_id=args.group_id,
+        job_timeout_s=round(args.job_timeout_min * 60), idle_ttl_s=round(args.idle_min * 60),
+    )
+    wake = threading.Event()
+    if args.webhook_port is not None:
+        queue = runners.JobQueue(secret, labels, on_change=wake.set)
+        runners.webhook_server(queue, args.webhook_host, args.webhook_port)
+        queued, cheap = queue.__len__, True
+    else:
+        queued, cheap = ((lambda: gh.queued(watch, labels)) if watch else (lambda: 0)), False
+    pool = runners.Pool(
+        gh, boot, warm=args.warm, maximum=args.max, prefix=args.prefix,
+        idle_ttl=args.idle_min * 60, queued=queued, queued_is_cheap=cheap,
+    )
+    runners.sweep(gh, _sandbox_cls(), args.prefix)
+    runners.serve(pool, interval=args.interval, stop=threading.Event(), wake=wake)
+    return 0
+
+
 class _Parser(argparse.ArgumentParser):
     def error(self, message: str):
         self.print_usage(sys.stderr)
@@ -180,6 +237,34 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("kill", help="kill a sandbox")
     p.add_argument("sandbox_id")
     p.set_defaults(func=cmd_kill)
+
+    p = sub.add_parser("runners", help="serve GitHub Actions jobs from disposable sandboxes")
+    rsub = p.add_subparsers(dest="runners_cmd", required=True, parser_class=_Parser)
+    r = rsub.add_parser("image", help="bake a runner snapshot (actions/runner + Docker) and print its id")
+    r.add_argument("--template", default=None, help="base template (default: the default template)")
+    r.add_argument("--runner-version", default=None, help="actions/runner version (default: latest release)")
+    r.set_defaults(func=cmd_runners_image)
+
+    r = rsub.add_parser("serve", help="keep a warm pool of single-job runners; Ctrl-C drains")
+    r.add_argument("--org", help="register runners at this organization")
+    r.add_argument("--repo", help="or at this OWNER/REPO")
+    r.add_argument("--snapshot", required=True, help="snapshot id from `sbx runners image`")
+    r.add_argument("--labels", default="sbx", help="comma-separated labels besides self-hosted (default sbx)")
+    r.add_argument("--group-id", type=int, default=1, help="runner group id (default 1, the Default group)")
+    r.add_argument("--warm", type=int, default=2, help="idle runners to keep registered (default 2)")
+    r.add_argument("--max", type=int, default=10, help="most sandboxes at once (default 10)")
+    r.add_argument("--watch", action="append", help="OWNER/REPO whose queued jobs (in its 50 newest active runs) scale the pool past --warm (repeatable)")
+    r.add_argument(
+        "--webhook-port", type=int, default=None,
+        help="also take workflow_job webhooks on this port (secret: GH_WEBHOOK_SECRET); queued jobs then scale the pool at once",
+    )
+    r.add_argument("--webhook-host", default="127.0.0.1", help="webhook bind address (default 127.0.0.1; put a TLS proxy or tunnel in front)")
+    r.add_argument("--idle-min", type=float, default=30, help="recycle a runner idle this long (default 30)")
+    r.add_argument("--job-timeout-min", type=float, default=360, help="longest job; bounds sandbox lifetime (default 360)")
+    r.add_argument("--prefix", default="sbx-", help="runner name prefix this pool owns (default sbx-)")
+    r.add_argument("--interval", type=float, default=5, help="seconds between pool checks (default 5)")
+    r.epilog = "Ctrl-C drains (idle runners go, busy ones finish their job); a second Ctrl-C kills them all."
+    r.set_defaults(func=cmd_runners_serve)
     return ap
 
 
