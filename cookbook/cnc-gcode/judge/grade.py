@@ -365,6 +365,7 @@ def main():
     # (feed/rapid/arc counts, min/max Z, XY bounding box) must agree with this
     # judge's own simulator within the stated tolerance.
     gr = Gate("reference")
+    t_ref = None
     if ref.available():
         try:
             t_ref = time.monotonic()
@@ -431,7 +432,7 @@ def main():
             "cam_s": round(t_cam, 2),
             "simulate_s": round(t_sim, 2),
             "selfcheck_s": round(t_sc, 2),
-            "reference_s": (round(t_ref, 2) if ref.available() else None),
+            "reference_s": (round(t_ref, 2) if t_ref is not None else None),
             "total_s": None,                      # filled by finish()
         },
     }

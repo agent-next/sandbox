@@ -112,10 +112,6 @@ grep -E '^selftest: (mutant KILLED:|kill rate)' /tmp/selftest.log || true
         wall("total", t0)
 
 
-def shlex_quote(s):
-    return "'" + s.replace("'", "'\"'\"'") + "'"
-
-
 if __name__ == "__main__":
     try:
         main()

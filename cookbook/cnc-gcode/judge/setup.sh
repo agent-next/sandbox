@@ -44,12 +44,16 @@ RS274_BIN="${RS274_DIR}/root/usr/bin/rs274"
 
 rs274_ok() {
     [ -x "$RS274_BIN" ] || return 1
-    LD_LIBRARY_PATH="${RS274_DIR}/root/usr/lib/x86_64-linux-gnu:${RS274_DIR}/root/usr/lib:${RS274_DIR}/root/usr/lib/linuxcnc" \
-        "$RS274_BIN" -h </dev/null >/dev/null 2>&1
-    # rs274 exits non-zero on -h; success == it ran at all (no loader error)
+    # a loader failure (missing .so) exits 127 with no usage text; a binary
+    # whose libraries resolved rejects the bad option and prints its usage
+    # line.  NB: rs274 -h exits 1, so its status must not fail this check.
+    local out
+    out="$(LD_LIBRARY_PATH="${RS274_DIR}/root/usr/lib/x86_64-linux-gnu:${RS274_DIR}/root/usr/lib:${RS274_DIR}/root/usr/lib/linuxcnc" \
+        "$RS274_BIN" -h </dev/null 2>&1 || true)"
+    case "$out" in *"Usage:"*) return 0 ;; *) return 1 ;; esac
 }
 
-if [ -x "$RS274_BIN" ]; then
+if rs274_ok; then
     echo "setup: rs274 already installed in ${RS274_DIR} (skipping download)"
 else
     echo "setup: downloading pinned debs for LinuxCNC rs274 (sha256-checked)"
@@ -64,15 +68,12 @@ else
         dpkg-deb -x "$f" "${RS274_DIR}/root"
         echo "setup: extracted ${pkg}"
     done < "${JDIR}/reference_packages.tsv"
-    [ -x "$RS274_BIN" ] || { echo "setup: rs274 missing after extract" >&2; exit 1; }
+    rs274_ok || { echo "setup: rs274 extracted but does not run (loader/library error)" >&2; exit 1; }
 fi
 
 echo "setup: tool versions"
 "$PY" --version
 "$PY" -c "import numpy;print('numpy', numpy.__version__)"
-RS274_VERSION="$("$RS274_BIN" -h </dev/null 2>&1 | head -1 || true)"
-LD_LIBRARY_PATH="${RS274_DIR}/root/usr/lib/x86_64-linux-gnu:${RS274_DIR}/root/usr/lib:${RS274_DIR}/root/usr/lib/linuxcnc" \
-    "$RS274_BIN" -h </dev/null >/dev/null 2>&1 || true
 echo "rs274 (LinuxCNC) 2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2 (Debian bookworm)"
 {
     echo "# cnc-gcode judge: versions installed by judge/setup.sh"

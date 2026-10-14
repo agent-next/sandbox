@@ -61,10 +61,3 @@ JUDGE_HASH_AFTER="$(find "$HERE" -type f \
     || fail "judge sources changed during grading (checksum mismatch)"
 
 exit "${rc:-0}"
-
-# the artifact must not have touched the judge
-JUDGE_HASH_AFTER="$(find "$HERE" -type f \
-    ! -name setup.sh ! -name grade.sh ! -name selftest.sh ! -name VERSIONS.txt \
-    ! -name RECEIPT.md ! -path '*/__pycache__/*' -exec sha256sum {} + | sort | sha256sum | awk '{print $1}')"
-[ "$JUDGE_HASH_BEFORE" = "$JUDGE_HASH_AFTER" ] \
-    || fail "judge sources changed during grading (checksum mismatch)"
