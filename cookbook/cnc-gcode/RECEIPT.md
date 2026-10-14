@@ -165,8 +165,9 @@ byte, excluding the `timing` key** (checked with
 ## Reference cross-check details (LinuxCNC rs274)
 
 - Tool: `rs274` from Debian bookworm `linuxcnc-uspace`
-  `2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2` (LinuxCNC, GPLv2+,
-  https://github.com/LinuxCNC/linuxcnc), plus its two runtime library debs
+  `2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2` (upstream LinuxCNC:
+  https://github.com/LinuxCNC/linuxcnc — 2,487 GitHub stars, GPL-2.0,
+  actively maintained as of 2026-10-14), plus its two runtime library debs
   (`libboost-python1.74.0 1.74.0+ds1-21`, `libpython3.11 3.11.2-6+deb12u9`).
   All three URLs + sha256 pins: `judge/reference_packages.tsv`; installed
   rootless by `setup.sh` (curl + sha256sum -c + dpkg-deb -x, no apt, no root).

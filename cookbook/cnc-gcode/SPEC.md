@@ -132,10 +132,11 @@ the spec ever carried `R < r` the allowance would grow automatically.
 **Reference cross-check.** Gate `reference` (owner direction: prefer mature
 open-source tools over our own code) runs the program through LinuxCNC's
 standalone RS274/NGC interpreter `rs274` — the reference interpreter of the
-open-source CNC world (LinuxCNC, GPLv2+; the packaged build is Debian
-bookworm's, pinned by URL + sha256 and installed rootless by `setup.sh`, no
-apt and no root). Its canonical move list must agree with the judge's own
-simulator on feeds/rapids/arcs counts, min/max Z and the XY bounding box.
+open-source CNC world (LinuxCNC: github.com/LinuxCNC/linuxcnc, 2.5 k stars,
+GPL-2.0, actively maintained; the packaged build is Debian bookworm's,
+pinned by URL + sha256 and installed rootless by `setup.sh`, no apt and no
+root). Its canonical move list must agree with the judge's own simulator on
+feeds/rapids/arcs counts, min/max Z and the XY bounding box.
 Alternatives considered: CAMotics (needs Qt/X11 and a long source build; does
 not install cleanly headless) and building rs274 from the LinuxCNC source
 tree (needs the full linuxcnc build); the packaged standalone interpreter
