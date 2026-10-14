@@ -155,8 +155,16 @@ class GpuLease:
 
     def create(self):
         t0 = time.perf_counter()
-        status, body = request(self.key, "POST", "/sandboxes",
-                               {"accel": {"vram_gb": GPU_VRAM_GB, "reserve": "exec"}})
+        body, status = None, 0
+        for attempt in range(5):
+            status, body = request(self.key, "POST", "/sandboxes",
+                                   {"accel": {"vram_gb": GPU_VRAM_GB, "reserve": "exec"}})
+            if status == 201:
+                break
+            if status in (429, 503):
+                time.sleep(5 * (attempt + 1))   # fleet momentarily at capacity
+                continue
+            raise RuntimeError(f"gpu create failed: HTTP {status} {str(body)[:200]}")
         if status != 201 or not isinstance(body, dict) or "sandboxID" not in body:
             raise RuntimeError(f"gpu create failed: HTTP {status} {str(body)[:200]}")
         sid = body["sandboxID"]

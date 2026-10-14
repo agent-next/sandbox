@@ -112,9 +112,13 @@ def check_version_table(actual, expected):
             problems.append(f"version table has no entry for {key!r}")
             continue
         if key == "os":
-            # distros recompile kernels; the liberty of the demo stops at the
-            # Linux release field: judge data was generated on the recorded one.
-            if str(got).split()[1] != str(want).split()[1]:
+            # platform.platform() is "<system>-<release>-<version>..."-ish;
+            # compare on the release field (second "-" token), which carries
+            # the kernel release the reference recordings were made under.
+            def _rel(s):
+                parts = str(s).split("-")
+                return parts[1] if len(parts) > 1 else str(s)
+            if _rel(got) != _rel(want):
                 problems.append(f"os mismatch: got {got!r}, want release of {want!r}")
         elif key == "python":
             if str(got) != str(want):
