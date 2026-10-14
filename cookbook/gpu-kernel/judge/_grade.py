@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -197,8 +198,12 @@ class NoTorchSoftmax:
 
         def refuse(*args, **kwargs):
             raise RuntimeError("softmax delegation: artifact called a torch softmax")
-        for obj, name, _ in self.saved:
-            setattr(obj, name, refuse)
+        try:
+            for obj, name, _ in self.saved:
+                setattr(obj, name, refuse)
+        except Exception:
+            self.__exit__(None, None, None)
+            raise
         return self
 
     def __exit__(self, *exc):
@@ -240,13 +245,14 @@ def run_cases(mod, cases, device):
             continue
         ref = torch.softmax(x, dim=1)
         err = float((out - ref).abs().max().item())
-        case["max_abs_err"] = err
+        # non-finite output: keep the verdict strict JSON (finite01 fails it)
+        case["max_abs_err"] = err if math.isfinite(err) else None
         case["finite01"] = bool(torch.isfinite(out).all().item()
                                 and out.le(1.0).all().item()
                                 and out.ge(0.0).all().item())
         case["allclose"] = bool(torch.allclose(out, ref, rtol=RTOL, atol=ATOL))
         rowsum = float((out.sum(dim=1) - 1.0).abs().max().item())
-        case["rowsum_err"] = rowsum
+        case["rowsum_err"] = rowsum if math.isfinite(rowsum) else None
         case["rowsum_ok"] = rowsum <= ROWSUM_TOL
         case["input_intact"] = bool(torch.equal(x, x_before))
         case["launched"] = counter.count >= 1
@@ -256,8 +262,10 @@ def run_cases(mod, cases, device):
             case["ok"] = False
         else:
             case["ok"] = True
-        worst["max_abs"] = max(worst["max_abs"], err)
-        worst["rowsum"] = max(worst["rowsum"], rowsum)
+        if math.isfinite(err):
+            worst["max_abs"] = max(worst["max_abs"], err)
+        if math.isfinite(rowsum):
+            worst["rowsum"] = max(worst["rowsum"], rowsum)
         results.append(case)
         # shift-invariance case: run once per shape family, on the shift dist
         if dist == "shift":
@@ -267,9 +275,10 @@ def run_cases(mod, cases, device):
                 case.update(ok=False, shift_ok=False, error=error)
                 continue
             shift_err = float((out2 - out).abs().max().item())
-            case["shift_err"] = shift_err
+            case["shift_err"] = shift_err if math.isfinite(shift_err) else None
             case["shift_ok"] = shift_err <= SHIFT_TOL and case["ok"]
-            worst["shift"] = max(worst["shift"], shift_err)
+            if math.isfinite(shift_err):
+                worst["shift"] = max(worst["shift"], shift_err)
             if not case["shift_ok"]:
                 case["ok"] = False
     return results, worst
