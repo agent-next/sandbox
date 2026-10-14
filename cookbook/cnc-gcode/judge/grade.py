@@ -21,6 +21,7 @@ import traceback
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 import gcode_sim as gs                                     # noqa: E402
+import reference as ref                                    # noqa: E402
 
 import numpy as np                                         # noqa: E402
 
@@ -163,7 +164,7 @@ def main():
         ok_imports, mods, bad = check_imports(cam_path)
     except (OSError, SyntaxError) as exc:
         gates["artifact"] = {"pass": False, "error": f"cannot parse cam.py: {exc}"}
-        return finish(args, gates, spec, t0, all_pass=False)
+        return finish(args, {"gates": gates}, spec, t0, all_pass=False)
     g0.check(ok_imports, bad_imports=bad, imports=mods)
     t_cam = time.monotonic()
     try:
@@ -185,7 +186,25 @@ def main():
     g0.check(bool(nc_text), nc_bytes=(len(nc_text) if nc_text is not None else 0))
     gates["artifact"] = g0.dict()
     if not g0.ok:
-        return finish(args, gates, spec, t0, all_pass=False)
+        return finish(args, {"gates": gates}, spec, t0, all_pass=False)
+
+    # ---- gate `units`: no inch-mode (G20) anywhere --------------------------
+    # A mutant (or a bad artifact) that emits G20 is killed HERE by name, so
+    # the self-test's kill attribution is never "no gate flagged".  This gate
+    # runs on the raw text so it still fires when the full parse refuses first.
+    gu = Gate("units")
+    g20_lines, g21_line = gs.scan_unit_words(nc_text)
+    gu.check(not g20_lines,
+             g20_lines=g20_lines,
+             first_g21_line=g21_line)
+    if g20_lines:
+        gu.check(False,
+                 error=f"line {g20_lines[0]}: G20 inch mode -- the job is "
+                       f"specified in millimetres (G21)")
+        gates["units"] = gu.dict()
+        # the units gate already names the kill; stop here
+        return finish(args, {"gates": gates}, spec, t0, all_pass=False)
+    gates["units"] = gu.dict()
 
     # ---- gate 1: program -------------------------------------------------
     g1 = Gate("program")
@@ -194,7 +213,7 @@ def main():
     except gs.GCodeError as exc:
         g1.check(False, error=str(exc), nc_lines=len(nc_text.splitlines()))
         gates["program"] = g1.dict()
-        return finish(args, gates, spec, t0, all_pass=False)
+        return finish(args, {"gates": gates}, spec, t0, all_pass=False)
 
     feed_moves = [m for m in moves if m["kind"] == "feed"]
     first_feed_line = min((m["line"] for m in feed_moves), default=None)
@@ -339,6 +358,55 @@ def main():
              expected_mm=d, tolerance_mm=grid)
     gates["simulator_selfcheck"] = g9.dict()
 
+    # ---- gate 10: reference cross-check (LinuxCNC rs274) -------------------
+    # Independent second opinion: the mature open-source RS274/NGC interpreter
+    # (LinuxCNC's rs274).  The good program must be accepted (exit 0) by the
+    # reference, must select mm units, and the reference's canonical move list
+    # (feed/rapid/arc counts, min/max Z, XY bounding box) must agree with this
+    # judge's own simulator within the stated tolerance.
+    gr = Gate("reference")
+    if ref.available():
+        try:
+            t_ref = time.monotonic()
+            rr = ref.run(nc_text)
+            t_ref = time.monotonic() - t_ref
+        except Exception as exc:  # rs274 didn't run at all
+            gr.check(False, error=f"reference run failed: {exc}")
+            gates["reference"] = gr.dict()
+        else:
+            ss = ref.sim_stats(moves)
+            agree = rr["ok"] and rr["units_mm"] is True
+            diffs = {}
+            if rr["ok"]:
+                for k in ("feeds", "rapids", "arcs"):
+                    diffs[f"{k}_diff"] = rr[k] - ss[k]
+                agree = agree and all(v == 0 for v in diffs.values())
+                for k in ("z_max", "z_min"):
+                    if rr[k] is not None and ss[k] is not None:
+                        diffs[f"{k}_diff_mm"] = round(rr[k] - ss[k], 6)
+                        agree = agree and abs(rr[k] - ss[k]) <= ref.GEOM_TOL_MM
+                if rr["bbox"] and ss["bbox"]:
+                    bb = [round(rr["bbox"][i] - ss["bbox"][i], 6)
+                          for i in range(4)]
+                    diffs["bbox_diff_mm"] = bb
+                    agree = agree and all(abs(v) <= ref.GEOM_TOL_MM for v in bb)
+            gr.check(rr["ok"],
+                     ref_exit=rr["exit"],
+                     ref_units_mm=rr["units_mm"])
+            if not rr["ok"]:
+                gr.check(False,
+                         ref_rejected=rr["stderr_tail"] or
+                         "rs274 exited non-zero; program rejected by reference")
+            gr.check(agree, ref_tool="LinuxCNC rs274 "
+                     "2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2",
+                     tolerance_mm=ref.GEOM_TOL_MM,
+                     **diffs)
+            gates["reference"] = gr.dict()
+    else:
+        gr.check(False, error="reference tool rs274 not installed "
+                 "(run bash judge/setup.sh)")
+        gates["reference"] = gr.dict()
+
     # ---- summary ------------------------------------------------------------
     cleared = int((H < -1e-9).sum())
     verdict = {
@@ -363,6 +431,7 @@ def main():
             "cam_s": round(t_cam, 2),
             "simulate_s": round(t_sim, 2),
             "selfcheck_s": round(t_sc, 2),
+            "reference_s": (round(t_ref, 2) if ref.available() else None),
             "total_s": None,                      # filled by finish()
         },
     }

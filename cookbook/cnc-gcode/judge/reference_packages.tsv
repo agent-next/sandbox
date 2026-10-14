@@ -1,0 +1,10 @@
+# Reference-tool packages for the cnc-gcode judge: LinuxCNC's standalone
+# RS274/NGC interpreter `rs274` and its two runtime libraries not shipped
+# inside the linuxcnc-uspace .deb.  setup.sh downloads each URL, verifies the
+# sha256, and extracts it rootless (dpkg-deb -x) into $HOME/.cnc-gcode/rs274.
+#
+# Columns: url <TAB> sha256 <TAB> package-version
+# Debian bookworm main + bookworm-security (amd64), all older than two weeks.
+http://deb.debian.org/debian/pool/main/l/linuxcnc/linuxcnc-uspace_2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2_amd64.deb	6163f483df1c626a186bcf722b2e03115c0ad116a3a8411b311071cc3d52176c	linuxcnc-uspace 2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2
+http://deb.debian.org/debian/pool/main/b/boost1.74/libboost-python1.74.0_1.74.0%2Bds1-21_amd64.deb	b1210dc31913a657fe7d70eaa68dc9ac58f5de7f279c99a52a99640b3b3d886a	libboost-python1.74.0 1.74.0+ds1-21
+http://security.debian.org/debian-security/pool/updates/main/p/python3.11/libpython3.11_3.11.2-6%2Bdeb12u9_amd64.deb	5737023cb469c012203bc6f4e6f522459d7561be499a69139df278785ec62129	libpython3.11 3.11.2-6+deb12u9

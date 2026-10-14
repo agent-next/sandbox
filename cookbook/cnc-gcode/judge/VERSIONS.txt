@@ -2,3 +2,6 @@
 # (Linux x86_64)
 Python 3.12.15
 numpy 2.5.3
+rs274 (LinuxCNC) 2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2 (Debian bookworm)
+libboost-python1.74.0 1.74.0+ds1-21
+libpython3.11 3.11.2-6+deb12u9

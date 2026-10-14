@@ -2,7 +2,9 @@
 # cookbook/cnc-gcode self-test: prove the judge can fail.
 #
 # 1. the known-good example passes every gate
-# 2. every single-edit mutant of it fails at least one gate
+# 2. every single-edit mutant of it is killed by at least one NAMED gate
+#    (a crash, parse error or timeout without a failing gate is not a kill
+#    and fails the self-test outright)
 # 3. determinism: same seed -> identical verdict JSON (except timing)
 # 4. prints the kill rate; exits non-zero if kill rate < 90 %
 set -euo pipefail
@@ -25,13 +27,16 @@ python3 "$HERE/mutate.py" "$GOOD" "$MUTDIR"
 
 nmut=0
 killed=0
+unnamed=0
 for m in "$MUTDIR"/*.py; do
     name="$(basename "$m" .py)"
     nmut=$((nmut + 1))
     if bash "$HERE/grade.sh" "$m" --json "$LOGDIR/${name}.json" >"$LOGDIR/${name}.log" 2>&1; then
         echo "selftest: mutant ESCAPED: $name (judge passed on a bad artifact)" >&2
     else
-        # name the gates that caught it
+        # name the gates that caught it; a kill only counts when a named gate
+        # failed -- a crash, parse error or timeout with no verdict gate is
+        # NOT a kill of the judge's making and fails the self-test outright.
         caught="$(python3 - "$LOGDIR/${name}.json" <<'EOF'
 import json, sys
 try:
@@ -39,13 +44,25 @@ try:
     failed = [n for n, g in v.get("gates", {}).items() if not g.get("pass")]
     print(", ".join(failed) if failed else "no gate flagged")
 except Exception:
-    print("(no verdict JSON: judge rejected the artifact)")
+    print("(no verdict JSON)")
 EOF
 )"
-        echo "selftest: mutant KILLED: $name  (caught by: $caught)"
-        killed=$((killed + 1))
+        if [ "$caught" = "no gate flagged" ] || [ "$caught" = "(no verdict JSON)" ]; then
+            echo "selftest: mutant $name was rejected with NO named gate " \
+                 "(crash/parse error/timeout is not a kill):" >&2
+            tail -5 "$LOGDIR/${name}.log" >&2
+            unnamed=$((unnamed + 1))
+        else
+            echo "selftest: mutant KILLED: $name  (caught by: $caught)"
+            killed=$((killed + 1))
+        fi
     fi
 done
+
+if [ "$unnamed" -gt 0 ]; then
+    echo "selftest: $unnamed mutant(s) rejected without a named gate" >&2
+    exit 1
+fi
 
 rate=0
 if [ "$nmut" -gt 0 ]; then

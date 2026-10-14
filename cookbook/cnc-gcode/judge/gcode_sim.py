@@ -95,6 +95,29 @@ def oracle_heightmap(spec, xs, ys):
 # G-code parsing
 # ---------------------------------------------------------------------------
 
+def scan_unit_words(text):
+    """Lexical scan for unit-selection words, independent of full parsing.
+
+    Returns (g20_lines, g21_line): the line numbers of every G20 and the line
+    of the first G21.  Used by the `units` gate so an inch-mode program is
+    failed by a *named gate* naming the offending line, even when the full
+    parse refuses the program.
+    """
+    g20_lines = []
+    g21_line = None
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        line = _PAREN_RE.sub(" ", raw.split(";", 1)[0]).strip()
+        for letter, numtxt in _WORD_RE.findall(line):
+            if letter.upper() != "G":
+                continue
+            gnum = int(round(float(numtxt)))
+            if gnum == 20:
+                g20_lines.append(lineno)
+            elif gnum == 21 and g21_line is None:
+                g21_line = lineno
+    return g20_lines, g21_line
+
+
 def parse_gcode(text, start_xy, safe_z):
     """Parse a G-code program into moves + program info.
 
