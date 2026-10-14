@@ -78,7 +78,8 @@ MUTANTS = [
     ),
     (
         "jal-imm-hi-zero",
-        "			{ decoded_imm_j[31:20], decoded_imm_j[10:1], decoded_imm_j[11], decoded_imm_j[19:12], decoded_imm_j[0] } <= $signed({mem_rdata_latched[31:20], 9'b0});",
+        "			{ decoded_imm_j[31:20], decoded_imm_j[10:1], decoded_imm_j[11], decoded_imm_j[19:12], decoded_imm_j[0] } <= $signed({mem_rdata_latched[31:12], 1'b0});",
+        "			{ decoded_imm_j[31:20], decoded_imm_j[10:1], decoded_imm_j[11], decoded_imm_j[19:12], decoded_imm_j[0] } <= $signed({mem_rdata_latched[31:20], 8'b0, 1'b0});",
         "JAL immediate bits imm[19:12] forced to 0 (by zeroing their "
         "source, insn[19:12], on the RHS - the LHS must stay a plain "
         "lvalue or Verilator rejects the build): any JAL with an offset "
