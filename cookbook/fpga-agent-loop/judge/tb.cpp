@@ -78,14 +78,14 @@ int main(int argc, char** argv) {
     top->mem_rdata = 0;
     top->eval();
 
-    int wait_count = -1;          // -1 = no pending request
-    bool ready_now = false;
-    uint32_t rdata_now = 0;
+    bool have_req = false;        // a request is being served (latency running)
+    int wait_count = 0;           // stall cycles still to impose on it
     uint64_t fetches = 0, cycles = 0;
     uint32_t tohost = 0;
     bool have_tohost = false, trapped = false;
+    bool trap_drain = false;     // request in flight when trap asserted (allowed to drain)
     int trap_cycle = -1;
-    int post_trap_stores = 0;     // stores completed after trap (must be 0)
+    int post_trap_stores = 0;     // bus activity issued after trap (must be 0)
 
     // reset for 8 cycles
     for (int i = 0; i < 8; i++) {
@@ -93,23 +93,41 @@ int main(int argc, char** argv) {
         top->clk = 1; top->eval();
     }
     top->resetn = 1;
+    top->eval();
 
     for (cycles = 0; cycles < max_cycles && !have_tohost; cycles++) {
-        // drive inputs for the upcoming posedge
-        top->mem_ready = ready_now ? 1 : 0;
-        top->mem_rdata = rdata_now;
-        top->clk = 0; top->eval();
-        top->clk = 1; top->eval();   // posedge: cpu samples mem_ready/mem_rdata
+        // Combinational memory response, settled before the posedge so the
+        // CPU samples mem_ready/mem_rdata exactly at the completing edge.
+        bool ready_this = false;
+        if (top->mem_valid) {
+            if (!have_req) {
+                // new request: draw its mem_ready latency from the PRNG
+                have_req = true;
+                wait_count = latency ? (int)(rng() % 8) : 0;
+            }
+            if (wait_count > 0) {
+                wait_count--;
+            } else {
+                ready_this = true;
+            }
+        } else {
+            have_req = false;
+            wait_count = 0;
+        }
 
-        bool v = top->mem_valid;
-        bool r = ready_now;
-        if (v && r) {
-            // transaction completes this posedge
+        top->mem_ready = ready_this ? 1 : 0;
+        // SPEC: mem_rdata is valid only in the cycle mem_ready is high.
+        top->mem_rdata = 0;
+        if (ready_this && (top->mem_addr >> 2) < MEM_WORDS)
+            top->mem_rdata = mem[top->mem_addr >> 2];
+        top->clk = 0; top->eval();
+
+        if (top->mem_valid && ready_this) {
+            // transaction completes at the upcoming posedge
             uint32_t a = top->mem_addr;
             uint8_t ws = top->mem_wstrb & 0xF;
             if (top->mem_instr) fetches++;
             if (ws) {
-                if (trapped) post_trap_stores++;
                 if (a == TOHOST_ADDR) {
                     tohost = top->mem_wdata;
                     have_tohost = true;
@@ -121,31 +139,25 @@ int main(int argc, char** argv) {
                     if (ws & 8) w = (w & 0x00FFFFFF) | (top->mem_wdata & 0xFF000000);
                 }
             }
-            wait_count = -1;
-            ready_now = false;
-        } else if (v) {
-            if (wait_count < 0) wait_count = latency ? (int)(rng() % 8) : 0;
-            if (wait_count == 0) {
-                ready_now = true;
-                uint32_t a = top->mem_addr;
-                rdata_now = ((a >> 2) < MEM_WORDS) ? mem[a >> 2] : 0;
-            } else {
-                wait_count--;
-                ready_now = false;
-            }
-        } else {
-            ready_now = false;
+            have_req = false;      // next valid, even back-to-back, is a new request
+            if (trapped) trap_drain = false;  // the in-flight request drained
         }
+        top->clk = 1; top->eval();   // posedge: cpu samples mem_ready/mem_rdata
 
         if (top->trap && !trapped) {
             trapped = true;
             trap_cycle = (int)cycles;
+            // a request already in flight when trap asserted may drain; only
+            // requests *newly issued* after trap violate "no state change"
+            trap_drain = top->mem_valid;
         }
-        // "no state change after trap": watch 32 cycles, then require quiet
-        if (trapped && cycles - (uint64_t)trap_cycle >= 32) {
-            if (!top->mem_valid) post_trap_stores += 0;  // quiet, good
-            else post_trap_stores++;                     // still issuing: bad
-            break;
+        // "no state change after trap": watch 32 cycles, then require quiet.
+        // A new request issued after trap (mem_valid rose again after the
+        // in-flight one drained) is a hard failure.
+        if (trapped) {
+            if (!top->mem_valid) trap_drain = false;
+            else if (!trap_drain) post_trap_stores++;
+            if (cycles - (uint64_t)trap_cycle >= 32) break;
         }
     }
 

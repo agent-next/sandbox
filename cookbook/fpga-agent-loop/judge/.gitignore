@@ -1,0 +1,7 @@
+# build artefacts must never land in git
+obj_dir/
+*.log
+*.vcd
+*.fst
+verdict*.json
+mutants_out/
