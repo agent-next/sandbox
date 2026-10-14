@@ -1,0 +1,64 @@
+{
+ "text": "Take the square root, then subtract b over two.",
+ "voice": "scene._narrate#d7961deba3fe937b((), (), (), ())",
+ "suffix": ".wav",
+ "audio": "fa3739ed7ebd6328",
+ "edit": {
+  "start": 0.0,
+  "end": null,
+  "speed": 1.0,
+  "loop": null,
+  "gain": 0.0,
+  "fade_in": 0.0,
+  "fade_out": 0.0,
+  "pan": 0.0,
+  "duck": 0.0
+ },
+ "words": [
+  [
+   "Take",
+   0.35,
+   0.6859999999999999
+  ],
+  [
+   "the",
+   0.77,
+   1.1059999999999999
+  ],
+  [
+   "square",
+   1.19,
+   1.5259999999999998
+  ],
+  [
+   "root,",
+   1.6099999999999999,
+   1.9459999999999997
+  ],
+  [
+   "then",
+   2.03,
+   2.366
+  ],
+  [
+   "subtract",
+   2.45,
+   2.786
+  ],
+  [
+   "b",
+   2.87,
+   3.206
+  ],
+  [
+   "over",
+   3.29,
+   3.626
+  ],
+  [
+   "two.",
+   3.71,
+   4.046
+  ]
+ ]
+}
