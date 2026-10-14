@@ -1,5 +1,6 @@
 # generated at grade/media time — never commit
 media/master/
+media/.venv/
 media/data/*.log
 media/data/mutants/
 **/__pycache__/

@@ -1,37 +1,75 @@
-[
-  {
-    "file": "demo.mp4",
-    "description": "step-through of the judge loop: artifact, gate results, mutant kills, verdict",
-    "command": "bash media/make_media.sh",
-    "source_data": "master/frames/",
-    "sha256": "7a2d4857d3cb1a095d9efe5108a94d279118a9290cbef83ec5f139e74c4c0dd4"
-  },
-  {
-    "file": "loop.png",
-    "description": "self-test: failed-gate count for known-good and each mutant, with the kill-rate bar",
-    "command": "bash media/make_media.sh",
-    "source_data": "data/*.json",
-    "sha256": "d3c01f7d20f01540167e7ae9417625eb0529a690e5c7c1c34cc5a732a9d62926"
-  },
-  {
-    "file": "make_media.sh",
-    "description": "this regeneration script",
-    "command": "bash media/make_media.sh",
-    "source_data": "-",
-    "sha256": "67ac01f699f5283be43af9117b90299d27134c3b75fa71776d78ae72526f8409"
-  },
-  {
-    "file": "render.py",
-    "description": "figure/frame renderer (matplotlib)",
-    "command": "bash media/make_media.sh",
-    "source_data": "-",
-    "sha256": "1f11c067a1afa7667490d96f2eeb519e80499490bf5d7385db966fde5504949a"
-  },
-  {
-    "file": "result.png",
-    "description": "board geometry + per-gate judge verdict for the known-good 555 blinker",
-    "command": "bash media/make_media.sh",
-    "source_data": "data/good.json",
-    "sha256": "fdfeb601ba4d6c29d5323da8b20d0a58ad0dc4cc4dbe637d22d3ec04de108459"
+{
+  "outputs": [
+    {
+      "file": "result.png",
+      "description": "kicad-cli 3D render of the known-good board (left) and the per-gate judge verdict with measured values (right)",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "data/good.json",
+      "sha256": "6d957199689b4689eecf7bb145c3521656d3625129be5762242b204bd4bfc515"
+    },
+    {
+      "file": "loop.png",
+      "description": "self-test kill matrix: known-good + 8 mutants x gates G1-G6, coloured from verdict JSONs; red cells show the measured value",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "data/*.json verdicts",
+      "sha256": "ad08b23dd94d55405ad6b32e1d2600bb2392eef6fd9f392da6ae01f446f32f99"
+    },
+    {
+      "file": "demo.mp4",
+      "description": "step-through: real board render, good verdict, each mutant before/after with its ERC/DRC marker circled, kill matrix",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "master/frames/ + data/*.json",
+      "sha256": "c5d6ca017d292faeb3f4fcde0e65f3beacef0c294c199b92e79863507ee0878b"
+    },
+    {
+      "file": "make_data.sh",
+      "description": "regenerates data/ from fresh judge runs",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "-",
+      "sha256": "3668db1394b9d202eb95a64b87fa95b9e773c42910d82554ea161aeb8ac77b78"
+    },
+    {
+      "file": "make_media.sh",
+      "description": "this regeneration script",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "-",
+      "sha256": "b4a9e93c2f54ec6d00c4a76ba7bc3f01a8545e1735a1fd6b0233c614f96a99f7"
+    },
+    {
+      "file": "render.py",
+      "description": "figure/frame renderer (matplotlib + PyMuPDF)",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "-",
+      "sha256": "4800413ff3871ba7d9e5af12da12727ea52636783eae35dedc90e4bd1e43b16a"
+    }
+  ],
+  "source_data_sha256": {
+    "data/drc_short.drc.json": "2b6d8b0e7224a6c6f681144aa42b13be5874636094dbfce577252ec47fe45547",
+    "data/drc_short.erc.json": "4f8f4d2b9c4d83f1368d078da1354cb3df9700ecaad9297b14d10cb522b56c9a",
+    "data/drc_short.json": "ea6db2be83c6d2f773c2240fef9a6d5b3e810e9a1750c6c8af8ba78b3dd7f244",
+    "data/drc_unconnected.drc.json": "bea8af6cbf4330cc1db5133828760240f130f001e76262982d84a2da44db38b9",
+    "data/drc_unconnected.erc.json": "3c3f4ef76bb2b0a0db35872c1dc83f3fab0c497fb9845b86c9861141a1966bcb",
+    "data/drc_unconnected.json": "3f890fc698a525550cf308cc2489acad6b02c0fadcfb1dc0e23f889df1349094",
+    "data/drill_no_tools.drc.json": "404fef422ec93317e744e2901b4b747682e68c1758c193ecfcad4a5adaf2077f",
+    "data/drill_no_tools.erc.json": "73507a535dca94c19d97cedb8495677fe72006194be78d7ec4b6b0f93607536c",
+    "data/drill_no_tools.json": "6a34a7607abee95361235ef769c5b44a9aa6bcf2ed698ad61d7024dd5dec1e36",
+    "data/erc_off_grid.drc.json": "c7001dda20228faa71925bef0559bbc01023d9805fc0ee641502ee6d8a834957",
+    "data/erc_off_grid.erc.json": "73ff738c5f97da14cd1adda42b3a4cfb904d91c0dc2fab2b7d9e1e6db3fe9672",
+    "data/erc_off_grid.json": "35d2cf8a1b352ba2388096fc59b5b844194669ded5482abfc1701381b008e1e9",
+    "data/erc_power_short.drc.json": "7f3f48dc73f2c6a54155bbb9a7197a1a6a206f392f5abec042a1b9d88f5d1041",
+    "data/erc_power_short.erc.json": "07c9281063dd994d8231a8d2c41965eefd177556e8d78c961610981e706f2c5c",
+    "data/erc_power_short.json": "6d74d78146a5665ec423fb7557695ee7781c8aa8060b768ffedad83f067127f0",
+    "data/erc_unconnected_pin.drc.json": "b8c74e3fc6b941b5e9312b7ac9a8c621626acba087213154d183fb65e50571df",
+    "data/erc_unconnected_pin.erc.json": "5889d167e018af727ff0fd596c016fd33a017c1eadf333859b44159c5d1f103f",
+    "data/erc_unconnected_pin.json": "7e4027e68416ce9fdab9b102b9f1a55a4f279b6eac0ab364bc3e8370ad4080db",
+    "data/good.drc.json": "19288c0eb9cd6a9d35acbfec28a7396ac10c25bd9307e2c7d78866cbe289fa18",
+    "data/good.erc.json": "7c9276a3fa95fb2b1bd061641c96c886b5ad7fcbdb35101b3e60e359c1f62e6d",
+    "data/good.json": "dbbbbda2ac787f31fa84a4c39db87038be7870ccf4d2473178e7a6932c47735e",
+    "data/netlist_mismatch.drc.json": "c6e369d98399317bf8fea6e481952695d277dbac8288cf4917dc0546b445ac03",
+    "data/netlist_mismatch.erc.json": "3eb482f4cd1f7c8b49e76867d923e501ef6698ddee9da31d0dd0cee1bffff5cc",
+    "data/netlist_mismatch.json": "159c38042f9398a83125d037485e13d5251526e2e1fff2f110d51cef7b0e9380",
+    "data/outline_open.drc.json": "9da1932610a6270f3f6a7e2a10400dbf68985e95ee1e9d00a6c6cfd189bdf93f",
+    "data/outline_open.erc.json": "93d842f572ae39be5a4e6f0bbe93b3c0e80a8e38dd94f93c9091d03422084a75",
+    "data/outline_open.json": "4e6e118c225b61d20648cb78afcded6462791a546f864e9edcef01aed4b440dd"
   }
-]
+}
