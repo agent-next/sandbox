@@ -1,0 +1,9 @@
+# The judge and run.py use only the Python 3 standard library (json,
+# math, subprocess, argparse, ...) — nothing is installed from PyPI.
+#
+# Per cookbook/DEMO-STANDARD.md this file pins pip dependencies; there
+# are none. Verified by:
+#   python3 -c "import ast,sys; [sys.exit(1) for n in ast.walk(ast.parse(open(f).read())) if isinstance(n,(ast.Import,ast.ImportFrom)) and (n.module or '') not in ('json','math','os','shutil','subprocess','sys','tempfile','time','argparse','ast')]" \
+#     cookbook/fea-calculix/run.py cookbook/fea-calculix/judge/judge.py cookbook/fea-calculix/judge/mutants.py
+# (exit 0). Third-party binaries (ccx, gmsh) are pinned in setup.sh and
+# recorded with sha256 in VERSIONS.txt.

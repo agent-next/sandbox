@@ -1,0 +1,33 @@
+{
+  "verdict": "FAIL",
+  "timing": {
+    "wall_s": 18.1
+  },
+  "gates": {
+    "verification": {
+      "pass": true,
+      "detail": "reference beam vs Euler-Bernoulli: deflection 0.4016 vs 0.4000 mm (+0.41%), stress 11.91 vs 12.00 MPa (-0.74%); tolerance 3%"
+    },
+    "convergence": {
+      "pass": true,
+      "detail": "mesh 4 vs 2 mm (5000 -> 40000 elements): deflection change 0.44%, stress change 0.91%; tolerance 2%"
+    },
+    "spec_limits": {
+      "pass": false,
+      "detail": "sigma 465.5 > allowable 166.7 MPa; deflection 39.01 > limit 10.00 mm"
+    }
+  },
+  "metrics": {
+    "L_mm": 1000.0,
+    "b_mm": 8.0,
+    "h_mm": 40.0,
+    "mesh_size_mm": 4.0,
+    "mass_g": 2512.0,
+    "ref_delta_mm": 0.4016,
+    "ref_sigma_mpa": 11.911,
+    "coarse_elems": 5000,
+    "fine_elems": 40000,
+    "delta_mm": 39.0106,
+    "sigma_mpa": 465.543
+  }
+}

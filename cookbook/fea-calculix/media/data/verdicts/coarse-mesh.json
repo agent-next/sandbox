@@ -1,0 +1,21 @@
+{
+  "verdict": "FAIL",
+  "timing": {
+    "wall_s": 0.0
+  },
+  "gates": {
+    "verification": {
+      "pass": false,
+      "detail": "invalid design: mesh_size too large: need >= 2 elements across the smallest cross-section dimension"
+    },
+    "convergence": {
+      "pass": false,
+      "detail": "invalid design: mesh_size too large: need >= 2 elements across the smallest cross-section dimension"
+    },
+    "spec_limits": {
+      "pass": false,
+      "detail": "invalid design: mesh_size too large: need >= 2 elements across the smallest cross-section dimension"
+    }
+  },
+  "metrics": {}
+}

@@ -1,0 +1,27 @@
+{
+  "verdict": "FAIL",
+  "timing": {
+    "wall_s": 4.3
+  },
+  "gates": {
+    "verification": {
+      "pass": false,
+      "detail": "reference run failed; downstream gates cannot run"
+    },
+    "convergence": {
+      "pass": false,
+      "detail": "reference run failed; downstream gates cannot run"
+    },
+    "spec_limits": {
+      "pass": false,
+      "detail": "reference run failed; downstream gates cannot run"
+    }
+  },
+  "metrics": {
+    "L_mm": 1000.0,
+    "b_mm": 12.0,
+    "h_mm": 60.0,
+    "mesh_size_mm": 4.0,
+    "mass_g": 5652.0
+  }
+}

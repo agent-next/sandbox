@@ -1,0 +1,57 @@
+{
+  "demo": "cookbook/fea-calculix",
+  "regenerate": "bash media/make_media.sh",
+  "tools": {
+    "ccx": "2.20-1 (judge/setup.sh, sha256-pinned .deb)",
+    "gmsh": "4.10.0 (judge/setup.sh, sha256-pinned tarball)",
+    "python": "media/requirements.txt (matplotlib 3.10.7, numpy 2.2.6)",
+    "ffmpeg": "distro build (see media/REVIEW.md)"
+  },
+  "files": {
+    "result.png": {
+      "shows": "Deformed cantilever mesh (displacements from the real good-fine job.frd, x20) coloured by nodal von Mises from the same .frd, allowable stress 166.7 MPa marked on the colour bar (spec_limits gate); tip deflection + wall stress vs mesh size with the +-2% band (convergence gate); reference-beam FEA/Euler-Bernoulli ratios with the +-3% band (verification gate).",
+      "sources": [
+        "data/verdicts/good.json",
+        "data/convergence.json",
+        "work/good-fine/job.frd",
+        "work/good-coarse/job.frd",
+        "work/good-fine/mesh.inc",
+        "work/good-coarse/mesh.inc"
+      ],
+      "command": "media/.venv/bin/python media/fig_result.py",
+      "sha256": "dceaa8bbe5f68344435cae93fb8a2b2ef30a8ebc539ecb54cab61b7f933cca4e",
+      "bytes": 373759
+    },
+    "loop.png": {
+      "shows": "Agent-loop replay (bad -> partly fixed -> good, gates failing per iteration, a replay of real grade JSONs) plus the 10-artifact x 3-gate self-test matrix; each red cell shows the measured value vs the limit from that mutant's real verdict JSON; script-enforced no-overlap check.",
+      "sources": [
+        "data/verdicts/good.json",
+        "data/verdicts/units-in-metres.json",
+        "data/verdicts/propped-tip.json",
+        "data/verdicts/load-on-ntip.json",
+        "data/verdicts/coarse-mesh.json",
+        "data/verdicts/unconverged.json",
+        "data/verdicts/load-wrong-dof.json",
+        "data/verdicts/overload-10x.json",
+        "data/verdicts/undersized.json",
+        "data/verdicts/no-stress-output.json",
+        "data/selftest.txt"
+      ],
+      "command": "media/.venv/bin/python media/fig_loop.py",
+      "sha256": "2f03aa99c064921ddd33996b36695b1fd9a6399666962a077cbb9da40f9d1dfa",
+      "bytes": 379406
+    },
+    "demo.mp4": {
+      "shows": "Linear-static load ramp of the real good-fine .frd displacement field (displacement scaled, labelled), full-load gate readouts, then each of the 9 mutants' failing gates with measured vs limit from its verdict JSON; overload-10x, undersized, propped-tip and load-on-ntip cards embed that mutant's own real deformed field.",
+      "sources": [
+        "data/verdicts/*.json",
+        "work/*/job.frd",
+        "work/*/fields.npz",
+        "work/*/summary.json"
+      ],
+      "command": "media/.venv/bin/python media/make_video.py (master: media/master/demo_lossless.mp4, -crf 0)",
+      "sha256": "9ab8dfa672ec6c481c2c5eabde8681c4ac479f2ff45abb515c66b4a1cf10ce72",
+      "bytes": 772596
+    }
+  }
+}
