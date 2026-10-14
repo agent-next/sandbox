@@ -48,11 +48,13 @@ trap 'rm -rf "$WORK"' EXIT
 cp -a "$PROJECT_DIR" "$WORK/proj"
 PROJ="$WORK/proj"
 
-SCH=$(find "$PROJ" -name '*.kicad_sch' | head -1)
-PCB=$(find "$PROJ" -name '*.kicad_pcb' | head -1)
-PRO=$(find "$PROJ" -name '*.kicad_pro' | head -1)
+# exactly one of each, at the top level: a copy of another project in a
+# subdirectory must not be what gets graded
+one() { local f; f=$(find "$PROJ" -maxdepth 1 -name "*.$1")
+        [[ $(printf '%s' "$f" | grep -c .) -eq 1 ]] && echo "$f"; }
+SCH=$(one kicad_sch); PCB=$(one kicad_pcb); PRO=$(one kicad_pro)
 [[ -n "$SCH" && -n "$PCB" && -n "$PRO" ]] || {
-    echo "Project needs .kicad_pro + .kicad_sch + .kicad_pcb" >&2; exit 2; }
+    echo "Project needs exactly one .kicad_pro + .kicad_sch + .kicad_pcb at its top level" >&2; exit 2; }
 
 mkdir -p "$WORK/gerbers" "$WORK/drill"
 T_START=$(date +%s.%N)

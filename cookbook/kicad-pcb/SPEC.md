@@ -18,7 +18,8 @@ blinker** designed from scratch in KiCad s-expression format.
 
 ## Artifact under test
 
-A directory containing a self-contained KiCad 9 project:
+A directory containing a self-contained KiCad 9 project (exactly one of each
+file below, at the top level of the directory):
 
 - `<name>.kicad_pro` — project file
 - `<name>.kicad_sch` — single-sheet schematic, `lib_symbols` embedded
@@ -37,8 +38,8 @@ The known-good example is `examples/good/555-blinker/`
 |------|--------------------|-----------|
 | G1 ERC | `kicad-cli sch erc <sch> --format json -o erc.json --severity-all` | count of `severity=="error"` violations across all `sheets[]` == 0 **and** every reported non-error violation type is in the ERC warning allow-list below |
 | G2 DRC | `kicad-cli pcb drc <pcb> --format json -o drc.json --severity-all` | `len(violations)==0` and `len(unconnected_items)==0` |
-| G3 Netlist | `kicad-cli sch export netlist <sch> --format kicadxml`; `(net N "name")` decls parsed from the `.kicad_pcb` text | set of schematic net names (sheet prefix stripped) == set of PCB net names; zero `unconnected-*` synthetic nets; `unconnected_items == 0` |
-| G4 Outline | `.kicad_pcb` parsed directly | every Edge.Cuts primitive endpoint is shared by >=2 primitives (closed loop), or a self-closing shape (rect/circle) is present |
+| G3 Netlist | `kicad-cli sch export netlist <sch> --format kicadxml`; `(net N "name")` decls parsed from the `.kicad_pcb` text | set of schematic net names (sheet prefix stripped) == set of PCB net names; zero `unconnected-*` synthetic nets; `unconnected_items == 0`; the design is the assigned blinker: a 555 timer and an LED are among the schematic parts, and the schematic part references == the PCB footprint references |
+| G4 Outline | `.kicad_pcb` parsed directly | no Edge.Cuts line/arc endpoint is left open (each shared by >=2 primitives), and at least one closed loop or self-closing shape (rect/circle) is present |
 | G5 Gerbers | `kicad-cli pcb export gerbers <pcb> -o dir --layers F.Cu,B.Cu,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts` | all 7 layer files exist; each has >=1 `%ADD` aperture and >=1 draw/flash operation; **and** the bounding box of geometry drawn in the Edge.Cuts gerber matches the `.kicad_pcb` Edge.Cuts bounding box to <= 0.1 mm per side (gerber y-axis is inverted vs board coords) |
 | G6 Drill | `kicad-cli pcb export drill <pcb> -o dir` | every `thru_hole`/`np_thru_hole` pad and every via in the `.kicad_pcb` has drill > 0; >=1 `.drl` file; >=1 `TnC<d>` tool with d>0; >=1 `X..Y..` hit; every required drill diameter has a matching tool; hits cover the holes the board needs |
 

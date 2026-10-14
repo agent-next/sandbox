@@ -40,8 +40,8 @@ times, then always kills the sandbox and verifies it is gone.
 |---|---|---|
 | G1 | `kicad-cli sch erc` JSON | 0 errors, and every warning type is in the allow-list (SPEC.md) |
 | G2 | `kicad-cli pcb drc` JSON | 0 violations, 0 unconnected items |
-| G3 | schematic vs PCB netlists | exact net-set equality, 0 unrouted |
-| G4 | Edge.Cuts parsed from `.kicad_pcb` | outline is a closed loop |
+| G3 | schematic vs PCB netlists | exact net-set equality, 0 unrouted, 555 + LED placed, same part references |
+| G4 | Edge.Cuts parsed from `.kicad_pcb` | outline is a closed loop, no open segment ends |
 | G5 | gerber export (7 layers) | >=1 aperture + >=1 op per layer; Edge.Cuts extents match the board to 0.1 mm |
 | G6 | Excellon drill export | every through-hole pad/via has a drill, a matching tool exists, hits cover all holes |
 

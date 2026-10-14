@@ -38,11 +38,14 @@ def sbx_out(*args):
 def step(name, sid, cmd, timeout):
     print(f"--- {name}", flush=True)
     t0 = time.time()
-    proc = sbx("exec", sid, "--timeout", str(timeout), "--", cmd,
-               check=False)
+    try:  # backstop in case the sbx client itself stalls
+        rc = sbx("exec", sid, "--timeout", str(timeout), "--", cmd,
+                 check=False, timeout=timeout + 120).returncode
+    except subprocess.TimeoutExpired:
+        rc = 124
     dt = time.time() - t0
-    print(f"    {dt:.0f}s, exit {proc.returncode}", flush=True)
-    return proc.returncode, dt
+    print(f"    {dt:.0f}s, exit {rc}", flush=True)
+    return rc, dt
 
 
 def main():
@@ -63,32 +66,20 @@ def main():
     timing = {}
     rc = 1
     try:
-        rc, timing["clone"] = step(
-            "clone", sid,
-            f"git clone --depth 1 -b {shlex.quote(args.ref)} {REPO} repo",
-            timeout=600)
-        if rc:
-            sys.exit("clone failed")
-
-        rc, timing["setup"] = step(
-            "setup", sid, f"cd {DEMO} && bash judge/setup.sh", timeout=1200)
-        if rc:
-            sys.exit("setup failed")
-
-        rc, timing["selftest"] = step(
-            "selftest", sid, f"cd {DEMO} && bash judge/selftest.sh",
-            timeout=900)
-        if rc:
-            sys.exit("selftest failed")
-
-        rc, timing["grade"] = step(
-            "grade", sid,
-            f"cd {DEMO} && bash judge/grade.sh examples/good/555-blinker"
-            " --json /tmp/verdict.json && cat /tmp/verdict.json",
-            timeout=600)
-        if rc:
-            sys.exit("grade failed")
-        rc = 0
+        steps = [
+            ("clone", f"git clone --depth 1 -b {shlex.quote(args.ref)} "
+                      f"{REPO} repo", 600),
+            ("setup", f"cd {DEMO} && bash judge/setup.sh", 1200),
+            ("selftest", f"cd {DEMO} && bash judge/selftest.sh", 900),
+            ("grade", f"cd {DEMO} && bash judge/grade.sh "
+                      "examples/good/555-blinker --json /tmp/verdict.json"
+                      " && cat /tmp/verdict.json", 600),
+        ]
+        for name, cmd, limit in steps:
+            rc, timing[name] = step(name, sid, cmd, timeout=limit)
+            if rc:
+                print(f"{name} failed", file=sys.stderr)
+                break
     finally:
         if args.keep:
             print(f"kept sandbox {sid} running (kill it with: "

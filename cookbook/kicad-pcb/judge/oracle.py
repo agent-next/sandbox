@@ -144,20 +144,57 @@ def pcb_net_names(pcb_path):
     return names
 
 
+def sch_parts(netlist_xml):
+    """{reference: "lib:part"} of the schematic's placed components."""
+    return {c.get("ref"): "{}:{}".format(c.find("libsource").get("lib", ""),
+                                         c.find("libsource").get("part", ""))
+            for c in ET.parse(netlist_xml).iter("comp")
+            if c.find("libsource") is not None}
+
+
+def pcb_refs(pcb_path):
+    """References of the footprints placed on the board."""
+    tree = parse_sexpr(open(pcb_path).read())
+    refs = set()
+    for fp in find_all(tree, "footprint"):
+        for prop in fp:
+            if (isinstance(prop, list) and len(prop) > 2
+                    and prop[:2] == ["property", "Reference"]
+                    and not prop[2].startswith("#")):
+                refs.add(prop[2])
+    return refs
+
+
 def gate_netlist(sch_xml, pcb_path, drc_path):
-    """G3: schematic net set == PCB net set and no unrouted pins."""
+    """G3: schematic net set == PCB net set, no unrouted pins, and the
+    design is the assigned blinker: a 555 timer and an LED are placed and
+    every schematic part has a footprint on the board (and vice versa)."""
     sch = sch_net_names(sch_xml)
     pcb = set(pcb_net_names(pcb_path)) - {""}
     sch_named = {n for n, cnt, unc in sch if not unc}
     floating = [n for n, cnt, unc in sch if unc]
     rep = json.load(open(drc_path))
     unrouted = len(rep.get("unconnected_items", []))
-    ok = sch_named == pcb and not floating and unrouted == 0
-    return ok, {
+    parts = sch_parts(sch_xml)
+    fps = pcb_refs(pcb_path)
+    missing = [k for k, hit in (
+        ("555 timer", any("555" in p for p in parts.values())),
+        ("LED", any(p.split(":")[-1].startswith("LED")
+                    for p in parts.values()))) if not hit]
+    ok = (sch_named == pcb and not floating and unrouted == 0
+          and not missing and set(parts) == fps)
+    det = {
         "sch_nets": sorted(sch_named), "pcb_nets": sorted(pcb),
         "floating_pins": len(floating), "unrouted_items": unrouted,
         "only_in_sch": sorted(sch_named - pcb),
         "only_in_pcb": sorted(pcb - sch_named)}
+    # reported only when they fail, so passing verdicts keep their shape
+    if missing:
+        det["parts_missing"] = missing
+    if set(parts) != fps:
+        det["refs_only_in_sch"] = sorted(set(parts) - fps)
+        det["refs_only_in_pcb"] = sorted(fps - set(parts))
+    return ok, det
 
 
 def outline_segments(pcb_path):
@@ -267,7 +304,7 @@ def gate_outline(pcb_path):
             key = (round(p[0], 4), round(p[1], 4))
             deg[key] = deg.get(key, 0) + 1
     open_ends = [p for p, d in deg.items() if d < 2]
-    ok = (closed_shapes > 0 or (lines and not open_ends))
+    ok = not open_ends and (closed_shapes > 0 or bool(lines))
     return ok, {"edge_cuts_items": len(segs),
                 "open_endpoints": len(open_ends), "closed": bool(ok)}
 
