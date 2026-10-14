@@ -1,0 +1,17 @@
+# VERSIONS.txt -- recorded by judge/setup.sh
+# One entry per tool the demo depends on: the pinned version,
+# and the tool's own --version output as actually installed.
+
+python3
+  Python 3.12.15
+
+virtualenv /home/user/.taichi-mpm-venv
+  colorama==0.4.6
+  dill==0.4.1
+  markdown-it-py==4.2.0
+  mdurl==0.1.2
+  numpy==2.2.6
+  Pygments==2.21.0
+  rich==15.0.0
+  taichi==1.7.4
+  typing_extensions==4.16.0

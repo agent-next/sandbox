@@ -91,7 +91,10 @@ def main():
     steps = int(args.steps) if args.steps is not None else int(p['steps'])
 
     np.random.seed(seed)
-    ti.init(arch=ti.cpu, random_seed=seed)
+    # Single-threaded CPU: P2G's atomic scatters are order-dependent in
+    # floating point, so a fixed thread count is mandatory for a
+    # byte-identical verdict between same-seed runs (DEMO-STANDARD).
+    ti.init(arch=ti.cpu, random_seed=seed, cpu_max_num_threads=1)
 
     n_grid = int(p['n_grid'])
     dx = 1.0 / n_grid

@@ -63,11 +63,13 @@ import sys, os
 os.environ.setdefault('TI_LOG_LEVEL', 'error')
 import taichi as ti
 want = sys.argv[1]
-if ti.__version__ != want:
-    print(f'setup: taichi {ti.__version__} != {want}', file=sys.stderr)
+ver = '.'.join(str(x) for x in ti.__version__) if \
+    isinstance(ti.__version__, tuple) else ti.__version__
+if ver != want:
+    print(f'setup: taichi {ver} != {want}', file=sys.stderr)
     sys.exit(1)
 ti.init(arch=ti.cpu)
-print(f'setup: taichi {ti.__version__} OK on cpu')
+print(f'setup: taichi {ver} OK on cpu')
 PY
 
 cat > "$MARK" <<EOF

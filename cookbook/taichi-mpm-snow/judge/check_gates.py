@@ -105,7 +105,8 @@ def main():
                    (isinstance(v, float) and not math.isfinite(v)):
                     g1_ok = False
     fail_gate('completion', g1_ok,
-              f'exit={proc.returncode} rows={len(rows)} wall={wall:.1f}s',
+              f'exit={proc.returncode} rows={len(rows)} '
+              f'wall_ok={wall <= T["wall_s"]}',
               verdict)
     if not g1_ok:
         verdict['all_gates_passed'] = False
