@@ -32,6 +32,13 @@ RUNNER_DIR = "/opt/actions-runner"
 GITHUB_API = "https://api.github.com"
 
 # The sandbox init is not systemd, so nothing starts dockerd on its own.
+RUNNER_USER = "user"  # the runner drops to this account (passwordless sudo, docker), like GitHub's
+RUNNER_PACKAGES = (
+    "sudo curl git ca-certificates lsb-release gnupg build-essential python3 python3-venv python3-pip "
+    "jq unzip zip wget xz-utils pkg-config file rsync openssh-client zstd "
+    "libgl1 libglib2.0-0 libsm6 libxext6 libxrender1"  # native deps of opencv/matplotlib-style wheels
+)
+
 DOCKER_UP = (
     "pgrep -x dockerd >/dev/null || (sudo nohup dockerd >/tmp/dockerd.log 2>&1 &); "
     "for _ in $(seq 100); do [ -S /var/run/docker.sock ] && break; sleep 0.1; done; "
@@ -336,11 +343,13 @@ def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], g
                 return
             sbx.files.write("/tmp/jit", gh.jit(slot.name, labels, group_id))
             run = (
-                f"{DOCKER_UP}; cd {RUNNER_DIR} && jit=$(cat /tmp/jit) && rm -f /tmp/jit "
-                f'&& exec ./run.sh --jitconfig "$jit"'
+                # .env: the runner hands these to every job, so a job can name its sandbox
+                f"{DOCKER_UP}; cd {RUNNER_DIR} && echo \"E2B_SANDBOX_ID=$E2B_SANDBOX_ID\" > .env "
+                f"&& jit=$(cat /tmp/jit) && rm -f /tmp/jit "
+                f'&& exec sudo -n -u {RUNNER_USER} -H ./run.sh --jitconfig "$jit"'
             )
             # bounded like the sandbox: a stream from a sandbox killed under the job never ends
-            handle = sbx.commands.run(run, background=True, timeout=lifetime)
+            handle = sbx.commands.run(run, background=True, timeout=lifetime, user="root")
             _wait_runner(sbx, handle, slot, deadline=time.monotonic() + lifetime)
         finally:
             _kill(sbx, slot)
@@ -402,6 +411,37 @@ def _kill(sbx, slot: Slot) -> None:
     emit("kill_failed", runner=slot.name, sandbox=sbx.sandbox_id, error=error)
 
 
+def ensure_template(http: httpx.Client, *, image: str, size: str, poll_s: float = 5,
+                    wait_s: float = 900) -> str:
+    """The key's own template imported from a public image (`http`: the sandbox API, key set).
+    Registered once per key and image, then reused; a failed import is deleted again."""
+    alias = f"sbx-runner-{re.sub(r'[^a-z0-9]+', '-', image.lower()).strip('-')}-{size}"
+
+    def check(resp: httpx.Response, what: str) -> httpx.Response:
+        if resp.status_code >= 400:
+            raise RunnerError(f"template {what} failed: HTTP {resp.status_code} {resp.text[:200]}")
+        return resp
+
+    if http.get(f"/templates/aliases/{alias}").status_code == 200:
+        return alias
+    reg = check(http.post("/v3/templates", json={"name": alias, "resourceClass": size}), "register").json()
+    tid, bid = reg["templateID"], reg["buildID"]
+    emit("template", template=alias, image=image, size=size)
+    try:
+        check(http.post(f"/v2/templates/{tid}/builds/{bid}", json={"fromImage": image}), "import")
+        deadline = time.monotonic() + wait_s
+        while True:
+            status = check(http.get(f"/templates/{tid}/builds/{bid}/status"), "status").json().get("status")
+            if status == "ready":
+                return alias
+            if status not in ("waiting", "building", "pending") or time.monotonic() > deadline:
+                raise RunnerError(f"template import of {image} ended {status!r}")
+            time.sleep(poll_s)
+    except BaseException:
+        http.delete(f"/templates/{tid}")
+        raise
+
+
 def build_image(sandbox_cls, *, template: str | None, runner_version: str) -> str:
     """Bake the runner snapshot: actions/runner + its deps + a running dockerd."""
     if not re.fullmatch(r"\d+(\.\d+)*", runner_version):
@@ -414,16 +454,23 @@ def build_image(sandbox_cls, *, template: str | None, runner_version: str) -> st
     emit("image_sandbox", sandbox=sbx.sandbox_id, runner_version=runner_version)
     try:
         steps = [
+            "export DEBIAN_FRONTEND=noninteractive; apt-get update -qq "
+            f"&& apt-get install -y -qq --no-install-recommends {RUNNER_PACKAGES} >/dev/null",
             # sudo warns on every call when the hostname does not resolve
-            'grep -q "$(hostname)" /etc/hosts || echo "127.0.1.1 $(hostname)" | sudo tee -a /etc/hosts >/dev/null',
-            f"sudo mkdir -p {RUNNER_DIR} && sudo chown $(id -u):$(id -g) {RUNNER_DIR}",
-            f"cd {RUNNER_DIR} && curl -fsSL {url} | tar xz",
-            f"cd {RUNNER_DIR} && sudo ./bin/installdependencies.sh >/tmp/deps.log 2>&1 || (tail -20 /tmp/deps.log; false)",
+            'grep -q "$(hostname)" /etc/hosts || echo "127.0.1.1 $(hostname)" >> /etc/hosts',
+            f"id {RUNNER_USER} >/dev/null 2>&1 || useradd -m -s /bin/bash {RUNNER_USER}; "
+            f"echo '{RUNNER_USER} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/sbx-runner && chmod 440 /etc/sudoers.d/sbx-runner",
+            "command -v dockerd >/dev/null || (curl -fsSL https://get.docker.com | sh >/tmp/docker.log 2>&1 "
+            "|| (tail -20 /tmp/docker.log; false))",
+            f"groupadd -f docker && usermod -aG docker {RUNNER_USER}",
+            f"mkdir -p {RUNNER_DIR} && cd {RUNNER_DIR} && curl -fsSL {url} | tar xz "
+            f"&& chown -R {RUNNER_USER}: {RUNNER_DIR}",
+            f"cd {RUNNER_DIR} && ./bin/installdependencies.sh >/tmp/deps.log 2>&1 || (tail -20 /tmp/deps.log; false)",
             DOCKER_UP,
             "docker run --rm hello-world >/dev/null && docker image rm hello-world >/dev/null",
         ]
         for step in steps:
-            sbx.commands.run(step, timeout=600)
+            sbx.commands.run(step, timeout=600, user="root")
             emit("image_step", done=step.split("&&")[0][:60])
         snap = sbx.create_snapshot()
     finally:
