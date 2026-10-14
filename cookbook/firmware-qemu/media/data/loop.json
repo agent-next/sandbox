@@ -1,0 +1,11 @@
+{
+  "note": "Replayed fixing sequence (bad -> partly fixed -> good): an ordering of real grade.sh verdicts that a fixing agent would plausibly produce, saved as media/data/verdict-*.json. This is a replay of real judge output, not a live agent trace.",
+  "seed": 20260814,
+  "steps": [
+    {"iteration": 1, "artifact": "build-broken",          "verdict": "verdict-build-broken.json",      "stage": "does not compile"},
+    {"iteration": 2, "artifact": "startup-bad-sp",        "verdict": "verdict-startup-bad-sp.json",    "stage": "compiles, never boots"},
+    {"iteration": 3, "artifact": "crc-poly",              "verdict": "verdict-crc-poly.json",          "stage": "boots, CRC wrong"},
+    {"iteration": 4, "artifact": "shell-unknown-ok",      "verdict": "verdict-shell-unknown-ok.json",  "stage": "protocol edge case wrong"},
+    {"iteration": 5, "artifact": "examples/good",         "verdict": "verdict-good.json",              "stage": "all gates pass"}
+  ]
+}

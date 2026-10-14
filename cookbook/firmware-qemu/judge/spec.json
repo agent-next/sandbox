@@ -1,0 +1,195 @@
+{
+  "_comment": [
+    "Known-answer mask for the firmware-qemu demo. Every expected response",
+    "here is derived from SPEC.md, not from the artifact under test. The",
+    "judge compares the firmware's UART output against these exact strings."
+  ],
+  "banner": "firmware-qemu 1.0 cortex-m3 lm3s6965evb ready",
+  "prompt": "",
+  "commands": [
+    {
+      "line": "HELP",
+      "expect": "OK commands: HELP VER ID CRC RB PING ECHO"
+    },
+    {
+      "line": "VER",
+      "expect": "OK firmware-qemu 1.0 cortex-m3"
+    },
+    {
+      "line": "ID",
+      "expect": "OK lm3s6965evb"
+    },
+    {
+      "line": "PING",
+      "expect": "OK pong"
+    },
+    {
+      "line": "ECHO hello world",
+      "expect": "OK hello world"
+    },
+    {
+      "line": "ECHO   spaced   out  ",
+      "expect": "OK spaced   out  "
+    },
+    {
+      "line": "ECHO",
+      "expect": "ERR unknown"
+    },
+    {
+      "line": "BOGUS",
+      "expect": "ERR unknown"
+    },
+    {
+      "line": "rbfrob",
+      "expect": "ERR unknown"
+    },
+    {
+      "line": "RB nonsense",
+      "expect": "ERR unknown"
+    },
+    {
+      "line": "RB",
+      "expect": "ERR unknown"
+    },
+    {
+      "line": "CRC 31323334",
+      "expect": "OK 0x9be3e0a3"
+    },
+    {
+      "line": "CRC 313233343536373839",
+      "expect": "OK 0xcbf43926"
+    },
+    {
+      "line": "CRC deadbeef",
+      "expect": "OK 0x7c9ca35a"
+    },
+    {
+      "line": "CRC 00",
+      "expect": "OK 0xd202ef8d"
+    },
+    {
+      "line": "CRC ff",
+      "expect": "OK 0xff000000"
+    },
+    {
+      "line": "CRC 0000000000",
+      "expect": "OK 0xc622f71d"
+    },
+    {
+      "line": "CRC",
+      "expect": "ERR bad hex"
+    },
+    {
+      "line": "CRC abc",
+      "expect": "ERR bad hex"
+    },
+    {
+      "line": "CRC zz",
+      "expect": "ERR bad hex"
+    },
+    {
+      "line": "CRC 0z",
+      "expect": "ERR bad hex"
+    },
+    {
+      "line": "RB count",
+      "expect": "OK 0"
+    },
+    {
+      "line": "RB pop",
+      "expect": "ERR empty"
+    },
+    {
+      "line": "RB dump",
+      "expect": "OK "
+    },
+    {
+      "line": "RB clear",
+      "expect": "OK 0"
+    },
+    {
+      "line": "RB count",
+      "expect": "OK 0"
+    },
+    {
+      "line": "RB push 01",
+      "expect": "OK 1"
+    },
+    {
+      "line": "RB count",
+      "expect": "OK 1"
+    },
+    {
+      "line": "RB dump",
+      "expect": "OK 01"
+    },
+    {
+      "line": "RB push 0203",
+      "expect": "OK 3"
+    },
+    {
+      "line": "RB dump",
+      "expect": "OK 01 02 03"
+    },
+    {
+      "line": "RB pop",
+      "expect": "OK 2"
+    },
+    {
+      "line": "RB dump",
+      "expect": "OK 02 03"
+    },
+    {
+      "line": "RB pop",
+      "expect": "OK 1"
+    },
+    {
+      "line": "RB pop",
+      "expect": "OK 0"
+    },
+    {
+      "line": "RB pop",
+      "expect": "ERR empty"
+    },
+    {
+      "line": "RB push bad",
+      "expect": "ERR bad hex"
+    },
+    {
+      "line": "RB clear",
+      "expect": "OK 0"
+    },
+    {
+      "line": "RB push 0102030405060708090a0b0c0d0e0f1011",
+      "expect": "OK 16"
+    },
+    {
+      "line": "RB count",
+      "expect": "OK 16"
+    },
+    {
+      "line": "RB dump",
+      "expect": "OK 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11"
+    },
+    {
+      "line": "RB push 1112",
+      "expect": "OK 16"
+    },
+    {
+      "line": "RB dump",
+      "expect": "OK 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 11 12"
+    },
+    {
+      "line": "RB pop",
+      "expect": "OK 15"
+    },
+    {
+      "line": "RB dump",
+      "expect": "OK 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 11 12"
+    },
+    {
+      "line": "RB clear",
+      "expect": "OK 0"
+    }
+  ]
+}

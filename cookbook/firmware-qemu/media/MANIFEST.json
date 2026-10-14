@@ -1,0 +1,59 @@
+{
+  "data_provenance": "media/data/ is produced by media/collect_data.sh: judge/grade.sh --seed 20260814 --json on examples/good and each mutants.py artifact, judge/selftest.sh, media/capture.py (same driver, same wire), and arm-none-eabi-size on the real build.",
+  "ffmpeg": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "files": {
+    "demo.mp4": {
+      "bytes": 3828510,
+      "command": "media/.venv/bin/python media/video.py && ffmpeg -framerate 30 -i media/frames/%05d.png -c:v libx264 -crf 0 -pix_fmt yuv420p media/master/demo.mp4 && ffmpeg -i media/master/demo.mp4 -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart media/demo.mp4",
+      "sha256": "47e77b6da9309fe1167597c4de4faba2f2559df9002a5c7689fb366be51373cd",
+      "shows": "Replay of the real UART transcript (typed pace from the capture timestamps), then the crc-poly mutant session with the oracle-divergent responses highlighted against the expected lines, then the verdicts. 1920x1080 30 fps H.264; lossless master in media/master/ (git-ignored).",
+      "sources": [
+        "media/data/uart-good.json",
+        "media/data/uart-crc-poly.json",
+        "media/data/verdict-good.json",
+        "media/data/loop.json",
+        "media/data/selftest.log"
+      ]
+    },
+    "loop.png": {
+      "bytes": 367892,
+      "command": "media/.venv/bin/python media/fig_loop.py",
+      "sha256": "88c17be111f10e45a5e2916c6bb266fe626c8514bc2739ecc661c196eba07b3d",
+      "shows": "Mutant x gate matrix: examples/good plus the 14 single-edit mutants against all 8 gates. Red cells carry the gate's measured detail (e.g. '5/46 wrong'); the amber row is the build-only kill. Footer: the replayed fix sequence and the 14/14 kill rate.",
+      "sources": [
+        "media/data/verdict-good.json",
+        "media/data/verdict-build-broken.json",
+        "media/data/verdict-crc-init.json",
+        "media/data/verdict-crc-no-xorout.json",
+        "media/data/verdict-crc-poly.json",
+        "media/data/verdict-crc-shift-dir.json",
+        "media/data/verdict-ring-count-drift.json",
+        "media/data/verdict-ring-drop-newest.json",
+        "media/data/verdict-ring-off-by-one.json",
+        "media/data/verdict-shell-bad-hex-accepted.json",
+        "media/data/verdict-shell-unknown-ok.json",
+        "media/data/verdict-startup-bad-sp.json",
+        "media/data/verdict-startup-no-reset.json",
+        "media/data/verdict-uart-no-init.json",
+        "media/data/verdict-uart-rx-inverted.json",
+        "media/data/loop.json",
+        "media/data/selftest.log"
+      ]
+    },
+    "result.png": {
+      "bytes": 483945,
+      "command": "media/.venv/bin/python media/fig_result.py",
+      "sha256": "e0cd221186826a9c7e515a7671e259d3506f2080eac174f8d4f6dc764f890bc9",
+      "shows": "Left: the real UART0 transcript of examples/good booting in QEMU lm3s6965evb (banner + scripted shell session; elided lines marked). Right: the 8 judge gates with measured values and the maps_ok 8192 B pass line; flash/SRAM usage from the linker map.",
+      "sources": [
+        "media/data/uart-good.json",
+        "media/data/verdict-good.json",
+        "media/data/size-good.txt",
+        "media/data/firmware-good.map",
+        "judge/spec.json"
+      ]
+    }
+  },
+  "generated_by": "bash media/make_media.sh",
+  "python_packages": "media/requirements.txt"
+}

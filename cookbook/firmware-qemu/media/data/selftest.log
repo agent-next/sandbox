@@ -1,0 +1,37 @@
+== selftest ==========================================================
+good artifact : /home/user/w/cookbook/firmware-qemu/examples/good
+mutant source : /home/user/w/cookbook/firmware-qemu/judge/mutants.py (single-edit mutants)
+
+--- known-good -------------------------------------------------------
+PASS  known-good artifact (8/8 gates)  exit=0
+
+--- determinism ------------------------------------------------------
+PASS  two same-seed runs give identical verdict JSON (minus timing)
+
+--- known-bad mutants -----------------------------------------------
+MUTANT                   EXIT  KILL CLASS   GATES FAILED
+build-broken             1     build-only   boot (no ELF); build_clean (make exited 2); crc_oracle (no ELF); elf_ok (build/firmware.elf missing); judge_intact (skipped); maps_ok (no ELF to size); no_hardfault (no ELF); shell (no ELF)
+crc-init                 1     behavioural  crc_oracle (CRC disagrees with zlib); shell (6 of 46 responses wrong)
+crc-no-xorout            1     behavioural  crc_oracle (CRC disagrees with zlib); shell (6 of 46 responses wrong)
+crc-poly                 1     behavioural  crc_oracle (CRC disagrees with zlib); shell (5 of 46 responses wrong)
+crc-shift-dir            1     behavioural  crc_oracle (CRC disagrees with zlib); shell (5 of 46 responses wrong)
+ring-count-drift         1     behavioural  crc_oracle (CRC disagrees with zlib); shell (45 of 46 responses wrong)
+ring-drop-newest         1     behavioural  shell (3 of 46 responses wrong)
+ring-off-by-one          1     behavioural  shell (7 of 46 responses wrong)
+shell-bad-hex-accepted   1     behavioural  shell (2 of 46 responses wrong)
+shell-unknown-ok         1     behavioural  shell (2 of 46 responses wrong)
+startup-bad-sp           1     behavioural  boot (no banner within 10s); crc_oracle (CRC disagrees with zlib); shell (46 of 46 responses wrong)
+startup-no-reset         1     behavioural  boot (no banner within 10s); crc_oracle (CRC disagrees with zlib); shell (46 of 46 responses wrong)
+uart-no-init             1     behavioural  crc_oracle (CRC disagrees with zlib); shell (46 of 46 responses wrong)
+uart-rx-inverted         1     behavioural  crc_oracle (CRC disagrees with zlib); shell (46 of 46 responses wrong)
+
+== summary ===========================================================
+known-good            : PASS (8/8 gates)
+mutants killed        : 14/14
+  behavioural kills   : 13 (a runtime gate fired)
+  build-only kills    : 1 (build failed, no ELF)
+  static-only kills   : 0 (elf/map/integrity gates only)
+kill rate             : 100 % overall
+behavioural kill rate : 100 % of 13 behavioural mutants
+
+SELFTEST PASSED: judge passes the good artifact and kills 14 mutants

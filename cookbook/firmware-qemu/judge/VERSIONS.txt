@@ -1,0 +1,25 @@
+# VERSIONS.txt -- recorded by judge/setup.sh
+# One entry per tool the demo depends on: the pinned version, the
+# sha256 the download was verified against, and the tool's own
+# --version output as actually installed.
+
+arm-gnu-toolchain 13.3.rel1 (x86_64 -> arm-none-eabi)
+  url    : https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi.tar.xz
+  sha256 : 95c011cee430e64dd6087c75c800f04b9c49832cc1000127a92a97f9c8d83af4
+  arm-none-eabi-gcc (Arm GNU Toolchain 13.3.Rel1 (Build arm-13.24)) 13.3.1 20240614
+  Copyright (C) 2023 Free Software Foundation, Inc.
+  This is free software; see the source for copying conditions.  There is NO
+  warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  
+
+qemu-system-arm 1:7.2+dfsg-7+deb12u18+b3 (Debian 12 package)
+  url    : http://deb.debian.org/debian/pool/main/q/qemu/qemu-system-arm_7.2%2bdfsg-7%2bdeb12u18%2bb3_amd64.deb
+  sha256 : 78c4adf16152bb8ae1994784e966365128cae04d8ae37bc161bb0b6617c17d9c
+  QEMU emulator version 7.2.22 (Debian 1:7.2+dfsg-7+deb12u18+b3)
+  Copyright (c) 2003-2022 Fabrice Bellard and the QEMU Project developers
+
+python3 (judge oracle: zlib.crc32, random.Random -- stdlib only)
+  Python 3.12.15
+
+make
+  GNU Make 4.3

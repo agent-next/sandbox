@@ -1,0 +1,7 @@
+# requirements.txt -- Python dependencies for judge/drive.py.
+#
+# The judge uses only the Python 3.10+ standard library (pty, select,
+# termios, zlib, json, random): there is nothing to pip-install, so this
+# file is intentionally empty of packages.  QEMU and the Arm GNU
+# toolchain are installed by judge/setup.sh and recorded in
+# judge/VERSIONS.txt.
