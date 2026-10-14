@@ -10,6 +10,7 @@ and the command to run it. Entries are added only after they pass review.
 | [gpu-sim-sweep](gpu-sim-sweep/README.md) | Time a robot simulation across many parallel worlds (CPU here; the video used a GPU). |
 | [small-gpu](small-gpu/README.md) | Run a CUDA smoke check in a 1 GiB VRAM slice and destroy it. |
 | [github-ci-runners](github-ci-runners/README.md) | Run GitHub Actions jobs in disposable sandboxes with Docker, from a warm pool. |
+| [cfd-openfoam](cfd-openfoam/README.md) | Run OpenFOAM channel and cavity flows and grade them against the analytic profile and Ghia 1982; one command, independently reproduced. |
 
 The first three prompts passed review as demo videos. They have not been
 re-run from this repo, so treat them as starting points, not guarantees.
