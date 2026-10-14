@@ -175,11 +175,47 @@ Generated $(date -u +"%Y-%m-%d %H:%M:%S UTC") by \`make_media.sh\`.
   - Caption states this is a replay, not a live agent trace; mc-marginal row highlighted as passing all deterministic gates, failing only MC
   - No overlaps: legends outside data, labels readable
 
-## Frame extraction check (4 frames)
+## Layout gate
+Every figure script calls \`common.check_layout(fig)\` before savefig: all
+text artists and legends must lie inside the canvas, and no two text
+bounding boxes (or text/legend pair) may overlap — the build fails if it
+trips. make_video.py runs the same check on the first frame of each
+segment.
+
+## Defects fixed in this revision
+1. result.png MC panel: "θ settle limit 8 s" label overlapped the pass-rule
+   note and the stats block, which in turn overlapped the red 8 s line →
+   θ label moved just below its line at top-right; stats block moved to
+   the empty bottom-left; note kept top-left.
+2. result.png: "x settle limit (displacement run)" clipped at the right
+   figure edge → label right-aligned inside the axes at bottom-right,
+   ending just left of its red line.
+3. result.png: legend sat on the data cloud → anchored upper-left in the
+   empty region under the note.
+4. result.png: footer caption cut off at the right ("Gain ma...") →
+   caption() now wraps to ≤160-char lines.
+5. loop.png: gate-matrix row labels clipped at the left edge → two-line
+   labels + larger left margin (left=0.105).
+6. loop.png: first-fail panel detail lines struck through the candidate
+   names (line pitch too small) → pitch 0.21 with detail offset −0.10;
+   the bottom note shortened to one line that fits the panel.
+7. loop.png: selftest bar labels clipped at the figure edge → mutant
+   names drawn inside the bars (white), gate reason right of each bar,
+   axes widened to xlim 2.35.
+8. loop.png: torque/settling annotations ran under the legends; "cart
+   position x (m)" clipped → torque legend moved to lower-right,
+   settling legend to lower-left, settling gate note to bottom-right,
+   settling annotation repacked into a 3-line block at top-right; left
+   margin fix also covers the ylabel.
+9. loop.png: footer caption cut off at the right → same wrapped caption.
+10. demo.mp4: was not committed → built by this script and committed;
+    frames checked with the same layout gate.
+
+## Frame extraction check (5 frames)
 EOF
 
-# extract 4 frames for review
-for t in 2 10 20 30; do
+# extract 5 evenly spaced frames for review
+for t in 6 17 28 39 50; do
     frame="${OUT}/review_frame_${t}s.png"
     "${FFMPEG}" -y -hide_banner -loglevel error -ss "${t}" -i "${OUT}/demo.mp4" -frames:v 1 "${frame}" 2>/dev/null || true
     if [[ -f "${frame}" ]]; then

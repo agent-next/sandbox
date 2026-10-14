@@ -23,7 +23,7 @@ g = V["gates"]
 # ---------------------------------------------------------------- top: traces
 fig = plt.figure(figsize=(13, 8.6), dpi=200)
 gs = fig.add_gridspec(2, 2, height_ratios=[1, 1.06], width_ratios=[1, 1],
-                      left=0.065, right=0.985, top=0.895, bottom=0.115,
+                      left=0.065, right=0.985, top=0.895, bottom=0.140,
                       wspace=0.20, hspace=0.44)
 
 ax1 = fig.add_subplot(gs[0, 0])
@@ -141,17 +141,19 @@ axm.scatter(x_s, th_s, s=15, color=c.BLUE, alpha=0.45, linewidths=0,
             zorder=3)
 axm.axvline(c.MC_X_SETTLE_MAX, color=c.CRIT, lw=1.6, zorder=2)
 axm.axhline(c.MC_THETA_SETTLE_MAX, color=c.CRIT, lw=1.6, zorder=2)
-axm.text(c.MC_X_SETTLE_MAX + 0.12, 0.25, "x settle limit 7 s\n(displacement run)",
-         fontsize=10, color=c.CRIT, va="bottom")
-axm.text(0.25, c.MC_THETA_SETTLE_MAX + 0.15, "θ settle limit 8 s (lean run)",
-         fontsize=10, color=c.CRIT, va="bottom")
+axm.text(c.MC_X_SETTLE_MAX - 0.12, 0.30,
+         "x settle limit 7 s\n(displacement run)",
+         fontsize=10, color=c.CRIT, va="bottom", ha="right")
+axm.text(c.MC_X_SETTLE_MAX - 0.15, c.MC_THETA_SETTLE_MAX - 0.25,
+         "θ settle limit 8 s (lean run)",
+         fontsize=10, color=c.CRIT, va="top", ha="right")
 frac = g["mc_pass_fraction"]["value"]
-axm.text(7.45, 8.25,
+axm.text(0.25, 3.30,
          f"{V['mc_pass']}/{V['mc_n']} samples pass both runs\n"
          f"gate: ≥ 95 % of 200 - measured {frac:.3f}\n"
          f"worst θ settle {V['mc_theta_settle_worst_s']:.2f} s, "
          f"worst x settle {V['mc_x_settle_worst_s']:.2f} s",
-         fontsize=10, color=c.INK2, va="top", ha="right")
+         fontsize=10, color=c.INK2, va="top", ha="left")
 axm.set_title("Monte-Carlo gate - ±20 % plant perturbation, 200 runs",
               fontsize=12.5, color=c.INK, pad=8)
 axm.set_xlabel("x settling time (s)", fontsize=11.5, color=c.INK2)
@@ -163,7 +165,8 @@ handles = [
     Line2D([], [], marker="o", ls="", ms=6, mfc=c.BLUE, mec=c.SURFACE,
            mew=1, label="one perturbed plant (both spec runs)"),
 ]
-leg = axm.legend(handles=handles, loc="center right", fontsize=10,
+leg = axm.legend(handles=handles, loc="upper left",
+                 bbox_to_anchor=(0.02, 0.85), fontsize=10,
                  frameon=True, facecolor=c.SURFACE, edgecolor=c.GRID)
 leg.get_texts()[0].set_color(c.INK2)
 axm.text(0.02, 0.975, "every dot must sit left of / below its red limit",
@@ -179,5 +182,6 @@ c.caption(fig, "Every curve and number is measured by judge/grade.sh on "
           "band: settling time is the last exit from it (so S2 x = 6.05 s "
           "passes the 7 s gate), and the S1 curve's small dip below zero is "
           "a normal overshoot - the overshoot gate allows 10 %.")
+c.check_layout(fig)
 fig.savefig(os.path.join(c.MEDIA, "result.png"), dpi=200)
 print("result.png written")

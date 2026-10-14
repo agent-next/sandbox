@@ -97,6 +97,21 @@ def make_animation(out_path, crf=0, preset="ultrafast", fps=30, width=1920, heig
 
     fig = plt.figure(figsize=(fig_w, fig_h), dpi=dpi)
 
+    # layout gate: first frame of each segment is checked for clipped or
+    # colliding text/legends; the build fails if it trips. The last two
+    # entries are mid-segment frames where the delayed annotations are up.
+    CHECK_FRAMES = {int(b * fps) for b in
+                    (0, SEC_TITLE, SEC_TITLE + SEC_RESULT,
+                     SEC_TITLE + SEC_RESULT + SEC_LOOP,
+                     SEC_TITLE + SEC_RESULT + SEC_LOOP + 6.0,
+                     SEC_TITLE + SEC_RESULT + SEC_LOOP + SEC_ANIM,
+                     SEC_TITLE + SEC_RESULT + SEC_LOOP + SEC_ANIM
+                     + SEC_SIDE_A,
+                     TOTAL_SEC - SEC_HOLD,
+                     SEC_TITLE + SEC_RESULT + SEC_LOOP + SEC_ANIM + 7,
+                     SEC_TITLE + SEC_RESULT + SEC_LOOP + SEC_ANIM
+                     + SEC_SIDE_A + 7)}
+
     def init():
         fig.clear()
         ax = fig.add_subplot(111)
@@ -135,17 +150,18 @@ def make_animation(out_path, crf=0, preset="ultrafast", fps=30, width=1920, heig
             return []
 
         elif t < SEC_TITLE + SEC_RESULT:
-            # Show result.png
+            # Show result.png (leave a bottom strip so the label/progress
+            # bar never overlaps the figure's own caption)
             ax = fig.add_subplot(111)
             ax.set_facecolor(c.SURFACE)
             ax.axis("off")
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             img = plt.imread(os.path.join(c.MEDIA, "result.png"))
-            ax.imshow(img, extent=[0, 1, 0, 1], aspect="auto")
+            ax.imshow(img, extent=[0, 1, 0.065, 1], aspect="auto")
             # progress bar
             prog = (t - SEC_TITLE) / SEC_RESULT
-            ax.plot([0.05, 0.05 + 0.9*prog], [0.02, 0.02], color=c.BLUE, lw=4, solid_capstyle="round")
+            ax.plot([0.05, 0.05 + 0.9*prog], [0.04, 0.04], color=c.BLUE, lw=4, solid_capstyle="round")
             ax.text(0.5, 0.01, "Result figure — good controller under the judge's spec envelope",
                     fontsize=16, color=c.INK2, ha="center", va="bottom")
             return []
@@ -158,9 +174,9 @@ def make_animation(out_path, crf=0, preset="ultrafast", fps=30, width=1920, heig
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             img = plt.imread(os.path.join(c.MEDIA, "loop.png"))
-            ax.imshow(img, extent=[0, 1, 0, 1], aspect="auto")
+            ax.imshow(img, extent=[0, 1, 0.065, 1], aspect="auto")
             prog = (t - SEC_TITLE - SEC_RESULT) / SEC_LOOP
-            ax.plot([0.05, 0.05 + 0.9*prog], [0.02, 0.02], color=c.ORANGE, lw=4, solid_capstyle="round")
+            ax.plot([0.05, 0.05 + 0.9*prog], [0.04, 0.04], color=c.ORANGE, lw=4, solid_capstyle="round")
             ax.text(0.5, 0.01, "Loop replay — mutant × gate matrix, killer traces, selftest",
                     fontsize=16, color=c.INK2, ha="center", va="bottom")
             return []
@@ -296,7 +312,7 @@ def make_animation(out_path, crf=0, preset="ultrafast", fps=30, width=1920, heig
                 # too-sluggish hasn't settled by end
                 ax.annotate(f"too-sluggish never settles (gate: ≤ {S2_SETTLE_MAX:.0f} s)",
                             xy=(8, x2s[800] if 800 < len(x2s) else x2s[-1]),
-                            xytext=(2, 0.8), fontsize=14, color=c.CRIT,
+                            xytext=(3.2, 1.04), fontsize=14, color=c.CRIT,
                             arrowprops=dict(arrowstyle="->", color=c.CRIT, lw=1.5))
             leg = ax.legend(loc="upper right", fontsize=13, frameon=True,
                             facecolor=c.SURFACE, edgecolor=c.GRID)
@@ -312,14 +328,20 @@ def make_animation(out_path, crf=0, preset="ultrafast", fps=30, width=1920, heig
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             img = plt.imread(os.path.join(c.MEDIA, "loop.png"))
-            ax.imshow(img, extent=[0, 1, 0, 1], aspect="auto")
-            ax.text(0.5, 0.02, "All numbers from real judge runs (grade.sh --trace, seed 20260101) — "
+            ax.imshow(img, extent=[0, 1, 0.065, 1], aspect="auto")
+            ax.text(0.5, 0.015, "All numbers from real judge runs (grade.sh --trace, seed 20260101) — "
                        "no synthesised data",
                     fontsize=16, color=c.INK2, ha="center", va="bottom")
             return []
 
+    def update_checked(frame):
+        artists = update(frame)
+        if frame in CHECK_FRAMES:
+            c.check_layout(fig)
+        return artists
+
     print(f"Rendering {N_FRAMES} frames ({TOTAL_SEC} s @ {fps} fps)...")
-    anim = animation.FuncAnimation(fig, update, frames=N_FRAMES,
+    anim = animation.FuncAnimation(fig, update_checked, frames=N_FRAMES,
                                     init_func=init, blit=False)
 
     writer = animation.FFMpegWriter(fps=fps, codec="libx264",
