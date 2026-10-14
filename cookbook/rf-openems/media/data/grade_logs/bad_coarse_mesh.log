@@ -1,0 +1,64 @@
+[PASS] G1_syntax_and_params: missing=[] simulate=found
+[FAIL] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 2.4}
+[FAIL] G3_sim_runs: not run (G2 physical sanity failed)
+[FAIL] G4_S11_at_target: not run (G2 physical sanity failed)
+[FAIL] G5_resonance: not run (G2 physical sanity failed)
+[FAIL] G6_raw_crosscheck: not run (G2 physical sanity failed)
+[FAIL] G7_oracle_msline: not run (G2 physical sanity failed)
+[FAIL] G8_convergence: not run (G2 physical sanity failed)
+[PASS] G9_judge_integrity
+{
+ "all_pass": false,
+ "artifact": "/home/user/w/cookbook/rf-openems/examples/bad/bad_coarse_mesh.py",
+ "gates": [
+  {
+   "detail": "missing=[] simulate=found",
+   "gate": "G1_syntax_and_params",
+   "pass": true
+  },
+  {
+   "detail": "{\"f_target_ghz\": 2.45, \"er\": 4.4, \"tanD\": 0.02, \"sub_h\": 1.6, \"patch_L\": 27.6, \"patch_W\": 37.0, \"feed_inset\": 8.0, \"mesh_res\": 2.4}",
+   "gate": "G2_physical_sanity",
+   "pass": false
+  },
+  {
+   "detail": "not run (G2 physical sanity failed)",
+   "gate": "G3_sim_runs",
+   "pass": false
+  },
+  {
+   "detail": "not run (G2 physical sanity failed)",
+   "gate": "G4_S11_at_target",
+   "pass": false
+  },
+  {
+   "detail": "not run (G2 physical sanity failed)",
+   "gate": "G5_resonance",
+   "pass": false
+  },
+  {
+   "detail": "not run (G2 physical sanity failed)",
+   "gate": "G6_raw_crosscheck",
+   "pass": false
+  },
+  {
+   "detail": "not run (G2 physical sanity failed)",
+   "gate": "G7_oracle_msline",
+   "pass": false
+  },
+  {
+   "detail": "not run (G2 physical sanity failed)",
+   "gate": "G8_convergence",
+   "pass": false
+  },
+  {
+   "detail": "judge/ checksums stable",
+   "gate": "G9_judge_integrity",
+   "pass": true
+  }
+ ],
+ "seed": 42,
+ "timing": {
+  "wall_s": 0.0
+ }
+}

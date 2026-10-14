@@ -1,0 +1,22 @@
+[FAIL] G1_syntax_and_params: missing=['er'] simulate=found
+[PASS] G9_judge_integrity
+{
+ "all_pass": false,
+ "artifact": "/home/user/w/cookbook/rf-openems/examples/bad/bad_nan_er.py",
+ "gates": [
+  {
+   "detail": "missing=['er'] simulate=found",
+   "gate": "G1_syntax_and_params",
+   "pass": false
+  },
+  {
+   "detail": "judge/ checksums stable",
+   "gate": "G9_judge_integrity",
+   "pass": true
+  }
+ ],
+ "seed": 42,
+ "timing": {
+  "wall_s": 0.0
+ }
+}

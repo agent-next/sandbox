@@ -1,0 +1,201 @@
+[PASS] G1_syntax_and_params: missing=[] simulate=found
+[PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 1.2}
+[PASS] G3_sim_runs: rc=0 raw=yes result_line=True
+[PASS] G4_S11_at_target: S11=-17.0 dB (need <= -10.0)
+[PASS] G5_resonance: f_res=2.44 GHz (+/-2 %)
+[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)
+/home/user/w/cookbook/rf-openems/judge/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
+  if not hasattr(np, _a):
+ ---------------------------------------------------------------------- 
+ | openEMS 64bit -- version v0.0.35
+ | (C) 2010-2018 Thorsten Liebig <thorsten.liebig@gmx.de>  GPL license
+ ---------------------------------------------------------------------- 
+	Used external libraries:
+		CSXCAD -- Version: v0.6.2
+		hdf5   -- Version: 1.10.8
+		          compiled against: HDF5 library version: 1.10.8
+		tinyxml -- compiled against: 2.6.2
+		fparser
+		boost  -- compiled against: 1_74
+		vtk -- Version: 9.1.0
+		       compiled against: 9.1.0
+
+Create FDTD operator (compressed SSE + multi-threading)
+FDTD simulation size: 113x24x13 --> 35256 FDTD cells 
+FDTD timestep is: 3.80927e-13 s; Nyquist rate: 357 timesteps @3.67672e+09 Hz
+Excitation signal length is: 6140 timesteps (2.33889e-09s)
+Max. number of timesteps: 60000 ( --> 9.77199 * Excitation signal length)
+Create FDTD engine (compressed SSE + multi-threading)
+Running FDTD engine... this may take a while... grab a cup of coffee?!?
+[@        4s] Timestep:         6675 || Speed:   58.2 MC/s (6.054e-04 s/TS) || Energy: ~8.87e-17 (-41.52dB)
+Time for 6675 iterations with 35256.00 cells : 4.04 sec
+Speed: 58.23 MCells/s 
+[PASS] G7_oracle_msline: eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)
+ ---------------------------------------------------------------------- 
+ | openEMS 64bit -- version v0.0.35
+ | (C) 2010-2018 Thorsten Liebig <thorsten.liebig@gmx.de>  GPL license
+ ---------------------------------------------------------------------- 
+	Used external libraries:
+		CSXCAD -- Version: v0.6.2
+		hdf5   -- Version: 1.10.8
+		          compiled against: HDF5 library version: 1.10.8
+		tinyxml -- compiled against: 2.6.2
+		fparser
+		boost  -- compiled against: 1_74
+		vtk -- Version: 9.1.0
+		       compiled against: 9.1.0
+
+Create FDTD operator (compressed SSE + multi-threading)
+FDTD simulation size: 63x73x23 --> 105777.00 FDTD cells 
+FDTD timestep is: 0.00 s; Nyquist rate: 1661 timesteps @3676383930.00 Hz
+openEMS::SetupFDTD: Warning, the timestep seems to be very small --> long simulation. Check your mesh!?
+Excitation signal length is: 28562 timesteps (0.00s)
+Max. number of timesteps: 60000 ( --> 2.10 * Excitation signal length)
+openEMS::SetupFDTD: Warning, max. number of timesteps is smaller than three times the excitation. 
+	You may want to choose a higher number of max. timesteps... 
+Create FDTD engine (compressed SSE + multi-threading)
+Running FDTD engine... this may take a while... grab a cup of coffee?!?
+[@       10s] Timestep:          830 || Speed:    8.8 MC/s (1.205e-02 s/TS) || Energy: ~1.55e-20 (- 0.00dB)
+[@       16s] Timestep:         1245 || Speed:    7.1 MC/s (1.497e-02 s/TS) || Energy: ~1.59e-19 (- 0.00dB)
+[@       21s] Timestep:         2075 || Speed:   18.2 MC/s (5.825e-03 s/TS) || Energy: ~1.95e-18 (- 0.00dB)
+[@       26s] Timestep:         3320 || Speed:   26.5 MC/s (3.996e-03 s/TS) || Energy: ~4.69e-18 (- 0.00dB)
+[@       31s] Timestep:         4565 || Speed:   26.0 MC/s (4.061e-03 s/TS) || Energy: ~2.76e-16 (- 0.00dB)
+[@       36s] Timestep:         5810 || Speed:   23.8 MC/s (4.441e-03 s/TS) || Energy: ~4.41e-16 (- 0.00dB)
+[@       41s] Timestep:         7055 || Speed:   25.3 MC/s (4.185e-03 s/TS) || Energy: ~1.29e-14 (- 0.00dB)
+[@       47s] Timestep:         8300 || Speed:   25.0 MC/s (4.236e-03 s/TS) || Energy: ~1.49e-14 (- 0.00dB)
+[@       52s] Timestep:         9545 || Speed:   24.7 MC/s (4.285e-03 s/TS) || Energy: ~2.14e-13 (- 0.00dB)
+[@       57s] Timestep:        10790 || Speed:   25.7 MC/s (4.122e-03 s/TS) || Energy: ~1.84e-13 (- 0.67dB)
+[@     1m02s] Timestep:        12035 || Speed:   25.4 MC/s (4.165e-03 s/TS) || Energy: ~1.27e-12 (- 0.00dB)
+[@     1m08s] Timestep:        13280 || Speed:   24.1 MC/s (4.398e-03 s/TS) || Energy: ~9.44e-13 (- 1.30dB)
+[@     1m12s] Timestep:        14281 || Speed:   25.1 MC/s (4.214e-03 s/TS) || Energy: ~2.80e-12 (- 0.00dB)
+[@     1m16s] Timestep:        15355 || Speed:   26.1 MC/s (4.047e-03 s/TS) || Energy: ~2.08e-12 (- 1.29dB)
+[@     1m21s] Timestep:        16600 || Speed:   26.7 MC/s (3.964e-03 s/TS) || Energy: ~2.43e-12 (- 0.61dB)
+[@     1m26s] Timestep:        17845 || Speed:   26.1 MC/s (4.056e-03 s/TS) || Energy: ~3.86e-12 (- 0.00dB)
+[@     1m31s] Timestep:        19090 || Speed:   27.5 MC/s (3.847e-03 s/TS) || Energy: ~8.07e-13 (- 6.80dB)
+[@     1m36s] Timestep:        20335 || Speed:   25.9 MC/s (4.090e-03 s/TS) || Energy: ~4.48e-12 (- 0.00dB)
+[@     1m41s] Timestep:        21580 || Speed:   24.8 MC/s (4.270e-03 s/TS) || Energy: ~6.11e-13 (- 8.65dB)
+[@     1m47s] Timestep:        22825 || Speed:   25.1 MC/s (4.216e-03 s/TS) || Energy: ~4.20e-12 (- 0.29dB)
+[@     1m51s] Timestep:        23655 || Speed:   20.8 MC/s (5.073e-03 s/TS) || Energy: ~1.76e-12 (- 4.07dB)
+[@     1m55s] Timestep:        24485 || Speed:   21.1 MC/s (5.007e-03 s/TS) || Energy: ~1.08e-12 (- 6.19dB)
+[@     2m01s] Timestep:        25730 || Speed:   23.8 MC/s (4.449e-03 s/TS) || Energy: ~3.21e-12 (- 1.45dB)
+[@     2m06s] Timestep:        26975 || Speed:   25.4 MC/s (4.159e-03 s/TS) || Energy: ~9.31e-13 (- 6.83dB)
+[@     2m11s] Timestep:        28220 || Speed:   23.4 MC/s (4.520e-03 s/TS) || Energy: ~2.98e-12 (- 1.77dB)
+[@     2m16s] Timestep:        29465 || Speed:   26.7 MC/s (3.958e-03 s/TS) || Energy: ~7.51e-13 (- 7.76dB)
+[@     2m21s] Timestep:        30710 || Speed:   25.7 MC/s (4.118e-03 s/TS) || Energy: ~2.62e-12 (- 2.34dB)
+[@     2m27s] Timestep:        31955 || Speed:   26.1 MC/s (4.050e-03 s/TS) || Energy: ~6.40e-13 (- 8.46dB)
+[@     2m32s] Timestep:        33200 || Speed:   25.7 MC/s (4.113e-03 s/TS) || Energy: ~2.42e-12 (- 2.69dB)
+[@     2m38s] Timestep:        34445 || Speed:   22.3 MC/s (4.749e-03 s/TS) || Energy: ~5.19e-13 (- 9.37dB)
+[@     2m43s] Timestep:        35690 || Speed:   23.1 MC/s (4.573e-03 s/TS) || Energy: ~2.11e-12 (- 3.27dB)
+[@     2m47s] Timestep:        36520 || Speed:   21.0 MC/s (5.026e-03 s/TS) || Energy: ~4.35e-13 (-10.13dB)
+[@     2m52s] Timestep:        37350 || Speed:   18.4 MC/s (5.751e-03 s/TS) || Energy: ~1.20e-12 (- 5.72dB)
+[@     2m57s] Timestep:        38180 || Speed:   19.0 MC/s (5.578e-03 s/TS) || Energy: ~1.95e-12 (- 3.62dB)
+[@     3m03s] Timestep:        39425 || Speed:   22.4 MC/s (4.727e-03 s/TS) || Energy: ~3.60e-13 (-10.95dB)
+[@     3m08s] Timestep:        40670 || Speed:   23.6 MC/s (4.490e-03 s/TS) || Energy: ~1.70e-12 (- 4.22dB)
+[@     3m14s] Timestep:        41915 || Speed:   24.2 MC/s (4.363e-03 s/TS) || Energy: ~3.01e-13 (-11.73dB)
+[@     3m19s] Timestep:        43160 || Speed:   25.6 MC/s (4.136e-03 s/TS) || Energy: ~1.56e-12 (- 4.59dB)
+[@     3m24s] Timestep:        44405 || Speed:   25.9 MC/s (4.082e-03 s/TS) || Energy: ~2.54e-13 (-12.47dB)
+[@     3m29s] Timestep:        45650 || Speed:   26.5 MC/s (3.997e-03 s/TS) || Energy: ~1.35e-12 (- 5.20dB)
+[@     3m34s] Timestep:        46895 || Speed:   25.5 MC/s (4.145e-03 s/TS) || Energy: ~2.09e-13 (-13.31dB)
+[@     3m39s] Timestep:        48140 || Speed:   27.4 MC/s (3.864e-03 s/TS) || Energy: ~1.24e-12 (- 5.57dB)
+[@     3m44s] Timestep:        49385 || Speed:   25.0 MC/s (4.232e-03 s/TS) || Energy: ~1.82e-13 (-13.91dB)
+[@     3m49s] Timestep:        50630 || Speed:   25.1 MC/s (4.206e-03 s/TS) || Energy: ~1.08e-12 (- 6.20dB)
+[@     3m54s] Timestep:        51875 || Speed:   26.6 MC/s (3.976e-03 s/TS) || Energy: ~1.49e-13 (-14.78dB)
+[@     4m00s] Timestep:        53120 || Speed:   23.8 MC/s (4.439e-03 s/TS) || Energy: ~9.84e-13 (- 6.59dB)
+[@     4m05s] Timestep:        54365 || Speed:   25.1 MC/s (4.209e-03 s/TS) || Energy: ~1.35e-13 (-15.20dB)
+[@     4m10s] Timestep:        55610 || Speed:   25.9 MC/s (4.080e-03 s/TS) || Energy: ~8.50e-13 (- 7.22dB)
+[@     4m15s] Timestep:        56855 || Speed:   26.1 MC/s (4.057e-03 s/TS) || Energy: ~1.09e-13 (-16.14dB)
+[@     4m20s] Timestep:        58100 || Speed:   26.7 MC/s (3.968e-03 s/TS) || Energy: ~7.76e-13 (- 7.62dB)
+[@     4m26s] Timestep:        59345 || Speed:   24.2 MC/s (4.367e-03 s/TS) || Energy: ~1.04e-13 (-16.37dB)
+RunFDTD: Warning: Max. number of timesteps was reached before the end-criteria of -40dB was reached... 
+	You may want to choose a higher number of max. timesteps... 
+Time for 60000 iterations with 105777.00 cells : 268.84 sec
+Speed: 23.61 MCells/s 
+[PASS] G8_convergence: fine mesh: S11=-10.0 dB f_res=2.45 GHz (shift 0.4 % <= 1.5 %)
+[PASS] G9_judge_integrity
+{
+ "all_pass": true,
+ "artifact": "/home/user/w/cookbook/rf-openems/examples/good/antenna.py",
+ "convergence": {
+  "S11_at_target_fine_dB": -10.0,
+  "f_res_fine_GHz": 2.45,
+  "f_res_shift_pct": 0.4,
+  "mesh_res_fine_mm": 0.9
+ },
+ "gates": [
+  {
+   "detail": "missing=[] simulate=found",
+   "gate": "G1_syntax_and_params",
+   "pass": true
+  },
+  {
+   "detail": "{\"f_target_ghz\": 2.45, \"er\": 4.4, \"tanD\": 0.02, \"sub_h\": 1.6, \"patch_L\": 27.6, \"patch_W\": 37.0, \"feed_inset\": 8.0, \"mesh_res\": 1.2}",
+   "gate": "G2_physical_sanity",
+   "pass": true
+  },
+  {
+   "detail": "rc=0 raw=yes result_line=True",
+   "gate": "G3_sim_runs",
+   "pass": true
+  },
+  {
+   "detail": "S11=-17.0 dB (need <= -10.0)",
+   "gate": "G4_S11_at_target",
+   "pass": true
+  },
+  {
+   "detail": "f_res=2.44 GHz (+/-2 %)",
+   "gate": "G5_resonance",
+   "pass": true
+  },
+  {
+   "detail": "max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)",
+   "gate": "G6_raw_crosscheck",
+   "pass": true
+  },
+  {
+   "detail": "eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)",
+   "gate": "G7_oracle_msline",
+   "pass": true
+  },
+  {
+   "detail": "fine mesh: S11=-10.0 dB f_res=2.45 GHz (shift 0.4 % <= 1.5 %)",
+   "gate": "G8_convergence",
+   "pass": true
+  },
+  {
+   "detail": "judge/ checksums stable",
+   "gate": "G9_judge_integrity",
+   "pass": true
+  }
+ ],
+ "oracle": {
+  "delta_pct": 2.8,
+  "eeff_HJ": 3.33,
+  "eeff_sim": 3.24,
+  "freq_GHz": 2.44,
+  "mesh_res_mm": 1.0,
+  "phases_deg": [
+   117.0,
+   38.0,
+   -42.0,
+   -121.0,
+   -200.0
+  ],
+  "probes_mm": [
+   30.0,
+   45.0,
+   60.0,
+   75.0,
+   90.0
+  ]
+ },
+ "patch_quasistatic_GHz": 2.619,
+ "raw_crosscheck_maxdiff_db": 0.0,
+ "seed": 42,
+ "timing": {
+  "artifact_sim_s": 92.2,
+  "convergence_s": 270.3,
+  "oracle_s": 5.1,
+  "wall_s": 367.7
+ }
+}

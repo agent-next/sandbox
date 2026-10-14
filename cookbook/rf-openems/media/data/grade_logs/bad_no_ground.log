@@ -1,0 +1,116 @@
+[PASS] G1_syntax_and_params: missing=[] simulate=found
+[PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 1.2}
+[PASS] G3_sim_runs: rc=0 raw=yes result_line=True
+[FAIL] G4_S11_at_target: S11=0.0 dB (need <= -10.0)
+[FAIL] G5_resonance: f_res=2.2 GHz (+/-2 %)
+[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)
+/home/user/w/cookbook/rf-openems/judge/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
+  if not hasattr(np, _a):
+ ---------------------------------------------------------------------- 
+ | openEMS 64bit -- version v0.0.35
+ | (C) 2010-2018 Thorsten Liebig <thorsten.liebig@gmx.de>  GPL license
+ ---------------------------------------------------------------------- 
+	Used external libraries:
+		CSXCAD -- Version: v0.6.2
+		hdf5   -- Version: 1.10.8
+		          compiled against: HDF5 library version: 1.10.8
+		tinyxml -- compiled against: 2.6.2
+		fparser
+		boost  -- compiled against: 1_74
+		vtk -- Version: 9.1.0
+		       compiled against: 9.1.0
+
+Create FDTD operator (compressed SSE + multi-threading)
+FDTD simulation size: 113x24x13 --> 35256 FDTD cells 
+FDTD timestep is: 3.80927e-13 s; Nyquist rate: 357 timesteps @3.67672e+09 Hz
+Excitation signal length is: 6140 timesteps (2.33889e-09s)
+Max. number of timesteps: 60000 ( --> 9.77199 * Excitation signal length)
+Create FDTD engine (compressed SSE + multi-threading)
+Running FDTD engine... this may take a while... grab a cup of coffee?!?
+[@        4s] Timestep:         5963 || Speed:   52.4 MC/s (6.724e-04 s/TS) || Energy: ~6.90e-15 (-22.61dB)
+[@        8s] Timestep:        12371 || Speed:   56.1 MC/s (6.280e-04 s/TS) || Energy: ~3.59e-20 (-75.45dB)
+Time for 12371 iterations with 35256.00 cells : 8.03 sec
+Speed: 54.29 MCells/s 
+[PASS] G7_oracle_msline: eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)
+[FAIL] G8_convergence: not run (earlier gates failed)
+[PASS] G9_judge_integrity
+{
+ "all_pass": false,
+ "artifact": "/home/user/w/cookbook/rf-openems/examples/bad/bad_no_ground.py",
+ "gates": [
+  {
+   "detail": "missing=[] simulate=found",
+   "gate": "G1_syntax_and_params",
+   "pass": true
+  },
+  {
+   "detail": "{\"f_target_ghz\": 2.45, \"er\": 4.4, \"tanD\": 0.02, \"sub_h\": 1.6, \"patch_L\": 27.6, \"patch_W\": 37.0, \"feed_inset\": 8.0, \"mesh_res\": 1.2}",
+   "gate": "G2_physical_sanity",
+   "pass": true
+  },
+  {
+   "detail": "rc=0 raw=yes result_line=True",
+   "gate": "G3_sim_runs",
+   "pass": true
+  },
+  {
+   "detail": "S11=0.0 dB (need <= -10.0)",
+   "gate": "G4_S11_at_target",
+   "pass": false
+  },
+  {
+   "detail": "f_res=2.2 GHz (+/-2 %)",
+   "gate": "G5_resonance",
+   "pass": false
+  },
+  {
+   "detail": "max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)",
+   "gate": "G6_raw_crosscheck",
+   "pass": true
+  },
+  {
+   "detail": "eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)",
+   "gate": "G7_oracle_msline",
+   "pass": true
+  },
+  {
+   "detail": "not run (earlier gates failed)",
+   "gate": "G8_convergence",
+   "pass": false
+  },
+  {
+   "detail": "judge/ checksums stable",
+   "gate": "G9_judge_integrity",
+   "pass": true
+  }
+ ],
+ "oracle": {
+  "delta_pct": 2.8,
+  "eeff_HJ": 3.33,
+  "eeff_sim": 3.24,
+  "freq_GHz": 2.44,
+  "mesh_res_mm": 1.0,
+  "phases_deg": [
+   117.0,
+   38.0,
+   -42.0,
+   -121.0,
+   -200.0
+  ],
+  "probes_mm": [
+   30.0,
+   45.0,
+   60.0,
+   75.0,
+   90.0
+  ]
+ },
+ "patch_quasistatic_GHz": 2.619,
+ "raw_crosscheck_maxdiff_db": 0.0,
+ "seed": 42,
+ "timing": {
+  "artifact_sim_s": 18.7,
+  "oracle_s": 9.1,
+  "wall_s": 27.9
+ }
+}

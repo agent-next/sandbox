@@ -6,3 +6,5 @@ judge/VERSIONS.txt
 judge/__pycache__/
 media/master/
 media/work/
+
+media/frames/
