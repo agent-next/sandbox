@@ -1,0 +1,9 @@
+# generated at setup/grade/media time — never commit
+judge/VERSIONS.txt
+media/master/
+media/data/*.log
+media/data/mutants/
+**/__pycache__/
+*.kicad_prl
+fp-info-cache
+*-bak
