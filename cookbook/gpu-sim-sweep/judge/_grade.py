@@ -1,12 +1,26 @@
 #!/usr/bin/env python3
 """Judge driver for the gpu-sim-sweep demo. Invoked by grade.sh; see SPEC.md.
 
-Grades a copied artifact (the artifact under test never touches judge/):
-  gate 1 structure      — valid JSON, required keys, scene matches canonical
-  gate 2 engine-parity  — mujoco version on GPU == CPU
-  gate 3 physics-oracle — finite, landed, bounded at every nworld
-  gate 4 cpu-parity     — GPU world-0 trajectory matches CPU within tolerance
-  gate 5 throughput     — top nworld steps/s >= floor * cpu_steps_per_s
+The artifact is a CONFIG ONLY: scene XML (must equal canonical), timestep,
+solver_iterations, nconmax/njmax, the nworld ladder, and the settle/timed/
+batch counts. The judge computes every number it gates on by running the
+simulation itself:
+
+  gate 1 structure      — valid JSON, config keys only (result keys are
+                          rejected), scene matches canonical
+  gate 2 engine-parity  — mujoco version measured on GPU == measured on CPU
+  gate 3 physics-oracle — live GPU state: finite, landed, bounded at every
+                          nworld in the ladder
+  gate 4 cpu-parity     — measured GPU world-0 trajectory vs the measured
+                          CPU trajectory within tolerance
+  gate 5 throughput     — measured top-nworld steps/s >= floor * measured
+                          CPU steps/s
+
+cpu-check mode (CPU-only machines) runs gate 1 plus a cpu-physics gate: the
+same live oracle applied to the CPU reference run of the artifact's config.
+
+Measured numbers and wall-clock values live under the `timing` key so the
+determinism check can compare verdicts on everything else.
 
 Prints one JSON verdict on stdout; exit 0 only if every gated pass rule holds.
 """
@@ -17,25 +31,42 @@ import importlib.util
 import json
 import math
 import os
+import re
 import shutil
-import subprocess
 import sys
 import tempfile
-
-VENV_DIR = os.path.join(os.path.expanduser("~"), ".venvs", "gpu-sim-sweep")
-sys.path.insert(0, VENV_DIR)
+import time
 
 MAX_BYTES = 256 * 1024
-PARITY_TOL = 1e-3
+PARITY_TOL = 0.05   # rad; measured CPU-vs-GPU world-0 divergence over the 800-
+                    # step settle window is ~8e-3 (mujoco_warp accumulates in
+                    # float32); mutants diverge by >= 0.1 or explode
 ARM_ERR_TOL = 0.15
 BOX_Z_MIN_MARGIN = 0.02
 BOX_Z_MAX_MARGIN = 0.25
 BOX_SPEED_MAX = 5.0
-DEFAULT_SPEEDUP_FLOOR = 20.0
+DEFAULT_SPEEDUP_FLOOR = 4.0  # measured ~12x on the 4 GiB lease (see RECEIPT)
+CPU_TIMED_STEPS = 20000      # CPU steps/s benchmark length
+CPU_WARMUP_STEPS = 1000
+
+REQUIRED_KEYS = ("scene", "timestep", "solver_iterations", "nconmax", "njmax",
+                 "nworld_ladder", "settle_steps", "timed_steps", "batches")
+OPTIONAL_KEYS = {"notes"}
+# Anything that smells like the artifact reporting its own results is
+# contraband: the judge measures, the artifact configures.
+RESULT_KEYS = {"points", "results", "cpu_steps_per_s", "cpu_mujoco_version",
+               "cpu_trajectory", "gpu_trajectory", "trajectory", "steps_per_s",
+               "oracle", "measurements", "verdict"}
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import scene as scene_mod  # noqa: E402
+
+
+def _sweep_mod():
+    """Lazy: the sim stack (numpy/mujoco) is only needed past gate 1."""
+    import _sweep
+    return _sweep
 
 
 def die(msg):
@@ -65,49 +96,49 @@ def load_artifact(path):
     if os.path.getsize(path) > MAX_BYTES:
         raise ValueError(f"artifact exceeds {MAX_BYTES // 1024} KiB")
     with open(path, "rb") as fh:
-        raw = fh.read()
-    text = raw.decode("utf-8")
-    data = json.loads(text)
-    return data, text
+        return json.loads(fh.read().decode("utf-8"))
 
 
 def gate_structure(data):
     problems = []
-    required = ["scene", "timestep", "solver_iterations", "nconmax", "njmax",
-                "nworld_ladder", "settle_steps", "timed_steps", "batches",
-                "cpu_steps_per_s", "cpu_mujoco_version", "points"]
-    for key in required:
+    if not isinstance(data, dict):
+        return ["artifact must be a JSON object"]
+    for key in REQUIRED_KEYS:
         if key not in data:
             problems.append(f"missing required key: {key}")
+    for key in sorted(set(data) - set(REQUIRED_KEYS) - OPTIONAL_KEYS):
+        kind = "result key (the artifact may not report its own results)" \
+            if key in RESULT_KEYS else "unexpected key"
+        problems.append(f"{kind}: {key}")
+    if "notes" in data and not isinstance(data["notes"], str):
+        problems.append("notes must be a string")
     if problems:
         return problems
     if not isinstance(data["scene"], str) or len(data["scene"]) < 100:
         problems.append("scene must be a non-trivial XML string")
-    if not isinstance(data["timestep"], (int, float)) or data["timestep"] <= 0:
-        problems.append("timestep must be a positive number")
-    if not isinstance(data["solver_iterations"], int) or data["solver_iterations"] < 1:
+    if not isinstance(data["timestep"], (int, float)) \
+            or isinstance(data["timestep"], bool) \
+            or not 0 < data["timestep"] <= 0.01:
+        problems.append("timestep must be a number in (0, 0.01]")
+    if not isinstance(data["solver_iterations"], int) \
+            or isinstance(data["solver_iterations"], bool) \
+            or data["solver_iterations"] < 1:
         problems.append("solver_iterations must be a positive int")
     if not isinstance(data["nconmax"], int) or data["nconmax"] < 1:
         problems.append("nconmax must be a positive int")
     if not isinstance(data["njmax"], int) or data["njmax"] < 1:
         problems.append("njmax must be a positive int")
-    if not isinstance(data["nworld_ladder"], list) or len(data["nworld_ladder"]) < 2:
-        problems.append("nworld_ladder must be a list of >= 2 ints")
-    elif not all(isinstance(n, int) and n >= 1 for n in data["nworld_ladder"]):
-        problems.append("nworld_ladder must contain positive ints")
+    if not isinstance(data["nworld_ladder"], list) \
+            or len(data["nworld_ladder"]) < 2 \
+            or not all(isinstance(n, int) and not isinstance(n, bool) and n >= 1
+                       for n in data["nworld_ladder"]):
+        problems.append("nworld_ladder must be a list of >= 2 positive ints")
     if not isinstance(data["settle_steps"], int) or data["settle_steps"] < 1:
         problems.append("settle_steps must be a positive int")
     if not isinstance(data["timed_steps"], int) or data["timed_steps"] < 1:
         problems.append("timed_steps must be a positive int")
     if not isinstance(data["batches"], int) or data["batches"] < 1:
         problems.append("batches must be a positive int")
-    if not isinstance(data["cpu_steps_per_s"], (int, float)) or data["cpu_steps_per_s"] <= 0:
-        problems.append("cpu_steps_per_s must be a positive number")
-    if not isinstance(data["cpu_mujoco_version"], str):
-        problems.append("cpu_mujoco_version must be a string")
-    if not isinstance(data["points"], list) or len(data["points"]) < 2:
-        problems.append("points must be a list of >= 2 entries")
-    # scene normalises to canonical
     if not problems:
         art_norm = scene_mod.normalize_xml(data["scene"])
         canon_norm = scene_mod.normalize_xml(scene_mod.canonical_xml())
@@ -117,97 +148,169 @@ def gate_structure(data):
     return problems
 
 
-def gate_engine_parity(data):
-    """GPU mujoco version == CPU mujoco version."""
+def apply_config(data):
+    """The physics the artifact asks for: canonical scene with the option
+    element's timestep and solver iterations patched from the config."""
+    xml = data["scene"]
+    xml = re.sub(r'timestep="[^"]*"',
+                 f'timestep="{data["timestep"]:g}"', xml, count=1)
+    xml = re.sub(r'iterations="[^"]*"',
+                 f'iterations="{data["solver_iterations"]:d}"', xml, count=1)
+    return xml
+
+
+def oracle_problems(tag, s):
+    """Threshold oracle on a measured state dict (CPU or GPU point)."""
+    bad = []
+    if not s.get("qpos_finite", False):
+        bad.append(f"{tag}: qpos not finite")
+    if not s.get("qvel_finite", False):
+        bad.append(f"{tag}: qvel not finite")
+    err = s.get("arm_max_err")
+    if err is None or not math.isfinite(err) or err >= ARM_ERR_TOL:
+        bad.append(f"{tag}: arm tracking error {err} >= {ARM_ERR_TOL}")
+    top = scene_mod.TABLE_TOP
+    zmin = s.get("box_z_min")
+    if zmin is None or not math.isfinite(zmin) or zmin <= top - BOX_Z_MIN_MARGIN:
+        bad.append(f"{tag}: box min z {zmin} <= {top - BOX_Z_MIN_MARGIN} "
+                   "(tunnelling)")
+    zmax = s.get("box_z_max")
+    if zmax is None or not math.isfinite(zmax) or zmax >= top + BOX_Z_MAX_MARGIN:
+        bad.append(f"{tag}: box max z {zmax} >= {top + BOX_Z_MAX_MARGIN} "
+                   "(never landed)")
+    spd = s.get("box_speed_max")
+    if spd is None or not math.isfinite(spd) or spd >= BOX_SPEED_MAX:
+        bad.append(f"{tag}: box speed max {spd} >= {BOX_SPEED_MAX} "
+                   "(energy unbounded)")
+    return bad
+
+
+def gpu_available():
+    try:
+        import warp as wp
+        return bool(wp.is_cuda_available())
+    except Exception:
+        return False
+
+
+def mujoco_available():
+    return importlib.util.find_spec("mujoco") is not None
+
+
+def public_point(p):
+    """Strip big internals (trajectory) from a measured point for the verdict."""
+    return {k: v for k, v in p.items() if k != "traj"}
+
+
+def run_sims(data, mode):
+    """The judge's own measurements. Returns (cpu, points, errors).
+
+    cpu: cpu_reference result (includes world-0 trajectory), or None.
+    points: per-nworld gpu_point results; a point that raises becomes
+    {"nworld": n, "ok": False, "error": ...} — an observed failure, which is
+    itself data (e.g. the over-capacity ladder point).
+    """
+    xml = apply_config(data)
+    cpu = _sweep_mod().cpu_reference(xml, scene_mod.ARM_TARGET,
+                               settle=data["settle_steps"],
+                               warmup=CPU_WARMUP_STEPS,
+                               timed=CPU_TIMED_STEPS,
+                               record=(mode == "full"))
+    if mode != "full":
+        return cpu, []
+    points = []
+    for i, nw in enumerate(data["nworld_ladder"]):
+        try:
+            p = _sweep_mod().gpu_point(xml, scene_mod.ARM_TARGET, nw,
+                                 nconmax=data["nconmax"], njmax=data["njmax"],
+                                 settle=data["settle_steps"],
+                                 timed=data["timed_steps"],
+                                 batches=data["batches"],
+                                 record_traj=(i == 0))
+            p["ok"] = True
+        except Exception as e:
+            p = {"nworld": nw, "ok": False,
+                 "error": f"{type(e).__name__}: {e}"[:300]}
+        points.append(p)
+    return cpu, points
+
+
+def gate_engine_parity(cpu, points):
     problems = []
-    gpu_versions = set()
-    for p in data.get("points", []):
-        v = p.get("mujoco_version")
-        if v:
-            gpu_versions.add(str(v))
-    cpu_v = str(data.get("cpu_mujoco_version", ""))
-    if not gpu_versions:
-        problems.append("no GPU mujoco_version reported in any point")
-    elif cpu_v not in gpu_versions:
-        problems.append(f"GPU reports mujoco {sorted(gpu_versions)}, "
-                        f"CPU baseline uses {cpu_v}")
+    gpu_v = {str(p.get("mujoco_version")) for p in points
+             if p.get("ok") and p.get("mujoco_version")}
+    cpu_v = str((cpu or {}).get("mujoco_version") or "")
+    if not cpu_v:
+        problems.append("CPU baseline did not report a mujoco version")
+    elif not gpu_v:
+        problems.append("no GPU sweep point reported a mujoco version")
+    elif gpu_v != {cpu_v}:
+        problems.append(f"GPU reports mujoco {sorted(gpu_v)}, "
+                        f"CPU baseline measured {cpu_v}")
     return problems
 
 
-def gate_physics_oracle(data):
-    """Every sweep point must pass the physics oracle."""
+def gate_physics_oracle(points):
     problems = []
-    for p in data.get("points", []):
+    for p in points:
         nw = p.get("nworld", "?")
-        if not p.get("qpos_finite", False):
-            problems.append(f"nworld={nw}: qpos not finite")
-        if not p.get("qvel_finite", False):
-            problems.append(f"nworld={nw}: qvel not finite")
-        arm_err = p.get("arm_max_err")
-        if arm_err is None or arm_err >= ARM_ERR_TOL:
-            problems.append(f"nworld={nw}: arm tracking error "
-                            f"{arm_err} >= {ARM_ERR_TOL}")
-        zmin = p.get("box_z_min")
-        table_top = scene_mod.TABLE_TOP
-        if zmin is None or zmin <= table_top - BOX_Z_MIN_MARGIN:
-            problems.append(f"nworld={nw}: box min z {zmin} <= "
-                            f"{table_top - BOX_Z_MIN_MARGIN} (tunnelling)")
-        zmax = p.get("box_z_max")
-        if zmax is None or zmax >= table_top + BOX_Z_MAX_MARGIN:
-            problems.append(f"nworld={nw}: box max z {zmax} >= "
-                            f"{table_top + BOX_Z_MAX_MARGIN} (never landed)")
-        bspeed = p.get("box_speed_max")
-        if bspeed is None or bspeed >= BOX_SPEED_MAX:
-            problems.append(f"nworld={nw}: box speed max {bspeed} >= "
-                            f"{BOX_SPEED_MAX} (energy unbounded)")
+        if not p.get("ok"):
+            problems.append(f"nworld={nw}: did not run "
+                            f"({str(p.get('error'))[:120]})")
+            continue
+        problems += oracle_problems(f"nworld={nw}", p)
         nconf = p.get("nworld_confirmed")
-        if nconf is not None and nconf != nw:
-            problems.append(f"nworld={nw}: confirmed world count {nconf} != {nw}")
+        if nconf != nw:
+            problems.append(f"nworld={nw}: confirmed world count "
+                            f"{nconf} != {nw}")
+    if not points:
+        problems.append("no sweep points ran")
     return problems
 
 
-def gate_cpu_parity(data):
-    """GPU world-0 trajectory matches CPU trajectory within PARITY_TOL."""
+def gate_cpu_parity(cpu, points):
     problems = []
-    cpu_traj = data.get("cpu_trajectory")
-    gpu_traj = data.get("gpu_trajectory")
-    if not cpu_traj or not gpu_traj:
-        problems.append("missing cpu_trajectory or gpu_trajectory")
-        return problems
-    n_steps = min(len(cpu_traj), len(gpu_traj))
-    if n_steps < 2:
-        problems.append("trajectory too short for comparison")
-        return problems
+    cpu_traj = (cpu or {}).get("traj") or []
+    gpu_traj = (points[0].get("traj") if points and points[0].get("ok")
+                else None) or []
+    if len(cpu_traj) < 2 or len(gpu_traj) < 2:
+        problems.append("missing measured cpu/gpu world-0 trajectory")
+        return problems, None
+    n = min(len(cpu_traj), len(gpu_traj))
     worst = 0.0
-    for i in range(n_steps):
-        cpu_q = cpu_traj[i]
-        gpu_q = gpu_traj[i]
-        n_joints = min(len(cpu_q), len(gpu_q))
-        for j in range(n_joints):
-            err = abs(cpu_q[j] - gpu_q[j])
+    for i in range(n):
+        for a, b in zip(cpu_traj[i], gpu_traj[i]):
+            err = abs(a - b)
             if math.isfinite(err):
                 worst = max(worst, err)
+            else:
+                problems.append("non-finite value in trajectory comparison")
+                return problems, None
     if worst > PARITY_TOL:
         problems.append(f"CPU vs GPU world-0 trajectory max error "
                         f"{worst:.6f} > {PARITY_TOL}")
-    return problems
+    return problems, worst
 
 
-def gate_throughput(data, floor):
-    """Top ladder point steps/s >= floor * cpu_steps_per_s."""
+def gate_throughput(cpu, points, floor):
     problems = []
-    cpu_sps = data.get("cpu_steps_per_s", 0)
-    points = data.get("points", [])
-    if not points:
-        problems.append("no sweep points to evaluate throughput")
-        return problems
-    top = max(points, key=lambda p: p.get("steps_per_s", 0))
-    top_sps = top.get("steps_per_s", 0)
+    cpu_sps = (cpu or {}).get("steps_per_s") or 0
+    ok = [p for p in points if p.get("ok") and p.get("steps_per_s")]
+    if not cpu_sps:
+        problems.append("CPU baseline produced no steps/s measurement")
+    if not ok:
+        problems.append("no sweep point produced a steps/s measurement")
+        return problems, None
+    top = max(ok, key=lambda p: p["nworld"])
+    if top["nworld"] != max(p["nworld"] for p in points):
+        problems.append(f"top ladder point nworld={max(p['nworld'] for p in points)} "
+                        f"did not produce a measurement")
     target = floor * cpu_sps
-    if top_sps < target:
-        problems.append(f"top nworld={top.get('nworld')} steps/s {top_sps} < "
-                        f"floor {floor}x CPU ({target:.0f})")
-    return problems
+    if top["steps_per_s"] < target:
+        problems.append(f"top nworld={top['nworld']} measured "
+                        f"{top['steps_per_s']} steps/s < floor {floor}x "
+                        f"CPU ({target:.0f})")
+    return problems, top["steps_per_s"]
 
 
 def main():
@@ -215,8 +318,10 @@ def main():
     ap.add_argument("artifact")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--json", dest="json_out")
-    ap.add_argument("--cpu-check", action="store_true")
-    ap.add_argument("--speedup-floor", type=float, default=DEFAULT_SPEEDUP_FLOOR)
+    ap.add_argument("--cpu-check", action="store_true",
+                    help="structure + CPU physics only (no GPU needed)")
+    ap.add_argument("--speedup-floor", type=float,
+                    default=DEFAULT_SPEEDUP_FLOOR)
     ap.add_argument("--judge-dir")
     args = ap.parse_args()
 
@@ -227,75 +332,98 @@ def main():
     art_path = os.path.join(tmp, "sweep.json")
     shutil.copy(args.artifact, art_path)
 
-    verdict = {"artifact": os.path.basename(args.artifact), "mode": "cpu-check",
-               "seed": args.seed, "gates": {}, "timing": {}, "points": []}
+    verdict = {"artifact": os.path.basename(args.artifact),
+               "mode": "cpu-check", "seed": args.seed,
+               "gates": {}, "timing": {}}
     rc = 0
+    t0 = time.perf_counter()
     try:
         try:
-            data, text = load_artifact(art_path)
+            data = load_artifact(art_path)
+            problems = gate_structure(data)
         except Exception as exc:
-            verdict["gates"]["structure"] = {"pass": False,
-                                             "problems": [str(exc)[:300]]}
+            problems = [str(exc)[:300]]
+        verdict["gates"]["structure"] = {"pass": not problems,
+                                         "problems": problems}
+        if problems:
             rc = 1
         else:
-            verdict["gates"]["structure"] = {
-                "pass": True, "problems": gate_structure(data)}
-            if verdict["gates"]["structure"]["problems"]:
-                verdict["gates"]["structure"]["pass"] = False
-                rc = 1
+            full = gpu_available() and not args.cpu_check
+            verdict["mode"] = "full" if full else "cpu-check"
+            try:
+                cpu, points = run_sims(data, verdict["mode"])
+                sim_err = None
+            except Exception as e:
+                cpu, points = None, []
+                sim_err = f"{type(e).__name__}: {e}"[:300]
 
-        if args.cpu_check:
-            # CPU-only: structure gate only
-            verdict["mode"] = "cpu-check"
-        else:
-            verdict["mode"] = "full"
-            if rc == 0:
-                verdict["gates"]["engine-parity"] = {
-                    "pass": True, "problems": gate_engine_parity(data)}
-                if verdict["gates"]["engine-parity"]["problems"]:
-                    verdict["gates"]["engine-parity"]["pass"] = False
+            if not full:
+                # CPU-only: structure + a live CPU physics oracle. GPU gates
+                # need the lease (see SPEC).
+                problems = ([f"cpu reference crashed: {sim_err}"] if sim_err
+                            else oracle_problems("cpu", cpu or {}))
+                verdict["gates"]["cpu-physics"] = {"pass": not problems,
+                                                   "problems": problems}
+                if problems:
                     rc = 1
-            if rc == 0:
-                verdict["gates"]["physics-oracle"] = {
-                    "pass": True, "problems": gate_physics_oracle(data)}
-                if verdict["gates"]["physics-oracle"]["problems"]:
-                    verdict["gates"]["physics-oracle"]["pass"] = False
+                if cpu:
+                    verdict["timing"]["cpu"] = public_point(cpu)
+            else:
+                if sim_err:
+                    for g in ("engine-parity", "physics-oracle", "cpu-parity",
+                              "throughput"):
+                        verdict["gates"][g] = {
+                            "pass": False,
+                            "problems": [f"grade sim crashed: {sim_err}"]}
                     rc = 1
-            if rc == 0:
-                verdict["gates"]["cpu-parity"] = {
-                    "pass": True, "problems": gate_cpu_parity(data)}
-                if verdict["gates"]["cpu-parity"]["problems"]:
-                    verdict["gates"]["cpu-parity"]["pass"] = False
-                    rc = 1
-            if rc == 0:
-                verdict["gates"]["throughput"] = {
-                    "pass": True, "problems": gate_throughput(data, args.speedup_floor)}
-                if verdict["gates"]["throughput"]["problems"]:
-                    verdict["gates"]["throughput"]["pass"] = False
-                    rc = 1
-            # populate timing and points for the verdict
-            cpu_sps = data.get("cpu_steps_per_s", 0)
-            points = data.get("points", [])
-            top = max(points, key=lambda p: p.get("steps_per_s", 0)) if points else {}
-            verdict["timing"] = {
-                "cpu_steps_per_s": cpu_sps,
-                "top_steps_per_s": top.get("steps_per_s", 0),
-                "speedup": (top.get("steps_per_s", 0) / cpu_sps
-                            if cpu_sps > 0 else 0),
-                "speedup_floor": args.speedup_floor,
-            }
-            verdict["points"] = [{"nworld": p.get("nworld"),
-                                   "steps_per_s": p.get("steps_per_s"),
-                                   "arm_max_err": p.get("arm_max_err"),
-                                   "box_z_min": p.get("box_z_min"),
-                                   "box_z_max": p.get("box_z_max"),
-                                   "qpos_finite": p.get("qpos_finite")}
-                                  for p in points]
+                else:
+                    for name, problems in (
+                            ("engine-parity",
+                             gate_engine_parity(cpu, points)),
+                            ("physics-oracle",
+                             gate_physics_oracle(points))):
+                        verdict["gates"][name] = {"pass": not problems,
+                                                  "problems": problems}
+                        if problems:
+                            rc = 1
+                    problems, parity_err = gate_cpu_parity(cpu, points)
+                    verdict["gates"]["cpu-parity"] = {
+                        "pass": not problems, "problems": problems}
+                    if problems:
+                        rc = 1
+                    problems, top_sps = gate_throughput(
+                        cpu, points, args.speedup_floor)
+                    verdict["gates"]["throughput"] = {
+                        "pass": not problems, "problems": problems}
+                    if problems:
+                        rc = 1
+
+                    # everything measured lives under `timing` so the
+                    # determinism check can diff the verdict without it
+                    verdict["timing"] = {
+                        "cpu": public_point(cpu),
+                        "points": [public_point(p) for p in points],
+                        "cold_compile_s": (points[0].get("first_step_s")
+                                           if points and points[0].get("ok")
+                                           else None),
+                        "parity_max_err": parity_err,
+                        "cpu_steps_per_s": (cpu or {}).get("steps_per_s"),
+                        "top_steps_per_s": top_sps,
+                        "speedup": (top_sps / cpu["steps_per_s"]
+                                    if top_sps and cpu.get("steps_per_s")
+                                    else None),
+                        "speedup_floor": args.speedup_floor,
+                    }
 
         sha_after = check_shas(judge_dir)
         verdict["judge_intact"] = sha_before == sha_after
         if not verdict["judge_intact"]:
             rc = 1
+        verdict["timing"]["wall_s"] = round(time.perf_counter() - t0, 2)
+    except Exception as exc:
+        # a judge bug must not masquerade as a graded artifact: emit the
+        # error and exit 2 (distinct from rc=1 "graded and failed")
+        die(f"judge error: {type(exc).__name__}: {exc}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

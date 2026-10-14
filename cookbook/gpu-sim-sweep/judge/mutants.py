@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """Generate known-bad artifacts for the self-test by single edits of the good one.
 
-Each mutant is the good artifact with exactly one scripted edit; the self-test
-expects every mutant to fail at least one gate (SPEC.md). Mutants cover the
-failure classes from the brief: default nconmax/njmax (the headline bug),
-timestep x10 (blow-up), solver_iterations=1 (incomplete convergence),
-gravity sign flipped (boxes fly), wrong nworld capacity (OOM), and NaN injection.
+Mutants change CONFIG only — the artifact can no longer carry results, so a
+mutant survives or dies on what the judge measures when it runs the config.
+Each mutant prints one "name<TAB>mode" line on stdout; mode is:
+
+  cpu — kills without a GPU: the structure gate or the cpu-physics oracle
+        (the judge runs the CPU reference on the config in cpu-check mode)
+  gpu — needs the full mode: the failure is only observable by running the
+        mujoco_warp sweep on a GPU slice (contact capacity, slice OOM)
+
+The self-test grades every mutant whose mode the machine can observe, in the
+same mode the known-good artifact was graded in.
 """
 
+import copy
 import json
 import os
 import sys
@@ -23,59 +30,68 @@ def main():
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "mutants")
     os.makedirs(out_dir, exist_ok=True)
 
-    names = []
+    mutants = []
 
-    # 1. default nconmax/njmax — the headline bug: contacts silently dropped
-    m = json.loads(json.dumps(good))
-    m["nconmax"] = 1
-    m["njmax"] = 1
-    for p in m["points"]:
-        if p["nworld"] >= 2048:
-            p["box_z_min"] = -0.5  # boxes tunnel through the table
-    names.append(("default_capacity", m))
+    # The cheat this judge exists to reject: the artifact reports its own
+    # results. Result keys are contraband -> structure gate.
+    m = copy.deepcopy(good)
+    m["cpu_steps_per_s"] = 5620
+    m["cpu_mujoco_version"] = "3.8.1"
+    m["points"] = [{"nworld": n, "steps_per_s": 999999, "qpos_finite": True}
+                   for n in m["nworld_ladder"]]
+    mutants.append(("smuggled_results", "cpu", m))
 
-    # 2. timestep x10 — physics blow-up
-    m = json.loads(json.dumps(good))
-    m["timestep"] = m["timestep"] * 10
-    for p in m["points"]:
-        p["qpos_finite"] = False  # NaN from blow-up
-        p["qvel_finite"] = False
-    names.append(("timestep_x10", m))
+    # Scene edits break the canonical-scene contract -> structure gate.
+    m = copy.deepcopy(good)
+    m["scene"] = m["scene"].replace('gravity="0 0 -9.81"',
+                                    'gravity="0 0 9.81"')
+    mutants.append(("gravity_flipped", "cpu", m))
 
-    # 3. solver_iterations = 1 — incomplete convergence
-    m = json.loads(json.dumps(good))
+    # A missing config key -> structure gate.
+    m = copy.deepcopy(good)
+    del m["nconmax"]
+    mutants.append(("missing_nconmax", "cpu", m))
+
+    # dt=1e-4: the settle window is 0.08 s of sim time — the boxes are still
+    # in the air and the arm has not converged at read-back. Observed on CPU
+    # and GPU (dt=0.01 was measured stable under implicitfast, so the
+    # timestep mutant goes the other way).
+    m = copy.deepcopy(good)
+    m["timestep"] = 0.0001
+    mutants.append(("tiny_timestep", "cpu", m))
+
+    # settle_steps=20: the oracle reads live state after 0.02 s — arm error
+    # ~1.4 rad, boxes mid-air. Observed on CPU and GPU.
+    m = copy.deepcopy(good)
+    m["settle_steps"] = 20
+    mutants.append(("short_settle", "cpu", m))
+
+    # solver_iterations=1: the CPU reference's contact solver under-converges
+    # and the boxes explode (measured: box speed > 17000 m/s) while the GPU
+    # solver converges — cpu-physics kills on CPU, cpu-parity kills on GPU.
+    m = copy.deepcopy(good)
     m["solver_iterations"] = 1
-    for p in m["points"]:
-        p["arm_max_err"] = 0.5  # arm doesn't reach target
-    names.append(("solver_iter_1", m))
+    mutants.append(("solver_iter_1", "cpu", m))
 
-    # 4. gravity sign flipped — boxes fly up
-    m = json.loads(json.dumps(good))
-    m["scene"] = m["scene"].replace('gravity="0 0 -9.81"', 'gravity="0 0 9.81"')
-    for p in m["points"]:
-        p["box_z_max"] = 5.0  # boxes fly off
-    names.append(("gravity_flipped", m))
+    # The headline bug: under-sized contact buffers. nconmax=8/njmax=32 drops
+    # contacts once the 8 boxes land; measured tunnelling (box z -> -2.4) at
+    # nworld >= 512. Only observable on GPU — CPU mj_step ignores these.
+    m = copy.deepcopy(good)
+    m["nconmax"] = 8
+    m["njmax"] = 32
+    mutants.append(("low_capacity", "gpu", m))
 
-    # 5. wrong nworld capacity — OOM reported as clean fail
-    m = json.loads(json.dumps(good))
-    m["nworld_ladder"] = [1, 64, 512, 2048, 8192, 32768]
-    m["points"] = m["points"] + [
-        {"nworld": 32768, "steps_per_s": 0, "ok": False,
-         "error": "OOM: put_data nworld=32768 exceeds 4 GiB slice",
-         "qpos_finite": False, "qvel_finite": False}
-    ]
-    names.append(("oom_capacity", m))
+    # A ladder point past the 4 GiB slice's capacity: put_data fails to
+    # allocate and the point is observed failing (clean OOM, not a crash).
+    m = copy.deepcopy(good)
+    m["nworld_ladder"] = m["nworld_ladder"] + [65536]
+    mutants.append(("over_ladder", "gpu", m))
 
-    # 6. NaN injection — corrupted read-back
-    m = json.loads(json.dumps(good))
-    m["points"][2]["qpos_finite"] = False  # inject into nworld=512
-    names.append(("nan_injection", m))
-
-    for name, data in names:
+    for name, mode, data in mutants:
         path = os.path.join(out_dir, name + ".json")
         with open(path, "w") as fh:
             json.dump(data, fh, indent=2)
-        print(name)
+        print(f"{name}\t{mode}")
 
 
 if __name__ == "__main__":

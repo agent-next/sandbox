@@ -97,7 +97,13 @@ def pack_judge_and_examples(demo_path):
 
 
 def gpu_exec_job(payload_b64):
-    """Return the Python code to exec on the GPU lease."""
+    """Return the Python code to exec on the GPU lease.
+
+    The judge runs the simulation itself: each grade is a subprocess so a
+    point that crashes the CUDA context cannot take the whole job down with
+    it, and every grade pays (or reuses the kernel cache of) the real
+    toolchain. Expect minutes — a fresh lease cold-compiles the Warp kernels
+    once (~60-100 s, reported as setup time)."""
     return f"""
 import base64, io, json, os, subprocess, sys, tarfile, tempfile
 root = tempfile.mkdtemp(prefix='gsims-')
@@ -105,22 +111,25 @@ tarfile.open(fileobj=io.BytesIO(base64.b64decode({payload_b64!r})), mode='r:gz')
 j = os.path.join(root, 'judge')
 def grade(art, out):
     r = subprocess.run([sys.executable, os.path.join(j, '_grade.py'), art, '--seed', '0',
-                        '--json', out, '--judge-dir', j], capture_output=True, text=True, timeout=240)
+                        '--json', out, '--judge-dir', j], capture_output=True, text=True, timeout=1800)
     v = json.load(open(out)) if os.path.exists(out) else None
     return r.returncode, v, r.stderr[-400:]
 rc, v, err = grade(os.path.join(root, 'examples', 'good', 'sweep.json'), os.path.join(root, 'good.json'))
 report['good'] = dict(rc=rc, verdict=v, stderr=err)
 mdir = os.path.join(root, 'mutants')
-names = subprocess.run([sys.executable, os.path.join(j, 'mutants.py'), mdir],
-                       capture_output=True, text=True).stdout.split()
+lines = subprocess.run([sys.executable, os.path.join(j, 'mutants.py'), mdir],
+                       capture_output=True, text=True).stdout.splitlines()
 kills = {{}}
-for n in names:
+for line in lines:
+    if not line.strip():
+        continue
+    n, mode = line.split('\t')
     rc, v, err = grade(os.path.join(mdir, n + '.json'), os.path.join(mdir, n + '.json'))
     gs = {{g: x for g, x in ((v or {{}}).get('gates') or {{}}).items() if isinstance(x, dict)}}
     failed = [g for g, x in gs.items() if x.get('pass') is False]
-    detail = {{g: (f"{{len(x.get('problems') or [])}} problems" if g != 'throughput'
-                  else '; '.join(map(str, x.get('problems') or []))[:60]) for g, x in gs.items()}}
-    kills[n] = dict(rc=rc, failed=failed, gates={{g: x.get('pass') for g, x in gs.items()}}, detail=detail,
+    probs = {{g: [str(p)[:110] for p in (x.get('problems') or [])[:3]] for g, x in gs.items()}}
+    kills[n] = dict(mode=mode, rc=rc, failed=failed,
+                    gates={{g: x.get('pass') for g, x in gs.items()}}, problems=probs,
                     judge_error=None if v else err[-300:])
 report['mutants'] = kills
 """
@@ -142,10 +151,11 @@ def run_gpu_path(key, demo_path, report_json=None):
     print(f"created {sid} (4 GiB VRAM slice)", flush=True)
 
     try:
-        print("exec grading job on GPU lease...", flush=True)
+        print("exec grading job on GPU lease (good + all mutants; "
+              "Warp cold-compile ~1-2 min once, then real sims)...", flush=True)
         st, executed = request(key, "POST", f"/sandboxes/{sid}/exec", {
             "code": job,
-            "timeout_s": 600,
+            "timeout_s": 2400,
         })
         if st != 200 or not isinstance(executed, dict):
             die(f"GPU exec: HTTP {st}")
@@ -171,11 +181,30 @@ def run_gpu_path(key, demo_path, report_json=None):
             print(f"\ngpu-sim-sweep demo: {'PASS' if ok else 'FAIL'} (mode {verdict.get('mode')})")
             for name, g in sorted(gates.items()):
                 print(f"  gate {name}: {'pass' if g.get('pass') else 'FAIL'}")
-            if timing:
-                cpu_sps = timing.get('cpu_steps_per_s', 0)
-                top_sps = timing.get('top_steps_per_s', 0)
-                speedup = timing.get('speedup', 0)
-                print(f"  CPU {cpu_sps:,.0f} steps/s, top GPU {top_sps:,.0f} steps/s (speedup x{speedup:.0f})")
+            pts = timing.get("points") or []
+            if pts:
+                print("  measured sweep (judge-ran, 4 GiB slice):")
+                print(f"  {'nworld':>7} | {'steps/s':>11} | {'arm err':>7} | "
+                      f"{'box z':>16} | {'1st step s':>10}")
+                for p in pts:
+                    if p.get("ok"):
+                        print(f"  {p['nworld']:>7} | {p.get('steps_per_s', 0):>11,} | "
+                              f"{p.get('arm_max_err', 0):>7.3f} | "
+                              f"[{p.get('box_z_min', 0):.3f},{p.get('box_z_max', 0):.3f}] | "
+                              f"{p.get('first_step_s', 0):>10.2f}")
+                    else:
+                        print(f"  {p['nworld']:>7} | {'FAILED':>11} | "
+                              f"{str(p.get('error'))[:48]}")
+            cpu_sps = timing.get("cpu_steps_per_s")
+            top_sps = timing.get("top_steps_per_s")
+            speedup = timing.get("speedup")
+            if cpu_sps and top_sps:
+                print(f"  CPU {cpu_sps:,.0f} steps/s, top GPU {top_sps:,.0f} steps/s"
+                      + (f" (speedup x{speedup:.1f}, floor x{timing.get('speedup_floor')})"
+                         if speedup is not None else ""))
+            if timing.get("cold_compile_s"):
+                print(f"  cold Warp compile (first step): {timing['cold_compile_s']} s;"
+                      f" parity max err {timing.get('parity_max_err')} rad")
             print()
 
         total = len(mutants)
@@ -294,16 +323,10 @@ def main():
         gates = verdict.get("gates", {})
         ok = all(g.get("pass") for g in gates.values()) and \
             verdict.get("judge_intact", False)
-        timing = verdict.get("timing") or {}
         print(f"\ngpu-sim-sweep demo: {'PASS' if ok else 'FAIL'} "
               f"(mode {verdict.get('mode')})")
         for name, g in sorted(gates.items()):
             print(f"  gate {name}: {'pass' if g.get('pass') else 'FAIL'}")
-        if timing:
-            cpu_sps = timing.get('cpu_steps_per_s', 0)
-            top_sps = timing.get('top_steps_per_s', 0)
-            speedup = timing.get('speedup', 0)
-            print(f"  CPU {cpu_sps:,.0f} steps/s, top GPU {top_sps:,.0f} steps/s (speedup x{speedup:.0f})")
         raise SystemExit(0 if ok else 1)
     die("no verdict JSON returned from the sandbox")
 
