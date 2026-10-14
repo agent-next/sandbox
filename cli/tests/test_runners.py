@@ -255,6 +255,9 @@ class FakeSbx:
     def kill(self):
         self.killed += 1
 
+    def connect(self, pid, timeout=None):
+        return FakeHandle()  # the runner had exited when the stream came back
+
 
 @pytest.fixture
 def fake_sbx():
@@ -327,20 +330,23 @@ def test_a_dropped_stream_reconnects_to_the_runner_instead_of_killing_the_job(fa
         connects.append((pid, self.killed))
         return FakeHandle()
 
-    monkeypatch.setattr(FakeSbx, "connect", connect, raising=False)
+    monkeypatch.setattr(FakeSbx, "connect", connect)
     blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
     assert connects == [(42, 0)]  # reattached before any kill
     names = [e["event"] for e in events(capsys)]
     assert names == ["sandbox", "stream_lost", "runner_exit", "killed"]
 
 
-def test_a_runner_gone_after_the_blip_ends_the_slot(fake_sbx, monkeypatch, capsys):
-    from e2b import NotFoundException
+@pytest.mark.parametrize("gone", ["NotFoundException", "TimeoutException"])
+def test_a_runner_gone_after_the_blip_ends_the_slot(gone, fake_sbx, monkeypatch, capsys):
+    import e2b
 
     fake_sbx.next_error = httpx.ConnectError("Error reading content")
-    monkeypatch.setattr(FakeSbx, "connect", Blip(1, NotFoundException("process 42 not found")), raising=False)
+    # an exited process is NotFound; a killed sandbox answers Timeout ("sandbox was not found")
+    blip = Blip(1, getattr(e2b, gone)("gone"))
+    monkeypatch.setattr(FakeSbx, "connect", lambda self, pid, timeout=None: blip())
     blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
-    assert fake_sbx.made[0].killed == 1
+    assert fake_sbx.made[0].killed == 1 and blip.calls == 1
     assert [e["event"] for e in events(capsys)][-1] == "killed"
 
 
@@ -354,7 +360,7 @@ def test_reconnect_retries_through_a_gateway_restart(fake_sbx, monkeypatch, caps
         blip()
         return FakeHandle()
 
-    monkeypatch.setattr(FakeSbx, "connect", connect, raising=False)
+    monkeypatch.setattr(FakeSbx, "connect", connect)
     blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
     assert blip.calls == 4
     exits = [e for e in events(capsys) if e["event"] == "runner_exit"]
@@ -363,7 +369,7 @@ def test_reconnect_retries_through_a_gateway_restart(fake_sbx, monkeypatch, caps
 
 def test_a_retired_slot_does_not_reconnect(fake_sbx, monkeypatch):
     fake_sbx.next_error = httpx.ConnectError("killed under us")
-    monkeypatch.setattr(FakeSbx, "connect", Blip(99, AssertionError("must not reconnect")), raising=False)
+    monkeypatch.setattr(FakeSbx, "connect", Blip(99, AssertionError("must not reconnect")))
     slot = runners.Slot("sbx-1", 0.0)
     real_create = FakeSbx.create.__func__
 
@@ -387,6 +393,20 @@ def test_a_failed_kill_is_retried(fake_sbx, monkeypatch, capsys):
     assert blip.calls == 3
     names = [e["event"] for e in events(capsys)]
     assert names.count("killed") == 1 and "kill_failed" not in names
+
+
+def test_reattaching_gives_up_after_the_outage_window(fake_sbx, monkeypatch, capsys):
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    clock = Clock()
+    monkeypatch.setattr(runners.time, "monotonic", clock)
+    monkeypatch.setattr(runners.time, "sleep", lambda s: setattr(clock, "now", clock.now + s))
+    blip = Blip(10**6, httpx.ConnectError("still down"))
+    monkeypatch.setattr(FakeSbx, "connect", lambda self, pid, timeout=None: blip())
+    runners.sandbox_boot(FakeGitHub(), fake_sbx, snapshot="s", labels=["x"], group_id=1,
+                         job_timeout_s=3600, idle_ttl_s=60)(runners.Slot("sbx-1", 0.0))
+    exits = [e for e in events(capsys) if e["event"] == "runner_exit"]
+    assert exits[0]["error"] == "could not reattach to the runner"
+    assert 600 <= clock.now - 1000 < 700 and fake_sbx.made[0].killed == 1
 
 
 def test_a_kill_that_never_succeeds_is_reported_not_claimed(fake_sbx, monkeypatch, capsys):
