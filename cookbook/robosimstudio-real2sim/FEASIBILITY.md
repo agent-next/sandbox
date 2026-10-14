@@ -98,24 +98,109 @@ HARNESS_RESULT {"script": "examples/03_rope/00_cable.py", "device": "cpu",
   pathological); cartesian tracking runs the FD solver instead` — an RSS
   fallback notice, not a failure.
 
-### `examples/01_cloth/00_towel.py` — RUNNING (slow on CPU)
+### `examples/01_cloth/00_towel.py` — PASS (slow: the CPU path's limit)
 
-First attempt (60 steps + 8-frame record) exceeded a 900 s timeout while
-still making progress at ~78 % CPU. The towel is a 30×30-cell sheet
-(961 particles) under VBD with one-way coupling — the heaviest of the three
-scenes. Rerun in progress with 20 steps + 3-frame record; numbers will be
-pasted below.
+```
+HARNESS_RESULT {"script": "examples/01_cloth/00_towel.py", "device": "cpu",
+ "steps_in_view": 20, "run_wall_s": 319.8, "steps_per_s": 0.063,
+ "state_finite": true,
+ "particles": {"particle_q": {"n": 5766, "spread": 0.51804},
+               "particle_qd": {"n": 5766, "spread": 7.2e-05}},
+ "render": {"ok": false, "error": "TypeError: Sim.record() got an unexpected keyword argument 'frames'"},
+ "ok": true, "total_wall_s": 1259.786}
+```
 
-### CPU verdict so far
+- 30×30-cell VBD towel (5766 particles) under one-way coupling, driven by the
+  YAM arm's preset joint track: **0.063 control steps/s** — ~20× slower than
+  the cable scene, ~65× slower than hello_world. A 60-step fold at this rate
+  is ~16 min of stepping alone, before per-lease kernel compilation.
+- State healthy: all particle positions/velocities finite; the sheet has
+  spread (max |q - mean| ≈ 0.52 m) so it actually fell/moved, not frozen.
+- The `record` failure is our harness's wrong kwarg (`Sim.record(path, steps, ...)`),
+  not an RSS defect — `render()` (below) works, and `record()` merely loops
+  `run(1)` + `render` per frame.
+- The earlier 60-step attempt exceeded a 900 s timeout while still at ~78 %
+  CPU; 20 steps then took 320 s of stepping + ~940 s of one-time Warp CPU
+  kernel compilation (fresh `~/.cache/warp` this round).
 
-- The three priority scenes all **build and step correctly on CPU**; no code
-  change is needed beyond injecting `device="cpu"` (one line in our harness,
-  or `Scene(device=...)` once the planned `robotsim` template lands).
-- Headless render works (`tiled` backend, no GL context, no RT cores) and
-  `sim.record()` produces mp4 through it (towel run will confirm the mp4).
-- Cost: ~4 steps/s rigid, ~1.4 steps/s cable, cloth slower. Feasible for a
-  graded loop with small step counts; painful for long rollouts.
+### CPU verdict
 
-## B. GPU lease path — see below (in progress)
+- All three priority scenes **build, step and render headless on CPU**; the
+  only code change needed is forcing `device="cpu"` in `Scene.build` (one
+  line) and replacing the interactive `rss.view` call with a step loop.
+- Headless render works (`ROBOSIMSTUDIO_RENDERER=tiled`, no GL context, no
+  RT cores): 9.96 s/frame cold (hello_world), 0.83 s/frame warm (cable).
+  `sim.record(path, steps)` should therefore also work on CPU (it is
+  `run(1)` + `render` per frame).
+- Throughput on this CPU sandbox (8 vCPU): **4.12 steps/s** rigid,
+  **1.35 steps/s** cable (VBD capsules + arm), **0.063 steps/s** cloth
+  (VBD sheet). Cloth on CPU is feasible only for very short rollouts.
+- No GPU call anywhere fails: Warp warns `Could not find or load the NVIDIA
+  CUDA driver` and runs on the cpu device.
 
-## C. Which path the demo should use — pending B
+## B. GPU lease path
+
+### B1. Wheelhouse (the lease lacks everything RSS pins)
+
+Versions the lease already has were dropped; the lease wheelhouse carries
+only the gap. 69 wheels, 214 MB raw / 211 MB tar.gz (dominated by
+warp-lang 1.18.0 at 142 MB — newton 1.6 requires warp-lang>=1.17, so it
+cannot be dropped). Built with
+`pip download --only-binary=:all: --python-version 3.13 --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 --platform manylinux_2_27_x86_64`
+(Platform extras: jaxlib is manylinux_2_27 only — no 2_28/2014 build exists).
+
+| wheel | version | size | note |
+| --- | --- | --- | --- |
+| robosimstudio | 0.1.0 @ pinned SHA | 13.5 MB | `uv build --wheel` at 73739ab |
+| warp-lang | 1.18.0 | 141.9 MB | newton 1.6 floor is >=1.17 |
+| mujoco | 3.12.0 | 18.9 MB | mujoco-warp 3.12 floor >=3.11 |
+| mujoco-warp | 3.12.0 | 2.1 MB | py3-none-any |
+| newton | 1.6.0 | 5.9 MB | |
+| viser | 1.1.1 | 3.5 MB | |
+| yourdfpy | 0.0.60 | 99 KB | |
+| pyroki | 0.0.0 @ 95afccc | 45 KB | built from git rev 95afccc22658c461ab1042a048ae4e9c24bc2a47 |
+| jaxls | 0.0.0 @ 50a58be | 111 KB | built from git rev 50a58be88c5ef74532f09e3f55268b4f02c490e3 |
+| pyliblzfse | 0.4.1 | 25 KB | **no Linux wheels on PyPI** — built from sdist with uv's CPython 3.13 |
+| (64 more transitives) | | ~29 MB | jax ecosystem (satisfied by lease's jax 0.7.2 for floors, but shipped for reproducibility), trimesh extras, etc. |
+
+sha256 of the three locally built wheels:
+
+```
+18d6ba7e224cb6330fe35f80e535fa31f5966fdd2a1761da930a2021efd6a4c7  robosimstudio-0.1.0-py3-none-any.whl
+348530e7e3eea62b999d22f2b8f1d8a52794c14248c90b884759b28fd6c3073b  pyroki-0.0.0-py3-none-any.whl
+6e62aefef3d9227450e2f244e1f46bde787b93c74b2695865267cb3b5ea35bf1  jaxls-0.0.0-py3-none-any.whl
+```
+
+Gotchas recorded for `judge/setup.sh`:
+
+- RSS's wheel metadata pins `pyroki @ git+...`, and pyroki pins
+  `jaxls @ git+...`; under `--no-index` pip refuses both (it wants to build
+  from the URL). Fix: the shipped pyroki/jaxls/robosimstudio wheels have
+  their `Requires-Dist` rewritten to plain `pyroki`/`jaxls` (one sed in the
+  wheel's METADATA), and install all three by path.
+- pip may otherwise pick a *newer* wheel than intended when several exist;
+  prune the wheelhouse to exactly one version per package (numpy had 2.2.6
+  and 2.5.4 at first; 2.5.4 removed — jaxlib 0.11.2 wants numpy<2.3).
+- The full 78-wheel set **installs offline** (`pip install --no-index
+  --find-links`) into a fresh CPython 3.13 venv, and `import
+  robosimstudio, pyroki, jaxls, yourdfpy` succeeds — verified end to end
+  on this CPU sandbox before touching the lease.
+
+### B2. Lease probe results (real, 2026-10-14)
+
+- Lease create can answer **HTTP 409** under contention; retry (2 attempts
+  needed). `POST /sandboxes {"accel":{"vram_gb":4,"reserve":"exec"}}` →
+  `gl-951d38-19`, RTX 5090 slice: 4916 MiB total, 32 CPUs, Python 3.13.5,
+  home `/home/ubuntu`, 34 GB free on `/` (97 % full).
+- **Exec payload limit**: 4 MB b64 chunk → ok (md5 verified), 69.5 s
+  round-trip; 16 MB → ok (md5 verified), 238.9 s; **32 MB → the exec
+  answers 404 and the lease is gone** (destroyed; `close()` then confirmed
+  404 in 10.9 s). So the safe chunk is **16 MB**, and the measured upload
+  rate is **~14.9 s/MB** — a 211 MB wheelhouse costs **~52 min of upload**
+  per fresh lease.
+- **Files persist across exec calls** (1 MB file written, then read back
+  complete in a later exec, same lease), so the chunk-then-untar design in
+  `judge/lease.py` is sound.
+- `close()` (DELETE + confirm 404) took 10.9 s / 1.1 s.
+
+### B3. RSS on the GPU lease — pending
