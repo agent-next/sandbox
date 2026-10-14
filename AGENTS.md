@@ -6,7 +6,7 @@ Before merging anything, read `docs/acceptance.md`. `CLAUDE.md` is just
 
 | Job | Read first | Commands |
 | --- | --- | --- |
-| CLI: `cli/`, its tests | `cli/README.md` | from `cli/`: `pip install "./cli[test]"` then `pytest -q` (what CI runs) |
+| CLI: `cli/`, its tests | `cli/README.md` | from the repo root: `pip install "./cli[test]"`, then in `cli/`: `pytest -q` (what CI runs) |
 | Plugins: `plugins/`, `.claude-plugin/`, `.agents/` | `plugins/sandbox/README.md`, then `plugins/sandbox/skills/sandbox/SKILL.md` | the `manifests` job in `.github/workflows/ci.yml` (JSON validity, marketplace path, required fields) |
 | Cookbook: `cookbook/` | `cookbook/DEMO-STANDARD.md`, then the demo's `README.md` and `SPEC.md` | run the demo's `run.py` end-to-end in a real sandbox; regenerate media with `media/make_media.sh` |
 | CI: `.github/workflows/ci.yml` | the file itself | its two jobs: `cli` (Python 3.10 + 3.13 matrix) and `manifests` |
