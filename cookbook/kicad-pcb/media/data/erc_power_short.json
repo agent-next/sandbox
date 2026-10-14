@@ -3,10 +3,20 @@
     "G1_erc": {
       "details": {
         "erc_errors": 1,
-        "erc_warnings": 72,
+        "erc_warnings": 20,
         "error_types": {
           "pin_to_pin": 1
-        }
+        },
+        "warning_types": {
+          "lib_symbol_issues": 19,
+          "multiple_net_names": 1
+        },
+        "warning_types_not_allowed": {
+          "multiple_net_names": 1
+        },
+        "warnings_allowlist": [
+          "lib_symbol_issues"
+        ]
       },
       "pass": false
     },
@@ -90,6 +100,22 @@
           "apertures": 2,
           "file": "555-blinker-F_Silkscreen.gto",
           "ops": 352
+        },
+        "extents_mm": {
+          "board": [
+            100.0,
+            -130.0,
+            140.0,
+            -100.0
+          ],
+          "gerber": [
+            100.0,
+            -130.0,
+            140.0,
+            -100.0
+          ],
+          "max_delta_mm": 0.0,
+          "tol_mm": 0.1
         }
       },
       "pass": true
@@ -103,5 +129,9 @@
       "pass": true
     }
   },
-  "overall_pass": false
+  "overall_pass": false,
+  "seed": 42,
+  "timing": {
+    "wall_seconds": 2.401
+  }
 }
