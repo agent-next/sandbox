@@ -29,7 +29,6 @@ import argparse
 import base64
 import io
 import json
-import math
 import os
 import shutil
 import subprocess
@@ -45,7 +44,6 @@ STEP_TIMEOUTS = {"clone": 300, "setup": 900, "selftest": 900, "grade": 900}
 API = "https://api.sbx.agent-next.com"
 GPU_VRAM_GB = 4
 THETA0_RAD = 0.1          # pendulum release angle, from judge/spec.json
-ANCHOR_Z = 2.0            # pendulum anchor height, from judge/spec.json
 
 
 def die(msg, code=1):
@@ -73,6 +71,7 @@ def run(step, *args, timeout=None, capture=False):
 
 
 def request(key, method, path, body=None, timeout=900):
+    """-> (status, parsed-body-or-None); on HTTP error, -> (status, error body)."""
     data = None if body is None else json.dumps(body).encode()
     req = Request(API + path, data=data, method=method,
                   headers={"X-API-Key": key, "Content-Type": "application/json"})
@@ -81,7 +80,11 @@ def request(key, method, path, body=None, timeout=900):
             raw = r.read()
             return r.status, json.loads(raw) if raw else None
     except HTTPError as exc:
-        return exc.code, None
+        raw = exc.read()
+        try:
+            return exc.code, json.loads(raw) if raw else None
+        except ValueError:
+            return exc.code, {"message": raw.decode("utf-8", "replace")[:500]}
 
 
 # ---------------------------------------------------------------- GPU lane
@@ -125,13 +128,15 @@ for name, item in SCEN.items():
         wp.synchronize()
         compile_s = time.perf_counter() - tc0
         tt, pos = [0.0], [dd.xpos.numpy()[0, bid].tolist()]
+        qpos = [float(dd.qpos.numpy()[0, m.jnt_qposadr[0]])]
         for i in range(1, n + 1):
             mujoco_warp.step(mm, dd)
             if i % dec == 0 or i == n:
                 tt.append(i * dt)
                 pos.append(dd.xpos.numpy()[0, bid].tolist())
+                qpos.append(float(dd.qpos.numpy()[0, m.jnt_qposadr[0]]))
         wp.synchronize()
-        report[name] = {"t": tt, "pos": pos,
+        report[name] = {"t": tt, "pos": pos, "qpos": qpos,
                         "compile_s": round(compile_s, 2),
                         "sim_s": round(time.perf_counter() - t0 - compile_s, 2)}
     except Exception as e:
@@ -164,11 +169,11 @@ def score_gpu_lane(report, _grade, spec):
                 rows = {"t": t, "x": [p[0] for p in pos],
                         "z": [p[2] for p in pos]}
             elif name == "pendulum":
-                # bob at (L sin(theta), 0, anchor_z - L cos(theta)):
-                # recover theta from the recorded position
-                rows = {"t": t,
-                        "theta": [math.atan2(p[0], ANCHOR_Z - p[2])
-                                  for p in pos]}
+                # the mover body frame origin IS the anchor (the bob hangs at
+                # (0, 0, -L) in body frame), so theta comes from the hinge
+                # angle itself: hinge about +y turns bob to (-L sin q, 0, ...),
+                # and the spec's theta (+ toward +x) is -q
+                rows = {"t": t, "theta": [-v for v in sc["qpos"]]}
             scored[name] = _grade.analyze(name, rows, exp[name], spec)
         except Exception as exc:
             scored[name] = {"error": f"{type(exc).__name__}: {exc}"[:200]}
@@ -186,12 +191,31 @@ def run_gpu_lane(key, demo_path):
 
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        # normalized members: the lease worker cannot read files that keep the
+        # builder's uid/gid/uname, so ship uid=gid=0, mode 0644, no names
         for name in sorted(os.listdir(mjdir)):
-            tf.add(os.path.join(mjdir, name), arcname=name)
+            with open(os.path.join(mjdir, name), "rb") as fh:
+                data_bytes = fh.read()
+            info = tarfile.TarInfo(name=name)
+            info.size = len(data_bytes)
+            info.mode = 0o644
+            info.uid = info.gid = 0
+            info.uname = info.gname = ""
+            info.mtime = 0
+            tf.addfile(info, io.BytesIO(data_bytes))
     payload = base64.b64encode(buf.getvalue()).decode()
-    job = ("import base64, io, tarfile\n"
-           "tarfile.open(fileobj=io.BytesIO(base64.b64decode('%s')), "
-           "mode='r:gz').extractall('.')\n" % payload) \
+    # the exec endpoint runs each job with cwd=/ (read-only, uid 1000); only
+    # $HOME is writable, so extract the models there and chdir into it
+    job = ("import base64, io, os, tarfile\n"
+           "_d = os.path.expanduser('~/arena')\n"
+           "os.makedirs(_d, exist_ok=True)\n"
+           "os.chdir(_d)\n"
+           "_t = tarfile.open(fileobj=io.BytesIO(base64.b64decode('%s')), "
+           "mode='r:gz')\n"
+           "for _m in _t.getmembers():\n"
+           "    if _m.isfile():\n"
+           "        open(_m.name, 'wb').write(_t.extractfile(_m).read())\n"
+           % payload) \
         + GPU_JOB.replace("__THETA0__", repr(THETA0_RAD))
 
     print(f"gpu: creating lease ({GPU_VRAM_GB} GiB VRAM slice)...", flush=True)
@@ -221,9 +245,16 @@ def run_gpu_lane(key, demo_path):
                                    {"code": job, "timeout_s": 600})
             if st == 200:
                 break
-            # 409 = no free seat / lease busy; it is transient, back off
-            print(f"gpu: exec HTTP {st} (attempt {attempt + 1}); retrying",
+            reason = ""
+            if isinstance(executed, dict):
+                reason = str(executed.get("message") or "")[:300]
+            print(f"gpu: exec HTTP {st} (attempt {attempt + 1}) {reason}",
                   flush=True)
+            if st == 409 and "job" in reason and "failed" in reason:
+                # a 409 carrying "lease ... job N failed: <python error>" is the
+                # job itself crashing, which is deterministic: retrying cannot
+                # fix it, so fail now with the reason instead of burning retries
+                die(f"gpu: exec job failed: {reason}", 1)
             time.sleep(5 * (attempt + 1))
         print(f"gpu: exec round trip {time.monotonic() - t0:.0f} s "
               f"(HTTP {st})", flush=True)
