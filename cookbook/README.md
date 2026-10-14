@@ -11,6 +11,7 @@ and the command to run it. Entries are added only after they pass review.
 | [small-gpu](small-gpu/README.md) | Run a CUDA smoke check in a 1 GiB VRAM slice and destroy it. |
 | [github-ci-runners](github-ci-runners/README.md) | Run GitHub Actions jobs in disposable sandboxes with Docker, from a warm pool. |
 | [cfd-openfoam](cfd-openfoam/README.md) | Run OpenFOAM channel and cavity flows and grade them against the analytic profile and Ghia 1982; one command, independently reproduced. |
+| [gpu-kernel](gpu-kernel/README.md) | Grade a Triton softmax kernel on a 1 GiB GPU slice: correctness on 10 cases, 10/10 mutants caught, lease destroyed; CPU check mode included. |
 
 The first three prompts passed review as demo videos. They have not been
 re-run from this repo, so treat them as starting points, not guarantees.
