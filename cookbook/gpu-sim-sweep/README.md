@@ -2,18 +2,18 @@
 
 An agent works on a real GPU-simulation engineering problem inside a disposable
 sandbox: configure a MuJoCo-Warp scene (a 7-DoF arm + 8 falling boxes on a
-table), sweep it over nworld = 1..8192 on a 4 GiB RTX 5090 slice, verify the
-physics at every point against a CPU baseline, and produce a throughput curve
-with the speedup over CPU reported honestly. The judge never accepts "it ran":
-it re-runs the same physics on CPU, compares trajectories, checks the oracle at
-every sweep point, and gates the throughput claim.
+table), sweep it over nworld = 1..8192 on a 4 GiB RTX 5090 slice, and pass a
+judge that re-runs the physics itself. The artifact is a **config only** — the
+judge never reads a result the artifact claims; it runs the CPU baseline and
+the whole mujoco_warp sweep during grade and gates on what it measures.
 
 A sandbox helps because GPU simulation work is messy: it pins a specific
 mujoco/mujoco-warp toolchain without touching your machine, safely runs
 untrusted agent-written configs, and gets destroyed afterwards. On a CPU-only
-sandbox the judge runs `--cpu-check` (structure gate only); on a GPU sandbox it
-runs the full path including the throughput measurement. The GPU path uses a
-4 GiB VRAM slice lease created over the REST API (see
+sandbox the judge runs `--cpu-check` (structure + a live CPU physics oracle);
+on a GPU sandbox it runs the full path — CPU baseline, the real sweep at every
+ladder point, CPU↔GPU trajectory parity, and the throughput gate. The GPU path
+uses a 4 GiB VRAM slice lease over the REST API (see
 `cookbook/small-gpu/run.py`) with `run.py --gpu`.
 
 ## One-command run
@@ -24,56 +24,42 @@ and `SBX_API_KEY` exported:
 
 ```bash
 python3 cookbook/gpu-sim-sweep/run.py            # CPU sandbox: --cpu-check judge
-python3 cookbook/gpu-sim-sweep/run.py --gpu      # GPU lease: full judge
+python3 cookbook/gpu-sim-sweep/run.py --gpu      # GPU lease: full judge + mutants
 python3 cookbook/gpu-sim-sweep/run.py --ref sbx/demo-gpu-sim-sweep   # other ref
 ```
 
-Each run prints wall time per step (clone, setup, selftest, grade), the
-verdict JSON, and a short human summary, then kills the sandbox/lease and
-confirms it is gone. Measured on the CPU path (see RECEIPT.md): clone
-seconds, cold setup ~1 min, selftest ~2 min, grade ~10 s. The GPU path
-needs GPU access on your key and will take longer (Warp kernels cold-compile
-~25 s per fresh lease).
+Each run prints wall time per step, the verdict JSON, and a short human
+summary, then kills the sandbox/lease and confirms it is gone. The GPU path
+takes minutes, not seconds: a fresh lease cold-compiles the Warp kernels once
+(~60–100 s, reported as setup time) and then every grade — the good config and
+each mutant — runs real simulations (~2 min each). See RECEIPT.md for the
+measured runs.
 
 To try the judge locally on a CPU-only Linux box instead:
 
 ```bash
 bash cookbook/gpu-sim-sweep/judge/setup.sh      # pinned venv in ~/.venvs/gpu-sim-sweep
-bash cookbook/gpu-sim-sweep/judge/selftest.sh   # known-good passes, 6/6 mutants killed
+bash cookbook/gpu-sim-sweep/judge/selftest.sh   # good passes, mutants die (real runs)
 bash cookbook/gpu-sim-sweep/judge/grade.sh cookbook/gpu-sim-sweep/examples/good/sweep.json
 ```
 
-Limits, stated plainly: physics correctness is the gate; throughput is
-*reported*, not gated (a `--speedup-floor F` option exists if you want to
-gate on it). The CPU judge proves the config is structurally valid; it cannot
-measure GPU throughput — that needs the GPU lease. See `SPEC.md` for the
-exact gates, `RECEIPT.md` for real measured output.
+Limits, stated plainly: physics correctness is the gate; throughput is gated
+against a floor (default 4× measured CPU, `--speedup-floor F` to change).
+The CPU judge proves the config simulates sanely on one world; it cannot
+measure GPU throughput or contact-capacity failures — those need the lease.
+See `SPEC.md` for the exact gates, `RECEIPT.md` for real measured output.
 
 ## GPU path details
 
 The `--gpu` flag creates a 4 GiB VRAM slice lease via the agent-next REST API:
 - `POST /sandboxes {"accel":{"vram_gb":4,"reserve":"exec"}}` — creates the lease
-- `POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": N}` — runs the grading job
+- `POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": 2400}` — unpacks
+  `judge/` + `examples/` and grades the good config plus every mutant; each
+  grade runs the sim itself
 - `DELETE /sandboxes/{id}` + `GET /sandboxes/{id}` → 404/dead — confirms cleanup
 
 The lease image already has Python 3.13, mujoco 3.8.1, mujoco-warp 3.8.1,
 warp-lang 1.13.0, numpy 1.26.4 on an RTX 5090 slice (cc 12.0); no pip needed.
-The grading job packs `judge/` and `examples/` as a base64 tar.gz, extracts
-them on the lease, runs the full judge (structure + CPU reference + GPU sweep
-+ oracle), and grades all 6 mutants.
-
-## Media
-
-`media/` regenerates the demo figures and video from committed source
-data (`media/data/gpu-run.log`, `media/data/report.json` — the latter
-produced by `run.py --gpu --report-json media/data/report.json`):
-
-```bash
-bash cookbook/gpu-sim-sweep/media/make_media.sh   # needs ffmpeg; pinned venv
-```
-
-It writes `media/result.png`, `media/loop.png`, `media/demo.mp4` and a
-`media/MANIFEST.json` with sha256s; see `media/REVIEW.md`.
 
 ## Ask your agent
 
@@ -84,31 +70,33 @@ it passes — that loop is the demo:
 > Create a fresh sandbox (GPU lease, `vram_gb: 4` if GPU access is on
 > my key; otherwise a plain sandbox and the judge's `--cpu-check` mode).
 > Inside it, clone https://github.com/agent-next/sandbox at ref `main`,
-> then read `cookbook/gpu-sim-sweep/SPEC.md` carefully: you are to implement
-> `cookbook/gpu-sim-sweep`'s MuJoCo-Warp sim sweep as a config file,
-> `sweep.json`, with the scene XML, physics parameters, nconmax/njmax contact
-> capacity, and nworld ladder exactly as the spec's artifact contract says.
-> The scene is a 7-DoF arm + 8 boxes falling on a table; the canonical XML is
-> in `judge/scene.py`. First run `cookbook/gpu-sim-sweep/judge/setup.sh`, then
-> write your config, then iterate: `bash cookbook/gpu-sim-sweep/judge/grade.sh
+> then read `cookbook/gpu-sim-sweep/SPEC.md` carefully: you are to write a
+> sim config, `sweep.json`, with exactly the keys in the spec's artifact
+> contract — the canonical scene XML (from `judge/scene.py`), timestep,
+> solver_iterations, nconmax/njmax contact capacity, the nworld ladder, and
+> the settle/timed/batch counts. The artifact is config only: the judge
+> runs the simulation itself and rejects result keys, so do not add any.
+> First run `cookbook/gpu-sim-sweep/judge/setup.sh`, then write your
+> config, then iterate: `bash cookbook/gpu-sim-sweep/judge/grade.sh
 > /path/to/your/sweep.json --json /tmp/v.json` and read the verdict JSON
 > until every gate passes. The judge's self-test shows what it rejects —
-> run `judge/selftest.sh` once to see 6 broken mutants die. When every
-> gate passes, report the verdict JSON (CPU steps/s, top GPU steps/s,
-> speedup, and per-point oracle results), then kill the sandbox and confirm
-> it is gone. If you cannot get a gate to pass, say exactly which gate and
-> what you tried, and stop.
+> run `judge/selftest.sh` once to see the broken mutants die in real runs.
+> When every gate passes, report the verdict JSON (measured CPU steps/s,
+> top GPU steps/s, speedup, and per-point oracle results), then kill the
+> sandbox and confirm it is gone. If you cannot get a gate to pass, say
+> exactly which gate and what you tried, and stop.
 
 ## What the judge checks (short form)
 
 | gate | rule |
 |---|---|
-| structure | valid JSON, ≤ 256 KiB, all required keys, scene XML matches canonical |
-| engine-parity | GPU mujoco version == CPU mujoco version |
-| physics-oracle | every nworld: finite, arm err < 0.15 rad, boxes landed (z in bounds), speed < 5 m/s |
-| cpu-parity | GPU world-0 trajectory matches CPU within 1e-3 rad |
-| throughput | top nworld steps/s ≥ floor × CPU steps/s (default floor 20x) |
+| structure | valid JSON, config keys only (result keys rejected), scene = canonical |
+| engine-parity | measured GPU mujoco version == measured CPU version |
+| physics-oracle | every nworld ran; live state: finite, arm err < 0.15 rad, boxes landed, speed < 5 m/s |
+| cpu-parity | measured GPU world-0 trajectory vs CPU within 0.05 rad |
+| throughput | measured top nworld steps/s ≥ floor × measured CPU steps/s (default 4×) |
+| cpu-physics | (cpu-check mode only) the CPU reference run of the config passes the same oracle |
 
 The artifact is graded from a copy in a temp dir, and sha256 checksums of
 `judge/` are compared before and after — the artifact cannot tamper with
-its own judge.
+its own judge. A judge crash exits 2; a graded failure exits 1.
