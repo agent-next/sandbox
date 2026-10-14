@@ -110,14 +110,23 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
         items: list[str] | None = None
         item_lines: list[tuple[int, re.Match]] = []
         if not value:  # block list
-            items, j = [], i + 1
-            while j < len(lines) and (_blank(lines[j]) or _indent(lines[j]) > len(indent)):
+            items, j, mapping = [], i + 1, False
+            while j < len(lines) and (_blank(lines[j]) or _indent(lines[j]) > len(indent)
+                                      or (_indent(lines[j]) == len(indent) and lines[j].lstrip().startswith("-"))):
                 im = _ITEM.match(lines[j])
                 if im:
                     items.append(im.group(3).strip())
                     item_lines.append((j, im))
+                elif not _blank(lines[j]):
+                    mapping = True
                 j += 1
             display = _fmt(items)
+            if mapping:
+                findings.append(Finding(name, job, i + 1, "(mapping)", "", "expression or mapping (matrix, group, ...)"))
+                continue
+        elif value.startswith("[") and "]" not in value:
+            findings.append(Finding(name, job, i + 1, value, "", "multi-line flow list"))
+            continue
         elif value.startswith("["):
             items = [_unquote(x) for x in value.strip("[]").split(",") if x.strip()]
             display = value
@@ -152,6 +161,8 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
                 block = [f"{pad}- {x}{e}" for x in labels] if first else []
                 if block and tail:
                     block[-1] = f"{pad}- {labels[-1]}  {tail}{e}"
+                elif tail:  # a dropped duplicate keeps its comment
+                    block = [f"{pad}{tail}{e}"]
                 edits.append((k, k + 1, block))
                 first = False
         findings.append(Finding(name, job, i + 1, display, _fmt(seen)))
@@ -181,6 +192,7 @@ def parse_labels(spec: str) -> list[str]:
 
 def pr_body(repo: str, labels: list[str], findings: list[Finding]) -> str:
     changed = [f for f in findings if f.new]
+    extra = ",".join(x for x in labels if x != "self-hosted")  # serve adds self-hosted itself
     lines = "\n".join(f"- `{f.file}` job `{f.job}`: `{f.old}` -> `{f.new}`" for f in changed)
     return (
         f"Moves {len(changed)} job(s) from GitHub-hosted runners to single-use sandbox runners ({', '.join(labels)}).\n\n"
@@ -189,9 +201,9 @@ def pr_body(repo: str, labels: list[str], findings: list[Finding]) -> str:
         "## Start the runners\n\n"
         "Jobs wait in the queue until a pool is serving them:\n\n"
         "```\n"
-        "pip install agent-next-sandbox\n"
+        "pip install \"git+https://github.com/agent-next/sandbox#subdirectory=cli\"\n"
         "snap=$(sbx runners image | tail -1)\n"
-        f"sbx runners serve --repo {repo} --snapshot \"$snap\" --warm 2 --max 10\n"
+        f"sbx runners serve --repo {repo} --snapshot \"$snap\" --labels \"{extra}\" --warm 2 --max 10\n"
         "```\n\n"
         "## Revert\n\n"
         "Revert this pull request (or set the `runs-on` lines back to their old values above); "
