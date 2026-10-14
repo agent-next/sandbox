@@ -29,6 +29,8 @@ create a sandbox, clone the showcase at `5b3078e`, `npm ci`, `npm run build`, se
 encode one H.264 clip per target, download screenshots, clips and `results.json`, kill the sandbox.
 A sandbox whose download fails is kept and its id printed.
 
+Offline check of the shard bookkeeping: `python3 -m unittest test_run` in this directory.
+
 ## Grading
 
 `render_all.cjs` grades each target from the composited screenshot of its largest canvas:
