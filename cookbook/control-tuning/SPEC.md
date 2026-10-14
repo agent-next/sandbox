@@ -76,10 +76,17 @@ the artifact only supplies `Q` and `R`. Default Monte-Carlo seed 20260101
    never crosses -180 deg the gain margin is taken as unlimited (reported
    as 99 dB); if `|L|` never crosses 1 the phase margin is 180 deg.
 6. **Monte-Carlo robustness** — 200 samples, each perturbing `M`, `m`, `l`
-   independently and uniformly in ±20 % (seeded `numpy.default_rng`): a
-   nonlinear 10 s run per sample. A sample passes if the trajectory stays
-   finite, peak `|theta| <= 0.5 rad`, and `|theta|` settles within the
-   0.003 rad band by t = 8 s. Gate passes if `>= 95 %` of samples pass.
+   independently and uniformly in ±20 % (seeded `numpy.default_rng`): two
+   nonlinear 10 s runs per sample, one per spec scenario (the 0.15 rad
+   lean and the 1 m cart displacement). A sample passes if both
+   trajectories stay finite, peak `|theta| <= 0.5 rad`, `|theta|` settles
+   within the 0.003 rad band by t = 8 s (lean run), and `|x|` settles
+   within the 0.02 m band by t = 7 s (displacement run). Gate passes if
+   `>= 95 %` of samples pass. The displacement criterion is the
+   load-bearing one: theta recovery has direct torque authority and
+   survives ±20 % drift for any design that passes the deterministic
+   gates, while displacement settling is margin-limited and degrades
+   under perturbation — it is what makes this gate able to fail.
 
 Exit code 0 only if every gate passes. `--json out.json` writes the full
 verdict (every gate's measured number and pass flag) to a file.
@@ -125,5 +132,10 @@ to fail at least one gate:
 6. **nan-weight** — `Q[2] = NaN`: rejected by validation (gate 1).
 7. **wrong-type** — `type = "pid"`: rejected by validation (gate 1).
 8. **wrong-shape** — `Q` of length 3: rejected by validation (gate 1).
+9. **mc-marginal** — all `Q` × 0.8: passes every deterministic gate
+   (gates 1–5, graded `--no-mc`) but misses displacement settling on
+   perturbed plants; killed by the Monte-Carlo gate alone (gate 6,
+   `mc_pass_fraction` ≈ 0.80 < 0.95). Proves the robustness gate can fail.
 
-Kill rate must be >= 90 % (the reference judge kills 8/8).
+Kill rate must be >= 90 % (the reference judge kills 9/9, one of them by
+the Monte-Carlo gate alone).

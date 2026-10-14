@@ -2,7 +2,9 @@
 """Generate known-bad artifacts: single-edit mutants of the good example.
 
 Each mutant changes exactly one thing about examples/good/controller.json and
-is expected to fail at least one judge gate. Writes examples/bad/*.json.
+is expected to fail at least one judge gate — mc-marginal by the
+Monte-Carlo gate alone, the rest by a deterministic gate. Writes
+examples/bad/*.json.
 Usage: mutants.py [good-json] [outdir]
 """
 import copy
@@ -30,6 +32,10 @@ MUTANTS = {
     "wrong-type": lambda a: a.update({"type": "pid"}),
     # swapped Q and R shapes -> artifact validation rejects it
     "wrong-shape": lambda a: a.update({"Q": [1.0, 0.1, 50.0]}),
+    # 0.8x state weights -> passes every deterministic gate but misses
+    # displacement settling on perturbed plants (Monte-Carlo gate alone)
+    "mc-marginal": lambda a: a.update(
+        {"Q": [v * 0.8 for v in a["Q"]]}),
 }
 
 

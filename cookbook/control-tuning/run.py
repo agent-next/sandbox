@@ -54,6 +54,7 @@ def main():
     sid = None
     t_start = time.monotonic()
     step = {"t": t_start}
+    selftest_lines = []
 
     def clock(label):
         now = time.monotonic()
@@ -95,6 +96,13 @@ def main():
             if r.returncode != 0:
                 die(f"step '{label}' failed with exit {r.returncode} in "
                     f"sandbox {sid}")
+            if label == "selftest":
+                # capture the kill lines and kill rate for the summary
+                for line in (r.stdout or "").splitlines():
+                    if "(expected pass)" in line \
+                            or "(expected reject)" in line \
+                            or "kill rate" in line:
+                        selftest_lines.append(line.strip())
             clock(label)
 
         r = sh(f"{sbx} exec --timeout 60 {sid} -- cat /tmp/verdict.json")
@@ -106,6 +114,9 @@ def main():
         print(f"\nverdict: {'PASS' if verdict.get('passed') else 'FAIL'} "
               f"({len(verdict.get('gates', {}))} gates, Monte-Carlo "
               f"{verdict.get('mc_pass')}/{verdict.get('mc_n')})", flush=True)
+        print("selftest:", flush=True)
+        for line in selftest_lines:
+            print(f"  {line}", flush=True)
         ok = bool(verdict.get("passed"))
         clock("verdict")
     finally:

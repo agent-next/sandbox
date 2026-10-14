@@ -152,7 +152,9 @@ GM_MIN_DB = 6.0
 PM_MIN_DEG = 45.0
 MC_N = 200
 MC_FRACTION_MIN = 0.95
-MC_SETTLE_MAX = 8.0           # s, relaxed
+MC_SETTLE_MAX = 8.0           # s, lean-IC theta settling (relaxed)
+MC_X_SETTLE_MAX = 7.0          # s, displacement-IC x settling (spec value)
+XDISP_BAND = 0.02              # m, 2 % settling band for x (displacement IC)
 
 
 def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True):
@@ -232,33 +234,61 @@ def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True):
     gate("gm_torque_db", gmt, gmt >= GM_MIN_DB)
     gate("pm_torque_deg", pmt, pmt >= PM_MIN_DEG)
 
-    # Monte-Carlo robustness: +-20 % on M, m, l, nonlinear plant
+    # Monte-Carlo robustness: +-20 % on M, m, l, nonlinear plant. Each
+    # sample runs BOTH spec scenarios — the 0.15 rad lean (gate 3) and the
+    # 1 m cart displacement (gate 4) — and passes only if both stay finite,
+    # never peak past 0.5 rad, and settle inside the spec bands (theta:
+    # 0.003 rad by 8 s on the lean, x: 0.02 m by 7 s on the displacement).
+    # The displacement criterion is the load-bearing one: theta recovery is
+    # torque-authoritative and survives +-20 % plant drift for any design
+    # that passes the deterministic gates, while displacement settling is
+    # margin-limited and genuinely degrades under perturbation.
     if run_mc:
         rng = np.random.default_rng(seed)
         npass = 0
+        th_worst = 0.0
+        x_worst = 0.0
+        tmc = np.linspace(0.0, SIM_T, 501)
         for _ in range(n_mc):
             M_ = M0 * rng.uniform(0.8, 1.2)
             m_ = M1 * rng.uniform(0.8, 1.2)
             l_ = L0 * rng.uniform(0.8, 1.2)
-            try:
-                smc = solve_ivp(nonlinear_rhs(K, M_, m_, l_), [0.0, SIM_T],
-                                (0.0, 0.0, THETA0, 0.0), max_step=0.02,
-                                rtol=1e-7, atol=1e-9, dense_output=True)
-                tmc = np.linspace(0.0, SIM_T, 501)
-                Ymc = smc.sol(tmc)
-            except Exception:
-                continue
-            if not np.all(np.isfinite(Ymc)):
-                continue
-            if np.abs(Ymc[2]).max() > PEAK_THETA_MAX:
-                continue
-            if settling_time(tmc, Ymc[2], THETA_BAND) > MC_SETTLE_MAX:
-                continue
-            npass += 1
+            ok = True
+            for ic in ((0.0, 0.0, THETA0, 0.0), (XDISP, 0.0, 0.0, 0.0)):
+                try:
+                    smc = solve_ivp(nonlinear_rhs(K, M_, m_, l_),
+                                    [0.0, SIM_T], ic, max_step=0.02,
+                                    rtol=1e-7, atol=1e-9,
+                                    dense_output=True)
+                    Ymc = smc.sol(tmc)
+                except Exception:
+                    ok = False
+                    break
+                if not np.all(np.isfinite(Ymc)):
+                    ok = False
+                    break
+                if np.abs(Ymc[2]).max() > PEAK_THETA_MAX:
+                    ok = False
+                    break
+                th_st = settling_time(tmc, Ymc[2], THETA_BAND)
+                th_worst = max(th_worst, th_st)
+                if th_st > MC_SETTLE_MAX:
+                    ok = False
+                    break
+                if ic[0] != 0.0:
+                    x_st = settling_time(tmc, Ymc[0], XDISP_BAND)
+                    x_worst = max(x_worst, x_st)
+                    if x_st > MC_X_SETTLE_MAX:
+                        ok = False
+                        break
+            if ok:
+                npass += 1
         frac = npass / n_mc
         verdict["mc_pass"] = npass
         verdict["mc_n"] = n_mc
         verdict["mc_seed"] = seed
+        verdict["mc_theta_settle_worst_s"] = th_worst
+        verdict["mc_x_settle_worst_s"] = x_worst
         gate("mc_pass_fraction", frac, frac >= MC_FRACTION_MIN)
 
     verdict["passed"] = all(g["pass"] for g in verdict["gates"].values())
