@@ -34,7 +34,7 @@ real    0m19.937s
     determinism: identical verdict JSON (excluding timing)
     drc_short: killed (failed: G2_drc)
     drc_unconnected: killed (failed: G2_drc G3_netlist)
-    drill_no_tools: killed (failed: G2_drc)
+    drill_no_tools: killed (failed: G2_drc G6_drill)
     erc_off_grid: killed (failed: G1_erc)
     erc_power_short: killed (failed: G1_erc G3_netlist)
     erc_unconnected_pin: killed (failed: G1_erc G3_netlist)
@@ -66,7 +66,9 @@ exit 0, 2.9 s:
     "extents_mm": {"gerber": [100.0, -130.0, 140.0, -100.0],
                    "board":  [100.0, -130.0, 140.0, -100.0],
                    "max_delta_mm": 0.0, "tol_mm": 0.1}}
-  G6_drill: PASS {"drill_files": 1, "drill_hits": 11, "tools": 2}
+  G6_drill: PASS {"drill_files": 1, "drill_hits": 11,
+    "expected_holes": 11, "missing_tool_mm": [],
+    "no_drill_pads": 0, "no_drill_vias": 0, "tools": 2}
   overall: PASS
 ```
 
@@ -91,7 +93,7 @@ Verdict `overall_pass: true`; key numbers identical to run 1.
 | sch nets = pcb nets | 7 = 7 | 7 = 7 |
 | Edge.Cuts segments / open endpoints | 4 / 0 | 4 / 0 |
 | gerber-vs-board extents max_delta_mm | 0.0 (tol 0.1) | 0.0 |
-| drill tools / hits | 2 / 11 | 2 / 11 |
+| drill tools / hits / holes w/o drill | 2 / 11 / 0 | 2 / 11 / 0 |
 | mutants killed | 8/8 (100 %) | 8/8 (100 %) |
 | verdict JSON (same seed, two grades) | identical except `timing` | identical except `timing` |
 | setup / selftest / grade wall time | 19.9 / 25.2 / 2.9 s | 15.7 / 26.1 / 2.8 s |
@@ -150,6 +152,30 @@ from `sbx list`.
    warnings, 0 errors. First `lib_symbol_issues` item: `"The current
    configuration does not include the symbol library 'power'"` — the
    same warning class the self-contained artifact produces.
+
+## Review fixes (second round)
+
+1. **Schematic field overlap.** `tools/gen_sch.py` emitted every
+   instance property at the symbol origin, so Reference/Value text
+   stacked up (visible around J1: `#PWR0x`/`#FLG0x`/`VCC`/`GND`/
+   `Conn_01x02` on top of each other). Fields now use the stock
+   library anchors (transformed by instance rotation), power-symbol
+   references are hidden as KiCad hides them, and a few crowded fields
+   get explicit nudges. The `.kicad_sch` was edited in place — every
+   uuid preserved — so `kicad-cli sch export netlist` output is
+   unchanged (diff empty except the volatile `<date>` line). A new
+   check in `media/render.py` (`sch_text_overlap`) measures the real
+   glyph boxes in the exported SVG and fails the media build on any
+   overlapping text.
+2. **G6 could not see `drill_no_tools`.** The mutant zeroes every pad
+   and via drill; KiCad still exports a fallback 0.4 mm via tool with
+   9 hits, so "tools>0, hits>0" stayed green — only G2's
+   `through_hole_pad_without_hole` violation killed it. G6 now parses
+   the `.kicad_pcb` for every `thru_hole`/`np_thru_hole` pad and via,
+   fails on any `drill == 0` or required diameter with no matching
+   `TnC<d>` tool, and requires hits >= expected holes. Mutant verdict:
+   `G6_drill: FAIL {no_drill_pads: 2, no_drill_vias: 9, tools: 1,
+   drill_hits: 9}` — still also fails G2, as before.
 
 ## Deviations
 

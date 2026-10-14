@@ -124,6 +124,13 @@ def fail_metric(gate, det):
                 return f"{lay}\nmissing"
         return "bad layer"
     if gate == "G6_drill":
+        nd = det.get("no_drill_pads", 0) + det.get("no_drill_vias", 0)
+        if nd:
+            return (f"no drill\npads={det.get('no_drill_pads', 0)} "
+                    f"vias={det.get('no_drill_vias', 0)}")
+        if det.get("missing_tool_mm"):
+            return "no tool for\n" + ",".join(
+                f"{d}mm" for d in det["missing_tool_mm"])
         return (f"tools={det.get('tools', 0)}\n"
                 f"hits={det.get('drill_hits', 0)}")
     return "fail"
@@ -154,7 +161,10 @@ def gate_row_text(gate, det):
                 f"{ext.get('max_delta_mm', '?')} mm")
     if gate == "G6_drill":
         return (f"{det.get('tools', 0)} tools, "
-                f"{det.get('drill_hits', 0)} hits")
+                f"{det.get('drill_hits', 0)}/"
+                f"{det.get('expected_holes', '?')} hits, "
+                f"{det.get('no_drill_pads', 0) + det.get('no_drill_vias', 0)}"
+                " holes w/o drill")
     return ""
 
 
@@ -210,6 +220,44 @@ def svg_points(svg_path):
                          open(svg_path).read()):
         pts.append((float(m.group(1)), float(m.group(2))))
     return pts
+
+
+def sch_text_overlap(svg_path, tag):
+    """Fail loudly if two rendered texts in a schematic SVG share
+    pixels. KiCad draws text as stroke paths inside
+    <g class="stroked-text"> groups whose <desc> is the string, so the
+    path coordinates give the true glyph extents (rotation included).
+    KiCad emits a few texts twice — identical (string, box) pairs are
+    deduped before the pairwise test."""
+    text = open(svg_path).read()
+    uniq = {}
+    for m in re.finditer(
+            r'<g class="stroked-text"><desc>([^<]*)</desc>(.*?)</g>',
+            text, re.S):
+        desc, body = m.groups()
+        nums = [float(v) for v in re.findall(r"-?\d+\.?\d*", body)]
+        xs, ys = nums[0::2], nums[1::2]
+        if not xs:
+            continue
+        key = (desc, round(min(xs), 2), round(min(ys), 2),
+               round(max(xs), 2), round(max(ys), 2))
+        uniq[key] = (min(xs), min(ys), max(xs), max(ys), desc)
+    boxes = sorted(uniq.values())
+    bad = []
+    for i in range(len(boxes)):
+        for j in range(i + 1, len(boxes)):
+            ax0, ay0, ax1, ay1, sa = boxes[i]
+            bx0, by0, bx1, by1, sb = boxes[j]
+            ix = min(ax1, bx1) - max(ax0, bx0)
+            iy = min(ay1, by1) - max(ay0, by0)
+            if ix > 0.05 and iy > 0.05:
+                bad.append(f"overlap: {sa!r} vs {sb!r} "
+                           f"({ix:.2f}x{iy:.2f}mm)")
+    if bad:
+        for p in bad:
+            print(f"  SCH_TEXT[{tag}] {p}", file=sys.stderr)
+        raise SystemExit(f"schematic text overlap in {tag}: "
+                         f"{len(bad)} pair(s)")
 
 
 def rasterize(svg_path, clip_mm, px_target=1600):
@@ -609,13 +657,15 @@ def main():
                           os.path.join(work, "good_board.svg"))
     good_ssvg = sch_svg(os.path.join(GOOD_DIR, SCH_NAME),
                         os.path.join(work, "good_sch"))
+    sch_text_overlap(good_ssvg, "good")          # no text collisions
 
     svg_cache = {}
     for n in names[1:]:
         if sch_changed(n):
-            svg_cache[n] = ("sch", sch_svg(
-                os.path.join(proj_dir(n), SCH_NAME),
-                os.path.join(work, f"{n}_sch")))
+            svg = sch_svg(os.path.join(proj_dir(n), SCH_NAME),
+                          os.path.join(work, f"{n}_sch"))
+            sch_text_overlap(svg, n)
+            svg_cache[n] = ("sch", svg)
         else:
             svg_cache[n] = ("pcb", board_svg(
                 os.path.join(proj_dir(n), PCB_NAME),

@@ -120,14 +120,18 @@
       "details": {
         "drill_files": 1,
         "drill_hits": 9,
+        "expected_holes": 0,
+        "missing_tool_mm": [],
+        "no_drill_pads": 2,
+        "no_drill_vias": 9,
         "tools": 1
       },
-      "pass": true
+      "pass": false
     }
   },
   "overall_pass": false,
   "seed": 42,
   "timing": {
-    "wall_seconds": 2.61
+    "wall_seconds": 4.553
   }
 }

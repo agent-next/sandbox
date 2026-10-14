@@ -43,7 +43,7 @@ times, then always kills the sandbox and verifies it is gone.
 | G3 | schematic vs PCB netlists | exact net-set equality, 0 unrouted |
 | G4 | Edge.Cuts parsed from `.kicad_pcb` | outline is a closed loop |
 | G5 | gerber export (7 layers) | >=1 aperture + >=1 op per layer; Edge.Cuts extents match the board to 0.1 mm |
-| G6 | Excellon drill export | >=1 tool, >=1 drilled hole |
+| G6 | Excellon drill export | every through-hole pad/via has a drill, a matching tool exists, hits cover all holes |
 
 ## Measured wall time (this sandbox, 2 vCPU / 4 GB)
 

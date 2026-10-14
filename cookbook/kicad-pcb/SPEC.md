@@ -40,7 +40,7 @@ The known-good example is `examples/good/555-blinker/`
 | G3 Netlist | `kicad-cli sch export netlist <sch> --format kicadxml`; `(net N "name")` decls parsed from the `.kicad_pcb` text | set of schematic net names (sheet prefix stripped) == set of PCB net names; zero `unconnected-*` synthetic nets; `unconnected_items == 0` |
 | G4 Outline | `.kicad_pcb` parsed directly | every Edge.Cuts primitive endpoint is shared by >=2 primitives (closed loop), or a self-closing shape (rect/circle) is present |
 | G5 Gerbers | `kicad-cli pcb export gerbers <pcb> -o dir --layers F.Cu,B.Cu,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts` | all 7 layer files exist; each has >=1 `%ADD` aperture and >=1 draw/flash operation; **and** the bounding box of geometry drawn in the Edge.Cuts gerber matches the `.kicad_pcb` Edge.Cuts bounding box to <= 0.1 mm per side (gerber y-axis is inverted vs board coords) |
-| G6 Drill | `kicad-cli pcb export drill <pcb> -o dir` | >=1 `.drl` file; >=1 `TnC<d>` tool with d>0; >=1 `X..Y..` hit |
+| G6 Drill | `kicad-cli pcb export drill <pcb> -o dir` | every `thru_hole`/`np_thru_hole` pad and every via in the `.kicad_pcb` has drill > 0; >=1 `.drl` file; >=1 `TnC<d>` tool with d>0; >=1 `X..Y..` hit; every required drill diameter has a matching tool; hits cover the holes the board needs |
 
 ### ERC warning allow-list (G1)
 

@@ -7,9 +7,16 @@ full size; video frames were extracted with
 `ffmpeg -i demo.mp4 -vf "select='eq(n,N)'" -vsync vfr` and opened at
 1920x1080.
 
-Automated gate: `render.py:check_layout()` rasterises each figure and
+Automated gates: `render.py:check_layout()` rasterises each figure and
 fails the build if any text is clipped by the canvas or overlaps
-another text — it passed on all 2 figures + 11 frames.
+another text — passed on all 2 figures + 11 frames. Additionally
+`render.py:sch_text_overlap()` measures the true glyph boxes of every
+`stroked-text` group KiCad emits in each schematic SVG and fails on
+any shared pixels — passed on the good schematic and all 4 schematic
+mutant panels (it flagged 30 overlapping pairs on the pre-fix
+schematic: `#PWR0x`/`#FLG0x` references and J1/R/C ref+value text
+stacked at the symbol origins; all fixed by re-placing fields at the
+stock library anchors and hiding power-symbol references).
 
 ## result.png (2400x1200)
 
@@ -19,8 +26,9 @@ another text — it passed on all 2 figures + 11 frames.
 - Right panel is the gate table rendered from `data/good.json`:
   G1 `0 errors, 19 warn (lib_symbol_issues)`, G2 `0 viol, 0 unconn`,
   G3 `7 nets sch==pcb, 0 unrouted`, G4 `closed; 4 items, 0 open`,
-  G5 `7/7 layers, extents dmax=0.0 mm`, G6 `2 tools, 11 hits`,
-  `overall: PASS`. Cross-checked against the JSON — identical.
+  G5 `7/7 layers, extents dmax=0.0 mm`, G6 `2 tools, 11/11 hits,
+  0 holes w/o drill`, `overall: PASS`. Cross-checked against the
+  JSON — identical.
 
 ## loop.png (2400x1200)
 
@@ -31,7 +39,11 @@ another text — it passed on all 2 figures + 11 frames.
   `errors=1 (pin_to_pin)` + `pcb:VCC` (erc_power_short),
   `errors=1 (pin_not_connected)` + `float=1` (erc_unconnected_pin),
   `sch:TRIGX pcb:TRIG` (netlist_mismatch), `open=2 closed=False`
-  (outline_open), `unrouted=1` (drc_unconnected).
+  (outline_open), `unrouted=1` (drc_unconnected), and for
+  drill_no_tools both `viol=2 unconn=0` (G2) and `no drill pads=2
+  vias=9` (G6 — the board's holes have no drills; KiCad still emits a
+  fallback 0.4 mm via tool, which is why hit/tool counts alone never
+  caught it).
 - Header shows kill rate 8/8 = 100 % vs the >= 90 % requirement.
 
 ## demo.mp4 (1920x1080, 30 fps, 46 s, 0.87 MB — ffprobe-verified)
@@ -48,6 +60,8 @@ Frames inspected at full size:
 - n=440 — mutant 2/8 `drc_unconnected`: `unconnected_items (2 marked)`
   circled at R1 pad 2 (128, 110.09) and the orphaned VCC track end
   (128, 106) — coordinates from `data/drc_unconnected.drc.json`.
+- n=550 — mutant 3/8 `drill_no_tools`: `through_hole_pad_without_hole`
+  circled at J1 pad 1; gate chips show G2 **and** G6 red.
 - n=630 — mutant 4/8 `erc_off_grid`: schematic before/after,
   `ERC warning: endpoint_off_grid` circled at the moved vertex
   (97.79, 86.41).

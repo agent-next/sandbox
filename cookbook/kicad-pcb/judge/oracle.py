@@ -405,23 +405,75 @@ TOOL_RE = re.compile(r"^T\d+C([\d.]+)")
 HIT_RE = re.compile(r"^X-?[\d.]+Y-?[\d.]+$")
 
 
-def gate_drill(drill_dir):
-    """G6: Excellon file parses, >=1 tool, >=1 drilled hole."""
+def needed_holes(pcb_path):
+    """Holes the .kicad_pcb actually requires: (drill_mm, kind) for
+    every thru_hole / np_thru_hole pad and every via. A drill of 0 means
+    'no hole' — for a through-hole pad that is itself the defect."""
+    def drill_dia(node):
+        """First numeric token of a (drill ...) child, else 0."""
+        d = child(node, "drill")
+        for tok in (d[1:] if d else []):
+            try:
+                return fnum(tok)
+            except ValueError:
+                continue          # e.g. (drill oval 1.0 1.4)
+        return 0.0
+
+    tree = parse_sexpr(open(pcb_path).read())
+    holes = []
+    for pad in find_all(tree, "pad"):
+        ptype = pad[2] if len(pad) > 2 else ""
+        if ptype in ("thru_hole", "np_thru_hole"):
+            holes.append((drill_dia(pad), ptype))
+    for via in find_all(tree, "via"):
+        holes.append((drill_dia(via), "via"))
+    return holes
+
+
+def gate_drill(drill_dir, pcb_path):
+    """G6: every through-hole pad and via needs a non-zero drill, the
+    Excellon export must carry a tool for each required diameter, and
+    the hit count must cover the holes the board needs."""
     files = [f for f in (os.listdir(drill_dir) if os.path.isdir(drill_dir)
                          else []) if f.endswith(".drl")]
+    holes = needed_holes(pcb_path)
+    no_drill = {}
+    need_dia = set()
+    for dia, kind in holes:
+        if dia > 0:
+            need_dia.add(round(dia, 4))
+        else:
+            no_drill[kind] = no_drill.get(kind, 0) + 1
+    details = {"drill_files": len(files),
+               "expected_holes": sum(1 for d, _ in holes if d > 0),
+               "no_drill_pads": no_drill.get("thru_hole", 0)
+               + no_drill.get("np_thru_hole", 0),
+               "no_drill_vias": no_drill.get("via", 0)}
     if not files:
-        return False, {"drill_files": 0}
-    tools = hits = 0
+        return False, details
+    tools = []                                       # diameters in mm
+    hits = 0
     for f in files:
+        unit = 25.4                                  # Excellon default
         for line in open(os.path.join(drill_dir, f), errors="replace"):
             line = line.strip()
+            if line in ("METRIC", "M71"):
+                unit = 1.0
+            elif line in ("INCH", "M72"):
+                unit = 25.4
             m = TOOL_RE.match(line)
             if m and float(m.group(1)) > 0:
-                tools += 1
+                tools.append(float(m.group(1)) * unit)
             elif HIT_RE.match(line):
                 hits += 1
-    return tools > 0 and hits > 0, {"drill_files": len(files),
-                                    "tools": tools, "drill_hits": hits}
+    details["tools"] = len(tools)
+    details["drill_hits"] = hits
+    missing = sorted(d for d in need_dia
+                     if not any(abs(d - t) < 0.01 for t in tools))
+    details["missing_tool_mm"] = missing
+    ok = (tools and hits > 0 and not no_drill and not missing
+          and hits >= details["expected_holes"])
+    return bool(ok), details
 
 
 # ------------------------------------------------------------------- main ---
@@ -445,7 +497,7 @@ def main():
          (args.sch_netlist, args.pcb, args.drc)),
         ("G4_outline", gate_outline, (args.pcb,)),
         ("G5_gerber", gate_gerbers, (args.gerber_dir, args.pcb)),
-        ("G6_drill", gate_drill, (args.drill_dir,)),
+        ("G6_drill", gate_drill, (args.drill_dir, args.pcb)),
     ]
     for name, fn, fargs in checks:
         try:

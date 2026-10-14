@@ -96,7 +96,8 @@ def m_outline_open(sch, pcb):
 
 
 def m_drill_no_tools(sch, pcb):
-    """Zero every pad drill diameter: drill export has no valid tools."""
+    """Zero every pad/via drill diameter: holes have nothing to drill
+    them with (G6 counts pads+vias missing a drill)."""
     pcb = re.sub(r"\(drill [\d.]+\)", "(drill 0)", pcb)
     return sch, pcb
 
