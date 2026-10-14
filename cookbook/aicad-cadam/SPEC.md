@@ -71,7 +71,7 @@ committing someone else's mesh.
 - Center bore: Ø20 through, axis z at (40, 30).
 - Bolt holes: 6 × Ø6 through, centers on bolt circle R24 about (40, 30),
   at angles 0°, 60°, …, 300° (CCW from +x).
-- Analytic volume: `80·60·8 − π/4·20²·8 − 6·π/4·6²·8` = 36872.6 mm³.
+- Analytic volume: `80·60·8 − π/4·20²·8 − 6·π/4·6²·8` = 34529.56 mm³.
 - STEP cylindrical face radii (sorted): `[3,3,3,3,3,3,10]`.
 - DXF top view: outline rectangle 80×60, bore circle R10, 6 hole circles
   R3 on R24 at 60° spacing.
@@ -132,7 +132,7 @@ byte-identical verdict JSON modulo the `timing` key.
 | OpenSCAD (Debian bookworm deb) | 2021.01-6 | CADAM's engine generation, run headless | GPL-3.0 |
 | cadquery-ocp (OCCT bindings) | 7.7.2 (cp312 manylinux wheel, hash-pinned) | STEP re-import, BRepCheck, reference solids | Apache-2.0 |
 | trimesh | 4.3.2 | STL watertight/winding/bbox/volume | MIT |
-| manifold3d | 2.3.1 | boolean XOR symmetric difference | Apache-2.0 |
+| manifold3d | 3.0.1 | boolean XOR symmetric difference (composed: `(A−B) ∪ (B−A)`) | Apache-2.0 |
 | ezdxf | 1.3.0 | DXF audit + entity read | MIT |
 
 CADAM itself is cited, not installed: URL + commit above, GPL-3.0, run —
