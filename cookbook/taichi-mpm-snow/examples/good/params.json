@@ -1,0 +1,39 @@
+{
+  "dim": 2,
+  "n_grid": 64,
+  "dt": 2e-4,
+  "steps": 5000,
+  "frame_stride": 40,
+  "seed": 0,
+  "gravity": -9.81,
+  "domain": [1.0, 1.0],
+  "bound": 3,
+  "materials": [
+    {
+      "name": "snow",
+      "type": "snow",
+      "E": 6.0e3,
+      "nu": 0.2,
+      "rho": 400,
+      "hardening": 5.0,
+      "jp_min": 0.9,
+      "jp_max": 1.2,
+      "color": "#f4f9ff",
+      "box": { "lo": [0.40, 0.70], "hi": [0.60, 0.84] },
+      "ppc": 4
+    },
+    {
+      "name": "jelly",
+      "type": "fluid",
+      "E": 5.0e3,
+      "nu": 0.4,
+      "rho": 1000,
+      "hardening": 0.0,
+      "jp_min": 0.9,
+      "jp_max": 1.2,
+      "color": "#4fb3ff",
+      "box": { "lo": [0.45, 0.55], "hi": [0.55, 0.65] },
+      "ppc": 4
+    }
+  ]
+}

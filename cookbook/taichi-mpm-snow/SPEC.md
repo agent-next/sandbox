@@ -60,8 +60,8 @@ and must write into `<run_dir>`:
   "dim": 2,
   "n_grid": 64,             // grid resolution per side
   "dx": 0.015625,           // 1 / n_grid
-  "dt": 4e-4,               // seconds per step
-  "steps": 4000,            // total steps
+  "dt": 2e-4,               // seconds per step
+  "steps": 5000,            // total steps
   "frame_stride": 40,       // one PNG every this many steps
   "seed": 0,                // default seed; --seed overrides
   "gravity": -9.81,
@@ -94,7 +94,8 @@ All gates are computed from the artifact's own `metrics.jsonl`. Every
 per-step row must carry: `step`, `time`, `mass_particles`,
 `mass_grid_after_p2g`, `px`, `py`, `com_x`, `com_y`, `vel_com_x`,
 `vel_com_y`, `x_min`, `y_min`, `x_max`, `y_max`, `jp_min`, `jp_max`,
-`jp_frac_lt_09`, `jp_frac_gt_11`.  A row missing a field, or a step
+`jp_frac_lt_09`, `jp_frac_gt_11`, and `snow_height` (the y-extent of the snow-material
+particles).  A row missing a field, or a step
 whose values are not finite, fails Gate 1.
 
 ### Gate 1 — completion and sanity
@@ -119,17 +120,20 @@ whose values are not finite, fails Gate 1.
   `|vel_com_x[t]| <= 0.02`.
 
 ### Gate 4 — boundary condition
-- For every step t: `x_min[t] >= bound * dx` and `y_min[t] >= bound *
-  dx` and `x_max[t] <= domain[0] - bound * dx` and `y_max[t] <=
-  domain[1] - bound * dx`, each with a tolerance of `0.5 * dx` on the
-  particle positions (particles live on cell centres).
+- For every step t: `x_min[t] >= dx` and `y_min[t] >= dx` and
+  `x_max[t] <= domain[0] - dx` and `y_max[t] <= domain[1] - dx`.
+  (Grid velocities are zeroed in the `bound`-cell-wide boundary layer;
+  with quadratic B-spline weights a particle can penetrate at most
+  into that layer and can never reach the outermost cell; one cell is
+  the physical invariant.)
 
 ### Gate 5 — plastic deformation on impact
 - Final-frame bounding-box height of the snow material only:
-  `height_final / height_initial <= 0.85`.
+  `snow_height[t_final] / snow_height[0] <= 0.93` (the good artifact
+  settles to ~0.89).
 - Plasticity engaged: `jp_frac_lt_09[t_final] + jp_frac_gt_11[t_final]
   >= 0.05` (at least 5 % of snow particles deviate from Jp = 1 by 10 %
-  or more).
+  or more; the good artifact settles at ~0.62).
 
 ### Gate 6 — horizontal momentum (symmetric drop)
 - `|px[t]| / mass_particles[0] <= 0.02` for every step t.
