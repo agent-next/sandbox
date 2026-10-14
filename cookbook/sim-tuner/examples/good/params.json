@@ -1,7 +1,7 @@
 {
-  "mu": 0.608354,
-  "solref_tc": 0.015047,
-  "solref_dr": 1.321278,
-  "damping": 0.102685,
-  "armature": 0.021298
+  "mu": 0.679863,
+  "solref_tc": 0.018973,
+  "solref_dr": 0.873042,
+  "damping": 0.24135,
+  "armature": 0.022058
 }

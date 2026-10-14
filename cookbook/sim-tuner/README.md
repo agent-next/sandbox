@@ -49,7 +49,7 @@ exact gates and `RECEIPT.md` for real measured output.
 |---|---|
 | G1 ranges | strict JSON object, exactly the 5 parameters, finite, each within its physical range |
 | G2 train error (reported) | CPU MuJoCo 3.8.1 RMS mismatch vs the 6 train recordings |
-| G3 held-out error | CPU MuJoCo vs 4 hidden initial-condition recordings: `< 0.030` AND `< 30 %` of the default-parameter error |
+| G3 held-out error | CPU MuJoCo vs 4 hidden initial-condition recordings: `< 0.025` AND `< 30 %` of the default-parameter error |
 | G4 GPU/CPU agreement | same artifact scored by one batched `mujoco_warp` run on a fresh 4 GiB slice: `|gpu − cpu| ≤ 0.003` and `≤ 10 %`; lease stack versions must match `judge/version-table.json` |
 
 The acceptance oracle is hidden ground truth (generated from the seed at
