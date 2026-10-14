@@ -385,7 +385,8 @@ done
 export REPORT_LUT4 REPORT_FF REPORT_FMAX REPORT_CPI
 export TOOL_VERILATOR="$(verilator --version 2>/dev/null | head -1)"
 export TOOL_VER_YOSYS="$(yosys -V 2>/dev/null | head -1)"
-export TOOL_VER_NEXTPNR="$(nextpnr-ecp5 -V 2>/dev/null | head -1)"
+# nextpnr prints its version to stderr (and -V exits 0 with nothing on stdout)
+export TOOL_VER_NEXTPNR="$(nextpnr-ecp5 -V 2>&1 >/dev/null | head -1)"
 
 emit_json
 
