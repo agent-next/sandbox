@@ -14,6 +14,10 @@ DATA=$MEDIA/data
 MASTER=$MEDIA/master
 mkdir -p "$DATA" "$MASTER/frames"
 
+# rendering needs matplotlib (pinned); install only if missing
+python3 -c 'import matplotlib' 2>/dev/null \
+    || pip3 install --user 'matplotlib==3.11.2'
+
 echo "== collecting judge data"
 bash judge/grade.sh examples/good/555-blinker --json "$DATA/good.json"
 python3 judge/mutants.py examples/good/555-blinker "$DATA/mutants"

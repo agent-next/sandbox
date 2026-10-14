@@ -18,7 +18,7 @@
     "description": "this regeneration script",
     "command": "bash media/make_media.sh",
     "source_data": "-",
-    "sha256": "70ad8c3c147a1ffc97f08d97a2b346f487ce1e30539263d304af23b797f946e5"
+    "sha256": "67ac01f699f5283be43af9117b90299d27134c3b75fa71776d78ae72526f8409"
   },
   {
     "file": "render.py",
