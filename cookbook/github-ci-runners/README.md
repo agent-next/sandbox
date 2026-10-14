@@ -66,9 +66,9 @@ in Claude Code, Codex and Cursor:
 > Run this repository's GitHub Actions jobs in sandboxes. Run `sbx runners image` and keep the last line (a `snap-...` id). Start `sbx runners serve --org <your-org> --snapshot <id> --warm 2 --max 4` in the background, logging JSON lines to a file, and wait until the log shows an `online` event. Add `.github/workflows/sandbox-ci.yml` with one job, `runs-on: [self-hosted, sbx]`, steps `actions/checkout@v4` and `docker run --rm hello-world`, push it on a temp branch and wait for the run. Report how long the job waited (job `created_at` to `started_at`) and whether `docker run` worked. Then stop `serve` (SIGINT), delete the temp branch, and confirm no `sbx-*` runner remains in the org.
 
 ```bash
-claude -p "<the prompt above>" --allowedTools "Bash(sbx:*)" "Bash(gh:*)" "Bash(git:*)"
-codex exec "<the prompt above>"
-cursor-agent -p "<the prompt above>"
+claude -p "<the prompt above>" --allowedTools "Bash(sbx:*)" "Bash(gh:*)" "Bash(git:*)" "Write(.github/workflows/*)" "Edit(.github/workflows/*)"
+codex exec --sandbox workspace-write -c sandbox_workspace_write.network_access=true "<the prompt above>"
+cursor-agent -p --force "<the prompt above>"
 ```
 
 (Agent invocations above: not run for this page; the underlying commands were.)
@@ -108,7 +108,7 @@ steps:
   - run: snap=$(sbx runners image | tail -1)
     success: $snap starts with "snap-"
   - run: sbx runners serve --org <org> --snapshot "$snap" --warm 2 --max 4 > serve.log &
-    success: serve.log has an {"event": "online"} line within 60 s
+    success: 'serve.log has an {"event": "online"} line within 60 s'
   - run: push a workflow with runs-on [self-hosted, sbx] to a temp branch
     success: gh run list shows conclusion "success"; job started_at - created_at is the wait
   - run: kill -INT <serve pid>; delete the temp branch
