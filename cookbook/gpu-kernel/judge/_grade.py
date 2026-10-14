@@ -188,13 +188,12 @@ class NoTorchSoftmax:
     delegation through aliases or methods such as x.softmax(dim=1).
     """
 
-    TARGETS = ((torch, "softmax"), (torch.Tensor, "softmax"),
-               (torch.nn.functional, "softmax"), (torch.special, "softmax"),
-               (torch, "log_softmax"), (torch.Tensor, "log_softmax"),
-               (torch.nn.functional, "log_softmax"))
-
     def __enter__(self):
-        self.saved = [(obj, name, getattr(obj, name)) for obj, name in self.TARGETS]
+        targets = ((torch, "softmax"), (torch.Tensor, "softmax"),
+                   (torch.nn.functional, "softmax"), (torch.special, "softmax"),
+                   (torch, "log_softmax"), (torch.Tensor, "log_softmax"),
+                   (torch.nn.functional, "log_softmax"))
+        self.saved = [(obj, name, getattr(obj, name)) for obj, name in targets]
 
         def refuse(*args, **kwargs):
             raise RuntimeError("softmax delegation: artifact called a torch softmax")
