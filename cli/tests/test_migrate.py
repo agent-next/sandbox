@@ -94,12 +94,12 @@ def test_block_list_comment_on_key_line_survives():
     assert new == "jobs:\n  a:\n    runs-on:  # where\n      - self-hosted\n      - sbx\n"
 
 
-def test_matrix_expression_skipped_with_reason_and_quoted_string_migrated():
+def test_matrix_expression_skipped_with_reason():
     new, found = migrate.migrate_text("ci.yml", MATRIX, LABELS)
-    assert new == MATRIX.replace('runs-on: "ubuntu-latest"', "runs-on: [self-hosted, sbx]")
+    assert new == MATRIX
     by = {f.job: f for f in found}
     assert by["build"].new == "" and "expression" in by["build"].skipped and by["build"].old == "${{ matrix.os }}"
-    assert by["other"].new == "[self-hosted, sbx]"
+    assert by["other"].new == "" and "plain" in by["other"].skipped
 
 
 def test_comments_preserved_and_step_with_runs_on_untouched():
@@ -333,12 +333,21 @@ def test_pr_body_serve_matches_custom_labels_and_installs_from_github():
     assert '--labels ""' in only
 
 
-def test_new_labels_are_yaml_safe_and_existing_quotes_kept():
-    new, _ = migrate.migrate_text("ci.yml", STRING, ["self-hosted", "gpu: nvidia", 'a"b'])
-    assert 'runs-on: [self-hosted, "gpu: nvidia", "a\\"b"]' in new
-    text = "jobs:\n  a:\n    runs-on: [ubuntu-latest, 'x: y']\n"
-    new, _ = migrate.migrate_text("ci.yml", text, LABELS)
-    assert new == "jobs:\n  a:\n    runs-on: [self-hosted, sbx, 'x: y']\n"
+@pytest.mark.parametrize("spec", ["[self-hosted, gpu: nvidia]", "self-hosted, a b", "x;rm", "true", "[self-hosted, NULL]",
+                                  "On", "1.0", "$(id)", '"q"', "-lead"])
+def test_unsafe_labels_are_rejected(spec):
+    with pytest.raises(cli.SbxError, match="--label"):
+        migrate.parse_labels(spec)
+
+
+def test_non_plain_existing_runs_on_is_skipped():
+    for value in ['"ubuntu-latest"', "'ubuntu-latest'", "[ubuntu-latest, 'x: y']", "[ubuntu-latest, true]"]:
+        text = f"jobs:\n  a:\n    runs-on: {value}\n"
+        new, found = migrate.migrate_text("ci.yml", text, LABELS)
+        assert new == text and [f.new for f in found] == [""] and "plain" in found[0].skipped, value
+    text = "jobs:\n  a:\n    runs-on:\n      - 'ubuntu-latest'\n"
+    new, found = migrate.migrate_text("ci.yml", text, LABELS)
+    assert new == text and "plain" in found[0].skipped
 
 
 def test_serve_labels_cover_retained_labels_of_every_migrated_job():
