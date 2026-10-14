@@ -67,7 +67,7 @@ in Claude Code, Codex and Cursor:
 
 ```bash
 claude -p "<the prompt above>" --allowedTools "Bash(sbx:*)" "Bash(gh:*)" "Bash(git:*)" "Write(.github/workflows/*)" "Edit(.github/workflows/*)"
-codex exec --sandbox workspace-write -c sandbox_workspace_write.network_access=true "<the prompt above>"
+codex exec --sandbox danger-full-access "<the prompt above>"   # no sandbox: runs with your user's rights, as does the prompt's git push
 cursor-agent -p --force "<the prompt above>"
 ```
 
