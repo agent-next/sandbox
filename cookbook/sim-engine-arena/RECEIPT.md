@@ -143,9 +143,12 @@ measured lane numbers (lease versions, compile/sim wall times, per-scenario
 scores) are kept in `examples/good/gpu-replay.json`, written by
 `python3 cookbook/sim-engine-arena/run.py --ref sbx/arena-r2 --gpu
 --report-json cookbook/sim-engine-arena/examples/good/gpu-replay.json`
-(seed 0; the file in git is that run's output, last regenerated for this
-receipt); `examples/good/loop.json` keeps the per-iteration agent-loop
-scores from `python3 cookbook/sim-engine-arena/examples/loop.py`.
+(seed 0). The table above quotes the earlier lease run (gl-951d38-15,
+total 194 s); the committed JSON is the repeat run (gl-951d38-17, total
+142 s: compile 34.2 s first job then ~0–13 s, sim 4.7/2.7/3.3/29.1 s per
+scenario, same four passes). `examples/good/loop.json` keeps the
+per-iteration agent-loop scores from
+`python3 cookbook/sim-engine-arena/examples/loop.py`.
 
 ## Key numbers side by side
 
