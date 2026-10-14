@@ -35,12 +35,15 @@ python3 cookbook/sim-engine-arena/run.py --ref sbx/arena-r2 # other repository r
 
 Each run prints wall time per step (clone, setup, selftest, grade), the
 verdict JSON, and a short human summary, then kills the sandbox and
-confirms it is gone. Measured (see RECEIPT.md): create ~5 s, clone ~2 s,
-cold setup ~30 s, selftest ~2 min, grade ~2 s, GPU replay adds ~2 min
-(warp kernels cold-compile ~25 s on a fresh lease — setup time, not sim
-time).
+confirms it is gone. Measured in a fresh CPU sandbox (see RECEIPT.md):
+create 2 s, clone 4 s, cold setup 24–36 s, selftest 12–17 s, grade 4–6 s,
+total 63–69 s; `--gpu` adds ~2 min of GPU lane (warp kernels cold-compile
+~25 s on a fresh lease — setup time, not sim time). Locally with a warm
+venv the same judge steps take ~3 s / ~17 s / ~2 s.
 
-To try the judge locally on a CPU-only Linux box instead:
+To try the judge locally on a CPU-only Linux box instead (run all three
+from this repository's root — grade.sh resolves the artifact path
+relative to your working directory):
 
 ```bash
 bash cookbook/sim-engine-arena/judge/setup.sh      # pinned venv in ~/.venvs/sim-engine-arena
