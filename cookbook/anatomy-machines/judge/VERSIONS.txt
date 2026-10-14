@@ -1,0 +1,16 @@
+# judge toolchain as installed by judge/setup.sh
+date: 2026-10-14T22:27:24+00:00
+os: Debian GNU/Linux 12 (bookworm)
+kernel: 6.1.175
+python: Python 3.12.15
+pip-venv: Python 3.12.15
+pip: greenlet==3.2.3
+pip: pillow==11.3.0
+pip: pip==25.0.1
+pip: playwright==1.60.0
+pip: pyee==13.0.0
+pip: typing_extensions==4.15.0
+browser: chrome-headless-shell 148.0.7778.96 (playwright chromium-headless-shell r1223)
+browser-zip-sha256: 88817c574c1838a39f88fda0bbd043b4481fd385fb10e92c323e230844d636ce
+playwright-browsers-path: /home/user/.cache/ms-playwright
+fps-floor: gate 5 requires >= 10 FPS under SwiftShader on 2 vCPU

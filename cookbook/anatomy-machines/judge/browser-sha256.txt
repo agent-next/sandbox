@@ -1,0 +1,5 @@
+# sha256 of the pinned browser archive judge/setup.sh downloads.
+# Chrome Headless Shell 148.0.7778.96 = "chromium-headless-shell" rev 1223,
+# the headless binary Playwright 1.60.0 drives (see
+# playwright/driver/package/browsers.json).  Linux x64, Debian 12.
+88817c574c1838a39f88fda0bbd043b4481fd385fb10e92c323e230844d636ce  chrome-headless-shell-linux64.zip
