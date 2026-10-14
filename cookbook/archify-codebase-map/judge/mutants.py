@@ -54,7 +54,9 @@ def m_hallucinated_edge():
         "pos": [3450, 1780], "size": [176, 84],
         "sources": [{"path": "httpx/_telemetry.py"}],
     })
-    d["connections"].append({"from": "client", "to": "telemetry"})
+    # bogus edge between two modules that DO exist, so only the
+    # edge-precision gate can catch it
+    d["connections"].append({"from": "utils", "to": "client"})
     write("hallucinated_edge", d)
 
 
