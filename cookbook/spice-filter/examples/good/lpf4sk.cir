@@ -1,0 +1,23 @@
+* 4th-order unity-gain Sallen-Key low-pass filter (LPF-4SK-1k)
+* Passband: ripple <= 1 dB to 1 kHz; stopband: >= 40 dB down at >= 10 kHz.
+* Stage 1: R=750 R=750, Cf=120n (junction to output), Cg=100n (to ground)
+* Stage 2: R=300 R=300, Cf=680n (junction to output), Cg=100n (to ground)
+* All resistors E24, all capacitors E12. Ideal unity-gain buffers (E sources).
+V1 in 0 DC 0 AC 1
+* --- stage 1 ---
+R1 in s1a 750
+R2 s1a s1b 750
+C1 s1a out1 120n
+C2 s1b 0 100n
+E1 out1 0 s1b 0 1
+* --- stage 2 ---
+R3 out1 s2a 300
+R4 s2a s2b 300
+C3 s2a out 680n
+C4 s2b 0 100n
+E2 out 0 s2b 0 1
+.control
+ac dec 200 10 100k
+quit
+.endc
+.end

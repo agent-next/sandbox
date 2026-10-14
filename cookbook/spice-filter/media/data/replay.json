@@ -1,0 +1,143 @@
+[
+ {
+  "artifact": "/tmp/tmp.BYvWlFOOZ6/mutants/r-decade-up.cir",
+  "passed": false,
+  "failed_gate": "mask",
+  "reason": "ripple 13.177 dB / stopband -76.052 dB violate the mask (1.0 dB / -40.0 dB)",
+  "gates": {
+   "parse": {
+    "passed": true,
+    "points": 801,
+    "f_grid": "10..100000 200/dec"
+   },
+   "sanity": {
+    "passed": true,
+    "dc_gain_db": -0.0092
+   },
+   "mask": {
+    "passed": false,
+    "ripple_db": 13.177,
+    "rule": "ripple <= 1.0 dB to 1 kHz",
+    "stopband_max_db": -76.052,
+    "rule2": "gain <= -40.0 dB for f >= 10 kHz"
+   }
+  },
+  "label": "r-decade-up"
+ },
+ {
+  "artifact": "/tmp/tmp.BYvWlFOOZ6/mutants/off-series.cir",
+  "passed": false,
+  "failed_gate": "series",
+  "reason": "values not on series: R2=740 (nearest 750)",
+  "gates": {
+   "parse": {
+    "passed": true,
+    "points": 801,
+    "f_grid": "10..100000 200/dec"
+   },
+   "sanity": {
+    "passed": true,
+    "dc_gain_db": -0.0
+   },
+   "mask": {
+    "passed": true,
+    "ripple_db": 0.076,
+    "rule": "ripple <= 1.0 dB to 1 kHz",
+    "stopband_max_db": -56.026,
+    "rule2": "gain <= -40.0 dB for f >= 10 kHz"
+   },
+   "analytic": {
+    "passed": true,
+    "max_deviation_db": 0.0,
+    "rule": "ideal op-amp: <= 0.05 dB everywhere",
+    "gbw_deviation_db": 0.15054,
+    "rule2": "1 MHz-GBW macro-model: <= 0.5 dB everywhere",
+    "gbw_hz": 1000000.0
+   },
+   "series": {
+    "passed": false,
+    "off_series": [
+     {
+      "name": "R2",
+      "value": 740.0,
+      "nearest": 750
+     }
+    ],
+    "rule": "R on E24, C on E12 (0.5 % window)"
+   }
+  },
+  "label": "off-series"
+ },
+ {
+  "artifact": "/tmp/tmp.BYvWlFOOZ6/mutants/unrecognised-topology.cir",
+  "passed": false,
+  "failed_gate": "analytic",
+  "reason": "topology not recognised by the closed-form oracle; the judge refuses to pass a design it cannot verify against independent math (re-run with --allow-unverified to grade it on the other gates only)",
+  "gates": {
+   "parse": {
+    "passed": true,
+    "points": 801,
+    "f_grid": "10..100000 200/dec"
+   },
+   "sanity": {
+    "passed": true,
+    "dc_gain_db": -0.0
+   },
+   "mask": {
+    "passed": true,
+    "ripple_db": 0.094,
+    "rule": "ripple <= 1.0 dB to 1 kHz",
+    "stopband_max_db": -56.133,
+    "rule2": "gain <= -40.0 dB for f >= 10 kHz"
+   }
+  },
+  "label": "unrecognised-topology"
+ },
+ {
+  "artifact": "/home/user/w/cookbook/spice-filter/examples/good/lpf4sk.cir",
+  "seed": 20261014,
+  "passed": true,
+  "gates": {
+   "parse": {
+    "passed": true,
+    "points": 801,
+    "f_grid": "10..100000 200/dec"
+   },
+   "sanity": {
+    "passed": true,
+    "dc_gain_db": -0.0
+   },
+   "mask": {
+    "passed": true,
+    "ripple_db": 0.096,
+    "rule": "ripple <= 1.0 dB to 1 kHz",
+    "stopband_max_db": -56.14,
+    "rule2": "gain <= -40.0 dB for f >= 10 kHz"
+   },
+   "analytic": {
+    "passed": true,
+    "max_deviation_db": 0.0,
+    "rule": "ideal op-amp: <= 0.05 dB everywhere",
+    "gbw_deviation_db": 0.15029,
+    "rule2": "1 MHz-GBW macro-model: <= 0.5 dB everywhere",
+    "gbw_hz": 1000000.0
+   },
+   "series": {
+    "passed": true,
+    "off_series": [],
+    "rule": "R on E24, C on E12 (0.5 % window)"
+   },
+   "montecarlo": {
+    "passed": true,
+    "runs": 100,
+    "seed": 20261014,
+    "tolerances": "R +-5% / C +-10% uniform",
+    "pass_fraction": 1.0,
+    "rule": ">= 90% meet 3.0 dB / -34.0 dB relaxed mask",
+    "worst_ripple_db": 0.757,
+    "worst_stopband_db": -53.193
+   }
+  },
+  "label": "good"
+ }
+]

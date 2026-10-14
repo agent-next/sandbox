@@ -1,0 +1,43 @@
+{
+ "demo": "spice-filter",
+ "generated_by": "media/make_media.sh",
+ "files": {
+  "result.png": {
+   "sha256": "5f3cc17b1f2e71f849123b48433a94aead0b0821e8dbf0b03fc3b071072a271e",
+   "size_bytes": 184383
+  },
+  "loop.png": {
+   "sha256": "2afc87eddddda122ab3fe35c26659506538e1b26e17eac463f512404b70b691f",
+   "size_bytes": 132976
+  },
+  "demo.mp4": {
+   "sha256": "124efaba8165b23e722f2e0b98a287c1d789e99e60062f1ffe29e3e0d6ffc98a",
+   "size_bytes": 525752,
+   "width": 1920,
+   "height": 1080,
+   "duration_sec": 40.0,
+   "codec": "h264"
+  },
+  "master/demo_master.mp4": {
+   "sha256": "4352d5b1b5f1a0f711b2e2dc19099bee49e5e18ab47af00d9a3e7c786c800584",
+   "size_bytes": 1235735
+  }
+ },
+ "source_data": {
+  "sweep_good": "media/data/sweep_good.json (judge ngspice sweeps)",
+  "replay": "media/data/replay.json (scripted replay: r-decade-up -> off-series -> unrecognised-topology -> good)",
+  "selftest": "media/data/selftest.json (judge selftest: 9 mutants, 100% kill rate)"
+ },
+ "commands": {
+  "setup": "bash judge/setup.sh",
+  "selftest": "bash judge/selftest.sh",
+  "grade_good": "bash judge/grade.sh examples/good/lpf4sk.cir --json good.json",
+  "media": "bash media/make_media.sh"
+ },
+ "environment": {
+  "python": "3.12.15",
+  "matplotlib": "3.9.4",
+  "ffmpeg": "5.1.9-0+deb12u1",
+  "ngspice": "39.3+ds-1 (Debian bookworm)"
+ }
+}
