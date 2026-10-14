@@ -384,7 +384,7 @@ def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 60
     """Wait for the runner to exit. A dropped stream (gateway restart, network) is not an exit:
     reattach to the runner process, or a blip would kill the job it is running. Reattaching
     gives up after `outage` seconds without a stream that holds for a minute."""
-    from e2b import CommandExitException, NotFoundException, TimeoutException
+    from e2b import CommandExitException, NotFoundException, SandboxNotFoundException, TimeoutException
 
     pid, delay, give_up, attached = handle.pid, 2, None, time.monotonic()
     while True:
@@ -414,12 +414,12 @@ def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 60
                 handle = sbx.commands.connect(pid, timeout=max(1, deadline - time.monotonic()))
                 attached = time.monotonic()
                 break
-            except NotFoundException:  # the runner exited while the stream was down
-                emit("runner_exit", runner=slot.name, code=None, note="exited while disconnected")
-                return
-            except TimeoutException as exc:  # the sandbox is gone
+            except (SandboxNotFoundException, TimeoutException) as exc:  # the sandbox is gone
                 if not slot.retiring:
                     emit("runner_exit", runner=slot.name, error=_error(exc))
+                return
+            except NotFoundException:  # the runner exited while the stream was down
+                emit("runner_exit", runner=slot.name, code=None, note="exited while disconnected")
                 return
             except Exception:
                 continue
@@ -444,15 +444,19 @@ def ensure_template(http: httpx.Client, *, image: str, size: str, poll_s: float 
                     wait_s: float = 900) -> str:
     """The key's own template imported from a public image (`http`: the sandbox API, key set).
     Registered once per key and image, then reused; a failed import is deleted again."""
-    alias = f"sbx-runner-{re.sub(r'[^a-z0-9]+', '-', image.lower()).strip('-')}-{size}"
+    tag = hashlib.sha256(image.encode()).hexdigest()[:8]  # images that read alike stay apart
+    alias = f"sbx-runner-{re.sub(r'[^a-z0-9]+', '-', image.lower()).strip('-')}-{tag}-{size}"
 
     def check(resp: httpx.Response, what: str) -> httpx.Response:
         if resp.status_code >= 400:
             raise RunnerError(f"template {what} failed: HTTP {resp.status_code} {resp.text[:200]}")
         return resp
 
-    if http.get(f"/templates/aliases/{alias}").status_code == 200:
+    found = http.get(f"/templates/aliases/{alias}")
+    if found.status_code == 200:
         return alias
+    if found.status_code != 404:
+        check(found, "lookup")
     reg = check(http.post("/v3/templates", json={"name": alias, "resourceClass": size}), "register").json()
     tid, bid = reg["templateID"], reg["buildID"]
     emit("template", template=alias, image=image, size=size)
@@ -467,7 +471,10 @@ def ensure_template(http: httpx.Client, *, image: str, size: str, poll_s: float 
                 raise RunnerError(f"template import of {image} ended {status!r}")
             time.sleep(poll_s)
     except BaseException:
-        http.delete(f"/templates/{tid}")
+        try:
+            http.delete(f"/templates/{tid}")
+        except httpx.HTTPError:
+            pass  # the import error is the one to report
         raise
 
 

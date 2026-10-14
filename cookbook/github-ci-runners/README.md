@@ -43,7 +43,7 @@ next job sees nothing the previous one left (files, Docker images).
 
 | | sandbox runners | GitHub-hosted |
 | --- | --- | --- |
-| queue wait, `--warm 10` (median / worst of 27 jobs) | 1 s / 2 s | 2 s / 3 s |
+| queue wait, `--warm 10` (median / worst, 3 runs of 9 jobs) | 1 s / 2 s | 2 s / 3 s |
 | `setup-python` + `setup-node` job (median of 4) | 17 s | 18 s |
 | `docker build` / `docker compose` job | 16 s / 16 s | 11 s / 15 s |
 | CPU-bound `make check` | 94 s | 68 s |
