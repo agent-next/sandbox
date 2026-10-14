@@ -104,9 +104,12 @@ verdict JSON lists each gate with its measured numbers.
   inverted) — because a valid teaser may put white text on a brand-coloured
   band or dark text on a light card, and tesseract alone misses the first
   (measured: raw OCR read the title but not the white-on-indigo band).
-- Pass if **any** variant, normalised (lowercase, collapse non-letters),
-  reaches character 3-gram Jaccard similarity ≥ 0.9 against the beat
-  `text`. A missing or garbled beat fails every variant.
+- Pass if **any** variant, normalised (lowercase, keep letters/digits),
+  contains ≥ 0.9 of the beat `text`'s character 3-grams (containment
+  |OCR∩text|/|text| — extra on-screen text such as the end card's product
+  name must not dilute the match; a symmetric Jaccard was measured to fail
+  exactly that valid case at 0.52). A missing or garbled beat fails every
+  variant.
 
 ### Gate 4 — no black gaps, no frozen holds (ffmpeg filters)
 - `blackdetect` (pic_th 0.98): no black interval longer than 0.5 s.
