@@ -1,9 +1,11 @@
 <!doctype html>
 <!-- Aurora Notes 24 s teaser — HyperFrames composition for cookbook demo.
-     Format: HyperFrames 0.8.61. Stage carries data-* timing; GSAP timeline
-     is registered paused as window.__timelines.main so the renderer can
-     seek any frame deterministically. gsap.min.js is placed next to this
-     file by judge/setup.sh (vendored, sha256-pinned). -->
+     Format: HyperFrames 0.8.61. Stage carries data-* timing; a GSAP
+     timeline is registered paused as window.__timelines.main so the
+     renderer can seek any frame deterministically. gsap.min.js is placed
+     next to this file by the judge (vendored, sha256-pinned in setup).
+     The brief demands continuous motion: the amber progress bar and the
+     drifting brand blobs change every frame, so no hold is ever frozen. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -21,7 +23,6 @@
   .blob { position: absolute; border-radius: 50%; }
   #blob-a { width: 900px; height: 900px; left: -320px; top: -420px; background: #4F46E5; opacity: 0.35; }
   #blob-b { width: 700px; height: 700px; right: -260px; bottom: -380px; background: #F59E0B; opacity: 0.25; }
-  #bar { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; background: #4F46E5; }
   .beat {
     position: absolute; inset: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; opacity: 0; text-align: center;
@@ -30,13 +31,19 @@
   .tag { color: #F4F4F5; font-size: 40px; margin-top: 24px; }
   .feat {
     color: #FFFFFF; font-size: 64px; font-weight: 600;
-    background: #4F46E5; padding: 24px 56px; border-radius: 16px;
+    background: #4F46E5; border: 10px solid #F59E0B;
+    padding: 24px 56px; border-radius: 16px;
   }
-  .num { color: #F59E0B; font-size: 36px; font-weight: 700; margin-bottom: 28px; }
+  .num { color: #F59E0B; font-size: 44px; font-weight: 700; margin-bottom: 28px; }
   .cta {
     color: #0F172A; font-size: 72px; font-weight: 700;
     background: #F59E0B; padding: 28px 64px; border-radius: 16px;
   }
+  /* progress bar: indigo track with an amber fill that advances across
+     the whole 24 s — the continuous motion the brief asks for */
+  #track { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; background: #4F46E5; }
+  #fill  { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #F59E0B;
+           transform-origin: left center; transform: scaleX(0); }
 </style>
 </head>
 <body>
@@ -44,7 +51,6 @@
      data-width="1280" data-height="720" data-fps="30">
   <div id="blob-a" class="blob"></div>
   <div id="blob-b" class="blob"></div>
-  <div id="bar"></div>
 
   <div id="title" class="beat">
     <h1>Aurora Notes</h1>
@@ -54,6 +60,8 @@
   <div id="beat2" class="beat"><div class="num">02</div><div class="feat">Sync across every device</div></div>
   <div id="beat3" class="beat"><div class="num">03</div><div class="feat">Search everything instantly</div></div>
   <div id="endcard" class="beat"><h1 style="font-size:84px; color:#FFFFFF;">Aurora Notes</h1><div class="cta">Try it free today</div></div>
+
+  <div id="track"><div id="fill"></div></div>
 </div>
 <script>
   window.__timelines = window.__timelines || {};
@@ -70,6 +78,10 @@
     tl.fromTo(b.id, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: FADE, ease: "power2.out" }, b.start)
       .to(b.id, { opacity: 0, duration: FADE, ease: "power2.in" }, b.start + b.hold - FADE);
   }
+  /* continuous motion for every frame of the full 24 s */
+  tl.fromTo("#fill", { scaleX: 0 }, { scaleX: 1, duration: 24, ease: "none" }, 0);
+  tl.fromTo("#blob-a", { x: 0, y: 0 }, { x: 160, y: 90, duration: 24, ease: "none" }, 0);
+  tl.fromTo("#blob-b", { x: 0, y: 0 }, { x: -140, y: -80, duration: 24, ease: "none" }, 0);
   window.__timelines["main"] = tl;
   tl.seek(0);
 </script>

@@ -13,3 +13,5 @@ Make a 24-second product teaser video for **Aurora Notes**, a notes app.
   5. End card — "Try it free today" (from t=19.0, hold 4.0 s)
 - Every beat must be fully legible; no black gaps between beats; brand
   colours visible in every beat.
+- Keep something moving throughout — no frozen holds, no static frames
+  (an animated progress bar counts).
