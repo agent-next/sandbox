@@ -341,19 +341,65 @@ def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], g
             )
             # bounded like the sandbox: a stream from a sandbox killed under the job never ends
             handle = sbx.commands.run(run, background=True, timeout=lifetime)
-            try:
-                result = handle.wait()
-                emit("runner_exit", runner=slot.name, code=result.exit_code)
-            except Exception as exc:  # non-zero exit or killed on retire
-                if not slot.retiring:
-                    emit("runner_exit", runner=slot.name, error=f"{type(exc).__name__}: {str(exc)[:200]}")
+            _wait_runner(sbx, handle, slot, deadline=time.monotonic() + lifetime)
         finally:
-            try:
-                sbx.kill()
-            finally:
-                emit("killed", runner=slot.name, sandbox=sbx.sandbox_id)
+            _kill(sbx, slot)
 
     return boot
+
+
+def _error(exc: Exception) -> str:
+    return f"{type(exc).__name__}: {str(exc)[:200]}"
+
+
+def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 600) -> None:
+    """Wait for the runner to exit. A dropped stream (gateway restart, network) is not an exit:
+    reattach to the runner process, or a blip would kill the job it is running. Reattaching
+    gives up after `outage` seconds without a connection."""
+    from e2b import CommandExitException, NotFoundException, TimeoutException
+
+    pid = handle.pid
+    while True:
+        try:
+            emit("runner_exit", runner=slot.name, code=handle.wait().exit_code)
+            return
+        except (CommandExitException, TimeoutException) as exc:
+            if not slot.retiring:
+                emit("runner_exit", runner=slot.name, error=_error(exc))
+            return
+        except Exception as exc:
+            if slot.retiring:  # killed on retire
+                return
+            emit("stream_lost", runner=slot.name, error=_error(exc))
+        delay, give_up = 2, min(deadline, time.monotonic() + outage)
+        while True:
+            if time.monotonic() >= give_up:
+                emit("runner_exit", runner=slot.name, error="could not reattach to the runner")
+                return
+            try:
+                handle = sbx.commands.connect(pid, timeout=max(1, deadline - time.monotonic()))
+                break
+            except (NotFoundException, TimeoutException) as exc:  # the runner (or its sandbox) is gone
+                emit("runner_exit", runner=slot.name, error=_error(exc))
+                return
+            except Exception:
+                time.sleep(delay)
+                delay = min(delay * 2, 15)
+
+
+def _kill(sbx, slot: Slot) -> None:
+    """Kill with retries: a kill lost to a gateway blip leaves the sandbox holding a quota slot
+    until its lifetime ends. A kill that never lands is reported, not claimed."""
+    for delay in (0, 2, 4, 8, 15, 30, 60):
+        time.sleep(delay)
+        try:
+            sbx.kill()
+        except Exception as exc:
+            error = _error(exc)
+            continue
+        emit("killed", runner=slot.name, sandbox=sbx.sandbox_id)
+        return
+    emit("kill_failed", runner=slot.name, sandbox=sbx.sandbox_id, error=error)
 
 
 def build_image(sandbox_cls, *, template: str | None, runner_version: str) -> str:
