@@ -292,11 +292,18 @@ def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True, trace_dir=None):
         th_worst = 0.0
         x_worst = 0.0
         tmc = np.linspace(0.0, SIM_T, 501)
-        for _ in range(n_mc):
+        if trace_dir:
+            mc_fh = open(os.path.join(trace_dir, "mc_samples.csv"),
+                         "w", encoding="utf-8")
+            mc_fh.write("sample,M_kg,m_kg,l_m,"
+                        "theta_settle_s,x_settle_s,pass\n")
+        for i in range(n_mc):
             M_ = M0 * rng.uniform(0.8, 1.2)
             m_ = M1 * rng.uniform(0.8, 1.2)
             l_ = L0 * rng.uniform(0.8, 1.2)
             ok = True
+            th_st = 0.0
+            x_st = 0.0
             for ic in ((0.0, 0.0, THETA0, 0.0), (XDISP, 0.0, 0.0, 0.0)):
                 try:
                     smc = solve_ivp(nonlinear_rhs(K, M_, m_, l_),
@@ -324,8 +331,13 @@ def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True, trace_dir=None):
                     if x_st > MC_X_SETTLE_MAX:
                         ok = False
                         break
+            if trace_dir:
+                mc_fh.write("%d,%.10e,%.10e,%.10e,%.10e,%.10e,%d\n"
+                            % (i, M_, m_, l_, th_st, x_st, int(ok)))
             if ok:
                 npass += 1
+        if trace_dir:
+            mc_fh.close()
         frac = npass / n_mc
         verdict["mc_pass"] = npass
         verdict["mc_n"] = n_mc
