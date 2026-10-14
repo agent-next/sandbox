@@ -1,87 +1,84 @@
 #!/usr/bin/env bash
-# judge/setup.sh — install pinned tools for KiCad PCB demo
-# Run from cookbook/kicad-pcb/
+# judge/setup.sh — install the pinned KiCad toolchain for this demo.
+#
+# Installs KiCad 9.0.9 (official lite AppImage tarball from the KiCad
+# GitHub release mirror, SHA256-checked) into
+#     $KICAD_DEMO_HOME   (default: ~/.local/kicad-pcb-demo)
+# and writes a `kicad-cli` wrapper plus VERSIONS.txt recording exact
+# tool versions. Idempotent: a verified install is reused.
+#
+# Tooling order per the demo standard: official release tarball only;
+# no distribution packages are needed. KiCad 9.0.9 was released
+# 2025-04-24 — well over two weeks old.
 
 set -euo pipefail
 
 KICAD_VERSION="9.0.9"
-KICAD_TARBALL="kicad-${KICAD_VERSION}-x86_64.AppImage.tar"
+KICAD_TARBALL="kicad-${KICAD_VERSION}-x86_64-lite.AppImage.tar"
 KICAD_URL="https://github.com/KiCad/kicad-source-mirror/releases/download/${KICAD_VERSION}/${KICAD_TARBALL}"
-KICAD_SHA256="796bc651078618a54dc20df77ada2f01ba1ea9435e167bb9b7673a006289a80b"
-PYGERBER_VERSION="1.0.0"
+KICAD_SHA256="a54c3ff9072da707b360d698f070002dfcc8f557169d2f5993738be02a61e540"
 
-INSTALL_DIR="${HOME}/.local/kicad-pcb-demo"
-BIN_DIR="${INSTALL_DIR}/bin"
-LIB_DIR="${INSTALL_DIR}/lib"
+DEMO_HOME="${KICAD_DEMO_HOME:-$HOME/.local/kicad-pcb-demo}"
+BIN_DIR="$DEMO_HOME/bin"
+APP_DIR="$DEMO_HOME/appimage"
+CLI_WRAPPER="$BIN_DIR/kicad-cli"
 
-echo "=== KiCad PCB Demo Judge Setup ==="
-echo "Installing to: ${INSTALL_DIR}"
-echo "KiCad version: ${KICAD_VERSION}"
-echo "pygerber version: ${PYGERBER_VERSION}"
+echo "=== KiCad PCB demo — judge setup ==="
+echo "install dir : $DEMO_HOME"
+echo "KiCad       : $KICAD_VERSION (lite AppImage, sha256 pinned)"
 
-mkdir -p "${BIN_DIR}" "${LIB_DIR}"
+need() { command -v "$1" >/dev/null 2>&1 || { echo "missing dependency: $1" >&2; exit 1; }; }
+need curl; need tar; need sha256sum; need python3
 
-# --- KiCad ---
-KICAD_APPIMAGE="${BIN_DIR}/kicad-${KICAD_VERSION}-x86_64.AppImage"
-KICAD_CLI_WRAPPER="${BIN_DIR}/kicad-cli"
+python3 -c 'import sys; assert sys.version_info >= (3, 10), sys.version' \
+    || { echo "need python3 >= 3.10" >&2; exit 1; }
 
-if [[ -x "${KICAD_CLI_WRAPPER}" ]] && APPIMAGE_EXTRACT_AND_RUN=1 "${KICAD_APPIMAGE}" kicad-cli --version 2>/dev/null | grep -q "${KICAD_VERSION}"; then
-    echo "KiCad ${KICAD_VERSION} already installed"
+mkdir -p "$BIN_DIR" "$APP_DIR"
+
+if [[ -x "$APP_DIR/bin/kicad-cli" ]] \
+    && "$APP_DIR/bin/kicad-cli" --version 2>/dev/null | grep -q "$KICAD_VERSION"; then
+    echo "KiCad $KICAD_VERSION already installed — reusing"
 else
-    echo "Downloading KiCad ${KICAD_VERSION}..."
-    cd /tmp
-    if [[ ! -f "${KICAD_TARBALL}" ]]; then
-        curl -L -o "${KICAD_TARBALL}" "${KICAD_URL}"
-    fi
-    echo "Verifying SHA256..."
-    echo "${KICAD_SHA256}  ${KICAD_TARBALL}" | sha256sum -c -
-    echo "Extracting..."
-    tar -xf "${KICAD_TARBALL}"
-    chmod +x "kicad-${KICAD_VERSION}-x86_64.AppImage"
-    mv "kicad-${KICAD_VERSION}-x86_64.AppImage" "${KICAD_APPIMAGE}"
-    # Extract AppImage to get libraries
-    "${KICAD_APPIMAGE}" --appimage-extract >/dev/null 2>&1
-    cp -rf squashfs-root/usr/share/kicad "${LIB_DIR}/"
-    rm -rf squashfs-root
-    echo "KiCad ${KICAD_VERSION} installed"
+    WORK=$(mktemp -d)
+    trap 'rm -rf "$WORK"' EXIT
+    cd "$WORK"
+    echo "downloading $KICAD_URL"
+    curl -fL --retry 3 -o "$KICAD_TARBALL" "$KICAD_URL"
+    echo "verifying sha256"
+    echo "$KICAD_SHA256  $KICAD_TARBALL" | sha256sum -c -
+    tar xf "$KICAD_TARBALL"
+    chmod +x "kicad-${KICAD_VERSION}-x86_64-lite.AppImage"
+    "./kicad-${KICAD_VERSION}-x86_64-lite.AppImage" --appimage-extract >/dev/null
+    rm -rf "$APP_DIR"
+    mkdir -p "$APP_DIR"
+    cp -a squashfs-root/. "$APP_DIR/"
+    cd - >/dev/null
+    rm -rf "$WORK"; trap - EXIT
+    echo "installed"
 fi
 
-# Create kicad-cli wrapper that uses APPIMAGE_EXTRACT_AND_RUN
-cat > "${KICAD_CLI_WRAPPER}" << 'EOF'
+cat > "$CLI_WRAPPER" <<EOF
 #!/usr/bin/env bash
-# Wrapper for kicad-cli that uses APPIMAGE_EXTRACT_AND_RUN
-APPIMAGE="${HOME}/.local/kicad-pcb-demo/bin/kicad-9.0.9-x86_64.AppImage"
-export APPIMAGE_EXTRACT_AND_RUN=1
-exec "${APPIMAGE}" kicad-cli "$@"
+exec "$APP_DIR/bin/kicad-cli" "\$@"
 EOF
-chmod +x "${KICAD_CLI_WRAPPER}"
+chmod +x "$CLI_WRAPPER"
 
-# --- pygerber ---
-if python3 -c "import pygerber; assert pygerber.__version__ == '${PYGERBER_VERSION}'" 2>/dev/null; then
-    echo "pygerber ${PYGERBER_VERSION} already installed"
-else
-    echo "Installing pygerber ${PYGERBER_VERSION}..."
-    pip3 install --user "pygerber==${PYGERBER_VERSION}" >/dev/null
-    echo "pygerber ${PYGERBER_VERSION} installed"
-fi
+KICAD_VER_OUT="$("$CLI_WRAPPER" --version)"
+PY_VER="$(python3 --version 2>&1)"
 
-# --- gerbv ---
-if command -v gerbv >/dev/null 2>&1; then
-    echo "gerbv already installed"
-else
-    echo "Installing gerbv..."
-    sudo apt-get update -qq && sudo apt-get install -y -qq gerbv >/dev/null
-    echo "gerbv installed"
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for vf in "$DEMO_HOME/VERSIONS.txt" "$SCRIPT_DIR/VERSIONS.txt"; do
+cat > "$vf" <<EOF
+kicad-cli    : $KICAD_VER_OUT
+kicad package: $KICAD_TARBALL
+kicad url    : $KICAD_URL
+kicad sha256 : $KICAD_SHA256
+python3      : $PY_VER  ($(command -v python3))
+EOF
+done
 
-# Verify all tools
-echo ""
-echo "=== Verification ==="
-"${KICAD_CLI_WRAPPER}" --version
-python3 -c "import pygerber; print(f'pygerber {pygerber.__version__}')"
-gerbv --version 2>&1 | head -1
-
-echo ""
-echo "Setup complete. Add to PATH: export PATH=\"${BIN_DIR}:\$PATH\""
-echo "KICAD_CLI=\"${KICAD_CLI_WRAPPER}\""
-echo "KICAD_LIBS=\"${LIB_DIR}/kicad\""
+echo "--- VERSIONS.txt ---"
+cat "$DEMO_HOME/VERSIONS.txt"
+echo "kicad-cli wrapper: $CLI_WRAPPER"
+echo "KiCad share dir  : $APP_DIR/usr/share/kicad"
+echo "Setup OK"

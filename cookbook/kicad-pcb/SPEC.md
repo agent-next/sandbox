@@ -1,70 +1,89 @@
-# KiCad PCB Design Check Demo — Specification
+# KiCad PCB design check — SPEC
 
 ## Goal
-Verify a small 2-layer KiCad project (schematic + PCB) passes all automated checks:
-- ERC (Electrical Rules Check) on schematic: 0 errors
-- DRC (Design Rules Check) on PCB: 0 errors
-- Netlist from schematic matches PCB (no unrouted nets)
-- Board outline is closed
-- Gerber + drill export succeeds and parses (aperture/layer counts)
-- Known-bad variants each fail at least one gate
+
+Give an agent a small, real PCB-design task inside a disposable sandbox:
+design (or repair) a 2-layer KiCad project and prove correctness with an
+independent judge. The reference artifact is a **555 astable LED
+blinker** designed from scratch in KiCad s-expression format.
 
 ## Non-goals
-- Full signal-integrity analysis
-- 3D model generation
-- BOM generation
-- Assembly drawings
-- Multi-board or flex-rigid designs
 
-## Artifact
-A KiCad 9.x project directory containing:
+- No simulation of the analog circuit (values, frequency correctness are
+  out of scope; connectivity is what the judge checks).
+- No 3D models, BOM, pick-and-place, or fabrication output review.
+- No multi-sheet or multi-board designs.
+- No third-party board content (footprints/symbols are embedded from the
+  stock KiCad 9.0.9 libraries by the generators in `tools/`).
+
+## Artifact under test
+
+A directory containing a self-contained KiCad 9 project:
+
 - `<name>.kicad_pro` — project file
-- `<name>.kicad_sch` — schematic (single sheet)
-- `<name>.kicad_pcb` — PCB layout (2 layers: F.Cu, B.Cu)
-- `footprints/` — local footprints if any (prefer built-in libs)
-- `sym/` — local symbols if any (prefer built-in libs)
+- `<name>.kicad_sch` — single-sheet schematic, `lib_symbols` embedded
+- `<name>.kicad_pcb` — 2-layer layout (F.Cu / B.Cu)
 
-Reference design: **555 LED blinker** (astable multivibrator driving an LED).
-- 555 timer (SOIC-8), LED (0805), resistors (0805 × 2), capacitors (0805 × 2), power connector (2-pin JST-PH or similar)
-- Netlist: VCC, GND, OUT, THR, TRIG, CTRL, DIS, LED_A, LED_K
-- Board size: ≤ 50 × 50 mm, 2-layer, 0.2 mm min track/space, 0.3 mm min via
+Reference constraints: board <= 50 x 50 mm, min track/space 0.20 mm,
+min via drill 0.30 mm (checker: netclass values in the file, plus the
+DRC gate below which fails on violations of the project's own rules).
 
-## Gates (numeric pass rules)
+The known-good example is `examples/good/555-blinker/`
+(~80 KB total, no 3D models, no external libraries needed to grade).
 
-| Gate | Check | Pass rule | Source |
-|---|---|---|---|
-| G1 | `kicad-cli sch erc --format json` | `summary.errors == 0` | JSON `summary` object |
-| G2 | `kicad-cli pcb drc --format json` | `summary.errors == 0` | JSON `summary` object |
-| G3 | Netlist match | Schematic netlist nets == PCB nets (set equality); `unrouted == 0` | `kicad-cli pcb export netlist --format json` |
-| G4 | Board outline closed | `kicad-cli pcb check --format json` → `outline_closed == true` | JSON |
-| G5 | Gerber export | `kicad-cli pcb export gerbers --layers F.Cu,B.Cu,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts --format json` succeeds; each layer file parses (aperture count > 0) | `gerbv` or `pygerber` parse |
-| G6 | Drill export | `kicad-cli pcb export drill --format json` succeeds; drill file parses (hole count > 0) | `pygerber` parse |
+## Gates (all must pass; each is a numeric rule)
+
+| Gate | Command / artifact | Pass rule |
+|------|--------------------|-----------|
+| G1 ERC | `kicad-cli sch erc <sch> --format json -o erc.json --severity-all` | count of `severity=="error"` violations across all `sheets[]` == 0 |
+| G2 DRC | `kicad-cli pcb drc <pcb> --format json -o drc.json --severity-all` | `len(violations)==0` and `len(unconnected_items)==0` |
+| G3 Netlist | `kicad-cli sch export netlist <sch> --format kicadxml`; `(net N "name")` decls parsed from the `.kicad_pcb` text | set of schematic net names (sheet prefix stripped) == set of PCB net names; zero `unconnected-*` synthetic nets; `unconnected_items == 0` |
+| G4 Outline | `.kicad_pcb` parsed directly | every Edge.Cuts primitive endpoint is shared by >=2 primitives (closed loop), or a self-closing shape (rect/circle) is present |
+| G5 Gerbers | `kicad-cli pcb export gerbers <pcb> -o dir --layers F.Cu,B.Cu,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts` | all 7 layer files exist; each has >=1 `%ADD` aperture and >=1 draw/flash operation |
+| G6 Drill | `kicad-cli pcb export drill <pcb> -o dir` | >=1 `.drl` file; >=1 `TnC<d>` tool with d>0; >=1 `X..Y..` hit |
+
+Overall pass = all six gates pass. `grade.sh` exits 0 / non-zero and
+writes a verdict JSON (`--json FILE`) containing per-gate booleans and
+the raw numbers above.
 
 ## Acceptance oracle
-An independent reference check:
-- Parse ERC/DRC JSON directly (no re-run) and assert `errors == 0`
-- Netlist equality: sort both net-name lists, compare strings
-- Gerber parse: use `pygerber` (pip) to load each file, count apertures ≥ 1
-- Drill parse: use `pygerber` to load drill file, count holes ≥ 1
-- No KiCad CLI re-invocation in oracle; only file reads
 
-## Known-bad mutants (single-edit, ≥ 5)
-1. Deleted track (break a net on PCB)
-2. Shorted nets (overlap two net copper pours)
-3. Too-thin track (set track width < 0.2 mm DRC rule)
-4. Missing footprint (delete a footprint from PCB, keep in schematic)
-5. Unconnected pin (leave a pin with no wire in schematic)
-6. Open board outline (delete one outline segment)
-7. Via too small (via drill < 0.3 mm)
+`judge/oracle.py` (Python 3 stdlib only) is the independent checker.
+It never re-runs KiCad: it parses the JSON reports, the netlist XML, the
+`.kicad_pcb` s-expression, the exported Gerbers and the Excellon file.
+"Tool exited 0" is never the acceptance criterion — the exported files
+must contain real geometry (apertures, ops, drills, closed outline).
 
-## Tool versions (pinned, ≥ 2 weeks old)
-- KiCad 9.0.1 (released 2025-03-15) — official tarball SHA256
-- Python 3.11+ (system)
-- pygerber ≥ 1.0.0 (pip wheel, pinned version)
-- gerbv (Debian package, version recorded)
+The artifact is graded in a copy, so it cannot modify itself or the
+judge; `selftest.sh` checksums `judge/` before and after grading and
+requires the sums to match.
 
-## Self-test requirements
-- Known-good (examples/good/555-blinker/) passes all gates → exit 0
-- Each known-bad (examples/bad/* or judge/mutants.py) fails ≥ 1 gate
-- Kill rate ≥ 90 % (bad_failing / bad_total × 100)
-- Judge never modified by artifact (checksum judge/ before/after)
+## Tools (pinned)
+
+- KiCad 9.0.9, official lite AppImage tarball from the KiCad GitHub
+  release mirror, SHA256 `a54c3ff9072da707b360d698f070002dfcc8f557169d2f5993738be02a61e540`
+  (release 2025-04-24; > 2 weeks old).
+- Python 3 >= 3.10 (stdlib only) for the oracle and mutators.
+- `judge/setup.sh` verifies the checksum, extracts the AppImage, and
+  writes `judge/VERSIONS.txt` with the measured versions.
+
+## Self-test
+
+`judge/selftest.sh`:
+
+- grades the known-good example twice; verdict JSONs must be
+  byte-identical (determinism),
+- generates the mutants in `judge/mutants.py` (single-edit):
+  `erc_unconnected_pin`, `erc_power_short`, `netlist_mismatch`,
+  `drc_unconnected`, `drc_short`, `outline_open`, `drill_no_tools`,
+- each mutant must fail >= 1 gate; kill rate must be >= 90 %,
+- `judge/` checksum before and after must be identical.
+
+## Reproduction tolerance
+
+A different agent in a fresh sandbox following `README.md` should
+observe, on the known-good example: `overall_pass: true`,
+`erc_errors: 0`, `drc_violations: 0`, `drc_unconnected_items: 0`,
+`unrouted_items: 0`, `open_endpoints: 0`, `drill_hits: 11`,
+`tools: 2`, and 7/7 mutants killed. Aperture/op counts may differ
+(+-20 %) if the artifact was regenerated, since they depend on layout.
