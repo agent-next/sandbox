@@ -1,15 +1,17 @@
 """Fast validation and runner regression tests, executed inside the sandbox."""
 
 import copy
+import base64
 import importlib.util
 import json
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 
 from grade import g1, g3, g4, masks, validate
+from driver import Renderer
 
 HERE = Path(__file__).resolve().parent
 GOOD = json.loads((HERE.parent / "examples/good/scene.json").read_text())
@@ -73,6 +75,20 @@ class ContractTests(unittest.TestCase):
 
         result, _, _ = g4(SeedFixture(), GOOD, 17)
         self.assertTrue(result["pass"])
+
+    def test_software_adapter_architecture_not_vendor_label(self):
+        image = np.ones((64, 64, 4), dtype="<f4")
+        result = {"backend": "webgpu", "adapter": "google",
+                  "adapter_info": {"architecture": "swiftshader"},
+                  "samples": 32, "width": 64, "height": 64,
+                  "data": base64.b64encode(image.tobytes()).decode()}
+        renderer = Renderer("cpu")
+        renderer.page = Mock()
+        renderer.page.evaluate.return_value = result
+        self.assertTrue(np.array_equal(renderer.render(GOOD, 32, 17), image))
+        result["adapter_info"] = {"architecture": "hardware"}
+        with self.assertRaisesRegex(AssertionError, "not SwiftShader"):
+            renderer.render(GOOD, 32, 17)
 
     def test_runner_cleanup_on_step_failure(self):
         calls = []

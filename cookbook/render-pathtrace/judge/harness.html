@@ -16,7 +16,12 @@ window.renderScene = async function (s, spp, seed, api = "webgpu") {
     engine = new M.Engine({backend: api, bvhWorkerCount: 1,
                            textureAtlasBudgetBytes: 8 * 1024 * 1024});
     await engine.init();
-    window.renderInfo = {backend: engine.backend, adapter: engine.info.adapterName};
+    const info = engine.device?.adapterInfo;
+    window.renderInfo = {
+      backend: engine.backend, adapter: engine.info.adapterName,
+      adapter_info: info ? {vendor: info.vendor, architecture: info.architecture,
+                           device: info.device, description: info.description} : null
+    };
   }
   const materials = Object.fromEntries(Object.entries(s.materials).map(
     ([name, value]) => {
@@ -82,7 +87,7 @@ window.renderScene = async function (s, spp, seed, api = "webgpu") {
       binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
     return {width: image.width, height: image.height, data: btoa(binary),
             samples: render.samples, backend: engine.backend,
-            adapter: engine.info.adapterName};
+            adapter: engine.info.adapterName, adapter_info: window.renderInfo.adapter_info};
   } finally {
     render.dispose();
   }

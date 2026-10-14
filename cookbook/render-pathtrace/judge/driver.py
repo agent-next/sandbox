@@ -3,6 +3,7 @@
 import base64
 import functools
 import http.server
+import json
 import os
 from pathlib import Path
 import shutil
@@ -77,9 +78,10 @@ class Renderer:
             raise
         assert result["backend"] == self.api, result
         if self.backend == "cpu":
-            assert "swiftshader" in result["adapter"].lower(), result["adapter"]
+            identity = json.dumps([result["adapter"], result.get("adapter_info")]).lower()
+            assert "swiftshader" in identity, "CPU adapter identity is not SwiftShader"
         assert result["samples"] == spp, result["samples"]
-        self.info = {k: result[k] for k in ("backend", "adapter")}
+        self.info = {k: result[k] for k in ("backend", "adapter", "adapter_info")}
         image = np.frombuffer(base64.b64decode(result["data"]), dtype="<f4")
         image = image.reshape(result["height"], result["width"], 4).copy()
         assert [result["width"], result["height"]] == scene["resolution"], \
