@@ -52,15 +52,16 @@ total=0
 fails=""
 while read -r name; do
     total=$((total + 1))
-    # value mutants: physics decides on CPU; grade them on all gates anyway
-    # (--cpu-only skipped so G4 also runs where G1-G3 pass, which for physics
-    # mutants is never).
+    # Structure mutants fail before any physics; for those grade.sh writes no
+    # JSON at all when G1 rejects them pre-verdict. Value mutants get a full
+    # verdict (each run creates and destroys one GPU lease for G4).
     if bash "$HERE/grade.sh" "$MUT/$name.json" --json "$WORK/$name.json" >"$WORK/$name.log" 2>&1; then
         fails="$fails $name"
         echo "selftest: mutant $name: SURVIVED (judge did not kill it)" >&2
     else
         killed=$((killed + 1))
-        gate=$("$PY" - "$WORK/$name.json" <<'EOF'
+        if [ -f "$WORK/$name.json" ]; then
+            gate=$("$PY" - "$WORK/$name.json" <<'EOF'
 import json, sys
 v = json.load(open(sys.argv[1]))
 gates = v.get("gates", {})
@@ -68,6 +69,10 @@ failed = [k for k, g in gates.items() if isinstance(g, dict) and g.get("pass") i
 print(",".join(failed) or "?")
 EOF
 )
+        else
+            # no verdict JSON: the artifact was rejected pre-gates (see the log)
+            gate="structure/infra"
+        fi
         echo "selftest: mutant $name: killed (gate: $gate)"
     fi
 done < "$WORK/names.txt"
@@ -78,15 +83,17 @@ if [ "$killed" -lt "$total" ]; then
     echo "selftest: SURVIVED mutants:$fails" >&2
 fi
 
-echo "selftest: determinism check (two grades of the good artifact)"
-bash "$HERE/grade.sh" "$GOOD" --json "$WORK/det1.json" >/dev/null 2>&1
-bash "$HERE/grade.sh" "$GOOD" --json "$WORK/det2.json" >/dev/null 2>&1
+echo "selftest: determinism check (two CPU-path grades of the good artifact;"
+echo "          the GPU engine agreement is compared against fixed tolerances)"
+bash "$HERE/grade.sh" "$GOOD" --cpu-only --json "$WORK/det1.json" >/dev/null 2>&1
+bash "$HERE/grade.sh" "$GOOD" --cpu-only --json "$WORK/det2.json" >/dev/null 2>&1
 if "$PY" - "$WORK/det1.json" "$WORK/det2.json" <<'EOF'
 import json, sys
 def strip(v):
     v = dict(v)
-    t = v.pop("timing", None) or {}
+    v.pop("timing", None)
     g4 = v.get("gates", {}).get("G4_gpu_cpu_agree") or {}
+    g4.pop("gpu_sim_s", None)      # GPU wall time is inherently noisy
     return v
 a, b = (strip(json.load(open(p))) for p in sys.argv[1:3])
 sys.exit(0 if a == b else 1)

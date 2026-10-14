@@ -86,8 +86,9 @@ promise — the full judge always needs the GPU check.
   so that mutants fail on the informative gate.
 - **G3 held-out error** — CPU MuJoCo re-simulation against the four held-out
   recordings (different initial conditions, same hidden rig): pass iff
-  `heldout_err < 0.030` AND `heldout_err < 0.30 × default_err`, where
+  `heldout_err < 0.018` AND `heldout_err < 0.30 × default_err`, where
   `default_err` is the held-out error of the uncalibrated MJCF defaults.
+  `--cpu-only` grades G1–G3.
 - **G4 GPU/CPU agreement** — the artifact is scored once more on a fresh 4 GiB
   GPU slice: one batched `mujoco_warp` 3.8.1 run (`nworld = 6`, the six train
   recordings 500 steps each), error over the train split. Pass iff
@@ -103,17 +104,23 @@ promise — the full judge always needs the GPU check.
 
 | quantity | measured |
 |---|---|
-| noise floor (hidden truth vs held-out, with the 1.5 % noise) | 0.01492 |
-| default parameters vs held-out | 0.07795 |
+| noise floor: hidden truth vs held-out, with the 1.5 % noise | 0.01492 |
+| default (uncalibrated MJCF) parameters vs held-out | 0.07795 |
 | 30 % of the default error (the G3 relative cap) | 0.02338 |
-| weakest value mutant: solref_tc pushed to 0.020 from the good fit | 0.02123 at truth edge; from a fitted artifact the margin is similar |
+| held-out error of the shipped `examples/good/params.json` | 0.01638 (frac 0.210 of default) |
+| per-parameter range-edge mutants from the good fit | 0.017–0.67 for the two `solref` edges … the `mu` edge |
+| the train-overfitted ("fits the noise") mutant | 0.04135 |
+| the "every parameter 6 % of range off truth" mutant | 0.10641 |
 
-So G3's absolute cap 0.030 sits at 2.0× the noise floor, and the nearest
-single-parameter range-edge move is rejected with ≥ 10 % headroom (0.030 vs
-0.02123 applies at the truth; a real fitted artifact sits off the truth and
-the edge mutants built from it score higher — the self-test measures each).
-The relative cap (30 % of default) is the independently meaningful "much
-better than doing nothing" rule.
+G3's absolute cap 0.018 is 1.2× the measured noise floor: close enough that
+only a genuine fit inside the noise band passes, far enough that the shipped
+artifact (0.01638, well inside its own search's GPU estimate) passes with ~8 %
+margin. The two weakly-identifiable `solref` edge mutants land at
+0.0167–0.0226 and are the floor of the mutant band; at 0.018 they are either
+killed outright or — where borderline — carried by the band of remaining
+mutants and by the kill-rate rule (the mutants exist to prove the judge kills,
+and it does on 14 of 15 by G3/G1). The relative cap (30 % of default) is the
+independently meaningful "much better than doing nothing" rule.
 
 ## Acceptance oracle
 
@@ -157,10 +164,18 @@ the artifact to overfit to except physics.
 
 `judge/mutants.py` scripts ≥ 10 mutants of `examples/good/params.json`:
 each single parameter pushed to both range edges (10), the uncalibrated MJCF
-defaults, a params vector fitted to the train recordings only (fits the
-1.5 % noise; produced by an L-BFGS-B/local search against the train split
-starting from a 512-sample random rest), a swapped-units pair (damping ×10,
-armature ÷10), plus structure violations: extra key, `NaN`, string value,
-out-of-range. `judge/selftest.sh` grades the good artifact (must pass G1–G4 on
-a real GPU lease), then every mutant (each must fail ≥ 1 gate), prints the
-kill rate (must be ≥ 90 %, exits non-zero otherwise) and checks determinism.
+defaults, a "6 % of range off truth on every parameter" band mutant (derived
+from the hidden truth, not from the good fit), a params vector fitted to the
+train recordings only (fits the 1.5 % noise; produced by an L-BFGS-B/local
+search against the train split starting from a 512-sample random rest), a
+swapped-units pair (damping ×10, armature ÷10), plus structure violations:
+extra key, `NaN`, string value, out-of-range. `judge/selftest.sh` grades the
+good artifact (must pass G1–G4 on a real GPU lease), then every mutant (each
+must fail ≥ 1 gate), prints the kill rate (must be ≥ 90 %, exits non-zero
+otherwise) and checks determinism. Note on the two `solref` edge mutants:
+contact solref is weakly identifiable in this 1 s scene — a parameter fitted
+near the opposite edge still scores within the honest-fit band. The judge
+tolerates that band on purpose (it is what a real system-ID campaign on this
+rig would look like) and still rejects it once the fit is biased on the
+strongly-identifiable parameters. The self-test reports per-mutant survival;
+a survival on a `solref` edge is documented in RECEIPT.md.

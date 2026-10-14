@@ -84,6 +84,16 @@ def main():
             p[name] = val
             _write(out_dir, f"mut_{name}_{edge}", p, names)
 
+    # relative-band mutant: every parameter shifted to +6 % of its range off
+    # the hidden truth (a plausible 'converged but biased' fit). Derived from
+    # the truth, not from the good artifact, so the error cannot vanish if the
+    # good artifact happens to sit exactly on truth for one parameter.
+    truth = scen["truth"]
+    p = {n: round(min(RANGES[n][1], max(RANGES[n][0],
+              truth[n] + 0.06 * (RANGES[n][1] - RANGES[n][0]))), 6)
+         for n in PARAM_NAMES}
+    _write(out_dir, "mut_truth_shift6", p, names)
+
     _write(out_dir, "mut_defaults", dict(DEFAULT_PARAMS), names)
 
     p, train_e = overfit_train(scen, good)

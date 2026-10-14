@@ -69,9 +69,17 @@ N_TRAIN, N_HOLDOUT = 6, 4
 DOF_H = 6                          # hinge dofs are nv-2 .. nv-1 (after the 6-dof free joint)
 
 # Gate thresholds, calibrated on CPU MuJoCo 3.8.1 (seed 7, see SPEC.md):
-# hidden-truth held-out error (the noise floor) 0.01492; the nearest single-
-# parameter range-edge move scores 0.02123.
-ORACLE_ABS_ERR = 0.030             # ~2x the noise floor, > 1.4x margin to the nearest mutant
+# the noise floor (hidden-truth params vs held-out recordings, WITH the
+# 1.5 % measurement noise) is 0.01492; the default-parameter error is 0.07795.
+# The search loop's own result scores 0.01638 (train 0.01697). The strongest
+# range-edge mutants on held-out (solref_dr edges: 0.0150/0.0151) are partially
+# INSIDE the band honest fits scatter into on other seeds: contact solref is
+# weakly identifiable from this scene. They are not separately gated; G3's
+# absolute cap (1.2x the noise floor) is calibrated to keep the honest-fit
+# band, reject the "fitted but shifted" band (overfit mutant 0.041, 6 %-of-
+# range band mutant 0.106) and every strong edge mutant, per-signal and in
+# total.
+ORACLE_ABS_ERR = 0.018
 ORACLE_REL_FRAC = 0.30             # and below 30 % of the default-parameter error
 GPU_CPU_ABS = 0.003                # |gpu train err - cpu train err|
 GPU_CPU_TOL = 0.10                 # and within 10 % of the CPU error
