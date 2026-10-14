@@ -23,7 +23,8 @@ every grade, so the artifact cannot tamper with its own grader.
 
 | | |
 |---|---|
-| **Verdict** | ✅ **PASS** — all 10 gates, 7/7 mutants killed (100 % kill rate) |
+| **Verdict** | ✅ **PASS** — all 12 gates, 7/7 mutants killed by named gates (100 % kill rate) |
+| **Reference cross-check** | LinuxCNC `rs274` accepts the program and its canonical move list matches the judge's simulator exactly: 165 feeds / 67 rapids / 18 arcs, Z [−6.000, +5.000] mm, bbox [0, 0, 65, 45] mm — every diff 0 |
 | **Stock cleared** | 1783.98 mm² of pocket floor (target geometry: 1814.37 mm² minus the 25.71 mm² round-island fillet band no Ø6 tool can reach) |
 | **Residual stock** | 0 cells above the +0.05 mm tolerance |
 | **Gouge** | 0 cells deeper than the −0.01 mm tolerance (walls, island, floor) |
@@ -63,18 +64,18 @@ Without a key, run the same steps in any Debian 12 box with Python 3.12,
 from `cookbook/cnc-gcode/`:
 
 ```bash
-bash judge/setup.sh                                        # pinned numpy 2.5.3 venv (~35 s fresh)
-bash judge/selftest.sh                                     # good example + 7 mutants + determinism (~65 s)
-bash judge/grade.sh examples/good/cam.py --json verdict.json   # ~6 s, default seed 20261014
+bash judge/setup.sh                                        # pinned numpy venv + rs274 debs (~25 s fresh)
+bash judge/selftest.sh                                     # good example + 7 mutants + determinism (~30 s)
+bash judge/grade.sh examples/good/cam.py --json verdict.json   # ~7 s, default seed 20261014
 ```
 
 Measured wall times (2 vCPU, ~4 GB, Debian bookworm):
 
 | step | wall |
 | --- | --- |
-| `judge/setup.sh` (fresh venv + pinned numpy) | ~35 s |
-| `judge/selftest.sh` (good + 7 mutants + determinism) | ~65 s |
-| `judge/grade.sh examples/good/cam.py` | ~6 s |
+| `judge/setup.sh` (fresh venv + pinned numpy + rs274 debs) | ~25 s |
+| `judge/selftest.sh` (good + 7 mutants + determinism) | ~25–40 s |
+| `judge/grade.sh examples/good/cam.py` | ~3–4 s |
 | fresh `git clone --depth 1` of this repo | ~5 s |
 
 ## Ask your agent
@@ -108,18 +109,22 @@ lives in the repo, always grades a scratch copy against the repo's own
   XY plane with I/J, G17/G21/G90, M3/M5). Programs using anything else are
   rejected by name instead of misinterpreted — no canned cycles, no G41/G42,
   no work offsets, no inch mode.
+- The reference gate checks *syntax and canonical geometry only*: rs274 is a
+  parser/interpreter, not a material-removal simulator, so semantic defects
+  (wrong offsets, deep passes, hot feeds) are caught by the judge's own
+  analytic gates, not by the reference.
 - Geometry gates are exact to one grid cell (0.05 mm): boundary cells within
   one cell of a wall or the island are excluded from the gouge check to keep
   grid quantisation from producing false alarms; for this spec the
   unreachable-corner allowance in the residual check is empty (corner radius
   6 mm ≥ tool radius 3 mm), so the clearance check is exact.
-- No reference CAM verifier is run: CAMotics needs Qt/X11 and a long source
-  build that does not install cleanly headless on 2 vCPU / 3 GB, so the
-  independent oracles are the analytic target heightmap and the analytic
-  slot geometry (see SPEC.md, "Reference cross-check").
-- numpy 2.5.3 (PyPI, sha256-pinned wheels) and Python 3.12 are the only
-  dependencies; the judge's simulator is ~450 lines of stdlib + numpy, MIT
-  licence like the rest of this repo. `media/`, `REPRODUCE.md` and the
+- The reference cross-check runs LinuxCNC's standalone `rs274` interpreter,
+  installed rootless from three pinned, sha256-checked Debian bookworm
+  `.deb`s (see `judge/reference_packages.tsv`) — no apt, no root, no Qt.
+- Dependencies: Python 3.12 + numpy 2.5.3 (sha256-pinned wheel) for the judge,
+  plus LinuxCNC's `rs274` 2.9 (GPLv2+, pinned Debian `.deb`s) for the
+  reference gate; the judge's own simulator is ~420 lines of stdlib + numpy,
+  MIT licence like the rest of this repo. `media/`, `REPRODUCE.md` and the
   independent reproduction run are tracked in RECEIPT.md as not yet done.
 
 ## Reproducing every number

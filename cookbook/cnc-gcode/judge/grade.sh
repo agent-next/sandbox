@@ -7,8 +7,9 @@
 # 1. hashes the judge sources (the artifact must not modify them)
 # 2. copies the artifact + the repo's own spec.json into a scratch dir
 # 3. runs  python3 cam.py --spec spec.json --out part.nc   (venv interpreter)
-# 4. grades part.nc with grade.py: program, envelope, stepdown, stepover,
-#    process, rapid_safety, residual, gouge, simulator_selfcheck
+# 4. grades part.nc with grade.py: artifact, units, program, envelope,
+#    stepdown, stepover, process, rapid_safety, residual, gouge,
+#    simulator_selfcheck, reference (LinuxCNC rs274 cross-check)
 # 5. re-hashes the judge sources; any change is a failure
 #
 # Exit 0 iff every gate passes.
