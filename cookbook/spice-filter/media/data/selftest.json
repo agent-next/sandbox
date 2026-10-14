@@ -1,0 +1,51 @@
+{
+ "kills": [
+  {
+   "mutant": "c-decade-down",
+   "passed": false,
+   "failed_gate": "mask"
+  },
+  {
+   "mutant": "include-directive",
+   "passed": false,
+   "failed_gate": "parse"
+  },
+  {
+   "mutant": "missing-ground",
+   "passed": false,
+   "failed_gate": "parse"
+  },
+  {
+   "mutant": "off-series",
+   "passed": false,
+   "failed_gate": "series"
+  },
+  {
+   "mutant": "opamp-gain",
+   "passed": false,
+   "failed_gate": "sanity"
+  },
+  {
+   "mutant": "r-decade-up",
+   "passed": false,
+   "failed_gate": "mask"
+  },
+  {
+   "mutant": "swap-feedback",
+   "passed": false,
+   "failed_gate": "mask"
+  },
+  {
+   "mutant": "swap-nodes",
+   "passed": false,
+   "failed_gate": "mask"
+  },
+  {
+   "mutant": "unrecognised-topology",
+   "passed": false,
+   "failed_gate": "analytic"
+  }
+ ],
+ "kill_rate": 1.0,
+ "mutants": 9
+}

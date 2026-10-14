@@ -12,6 +12,7 @@ and the command to run it. Entries are added only after they pass review.
 | [github-ci-runners](github-ci-runners/README.md) | Run GitHub Actions jobs in disposable sandboxes with Docker, from a warm pool. |
 | [cfd-openfoam](cfd-openfoam/README.md) | Run OpenFOAM channel and cavity flows and grade them against the analytic profile and Ghia 1982; one command, independently reproduced. |
 | [gpu-kernel](gpu-kernel/README.md) | Grade a Triton softmax kernel on a 1 GiB GPU slice: correctness on 10 cases, 11/11 mutants caught, lease destroyed; CPU check mode included. |
+| [spice-filter](spice-filter/README.md) | Design a 4th-order active low-pass in ngspice from E24/E12 parts and grade it against a ripple/stopband mask, a closed-form cross-check and Monte-Carlo tolerance; 9/9 mutants caught, independently reproduced. |
 
 The first three prompts passed review as demo videos. They have not been
 re-run from this repo, so treat them as starting points, not guarantees.
