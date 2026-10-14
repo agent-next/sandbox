@@ -1,0 +1,8 @@
+# generated outputs — never commit
+antenna_results.json
+oems_sim/
+examples/bad/bad_*.py
+judge/VERSIONS.txt
+judge/__pycache__/
+media/master/
+media/work/

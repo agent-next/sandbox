@@ -1,26 +1,24 @@
-"""Independent analytic oracles for the rf-openems demo.
+"""Independent analytic oracles for the rf-openems demo (pure Python, no
+openEMS import — the judge can run it standalone).
 
-Hammerstad-Jensen closed-form microstrip Z0 / eeff, and the quasi-static
-patch resonance estimate. Written from the published equations (Hammerstad &
-Jensen, 1980; Balanis, *Antenna Theory* 4th ed.).
+- microstrip_hammerstad_jensen: closed-form quasi-static Z0 / effective
+  permittivity of a microstrip line (Hammerstad & Jensen 1980).
+- patch_resonance_ghz: quasi-static dominant-mode resonance of a rectangular
+  patch incl. Hammerstad fringing correction (Balanis, Antenna Theory).
 
-No MEEP import — pure Python so the judge can run it standalone.
+These are the acceptance references the measured openEMS numbers are checked
+against. They never touch the artifact.
 """
 import math
 
 C0 = 299792458.0   # m/s
+EPS0 = 8.854187817e-12
 
 
 def microstrip_hammerstad_jensen(w_m, h_m, er):
-    """Characteristic impedance and effective permittivity of a microstrip
-    line per Hammerstad-Jensen (1980). W in m, h in m, er dimensionless."""
+    """(Z0, eeff) of a microstrip line, Hammerstad-Jensen 1980 closed form."""
     Wh = w_m / h_m
-    # effective permittivity
     ee = (er + 1) / 2 + (er - 1) / 2 * (1 + 12 / Wh) ** -0.5
-    if Wh >= 1:
-        # add the dispersion correction for wide strips ~ negligible at 2.45 GHz
-        ee = (er + 1) / 2 + (er - 1) / 2 * (1 + 12 / Wh) ** -0.5
-    # Z0
     if Wh < 1:
         Z0 = 60 / math.sqrt(ee) * math.log(8 / Wh + 0.25 * Wh)
     else:
@@ -29,30 +27,42 @@ def microstrip_hammerstad_jensen(w_m, h_m, er):
     return Z0, ee
 
 
-def patch_resonance_ghz(L_m, h_m, er):
-    """Quasi-static dominant-mode resonance of a rectangular patch: f = c /
-    (2 (L + dL) sqrt(eeff)), with Hammerstad fringing correction."""
-    W = L_m * 1.25  # width not needed for this order of estimate; set after
-    ee = (er + 1) / 2 + (er - 1) / 2 * (1 + 12 * h_m / W) ** -0.5
-    dL = 0.412 * h_m * ((ee + 0.3) * (W / h_m + 0.264)) / \
-         ((ee - 0.258) * (W / h_m + 0.8))
-    return C0 / (2 * (L_m + dL) * math.sqrt(ee))
+def patch_resonance_ghz(L_m, h_m, W_m, er):
+    """Quasi-static dominant-mode (TM010) resonance of a rectangular patch
+    with Hammerstad fringing extension. Returns GHz."""
+    ee = (er + 1) / 2 + (er - 1) / 2 * (1 + 12 * h_m / W_m) ** -0.5
+    dL = 0.412 * h_m * ((ee + 0.3) * (W_m / h_m + 0.264)) / \
+         ((ee - 0.258) * (W_m / h_m + 0.8))
+    return C0 / (2 * (L_m + dL) * math.sqrt(ee)) / 1e9
 
 
+def fr4_kappa_s_per_m(tanD, er, f_hz):
+    """Substrate conductivity corresponding to a loss tangent."""
+    return tanD * 2 * math.pi * f_hz * EPS0 * er
+
+
+# ---------------------------------------------------------------- gates ---
 ANTENNA_GATES = dict(
-    # physical sanity (gate G2)
+    # G2 physical sanity
+    er_min=3.5, er_max=5.0,
     sub_h_min_mm=0.5, sub_h_max_mm=2.5,
     patch_L_min_mm=20.0, patch_L_max_mm=45.0,
-    er_min=3.5, er_max=5.0,
-    resolution_min=4, resolution_max=18,
-    # RF performance
+    patch_W_min_mm=20.0, patch_W_max_mm=55.0,
+    mesh_res_min_mm=0.4, mesh_res_max_mm=2.0,
+    # G4/G5 RF spec
     s11_target_db=-10.0,
-    f_target_ghz=2.45, f_res_tol=0.02,      # ±2 %
-    s11_conv_delta_db=1.0,
-    # oracle
-    z0_tol=0.03,                            # 3 %
+    f_target_ghz=2.45, f_res_tol=0.02,       # resonance within +/-2 %
+    # G6 raw-data cross-check (judge re-derives S11 from openEMS port files)
+    crosscheck_tol_db=1.5,
+    # G7 oracle: simulated microstrip eeff vs Hammerstad-Jensen
+    eeff_tol=0.04,                            # <= 4 %
+    # G8 convergence: spec must still hold at mesh_res*0.75
+    conv_mesh_factor=0.75,
+    conv_fres_tol=0.015,                      # fine-mesh f_res within 1.5 %
 )
 
-Z0_50_WIDTH_MM = 3.1     # what the verification case uses
-Z0_50_ER = 4.4
-Z0_50_H_MM = 1.6
+# Verification line (oracle): ~50 ohm microstrip on 1.6 mm FR-4.
+LINE_W_MM = 3.08
+LINE_H_MM = 1.6
+LINE_ER = 4.4
+LINE_TAND = 0.02

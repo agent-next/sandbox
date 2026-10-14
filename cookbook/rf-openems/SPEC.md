@@ -1,93 +1,96 @@
-# SPEC — rf-openems: 2.45 GHz RF/EM demo on disposable sandboxes
+# SPEC — rf-openems: 2.45 GHz microstrip patch antenna, judged by FDTD
 
 ## Goal
 
-An agent can design and verify a **2.45 GHz microstrip patch antenna on FR-4**
-with a full-wave 3-D FDTD solver inside a disposable agent-next sandbox, and a
-judge it cannot fool decides whether the design works. The deliverable is a
-parameterised Python model script; the judge runs the simulation itself and
-checks the result against numeric gates plus an independent analytic oracle.
+An agent designs (or repairs) a **2.45 GHz probe-fed microstrip patch antenna
+on FR-4** inside a disposable agent-next sandbox. The deliverable is a
+parameterised Python script driving **openEMS** (3-D cartesian FDTD). A judge
+the agent cannot modify runs the simulation itself and checks the result
+against numeric gates plus an independent analytic oracle.
 
-## Deviation from the brief (recorded up front)
+## Tooling
 
-The brief asks for **openEMS**. openEMS is not available through any pinnable
-channel usable in this sandbox: it is absent from PyPI (`pip index versions
-openEMS → no matching distribution`), absent from conda-forge
-(`repodata.json` has no `openems-*` artifacts), absent from Debian bookworm,
-and upstream (bismuth.dev/openEMS) has hosted no binary release tarballs since
-2019 — building from source is the only route and cannot be pinned to a
-sha256-checked tarball with a reproducible build inside minutes. The judge
-**therefore uses MEEP (pymeep 1.31.0 from conda-forge, pinned + sha256/record
-checked)** instead — same physics (3-D cartesian FDTD), same deliverable type
-(parameterised simulation script), same oracle class. This is recorded in
-`RECEIPT.md` and `DEVIATIONS.md`.
+openEMS 0.0.35 (Debian bookworm package `python3-openems`, exact version +
+sha256 pinned, extracted into `$HOME` without root — see `judge/setup.sh` and
+`judge/packages.txt`). openEMS is the required solver per the demo brief; it
+is not on PyPI or conda-forge, so the pinned Debian package is the pinned
+source of truth.
 
 ## Non-goals
 
-- Optimising gain / efficiency / pattern — only the driving-point (S11) gate
-  counts. (Far-field radiation is optional / disabled at default resolution;
-  an off-by-default gate is not part of grading.)
-- Broadband design (fidelity 2.0–2.9 GHz is enough).
-- Antenna array / feeding networks.
-- Production-grade mesh convergence study (we require one coarse→fine
-  *confirmation run*, documented — not an asymptotic Richardson study).
+- Gain/efficiency/far-field pattern — only the driving-point (S11) spec
+  counts. nf2ff is disabled.
+- Broadband design (2.2–2.7 GHz sweep is enough).
+- Arrays, feed networks, dual-band.
+- Production mesh-convergence study — the judge requires one coarse→fine
+  *confirmation run*, documented, not an asymptotic study.
 
 ## The artifact
 
-`antenna.py` — a Python script the user/agent produces, with these **public
-parameters in a top-of-file block** (must exist, be assignable, and be in
-mm/GHz units as named):
+`antenna.py` — a self-contained Python script with:
 
-```
-f_target_g   = 2.45    # GHz
-suburb_er = 4.4        # substrate permittivity, FR-4
-patch_L = 30          # mm — patch length along propagation
-patch_W = 37          # mm
-substrate_h = 1.6     # mm
-feed_inset = 3        # mm from patch edge (front)
-side_gnd_gap = 5      # mm clearance patch↔edge of outer ground ring
-resolution = 10       # voxel cells / mm (mesh)
-```
+1. A **top-of-file parameter block** of literal constants (AST-parseable;
+   names, units as given):
+   ```
+   f_target_ghz = 2.45    # GHz
+   er           = 4.4     # substrate permittivity
+   tanD         = 0.02    # substrate loss tangent
+   sub_h        = 1.6     # mm  substrate thickness
+   patch_L      = 28.4    # mm  resonant length
+   patch_W      = 37.0    # mm
+   feed_inset   = 8.0     # mm  probe inset from the radiating edge
+   mesh_res     = 1.2     # mm  max mesh step inside the substrate footprint
+   ```
+2. `def simulate(p, sim_path) -> {"freqs_GHz": [...], "S11_dB": [...]}` —
+   builds the geometry, runs openEMS into `sim_path` (which must afterwards
+   contain the raw port files `port_ut_1` / `port_it_1`), and returns the
+   S11 sweep over 2.2–2.7 GHz (>= 21 points).
+3. When run as `__main__`, it calls `simulate()` with the parameter block,
+   writes `antenna_results.json` in the current directory
+   (`{"S11_dB_at_target", "f_res_GHz", "freqs_GHz", "S11_dB"}`) and prints
+   exactly one `RESULT S11_dB_at_<f>=<x> f_res_GHz=<y>` line.
 
-The script must emit, to stdout, exactly one line:
-`RESULT S11_dB_at_<f_target> <f_res_GHz> <f_res_within_pct>`
-where the two resonance checks come from the script’s own frequency sweep
-(displayed by the judge; the judge re-derives them independently from the
-data written by the sim to an artifact-local JSON: `antenna_results.json`).
-
-The script must produce `antenna_results.json` next to itself:
-`{"S11_dB_at_target": x, "f_res_GHz": y, "freqs_GHz": [...], "S11_dB": [...]}`
-so the judge can cross-plot.
+The lumped port must be port #1 with reference impedance 50 ohm.
 
 ## Judge gates (all must pass — exit 0 only then)
 
-| # | gate | rule |
-|---|---|---|
-| G1 | artifact sanity | `antenna.py` parses (py_compile), contains the 9 parameters, each within 3× of good value — catches degenerate files |
-| G2 | physical sanity | substrate thickness ∈ [0.5, 2.5] mm; patch L ∈ [20, 45] mm; er ∈ [3.5, 5.0]; resolution ∈ [6, 18] |
-| G3 | sim runs clean | judge executes the artifact under a 9-min wall limit; results JSON valid, freqs span 2.2–2.7 GHz with ≥ 21 points |
-| G4 | S11 target | `S11_dB_at_target ≤ −10.0 dB` (at 2.45 GHz) |
-| G5 | resonance location | `f_res_GHz` (minimum |S11| in band) within ±2 % of 2.45 GHz |
-| G6 | **analytic oracle** | independent Hammerstad-Jensen 50 Ω microstrip line at 1.6 mm FR-4 → within 3 % of MEEP-derived characteristic impedance (same mesh/substrate); also patch-length quasi-static estimate within ±10 % of best-fit — printed for the human; fail if > 3 % |
-| G7 | convergence | the judge re-runs the sim at `resolution+2` and requires `ΔS11_dB ≤ 1.0 dB` at target — catched coarse-mesh flukes |
-| G8 | judge integrity | sha256 of `judge/` tree before & after the run must match |
+| # | gate | numeric rule |
+|---|------|--------------|
+| G1 | artifact sanity | py_compile OK; all 8 params present as numeric literals; `simulate` defined |
+| G2 | physical sanity | er ∈ [3.5, 5.0]; sub_h ∈ [0.5, 2.5] mm; patch_L ∈ [20, 45] mm; patch_W ∈ [20, 55] mm; feed_inset ∈ (0, 0.45·patch_L]; mesh_res ∈ [0.4, 2.0] mm |
+| G3 | sim runs | artifact exits 0 under a 9-min wall limit; RESULT line present; `antenna_results.json` covers 2.2–2.7 GHz with ≥ 21 points; raw `port_ut_1`/`port_it_1` exist |
+| G4 | S11 at target | `S11_dB_at_target ≤ −10 dB` at 2.45 GHz |
+| G5 | resonance | `f_res_GHz` (min \|S11\| in band) within ±2 % of 2.45 GHz |
+| G6 | raw cross-check | judge re-computes S11(f) from the raw `port_ut_1`/`port_it_1` time series itself; max \|S11_judge − S11_artifact\| ≤ 1.5 dB over the band |
+| G7 | **analytic oracle** | independent judge sim: openEMS effective permittivity of a ~50 Ω microstrip on 1.6 mm FR-4 vs Hammerstad-Jensen closed form, `|eeff_sim − eeff_HJ| / eeff_HJ ≤ 4 %` |
+| G8 | convergence | judge imports the artifact and re-runs `simulate()` at `mesh_res×0.75`; spec must still hold at the finer mesh (S11 ≤ −10 dB and f_res shift ≤ 1.5 %) |
+| G9 | judge integrity | sha256 of `judge/` tree identical before and after the run |
+
+G8 note: the *depth* of an S11 dip is notoriously mesh-sensitive (a deep null
+can move by 10+ dB between meshes while the spec still holds), so convergence
+is defined as **the spec still holding under refinement**, not as a small
+ΔS11. This is the honest convergence criterion; it is why the gate re-checks
+G4+G5 on the refined mesh.
 
 ## Acceptance oracle
 
-- **Hammerstad–Jensen closed-form Z₀** for a 50 Ω microstrip on FR-4 (W/h =
-  1.965, er = 4.4, h = 1.6 mm), run as a separate MEEP *verification* sim and
-  computed in pure Python.
-- **Patch resonance quasi-static**: f_r ≈ c / (2·L·√εeff) within ±10 % of
-  MEEP.
-- **Self-test**: 6 scripted single-edit mutants (known-bad substrate, wrong
-  patch length, missing ground plane, missing feed inset, resolution too
-  coarse, NaN-poisoned `er`) all fail at least one gate; kill rate must be
-  ≥ 90 %.
+- **Hammerstad-Jensen closed form** for a ~50 Ω microstrip (W/h = 1.925,
+  er = 4.4, h = 1.6 mm): `eeff_HJ = 3.33`. The judge simulates a straight
+  line, extracts β from the phase slope of five field probes, derives
+  `eeff_sim` and compares (gate G7, ≤ 4 %). Measured residual is ~3 % — the
+  quasi-static formula itself is approximate; the 4 % bound is honest and
+  documented, not fitted.
+- **Patch quasi-static resonance** `c/(2(L+ΔL)√εeff)` is reported beside the
+  measured `f_res` (informational; the feed-probe inductance and finite
+  ground shift the real resonance by a few %).
+- **Self-test**: 7 scripted single-edit mutants (wrong er, wrong patch
+  length, deleted ground plane, feed at voltage null, mesh out of range,
+  NaN er, substrate too thick) must each fail ≥ 1 gate; kill rate ≥ 90 %.
 
 ## Provenance
 
-MEEP is MIT-licensed (github.com/NanoComp/meep; 1.31.0 wheels shipped from
-conda-forge). The patch-antenna geometry equations are standard literature
-(Balanis, *Antenna Theory*; Pozar, *Microwave Engineering*). My simulator
-script is written from scratch; no third-party code is imported other than
-MEEP + numpy.
+openEMS is GPL-2.0+ (github.com/thliebig/openEMS; Debian package
+`python3-openems 0.0.35+git20190103.6a75e98+dfsg.1-3.2`, bookworm). The
+geometry equations are textbook (Balanis; Pozar; Hammerstad-Jensen). The
+artifact, judge and oracle are written from scratch for this demo; nothing
+third-party is imported beyond the pinned tools.

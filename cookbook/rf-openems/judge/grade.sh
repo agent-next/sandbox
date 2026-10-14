@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
-# grade.sh <artifact> [--json out.json]
-# Thin wrapper: activates the pinned MEEP env and runs judge/grade.py.
+# grade.sh <artifact.py> [--json out.json] [--seed N] [--skip-convergence]
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_DIR="${ENV_DIR:-$HOME/.rf-openems/env}"
-MM_BIN="$HOME/.rf-openems/micromamba"
+BASE="${RF_OPENEMS_HOME:-$HOME/.rf-openems}"
 
-if [ ! -x "$ENV_DIR/bin/python" ]; then
+if [ ! -f "$BASE/sysroot/.debs_done" ]; then
     echo "judge env missing; run judge/setup.sh first" >&2
     exit 2
 fi
-
-# never run the artifact from its own directory with plain "python" — run it
-# under -I from a scratch dir with the real interpreter, in the pinned env.
-exec "$MM_BIN" run -p "$ENV_DIR" python "$HERE/grade.py" "$@"
+source "$HERE/env.sh"
+exec "$RF_PY" "$HERE/grade.py" "$@"

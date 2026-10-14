@@ -8,39 +8,57 @@ Usage:
 import os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GOOD = os.path.normpath(os.path.join(HERE, "..", "examples", "good", "antenna.py"))
+GOOD = os.path.normpath(os.path.join(HERE, "..", "examples", "good",
+                                     "antenna.py"))
 BAD_DIR = os.path.normpath(os.path.join(HERE, "..", "examples", "bad"))
 
 # (filename, human description, mutator(src)->src)
 MUTANTS = [
-    ("bad_substrate_er.py", "wrong substrate permittivity",
-     lambda s: re.sub(r"^er\s*=.*$", "er = 3.2", s, count=1, flags=re.M)),
-    ("bad_patch_length.py", "wrong patch length, resonance moved",
-     lambda s: re.sub(r"^patch_L\s*=.*$", "patch_L = 24.0", s, count=1, flags=re.M)),
-    ("bad_no_ground.py", "missing ground plane",
-     lambda s: s.replace('mp.Block(center=mp.Vector3(0, 0, z0 - 0.05),\n                   size=mp.Vector3(sx, sy, 0.1), material=mp.metal)',
-                         'None') if 'z0 - 0.05' in s else
-            re.sub(r"^(.*ground.*)$", r"# \1", s, flags=re.M)),
-    ("bad_feed_center.py", "feed at the patch centre (voltage node)",
-     lambda s: re.sub(r"^feed_inset\s*=.*$", "feed_inset = 15.0", s, count=1, flags=re.M)),
-    ("bad_coarse_mesh.py", "mesh too coarse to converge",
-     lambda s: re.sub(r"^resolution\s*=.*$", "resolution = 4", s, count=1, flags=re.M)),
-    ("bad_nan_er.py", "permittivity is NaN",
-     lambda s: re.sub(r"^er\s*=.*$", 'er = float("nan")', s, count=1, flags=re.M)),
+    ("bad_substrate_er.py",
+     "wrong substrate permittivity (er=2.2, outside FR-4 sanity range)",
+     lambda s: re.sub(r"^er\s*=.*$", "er           = 2.2", s,
+                      count=1, flags=re.M)),
+    ("bad_patch_length.py",
+     "wrong patch length (22 mm moves the resonance to ~3.1 GHz)",
+     lambda s: re.sub(r"^patch_L\s*=.*$", "patch_L      = 22.0", s,
+                      count=1, flags=re.M)),
+    ("bad_no_ground.py",
+     "ground-plane box deleted (no return path -> no patch resonance)",
+     lambda s: re.sub(r"metal\.AddBox\(\[-sub_m[^#]*# ground\n?",
+                      "", s)),
+    ("bad_feed_center.py",
+     "feed at the patch centre (a TM010 voltage node -> no match)",
+     lambda s: re.sub(r"^feed_inset\s*=.*$", "feed_inset   = 14.2", s,
+                      count=1, flags=re.M)),
+    ("bad_coarse_mesh.py",
+     "mesh too coarse (mesh_res=2.4 mm, outside the sanity range)",
+     lambda s: re.sub(r"^mesh_res\s*=.*$", "mesh_res     = 2.4", s,
+                      count=1, flags=re.M)),
+    ("bad_nan_er.py",
+     "permittivity set to NaN (parameter no longer a literal constant)",
+     lambda s: re.sub(r"^er\s*=.*$", 'er           = float("nan")', s,
+                      count=1, flags=re.M)),
+    ("bad_thick_substrate.py",
+     "substrate too thick (3.5 mm, outside the sanity range)",
+     lambda s: re.sub(r"^sub_h\s*=.*$", "sub_h        = 3.5", s,
+                      count=1, flags=re.M)),
 ]
 
 
 def main():
-    out = []
     src = open(GOOD).read()
     os.makedirs(BAD_DIR, exist_ok=True)
     if len(sys.argv) > 1 and sys.argv[1] == "list":
         for name, desc, _ in MUTANTS:
             print(f"{name:28s} {desc}")
         return
+    out = []
     for name, desc, fn in MUTANTS:
         dst = os.path.join(BAD_DIR, name)
-        open(dst, "w").write(fn(src))
+        mutated = fn(src)
+        if mutated == src:
+            raise SystemExit(f"mutant {name}: mutation did not apply!")
+        open(dst, "w").write(mutated)
         out.append(dst)
     print(f"generated {len(out)} mutants into {BAD_DIR}")
 
