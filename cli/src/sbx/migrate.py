@@ -95,11 +95,13 @@ def _job_runs_on(lines: list[str]):
             yield job, i
 
 
-def _q(label: str) -> str:
-    """A label as a YAML flow scalar: bare when plain, else double-quoted."""
-    if re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.\-/]*", label):
-        return label
-    return '"' + label.replace("\\", "\\\\").replace('"', '\\"') + '"'
+_PLAIN = re.compile(r"[A-Za-z][A-Za-z0-9._-]*")
+_YAML_WORDS = {"true", "false", "yes", "no", "on", "off", "null"}
+
+
+def _plain(label: str) -> bool:
+    """A label that is the same bare scalar in YAML, in a flow list and on a shell line."""
+    return _PLAIN.fullmatch(label) is not None and label.lower() not in _YAML_WORDS
 
 
 def _fmt(labels: list[str]) -> str:
@@ -118,7 +120,6 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
         value, comment = _split_comment(raw)
         value = value.strip()
         items: list[str] | None = None
-        raws: list[str] = []
         item_lines: list[tuple[int, re.Match]] = []
         if not value:  # block list
             items, j, mapping = [], i + 1, False
@@ -126,7 +127,7 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
                                       or (_indent(lines[j]) == len(indent) and lines[j].lstrip().startswith("-"))):
                 im = _ITEM.match(lines[j])
                 if im:
-                    items.append(im.group(3).strip())
+                    items.append(im.group(2) + im.group(3).strip() + im.group(2))  # quotes kept: not plain
                     item_lines.append((j, im))
                 elif not _blank(lines[j]):
                     mapping = True
@@ -139,15 +140,13 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
             findings.append(Finding(name, job, i + 1, value, "", "multi-line flow list"))
             continue
         elif value.startswith("["):
-            raws = [x.strip() for x in value.strip("[]").split(",") if x.strip()]
-            items = [_unquote(x) for x in raws]
+            items = [x.strip() for x in value.strip("[]").split(",") if x.strip()]
             display = value
         elif "${{" in value or value.startswith(("{", "$")):
             findings.append(Finding(name, job, i + 1, value, "", "expression or mapping (matrix, group, ...)"))
             continue
         else:
-            raws = [value]
-            display = _unquote(value)
+            display = value
         labs = items if items is not None else [display]
         if any(x.lower() == "self-hosted" for x in labs):
             findings.append(Finding(name, job, i + 1, display, "", "already self-hosted"))
@@ -155,14 +154,15 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
         if any("${{" in x for x in labs):
             findings.append(Finding(name, job, i + 1, display, "", "expression in label list"))
             continue
-        if not any(x in UBUNTU for x in labs):
+        if not any(x.strip("\"'") in UBUNTU for x in labs):
             continue
-        # existing labels keep their original text (and quotes); duplicates collapse to one copy
-        new = [_q(y) for y in labels]
-        kept = raws or labs
+        if not all(_plain(x) for x in labs):
+            findings.append(Finding(name, job, i + 1, display, "", "labels not plain (quoted or special)"))
+            continue
+        # duplicates (e.g. two ubuntu labels) collapse to one copy of the new labels
         seen: list[str] = []
-        for lab, raw in zip(labs, kept):
-            for out in new if lab in UBUNTU else [raw]:
+        for x in labs:
+            for out in labels if x in UBUNTU else [x]:
                 if out not in seen:
                     seen.append(out)
         effective = tuple(dict.fromkeys(y for x in labs for y in (labels if x in UBUNTU else [x])))
@@ -174,9 +174,9 @@ def migrate_text(name: str, text: str, labels: list[str], jobs: set[str] | None 
                 if im.group(3).strip() not in UBUNTU:
                     continue
                 pad, tail, e = im.group(1), im.group(4), im.group(5) or eol
-                block = [f"{pad}- {_q(x)}{e}" for x in labels] if first else []
+                block = [f"{pad}- {x}{e}" for x in labels] if first else []
                 if block and tail:
-                    block[-1] = f"{pad}- {_q(labels[-1])}  {tail}{e}"
+                    block[-1] = f"{pad}- {labels[-1]}  {tail}{e}"
                 elif tail:  # a dropped duplicate keeps its comment
                     block = [f"{pad}{tail}{e}"]
                 edits.append((k, k + 1, block))
@@ -203,6 +203,9 @@ def parse_labels(spec: str) -> list[str]:
     labels = [x.strip() for x in spec.strip().strip("[]").split(",") if x.strip()]
     if not labels:
         raise SbxError("--label needs at least one label, e.g. '[self-hosted, sbx]'")
+    for x in labels:
+        if not _plain(x):
+            raise SbxError(f"--label {x!r}: use plain labels (letters, digits, . _ -; starting with a letter; not true/false/yes/no/on/off/null)")
     return labels
 
 
