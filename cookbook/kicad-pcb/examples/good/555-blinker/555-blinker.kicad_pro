@@ -1,0 +1,328 @@
+{
+    "board": {
+        "design_settings": {
+            "defaults": {
+                "board_outline_line_width": 0.15,
+                "copper_line_width": 0.2,
+                "copper_text_size_h": 1.5,
+                "copper_text_size_v": 1.5,
+                "copper_text_thickness": 0.3,
+                "copper_text_italic": false,
+                "copper_text_upright": false,
+                "edge_cut_line_width": 0.15,
+                "edge_cut_margin": 0.0,
+                "other_line_width": 0.15,
+                "other_text_size_h": 1.5,
+                "other_text_size_v": 1.5,
+                "other_text_thickness": 0.3,
+                "other_text_italic": false,
+                "other_text_upright": false,
+                "silkscreen_line_width": 0.15,
+                "silkscreen_text_size_h": 1.0,
+                "silkscreen_text_size_v": 1.0,
+                "silkscreen_text_thickness": 0.15,
+                "silkscreen_text_italic": false,
+                "silkscreen_text_upright": false,
+                "zone_45_only": false,
+                "zone_filled_areas_thickness": 0.3,
+                "zone_line_width": 0.15,
+                "zone_margin": 0.0,
+                "zone_min_clearance": 0.2
+            },
+            "diff_pair_dimensions": [],
+            "drc_exclusions": [],
+            "rule_severities": {
+                "annular_ring": "error",
+                "clearance": "error",
+                "copper_edge_clearance": "error",
+                "courtyards_overlap": "error",
+                "diff_pair_gap_out_of_range": "error",
+                "diff_pair_uncoupled_length_too_long": "error",
+                "drill_out_of_range": "error",
+                "duplicate_footprints": "error",
+                "edge_clearance": "error",
+                "footprint": "error",
+                "footprint_type_mismatch": "error",
+                "hole_clearance": "error",
+                "hole_near_hole": "error",
+                "invalid_outline": "error",
+                "item_on_disabled_layer": "error",
+                "items_not_allowed": "error",
+                "length_out_of_range": "error",
+                "malformed_courtyard": "error",
+                "microvia_drill_out_of_range": "error",
+                "missing_courtyard": "ignore",
+                "net_conflict": "error",
+                "npth_inside_courtyard": "error",
+                "padstack": "error",
+                "pads_not_connected": "error",
+                "shorting_items": "error",
+                "silk_over_copper": "warning",
+                "skew_out_of_range": "error",
+                "through_hole_pad_without_hole": "error",
+                "too_many_vias": "error",
+                "track_width": "error",
+                "unconnected_items": "error",
+                "unresolved_variable": "error",
+                "via_dangling": "error",
+                "zone_has_empty_net": "error",
+                "zones_intersect": "error"
+            },
+            "track_widths": [
+                0.25
+            ],
+            "via_dimensions": [
+                {
+                    "size": 0.6,
+                    "drill": 0.4
+                }
+            ],
+            "zone_clearance": 0.2
+        },
+        "layer_presets": []
+    },
+    "board_setup": {
+        "nets": [],
+        "net_classes": [
+            {
+                "name": "Default",
+                "bus_width": 0,
+                "clearance": 0.2,
+                "diff_pair_gap": 0.25,
+                "diff_pair_uncoupled": 5.0,
+                "diff_pair_via_gap": 0.25,
+                "line_style": 0,
+                "pcb_color": "rgba(0, 0, 0, 0.000)",
+                "schematic_color": "rgba(0, 0, 0, 0.000)",
+                "track_width": 0.25,
+                "via_dia": 0.6,
+                "via_drill": 0.4,
+                "wire_width": 0.6
+            }
+        ],
+        "pad_to_mask_clearance": 0.051,
+        "pad_to_paste_clearance": 0.0,
+        "pcbplotparams": {
+            "drill_marks": 0,
+            "drill_min_size": 0.1,
+            "excellon_zeros_format": 1,
+            "format": 2,
+            "generate_drill": true,
+            "generate_map": true,
+            "layerselection": "0x000f0_80000000",
+            "map_drill_symbols": true,
+            "map_format": 2,
+            "map_layer": "F.Fab",
+            "mirror": false,
+            "negative": false,
+            "output_dir": "",
+            "page_size_mode": 1,
+            "plot_appearance": 0,
+            "plot_border_title": false,
+            "plot_frame_ref": false,
+            "plot_invisible_text": false,
+            "plot_pads_on_silk": false,
+            "plot_reference": true,
+            "plot_sheet_ref": false,
+            "plot_value": true,
+            "force_plot_invisible_text": false,
+            "scale": 1,
+            "subtract_mask_from_silk": false,
+            "use_aux_origin": false,
+            "use_gerber_attributes": true,
+            "use_gerber_protel_extensions": false,
+            "via_on_mask": 1
+        },
+        "schematic_net_class_map": [
+            "Default"
+        ],
+        "stackup": {
+            "copper_finish": "HASL",
+            "copper_thickness": 1.4,
+            "dielectric_constraints": [],
+            "edge_connector": false,
+            "finished_thickness": 1.6,
+            "layers": [
+                {
+                    "color": "rgba(220, 220, 220, 1.000)",
+                    "name": "F.Cu",
+                    "type": "copper"
+                },
+                {
+                    "color": "rgba(220, 220, 220, 1.000)",
+                    "name": "B.Cu",
+                    "type": "copper"
+                }
+            ],
+            "material": "FR4",
+            "solder_mask": "default",
+            "solder_mask_thickness": 0.01,
+            "surface_finish": "HASL"
+        }
+    },
+    "cvpcb": {
+        "equivalence_files": []
+    },
+    "erc": {
+        "erc_exclusions": [],
+        "pin_map": [
+            {
+                "from": "passive",
+                "to": "passive",
+                "condition": "ok"
+            },
+            {
+                "from": "passive",
+                "to": "input",
+                "condition": "ok"
+            },
+            {
+                "from": "passive",
+                "to": "output",
+                "condition": "ok"
+            },
+            {
+                "from": "passive",
+                "to": "bidirectional",
+                "condition": "ok"
+            },
+            {
+                "from": "passive",
+                "to": "power_input",
+                "condition": "ok"
+            },
+            {
+                "from": "passive",
+                "to": "power_output",
+                "condition": "ok"
+            },
+            {
+                "from": "input",
+                "to": "output",
+                "condition": "ok"
+            },
+            {
+                "from": "input",
+                "to": "bidirectional",
+                "condition": "ok"
+            },
+            {
+                "from": "input",
+                "to": "power_input",
+                "condition": "ok"
+            },
+            {
+                "from": "output",
+                "to": "power_input",
+                "condition": "ok"
+            },
+            {
+                "from": "bidirectional",
+                "to": "power_input",
+                "condition": "ok"
+            },
+            {
+                "from": "power_output",
+                "to": "power_input",
+                "condition": "ok"
+            }
+        ],
+        "rule_severities": {
+            "bus_definition_conflict": "error",
+            "bus_entry_needed": "error",
+            "bus_label_syntax": "error",
+            "bus_to_bus_conflict": "error",
+            "bus_to_net": "error",
+            "dangling_symbol": "error",
+            "different_unit_footprint": "error",
+            "duplicate_reference": "error",
+            "duplicate_sheet_names": "error",
+            "err_type_1": "error",
+            "err_type_2": "error",
+            "err_type_3": "error",
+            "err_type_4": "error",
+            "err_type_5": "error",
+            "err_type_6": "error",
+            "err_type_7": "error",
+            "global_label_dangling": "error",
+            "hier_label_mismatch": "error",
+            "label_dangling": "error",
+            "lib_symbol_issue": "error",
+            "mismatch_multiple_occurrences": "error",
+            "missing_driving_power": "error",
+            "multiple_net_names": "error",
+            "net_not_driven": "warning",
+            "no_connect_connected": "error",
+            "pin_not_connected": "error",
+            "pin_not_driven": "error",
+            "pin_to_pin": "error",
+            "power_pin_not_driven": "error",
+            "short_circuit": "error",
+            "similar_labels": "warning",
+            "symbol_power_pin": "error",
+            "unannotated": "error",
+            "unit_not_in_symbol": "error",
+            "unresolved_variable": "error"
+        }
+    },
+    "libraries": {
+        "pinned_footprint_libs": [],
+        "pinned_symbol_libs": []
+    },
+    "meta": {
+        "version": 1,
+        "filename": "555-blinker.kicad_pro"
+    },
+    "net_settings": {
+        "classes": [
+            {
+                "bus_width": 0,
+                "clearance": 0.2,
+                "diff_pair_gap": 0.25,
+                "diff_pair_uncoupled": 5.0,
+                "diff_pair_via_gap": 0.25,
+                "line_style": 0,
+                "name": "Default",
+                "pcb_color": "rgba(0, 0, 0, 0.000)",
+                "schematic_color": "rgba(0, 0, 0, 0.000)",
+                "track_width": 0.25,
+                "via_dia": 0.6,
+                "via_drill": 0.4,
+                "wire_width": 0.6
+            }
+        ],
+        "net_colors": []
+    },
+    "pcbnew": {
+        "last_paths": {
+            "gencad": "",
+            "idf": "",
+            "netlist": "",
+            "specctra_dsn": "",
+            "step": "",
+            "vrml": ""
+        },
+        "page_layout_descr_file": ""
+    },
+    "schematic": {
+        "annotation": {
+            "auto_annotate": true,
+            "reset_existing_annotations": false
+        },
+        "drawing": {
+            "default_text_size": 1.5
+        },
+        "legacy_lib_dir": "",
+        "legacy_lib_list": []
+    },
+    "sheets": [
+        {
+            "file": "555-blinker.kicad_sch",
+            "uuid": "555b1c0d-43a1-4784-9682-8b7dd1c7d330"
+        },
+        {
+            "file": "rp2040.kicad_sch",
+            "uuid": "5384e408-8f0c-411c-b558-df35c2e889ec"
+        }
+    ]
+}
