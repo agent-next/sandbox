@@ -54,7 +54,10 @@ The plant integrates per scan (10 ms):
 The agent produces a single file: `tank_ctrl.st` — a PROGRAM `tank_ctrl` with
 the `VAR_INPUT` / `VAR_OUTPUT` above, plus a CONFIGURATION `tank_cfg` that runs
 it on a `fast` task with `INTERVAL := T#10ms`. The judge compiles this file
-with the pinned `iec2c`, links it with a fixed harness, and runs scenarios.
+with the pinned `iec2c`, links it with a fixed harness, and runs scenarios. The file
+must be plain Structured Text: MATIEC's `{{ ... }}` embedded-C pragma is
+rejected before compilation, and an engine that stops before the full
+12,000-scan scenario fails that scenario.
 
 Required behaviour of a correct controller (what the judge checks, numerically):
 
