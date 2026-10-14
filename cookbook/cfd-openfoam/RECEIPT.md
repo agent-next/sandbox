@@ -145,7 +145,7 @@ lists are identical to the original RECEIPT (e.g. `poiseuille_wrong_outlet`
 | Cavity max v err vs Ghia | 0.0073 | <= 0.02 |
 | Mutant kill rate | 10/10 (100 %) | >= 90 % |
 
-## Hardening (2026-10-14, against DEMO-STANDARD.md @ `sbx/sim-demos-20261014`)
+## Hardening (2026-10-14, against cookbook/DEMO-STANDARD.md)
 
 Standard sections addressed: **Reproducibility** and **Judge rules**.
 
