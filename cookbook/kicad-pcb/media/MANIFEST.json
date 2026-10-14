@@ -1,0 +1,37 @@
+[
+  {
+    "file": "demo.mp4",
+    "description": "step-through of the judge loop: artifact, gate results, mutant kills, verdict",
+    "command": "bash media/make_media.sh",
+    "source_data": "master/frames/",
+    "sha256": "7a2d4857d3cb1a095d9efe5108a94d279118a9290cbef83ec5f139e74c4c0dd4"
+  },
+  {
+    "file": "loop.png",
+    "description": "self-test: failed-gate count for known-good and each mutant, with the kill-rate bar",
+    "command": "bash media/make_media.sh",
+    "source_data": "data/*.json",
+    "sha256": "d3c01f7d20f01540167e7ae9417625eb0529a690e5c7c1c34cc5a732a9d62926"
+  },
+  {
+    "file": "make_media.sh",
+    "description": "this regeneration script",
+    "command": "bash media/make_media.sh",
+    "source_data": "-",
+    "sha256": "70ad8c3c147a1ffc97f08d97a2b346f487ce1e30539263d304af23b797f946e5"
+  },
+  {
+    "file": "render.py",
+    "description": "figure/frame renderer (matplotlib)",
+    "command": "bash media/make_media.sh",
+    "source_data": "-",
+    "sha256": "1f11c067a1afa7667490d96f2eeb519e80499490bf5d7385db966fde5504949a"
+  },
+  {
+    "file": "result.png",
+    "description": "board geometry + per-gate judge verdict for the known-good 555 blinker",
+    "command": "bash media/make_media.sh",
+    "source_data": "data/good.json",
+    "sha256": "fdfeb601ba4d6c29d5323da8b20d0a58ad0dc4cc4dbe637d22d3ec04de108459"
+  }
+]

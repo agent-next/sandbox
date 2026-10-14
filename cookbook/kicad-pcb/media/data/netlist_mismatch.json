@@ -1,0 +1,108 @@
+{
+  "gates": {
+    "G1_erc": {
+      "details": {
+        "erc_errors": 0,
+        "erc_warnings": 70,
+        "error_types": {}
+      },
+      "pass": true
+    },
+    "G2_drc": {
+      "details": {
+        "drc_unconnected_items": 0,
+        "drc_violations": 0,
+        "violation_types": {}
+      },
+      "pass": true
+    },
+    "G3_netlist": {
+      "details": {
+        "floating_pins": 0,
+        "only_in_pcb": [
+          "TRIG"
+        ],
+        "only_in_sch": [
+          "TRIGX"
+        ],
+        "pcb_nets": [
+          "CTRL",
+          "DIS",
+          "GND",
+          "LED",
+          "OUT",
+          "TRIG",
+          "VCC"
+        ],
+        "sch_nets": [
+          "CTRL",
+          "DIS",
+          "GND",
+          "LED",
+          "OUT",
+          "TRIGX",
+          "VCC"
+        ],
+        "unrouted_items": 0
+      },
+      "pass": false
+    },
+    "G4_outline": {
+      "details": {
+        "closed": true,
+        "edge_cuts_items": 4,
+        "open_endpoints": 0
+      },
+      "pass": true
+    },
+    "G5_gerber": {
+      "details": {
+        "B.Cu": {
+          "apertures": 4,
+          "file": "555-blinker-B_Cu.gbl",
+          "ops": 35
+        },
+        "B.Mask": {
+          "apertures": 2,
+          "file": "555-blinker-B_Mask.gbs",
+          "ops": 2
+        },
+        "B.Silkscreen": {
+          "apertures": 1,
+          "file": "555-blinker-B_Silkscreen.gbo",
+          "ops": 186
+        },
+        "Edge.Cuts": {
+          "apertures": 1,
+          "file": "555-blinker-Edge_Cuts.gm1",
+          "ops": 8
+        },
+        "F.Cu": {
+          "apertures": 9,
+          "file": "555-blinker-F_Cu.gtl",
+          "ops": 85
+        },
+        "F.Mask": {
+          "apertures": 7,
+          "file": "555-blinker-F_Mask.gts",
+          "ops": 22
+        },
+        "F.Silkscreen": {
+          "apertures": 2,
+          "file": "555-blinker-F_Silkscreen.gto",
+          "ops": 352
+        }
+      },
+      "pass": true
+    },
+    "G6_drill": {
+      "details": {
+        "drill_files": 1,
+        "drill_hits": 11,
+        "tools": 2
+      },
+      "pass": true
+    }
+  },
+  "overall_pass": false
+}
