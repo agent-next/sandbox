@@ -1,0 +1,6 @@
+Python 3.12.15
+Playwright 1.63.0
+Chromium 153.0.8010.12
+numpy 2.2.6
+MuTracer 0.1.1 (MIT)
+MuTracer SHA-256 a84ec7913ae95e49b1172ea0cba45f20179f4a5d0cce08768d4812348e3e7b4a
