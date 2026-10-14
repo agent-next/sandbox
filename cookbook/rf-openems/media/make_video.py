@@ -160,7 +160,7 @@ def scene_replay(rec):
                     "time series (G6)")
             ax.plot(ff, sf, color=C_FINE, lw=1.6, ls=(0, (1, 1.6)),
                     zorder=5, label="fine-mesh re-run, 0.9 mm (G8)")
-            ax.legend(loc="upper right", fontsize=11, framealpha=0.95)
+            ax.legend(loc="lower right", fontsize=11, framealpha=0.95)
             i_res = int(np.argmin(sg))
             ax.plot([fg[i_res]], [sg[i_res]], "o", ms=9, mfc="white",
                     mec=C_GOOD, mew=2.0, zorder=6)
@@ -189,13 +189,14 @@ def scene_replay(rec):
                 fg, sg = read_trace(case + "__s11_artifact")
                 ax.plot(fg, sg, color=C_BAD, lw=3.0, zorder=4,
                         label="measured S11 (grader trace)")
-                ax.legend(loc="upper right", fontsize=11,
+                ax.legend(loc="lower right", fontsize=11,
                           framealpha=0.95)
             else:
                 ax.text(2.45, -13, "no S11 trace: the judge killed this "
                         "design at a sanity gate (G1/G2)\nbefore running "
                         "any simulation", ha="center", fontsize=14,
-                        color="0.4", style="italic")
+                        color="0.4", style="italic",
+                        bbox=dict(facecolor="white", edgecolor="none", pad=6))
             fig.text(0.5, 0.885, f"iteration {i+1}/{len(REPLAY)}: "
                      f"{headline} -- judge FAIL", ha="center", fontsize=20,
                      fontweight="bold", color=C_BAD)

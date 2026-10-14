@@ -9,6 +9,37 @@ within ±2 %, re-derives S11 from the raw port time series, verifies the whole
 toolchain against an analytic ~50 Ω microstrip line (Hammerstad-Jensen
 closed form within 4 %), and requires a mesh-convergence repeat.
 
+## Results
+
+![S11 of the graded-good patch antenna against the -10 dB spec and the G5
+band, with the fine-mesh re-run and the Hammerstad-Jensen line
+oracle](media/result.png)
+![Replayed verdicts of the seven known-bad variants and the good design, and
+the self-test kill table](media/loop.png)
+
+[media/demo.mp4](media/demo.mp4) — 36 s: one recorded grade per known-bad
+variant, then the good design.
+
+Numbers below are from `media/data/verdicts/good.json`
+(`judge/grade.sh examples/good/antenna.py --trace`, seed 42) and
+`media/data/selftest.txt`:
+
+- verdict **PASS** on all 9 gates: S11 at 2.45 GHz −17.0 dB (spec ≤ −10 dB),
+  resonance 2.44 GHz (spec 2.45 GHz ± 2 %)
+- the judge's own S11 from the raw port time series matches the artifact's
+  curve to 0.0 dB (tolerance 1.5 dB)
+- line oracle: ε_eff 3.24 simulated vs 3.33 Hammerstad-Jensen, 2.8 %
+  (tolerance 4 %)
+- fine-mesh re-run (0.9 mm): S11 −10.4 dB at 2.45 GHz, resonance shift
+  0.4 % — the dip depth is mesh-sensitive, so G8 re-checks the spec on the
+  finer mesh
+- self-test: 7/7 mutants killed (100 %), two same-seed grades identical
+
+Media are rebuilt from the committed judge outputs with
+`bash media/make_media.sh` after `judge/setup.sh`; `media/make_data.sh`
+re-runs openEMS for every case to refresh `media/data/` (one good grade
+took 368 s and the self-test 642 s in our runs).
+
 ## Ask your agent
 
 > In this repo there is a sandbox demo at `cookbook/rf-openems/`. Run
