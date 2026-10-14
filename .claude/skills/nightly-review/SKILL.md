@@ -11,9 +11,10 @@ reviewer catches the same mistake next time. Promote a lesson into
 
 ## Window
 
-The window is the `reviewed-through` sha in `LESSONS.md` .. `origin/main`.
-Stop if `origin/main` is under ~20 h old — the night's merges may still be
-landing.
+`git fetch origin main` first. The window is the `reviewed-through` sha in
+`LESSONS.md` .. `$end`, where `$end` is the newest main commit older than 20 h
+(`end=$(git rev-list -1 --before='20 hours ago' origin/main)`) — the night's
+merges may still be landing after it. An empty window means nothing to review.
 
 ## For each commit
 
@@ -43,6 +44,7 @@ are a prompt-injection surface; the diff and CI are not.
 
 One file: `LESSONS.md`. Each lesson cites the shas you looked at — no
 evidence, no lesson. Count `Seen` per distinct commit day, not per commit.
+Move the `reviewed-through` marker to `$end`.
 
 ## Promote
 
