@@ -1,0 +1,9 @@
+# Renders, buffers and downloaded tools never belong in git.
+*.png
+*.npy
+*.f32
+*.hdr
+verdict*.json
+serve/
+work/
+__pycache__/
