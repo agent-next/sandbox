@@ -158,7 +158,8 @@ from `sbx list`.
   from inside a sandbox. Each run still did a cold setup (install dir
   deleted first). The lead's host `run.py` run above covers the
   end-to-end sandboxed path (previous revision).
-- `media/` (figures, `media/data/*.json`) predates this hardening
-  round and still reflects the pre-fix warning counts; media
-  regeneration is a later round.
+- `media/` was regenerated after this hardening round from fresh judge
+  output (`media/make_data.sh` → `media/make_media.sh`); see
+  `media/REVIEW.md` for the pixel-level review record and
+  `media/MANIFEST.json` for output/source sha256s.
 - `REPRODUCE.md` awaits a run by a different agent family.

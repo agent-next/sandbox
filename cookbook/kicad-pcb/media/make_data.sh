@@ -6,7 +6,8 @@
 #   data/<name>.erc.json   raw `kicad-cli sch erc` report (marker coords)
 #   data/<name>.drc.json   raw `kicad-cli pcb drc` report (marker coords)
 # and keeps a copy of each mutant project in data/mutants/<name>/ so
-# make_media.sh can render the mutated artifacts (gitignored).
+# make_media.sh can render the mutated artifacts (committed — small
+# text-only project files, needed by a fresh clone).
 #
 # Mutants are expected to FAIL the judge; that is not an error here.
 
