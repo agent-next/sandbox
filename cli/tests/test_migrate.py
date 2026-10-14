@@ -260,3 +260,37 @@ def test_cli_dry_run_default_and_flags(monkeypatch, capsys):
 def test_cli_apply_and_dry_run_conflict(capsys):
     with pytest.raises(SystemExit):
         cli.main(["runners", "migrate", "--repo", "o/r", "--apply", "--dry-run"])
+
+
+def test_redirected_repo_is_followed():
+    seen = []
+
+    def handler(req):
+        seen.append(req.url.path)
+        if req.url.path == "/repos/o/old":
+            return httpx.Response(301, headers={"location": "https://api.github.com/repositories/42"})
+        if req.url.path == "/repositories/42":
+            return httpx.Response(200, json={"default_branch": "main"})
+        return httpx.Response(404)
+
+    real = httpx.Client
+    orig = migrate.httpx.Client
+    migrate.httpx.Client = lambda **kw: real(transport=httpx.MockTransport(handler), **kw)
+    try:
+        http = migrate.make_client("<FAKE>")
+        assert migrate.Migrator("o/old", http).default_branch() == "main"
+    finally:
+        migrate.httpx.Client = orig
+    assert seen == ["/repos/o/old", "/repositories/42"]
+
+
+def test_non_2xx_without_redirect_is_a_clear_error():
+    client = httpx.Client(base_url="https://api.github.com", transport=httpx.MockTransport(
+        lambda r: httpx.Response(301, headers={"location": "https://api.github.com/x"})))
+    with pytest.raises(cli.SbxError, match="HTTP 301"):
+        migrate.Migrator("o/r", client).default_branch()
+
+
+def test_pr_body_captures_only_the_snapshot_line():
+    body = migrate.pr_body("o/r", LABELS, [migrate.Finding("a.yml", "j", 1, "ubuntu-latest", "[self-hosted, sbx]")])
+    assert "snap=$(sbx runners image | tail -1)" in body
