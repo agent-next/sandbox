@@ -1,0 +1,4 @@
+# cnc-gcode judge: versions installed by judge/setup.sh
+# (Linux x86_64)
+Python 3.12.15
+numpy 2.5.3

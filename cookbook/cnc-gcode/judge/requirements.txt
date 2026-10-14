@@ -1,0 +1,10 @@
+# Judge pins for cookbook/cnc-gcode.
+# Installed by judge/setup.sh into $HOME/.cnc-gcode/venv via
+#   pip install --no-cache-dir --require-hashes -r judge/requirements.txt
+# numpy 2.5.3 (released 2026-09-06; nothing here is younger than two weeks).
+# Wheels are interpreter-tagged: cp312 linux x86-64 (glibc and musl) — the
+# interpreter judge/VERSIONS.txt records for this demo.  pip verifies against
+# exactly one line per package.
+numpy==2.5.3 \
+    --hash=sha256:b7e18c623bb5c95acb3b3328861272816ba199fb531921c5d6d0b675f1fde9e3 \
+    --hash=sha256:b5d93cf48f687479941d12b69c873ad2cc76bbd487f0091c2200636497f34034
