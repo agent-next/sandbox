@@ -35,6 +35,13 @@ TOL_VOL_STL = 0.01     # relative, gate G8
 TOL_DR = 0.01          # mm, gate G11
 
 
+GATE_ORDER = [
+    "step_solid", "step_bbox", "step_volume", "step_holes", "step_pcd",
+    "stl_watertight", "stl_orient", "stl_volume", "dxf_circles",
+    "dxf_outline", "design_rules",
+]
+
+
 class Gate:
     def __init__(self, gates, name, desc):
         self.name = name
@@ -45,8 +52,14 @@ class Gate:
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        # a gate only ends here: _GateFail means it recorded its own failure
-        return exc_type is _GateFail
+        # _GateFail means the gate recorded its own failure; anything else
+        # (a crash inside OCCT etc.) is recorded as a gate failure too
+        if exc_type is None:
+            return False
+        if self.name not in self.gates:
+            self.gates[self.name] = {"pass": False, "desc": self.desc,
+                                    "error": f"{type(exc).__name__}: {exc}"}
+        return True
 
     def fail(self, msg):
         self.gates[self.name] = {"pass": False, "desc": self.desc, "error": msg}
@@ -63,7 +76,6 @@ class _GateFail(Exception):
 def load_step_solid(path):
     """Re-import the delivered STEP through OCCT; return the solid."""
     from cadquery import importers
-    from OCP.TopAbs import TopAbs_ShapeEnum
     wp = importers.importStep(path)
     solids = wp.solids().vals()
     if len(solids) != 1:
@@ -86,12 +98,15 @@ def step_cylinders(solid):
     return out
 
 
-def grade(art_dir, spec_path, seed, json_out):
+def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
     spec = json.load(open(spec_path))
     exp = oracle.expected(spec)
 
     gates = {}
     t_start = time.time()
+    # note: the verdict must stay byte-identical across runs with the same
+    # seed, so it records only the artifact's basename, never its (random
+    # scratch) absolute path
 
     step_path = os.path.join(art_dir, "part.step")
     stl_path = os.path.join(art_dir, "part.stl")
@@ -100,24 +115,28 @@ def grade(art_dir, spec_path, seed, json_out):
         if not os.path.isfile(p):
             print(f"grade: missing delivered file {p}", file=sys.stderr)
             return verdict_fail(gates, f"missing file {os.path.basename(p)}",
-                               json_out, t_start)
+                               json_out, t_start, art_dir, artifact_name)
 
     # ---- G1: STEP re-imports to exactly one solid --------------------
-    try:
-        with Gate(gates, "step_solid",
-                  "STEP re-imports through OCCT as exactly 1 solid") as g:
-            try:
-                solid = load_step_solid(step_path)
-            except _GateFail:
-                g.fail("STEP does not contain exactly one solid")
-            if solid is None:
-                g.fail("STEP solid is null")
-            g.ok(solids=1, volume_mm3=solid.Volume())
-    except _GateFail:
-        return verdict_fail(gates, "G1 step_solid failed", json_out, t_start)
+    solid = None
+    centres = None
+    with Gate(gates, "step_solid",
+              "STEP re-imports through OCCT as exactly 1 solid") as g:
+        try:
+            solid = load_step_solid(step_path)
+        except _GateFail:
+            g.fail("STEP does not contain exactly one solid")
+        except Exception as e:
+            g.fail(f"STEP could not be re-imported through OCCT: "
+                   f"{type(e).__name__}: {e}")
+        if solid is not None and solid.Volume() <= 0:
+            g.fail(f"STEP solid has non-positive volume {solid.Volume()}")
+        g.ok(solids=1, volume_mm3=solid.Volume())
 
     # ---- G2: bounding box ---------------------------------------------
     with Gate(gates, "step_bbox", "bbox within 0.01 mm of spec") as g:
+        if solid is None:
+            g.fail("skipped: no re-imported solid (G1)")
         bb = solid.BoundingBox()
         errs = [abs(a - b) for a, b in zip((bb.xlen, bb.ylen, bb.zlen), exp["bbox"])]
         if max(errs) > TOL_BBOX:
@@ -129,6 +148,8 @@ def grade(art_dir, spec_path, seed, json_out):
     # ---- G3: volume vs closed form ------------------------------------
     with Gate(gates, "step_volume",
               "OCCT volume within 0.1% of closed-form spec volume") as g:
+        if solid is None:
+            g.fail("skipped: no re-imported solid (G1)")
         v = solid.Volume()
         ve = exp["volume_mm3"]
         rel = abs(v - ve) / ve
@@ -141,6 +162,8 @@ def grade(art_dir, spec_path, seed, json_out):
     # ---- G4: through-holes ---------------------------------------------
     with Gate(gates, "step_holes",
               "bore + bolt_n cylindrical through-holes at spec diameters") as g:
+        if solid is None:
+            g.fail("skipped: no re-imported solid (G1)")
         cyls = step_cylinders(solid)
         plate_top = spec["plate_t"]
         # bore: dia ~= bore_d, centred, spans the full height
@@ -168,6 +191,8 @@ def grade(art_dir, spec_path, seed, json_out):
     # ---- G5: bolt centres on the PCD, evenly spaced --------------------
     with Gate(gates, "step_pcd",
               "bolt centres on PCD within 0.02 mm, spacing within 0.05 deg") as g:
+        if centres is None:
+            g.fail("skipped: no bolt centres from G4")
         r = exp["pcd_radius"]
         r_errs = [abs(math.hypot(x, y) - r) for x, y in centres]
         if max(r_errs) > TOL_POS:
@@ -214,6 +239,8 @@ def grade(art_dir, spec_path, seed, json_out):
 
     with Gate(gates, "stl_volume",
               "divergence-theorem STL volume within 1% of STEP volume") as g:
+        if solid is None:
+            g.fail("skipped: no re-imported solid (G1)")
         v_stl = m["volume_mm3"]
         v_step = solid.Volume()
         rel = abs(v_stl - v_step) / v_step
@@ -292,6 +319,8 @@ def grade(art_dir, spec_path, seed, json_out):
     # ---- G11: design rules ------------------------------------------------
     with Gate(gates, "design_rules",
               "min edge distance and ligament meet the spec") as g:
+        if centres is None:
+            g.fail("skipped: no bolt centres from G4")
         holes = [(spec["bore_d"], 0.0, 0.0)] + \
                 [(spec["bolt_d"], x, y) for x, y in centres]
         L, W = spec["plate_l"], spec["plate_w"]
@@ -316,11 +345,17 @@ def grade(art_dir, spec_path, seed, json_out):
              expected_ligament_mm=round(exp["min_ligament_mm"], 4))
 
     # -----------------------------------------------------------------------
+    # a hard gate failure (G1) or a guard makes downstream gates
+    # unreachable; record them explicitly so the verdict is always complete
+    for name in GATE_ORDER:
+        if name not in gates:
+            gates[name] = {"pass": False, "desc": f"gate {name}",
+                           "error": "skipped: an earlier gate failed"}
     passed = all(g["pass"] for g in gates.values())
     v = {
         "verdict": "pass" if passed else "fail",
         "seed": seed,
-        "artifact": os.path.abspath(art_dir),
+        "artifact": artifact_name or os.path.basename(os.path.normpath(art_dir)),
         "gates": gates,
         "timing": {"wall_s": round(time.time() - t_start, 2)},
     }
@@ -331,13 +366,17 @@ def grade(art_dir, spec_path, seed, json_out):
     return 0 if passed else 1
 
 
-def verdict_fail(gates, why, json_out, t_start):
+def verdict_fail(gates, why, json_out, t_start, artifact=None, artifact_name=None):
     v = {
         "verdict": "fail",
         "reason": why,
         "gates": gates,
         "timing": {"wall_s": round(time.time() - t_start, 2)},
     }
+    if artifact_name is not None:
+        v["artifact"] = artifact_name
+    elif artifact is not None:
+        v["artifact"] = os.path.basename(os.path.normpath(artifact))
     if json_out:
         with open(json_out, "w") as f:
             json.dump(v, f, indent=2)
@@ -351,8 +390,12 @@ def main():
     ap.add_argument("--spec", default=os.path.join(HERE, "..", "examples", "good", "spec.json"))
     ap.add_argument("--seed", type=int, default=20261014)
     ap.add_argument("--json")
+    ap.add_argument("--artifact-name", default=None,
+                    help="label recorded in the verdict instead of the "
+                         "scratch dir path (keeps verdicts deterministic)")
     args = ap.parse_args()
-    sys.exit(grade(args.artifact_dir, args.spec, args.seed, args.json))
+    sys.exit(grade(args.artifact_dir, args.spec, args.seed, args.json,
+                    artifact_name=args.artifact_name))
 
 
 if __name__ == "__main__":
