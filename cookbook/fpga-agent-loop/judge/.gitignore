@@ -5,3 +5,8 @@ obj_dir/
 *.fst
 verdict*.json
 mutants_out/
+
+# generated at grade time by gen_bench.py (stdlib-only; byte-identical
+# regeneration - sha256-verified during T3). setup.sh and selftest.sh
+# regenerate it when missing.
+tests/perf/
