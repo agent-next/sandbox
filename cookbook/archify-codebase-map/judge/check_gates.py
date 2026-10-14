@@ -113,7 +113,8 @@ def gate_valid_and_reproducible(artifact, scratch, v):
         v.add("valid+reproducible", False, f"diagram.json not valid JSON: {e}")
         return None
 
-    p = run(["node", ARCHIFY_CLI, "validate", "architecture", djson])
+    p = run(["node", ARCHIFY_CLI, "validate", "architecture", djson,
+             "--repo-root", TRUTH_ROOT])
     if p.returncode != 0:
         tail = (p.stdout + p.stderr).strip().splitlines()
         v.add("valid+reproducible", False,
@@ -121,7 +122,8 @@ def gate_valid_and_reproducible(artifact, scratch, v):
         return None
 
     rendered = os.path.join(scratch, "rendered.html")
-    p = run(["node", ARCHIFY_CLI, "render", "architecture", djson, rendered])
+    p = run(["node", ARCHIFY_CLI, "render", "architecture", djson, rendered,
+             "--repo-root", TRUTH_ROOT])
     if p.returncode != 0 or not os.path.isfile(rendered):
         tail = (p.stdout + p.stderr).strip().splitlines()
         v.add("valid+reproducible", False,
@@ -129,18 +131,24 @@ def gate_valid_and_reproducible(artifact, scratch, v):
         return None
 
     shipped = os.path.join(artifact, "diagram.html")
+    repro_ok = True
+    repro_detail = "schema ok; rendered HTML matches shipped HTML"
     if os.path.isfile(shipped):
         with open(shipped, "rb") as f:
             a = f.read()
         with open(rendered, "rb") as f:
             b = f.read()
         if a != b:
-            v.add("valid+reproducible", False,
-                  "diagram.html is not what `archify render` produces from "
-                  "diagram.json (hand-edited or stale HTML)")
-            return None
-    v.add("valid+reproducible", True, "schema ok; rendered HTML matches shipped HTML")
-    return rendered  # the HTML the browser gates will run
+            repro_ok = False
+            repro_detail = ("diagram.html is not what `archify render` produces "
+                            "from diagram.json (hand-edited or stale HTML)")
+    else:
+        repro_detail = "schema ok; no shipped diagram.html to compare"
+    v.add("valid+reproducible", repro_ok, repro_detail)
+    # Prefer the shipped HTML when present and valid, else the fresh render:
+    # browser gate should exercise what the agent actually shipped when it
+    # passes reproducibility; the fresh render stands in when it doesn't.
+    return (shipped if (os.path.isfile(shipped) and repro_ok) else rendered)
 
 
 def gate_renders_clean(html_path, scratch, v):
@@ -156,8 +164,8 @@ def gate_renders_clean(html_path, scratch, v):
         f"--screenshot={shot}", url,
     ]
     with open(log, "w") as lf:
-        p = subprocess.run(cmd, capture_output=True, text=True,
-                           timeout=180, stdout=lf, stderr=subprocess.STDOUT)
+        p = subprocess.run(cmd, text=True, timeout=180,
+                           stdout=lf, stderr=subprocess.STDOUT)
     console_errors = []
     try:
         with open(log, "r", errors="replace") as lf:
@@ -186,9 +194,10 @@ def gate_renders_clean(html_path, scratch, v):
         v.add("renders-clean", False,
               f"blank canvas (pixel stdev {stdev:.1f} < {PIXEL_STDEV_MIN})")
         return
+    # Stdev is rounded to whole pixels to keep the verdict JSON deterministic:
+    # font anti-aliasing can shift the figure by <0.05 between headless runs.
     v.add("renders-clean", True,
-          f"no console errors; pixel stdev {stdev:.1f}(>= {PIXEL_STDEV_MIN}), "
-          f"{ncolors} distinct colors")
+          f"no console errors; pixel stdev {stdev:.0f}(>= {PIXEL_STDEV_MIN})")
 
 
 def _png_stats(path):
@@ -417,7 +426,7 @@ def main():
         shutil.rmtree(scratch, ignore_errors=True)
 
     verdict = {
-        "artifact": artifact,
+        "artifact": os.path.basename(artifact.rstrip(os.sep)) or artifact,
         "all_gates_passed": v.ok,
         "gates": v.gates,
     }

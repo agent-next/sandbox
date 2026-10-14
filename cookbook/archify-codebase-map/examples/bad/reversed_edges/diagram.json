@@ -1,0 +1,593 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "httpx 0.28.1 \u2014 module dependency map",
+    "subtitle": "top-level modules of the httpx package; edges are direct imports",
+    "output": "diagram.html",
+    "repository": {
+      "url": "https://github.com/encode/httpx",
+      "provider": "github",
+      "revision": "26d48e0634e6ee9cdc0533996db289ce4b430177"
+    }
+  },
+  "components": [
+    {
+      "id": "init__",
+      "type": "backend",
+      "label": "__init__",
+      "sublabel": "httpx/__init__.py",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/__init__.py"
+        }
+      ]
+    },
+    {
+      "id": "version__",
+      "type": "backend",
+      "label": "__version__",
+      "sublabel": "httpx/__version__.py",
+      "pos": [
+        250,
+        1240
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/__version__.py"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "_api",
+      "sublabel": "httpx/_api.py",
+      "pos": [
+        460,
+        740
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_api.py"
+        }
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "backend",
+      "label": "_auth",
+      "sublabel": "httpx/_auth.py",
+      "pos": [
+        670,
+        240
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_auth.py"
+        }
+      ]
+    },
+    {
+      "id": "client",
+      "type": "backend",
+      "label": "_client",
+      "sublabel": "httpx/_client.py",
+      "pos": [
+        880,
+        1440
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_client.py"
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "type": "backend",
+      "label": "_config",
+      "sublabel": "httpx/_config.py",
+      "pos": [
+        1090,
+        940
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_config.py"
+        }
+      ]
+    },
+    {
+      "id": "content",
+      "type": "backend",
+      "label": "_content",
+      "sublabel": "httpx/_content.py",
+      "pos": [
+        1300,
+        440
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_content.py"
+        }
+      ]
+    },
+    {
+      "id": "decoders",
+      "type": "backend",
+      "label": "_decoders",
+      "sublabel": "httpx/_decoders.py",
+      "pos": [
+        1510,
+        1640
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_decoders.py"
+        }
+      ]
+    },
+    {
+      "id": "exceptions",
+      "type": "backend",
+      "label": "_exceptions",
+      "sublabel": "httpx/_exceptions.py",
+      "pos": [
+        1720,
+        1140
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_exceptions.py"
+        }
+      ]
+    },
+    {
+      "id": "main",
+      "type": "backend",
+      "label": "_main",
+      "sublabel": "httpx/_main.py",
+      "pos": [
+        1930,
+        640
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_main.py"
+        }
+      ]
+    },
+    {
+      "id": "models",
+      "type": "backend",
+      "label": "_models",
+      "sublabel": "httpx/_models.py",
+      "pos": [
+        2140,
+        140
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_models.py"
+        }
+      ]
+    },
+    {
+      "id": "multipart",
+      "type": "backend",
+      "label": "_multipart",
+      "sublabel": "httpx/_multipart.py",
+      "pos": [
+        2350,
+        1340
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_multipart.py"
+        }
+      ]
+    },
+    {
+      "id": "status_codes",
+      "type": "backend",
+      "label": "_status_codes",
+      "sublabel": "httpx/_status_codes.py",
+      "pos": [
+        2560,
+        840
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_status_codes.py"
+        }
+      ]
+    },
+    {
+      "id": "types",
+      "type": "backend",
+      "label": "_types",
+      "sublabel": "httpx/_types.py",
+      "pos": [
+        2770,
+        340
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_types.py"
+        }
+      ]
+    },
+    {
+      "id": "urlparse",
+      "type": "backend",
+      "label": "_urlparse",
+      "sublabel": "httpx/_urlparse.py",
+      "pos": [
+        2980,
+        1540
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_urlparse.py"
+        }
+      ]
+    },
+    {
+      "id": "urls",
+      "type": "backend",
+      "label": "_urls",
+      "sublabel": "httpx/_urls.py",
+      "pos": [
+        3190,
+        1040
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_urls.py"
+        }
+      ]
+    },
+    {
+      "id": "utils",
+      "type": "backend",
+      "label": "_utils",
+      "sublabel": "httpx/_utils.py",
+      "pos": [
+        3400,
+        540
+      ],
+      "size": [
+        170,
+        80
+      ],
+      "sources": [
+        {
+          "path": "httpx/_utils.py"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "version__",
+      "to": "init__"
+    },
+    {
+      "from": "api",
+      "to": "init__"
+    },
+    {
+      "from": "auth",
+      "to": "init__"
+    },
+    {
+      "from": "client",
+      "to": "init__"
+    },
+    {
+      "from": "config",
+      "to": "init__"
+    },
+    {
+      "from": "content",
+      "to": "init__"
+    },
+    {
+      "from": "exceptions",
+      "to": "init__"
+    },
+    {
+      "from": "main",
+      "to": "init__"
+    },
+    {
+      "from": "models",
+      "to": "init__"
+    },
+    {
+      "from": "status_codes",
+      "to": "init__"
+    },
+    {
+      "from": "types",
+      "to": "init__"
+    },
+    {
+      "from": "urls",
+      "to": "init__"
+    },
+    {
+      "from": "client",
+      "to": "api"
+    },
+    {
+      "from": "config",
+      "to": "api"
+    },
+    {
+      "from": "models",
+      "to": "api"
+    },
+    {
+      "from": "types",
+      "to": "api"
+    },
+    {
+      "from": "urls",
+      "to": "api"
+    },
+    {
+      "from": "exceptions",
+      "to": "auth"
+    },
+    {
+      "from": "models",
+      "to": "auth"
+    },
+    {
+      "from": "utils",
+      "to": "auth"
+    },
+    {
+      "from": "version__",
+      "to": "client"
+    },
+    {
+      "from": "auth",
+      "to": "client"
+    },
+    {
+      "from": "config",
+      "to": "client"
+    },
+    {
+      "from": "decoders",
+      "to": "client"
+    },
+    {
+      "from": "exceptions",
+      "to": "client"
+    },
+    {
+      "from": "models",
+      "to": "client"
+    },
+    {
+      "from": "status_codes",
+      "to": "client"
+    },
+    {
+      "from": "types",
+      "to": "client"
+    },
+    {
+      "from": "urls",
+      "to": "client"
+    },
+    {
+      "from": "utils",
+      "to": "client"
+    },
+    {
+      "from": "models",
+      "to": "config"
+    },
+    {
+      "from": "types",
+      "to": "config"
+    },
+    {
+      "from": "urls",
+      "to": "config"
+    },
+    {
+      "from": "exceptions",
+      "to": "content"
+    },
+    {
+      "from": "multipart",
+      "to": "content"
+    },
+    {
+      "from": "types",
+      "to": "content"
+    },
+    {
+      "from": "utils",
+      "to": "content"
+    },
+    {
+      "from": "exceptions",
+      "to": "decoders"
+    },
+    {
+      "from": "models",
+      "to": "exceptions"
+    },
+    {
+      "from": "client",
+      "to": "main"
+    },
+    {
+      "from": "exceptions",
+      "to": "main"
+    },
+    {
+      "from": "models",
+      "to": "main"
+    },
+    {
+      "from": "status_codes",
+      "to": "main"
+    },
+    {
+      "from": "content",
+      "to": "models"
+    },
+    {
+      "from": "decoders",
+      "to": "models"
+    },
+    {
+      "from": "exceptions",
+      "to": "models"
+    },
+    {
+      "from": "multipart",
+      "to": "models"
+    },
+    {
+      "from": "status_codes",
+      "to": "models"
+    },
+    {
+      "from": "types",
+      "to": "models"
+    },
+    {
+      "from": "urls",
+      "to": "models"
+    },
+    {
+      "from": "utils",
+      "to": "models"
+    },
+    {
+      "from": "types",
+      "to": "multipart"
+    },
+    {
+      "from": "utils",
+      "to": "multipart"
+    },
+    {
+      "from": "auth",
+      "to": "types"
+    },
+    {
+      "from": "config",
+      "to": "types"
+    },
+    {
+      "from": "models",
+      "to": "types"
+    },
+    {
+      "from": "urls",
+      "to": "types"
+    },
+    {
+      "from": "exceptions",
+      "to": "urlparse"
+    },
+    {
+      "from": "types",
+      "to": "urls"
+    },
+    {
+      "from": "urlparse",
+      "to": "urls"
+    },
+    {
+      "from": "utils",
+      "to": "urls"
+    },
+    {
+      "from": "types",
+      "to": "utils"
+    },
+    {
+      "from": "urls",
+      "to": "utils"
+    }
+  ]
+}
