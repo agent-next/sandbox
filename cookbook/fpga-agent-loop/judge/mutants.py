@@ -4,13 +4,13 @@
 Each mutant is a (name, search, replace) edit applied to a fresh copy of
 $HOME/riscv-toolchain/picorv32/picorv32.v; the SPEC-interface wrapper
 judge/ref/picorv32_cpu.v then includes the mutated file via the
-PICORV32_DIR_OVERRIDE include path. grade.sh must FAIL every mutant on at
+PICORV32_DIR include path. grade.sh must FAIL every mutant on at
 least one gate - a surviving mutant means the judge is too weak (or the
 edit is a semantic no-op, which must be shown equivalent).
 
 T1 shipped the three mandatory mutants (branch flip, dropped wstrb lane,
 ignored mem_ready); T2 added the two J-immediate mutants + bimm control.
-T3 brings the total to 26: operator swaps, off-by-ones, sign/zero-extension
+T3 brings the total to 32: operator swaps, off-by-ones, sign/zero-extension
 drops, dropped write enables, branch-condition flips, and targeted
 G2/G3 hits. Every anchor is checked against the pinned picorv32.v and the
 script fails loudly (exit != 0) if any anchor is missing or not unique.

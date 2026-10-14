@@ -153,14 +153,19 @@ echo
 LEC_T=$(now)
 if [[ -n "$SURVIVORS" ]]; then
     echo "--- step 5: LEC survivor proofs (SPEC recipe via lec.sh)"
+    # lec.sh verdicts: "LEC: EQUIVALENT" (rc 0), "LEC: NOT EQUIVALENT"
+    # (rc 1: a real bug the gates missed), "LEC: UNPROVEN" (rc 2:
+    # error/timeout - never counted as equivalent).
     for m in $SURVIVORS; do
         echo "  $m:"
         LEC_OUT=$(bash "$JUDGE_DIR/lec.sh" "$JUDGE_DIR/mutants_out/$m" 2>&1) && LEC_RC=0 || LEC_RC=$?
         echo "$LEC_OUT" | sed 's/^/    /'
-        if [[ $LEC_RC -eq 0 ]]; then
+        if [[ $LEC_RC -eq 0 ]] && echo "$LEC_OUT" | grep -q "^LEC: EQUIVALENT"; then
             echo "    -> proven equivalent (survivor accepted)"
+        elif [[ $LEC_RC -eq 1 ]]; then
+            failed "survivor $m is NOT equivalent to gold - a real bug slipped past every gate"
         else
-            failed "survivor $m could not be proven equivalent by LEC"
+            failed "survivor $m equivalence UNPROVEN (LEC rc=$LEC_RC; a timeout is unproven, never equivalent)"
         fi
     done
 else
@@ -171,18 +176,23 @@ echo
 # ---- 6. LEC power check: a KILLED mutant must report NOT EQUIVALENT -----------------
 echo "--- step 6: LEC power check (same recipe on a known-killed mutant)"
 # branch-flip is the most structurally subtle killer (decode-level, still
-# finishes programs); if it isn't in the mutant list, fall back to the
-# first killed mutant.
-LEC_PWR="branch-flip"
-[[ -d "$JUDGE_DIR/mutants_out/$LEC_PWR" ]] || \
-    LEC_PWR=$(grep KILLED "$kill_table" | head -1 | awk '{print $1}')
+# finishes programs); it must be picked from the KILLED rows of the kill
+# table - if it survived and was proven equivalent, using it here would
+# be invalid. Fall back to the first killed mutant.
+LEC_PWR=$(awk '$1=="branch-flip" && $2=="KILLED" {print $1}' "$kill_table")
+[[ -n "$LEC_PWR" ]] || \
+    LEC_PWR=$(awk '$2=="KILLED" {print $1; exit}' "$kill_table")
+[[ -n "$LEC_PWR" ]] || failed "no killed mutant available for the LEC power check"
 echo "  lec.sh on killed mutant: $LEC_PWR"
-LEC_OUT=$(bash "$JUDGE_DIR/lec.sh" "$JUDGE_DIR/mutants_out/$LEC_PWR" 2>&1 || true)
+LEC_OUT=$(bash "$JUDGE_DIR/lec.sh" "$JUDGE_DIR/mutants_out/$LEC_PWR" 2>&1) && LEC_RC=0 || LEC_RC=$?
 echo "$LEC_OUT" | sed 's/^/  /'
-if echo "$LEC_OUT" | grep -q "NOT EQUIVALENT"; then
+# rc 1 + "LEC: NOT EQUIVALENT" is the only acceptable answer: rc 0 would be
+# a false pass invalidating every survivor proof; rc 2 (timeout/error)
+# leaves the recipe's power unproven.
+if [[ $LEC_RC -eq 1 ]] && echo "$LEC_OUT" | grep -q "^LEC: NOT EQUIVALENT"; then
     echo "  LEC power check: PASS (recipe detects a real difference)"
 else
-    failed "LEC reported '$LEC_OUT' for killed mutant $LEC_PWR - false pass invalidates survivor proofs"
+    failed "LEC on killed mutant $LEC_PWR gave rc=$LEC_RC ('$LEC_OUT') - cannot trust the survivor proofs"
 fi
 echo "($(($(now)-LEC_T))s for steps 5-6)"
 echo
