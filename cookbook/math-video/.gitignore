@@ -1,0 +1,4 @@
+cookbook/math-video/voice/
+cookbook/math-video/*.storyboard*.png
+cookbook/math-video/*.mp4
+cookbook/math-video/*.srt

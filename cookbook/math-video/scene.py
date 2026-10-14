@@ -51,15 +51,17 @@ G3: Terms = [("lhs", r"( x + \frac{b}{2a} )^2"), ("eq", "="),
              ("rhs", r"( \frac{b}{2a} )^2 - \frac{c}{a}")]  # fmt: skip
 G4: Terms = [("lhs", r"( x + \frac{b}{2a} )^2"), ("eq", "="),
              ("rhs", r"\frac{b^2 - 4ac}{4a^2}")]  # fmt: skip
+# a space before the frac's closing brace: "\sqrt{…}}" would read as the end of
+# the "{{ … }}" group and leave the frac without a denominator
 G5: Terms = [("lhs", r"x + \frac{b}{2a}"), ("eq", "="),
-             ("rhs", r"\pm \frac{\sqrt{b^2 - 4ac}}{2a}")]  # fmt: skip
+             ("rhs", r"\pm \frac{\sqrt{b^2 - 4ac} }{2a}")]  # fmt: skip
 G6: Terms = [("x", "x"), ("eq", "="),
-             ("sol", r"\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}")]  # fmt: skip
+             ("sol", r"\frac{-b \pm \sqrt{b^2 - 4ac} }{2a}")]  # fmt: skip
 
 W0: Terms = [("x2", "x^2"), ("p1", "+"), ("b6", "6x"), ("p2", "+"),
              ("c5", "5"), ("eq", "="), ("z", "0")]  # fmt: skip
 W1: Terms = [("x", "x"), ("eq", "="),
-             ("sol", r"\frac{-6 \pm \sqrt{36 - 20}}{2}")]  # fmt: skip
+             ("sol", r"\frac{-6 \pm \sqrt{36 - 20} }{2}")]  # fmt: skip
 W2: Terms = [("x", "x"), ("eq", "="), ("sol", r"\frac{-6 \pm 4}{2}")]  # fmt: skip
 W3: Terms = [("r1", "x = -1"), ("or", r"\quad \text{or} \quad"),
              ("r2", "x = -5")]  # fmt: skip
@@ -162,13 +164,13 @@ class CompletingTheSquare(m.Scene):
         big_center = P0 + np.array([(X + H) / 2, (X + H) / 2, 0.0])
 
         x_top = m.MathTex("x", font_size=40).move_to(
-            [P0[0] + X / 2, P0[1] + H + X + 0.32, 0]
+            [P0[0] + X / 2, P0[1] + H + X + 0.6, 0]
         )
         x_left = m.MathTex("x", font_size=40).move_to(
             [P0[0] - 0.32, P0[1] + H + X / 2, 0]
         )
         h_top = m.MathTex(r"\frac{b}{2}", font_size=34, color=CORNER).move_to(
-            [P0[0] + X + H / 2, P0[1] + H + X + 0.3, 0]
+            [P0[0] + X + H / 2, P0[1] + H + X + 0.62, 0]
         )
         h_left = m.MathTex(r"\frac{b}{2}", font_size=34, color=CORNER).move_to(
             [P0[0] - 0.42, P0[1] + H / 2, 0]
@@ -231,6 +233,7 @@ class CompletingTheSquare(m.Scene):
             "[Add that corner to both sides.]",
             m.AnimationGroup(
                 m.FadeOut(dashed),
+                m.FadeOut(c_lab),  # the filled corner would cover it; e1 says it now
                 m.FadeIn(corner),
                 self.morph(e0, e1, come_from={"sq": corner, "sq2": corner}),
             ),
@@ -292,7 +295,9 @@ class CompletingTheSquare(m.Scene):
 
         self.say(
             "Try it on [x squared plus six x plus five equals zero].",
-            m.AnimationGroup(m.FadeOut(frame), self.morph(g6, w0)),
+            m.AnimationGroup(
+                m.FadeOut(frame), m.FadeOut(title), self.morph(g6, w0)
+            ),
         )
         self.say(
             "The formula gives [minus six, plus or minus the root of "
@@ -321,13 +326,13 @@ class CompletingTheSquare(m.Scene):
             stroke_width=5,
         )
         curve_lab = m.MathTex("y = x^2 + 6x + 5", font_size=40, color=X2)
-        curve_lab.move_to([4.55, 1.05, 0])
+        curve_lab.move_to([0.0, -1.5, 0])  # inside the parabola's cup
         dot5 = m.Dot(axes.c2p(-5, 0), color=CORNER, radius=0.11)
         dot1 = m.Dot(axes.c2p(-1, 0), color=CORNER, radius=0.11)
         lab5 = m.MathTex("-5", font_size=44, color=CORNER)
-        lab5.next_to(dot5, m.DOWN, buff=0.2)
+        lab5.next_to(dot5, m.DOWN + m.LEFT, buff=0.28)  # the curve dives right
         lab1 = m.MathTex("-1", font_size=44, color=CORNER)
-        lab1.next_to(dot1, m.DOWN, buff=0.2)
+        lab1.next_to(dot1, m.DOWN + m.RIGHT, buff=0.28)  # and climbs left
 
         self.say(
             "And [check it on the parabola]: [y equals x squared plus six x "
@@ -343,7 +348,7 @@ class CompletingTheSquare(m.Scene):
         self.wait(0.6)
 
         finale = m.MathTex(
-            r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}", font_size=76
+            r"x = \frac{-b \pm \sqrt{b^2 - 4ac} }{2a}", font_size=76
         )
         last_frame = m.SurroundingRectangle(
             finale, color=m.YELLOW, buff=0.45, stroke_width=6
