@@ -1,0 +1,10 @@
+# render outputs and scratch — never committed
+**/renders/
+**/output.mp4
+**/out*.mp4
+media/demo.mp4
+media/master/
+*.log
+judge/http-root/composition/*.js
+judge/http-root/composition/*.json
+judge/http-root/spec.json
