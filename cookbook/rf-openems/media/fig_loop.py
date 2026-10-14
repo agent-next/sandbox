@@ -148,8 +148,8 @@ def main():
 
     fig = plt.figure(figsize=(15.5, 7.6), dpi=200)
     gs = fig.add_gridspec(
-        2, 1, height_ratios=[0.9, 1.2], left=0.055, right=0.985,
-        top=0.91, bottom=0.075, hspace=0.55)
+        2, 1, height_ratios=[0.75, 1.2], left=0.055, right=0.985,
+        top=0.91, bottom=0.075, hspace=0.12)
     texts = []
 
     def reg(art, ax, tag):
@@ -183,8 +183,8 @@ def main():
                  xytext=(-0.45, 1.88),
                  arrowprops=dict(arrowstyle="-|>", color="0.4", lw=1.6))
     reg(axA.text((len(REPLAY) - 1) / 2, 1.97,
-                 "agent-loop replay: judge verdict per iteration — real "
-                 "grade.sh runs replayed in fixing order, not a live trace",
+                 "replay: one real grade.sh run per known-bad variant, then "
+                 "the good design — recorded verdicts, not a live agent trace",
                  ha="center", va="bottom", fontsize=10.5), axA,
         "replay-title")
     axA.axis("off")
@@ -234,7 +234,8 @@ def main():
     cell(x_name, y_good + 0.5, "good (final design)", fontsize=10,
          family="monospace")
     cell(x_gate, y_good + 0.5,
-         f"G4 {g4['detail']}  |  G5 {g5['detail']}  |  "
+         f"G4 {g4['detail'].split(' (')[0]}  |  "
+         f"G5 {g5['detail'].split(' (')[0]}  |  "
          f"G6 max|Δ| = {vg['raw_crosscheck_maxdiff_db']:.1f} dB  |  "
          f"G7 eeff Δ = {vg['oracle']['delta_pct']:.1f} %  |  "
          f"G8 shift = {vg['convergence']['f_res_shift_pct']:.1f} %",

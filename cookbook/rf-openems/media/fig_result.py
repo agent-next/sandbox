@@ -133,12 +133,12 @@ def main():
          axA, "min-annotation")
 
     reg(axA.text(F_TARGET + 0.004, -28.6,
-                 f"S11 at 2.45 GHz = {s11_at:.1f} dB\n(G4 rule: below the "
+                 f"trace at 2.45 GHz = {s11_at:.1f} dB\n(G4 rule: below the "
                  f"red -{abs(S11_TARGET):.0f} dB line)",
                  fontsize=10.5, va="bottom"), axA, "s11-at-target")
-    reg(axA.text(band[0], -8.6,
+    reg(axA.text(band[0] + 0.003, -24.0,
                  f"G5 resonance window\n2.45 GHz ±{F_RES_TOL*100:.0f} %",
-                 fontsize=9, va="bottom", ha="left", color="0.30"),
+                 fontsize=9, va="center", ha="left", color="0.30"),
         axA, "band-label")
     reg(axA.text(0.015, 0.03,
                  f"gate verdicts (verdict JSON):\n"
@@ -150,8 +150,9 @@ def main():
                  f"f_res shift {conv['f_res_shift_pct']:.1f} % ≤ 1.5\n"
                  f"G8 rule: dip depth is mesh-sensitive, so the gate\n"
                  f"re-checks the spec on the finer mesh, not ΔS11;\n"
-                 f"dotted curve touches "
-                 f"{np.interp(F_TARGET, ff, sf):.1f} dB at 2.45: pass",
+                 f"dotted curve: {np.interp(F_TARGET, ff, sf):.1f} dB at 2.45: pass\n"
+                 f"verdict dB values use a 1 dB grid (run-to-run\n"
+                 f"noise); gate decisions use the raw values",
                  transform=axA.transAxes, fontsize=9, va="bottom",
                  family="monospace", color="0.25", bbox=dict(
                      facecolor="white", edgecolor="0.7", pad=4)),
@@ -165,7 +166,7 @@ def main():
                   "vs the -10 dB spec", fontsize=13)
     axA.set_xticks(np.arange(2.2, 2.71, 0.05))
     axA.grid(True, alpha=0.25)
-    axA.legend(loc="upper right", fontsize=9.5, framealpha=0.95)
+    axA.legend(loc="upper right", bbox_to_anchor=(1.0, 0.62), fontsize=9.5, framealpha=0.95)
 
     # ------------------------------------------------------------- panel B
     axB = fig.add_subplot(gs[1])

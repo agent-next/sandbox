@@ -36,6 +36,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from fig_loop import kill_row
+
 MEDIA = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(MEDIA, "data")
 FRAMES = os.path.join(MEDIA, "frames")
@@ -114,18 +116,6 @@ class Recorder:
         self.n += 1
 
 
-def killer_line(v):
-    """The first gate that actually failed, with measured vs limit."""
-    for g in v["gates"]:
-        if not g["pass"]:
-            name = g["gate"]
-            d = g["detail"]
-            if "not run" in d:
-                return f"{name} (later gates not run)"
-            return f"{name}: {d}"
-    return "all gates pass"
-
-
 def scene_title(rec):
     fig = plt.figure(figsize=(W / 100, H / 100), dpi=100)
     fig.text(0.5, 0.66, "rf-openems", ha="center", fontsize=52,
@@ -134,12 +124,12 @@ def scene_title(rec):
              "inside a disposable sandbox", ha="center", fontsize=21)
     fig.text(0.5, 0.45, "judge: openEMS FDTD re-run, S11 re-derived from "
              "the raw port time series,\nHammerstad-Jensen oracle, "
-             "fine-mesh convergence -- it cannot be fooled by a "
+             "fine-mesh convergence -- it does not trust a "
              "self-report", ha="center", fontsize=14, color="0.25")
     fig.text(0.5, 0.30, "every curve below is a real judge run "
-             "(grade.sh --trace, seed 42), replayed in the order\na "
-             "fixing agent would hit the mistakes -- a replay of real "
-             "grades, not a live agent trace", ha="center", fontsize=13,
+             "(grade.sh --trace, seed 42): one grade per known-bad\n"
+             "variant, then the good design -- recorded verdicts, "
+             "not a live agent trace", ha="center", fontsize=13,
              color="0.35")
     rec.add(fig, 3.0)
 
@@ -209,7 +199,7 @@ def scene_replay(rec):
             fig.text(0.5, 0.885, f"iteration {i+1}/{len(REPLAY)}: "
                      f"{headline} -- judge FAIL", ha="center", fontsize=20,
                      fontweight="bold", color=C_BAD)
-            fig.text(0.09, 0.035, "killed by  " + killer_line(v),
+            fig.text(0.09, 0.035, "killed by  " + "   |   ".join(kill_row(case)),
                      fontsize=12, family="monospace", color="0.2")
 
         fig.text(0.09, 0.915, "G4 rule: the curve must dip below the red "
@@ -222,7 +212,7 @@ def scene_replay(rec):
 
 def scene_close(rec, kill_line):
     fig = plt.figure(figsize=(W / 100, H / 100), dpi=100)
-    fig.text(0.5, 0.62, "the judge cannot be fooled", ha="center",
+    fig.text(0.5, 0.62, "every bad design was caught", ha="center",
              fontsize=40, fontweight="bold")
     fig.text(0.5, 0.50, kill_line, ha="center", fontsize=22, color="0.2")
     fig.text(0.5, 0.38, "replay of real judge runs: 7 single-edit "
