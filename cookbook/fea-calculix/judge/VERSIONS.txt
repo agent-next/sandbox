@@ -1,0 +1,5 @@
+calculix-ccx: 2.20-1 (Debian bookworm .deb, sha256: a448239f3caf5a324f9589a636e595e3e676153489f75843e509decb6809f346)
+libspooles2.2: 2.2-14 (Debian bookworm .deb, sha256: 51faa6a5aad9aba20beadffba5d4d9e28fa7a5ef426a1d4fa16c825fd80034a0)
+libarpack2: 3.8.0-3 (Debian bookworm .deb, sha256: 949773b357e8f4c74fbc585f2fbee452adb2931c3d36a5baf8eae49f7d45bede)
+gmsh: 4.10.0 (official tarball, sha256: 6c7d748e941a6823eeb930fd91a3d46236f752afe2629fe43f61deae562eda95)
+python3: 3.12.15

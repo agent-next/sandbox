@@ -1,0 +1,21 @@
+{
+  "source": "media/work/good-{coarse,fine}/job.frd parsed with judge.parse_frd + judge.vm_stress",
+  "gate": "convergence: |change| <= 2% between mesh_size and mesh_size/2",
+  "meshes": [
+    {
+      "mesh_mm": 4.0,
+      "elems": 11250,
+      "delta_mm": 7.70454,
+      "sigma_mpa": 137.55317019407815
+    },
+    {
+      "mesh_mm": 2.0,
+      "elems": 60000,
+      "delta_mm": 7.7221,
+      "sigma_mpa": 138.24094530847566
+    }
+  ],
+  "delta_change_pct": 0.2273992825785792,
+  "sigma_change_pct": 0.4975191054016486,
+  "verdict_detail": "mesh 4 vs 2 mm (11250 -> 60000 elements): deflection change 0.23%, stress change 0.50%; tolerance 2%"
+}

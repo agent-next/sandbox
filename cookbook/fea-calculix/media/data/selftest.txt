@@ -1,0 +1,28 @@
+== selftest: known-good artifact ==
+known-good: PASS (expected)
+== selftest: generating known-bad mutants ==
+units-in-metres
+propped-tip
+load-on-ntip
+coarse-mesh
+unconverged
+load-wrong-dof
+overload-10x
+undersized
+no-stress-output
+mutant coarse-mesh: FAIL (expected) -- killed by gate: verification, convergence, spec_limits
+mutant load-on-ntip: FAIL (expected) -- killed by gate: verification, convergence, spec_limits
+mutant load-wrong-dof: FAIL (expected) -- killed by gate: verification, convergence, spec_limits
+mutant no-stress-output: FAIL (expected) -- killed by gate: verification, convergence, spec_limits
+mutant overload-10x: FAIL (expected) -- killed by gate: verification, spec_limits
+mutant propped-tip: FAIL (expected) -- killed by gate: verification, spec_limits
+mutant unconverged: FAIL (expected) -- killed by gate: convergence
+mutant undersized: FAIL (expected) -- killed by gate: spec_limits
+mutant units-in-metres: FAIL (expected) -- killed by gate: spec_limits
+== selftest summary ==
+known-good: passed
+kill rate: 9/9 (100%)
+== selftest: determinism (grade twice with --seed 42) ==
+determinism: PASS (two --seed 42 runs identical excluding "timing")
+selftest: PASS
+selftest rc=0
