@@ -1,8 +1,12 @@
 # Pinned judge toolchain for sim-tuner (pip --require-hashes).
 # x86-64 Linux, CPython 3.10-3.13. Hashes from PyPI, fetched 2026-10-14.
+# The full transitive closure of mujoco==3.8.1 is pinned (pip requires every
+# requirement to carry a hash in this mode): absl-py, etils[epath], glfw,
+# numpy, pyopengl, fsspec, typing_extensions, zipp (+ importlib_resources on
+# CPython 3.10, where etils resolves to 1.13.0; 3.11+ resolve etils 1.14.0).
 # numpy differs per CPython: 1.26.4 (3.10-3.12, matching the GPU lease image)
 # and 2.1.3 on 3.13 (1.26.4 has no cp313 wheel). The judge's numeric outputs
-# do not depend on the numpy version (muJoCo does the physics; numpy does
+# do not depend on the numpy version (MuJoCo does the physics; numpy does
 # RMS only), so the pin difference cannot change a verdict.
 mujoco==3.8.1 ; python_version == "3.10" and platform_machine == "x86_64" \
     --hash=sha256:9c2d779d9c47cf53da8399493ca9059e068ccabb60bc4e5dc0c924ade8da6c65
@@ -20,3 +24,22 @@ numpy==1.26.4 ; python_version == "3.12" and platform_machine == "x86_64" \
     --hash=sha256:675d61ffbfa78604709862923189bad94014bef562cc35cf61d3a07bba02a7ed
 numpy==2.1.3 ; python_version == "3.13" and platform_machine == "x86_64" \
     --hash=sha256:5641516794ca9e5f8a4d17bb45446998c6554704d888f86df9b200e66bdcce56
+absl-py==2.5.1 ; python_version >= "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:721200f2f0e9960f2ca9dc3a2a706b201f5f75d812c158f059cbbe29eeafbdb8
+etils==1.14.0 ; python_version >= "3.11" and platform_machine == "x86_64" \
+    --hash=sha256:b5df7341f54dbe1405a4450b2741207b4a8c279780402b45f87202b94dfc52b4
+etils==1.13.0 ; python_version == "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:d9cd4f40fbe77ad6613b7348a18132cc511237b6c076dbb89105c0b520a4c6bb
+glfw==2.10.2 ; python_version >= "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:82daf1f87b2a48815637dc6f6720d4a55a57ba1d3683322dc20dc28065754f97 \
+    --hash=sha256:b860de3ca0686182483f98f3ddd12e660acf25b3e0d521450ec9a3f999f72a65
+pyopengl==3.1.10 ; python_version >= "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:794a943daced39300879e4e47bd94525280685f42dbb5a998d336cfff151d74f
+fsspec==2026.9.0 ; python_version >= "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f
+typing_extensions==4.16.0 ; python_version >= "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+zipp==4.1.1 ; python_version >= "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:8979f52d874162f485ff2981e3891f3a3317b7a3dd43ff1e1775b9304f307a9c
+importlib_resources==7.1.0 ; python_version == "3.10" and platform_machine == "x86_64" \
+    --hash=sha256:1bd7b48b4088eddb2cd16382150bb515af0bd2c70128194392725f82ad2c96a1
