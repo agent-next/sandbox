@@ -457,6 +457,16 @@ def test_a_slot_retired_during_the_outage_stops_reattaching_quietly(fake_sbx, mo
     assert not [e for e in events(capsys) if e["event"] == "runner_exit"]
 
 
+def test_a_sandbox_gone_while_disconnected_is_an_error(fake_sbx, monkeypatch, capsys):
+    from e2b import SandboxNotFoundException
+
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    monkeypatch.setattr(FakeSbx, "connect", Blip(1, SandboxNotFoundException("sandbox gone")))
+    blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
+    (exit_,) = [e for e in events(capsys) if e["event"] == "runner_exit"]
+    assert exit_["error"].startswith("SandboxNotFoundException")
+
+
 def test_a_kill_that_never_succeeds_is_reported_not_claimed(fake_sbx, monkeypatch, capsys):
     from e2b import SandboxException
 
@@ -616,6 +626,44 @@ def test_image_bakes_runner_and_docker_then_snapshots(fake_sbx, monkeypatch):
     assert sbx.killed == 1
 
 
+UBUNTU_TAG = __import__("hashlib").sha256(b"ubuntu:24.04").hexdigest()[:8]
+
+
+def test_images_that_read_alike_get_different_templates():
+    names = set()
+    for image in ("foo/bar:1.0", "foo-bar-1-0", "Foo/Bar:1.0"):
+        http, calls = template_api({})
+        with pytest.raises(runners.RunnerError):  # no route: the lookup and register answer 404
+            runners.ensure_template(http, image=image, size="small")
+        names.add(calls[0][0])
+    assert len(names) == 3
+
+
+def test_a_failed_alias_lookup_is_the_error_reported():
+    http, calls = template_api({"GET /templates/aliases/" + f"sbx-runner-ubuntu-24-04-{UBUNTU_TAG}-small":
+                                httpx.Response(401, text="invalid API key")})
+    with pytest.raises(runners.RunnerError, match="lookup failed: HTTP 401"):
+        runners.ensure_template(http, image="ubuntu:24.04", size="small")
+    assert len(calls) == 1  # nothing registered
+
+
+def test_a_failed_cleanup_does_not_hide_the_import_error(monkeypatch):
+    monkeypatch.setattr(runners.time, "sleep", lambda s: None)
+
+    def handler(req):
+        if req.method == "DELETE":
+            raise httpx.ConnectError("gateway down")
+        if req.url.path == "/v3/templates":
+            return httpx.Response(202, json={"templateID": "tpl-1", "buildID": "bld-1"})
+        if req.url.path.startswith("/v2/templates"):
+            return httpx.Response(400, text="bad image")
+        return httpx.Response(404)
+
+    http = httpx.Client(base_url="https://api.example", transport=httpx.MockTransport(handler))
+    with pytest.raises(runners.RunnerError, match="import failed: HTTP 400"):
+        runners.ensure_template(http, image="no/such:image", size="small")
+
+
 def template_api(routes):
     """Sandbox API double: routes maps 'METHOD path' to a response or a list of them (served in turn)."""
     calls = []
@@ -630,9 +678,10 @@ def template_api(routes):
 
 
 def test_template_is_reused_when_the_key_already_has_it(capsys):
-    http, calls = template_api({"GET /templates/aliases/sbx-runner-ubuntu-24-04-small": httpx.Response(200, json={})})
-    assert runners.ensure_template(http, image="ubuntu:24.04", size="small") == "sbx-runner-ubuntu-24-04-small"
-    assert [c for c, _ in calls] == ["GET /templates/aliases/sbx-runner-ubuntu-24-04-small"]
+    alias = f"sbx-runner-ubuntu-24-04-{UBUNTU_TAG}-small"
+    http, calls = template_api({f"GET /templates/aliases/{alias}": httpx.Response(200, json={})})
+    assert runners.ensure_template(http, image="ubuntu:24.04", size="small") == alias
+    assert [c for c, _ in calls] == [f"GET /templates/aliases/{alias}"]
 
 
 def test_template_is_imported_from_the_image_and_awaited(monkeypatch):
@@ -644,7 +693,7 @@ def test_template_is_imported_from_the_image_and_awaited(monkeypatch):
         f"GET {status}": [httpx.Response(200, json={"status": "building"}), httpx.Response(200, json={"status": "ready"})],
     })
     alias = runners.ensure_template(http, image="ubuntu:24.04", size="standard")
-    assert alias == "sbx-runner-ubuntu-24-04-standard"
+    assert alias == f"sbx-runner-ubuntu-24-04-{UBUNTU_TAG}-standard"
     assert calls[1] == ("POST /v3/templates", {"name": alias, "resourceClass": "standard"})
     assert calls[2] == ("POST /v2/templates/tpl-1/builds/bld-1", {"fromImage": "ubuntu:24.04"})
     assert [c for c, _ in calls].count(f"GET {status}") == 2
@@ -1221,7 +1270,16 @@ def test_serve_caps_max_at_the_keys_concurrency(limit, warm, maximum, monkeypatc
     assert ('"max_capped"' in capsys.readouterr().out) == (limit is not None and limit < 8)
 
 
+def test_the_quota_cap_does_not_hide_a_warm_above_max(monkeypatch, capsys):
+    monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
+    monkeypatch.setenv("GH_TOKEN", "gh-test-token")
+    monkeypatch.setattr(cli, "_key_concurrency", lambda key, domain: 2)
+    assert cli.main(serve_argv("--warm", "5", "--max", "3")) == 2
+    assert "--warm" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("status,body,expected", [
+    (200, {"limits": {"max_concurrent": True}}, None),
     (200, {"limits": {"max_concurrent": 2}, "tier": "free"}, 2),
     (200, {"limits": {"max_concurrent": None}}, None),
     (200, {"tier": "free"}, None),
