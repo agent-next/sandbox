@@ -1,0 +1,96 @@
+{
+  "gates": {
+    "design_stable": {
+      "value": -0.652323735432428,
+      "pass": true
+    },
+    "s1_F_demand_max_N": {
+      "value": 0.34534192623543375,
+      "pass": true
+    },
+    "s1_tau_demand_max_Nm": {
+      "value": 0.5024457129271768,
+      "pass": true
+    },
+    "s1_theta_overshoot": {
+      "value": 0.0,
+      "pass": true
+    },
+    "s1_theta_settle_s": {
+      "value": 0.7000000000000001,
+      "pass": true
+    },
+    "s1_x_settle_s": {
+      "value": 1.52,
+      "pass": true
+    },
+    "s1_theta_end_rad": {
+      "value": 1.1954272602261053e-06,
+      "pass": true
+    },
+    "s1_x_end_m": {
+      "value": 3.301713447258737e-06,
+      "pass": true
+    },
+    "s2_peak_theta_rad": {
+      "value": 0.019410713372837615,
+      "pass": true
+    },
+    "s2_F_demand_max_N": {
+      "value": 0.9024208423115945,
+      "pass": true
+    },
+    "s2_tau_demand_max_Nm": {
+      "value": 0.1391429243554685,
+      "pass": true
+    },
+    "s2_x_settle_s": {
+      "value": 6.05,
+      "pass": true
+    },
+    "s2_theta_end_rad": {
+      "value": 4.127291079533422e-05,
+      "pass": true
+    },
+    "gm_force_db": {
+      "value": 99.0,
+      "pass": true
+    },
+    "pm_force_deg": {
+      "value": 59.12129968407743,
+      "pass": true
+    },
+    "gm_torque_db": {
+      "value": 99.0,
+      "pass": true
+    },
+    "pm_torque_deg": {
+      "value": 67.42112003981117,
+      "pass": true
+    },
+    "mc_pass_fraction": {
+      "value": 1.0,
+      "pass": true
+    }
+  },
+  "passed": true,
+  "K": [
+    [
+      0.8979935779381072,
+      1.415403696864833,
+      -2.302279508236225,
+      -0.3415439998578946
+    ],
+    [
+      0.1391429243554685,
+      0.2451396104685383,
+      3.3496380861811788,
+      0.6398085747644365
+    ]
+  ],
+  "mc_pass": 200,
+  "mc_n": 200,
+  "mc_seed": 20260101,
+  "mc_theta_settle_worst_s": 4.78,
+  "mc_x_settle_worst_s": 6.92
+}

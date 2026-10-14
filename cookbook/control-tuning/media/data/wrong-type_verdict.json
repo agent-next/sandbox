@@ -1,0 +1,5 @@
+{
+  "passed": false,
+  "error": "invalid artifact: type must be \"lqr\", got 'pid'",
+  "gates": {}
+}

@@ -1,0 +1,5 @@
+{
+  "passed": false,
+  "error": "invalid artifact: Q must be elementwise non-negative",
+  "gates": {}
+}
