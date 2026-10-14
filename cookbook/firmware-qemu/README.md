@@ -129,6 +129,12 @@ machine (the reference polls the RX FIFO; the IRQ path exists for real
 hardware), the pl011 model does not enforce the `RXE` control bit, and
 emulated SRAM is zeroed at reset, so `.bss`-clearing faults are
 invisible here. No timing, power or real-silicon behaviour is measured.
+
+The judge catches mistakes, not a hostile artifact: the artifact's own
+`make` runs with the same user rights as the judge, so a Makefile written
+to tamper with the toolchain or the grading files could forge a verdict.
+`judge_intact` only checks that `judge/` is unchanged. Grade untrusted
+artifacts in a fresh disposable sandbox (`run.py`) and read the build log.
 `media/` is produced separately; `REPRODUCE.md` records an independent
 reproduction run.
 

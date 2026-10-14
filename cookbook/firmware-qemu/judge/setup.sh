@@ -39,7 +39,8 @@ if [ ! -x "${TC_DIR}/bin/arm-none-eabi-gcc" ]; then
         log "reusing cached ${TC_FILE}"
     fi
     log "verifying sha256 of ${TC_FILE}"
-    echo "${TC_SHA256}  ${DL}/${TC_FILE}" | sha256sum -c -
+    echo "${TC_SHA256}  ${DL}/${TC_FILE}" | sha256sum -c - \
+        || { rm -f "${DL}/${TC_FILE}"; echo "setup: bad download removed; re-run setup.sh" >&2; exit 1; }
     log "extracting ${TC_FILE}"
     tar -xJf "${DL}/${TC_FILE}" -C "${PREFIX}"
 else
@@ -79,7 +80,8 @@ if ! have_qemu; then
         log "reusing cached ${QEMU_DEB//%2b/+}"
     fi
     log "verifying sha256 of qemu-system-arm ${QEMU_PKG_VER}"
-    echo "${QEMU_SHA256}  ${DL}/${QEMU_DEB//%2b/+}" | sha256sum -c -
+    echo "${QEMU_SHA256}  ${DL}/${QEMU_DEB//%2b/+}" | sha256sum -c - \
+        || { rm -f "${DL}/${QEMU_DEB//%2b/+}"; echo "setup: bad download removed; re-run setup.sh" >&2; exit 1; }
     log "installing qemu-system-arm (${QEMU_PKG_VER}) with apt-resolved deps"
     sudo -n env DEBIAN_FRONTEND=noninteractive \
         apt-get install -y --no-install-recommends \
