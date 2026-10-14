@@ -19,9 +19,14 @@ set -euo pipefail
 #                 mem_ready latency derived from the seed
 #   G3  trap    : every judge/tests/trap/*.hex asserts trap and goes quiet
 #   G4  bus     : G1 re-run under 3 different latency seeds derived from --seed
-#   G5/G6       : SKIP (T3), recorded as skipped in the JSON verdict
+#   G5  synth   : yosys synth_ecp5 + nextpnr-ecp5 --85k --package CABGA381 on
+#                 g5_top.v (IO-reducing wrapper: cpu + internal 16 KiB RAM,
+#                 3 pins). P&R must succeed; reports LUT4/FF/Fmax.
+#   G6  perf    : fixed benchmark (tests/perf/bench.hex: bubble sort of 64
+#                 words + checksum) under 0-latency memory; checksum checked
+#                 against the ISS; reports CPI. Informational: not a gate.
 #
-# Exit 0 only if every non-skipped gate passes.
+# Exit 0 only if every non-skipped gate passes (G6 never gates).
 
 JUDGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLCHAIN="$HOME/riscv-toolchain"
@@ -75,7 +80,8 @@ T_START=$(date +%s)
 
 # ---- gate result collection -------------------------------------------------
 # GATE_<name>_pass / GATE_<name>_detail; detail is a JSON-safe string.
-declare -A GATE_PASS GATE_DETAIL
+# GATE_META_<name> may hold a JSON object merged into the gate's verdict entry.
+declare -A GATE_PASS GATE_DETAIL GATE_META
 GATE_ORDER=(G0 G1 G2 G3 G4 G5 G6)
 for g in "${GATE_ORDER[@]}"; do GATE_PASS[$g]="skipped"; GATE_DETAIL[$g]=""; done
 
@@ -232,22 +238,81 @@ if [[ "${GATE_PASS[G4]}" != false ]]; then
     fi
 fi
 
-# ---- G5/G6: not in T2 ---------------------------------------------------------
-for g in G5 G6; do
-    if [[ "$g" == G6 ]]; then
-        echo "== G6: perf benchmark: SKIP (T3) - not a gate"
-    else
-        echo "== $g: SKIP (T3)"
+# ---- G5: synthesis + place & route (ECP5-85k CABGA381) -------------------------
+# cpu's ~105-bit memory bus is bound inside judge/g5_top.v to an internal
+# 16 KiB RAM: the synthesized top has 3 pins, so IO/pinout can never be the
+# reason P&R fails. LUT4/FF come from the yosys stat; Fmax from the nextpnr
+# --report JSON (worst clock). A synth or P&R failure fails the gate with
+# the tool's own error line.
+echo "== G5: synth (yosys synth_ecp5 + nextpnr-ecp5 --85k --package CABGA381)"
+G5_LOG="$WORK/g5.log"
+G5_NET="$WORK/g5_netlist.json"
+G5_RPT="$WORK/g5_report.json"
+REPORT_LUT4=""; REPORT_FF=""; REPORT_FMAX=""
+g5_rc=0
+yosys -p "read_verilog -I$PICORV32_DIR $CPU_V; read_verilog $JUDGE_DIR/g5_top.v; hierarchy -top top; synth_ecp5 -top top -json $G5_NET; stat" \
+    >"$G5_LOG" 2>&1 || g5_rc=$?
+if [[ $g5_rc -eq 0 ]]; then
+    REPORT_LUT4=$(grep -oE '^ *[0-9]+ +LUT4$' "$G5_LOG" | tail -1 | awk '{print $1}')
+    REPORT_FF=$(grep -oE '^ *[0-9]+ +TRELLIS_FF$' "$G5_LOG" | tail -1 | awk '{print $1}')
+    nextpnr-ecp5 --85k --package CABGA381 --json "$G5_NET" \
+        --textcfg "$WORK/g5.config" --lpf-allow-unconstrained \
+        --report "$G5_RPT" >>"$G5_LOG" 2>&1 || g5_rc=$?
+    if [[ $g5_rc -eq 0 ]]; then
+        REPORT_FMAX=$(G5_RPT="$G5_RPT" python3 - <<'PY'
+import json, os
+f = json.load(open(os.environ["G5_RPT"]))["fmax"]
+print("%.2f" % min(v["achieved"] for v in f.values()) if f else "")
+PY
+)
     fi
-done
-GATE_DETAIL[G5]="synth gate lands in T3"
-GATE_DETAIL[G6]="perf report lands in T3 (not a gate)"
+fi
+if [[ $g5_rc -eq 0 && -n "${REPORT_LUT4:-}" && -n "${REPORT_FMAX:-}" ]]; then
+    GATE_PASS[G5]=true
+    GATE_DETAIL[G5]="$(printf '"synth+P&R ok: lut4=%s ff=%s fmax=%s MHz"' "$REPORT_LUT4" "$REPORT_FF" "$REPORT_FMAX")"
+    GATE_META[G5]="$(printf '{"lut4": %s, "ff": %s, "fmax_mhz": %s}' \
+        "${REPORT_LUT4:-0}" "${REPORT_FF:-0}" "${REPORT_FMAX:-0}")"
+    echo "   G5: PASS (LUT4=$REPORT_LUT4 FF=$REPORT_FF Fmax=${REPORT_FMAX} MHz)"
+else
+    GATE_PASS[G5]=false
+    G5_ERR=$(grep -iE "ERROR:|fatal" "$G5_LOG" | head -1)
+    [[ -z "$G5_ERR" ]] && G5_ERR="g5 failed: $(tail -1 "$G5_LOG")"
+    GATE_DETAIL[G5]="$(printf '%s' "$G5_ERR" | json_escape)"
+    echo "   G5: FAIL"
+    echo "   $G5_ERR"
+fi
+
+# ---- G6: perf benchmark (reported; NOT a gate) --------------------------------
+BENCH_HEX="$JUDGE_DIR/tests/perf/bench.hex"
+REPORT_CPI=""
+if [[ ! -x "${SIM:-/nonexistent}" ]]; then
+    GATE_PASS[G6]=skipped
+    GATE_DETAIL[G6]="\"verilator build failed - benchmark not run\""
+    echo "== G6: perf benchmark: SKIP (no sim)"
+elif [[ ! -f "$BENCH_HEX" ]]; then
+    GATE_PASS[G6]=skipped
+    GATE_DETAIL[G6]="\"tests/perf/bench.hex missing - run gen_bench.py\""
+    echo "== G6: perf benchmark: SKIP (no bench.hex)"
+else
+    echo "== G6: perf benchmark (bubble sort 64 words + checksum, 0-latency mem)"
+    G6_OUT="$WORK/g6.json"
+    if python3 "$JUDGE_DIR/g6check.py" --sim "$SIM" --bench "$BENCH_HEX" \
+            >"$G6_OUT" 2>/dev/null; then
+        GATE_PASS[G6]=true
+    else
+        GATE_PASS[G6]=false
+    fi
+    GATE_META[G6]="$(cat "$G6_OUT")"
+    REPORT_CPI=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("cpi") or "")' "$G6_OUT")
+    GATE_DETAIL[G6]="$(python3 -c 'import json,sys; import json as j; print(j.dumps(json.load(open(sys.argv[1])).get("detail") or ""))' "$G6_OUT")"
+    echo "   G6: $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("detail") or "n/a")' "$G6_OUT")"
+fi
 
 # ---- verdict -------------------------------------------------------------------
 T_END=$(date +%s)
 WALL=$((T_END - T_START))
 VERDICT=true
-for g in G0 G1 G2 G3 G4; do
+for g in G0 G1 G2 G3 G4 G5; do
     [[ "${GATE_PASS[$g]}" == true ]] || VERDICT=false
 done
 
@@ -262,6 +327,7 @@ gates = {}
 for g in sys.argv[5:]:
     st = os.environ.get("GATE_PASS_%s" % g, "skipped")
     detail = os.environ.get("GATE_DETAIL_%s" % g, "")
+    meta = os.environ.get("GATE_META_%s" % g, "")
     if st in ("true", "false"):
         entry = {"pass": st == "true"}
         if detail:
@@ -269,17 +335,38 @@ for g in sys.argv[5:]:
                 entry["detail"] = json.loads(detail)
             except ValueError:
                 entry["detail"] = detail
+        if meta:
+            try:
+                entry.update(json.loads(meta))
+            except ValueError:
+                pass
     else:
         entry = {"skipped": True, "reason": detail}
     gates[g] = entry
+
+def numenv(name):
+    v = os.environ.get(name, "")
+    if v == "":
+        return None
+    try:
+        f = float(v)
+    except ValueError:
+        return None
+    return int(f) if f == int(f) else f
+
 v = {
     "pass": verdict,
     "gates": gates,
+    "lut4": numenv("REPORT_LUT4"),
+    "ff": numenv("REPORT_FF"),
+    "fmax_mhz": numenv("REPORT_FMAX"),
+    "cpi": numenv("REPORT_CPI"),
     "seed": seed,
     "wall_seconds": wall,
     "tool_versions": {
         "verilator": os.environ.get("TOOL_VERILATOR", ""),
         "yosys": os.environ.get("TOOL_VER_YOSYS", ""),
+        "nextpnr": os.environ.get("TOOL_VER_NEXTPNR", ""),
     },
 }
 s = json.dumps(v, indent=2)
@@ -293,9 +380,12 @@ PY
 for g in "${GATE_ORDER[@]}"; do
     export "GATE_PASS_$g=${GATE_PASS[$g]}"
     export "GATE_DETAIL_$g=${GATE_DETAIL[$g]}"
+    export "GATE_META_$g=${GATE_META[$g]:-}"
 done
+export REPORT_LUT4 REPORT_FF REPORT_FMAX REPORT_CPI
 export TOOL_VERILATOR="$(verilator --version 2>/dev/null | head -1)"
 export TOOL_VER_YOSYS="$(yosys -V 2>/dev/null | head -1)"
+export TOOL_VER_NEXTPNR="$(nextpnr-ecp5 -V 2>/dev/null | head -1)"
 
 emit_json
 

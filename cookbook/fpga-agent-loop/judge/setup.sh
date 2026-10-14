@@ -168,6 +168,10 @@ echo
 echo "Generating directed trap tests (tests/trap/) ..."
 python3 -I "$JUDGE_DIR/gen_traps.py" >/dev/null
 
+echo "Generating perf benchmark (tests/perf/bench.hex) ..."
+mkdir -p "$JUDGE_DIR/tests/perf"
+python3 -I "$JUDGE_DIR/gen_bench.py" >/dev/null
+
 cat <<EOF
 
 Toolchain ready at $TOOLCHAIN_DIR
