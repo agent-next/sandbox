@@ -1,5 +1,4 @@
-# generated at setup/grade/media time — never commit
-judge/VERSIONS.txt
+# generated at grade/media time — never commit
 media/master/
 media/data/*.log
 media/data/mutants/

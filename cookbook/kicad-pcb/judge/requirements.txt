@@ -1,0 +1,42 @@
+# Python dependencies for media/make_media.sh ONLY.
+# The judge itself (oracle.py, mutants.py, run.py) uses the standard
+# library only and needs nothing from this file.
+#
+# Install with hash checking enforced:
+#   python3 -m venv /tmp/kcmedia && /tmp/kcmedia/bin/pip install \
+#       --require-hashes -r judge/requirements.txt
+#
+# Hashes are the cp312 manylinux x86_64 wheels published on PyPI
+# (checked 2026-10-14).  ffmpeg comes from the distro, see
+# judge/VERSIONS.txt.
+#
+# NOTE: pure-python packages (cycler, packaging, pyparsing,
+# python-dateutil, six) are version-pinned and hash-checked but have one
+# wheel only, so a single --hash line is exhaustive.  The binary wheels
+# (matplotlib, numpy, contourpy, fonttools, kiwisolver, pillow) are
+# pinned to the cp312 manylinux wheel validated on Debian bookworm
+# amd64; on another platform pip falls back to a matching sdist/wheel
+# only if its hash is listed — add the local wheel's hash when needed.
+
+matplotlib==3.11.2 \
+    --hash=sha256:df4f7784aca81a94f254c0a2767d592ee25f407e488f5fa7203e51093fb6ca27
+numpy==2.0.2 \
+    --hash=sha256:0123ffdaa88fa4ab64835dcbde75dcdf89c453c922f18dced6e27c90d1d0ec5a
+contourpy==1.3.1 \
+    --hash=sha256:efa874e87e4a647fd2e4f514d5e91c7d493697127beb95e77d2f7561f6905bd9
+cycler==0.12.1 \
+    --hash=sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30
+fonttools==4.55.3 \
+    --hash=sha256:b8d5e8916c0970fbc0f6f1bece0063363bb5857a7f170121a4493e31c3db3314
+kiwisolver==1.4.8 \
+    --hash=sha256:cc978a80a0db3a66d25767b03688f1147a69e6237175c0f4ffffaaedf744055a
+packaging==25.0 \
+    --hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484
+pillow==11.1.0 \
+    --hash=sha256:7fdadc077553621911f27ce206ffcbec7d3f8d7b50e0da39f10997e8e2bb7f6a
+pyparsing==3.2.3 \
+    --hash=sha256:a749938e02d6fd0b59b356ca504a24982314bb090c383e3cf201c95ef7e2bfcf
+python-dateutil==2.9.0 \
+    --hash=sha256:cbf2f1da5e6083ac2fbfd4da39a25f34312230110440f424a14c7558bb85d82e
+six==1.17.0 \
+    --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274
