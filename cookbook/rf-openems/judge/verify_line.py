@@ -41,7 +41,7 @@ def _dft(t, val, freq):
     return 2.0 * out * dt
 
 
-def run_verification(mesh_res=1.0, sim_path=None, numThreads=2):
+def run_verification(mesh_res=1.0, sim_path=None, numThreads=1):
     import CSXCAD
     from openEMS import openEMS
     from openEMS.physical_constants import C0

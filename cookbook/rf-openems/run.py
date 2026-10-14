@@ -44,8 +44,8 @@ def sbx_exec(sid, script, timeout_s, **kw):
 # sandbox (see RECEIPT.md) plus >= 3x headroom for a slower fresh sandbox.
 T_CLONE = 300        # measured ~10-30 s
 T_SETUP = 600        # measured ~45 s
-T_SELFTEST = 2700    # measured ~14-16 min (good + 7 mutants + determinism)
-T_GRADE = 1200       # measured ~5-6 min (sim + oracle + convergence re-run)
+T_SELFTEST = 2700    # measured ~10-20 min (good + 7 mutants + determinism)
+T_GRADE = 1500       # measured ~5-9 min (sim + oracle + convergence re-run)
 
 
 def main():

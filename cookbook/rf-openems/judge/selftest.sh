@@ -11,6 +11,8 @@ BASE="${RF_OPENEMS_HOME:-$HOME/.rf-openems}"
 
 source "$HERE/env.sh"
 
+ST_TMP="$(mktemp -d /tmp/rf-selftest.XXXXXX)"
+
 cd "$DEMO"
 "$RF_PY" judge/mutants.py generate >/dev/null
 
@@ -18,7 +20,7 @@ killed=0; mtot=0
 
 echo "== good example (expected PASS) =="
 t0=$SECONDS
-if bash judge/grade.sh examples/good/antenna.py --json /tmp/st-good.json "$@"; then
+if bash judge/grade.sh examples/good/antenna.py --json "$ST_TMP/st-good.json" "$@"; then
     echo "  -> PASS (as expected)"; good_ok=1
 else
     echo "  -> FAIL (unexpected!)"; good_ok=0
@@ -29,10 +31,10 @@ echo "== known-bad mutants (each expected FAIL) =="
 for f in examples/bad/bad_*.py; do
     mtot=$((mtot+1))
     t0=$SECONDS
-    if bash judge/grade.sh "$f" --json "/tmp/st-$mtot.json" "$@" >/dev/null 2>&1; then
+    if bash judge/grade.sh "$f" --json "$ST_TMP/st-$mtot.json" "$@" >/dev/null 2>&1; then
         echo "  $f -> *** PASSED (should have failed) ***"
     else
-        kg=$("$RF_PY" - "$f" "/tmp/st-$mtot.json" <<'EOF'
+        kg=$("$RF_PY" - "$f" "$ST_TMP/st-$mtot.json" <<'EOF'
 import json, sys
 v = json.load(open(sys.argv[2]))
 print(",".join(g["gate"] for g in v["gates"] if not g["pass"]))
@@ -46,12 +48,12 @@ done
 # ---- determinism: two quick grades must give identical verdicts --------
 echo "== determinism check (two runs, timing stripped) =="
 bash judge/grade.sh examples/good/antenna.py --skip-convergence \
-    --json /tmp/st-det1.json >/dev/null 2>&1 || true
+    --json "$ST_TMP/st-det1.json" >/dev/null 2>&1 || true
 bash judge/grade.sh examples/good/antenna.py --skip-convergence \
-    --json /tmp/st-det2.json >/dev/null 2>&1 || true
-det_ok=$("$RF_PY" - <<'EOF'
-import json
-a = json.load(open("/tmp/st-det1.json")); b = json.load(open("/tmp/st-det2.json"))
+    --json "$ST_TMP/st-det2.json" >/dev/null 2>&1 || true
+det_ok=$("$RF_PY" - "$ST_TMP/st-det1.json" "$ST_TMP/st-det2.json" <<'EOF'
+import json, sys
+a = json.load(open(sys.argv[1])); b = json.load(open(sys.argv[2]))
 a.pop("timing", None); b.pop("timing", None)
 print("1" if a == b else "0")
 EOF

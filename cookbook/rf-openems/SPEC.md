@@ -72,12 +72,21 @@ is defined as **the spec still holding under refinement**, not as a small
 ΔS11. This is the honest convergence criterion; it is why the gate re-checks
 G4+G5 on the refined mesh.
 
+**Verdict determinism:** this openEMS build is not bit-deterministic — the
+same sim stops its energy-decay loop a few timesteps apart and measured
+floats wander at ~1e-4 relative (~0.1 dB on S11, ~4e-3 deg on probe phase).
+Gate *decisions* use the raw values and our margins are far above the noise;
+for the *recorded* verdict, every sim-derived number is reported on a
+stated grid (S11-type values: 1 dB; GHz/eeff: 0.01; percents: 0.1; probe
+phases: 1 deg) so two same-seed verdicts are byte-identical outside the
+`timing` block (checked by selftest.sh).
+
 ## Acceptance oracle
 
 - **Hammerstad-Jensen closed form** for a ~50 Ω microstrip (W/h = 1.925,
   er = 4.4, h = 1.6 mm): `eeff_HJ = 3.33`. The judge simulates a straight
   line, extracts β from the phase slope of five field probes, derives
-  `eeff_sim` and compares (gate G7, ≤ 4 %). Measured residual is ~3 % — the
+  `eeff_sim` and compares (gate G7, ≤ 4 %). Measured residual is 2.8 % — the
   quasi-static formula itself is approximate; the 4 % bound is honest and
   documented, not fitted.
 - **Patch quasi-static resonance** `c/(2(L+ΔL)√εeff)` is reported beside the

@@ -15,6 +15,9 @@ fi
 export PYTHONPATH="$SYSROOT/usr/lib/python3/dist-packages:$SYSROOT/usr/lib/python3/dist-packages/CSXCAD:$BASE/pylibs"
 export LD_LIBRARY_PATH="$SYSROOT/usr/lib/x86_64-linux-gnu"
 export MPLBACKEND=Agg MPLCONFIGDIR="$BASE/.mpl"
-export OMP_NUM_THREADS=2
+# single-threaded everywhere: parallel BLAS reductions make the FDTD and the
+# DFT post-processing non-deterministic at the last-ulp level (verdict JSON
+# must be byte-identical across runs)
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 RF_FFMPEG="$BASE/bin/ffmpeg"
 export RF_PY RF_FFMPEG

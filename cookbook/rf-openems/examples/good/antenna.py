@@ -98,7 +98,7 @@ def simulate(p, sim_path):
                               'z', excite=1.0, priority=5,
                               edges2grid='xy')
 
-    FDTD.Run(sim_path, cleanup=True, verbose=0, numThreads=2)
+    FDTD.Run(sim_path, cleanup=True, verbose=0, numThreads=1)
 
     freq = np.linspace(2.2e9, 2.7e9, 51)
     port.CalcPort(sim_path, freq)
