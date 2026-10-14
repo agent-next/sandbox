@@ -211,8 +211,9 @@ def main():
     s11_at = float(results["S11_dB_at_target"])
     f_res = float(results["f_res_GHz"])
 
-    # trace: S11 curve from the artifact's own sweep (as it returns in G3 judged
-    # with the artifact-filename prefix so make_media.sh can compare runs).
+    # trace: S11 curve of the artifact's own reported sweep (G3 output).
+    # Caller gives each run its own DIR (fixed filenames inside), so
+    # make_data.sh can keep one trace set per graded artifact.
     if args.trace:
         os.makedirs(args.trace, exist_ok=True)
         with open(os.path.join(args.trace, "s11_artifact.csv"), "w") as f:
