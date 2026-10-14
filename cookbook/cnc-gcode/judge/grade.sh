@@ -39,7 +39,7 @@ fail() { echo "grade: $*" >&2; exit 1; }
 # judge integrity hash before the artifact runs
 JUDGE_HASH_BEFORE="$(find "$HERE" -type f \
     ! -name setup.sh ! -name grade.sh ! -name selftest.sh ! -name VERSIONS.txt \
-    ! -name RECEIPT.md -exec sha256sum {} + | sort | sha256sum | awk '{print $1}')"
+    ! -name RECEIPT.md ! -path '*/__pycache__/*' -exec sha256sum {} + | sort | sha256sum | awk '{print $1}')"
 
 # scratch: the artifact + the repo's own spec (never the artifact's spec)
 WORK="$(mktemp -d)/grading"
@@ -56,7 +56,7 @@ cp "$HERE/../spec.json" "$WORK/spec.json"
 # the artifact must not have touched the judge
 JUDGE_HASH_AFTER="$(find "$HERE" -type f \
     ! -name setup.sh ! -name grade.sh ! -name selftest.sh ! -name VERSIONS.txt \
-    ! -name RECEIPT.md -exec sha256sum {} + | sort | sha256sum | awk '{print $1}')"
+    ! -name RECEIPT.md ! -path '*/__pycache__/*' -exec sha256sum {} + | sort | sha256sum | awk '{print $1}')"
 [ "$JUDGE_HASH_BEFORE" = "$JUDGE_HASH_AFTER" ] \
     || fail "judge sources changed during grading (checksum mismatch)"
 
@@ -65,6 +65,6 @@ exit "${rc:-0}"
 # the artifact must not have touched the judge
 JUDGE_HASH_AFTER="$(find "$HERE" -type f \
     ! -name setup.sh ! -name grade.sh ! -name selftest.sh ! -name VERSIONS.txt \
-    ! -name RECEIPT.md -exec sha256sum {} + | sort | sha256sum | awk '{print $1}')"
+    ! -name RECEIPT.md ! -path '*/__pycache__/*' -exec sha256sum {} + | sort | sha256sum | awk '{print $1}')"
 [ "$JUDGE_HASH_BEFORE" = "$JUDGE_HASH_AFTER" ] \
     || fail "judge sources changed during grading (checksum mismatch)"

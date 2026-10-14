@@ -26,6 +26,10 @@ def sh(cmd, **kw):
                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kw)
 
 
+def shlex_quote(s):
+    return "'" + s.replace("'", "'\"'\"'") + "'"
+
+
 def main():
     ref = DEFAULT_REF
     keep = False
