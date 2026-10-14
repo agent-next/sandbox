@@ -1,0 +1,753 @@
+{
+  "note": "Real UART transcript: same QEMU argv, pty discipline, command script (judge/spec.json) and seed as the judge's drive.py, whose Session class this script reuses. dir=tx lines are the commands the judge sends; dir=rx lines are the firmware's UART0 output.",
+  "elf": "../../../../../tmp/fq-media-mutants/crc-poly/build/firmware.elf",
+  "qemu": [
+    "qemu-system-arm",
+    "-M",
+    "lm3s6965evb",
+    "-cpu",
+    "cortex-m3",
+    "-nographic",
+    "-monitor",
+    "none",
+    "-serial",
+    "stdio",
+    "-kernel",
+    "/tmp/fq-media-mutants/crc-poly/build/firmware.elf"
+  ],
+  "spec": "judge/spec.json",
+  "seed": 20260814,
+  "boot_s": 10.0,
+  "shell_s": 30.0,
+  "events": [
+    {
+      "t": 0.14,
+      "dir": "rx",
+      "line": "firmware-qemu 1.0 cortex-m3 lm3s6965evb ready"
+    },
+    {
+      "t": 0.14,
+      "dir": "tx",
+      "line": "HELP"
+    },
+    {
+      "t": 0.242,
+      "dir": "rx",
+      "line": "OK commands: HELP VER ID CRC RB PING ECHO"
+    },
+    {
+      "t": 0.242,
+      "dir": "tx",
+      "line": "VER"
+    },
+    {
+      "t": 0.343,
+      "dir": "rx",
+      "line": "OK firmware-qemu 1.0 cortex-m3"
+    },
+    {
+      "t": 0.343,
+      "dir": "tx",
+      "line": "ID"
+    },
+    {
+      "t": 0.443,
+      "dir": "rx",
+      "line": "OK lm3s6965evb"
+    },
+    {
+      "t": 0.443,
+      "dir": "tx",
+      "line": "PING"
+    },
+    {
+      "t": 0.544,
+      "dir": "rx",
+      "line": "OK pong"
+    },
+    {
+      "t": 0.544,
+      "dir": "tx",
+      "line": "ECHO hello world"
+    },
+    {
+      "t": 0.645,
+      "dir": "rx",
+      "line": "OK hello world"
+    },
+    {
+      "t": 0.645,
+      "dir": "tx",
+      "line": "ECHO   spaced   out  "
+    },
+    {
+      "t": 0.746,
+      "dir": "rx",
+      "line": "OK spaced   out  "
+    },
+    {
+      "t": 0.746,
+      "dir": "tx",
+      "line": "ECHO"
+    },
+    {
+      "t": 0.846,
+      "dir": "rx",
+      "line": "ERR unknown"
+    },
+    {
+      "t": 0.846,
+      "dir": "tx",
+      "line": "BOGUS"
+    },
+    {
+      "t": 0.947,
+      "dir": "rx",
+      "line": "ERR unknown"
+    },
+    {
+      "t": 0.947,
+      "dir": "tx",
+      "line": "rbfrob"
+    },
+    {
+      "t": 1.047,
+      "dir": "rx",
+      "line": "ERR unknown"
+    },
+    {
+      "t": 1.047,
+      "dir": "tx",
+      "line": "RB nonsense"
+    },
+    {
+      "t": 1.148,
+      "dir": "rx",
+      "line": "ERR unknown"
+    },
+    {
+      "t": 1.148,
+      "dir": "tx",
+      "line": "RB"
+    },
+    {
+      "t": 1.249,
+      "dir": "rx",
+      "line": "ERR unknown"
+    },
+    {
+      "t": 1.249,
+      "dir": "tx",
+      "line": "CRC 31323334"
+    },
+    {
+      "t": 1.35,
+      "dir": "rx",
+      "line": "OK 0xf63af4ee"
+    },
+    {
+      "t": 1.35,
+      "dir": "tx",
+      "line": "CRC 313233343536373839"
+    },
+    {
+      "t": 1.451,
+      "dir": "rx",
+      "line": "OK 0xe3069283"
+    },
+    {
+      "t": 1.451,
+      "dir": "tx",
+      "line": "CRC deadbeef"
+    },
+    {
+      "t": 1.552,
+      "dir": "rx",
+      "line": "OK 0xf1dc778e"
+    },
+    {
+      "t": 1.552,
+      "dir": "tx",
+      "line": "CRC 00"
+    },
+    {
+      "t": 1.652,
+      "dir": "rx",
+      "line": "OK 0x527d5351"
+    },
+    {
+      "t": 1.652,
+      "dir": "tx",
+      "line": "CRC ff"
+    },
+    {
+      "t": 1.753,
+      "dir": "rx",
+      "line": "OK 0xff000000"
+    },
+    {
+      "t": 1.753,
+      "dir": "tx",
+      "line": "CRC 0000000000"
+    },
+    {
+      "t": 1.854,
+      "dir": "rx",
+      "line": "OK 0x45727635"
+    },
+    {
+      "t": 1.854,
+      "dir": "tx",
+      "line": "CRC"
+    },
+    {
+      "t": 1.954,
+      "dir": "rx",
+      "line": "ERR bad hex"
+    },
+    {
+      "t": 1.955,
+      "dir": "tx",
+      "line": "CRC abc"
+    },
+    {
+      "t": 2.055,
+      "dir": "rx",
+      "line": "ERR bad hex"
+    },
+    {
+      "t": 2.055,
+      "dir": "tx",
+      "line": "CRC zz"
+    },
+    {
+      "t": 2.156,
+      "dir": "rx",
+      "line": "ERR bad hex"
+    },
+    {
+      "t": 2.156,
+      "dir": "tx",
+      "line": "CRC 0z"
+    },
+    {
+      "t": 2.256,
+      "dir": "rx",
+      "line": "ERR bad hex"
+    },
+    {
+      "t": 2.256,
+      "dir": "tx",
+      "line": "RB count"
+    },
+    {
+      "t": 2.357,
+      "dir": "rx",
+      "line": "OK 0"
+    },
+    {
+      "t": 2.357,
+      "dir": "tx",
+      "line": "RB pop"
+    },
+    {
+      "t": 2.458,
+      "dir": "rx",
+      "line": "ERR empty"
+    },
+    {
+      "t": 2.458,
+      "dir": "tx",
+      "line": "RB dump"
+    },
+    {
+      "t": 2.558,
+      "dir": "rx",
+      "line": "OK "
+    },
+    {
+      "t": 2.558,
+      "dir": "tx",
+      "line": "RB clear"
+    },
+    {
+      "t": 2.659,
+      "dir": "rx",
+      "line": "OK 0"
+    },
+    {
+      "t": 2.659,
+      "dir": "tx",
+      "line": "RB count"
+    },
+    {
+      "t": 2.76,
+      "dir": "rx",
+      "line": "OK 0"
+    },
+    {
+      "t": 2.76,
+      "dir": "tx",
+      "line": "RB push 01"
+    },
+    {
+      "t": 2.86,
+      "dir": "rx",
+      "line": "OK 1"
+    },
+    {
+      "t": 2.86,
+      "dir": "tx",
+      "line": "RB count"
+    },
+    {
+      "t": 2.961,
+      "dir": "rx",
+      "line": "OK 1"
+    },
+    {
+      "t": 2.961,
+      "dir": "tx",
+      "line": "RB dump"
+    },
+    {
+      "t": 3.062,
+      "dir": "rx",
+      "line": "OK 01"
+    },
+    {
+      "t": 3.062,
+      "dir": "tx",
+      "line": "RB push 0203"
+    },
+    {
+      "t": 3.163,
+      "dir": "rx",
+      "line": "OK 3"
+    },
+    {
+      "t": 3.163,
+      "dir": "tx",
+      "line": "RB dump"
+    },
+    {
+      "t": 3.263,
+      "dir": "rx",
+      "line": "OK 01 02 03"
+    },
+    {
+      "t": 3.263,
+      "dir": "tx",
+      "line": "RB pop"
+    },
+    {
+      "t": 3.364,
+      "dir": "rx",
+      "line": "OK 2"
+    },
+    {
+      "t": 3.364,
+      "dir": "tx",
+      "line": "RB dump"
+    },
+    {
+      "t": 3.464,
+      "dir": "rx",
+      "line": "OK 02 03"
+    },
+    {
+      "t": 3.465,
+      "dir": "tx",
+      "line": "RB pop"
+    },
+    {
+      "t": 3.565,
+      "dir": "rx",
+      "line": "OK 1"
+    },
+    {
+      "t": 3.565,
+      "dir": "tx",
+      "line": "RB pop"
+    },
+    {
+      "t": 3.666,
+      "dir": "rx",
+      "line": "OK 0"
+    },
+    {
+      "t": 3.666,
+      "dir": "tx",
+      "line": "RB pop"
+    },
+    {
+      "t": 3.766,
+      "dir": "rx",
+      "line": "ERR empty"
+    },
+    {
+      "t": 3.766,
+      "dir": "tx",
+      "line": "RB push bad"
+    },
+    {
+      "t": 3.867,
+      "dir": "rx",
+      "line": "ERR bad hex"
+    },
+    {
+      "t": 3.867,
+      "dir": "tx",
+      "line": "RB clear"
+    },
+    {
+      "t": 3.968,
+      "dir": "rx",
+      "line": "OK 0"
+    },
+    {
+      "t": 3.968,
+      "dir": "tx",
+      "line": "RB push 0102030405060708090a0b0c0d0e0f1011"
+    },
+    {
+      "t": 4.069,
+      "dir": "rx",
+      "line": "OK 16"
+    },
+    {
+      "t": 4.069,
+      "dir": "tx",
+      "line": "RB count"
+    },
+    {
+      "t": 4.17,
+      "dir": "rx",
+      "line": "OK 16"
+    },
+    {
+      "t": 4.17,
+      "dir": "tx",
+      "line": "RB dump"
+    },
+    {
+      "t": 4.271,
+      "dir": "rx",
+      "line": "OK 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11"
+    },
+    {
+      "t": 4.271,
+      "dir": "tx",
+      "line": "RB push 1112"
+    },
+    {
+      "t": 4.371,
+      "dir": "rx",
+      "line": "OK 16"
+    },
+    {
+      "t": 4.371,
+      "dir": "tx",
+      "line": "RB dump"
+    },
+    {
+      "t": 4.472,
+      "dir": "rx",
+      "line": "OK 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 11 12"
+    },
+    {
+      "t": 4.472,
+      "dir": "tx",
+      "line": "RB pop"
+    },
+    {
+      "t": 4.573,
+      "dir": "rx",
+      "line": "OK 15"
+    },
+    {
+      "t": 4.573,
+      "dir": "tx",
+      "line": "RB dump"
+    },
+    {
+      "t": 4.674,
+      "dir": "rx",
+      "line": "OK 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 11 12"
+    },
+    {
+      "t": 4.674,
+      "dir": "tx",
+      "line": "RB clear"
+    },
+    {
+      "t": 4.774,
+      "dir": "rx",
+      "line": "OK 0"
+    },
+    {
+      "t": 4.777,
+      "dir": "tx",
+      "line": "CRC 313233343536373839"
+    },
+    {
+      "t": 4.878,
+      "dir": "rx",
+      "line": "OK 0xe3069283"
+    },
+    {
+      "t": 4.878,
+      "dir": "tx",
+      "line": "CRC 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "t": 4.981,
+      "dir": "rx",
+      "line": "OK 0x03c8eb67"
+    },
+    {
+      "t": 4.981,
+      "dir": "tx",
+      "line": "CRC ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "t": 5.084,
+      "dir": "rx",
+      "line": "OK 0x2fcd4e66"
+    },
+    {
+      "t": 5.084,
+      "dir": "tx",
+      "line": "CRC 11b91edd3c354f841466440875596eebc519bc8b4423b5dc2ebf1c173f3a31350b09cce0a093a4800724ee71"
+    },
+    {
+      "t": 5.186,
+      "dir": "rx",
+      "line": "OK 0x3fe41117"
+    },
+    {
+      "t": 5.186,
+      "dir": "tx",
+      "line": "CRC 222c0ccceddbfc2e9a5b"
+    },
+    {
+      "t": 5.287,
+      "dir": "rx",
+      "line": "OK 0xe0430b46"
+    },
+    {
+      "t": 5.288,
+      "dir": "tx",
+      "line": "CRC a00b8e73b1b8e155fe7326e974b46b961627966ad36613c5408a0c40e93c460c82318ad3e9ba61421833f4d1422737d849400875"
+    },
+    {
+      "t": 5.39,
+      "dir": "rx",
+      "line": "OK 0x9778a97e"
+    },
+    {
+      "t": 5.39,
+      "dir": "tx",
+      "line": "CRC 8743630713cd5b5ade8285796b61b276b5770c70a013353a8b48c6894918e6035a5265eed9b5389e274c57"
+    },
+    {
+      "t": 5.492,
+      "dir": "rx",
+      "line": "OK 0xe08dd4d2"
+    },
+    {
+      "t": 5.492,
+      "dir": "tx",
+      "line": "CRC b26c26338eb3a131ae17fe28f8aa45f425a4e747b2455bd3835ba52902f300504162591c75586726e9b2c06934b19c445592d1e2db991260ad0f814cbb"
+    },
+    {
+      "t": 5.594,
+      "dir": "rx",
+      "line": "OK 0xae25effc"
+    },
+    {
+      "t": 5.594,
+      "dir": "tx",
+      "line": "CRC 36d7e24ad1ab"
+    },
+    {
+      "t": 5.695,
+      "dir": "rx",
+      "line": "OK 0x37621bbd"
+    },
+    {
+      "t": 5.695,
+      "dir": "tx",
+      "line": "CRC 00f2fd3606b836a34b421dc5f7a373aa8cd64fb8a248ae45b493eaf8c7f938cc7fd73a5609d7f1773ec93f9c87a185"
+    },
+    {
+      "t": 5.797,
+      "dir": "rx",
+      "line": "OK 0x2e38eb39"
+    },
+    {
+      "t": 5.797,
+      "dir": "tx",
+      "line": "CRC d84ab12f100bbc4d05a04eeace3082c013f1ea97675b8ace20317e78820dc93c2509efca5af1e696eb45a161ad"
+    },
+    {
+      "t": 5.899,
+      "dir": "rx",
+      "line": "OK 0xd6312488"
+    },
+    {
+      "t": 5.899,
+      "dir": "tx",
+      "line": "CRC 7b8ecd3dd1d62cbc5ed2936a10aec884ad2638"
+    },
+    {
+      "t": 6.0,
+      "dir": "rx",
+      "line": "OK 0x2897b29e"
+    },
+    {
+      "t": 6.0,
+      "dir": "tx",
+      "line": "CRC 937a6f06f49207fe51fe3c145b68cbb084614d6f192d97fcea70"
+    },
+    {
+      "t": 6.101,
+      "dir": "rx",
+      "line": "OK 0x1be61f56"
+    },
+    {
+      "t": 6.101,
+      "dir": "tx",
+      "line": "CRC bcf6690013acd134d85397c6d16115a4453fafeb0e90213c8e60cb4b36599684ef98be1ebb"
+    },
+    {
+      "t": 6.203,
+      "dir": "rx",
+      "line": "OK 0xb560046f"
+    },
+    {
+      "t": 6.203,
+      "dir": "tx",
+      "line": "CRC 975c26333abcbc8c1ddc"
+    },
+    {
+      "t": 6.304,
+      "dir": "rx",
+      "line": "OK 0x862755ba"
+    }
+  ],
+  "result": {
+    "boot_ok": true,
+    "saw_fault": false,
+    "shell_total": 46,
+    "shell_failed": 5,
+    "shell_ok": false,
+    "shell_failures": [
+      {
+        "line": "CRC 31323334",
+        "expect": "OK 0x9be3e0a3",
+        "got": "OK 0xf63af4ee"
+      },
+      {
+        "line": "CRC 313233343536373839",
+        "expect": "OK 0xcbf43926",
+        "got": "OK 0xe3069283"
+      },
+      {
+        "line": "CRC deadbeef",
+        "expect": "OK 0x7c9ca35a",
+        "got": "OK 0xf1dc778e"
+      },
+      {
+        "line": "CRC 00",
+        "expect": "OK 0xd202ef8d",
+        "got": "OK 0x527d5351"
+      },
+      {
+        "line": "CRC 0000000000",
+        "expect": "OK 0xc622f71d",
+        "got": "OK 0x45727635"
+      }
+    ],
+    "crc_total": 15,
+    "crc_failed": 15,
+    "crc_ok": false,
+    "crc_failures": [
+      {
+        "bytes": "313233343536373839",
+        "expect": "OK 0xcbf43926",
+        "got": "OK 0xe3069283"
+      },
+      {
+        "bytes": "000000000000000000000000000000000000000000000000",
+        "expect": "OK 0x758d6336",
+        "got": "OK 0x03c8eb67"
+      },
+      {
+        "bytes": "ffffffffffffffffffffffffffffffffffffffffffffffff",
+        "expect": "OK 0x0f6187ba",
+        "got": "OK 0x2fcd4e66"
+      },
+      {
+        "bytes": "11b91edd3c354f841466440875596eebc519bc8b4423b5dc",
+        "expect": "OK 0xf6f82b78",
+        "got": "OK 0x3fe41117"
+      },
+      {
+        "bytes": "222c0ccceddbfc2e9a5b",
+        "expect": "OK 0x4d7e4491",
+        "got": "OK 0xe0430b46"
+      },
+      {
+        "bytes": "a00b8e73b1b8e155fe7326e974b46b961627966ad36613c5",
+        "expect": "OK 0x32692ebd",
+        "got": "OK 0x9778a97e"
+      },
+      {
+        "bytes": "8743630713cd5b5ade8285796b61b276b5770c70a013353a",
+        "expect": "OK 0xe79c104e",
+        "got": "OK 0xe08dd4d2"
+      },
+      {
+        "bytes": "b26c26338eb3a131ae17fe28f8aa45f425a4e747b2455bd3",
+        "expect": "OK 0x0760da67",
+        "got": "OK 0xae25effc"
+      },
+      {
+        "bytes": "36d7e24ad1ab",
+        "expect": "OK 0x8068e9c1",
+        "got": "OK 0x37621bbd"
+      },
+      {
+        "bytes": "00f2fd3606b836a34b421dc5f7a373aa8cd64fb8a248ae45",
+        "expect": "OK 0xd0206895",
+        "got": "OK 0x2e38eb39"
+      },
+      {
+        "bytes": "d84ab12f100bbc4d05a04eeace3082c013f1ea97675b8ace",
+        "expect": "OK 0xdd2a8958",
+        "got": "OK 0xd6312488"
+      },
+      {
+        "bytes": "7b8ecd3dd1d62cbc5ed2936a10aec884ad2638",
+        "expect": "OK 0xc9dbbb7b",
+        "got": "OK 0x2897b29e"
+      },
+      {
+        "bytes": "937a6f06f49207fe51fe3c145b68cbb084614d6f192d97fc",
+        "expect": "OK 0x4e603247",
+        "got": "OK 0x1be61f56"
+      },
+      {
+        "bytes": "bcf6690013acd134d85397c6d16115a4453fafeb0e90213c",
+        "expect": "OK 0xf02978da",
+        "got": "OK 0xb560046f"
+      },
+      {
+        "bytes": "975c26333abcbc8c1ddc",
+        "expect": "OK 0x4d5dbd61",
+        "got": "OK 0x862755ba"
+      }
+    ]
+  }
+}

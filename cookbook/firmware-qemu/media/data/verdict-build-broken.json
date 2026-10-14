@@ -1,0 +1,46 @@
+{
+  "artifact": "/tmp/fq-media-mutants/build-broken",
+  "gates": {
+    "boot": {
+      "detail": "no ELF",
+      "verdict": "fail"
+    },
+    "build_clean": {
+      "detail": "make exited 2",
+      "verdict": "fail"
+    },
+    "crc_oracle": {
+      "detail": "no ELF",
+      "verdict": "fail"
+    },
+    "elf_ok": {
+      "detail": "build/firmware.elf missing",
+      "verdict": "fail"
+    },
+    "judge_intact": {
+      "detail": "skipped",
+      "verdict": "fail"
+    },
+    "maps_ok": {
+      "detail": "no ELF to size",
+      "verdict": "fail"
+    },
+    "no_hardfault": {
+      "detail": "no ELF",
+      "verdict": "fail"
+    },
+    "shell": {
+      "detail": "no ELF",
+      "verdict": "fail"
+    }
+  },
+  "gates_passed": 0,
+  "gates_total": 8,
+  "pass": false,
+  "schema": "firmware-qemu/grade/1",
+  "seed": 20260814,
+  "timing": {
+    "elapsed_s": 0,
+    "generated_at": "2026-10-14T09:57:10.495229+00:00"
+  }
+}

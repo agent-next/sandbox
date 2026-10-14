@@ -1,0 +1,46 @@
+{
+  "artifact": "/tmp/fq-media-mutants/startup-bad-sp",
+  "gates": {
+    "boot": {
+      "detail": "no banner within 10s",
+      "verdict": "fail"
+    },
+    "build_clean": {
+      "detail": "no diagnostics",
+      "verdict": "pass"
+    },
+    "crc_oracle": {
+      "detail": "CRC disagrees with zlib",
+      "verdict": "fail"
+    },
+    "elf_ok": {
+      "detail": "entry 0x205 is inside .text",
+      "verdict": "pass"
+    },
+    "judge_intact": {
+      "detail": "judge checksum unchanged",
+      "verdict": "pass"
+    },
+    "maps_ok": {
+      "detail": ".text+.rodata=2224B <= 8192B",
+      "verdict": "pass"
+    },
+    "no_hardfault": {
+      "detail": "no fault strings in UART output",
+      "verdict": "pass"
+    },
+    "shell": {
+      "detail": "46 of 46 responses wrong",
+      "verdict": "fail"
+    }
+  },
+  "gates_passed": 5,
+  "gates_total": 8,
+  "pass": false,
+  "schema": "firmware-qemu/grade/1",
+  "seed": 20260814,
+  "timing": {
+    "elapsed_s": 41,
+    "generated_at": "2026-10-14T09:59:17.534707+00:00"
+  }
+}

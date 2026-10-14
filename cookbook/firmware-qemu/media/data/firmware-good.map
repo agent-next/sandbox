@@ -1,0 +1,374 @@
+Archive member included to satisfy reference by file (symbol)
+
+/home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+                              build/shell.o (memcpy)
+
+Discarded input sections
+
+ .group         0x00000000        0xc build/startup.o
+ .group         0x00000000        0xc build/startup.o
+ .group         0x00000000        0xc build/startup.o
+ .group         0x00000000        0xc build/startup.o
+ .text          0x00000000        0x0 build/startup.o
+ .data          0x00000000        0x0 build/startup.o
+ .bss           0x00000000        0x0 build/startup.o
+ .group         0x00000000        0xc build/ring.o
+ .group         0x00000000        0xc build/ring.o
+ .group         0x00000000        0xc build/ring.o
+ .group         0x00000000        0xc build/ring.o
+ .text          0x00000000        0x0 build/ring.o
+ .data          0x00000000        0x0 build/ring.o
+ .bss           0x00000000        0x0 build/ring.o
+ .text.rb_peek  0x00000000       0x14 build/ring.o
+ .debug_macro   0x00000000      0xac0 build/ring.o
+ .debug_macro   0x00000000      0x190 build/ring.o
+ .debug_macro   0x00000000      0x34e build/ring.o
+ .debug_macro   0x00000000       0x28 build/ring.o
+ .group         0x00000000        0xc build/crc.o
+ .group         0x00000000        0xc build/crc.o
+ .group         0x00000000        0xc build/crc.o
+ .group         0x00000000        0xc build/crc.o
+ .text          0x00000000        0x0 build/crc.o
+ .data          0x00000000        0x0 build/crc.o
+ .bss           0x00000000        0x0 build/crc.o
+ .debug_macro   0x00000000      0xac0 build/crc.o
+ .debug_macro   0x00000000      0x190 build/crc.o
+ .debug_macro   0x00000000      0x34e build/crc.o
+ .debug_macro   0x00000000       0x28 build/crc.o
+ .group         0x00000000        0xc build/uart.o
+ .group         0x00000000        0xc build/uart.o
+ .group         0x00000000        0xc build/uart.o
+ .group         0x00000000        0xc build/uart.o
+ .text          0x00000000        0x0 build/uart.o
+ .data          0x00000000        0x0 build/uart.o
+ .bss           0x00000000        0x0 build/uart.o
+ .text.uart_puts
+                0x00000000       0x12 build/uart.o
+ .debug_macro   0x00000000      0xac0 build/uart.o
+ .debug_macro   0x00000000      0x190 build/uart.o
+ .debug_macro   0x00000000      0x34e build/uart.o
+ .debug_macro   0x00000000       0x28 build/uart.o
+ .group         0x00000000        0xc build/shell.o
+ .group         0x00000000        0xc build/shell.o
+ .group         0x00000000        0xc build/shell.o
+ .group         0x00000000        0xc build/shell.o
+ .text          0x00000000        0x0 build/shell.o
+ .data          0x00000000        0x0 build/shell.o
+ .bss           0x00000000        0x0 build/shell.o
+ .debug_macro   0x00000000      0xac0 build/shell.o
+ .debug_macro   0x00000000      0x190 build/shell.o
+ .debug_macro   0x00000000      0x34e build/shell.o
+ .debug_macro   0x00000000       0x28 build/shell.o
+ .group         0x00000000        0xc build/main.o
+ .group         0x00000000        0xc build/main.o
+ .group         0x00000000        0xc build/main.o
+ .group         0x00000000        0xc build/main.o
+ .text          0x00000000        0x0 build/main.o
+ .data          0x00000000        0x0 build/main.o
+ .bss           0x00000000        0x0 build/main.o
+ .debug_macro   0x00000000      0xac0 build/main.o
+ .debug_macro   0x00000000      0x190 build/main.o
+ .debug_macro   0x00000000      0x34e build/main.o
+ .debug_macro   0x00000000       0x28 build/main.o
+ .data          0x00000000        0x0 /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+ .bss           0x00000000        0x0 /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+ .ARM.extab     0x00000000        0x0 /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+ .debug_line_str
+                0x00000000       0xd8 /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+ .eh_frame      0x00000000       0x2c /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+ .ARM.attributes
+                0x00000000       0x1b /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+FLASH            0x00000000         0x00040000         xr
+SRAM             0x20000000         0x00010000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD build/startup.o
+LOAD build/ring.o
+LOAD build/crc.o
+LOAD build/uart.o
+LOAD build/shell.o
+LOAD build/main.o
+                0x20010000                        _estack = (ORIGIN (SRAM) + LENGTH (SRAM))
+
+.isr_vector     0x00000000      0x200
+                0x00000000                        . = ALIGN (0x4)
+ *(.isr_vector)
+ .isr_vector    0x00000000      0x200 build/startup.o
+                0x00000000                g_vector_table
+                0x00000200                        . = ALIGN (0x4)
+
+.text           0x00000200      0x8b0
+                0x00000200                        . = ALIGN (0x4)
+ *(.text*)
+ .text.Default_Handler
+                0x00000200        0x2 build/startup.o
+                0x00000200                SysTick_Handler
+                0x00000200                Default_Handler
+ *fill*         0x00000202        0x2 
+ .text.Reset_Handler
+                0x00000204       0x40 build/startup.o
+                0x00000204                Reset_Handler
+ .text.rb_init  0x00000244       0x26 build/ring.o
+                0x00000244                rb_init
+ .text.rb_push  0x0000026a       0x44 build/ring.o
+                0x0000026a                rb_push
+ .text.rb_pop   0x000002ae       0x34 build/ring.o
+                0x000002ae                rb_pop
+ .text.rb_count
+                0x000002e2        0x6 build/ring.o
+                0x000002e2                rb_count
+ .text.rb_clear
+                0x000002e8        0xc build/ring.o
+                0x000002e8                rb_clear
+ .text.crc32_ieee
+                0x000002f4       0x30 build/crc.o
+                0x000002f4                crc32_ieee
+ .text.rx_fill  0x00000324       0x28 build/uart.o
+ .text.uart_init
+                0x0000034c       0x34 build/uart.o
+                0x0000034c                uart_init
+ .text.uart_putc
+                0x00000380       0x10 build/uart.o
+                0x00000380                uart_putc
+ .text.uart_write
+                0x00000390       0x16 build/uart.o
+                0x00000390                uart_write
+ *fill*         0x000003a6        0x2 
+ .text.uart_getc
+                0x000003a8       0x18 build/uart.o
+                0x000003a8                uart_getc
+ .text.UART0_Handler
+                0x000003c0       0x14 build/uart.o
+                0x000003c0                UART0_Handler
+ .text.str_eq   0x000003d4       0x20 build/shell.o
+ .text.hexval   0x000003f4       0x2a build/shell.o
+ .text.out_str  0x0000041e       0x14 build/shell.o
+ .text.out_dec  0x00000432       0x44 build/shell.o
+ *fill*         0x00000476        0x2 
+ .text.hexdecode.constprop.0
+                0x00000478       0x54 build/shell.o
+ .text.token.constprop.0.isra.0
+                0x000004cc       0x54 build/shell.o
+ .text.shell_exec
+                0x00000520      0x2e0 build/shell.o
+                0x00000520                shell_exec
+ .text.run_line
+                0x00000800       0x30 build/shell.o
+ .text.shell_init
+                0x00000830       0x24 build/shell.o
+                0x00000830                shell_init
+ .text.shell_poll
+                0x00000854       0x50 build/shell.o
+                0x00000854                shell_poll
+ .text.kernel_main
+                0x000008a4       0x20 build/main.o
+                0x000008a4                kernel_main
+ .text          0x000008c4       0xec /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+                0x000008c4                memcpy
+ *(.rodata*)
+ .rodata.shell_exec.str1.1
+                0x000009b0       0xbd build/shell.o
+                                 0xc2 (size before relaxing)
+ .rodata.hexd   0x00000a6d       0x11 build/shell.o
+ .rodata.banner
+                0x00000a7e       0x30 build/main.o
+ *(.init)
+ *(.fini)
+                0x00000ab0                        . = ALIGN (0x4)
+ *fill*         0x00000aae        0x2 
+                0x00000ab0                        _etext = .
+
+.glue_7         0x00000ab0        0x0
+ .glue_7        0x00000ab0        0x0 linker stubs
+
+.glue_7t        0x00000ab0        0x0
+ .glue_7t       0x00000ab0        0x0 linker stubs
+
+.vfp11_veneer   0x00000ab0        0x0
+ .vfp11_veneer  0x00000ab0        0x0 linker stubs
+
+.v4_bx          0x00000ab0        0x0
+ .v4_bx         0x00000ab0        0x0 linker stubs
+
+.iplt           0x00000ab0        0x0
+ .iplt          0x00000ab0        0x0 build/startup.o
+
+.ARM.extab
+ *(.ARM.extab* .gnu.linkonce.armextab.*)
+
+.ARM.exidx      0x00000ab0        0x8
+                0x00000ab0                        __exidx_start = .
+ *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+ .ARM.exidx     0x00000ab0        0x8 /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a(libc_a-memcpy.o)
+                0x00000ab8                        __exidx_end = .
+                0x00000ab8                        _sidata = LOADADDR (.data)
+
+.rel.dyn        0x00000ab8        0x0
+ .rel.iplt      0x00000ab8        0x0 build/startup.o
+
+.data           0x20000000        0x0 load address 0x00000ab8
+                0x20000000                        . = ALIGN (0x4)
+                0x20000000                        _sdata = .
+ *(.data*)
+                0x20000000                        . = ALIGN (0x4)
+                0x20000000                        _edata = .
+
+.igot.plt       0x20000000        0x0 load address 0x00000ab8
+ .igot.plt      0x20000000        0x0 build/startup.o
+
+.bss            0x20000000     0x1168 load address 0x00000ab8
+                0x20000000                        . = ALIGN (0x4)
+                0x20000000                        _sbss = .
+ *(.bss*)
+ .bss.rx_ring   0x20000000      0x130 build/uart.o
+ .bss.out.0     0x20000130      0x200 build/shell.o
+ .bss.hexbuf.1  0x20000330      0x800 build/shell.o
+ .bss.t0.2      0x20000b30      0x100 build/shell.o
+ .bss.t1.3      0x20000c30      0x100 build/shell.o
+ .bss.t2.4      0x20000d30      0x100 build/shell.o
+ .bss.work.5    0x20000e30      0x100 build/shell.o
+ .bss.rb_storage
+                0x20000f30      0x130 build/shell.o
+ .bss.pending_cr
+                0x20001060        0x4 build/shell.o
+ .bss.in_len    0x20001064        0x4 build/shell.o
+ .bss.in_line   0x20001068      0x100 build/shell.o
+ *(COMMON)
+                0x20001168                        . = ALIGN (0x4)
+                0x20001168                        _ebss = .
+
+/DISCARD/
+ libc.a(*)
+ libm.a(*)
+ libgcc.a(*)
+
+.ARM.attributes
+                0x00000000       0x2b
+ *(.ARM.attributes)
+ .ARM.attributes
+                0x00000000       0x2d build/startup.o
+ .ARM.attributes
+                0x0000002d       0x2d build/ring.o
+ .ARM.attributes
+                0x0000005a       0x2d build/crc.o
+ .ARM.attributes
+                0x00000087       0x2d build/uart.o
+ .ARM.attributes
+                0x000000b4       0x2d build/shell.o
+ .ARM.attributes
+                0x000000e1       0x2d build/main.o
+OUTPUT(build/firmware.elf elf32-littlearm)
+LOAD linker stubs
+LOAD /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libc.a
+LOAD /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp/libm.a
+LOAD /home/user/.firmware-qemu-tools/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7-m/nofp/libgcc.a
+
+.debug_info     0x00000000     0x1570
+ .debug_info    0x00000000      0x178 build/startup.o
+ .debug_info    0x00000178      0x226 build/ring.o
+ .debug_info    0x0000039e      0x121 build/crc.o
+ .debug_info    0x000004bf      0x30e build/uart.o
+ .debug_info    0x000007cd      0xc50 build/shell.o
+ .debug_info    0x0000141d      0x153 build/main.o
+
+.debug_abbrev   0x00000000      0x8f4
+ .debug_abbrev  0x00000000      0x107 build/startup.o
+ .debug_abbrev  0x00000107      0x13e build/ring.o
+ .debug_abbrev  0x00000245       0xa5 build/crc.o
+ .debug_abbrev  0x000002ea      0x1d8 build/uart.o
+ .debug_abbrev  0x000004c2      0x334 build/shell.o
+ .debug_abbrev  0x000007f6       0xfe build/main.o
+
+.debug_loclists
+                0x00000000      0x98d
+ .debug_loclists
+                0x00000000       0x6b build/startup.o
+ .debug_loclists
+                0x0000006b       0xd3 build/ring.o
+ .debug_loclists
+                0x0000013e       0xc8 build/crc.o
+ .debug_loclists
+                0x00000206       0xfc build/uart.o
+ .debug_loclists
+                0x00000302      0x68b build/shell.o
+
+.debug_aranges  0x00000000      0x168
+ .debug_aranges
+                0x00000000       0x28 build/startup.o
+ .debug_aranges
+                0x00000028       0x48 build/ring.o
+ .debug_aranges
+                0x00000070       0x20 build/crc.o
+ .debug_aranges
+                0x00000090       0x50 build/uart.o
+ .debug_aranges
+                0x000000e0       0x68 build/shell.o
+ .debug_aranges
+                0x00000148       0x20 build/main.o
+
+.debug_rnglists
+                0x00000000      0x124
+ .debug_rnglists
+                0x00000000       0x19 build/startup.o
+ .debug_rnglists
+                0x00000019       0x31 build/ring.o
+ .debug_rnglists
+                0x0000004a       0x13 build/crc.o
+ .debug_rnglists
+                0x0000005d       0x37 build/uart.o
+ .debug_rnglists
+                0x00000094       0x7d build/shell.o
+ .debug_rnglists
+                0x00000111       0x13 build/main.o
+
+.debug_macro    0x00000000     0x11d6
+ .debug_macro   0x00000000       0x3c build/startup.o
+ .debug_macro   0x0000003c      0xac0 build/startup.o
+ .debug_macro   0x00000afc      0x190 build/startup.o
+ .debug_macro   0x00000c8c      0x34e build/startup.o
+ .debug_macro   0x00000fda       0x28 build/startup.o
+ .debug_macro   0x00001002       0x3c build/ring.o
+ .debug_macro   0x0000103e       0x4e build/crc.o
+ .debug_macro   0x0000108c       0xcc build/uart.o
+ .debug_macro   0x00001158       0x42 build/shell.o
+ .debug_macro   0x0000119a       0x3c build/main.o
+
+.debug_line     0x00000000     0x1073
+ .debug_line    0x00000000      0x145 build/startup.o
+ .debug_line    0x00000145      0x241 build/ring.o
+ .debug_line    0x00000386      0x13e build/crc.o
+ .debug_line    0x000004c4      0x275 build/uart.o
+ .debug_line    0x00000739      0x831 build/shell.o
+ .debug_line    0x00000f6a      0x109 build/main.o
+
+.debug_str      0x00000000     0x4072
+ .debug_str     0x00000000     0x4072 build/startup.o
+                               0x3ceb (size before relaxing)
+ .debug_str     0x00004072     0x3cc2 build/ring.o
+ .debug_str     0x00004072     0x3ce0 build/crc.o
+ .debug_str     0x00004072     0x405b build/uart.o
+ .debug_str     0x00004072     0x3de6 build/shell.o
+ .debug_str     0x00004072     0x3cc7 build/main.o
+
+.comment        0x00000000       0x45
+ .comment       0x00000000       0x45 build/startup.o
+                                 0x46 (size before relaxing)
+ .comment       0x00000045       0x46 build/ring.o
+ .comment       0x00000045       0x46 build/crc.o
+ .comment       0x00000045       0x46 build/uart.o
+ .comment       0x00000045       0x46 build/shell.o
+ .comment       0x00000045       0x46 build/main.o
+
+.debug_frame    0x00000000      0x2f8
+ .debug_frame   0x00000000       0x38 build/startup.o
+ .debug_frame   0x00000038       0x90 build/ring.o
+ .debug_frame   0x000000c8       0x2c build/crc.o
+ .debug_frame   0x000000f4       0xb4 build/uart.o
+ .debug_frame   0x000001a8      0x128 build/shell.o
+ .debug_frame   0x000002d0       0x28 build/main.o

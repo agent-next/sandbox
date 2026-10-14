@@ -1,0 +1,21 @@
+examples/good/build/firmware.elf  :
+section            size        addr
+.isr_vector         512           0
+.text              2224         512
+.ARM.exidx            8        2736
+.data                 0   536870912
+.bss               4456   536870912
+.ARM.attributes      43           0
+.debug_info        5488           0
+.debug_abbrev      2292           0
+.debug_loclists    2445           0
+.debug_aranges      360           0
+.debug_rnglists     292           0
+.debug_macro       4566           0
+.debug_line        4211           0
+.debug_str        16498           0
+.comment             69           0
+.debug_frame        760           0
+Total             44224
+
+
