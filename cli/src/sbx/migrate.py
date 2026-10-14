@@ -190,7 +190,7 @@ def pr_body(repo: str, labels: list[str], findings: list[Finding]) -> str:
         "Jobs wait in the queue until a pool is serving them:\n\n"
         "```\n"
         "pip install agent-next-sandbox\n"
-        "snap=$(sbx runners image)\n"
+        "snap=$(sbx runners image | tail -1)\n"
         f"sbx runners serve --repo {repo} --snapshot \"$snap\" --warm 2 --max 10\n"
         "```\n\n"
         "## Revert\n\n"
@@ -199,25 +199,34 @@ def pr_body(repo: str, labels: list[str], findings: list[Finding]) -> str:
     )
 
 
+def make_client(token: str) -> httpx.Client:
+    return httpx.Client(base_url=GITHUB_API, timeout=30, follow_redirects=True, headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"})
+
+
 class Migrator:
     def __init__(self, repo: str, client: httpx.Client):
         self.repo, self.http = repo, client
 
     def _get(self, path: str, what: str, **params) -> httpx.Response:
         resp = self.http.get(path, params=params or None)
-        if resp.status_code >= 400:
+        if not resp.is_success:
             raise SbxError(f"GitHub {what} failed: HTTP {resp.status_code} {resp.text[:200]}")
         return resp
 
-    def default_branch(self) -> str:
-        return self._get(f"/repos/{self.repo}", "read repo").json()["default_branch"]
+    def resolve(self) -> str:
+        """Follow a renamed or moved repo to its canonical name (writes must not ride a redirect); return its default branch."""
+        info = self._get(f"/repos/{self.repo}", "read repo").json()
+        self.repo = info["full_name"]
+        return info["default_branch"]
 
     def workflows(self, ref: str, only: str | None = None) -> list[tuple[str, str, str]]:
         """(path, text, blob sha) of each workflow file at ref."""
         resp = self.http.get(f"/repos/{self.repo}/contents/.github/workflows", params={"ref": ref})
         if resp.status_code == 404:
             raise SbxError(f"{self.repo}@{ref} has no .github/workflows directory")
-        if resp.status_code >= 400:
+        if not resp.is_success:
             raise SbxError(f"GitHub list workflows failed: HTTP {resp.status_code} {resp.text[:200]}")
         out = []
         for entry in resp.json():
@@ -237,27 +246,25 @@ class Migrator:
         resp = self.http.post(f"/repos/{self.repo}/git/refs", json={"ref": f"refs/heads/{BRANCH}", "sha": head})
         if resp.status_code == 422:
             raise SbxError(f"branch {BRANCH} already exists in {self.repo}; delete it or close its PR first")
-        if resp.status_code >= 400:
+        if not resp.is_success:
             raise SbxError(f"GitHub create branch failed: HTTP {resp.status_code} {resp.text[:200]}")
         for path, text, sha, message in files:
             resp = self.http.put(f"/repos/{self.repo}/contents/{path}", json={
                 "message": message, "branch": BRANCH, "sha": sha,
                 "content": base64.b64encode(text.encode("utf-8")).decode("ascii")})
-            if resp.status_code >= 400:
+            if not resp.is_success:
                 raise SbxError(f"GitHub commit {path} failed: HTTP {resp.status_code} {resp.text[:200]}")
         resp = self.http.post(f"/repos/{self.repo}/pulls", json={"title": title, "head": BRANCH, "base": base, "body": body})
-        if resp.status_code >= 400:
+        if not resp.is_success:
             raise SbxError(f"GitHub open pull request failed: HTTP {resp.status_code} {resp.text[:200]}")
         return resp.json()["html_url"]
 
 
 def run(repo: str, token: str, *, apply: bool, labels: list[str], only: str | None, jobs: set[str] | None,
         base: str | None, client: httpx.Client | None = None) -> str:
-    http = client or httpx.Client(base_url=GITHUB_API, timeout=30, headers={
-        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28"})
-    m = Migrator(repo, http)
-    base = base or m.default_branch()
+    m = Migrator(repo, client or make_client(token))
+    default = m.resolve()
+    repo, base = m.repo, base or default
     findings: list[Finding] = []
     diffs: list[str] = []
     commits: list[tuple[str, str, str, str]] = []

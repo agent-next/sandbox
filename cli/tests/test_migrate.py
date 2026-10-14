@@ -165,7 +165,7 @@ class FakeRepo:
         path = req.url.path
         self.calls.append((req.method, path))
         if req.method == "GET" and path == "/repos/o/r":
-            return httpx.Response(200, json={"default_branch": "trunk"})
+            return httpx.Response(200, json={"default_branch": "trunk", "full_name": "o/r"})
         if req.method == "GET" and path == "/repos/o/r/contents/.github/workflows":
             assert req.url.params["ref"] == "trunk"
             return httpx.Response(200, json=[{"type": "file", "name": n, "path": f".github/workflows/{n}"} for n in self.files]
@@ -270,7 +270,7 @@ def test_redirected_repo_is_followed():
         if req.url.path == "/repos/o/old":
             return httpx.Response(301, headers={"location": "https://api.github.com/repositories/42"})
         if req.url.path == "/repositories/42":
-            return httpx.Response(200, json={"default_branch": "main"})
+            return httpx.Response(200, json={"default_branch": "main", "full_name": "o/new"})
         return httpx.Response(404)
 
     real = httpx.Client
@@ -278,7 +278,8 @@ def test_redirected_repo_is_followed():
     migrate.httpx.Client = lambda **kw: real(transport=httpx.MockTransport(handler), **kw)
     try:
         http = migrate.make_client("<FAKE>")
-        assert migrate.Migrator("o/old", http).default_branch() == "main"
+        m = migrate.Migrator("o/old", http)
+        assert m.resolve() == "main" and m.repo == "o/new"
     finally:
         migrate.httpx.Client = orig
     assert seen == ["/repos/o/old", "/repositories/42"]
@@ -288,7 +289,7 @@ def test_non_2xx_without_redirect_is_a_clear_error():
     client = httpx.Client(base_url="https://api.github.com", transport=httpx.MockTransport(
         lambda r: httpx.Response(301, headers={"location": "https://api.github.com/x"})))
     with pytest.raises(cli.SbxError, match="HTTP 301"):
-        migrate.Migrator("o/r", client).default_branch()
+        migrate.Migrator("o/r", client).resolve()
 
 
 def test_pr_body_captures_only_the_snapshot_line():
