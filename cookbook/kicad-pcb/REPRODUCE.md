@@ -15,10 +15,12 @@ in a fresh sandbox.
 ## Tolerances (from SPEC.md)
 
 Expected on the known-good example: `overall_pass: true`,
-`erc_errors: 0`, `drc_violations: 0`, `drc_unconnected_items: 0`,
-`unrouted_items: 0`, `open_endpoints: 0`, `drill_hits: 11`,
-`tools: 2`, kill rate 7/7. Gerber aperture/op counts may vary +-20 %
-if the artifact was regenerated.
+`erc_errors: 0`, `erc_warnings: 19` (all `lib_symbol_issues`),
+`drc_violations: 0`, `drc_unconnected_items: 0`,
+`unrouted_items: 0`, `open_endpoints: 0`, gerber-vs-board extents
+`max_delta_mm <= 0.1`, `drill_hits: 11`, `tools: 2`, kill rate 8/8.
+Gerber aperture/op counts may vary +-20 % if the artifact was
+regenerated.
 
 ## Reproduction results
 

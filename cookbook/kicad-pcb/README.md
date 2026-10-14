@@ -38,19 +38,19 @@ times, then always kills the sandbox and verifies it is gone.
 
 | gate | check | pass rule |
 |---|---|---|
-| G1 | `kicad-cli sch erc` JSON | 0 error-severity violations |
+| G1 | `kicad-cli sch erc` JSON | 0 errors, and every warning type is in the allow-list (SPEC.md) |
 | G2 | `kicad-cli pcb drc` JSON | 0 violations, 0 unconnected items |
 | G3 | schematic vs PCB netlists | exact net-set equality, 0 unrouted |
 | G4 | Edge.Cuts parsed from `.kicad_pcb` | outline is a closed loop |
-| G5 | gerber export (7 layers) | each layer has >=1 aperture + >=1 op |
+| G5 | gerber export (7 layers) | >=1 aperture + >=1 op per layer; Edge.Cuts extents match the board to 0.1 mm |
 | G6 | Excellon drill export | >=1 tool, >=1 drilled hole |
 
 ## Measured wall time (this sandbox, 2 vCPU / 4 GB)
 
 | step | time |
 |---|---|
-| `judge/setup.sh` (cold, downloads 208 MB) | ~17 s |
-| `judge/selftest.sh` (good x2 + 7 mutants) | ~23 s |
+| `judge/setup.sh` (cold, downloads 208 MB) | ~18 s |
+| `judge/selftest.sh` (good x2 + 8 mutants) | ~26 s |
 | `judge/grade.sh` on the good example | ~3 s |
 
 See `RECEIPT.md` for pasted output and `REPRODUCE.md` for independent
@@ -61,10 +61,12 @@ reproduction.
 ```
 SPEC.md                   contract: gates, oracle, tolerances
 judge/setup.sh            pinned KiCad 9.0.9 install (sha256-checked)
+judge/VERSIONS.txt        what setup.sh installed (tool --version output)
+judge/requirements.txt    hash-pinned pip deps (media only; judge is stdlib)
 judge/grade.sh            runs kicad-cli + oracle, emits verdict JSON
 judge/oracle.py           stdlib-only independent checker
 judge/selftest.sh         determinism + mutant kill-rate (>= 90%)
-judge/mutants.py          7 single-edit mutants of the good board
+judge/mutants.py          8 single-edit mutants of the good board
 examples/good/555-blinker/  known-good project (~83 KB, self-contained)
 tools/                    generators that produced the example
 media/                    result.png, loop.png, demo.mp4, make_media.sh
@@ -73,10 +75,10 @@ run.py                    one-command sandbox run
 
 ## Limits
 
-- ERC/DRC check the *files'* rules; the schematic carries embedded
-  symbols, so symbol-library warnings (`lib_symbol_issues`,
-  `endpoint_off_grid`) are expected and non-fatal — the gate counts
-  errors only.
+- ERC/DRC check the *files'* rules. The good board reports 19 ERC
+  warnings, all `lib_symbol_issues` — inherent to a self-contained
+  artifact (symbols embedded, no library table) graded headless; the G1
+  gate fails on every other warning type (see SPEC.md's allow-list).
 - The judge does not simulate the circuit (no timing/frequency check).
 - Gerber/drill parsing is deliberately shallow: it verifies real
   geometry exists on every exported layer, not fabrication readiness.
