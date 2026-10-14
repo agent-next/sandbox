@@ -10,6 +10,8 @@
 #
 # Requires judge/setup.sh to have run once. The collected files are
 # committed; make_media.sh reuses them and never re-runs the solver.
+# Idempotent: a case whose verdict JSON already exists is skipped
+# (FORCE=1 bash media/make_data.sh re-collects everything).
 set -euo pipefail
 MEDIA="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO="$(dirname "$MEDIA")"
@@ -27,6 +29,10 @@ mkdir -p "$VD" "$TR" "$GL"
 # run <case-name> <artifact> <pass|fail (expected)>
 run() {
     local name="$1" art="$2" expect="$3" rc=0 trt
+    if [ "${FORCE:-0}" != 1 ] && [ -s "$VD/$name.json" ]; then
+        echo "== grade $name: verdict exists, skipping =="
+        return 0
+    fi
     trt="$(mktemp -d)"
     echo "== grade $name (expect $expect) =="
     if bash judge/grade.sh "$art" --json "$VD/$name.json" \
@@ -62,7 +68,11 @@ run bad_no_ground       examples/bad/bad_no_ground.py       fail
 run bad_feed_center     examples/bad/bad_feed_center.py     fail
 run good                examples/good/antenna.py            pass
 
-echo "== selftest (good + 7 mutants + determinism, ~11-15 min) =="
-bash judge/selftest.sh 2>&1 | tee "$MEDIA/data/selftest.txt"
+if [ "${FORCE:-0}" = 1 ] || [ ! -s "$MEDIA/data/selftest.txt" ]; then
+    echo "== selftest (good + 7 mutants + determinism, ~11-15 min) =="
+    bash judge/selftest.sh 2>&1 | tee "$MEDIA/data/selftest.txt"
+else
+    echo "== selftest: log exists, skipping =="
+fi
 
 echo "make_data: judge outputs collected in $MEDIA/data"
