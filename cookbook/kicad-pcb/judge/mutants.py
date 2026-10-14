@@ -44,17 +44,26 @@ def replace_once(text, old, new):
 
 def m_erc_unconnected_pin(sch, pcb):
     """Delete the R1->DIS node wire: pin_not_connected ERC error."""
-    sch = remove_sexpr_block(sch, "(wire (pts (xy 85 95.81) (xy 85 97))")
+    sch = remove_sexpr_block(sch, "(wire (pts (xy 85.09 96.52) (xy 85.09 97.79))")
     return sch, pcb
 
 
 def m_erc_power_short(sch, pcb):
     """Wire J1's VCC pin straight onto its GND pin: ERC power conflict."""
     i = sch.index("(sheet_instances")
-    wire = ('  (wire (pts (xy 54.92 80) (xy 54.92 82.54))\n'
+    wire = ('  (wire (pts (xy 54.61 80.01) (xy 54.61 82.55))\n'
             '    (stroke (width 0) (type solid))\n'
             f'    (uuid {uuid.uuid4()})\n  )\n')
     sch = sch[:i] + wire + sch[i:]
+    return sch, pcb
+
+
+def m_erc_off_grid(sch, pcb):
+    """Move a shared wire vertex 0.05 mm off the 50-mil grid: the two wire
+    ends still touch (connectivity kept, no error) but ERC reports
+    endpoint_off_grid warnings — a type outside G1's allow-list."""
+    assert sch.count("(xy 97.79 86.36)") == 2
+    sch = sch.replace("(xy 97.79 86.36)", "(xy 97.79 86.41)")
     return sch, pcb
 
 
@@ -95,6 +104,7 @@ def m_drill_no_tools(sch, pcb):
 MUTANTS = {
     "erc_unconnected_pin": m_erc_unconnected_pin,
     "erc_power_short": m_erc_power_short,
+    "erc_off_grid": m_erc_off_grid,
     "netlist_mismatch": m_netlist_mismatch,
     "drc_unconnected": m_drc_unconnected,
     "drc_short": m_drc_short,

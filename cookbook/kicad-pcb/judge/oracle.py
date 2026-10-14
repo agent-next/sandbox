@@ -14,6 +14,7 @@ Exit 0 iff every gate passes.
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -23,6 +24,19 @@ EXPECTED_LAYERS = [
     "F.Cu", "B.Cu", "F.Silkscreen", "B.Silkscreen",
     "F.Mask", "B.Mask", "Edge.Cuts",
 ]
+
+# ERC warning types G1 tolerates, with justification (see SPEC.md):
+#   lib_symbol_issues — "library X not in the current configuration":
+#   the artifact is deliberately self-contained (all symbols embedded in
+#   lib_symbols) and grading runs kicad-cli headless with no sym-lib-table,
+#   so every symbol instance earns this warning.  It is informational:
+#   ERC resolves connectivity from the embedded symbols, as proven by the
+#   netlist gate matching the PCB net set.
+ERC_WARNING_ALLOWLIST = {"lib_symbol_issues"}
+
+# G5: exported Edge.Cuts gerber extents must match the .kicad_pcb
+# Edge.Cuts geometry within this tolerance (mm).
+EXTENTS_TOL_MM = 0.1
 
 
 # ---------------------------------------------------------------- s-expr ----
@@ -73,19 +87,26 @@ def fnum(s):
 # ------------------------------------------------------------------ gates ---
 
 def gate_erc(path):
-    """G1: zero severity==error violations across all sheets."""
+    """G1: zero error violations, and every reported violation type must
+    be in ERC_WARNING_ALLOWLIST (justified in SPEC.md)."""
     rep = json.load(open(path))
-    errors = warnings = 0
-    kinds = {}
+    errors = 0
+    err_kinds, warn_kinds = {}, {}
     for sheet in rep.get("sheets", []):
         for v in sheet.get("violations", []):
+            t = v.get("type", "?")
             if v.get("severity") == "error":
                 errors += 1
-                kinds[v.get("type", "?")] = kinds.get(v.get("type", "?"), 0) + 1
+                err_kinds[t] = err_kinds.get(t, 0) + 1
             else:
-                warnings += 1
-    return errors == 0, {"erc_errors": errors, "erc_warnings": warnings,
-                         "error_types": kinds}
+                warn_kinds[t] = warn_kinds.get(t, 0) + 1
+    bad_warn = {t: n for t, n in warn_kinds.items()
+                if t not in ERC_WARNING_ALLOWLIST}
+    ok = errors == 0 and not bad_warn
+    return ok, {"erc_errors": errors, "erc_warnings": sum(warn_kinds.values()),
+                "error_types": err_kinds, "warning_types": warn_kinds,
+                "warning_types_not_allowed": bad_warn,
+                "warnings_allowlist": sorted(ERC_WARNING_ALLOWLIST)}
 
 
 def gate_drc(path):
@@ -168,6 +189,70 @@ def outline_segments(pcb_path):
     return segs
 
 
+def _arc_sweep(p0, p1, c, ccw, n=257):
+    """n+1 samples on the arc p0->p1 about centre c in direction ccw."""
+    r = math.hypot(p0[0] - c[0], p0[1] - c[1])
+    a0 = math.atan2(p0[1] - c[1], p0[0] - c[0])
+    a1 = math.atan2(p1[1] - c[1], p1[0] - c[0])
+    span = ((a1 - a0) % (2 * math.pi)) if ccw else -((a0 - a1) % (2 * math.pi))
+    return [(c[0] + r * math.cos(a0 + span * i / n),
+             c[1] + r * math.sin(a0 + span * i / n)) for i in range(n + 1)]
+
+
+def arc3_points(p0, pm, p1):
+    """Samples along the 3-point arc p0->pm->p1 (kicad_pcb gr_arc)."""
+    ax, ay = p0
+    bx, by = pm
+    cx, cy = p1
+    d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    if abs(d) < 1e-9:
+        return [p0, pm, p1]            # degenerate: treat as polyline
+    ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay)
+          + (cx * cx + cy * cy) * (ay - by)) / d
+    uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx)
+          + (cx * cx + cy * cy) * (bx - ax)) / d
+    c = (ux, uy)
+    a0 = math.atan2(p0[1] - uy, p0[0] - ux)
+    am = math.atan2(pm[1] - uy, pm[0] - ux)
+    a1 = math.atan2(p1[1] - uy, p1[0] - ux)
+    ccw = (am - a0) % (2 * math.pi) <= (a1 - a0) % (2 * math.pi)
+    return _arc_sweep(p0, p1, c, ccw)
+
+
+def edge_cuts_points(pcb_path):
+    """Sampled boundary points of every Edge.Cuts primitive (board side)."""
+    tree = parse_sexpr(open(pcb_path).read())
+
+    def pt(node):
+        return (fnum(node[1]), fnum(node[2]))
+
+    pts = []
+    for tag in ("gr_line", "gr_arc", "gr_rect", "gr_circle", "gr_poly",
+                "gr_curve"):
+        for el in find_all(tree, tag):
+            lay = child(el, "layer")
+            if not lay or "Edge.Cuts" not in lay[1]:
+                continue
+            if tag == "gr_line":
+                pts += [pt(child(el, "start")), pt(child(el, "end"))]
+            elif tag == "gr_arc":
+                pts += arc3_points(pt(child(el, "start")),
+                                   pt(child(el, "mid")),
+                                   pt(child(el, "end")))
+            elif tag == "gr_rect":
+                pts += [pt(child(el, "start")), pt(child(el, "end"))]
+            elif tag == "gr_circle":
+                c = pt(child(el, "center"))
+                e = pt(child(el, "end"))
+                r = math.hypot(e[0] - c[0], e[1] - c[1])
+                pts += [(c[0] + r, c[1]), (c[0] - r, c[1]),
+                        (c[0], c[1] + r), (c[0], c[1] - r)]
+            else:                                   # gr_poly, gr_curve
+                p = child(el, "pts")
+                pts += [pt(q) for q in p[1:]]
+    return pts
+
+
 def gate_outline(pcb_path):
     """G4: Edge.Cuts geometry forms a closed outline."""
     segs = outline_segments(pcb_path)
@@ -207,11 +292,74 @@ def parse_gerber(path):
     return apertures, ops
 
 
-def gate_gerbers(gerber_dir):
-    """G5: every expected layer file exists, parses, has apertures + ops."""
+def gerber_drawn_points(path):
+    """Sampled points of drawn Gerber geometry (mm, gerber coords).
+
+    Walks the data blocks: D01 draws (linear + G02/G03 arcs with I/J
+    centres) and D03 flashes contribute points; D02 moves do not draw.
+    Honours %FSLA digit format and %MO units.
+    """
+    text = open(path, errors="replace").read()
+    dec = 6
+    scale = 1.0
+    for blk in re.findall(r"%([^%]*)%", text):
+        f = re.search(r"FSLAX\d(\d)Y\d(\d)", blk)
+        if f:
+            dec = int(f.group(1))
+        if "MOIN" in blk:
+            scale = 25.4
+    body = re.sub(r"%[^%]*%", "", text)
+    pos = (0.0, 0.0)
+    mode = "G01"
+    dop = "D01"
+    pts = []
+    for cmd in body.split("*"):
+        cmd = cmd.strip()
+        if not cmd or cmd.startswith("G04"):
+            continue
+        g = re.match(r"G0?([123])\b", cmd)
+        if g:
+            mode = "G0" + g.group(1)
+        d = re.search(r"D0?([123])\s*$", cmd)
+        if d:
+            dop = "D0" + d.group(1)
+        nums = dict(re.findall(r"([XYIJ])([+-]?\d+)", cmd))
+        if not ("X" in nums or "Y" in nums):
+            continue
+
+        def val(k):
+            return int(nums[k]) / 10 ** dec * scale
+
+        nx = val("X") if "X" in nums else pos[0]
+        ny = val("Y") if "Y" in nums else pos[1]
+        if dop == "D01":
+            if mode in ("G02", "G03"):
+                c = (pos[0] + (val("I") if "I" in nums else 0.0),
+                     pos[1] + (val("J") if "J" in nums else 0.0))
+                pts += _arc_sweep(pos, (nx, ny), c, ccw=(mode == "G03"))
+            else:
+                pts.append((nx, ny))
+        elif dop == "D03":
+            pts.append((nx, ny))
+        pos = (nx, ny)
+    return pts
+
+
+def bbox(pts):
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return [min(xs), min(ys), max(xs), max(ys)]
+
+
+def gate_gerbers(gerber_dir, pcb_path):
+    """G5: every expected layer file exists and parses with >=1 aperture
+    and >=1 draw/flash op; the exported Edge.Cuts gerber's extents must
+    match the board's Edge.Cuts geometry within EXTENTS_TOL_MM (gerber
+    y-axis is inverted vs the board, so compare gy_min ~ -py_max)."""
     details = {}
     ok = True
     files = os.listdir(gerber_dir) if os.path.isdir(gerber_dir) else []
+    edge_file = None
     for layer in EXPECTED_LAYERS:
         fname = layer.replace(".", "_")
         match = [f for f in files if fname in f]
@@ -219,11 +367,37 @@ def gate_gerbers(gerber_dir):
             ok = False
             details[layer] = "missing"
             continue
-        ap, ops = parse_gerber(os.path.join(gerber_dir, match[0]))
-        details[layer] = {"apertures": ap, "ops": ops,
-                          "file": match[0]}
+        path = os.path.join(gerber_dir, match[0])
+        ap, ops = parse_gerber(path)
+        details[layer] = {"apertures": ap, "ops": ops, "file": match[0]}
         if ap == 0 or ops == 0:
             ok = False
+        if layer == "Edge.Cuts":
+            edge_file = path
+    pcb_pts = edge_cuts_points(pcb_path)
+    if edge_file is None:
+        pass                                     # already failed above
+    elif not pcb_pts:
+        ok = False
+        details["extents"] = "no Edge.Cuts geometry in .kicad_pcb"
+    else:
+        gpts = gerber_drawn_points(edge_file)
+        if not gpts:
+            ok = False
+            details["extents"] = "no drawn geometry in Edge.Cuts gerber"
+        else:
+            gx0, gy0, gx1, gy1 = bbox(gpts)
+            px0, py0, px1, py1 = bbox(pcb_pts)
+            deltas = {"x_min": abs(gx0 - px0), "x_max": abs(gx1 - px1),
+                      "y_min": abs(gy0 + py1), "y_max": abs(gy1 + py0)}
+            worst = max(deltas.values())
+            details["extents_mm"] = {
+                "gerber": [round(v, 6) for v in (gx0, gy0, gx1, gy1)],
+                "board": [round(v, 6) for v in (px0, -py1, px1, -py0)],
+                "max_delta_mm": round(worst, 6),
+                "tol_mm": EXTENTS_TOL_MM}
+            if worst > EXTENTS_TOL_MM:
+                ok = False
     return ok, details
 
 
@@ -270,7 +444,7 @@ def main():
         ("G3_netlist", gate_netlist,
          (args.sch_netlist, args.pcb, args.drc)),
         ("G4_outline", gate_outline, (args.pcb,)),
-        ("G5_gerber", gate_gerbers, (args.gerber_dir,)),
+        ("G5_gerber", gate_gerbers, (args.gerber_dir, args.pcb)),
         ("G6_drill", gate_drill, (args.drill_dir,)),
     ]
     for name, fn, fargs in checks:

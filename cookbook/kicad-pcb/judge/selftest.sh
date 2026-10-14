@@ -22,16 +22,27 @@ judge_sum() {
 }
 
 BEFORE=$(judge_sum)
+SEED="${SEED:-42}"
 
-echo "=== selftest: grade known-good (run 1)"
-bash "$SCRIPT_DIR/grade.sh" "$GOOD_DIR" --json "$WORK/good1.json" || {
+echo "=== selftest: grade known-good (run 1, seed $SEED)"
+bash "$SCRIPT_DIR/grade.sh" "$GOOD_DIR" --seed "$SEED" \
+    --json "$WORK/good1.json" || {
     echo "FAIL: good project did not pass"; exit 1; }
 
 echo "=== selftest: grade known-good (run 2, determinism)"
-bash "$SCRIPT_DIR/grade.sh" "$GOOD_DIR" --json "$WORK/good2.json" || {
+bash "$SCRIPT_DIR/grade.sh" "$GOOD_DIR" --seed "$SEED" \
+    --json "$WORK/good2.json" || {
     echo "FAIL: good project did not pass on rerun"; exit 1; }
-if cmp -s "$WORK/good1.json" "$WORK/good2.json"; then
-    echo "    determinism: identical verdict JSON"
+# Same seed twice -> identical verdict JSON except the timing key
+# (DEMO-STANDARD.md, "Deterministic").
+if python3 - "$WORK/good1.json" "$WORK/good2.json" <<'PY'
+import json, sys
+a = json.load(open(sys.argv[1])); b = json.load(open(sys.argv[2]))
+a.pop("timing", None); b.pop("timing", None)
+sys.exit(0 if a == b else 1)
+PY
+then
+    echo "    determinism: identical verdict JSON (excluding timing)"
 else
     echo "FAIL: verdict JSON differs between identical runs"; exit 1
 fi

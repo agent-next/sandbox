@@ -14,10 +14,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 PROJECT_DIR=""
 JSON_OUT=""
+SEED=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --json) JSON_OUT="$2"; shift 2 ;;
-        --seed) shift 2 ;;        # accepted for compatibility; unused
+        --seed) SEED="$2"; shift 2 ;;
         -*) echo "Unknown flag: $1" >&2; exit 2 ;;
         *)
             if [[ -z "$PROJECT_DIR" ]]; then PROJECT_DIR="$1"
@@ -54,6 +55,7 @@ PRO=$(find "$PROJ" -name '*.kicad_pro' | head -1)
     echo "Project needs .kicad_pro + .kicad_sch + .kicad_pcb" >&2; exit 2; }
 
 mkdir -p "$WORK/gerbers" "$WORK/drill"
+T_START=$(date +%s.%N)
 
 t() { local s=$SECONDS; "$@"; local rc=$?
       echo "    ($((SECONDS - s))s) rc=$rc" >&2; return $rc; }
@@ -76,6 +78,26 @@ echo "== oracle"
 ORA_ARGS=(--pcb "$PCB" --erc "$WORK/erc.json" --drc "$WORK/drc.json"
           --sch-netlist "$WORK/sch.netlist.xml"
           --gerber-dir "$WORK/gerbers" --drill-dir "$WORK/drill")
-[[ -n "$JSON_OUT" ]] && ORA_ARGS+=(--json "$JSON_OUT")
+[[ -n "$JSON_OUT" ]] && ORA_ARGS+=(--json "$WORK/verdict.json")
 
 python3 "$SCRIPT_DIR/oracle.py" "${ORA_ARGS[@]}"
+RC=$?
+
+# Stamp seed + wall time under 'timing'. Per DEMO-STANDARD.md two runs with
+# the same seed must give identical verdict JSON except the timing key, so
+# nothing else here may vary between runs.
+if [[ -n "$JSON_OUT" && -f "$WORK/verdict.json" ]]; then
+    ELAPSED=$(python3 -c 'import sys; print(float(sys.argv[1]) - float(sys.argv[2]))' \
+              "$(date +%s.%N)" "$T_START")
+    python3 - "$WORK/verdict.json" "$JSON_OUT" "$SEED" "$ELAPSED" <<'PY'
+import json, sys
+src, dst, seed, secs = sys.argv[1], sys.argv[2], int(sys.argv[3]), float(sys.argv[4])
+v = json.load(open(src))
+v["seed"] = seed
+v["timing"] = {"wall_seconds": round(secs, 3)}
+with open(dst, "w") as f:
+    json.dump(v, f, indent=2, sort_keys=True)
+    f.write("\n")
+PY
+fi
+exit $RC
