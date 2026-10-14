@@ -39,7 +39,8 @@ class Renderer:
         self.pw = sync_playwright().start()
         args = ["--enable-unsafe-webgpu"]
         if self.backend == "cpu":
-            args += ["--enable-unsafe-swiftshader", "--use-webgpu-adapter=swiftshader"]
+            args += ["--enable-unsafe-swiftshader", "--use-webgpu-adapter=swiftshader",
+                     "--disable-gpu-watchdog"]
         try:
             self.browser = self.pw.chromium.launch(
                 channel="chromium", headless=True, args=args
@@ -69,7 +70,7 @@ class Renderer:
         except Exception:
             try:
                 self.info = self.page.evaluate(
-                    "() => engine ? {backend: engine.backend, adapter: engine.info?.adapterName} : {}"
+                    "() => window.renderInfo || {}"
                 )
             except Exception:
                 self.info = {"backend": self.api, "adapter": "unavailable"}

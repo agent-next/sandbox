@@ -16,6 +16,7 @@ window.renderScene = async function (s, spp, seed, api = "webgpu") {
     engine = new M.Engine({backend: api, bvhWorkerCount: 1,
                            textureAtlasBudgetBytes: 8 * 1024 * 1024});
     await engine.init();
+    window.renderInfo = {backend: engine.backend, adapter: engine.info.adapterName};
   }
   const materials = Object.fromEntries(Object.entries(s.materials).map(
     ([name, value]) => {
