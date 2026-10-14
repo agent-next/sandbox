@@ -22,9 +22,10 @@ set -euo pipefail
 #   G5  synth   : yosys synth_ecp5 + nextpnr-ecp5 --85k --package CABGA381 on
 #                 g5_top.v (IO-reducing wrapper: cpu + internal 16 KiB RAM,
 #                 3 pins). P&R must succeed; reports LUT4/FF/Fmax.
-#   G6  perf    : fixed benchmark (tests/perf/bench.hex: bubble sort of 64
-#                 words + checksum) under 0-latency memory; checksum checked
-#                 against the ISS; reports CPI. Informational: not a gate.
+#   G6  perf    : fixed benchmark (generated at grade time by gen_bench.py:
+#                 bubble sort of 64 words + checksum) under 0-latency memory;
+#                 checksum checked against the ISS; reports CPI.
+#                 Informational: not a gate.
 #
 # Exit 0 only if every non-skipped gate passes (G6 never gates).
 
@@ -283,20 +284,22 @@ else
 fi
 
 # ---- G6: perf benchmark (reported; NOT a gate) --------------------------------
-BENCH_HEX="$JUDGE_DIR/tests/perf/bench.hex"
+# bench.hex is generated at grade time: gen_bench.py is pure python
+# (gen.py/memh.py only, no toolchain) and byte-identical every run, so the
+# image is never committed.
 REPORT_CPI=""
 if [[ ! -x "${SIM:-/nonexistent}" ]]; then
     GATE_PASS[G6]=skipped
     GATE_DETAIL[G6]="\"verilator build failed - benchmark not run\""
     echo "== G6: perf benchmark: SKIP (no sim)"
-elif [[ ! -f "$BENCH_HEX" ]]; then
+elif ! python3 "$JUDGE_DIR/gen_bench.py" --out "$WORK/bench.hex" >/dev/null 2>&1; then
     GATE_PASS[G6]=skipped
-    GATE_DETAIL[G6]="\"tests/perf/bench.hex missing - run gen_bench.py\""
-    echo "== G6: perf benchmark: SKIP (no bench.hex)"
+    GATE_DETAIL[G6]="\"gen_bench.py failed - benchmark not generated\""
+    echo "== G6: perf benchmark: SKIP (generation failed)"
 else
     echo "== G6: perf benchmark (bubble sort 64 words + checksum, 0-latency mem)"
     G6_OUT="$WORK/g6.json"
-    if python3 "$JUDGE_DIR/g6check.py" --sim "$SIM" --bench "$BENCH_HEX" \
+    if python3 "$JUDGE_DIR/g6check.py" --sim "$SIM" --bench "$WORK/bench.hex" \
             >"$G6_OUT" 2>/dev/null; then
         GATE_PASS[G6]=true
     else

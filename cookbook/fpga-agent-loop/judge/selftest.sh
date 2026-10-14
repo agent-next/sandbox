@@ -65,8 +65,6 @@ echo
     || failed "pinned picorv32.v missing - run bash judge/setup.sh first"
 [[ -x "$(command -v nextpnr-ecp5 || true)" ]] \
     || failed "nextpnr-ecp5 not installed - run bash judge/setup.sh first"
-[[ -f "$JUDGE_DIR/tests/perf/bench.hex" ]] \
-    || python3 "$JUDGE_DIR/gen_bench.py" >/dev/null
 
 # ---- 1. control: grade known-good picorv32 ---------------------------------------
 echo "--- step 1: control grade (picorv32, G0-G5 + G6 report)"

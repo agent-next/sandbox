@@ -5,3 +5,5 @@ obj_dir/
 *.fst
 verdict*.json
 mutants_out/
+# generated at grade/setup time by gen_bench.py - never committed
+tests/perf/bench.hex
