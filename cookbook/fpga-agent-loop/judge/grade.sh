@@ -20,7 +20,10 @@ set -euo pipefail
 JUDGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLCHAIN="$HOME/riscv-toolchain"
 OSS_BIN="$TOOLCHAIN/oss-cad-suite/bin"
-PICORV32_DIR="$TOOLCHAIN/picorv32"    # include path for picorv32.v (ref only)
+# Include path for picorv32.v (reference wrapper; self-contained designer
+# CPUs are unaffected). Override to point grade.sh at a mutant copy:
+#   PICORV32_DIR=$PWD/mutants_out/ignore-mem-ready ./grade.sh ref/picorv32_cpu.v
+PICORV32_DIR="${PICORV32_DIR:-$TOOLCHAIN/picorv32}"
 export PATH="$OSS_BIN:$PATH"
 
 if [ ! -x "$OSS_BIN/verilator" ]; then
@@ -206,9 +209,9 @@ for g in G2 G5 G6; do
         echo "== $g: SKIP (T2/T3)"
     fi
 done
-GATE_DETAIL[G2]="\"differential test lands in T2\""
-GATE_DETAIL[G5]="\"synth gate lands in T3\""
-GATE_DETAIL[G6]="\"perf report lands in T3\""
+GATE_DETAIL[G2]="differential test lands in T2"
+GATE_DETAIL[G5]="synth gate lands in T3"
+GATE_DETAIL[G6]="perf report lands in T3 (not a gate)"
 
 # ---- verdict -------------------------------------------------------------------
 T_END=$(date +%s)
@@ -229,13 +232,15 @@ gates = {}
 for g in sys.argv[5:]:
     st = os.environ.get("GATE_PASS_%s" % g, "skipped")
     detail = os.environ.get("GATE_DETAIL_%s" % g, "")
-    entry = {"pass": True if st == "true" else False} if st in ("true", "false") \
-        else {"skipped": True, "reason": detail}
-    if st in ("true", "false") and detail:
-        try:
-            entry["detail"] = json.loads(detail)
-        except ValueError:
-            entry["detail"] = detail
+    if st in ("true", "false"):
+        entry = {"pass": st == "true"}
+        if detail:
+            try:
+                entry["detail"] = json.loads(detail)
+            except ValueError:
+                entry["detail"] = detail
+    else:
+        entry = {"skipped": True, "reason": detail}
     gates[g] = entry
 v = {
     "pass": verdict,
