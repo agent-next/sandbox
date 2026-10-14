@@ -37,7 +37,7 @@ import json, sys
 try:
     v = json.load(open(sys.argv[1]))
     failed = [n for n, g in v.get("gates", {}).items() if not g.get("pass")]
-    print(", ".join(failed) if failed else "parse error")
+    print(", ".join(failed) if failed else "no gate flagged")
 except Exception:
     print("(no verdict JSON: judge rejected the artifact)")
 EOF

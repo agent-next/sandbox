@@ -379,7 +379,8 @@ def finish(args, verdict, spec, t0, all_pass):
         with open(args.json_out, "w", encoding="utf-8") as fh:
             fh.write(text + "\n")
     print(text)
-    failed = [n for n, g in verdict.get("gates", {}).items() if not g["pass"]]
+    failed = [n for n, g in verdict.get("gates", {}).items()
+              if not g.get("pass")]
     if not all_pass:
         print(f"grade: FAIL (gates: {', '.join(failed) if failed else 'unknown'})",
               file=sys.stderr)
