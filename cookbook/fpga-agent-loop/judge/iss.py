@@ -1,301 +1,263 @@
 #!/usr/bin/env python3
-"""
-Simple RISC-V RV32I Instruction Set Simulator (ISS)
-For use as oracle in G2 differential testing
+"""Pure-Python (stdlib only) RV32I ISS — G2 oracle for the fpga-agent-loop judge.
+
+Semantics match judge/SPEC.md exactly:
+  - flat 64 KiB little-endian RAM at 0x0000_0000
+  - store to 0x1000_0000 ends the test (recorded as "tohost")
+  - ECALL / EBREAK / illegal opcode / misaligned load-store /
+    misaligned jump target / misaligned fetch -> trap, CPU halts
+  - loads outside RAM return 0, stores outside RAM (except tohost)
+    are dropped; both match the Verilator memory model in tb.cpp
+  - FENCE executes as a NOP
+
+Usage:
+  iss.py run PROG.hex [--dump OUT.hex] [--max-steps N]
+prints one result line:  STATUS=<status> TOHOST=0x........ STEPS=n TRAP_PC=0x........
+status is one of: PASS (tohost==1), FAIL (tohost!=1), TRAP, TIMEOUT
 """
 
+import os
 import sys
-import struct
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from memh import MEM_WORDS, load_memh, dump_memh
+
+TOHOST_ADDR = 0x10000000
+MEM_SIZE = MEM_WORDS * 4  # 64 KiB in bytes
+
+
+class Trap(Exception):
+    pass
+
 
 class RV32ISS:
-    def __init__(self):
-        # 32 integer registers (x0-x31)
+    def __init__(self, words):
+        self.mem = bytearray(MEM_SIZE)
+        for i, w in enumerate(words[:MEM_WORDS]):
+            self.mem[i * 4:i * 4 + 4] = (w & 0xFFFFFFFF).to_bytes(4, "little")
         self.regs = [0] * 32
-        # Program counter
         self.pc = 0
-        # 64 KiB memory (0x0000_0000 to 0x0000_FFFF)
-        self.mem = [0] * (64 * 1024)
-        # To-host address for test termination
-        self.tohost_addr = 0x10000000
-        # Test signature start address (where CPU will write signature)
-        self.signature_addr = 0x1000  # Start of signature region
-        self.signature_len = 32 * 4   # 32 registers * 4 bytes
-        
-    def load_program(self, program_bytes):
-        """Load program into memory at address 0"""
-        if len(program_bytes) > len(self.mem) * 4:
-            raise ValueError("Program too large for memory")
-        
-        # Convert bytes to 32-bit words (little-endian)
-        for i in range(0, len(program_bytes), 4):
-            if i + 4 <= len(program_bytes):
-                word = struct.unpack('<I', program_bytes[i:i+4])[0]
-                addr = i // 4
-                if addr < len(self.mem):
-                    self.mem[addr] = word
-    
-    def sign_extend(self, x, bits):
-        """Sign extend x from bits to 32 bits"""
-        if x & (1 << (bits - 1)):
-            x |= ~((1 << bits) - 1)
-        return x
-    
-    def step(self):
-        """Execute one instruction"""
-        if self.pc < 0 or self.pc >= len(self.mem):
-            raise Exception(f"PC out of range: 0x{self.pc:08x}")
-        
-        # Fetch instruction
-        insn = self.mem[self.pc]
-        self.pc += 4  # Normal PC increment
-        
-        # Decode and execute
-        opcode = insn & 0x7f
-        
-        if opcode == 0x37:  # LUI
-            rd = (insn >> 7) & 0x1f
-            imm = insn & 0xfffff000
-            self.regs[rd] = self.sign_extend(imm, 32)
-            
-        elif opcode == 0x17:  # AUIPC
-            rd = (insn >> 7) & 0x1f
-            imm = insn & 0xfffff000
-            self.regs[rd] = self.sign_extend(self.pc - 4 + imm, 32)
-            
-        elif opcode == 0x6f:  # JAL
-            rd = (insn >> 7) & 0x1f
-            imm = ((insn >> 12) & 0xff) | \
-                  ((insn >> 20) & 0x7fe0) | \
-                  ((insn >> 19) & 0x800) | \
-                  ((insn >> 31) & 0x7ffff000)
-            imm = self.sign_extend(imm, 21)
-            self.regs[rd] = self.pc
-            self.pc += imm
-            
-        elif opcode == 0x67:  # JALR
-            rd = (insn >> 7) & 0x1f
-            rs1 = (insn >> 15) & 0x1f
-            imm = (insn >> 20) & 0xfff
-            imm = self.sign_extend(imm, 12)
-            addr = self.regs[rs1] + imm
-            self.regs[rd] = self.pc
-            self.pc = addr & ~1  # Ensure aligned
-            
-        elif opcode == 0x63:  # Branch
-            rs1 = (insn >> 15) & 0x1f
-            rs2 = (insn >> 20) & 0x1f
-            imm = ((insn >> 8) & 0xf) | \
-                  ((insn >> 25) & 0x3f0) | \
-                  ((insn >> 7) & 0x40) | \
-                  ((insn >> 31) & 0x800)
-            imm = self.sign_extend(imm, 13)
-            
-            rs1_val = self.regs[rs1]
-            rs2_val = self.regs[rs2]
-            
-            funct3 = (insn >> 12) & 0x7
-            taken = False
-            if funct3 == 0x0:  # BEQ
-                taken = (rs1_val == rs2_val)
-            elif funct3 == 0x1:  # BNE
-                taken = (rs1_val != rs2_val)
-            elif funct3 == 0x4:  # BLT
-                taken = self.sign_extend(rs1_val, 32) < self.sign_extend(rs2_val, 32)
-            elif funct3 == 0x5:  # BGE
-                taken = self.sign_extend(rs1_val, 32) >= self.sign_extend(rs2_val, 32)
-            elif funct3 == 0x6:  # BLTU
-                taken = rs1_val < rs2_val
-            elif funct3 == 0x7:  # BGEU
-                taken = rs1_val >= rs2_val
-                
-            if taken:
-                self.pc += imm
-                
-        elif opcode == 0x03:  # Load
-            rd = (insn >> 7) & 0x1f
-            rs1 = (insn >> 15) & 0x1f
-            imm = (insn >> 20) & 0xfff
-            imm = self.sign_extend(imm, 12)
-            addr = self.regs[rs1] + imm
-            
-            funct3 = (insn >> 12) & 0x7
-            if funct3 == 0x0:  # LB
-                self.regs[rd] = self.sign_extend(self.mem[addr // 4] & 0xff, 8)
-            elif funct3 == 0x1:  # LH
-                self.regs[rd] = self.sign_extend((self.mem[addr // 4] >> 8) & 0xffff, 16)
-            elif funct3 == 0x2:  # LW
-                self.regs[rd] = self.mem[addr // 4]
-            elif funct3 == 0x4:  # LBU
-                self.regs[rd] = self.mem[addr // 4] & 0xff
-            elif funct3 == 0x5:  # LHU
-                self.regs[rd] = (self.mem[addr // 4] >> 8) & 0xffff
-                
-        elif opcode == 0x23:  # Store
-            rs1 = (insn >> 15) & 0x1f
-            rs2 = (insn >> 20) & 0x1f
-            imm = (insn >> 25) & 0xfe0
-            imm |= (insn >> 7) & 0x1f
-            imm = self.sign_extend(imm, 13)
-            addr = self.regs[rs1] + imm
-            
-            funct3 = (insn >> 12) & 0x7
-            if funct3 == 0x0:  # SB
-                self.mem[addr // 4] = (self.mem[addr // 4] & ~(0xff << ((addr % 4) * 8))) | \
-                                       ((self.regs[rs2] & 0xff) << ((addr % 4) * 8))
-            elif funct3 == 0x1:  # SH
-                self.mem[addr // 4] = (self.mem[addr // 4] & ~(0xffff << ((addr % 4) * 8))) | \
-                                       ((self.regs[rs2] & 0xffff) << ((addr % 4) * 8))
-            elif funct3 == 0x2:  # SW
-                self.mem[addr // 4] = self.regs[rs2]
-                
-        elif opcode == 0x13:  # Immediate ALU
-            rd = (insn >> 7) & 0x1f
-            rs1 = (insn >> 15) & 0x1f
-            imm = (insn >> 20) & 0xfff
-            imm = self.sign_extend(imm, 12)
-            
-            funct3 = (insn >> 12) & 0x7
-            rs1_val = self.regs[rs1]
-            if funct3 == 0x0:  # ADDI
-                self.regs[rd] = rs1_val + imm
-            elif funct3 == 0x2:  # SLTI
-                self.regs[rd] = 1 if self.sign_extend(rs1_val, 32) < self.sign_extend(imm, 32) else 0
-            elif funct3 == 0x3:  # SLTIU
-                self.regs[rd] = 1 if rs1_val < (imm & 0xffffffff) else 0
-            elif funct3 == 0x4:  # XORI
-                self.regs[rd] = rs1_val ^ imm
-            elif funct3 == 0x6:  # ORI
-                self.regs[rd] = rs1_val | imm
-            elif funct3 == 0x7:  # ANDI
-                self.regs[rd] = rs1_val & imm
-            elif funct3 == 0x1:  # SLLI
-                shamt = imm & 0x1f
-                self.regs[rd] = rs1_val << shamt
-            elif funct3 == 0x5:  # SRLI/SRAI
-                shamt = imm & 0x1f
-                if (imm >> 10) & 0x1:  # SRAI
-                    self.regs[rd] = self.sign_extend(rs1_val, 32) >> shamt
-                else:  # SRLI
-                    self.regs[rd] = rs1_val >> shamt
-                    
-        elif opcode == 0x33:  # Register ALU
-            rd = (insn >> 7) & 0x1f
-            rs1 = (insn >> 15) & 0x1f
-            rs2 = (insn >> 20) & 0x1f
-            
-            funct3 = (insn >> 12) & 0x7
-            funct7 = (insn >> 25) & 0x7f
-            rs1_val = self.regs[rs1]
-            rs2_val = self.regs[rs2]
-            
-            if funct3 == 0x0:  # ADD/SUB
-                if funct7 == 0x00:  # ADD
-                    self.regs[rd] = rs1_val + rs2_val
-                elif funct7 == 0x20:  # SUB
-                    self.regs[rd] = rs1_val - rs2_val
-            elif funct3 == 0x1:  # SLL
-                shamt = rs2_val & 0x1f
-                self.regs[rd] = rs1_val << shamt
-            elif funct3 == 0x2:  # SLT
-                self.regs[rd] = 1 if self.sign_extend(rs1_val, 32) < self.sign_extend(rs2_val, 32) else 0
-            elif funct3 == 0x3:  # SLTU
-                self.regs[rd] = 1 if rs1_val < rs2_val else 0
-            elif funct3 == 0x4:  # XOR
-                self.regs[rd] = rs1_val ^ rs2_val
-            elif funct3 == 0x5:  # SRL/SRA
-                shamt = rs2_val & 0x1f
-                if funct7 == 0x00:  # SRL
-                    self.regs[rd] = rs1_val >> shamt
-                elif funct7 == 0x20:  # SRA
-                    self.regs[rd] = self.sign_extend(rs1_val, 32) >> shamt
-            elif funct3 == 0x6:  # OR
-                self.regs[rd] = rs1_val | rs2_val
-            elif funct3 == 0x7:  # AND
-                self.regs[rd] = rs1_val & rs2_val
-                
-        elif opcode == 0x73:  # ECALL/EBREAK
-            # For simplicity, treat as trap (would normally check CSRs)
-            if (insn >> 20) & 0xfff == 0x000:  # ECALL
-                # In a real system, this would change mode - for now just continue
-                pass
-            elif (insn >> 20) & 0xfff == 0x001:  # EBREAK
-                # Breakpoint - stop execution
-                return False
-                
-        # Check for tohost write (test completion)
-        if self.pc >= self.tohost_addr // 4:
-            # Check if we wrote to tohost
-            tohost_word = self.mem[self.tohost_addr // 4]
-            tohost_byte = (tohost_word >> ((self.tohost_addr % 4) * 8)) & 0xff
-            if tohost_byte == 1:
-                # Test passed
-                return None  # Special value indicating test completion
-            elif tohost_byte != 0:
-                # Test failed (encoded in lower bits)
-                return False
-                
-        return True  # Continue execution
-    
-    def run(self, max_instructions=100000):
-        """Run program until completion or max instructions"""
-        for _ in range(max_instructions):
-            result = self.step()
-            if result is False:
-                return False  # Test failed
-            elif result is None:
-                return True   # Test passed
-            elif not result:
-                break         # Exception occurred
-        return False  # Timeout
-    
-    def get_signature(self):
-        """Get the register signature from memory"""
-        signature = []
-        for i in range(self.signature_len // 4):
-            addr = (self.signature_addr // 4) + i
-            if addr < len(self.mem):
-                signature.append(self.mem[addr])
-        return signature
+        self.tohost = None      # value written to 0x10000000
+        self.trap = False
+        self.trap_pc = 0
+        self.steps = 0
 
-def simulate_program(program_bytes):
-    """Simulate a program and return (success, signature)"""
-    iss = RV32ISS()
-    iss.load_program(program_bytes)
-    success = iss.run()
-    if success is not False:  # Success or timeout (we'll treat timeout as failure for now)
-        signature = iss.get_signature()
-        return True, signature
-    else:
-        return False, None
+    # ---- memory helpers -------------------------------------------------
+    def _in_ram(self, addr):
+        return 0 <= addr < MEM_SIZE
+
+    def read32(self, addr):
+        if not self._in_ram(addr):
+            return 0
+        return int.from_bytes(self.mem[addr:addr + 4], "little")
+
+    def read_mem(self, addr, size, signed):
+        # misalignment checked by caller before this is invoked
+        if not self._in_ram(addr):
+            return 0
+        v = int.from_bytes(self.mem[addr:addr + size], "little")
+        if signed and v & (1 << (size * 8 - 1)):
+            v -= 1 << (size * 8)
+        return v & 0xFFFFFFFF
+
+    def write_mem(self, addr, value, size):
+        if addr == TOHOST_ADDR:
+            self.tohost = value & 0xFFFFFFFF
+            return
+        if not self._in_ram(addr):
+            return  # dropped, matches tb.cpp
+        self.mem[addr:addr + size] = (value & ((1 << size * 8) - 1)).to_bytes(size, "little")
+
+    def setreg(self, rd, value):
+        if rd:
+            self.regs[rd] = value & 0xFFFFFFFF
+
+    @staticmethod
+    def s32(v):
+        return v - (1 << 32) if v & 0x80000000 else v
+
+    # ---- one instruction ------------------------------------------------
+    def step(self):
+        pc = self.pc
+        if pc % 4 or not self._in_ram(pc):
+            raise Trap()
+        insn = self.read32(pc)
+        npc = (pc + 4) & 0xFFFFFFFF
+        op = insn & 0x7F
+        rd = (insn >> 7) & 0x1F
+        f3 = (insn >> 12) & 0x7
+        rs1 = (insn >> 15) & 0x1F
+        rs2 = (insn >> 20) & 0x1F
+        f7 = insn >> 25
+        self.pc = npc
+
+        if op == 0x37:                      # LUI
+            self.setreg(rd, insn & 0xFFFFF000)
+        elif op == 0x17:                    # AUIPC
+            self.setreg(rd, (pc + (insn & 0xFFFFF000)) & 0xFFFFFFFF)
+        elif op == 0x6F:                    # JAL
+            imm = (((insn >> 31) & 1) << 20) | (((insn >> 12) & 0xFF) << 12) | \
+                  (((insn >> 20) & 1) << 11) | (((insn >> 21) & 0x3FF) << 1)
+            if imm & (1 << 20):
+                imm -= 1 << 21
+            self.setreg(rd, npc)
+            self._jump((pc + imm) & 0xFFFFFFFF)
+        elif op == 0x67:                    # JALR
+            if f3 != 0:
+                raise Trap()
+            imm = insn >> 20
+            if imm & 0x800:
+                imm -= 1 << 12
+            tgt = ((self.regs[rs1] + imm) & 0xFFFFFFFF) & ~1
+            self.setreg(rd, npc)
+            self._jump(tgt)
+        elif op == 0x63:                    # branches
+            imm = (((insn >> 31) & 1) << 12) | (((insn >> 7) & 1) << 11) | \
+                  (((insn >> 25) & 0x3F) << 5) | (((insn >> 8) & 0xF) << 1)
+            if imm & (1 << 12):
+                imm -= 1 << 13
+            a, b = self.regs[rs1], self.regs[rs2]
+            sa, sb = self.s32(a), self.s32(b)
+            taken = {0x0: a == b, 0x1: a != b, 0x4: sa < sb,
+                     0x5: sa >= sb, 0x6: a < b, 0x7: a >= b}.get(f3)
+            if taken is None:
+                raise Trap()
+            if taken:
+                self._jump((pc + imm) & 0xFFFFFFFF)
+        elif op == 0x03:                    # loads
+            imm = insn >> 20
+            if imm & 0x800:
+                imm -= 1 << 12
+            addr = (self.regs[rs1] + imm) & 0xFFFFFFFF
+            need = {0x0: 1, 0x1: 2, 0x2: 4, 0x4: 1, 0x5: 2}.get(f3)
+            if need is None or addr % need:
+                raise Trap()
+            self.setreg(rd, self.read_mem(addr, need, f3 in (0x0, 0x1, 0x2)))
+        elif op == 0x23:                    # stores
+            imm = ((insn >> 25) << 5) | ((insn >> 7) & 0x1F)
+            if imm & 0x800:
+                imm -= 1 << 12
+            addr = (self.regs[rs1] + imm) & 0xFFFFFFFF
+            need = {0x0: 1, 0x1: 2, 0x2: 4}.get(f3)
+            if need is None or addr % need:
+                raise Trap()
+            self.write_mem(addr, self.regs[rs2], need)
+        elif op == 0x13:                    # OP-IMM
+            imm = insn >> 20
+            simm = imm - (1 << 12) if imm & 0x800 else imm
+            a = self.regs[rs1]
+            if f3 == 0x0:
+                r = a + simm
+            elif f3 == 0x1:                 # SLLI
+                if f7 not in (0x00, 0x01):
+                    raise Trap()
+                r = a << (rs2 & 0x1F)
+            elif f3 == 0x2:
+                r = int(self.s32(a) < simm)
+            elif f3 == 0x3:
+                r = int(a < (imm & 0xFFFFFFFF))
+            elif f3 == 0x4:
+                r = a ^ (simm & 0xFFFFFFFF)
+            elif f3 == 0x6:
+                r = a | (simm & 0xFFFFFFFF)
+            elif f3 == 0x7:
+                r = a & (simm & 0xFFFFFFFF)
+            elif f3 == 0x5:                 # SRLI / SRAI
+                sh = rs2 & 0x1F
+                if f7 == 0x00:
+                    r = a >> sh
+                elif f7 == 0x20:
+                    r = self.s32(a) >> sh
+                else:
+                    raise Trap()
+            else:
+                raise Trap()
+            self.setreg(rd, r)
+        elif op == 0x33:                    # OP
+            a, b = self.regs[rs1], self.regs[rs2]
+            if f3 == 0x0:
+                if f7 == 0x00:
+                    r = a + b
+                elif f7 == 0x20:
+                    r = a - b
+                else:
+                    raise Trap()
+            elif f3 == 0x1 and f7 == 0x00:
+                r = a << (b & 0x1F)
+            elif f3 == 0x2 and f7 == 0x00:
+                r = int(self.s32(a) < self.s32(b))
+            elif f3 == 0x3 and f7 == 0x00:
+                r = int(a < b)
+            elif f3 == 0x4 and f7 == 0x00:
+                r = a ^ b
+            elif f3 == 0x5:
+                sh = b & 0x1F
+                if f7 == 0x00:
+                    r = a >> sh
+                elif f7 == 0x20:
+                    r = self.s32(a) >> sh
+                else:
+                    raise Trap()
+            elif f3 == 0x6 and f7 == 0x00:
+                r = a | b
+            elif f3 == 0x7 and f7 == 0x00:
+                r = a & b
+            else:
+                raise Trap()
+            self.setreg(rd, r)
+        elif op == 0x0F:                    # FENCE (incl. FENCE.I) -> NOP
+            pass
+        elif op == 0x73:                    # ECALL / EBREAK / CSR -> trap
+            raise Trap()
+        else:
+            raise Trap()
+
+    def _jump(self, target):
+        if target % 4:
+            raise Trap()
+        self.pc = target
+
+    def run(self, max_steps=200000):
+        while self.tohost is None and not self.trap and self.steps < max_steps:
+            try:
+                self.step()
+            except Trap:
+                self.trap = True
+                self.trap_pc = self.pc if self.pc % 4 == 0 else self.pc & ~3
+            self.steps += 1
+        if self.trap:
+            return "TRAP"
+        if self.tohost is None:
+            return "TIMEOUT"
+        return "PASS" if self.tohost == 1 else "FAIL"
+
+    def image(self):
+        return [int.from_bytes(self.mem[i * 4:i * 4 + 4], "little")
+                for i in range(MEM_WORDS)]
+
+
+def main(argv):
+    if len(argv) < 3 or argv[1] != "run":
+        print(__doc__)
+        return 2
+    prog, dump, max_steps = argv[2], None, 200000
+    i = 3
+    while i < len(argv):
+        if argv[i] == "--dump":
+            dump = argv[i + 1]; i += 2
+        elif argv[i] == "--max-steps":
+            max_steps = int(argv[i + 1]); i += 2
+        else:
+            return 2
+    iss = RV32ISS(load_memh(prog))
+    status = iss.run(max_steps)
+    if dump:
+        dump_memh(iss.image(), dump)
+    th = "--------" if iss.tohost is None else "0x%08x" % iss.tohost
+    print("STATUS=%s TOHOST=%s STEPS=%d TRAP_PC=0x%08x"
+          % (status, th, iss.steps, iss.trap_pc))
+    return 0 if status in ("PASS", "FAIL", "TRAP") else 1
+
 
 if __name__ == "__main__":
-    # Simple test - add two numbers
-    # li x5, 5
-    # li x6, 7
-    # add x7, x5, x6
-    # sw x7, 0(x0)
-    # li x10, 1
-    # sw x10, 0(x10000000)  # tohost = 1
-    program = bytearray([
-        0x05, 0x05, 0x02, 0x03,  # li x5, 5
-        0x07, 0x06, 0x02, 0x03,  # li x6, 7
-        0x05, 0x06, 0x07, 0x03,  # add x7, x5, x6
-        0x07, 0x00, 0x02, 0x23,  # sw x7, 0(x0)
-        0x01, 0x0a, 0x02, 0x03,  # li x10, 1
-        0x00, 0x00, 0x00, 0x23,  # sw x10, 0(x0) - wrong addr, should be tohost
-        0x00, 0x00, 0x00, 0x23,  # sw x10, 0(x0) - placeholder
-        0x00, 0x00, 0x00, 0x23,  # sw x10, 0(x0) - placeholder
-        0x00, 0x00, 0x00, 0x23,  # sw x10, 0(x0) - placeholder
-        0x01, 0x00, 0x00, 0x23,  # sw x10, 0(x0) - tohost write
-    ])
-    
-    # Fix the tohost address
-    program[36] = 0x00  # addr low byte
-    program[37] = 0x00  # addr byte 2
-    program[38] = 0x00  # addr byte 3
-    program[39] = 0x10  # addr high byte (0x10000000)
-    
-    success, signature = simulate_program(program)
-    print(f"Success: {success}")
-    if signature:
-        print(f"Signature: {[hex(x) for x in signature]}")
+    sys.exit(main(sys.argv))
