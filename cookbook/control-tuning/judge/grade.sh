@@ -6,10 +6,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-PY="$HERE/../../.judge-venv/bin/python3"
-if [ ! -x "$PY" ]; then
-  PY="${CT_PYTHON:-$HOME/ct-judge-venv/bin/python3}"
-fi
+PY="${CT_PYTHON:-$HOME/ct-judge-venv/bin/python3}"
 if [ ! -x "$PY" ]; then
   echo "grade.sh: judge venv not found; run judge/setup.sh first" >&2
   exit 2
