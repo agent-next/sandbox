@@ -32,7 +32,13 @@ for f in examples/bad/bad_*.py; do
     if bash judge/grade.sh "$f" --json "/tmp/st-$mtot.json" "$@" >/dev/null 2>&1; then
         echo "  $f -> *** PASSED (should have failed) ***"
     else
-        echo "  $f -> killed"; killed=$((killed+1))
+        kg=$("$RF_PY" - "$f" "/tmp/st-$mtot.json" <<'EOF'
+import json, sys
+v = json.load(open(sys.argv[2]))
+print(",".join(g["gate"] for g in v["gates"] if not g["pass"]))
+EOF
+)
+        echo "  $f -> killed by: $kg"; killed=$((killed+1))
     fi
     echo "    wall: $((SECONDS-t0)) s"
 done

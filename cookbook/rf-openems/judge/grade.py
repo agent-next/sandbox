@@ -127,6 +127,11 @@ def main():
           and 0.0 < params["feed_inset"] <= 0.45 * params["patch_L"]
           and G["mesh_res_min_mm"] <= params["mesh_res"] <= G["mesh_res_max_mm"])
     add("G2_physical_sanity", ok, json.dumps(params))
+    if not ok:
+        for g in ("G3_sim_runs", "G4_S11_at_target", "G5_resonance",
+                  "G6_raw_crosscheck", "G7_oracle_msline", "G8_convergence"):
+            add(g, False, "not run (G2 physical sanity failed)")
+        return _finish(verdict, args, t0, pre_hash)
 
     # ---- G3: run the artifact ------------------------------------------
     workdir = tempfile.mkdtemp(prefix="rfjudge-")
@@ -152,9 +157,10 @@ def main():
             f"rc={proc.returncode} raw={'yes' if raw_ok else 'no'} "
             f"result_line={result_line} wall={verdict['timing']['artifact_sim_s']}s")
         if not ok:
-            add("G6_raw_crosscheck", False, "no raw data")
-            add("G7_oracle_msline", False, "not run")
-            add("G8_convergence", False, "not run")
+            for g in ("G4_S11_at_target", "G5_resonance",
+                      "G6_raw_crosscheck", "G7_oracle_msline",
+                      "G8_convergence"):
+                add(g, False, "not run (G3 failed)")
             return _finish(verdict, args, t0, pre_hash)
     except subprocess.TimeoutExpired:
         add("G3_sim_runs", False, f"timeout > {args.timeout} s")
