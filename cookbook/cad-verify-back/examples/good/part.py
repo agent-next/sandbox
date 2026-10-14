@@ -9,8 +9,9 @@ Reads the customer spec JSON and exports, next to itself:
 Usage:
     python3 part.py [spec.json]
 
-The spec defaults to the example shipped in this directory. Only the three
-exported files are graded; this script is never run by the judge.
+The spec defaults to the copy in this directory (the canonical customer
+spec the judge grades against is judge/spec.json, same values). Only the
+three exported files are graded; this script is never run by the judge.
 
 Third-party sources:
   - CadQuery 2.7.0, Apache-2.0, https://github.com/CadQuery/cadquery

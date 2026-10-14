@@ -387,7 +387,8 @@ def verdict_fail(gates, why, json_out, t_start, artifact=None, artifact_name=Non
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("artifact_dir")
-    ap.add_argument("--spec", default=os.path.join(HERE, "..", "examples", "good", "spec.json"))
+    ap.add_argument("--spec", default=os.path.join(HERE, "spec.json"),
+                    help="customer spec JSON the artifact is graded against")
     ap.add_argument("--seed", type=int, default=20261014)
     ap.add_argument("--json")
     ap.add_argument("--artifact-name", default=None,
