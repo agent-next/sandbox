@@ -352,8 +352,13 @@ def main(argv: list[str] | None = None) -> int:
     except SbxError as exc:
         _say(f"sbx: {exc}", err=True)
         return 2
-    except Exception as exc:  # SDK errors carry the gateway's message
-        _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
+    except Exception as exc:
+        # e2b SDK errors carry the gateway's message ("404: template 'x' not
+        # found"), which is already user-facing; anything else keeps its class
+        # name so a local bug stays debuggable.
+        origin = type(exc).__module__.split(".")[0]
+        name = "" if origin == "e2b" else f"{type(exc).__name__}: "
+        _say(f"sbx: {name}{exc}", err=True)
         return 1
 
 

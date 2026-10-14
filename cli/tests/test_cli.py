@@ -279,3 +279,26 @@ def test_list_rejects_non_json_without_echoing_body(monkeypatch, capsys):
     output = capsys.readouterr()
     assert output.out == ""
     assert output.err == "sbx: GET /sandboxes returned invalid JSON\n"
+
+
+def test_gateway_errors_drop_the_sdk_class_name(monkeypatch, capsys):
+    # The gateway's message is user-facing; "SandboxException: " before it
+    # is SDK noise (issue #24). Class declared with __module__ "e2b" like
+    # the real SDK exceptions the handler sees.
+    SandboxException = type("SandboxException", (Exception,), {"__module__": "e2b"})
+
+    def boom(*a, **k):
+        raise SandboxException("404: template 'no-such-template' not found")
+
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(boom))
+    assert cli.main(["create", "--template", "no-such-template"]) == 1
+    assert capsys.readouterr().err == "sbx: 404: template 'no-such-template' not found\n"
+
+
+def test_non_sdk_errors_keep_the_class_name(monkeypatch, capsys):
+    def boom(*a, **k):
+        raise RuntimeError("local bug")
+
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(boom))
+    assert cli.main(["create"]) == 1
+    assert capsys.readouterr().err == "sbx: RuntimeError: local bug\n"
