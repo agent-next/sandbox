@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel — the wind-aware route planner for cyclists</title>
+<meta name="description" content="Kestrel reads the wind forecast, not just the map, and plans the loop that rides with the wind at your back on the way home.">
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <p class="wordmark">Kestrel</p>
+  <div class="nav-links">
+    <a href="#how">How it plans</a>
+    <a href="#routes">Three loops</a>
+    <a href="#pricing">Price</a>
+    <a href="#faq">Questions</a>
+  </div>
+  <a class="button" href="#download">Plan a route</a>
+</nav>
+
+<header id="hero" class="hero">
+  <div class="hero-text">
+    <h1>Kestrel</h1>
+    <p class="lead">The route planner that reads the wind forecast, not just the map — and plans the loop that rides home with the wind at your back.</p>
+    <a class="button" href="#download">Plan a wind-aware route</a>
+    <div class="live-thing">
+      <h2 class="live-label">Try the wind math</h2>
+      <form id="wind-form">
+        <label for="wind-speed">Wind speed (km/h)</label>
+        <input type="range" id="wind-speed" name="wind-speed" min="0" max="25" step="1" value="18">
+        <label for="wind-dir">Wind from</label>
+        <select id="wind-dir" name="wind-dir">
+          <option value="E">East</option>
+          <option value="NE">North-east</option>
+          <option value="N">North</option>
+          <option value="SE">South-east</option>
+          <option value="S">South</option>
+          <option value="SW">South-west</option>
+          <option value="W" selected>West</option>
+          <option value="NW">North-west</option>
+        </select>
+      </form>
+      <p class="live-result" id="wind-result" aria-live="polite"></p>
+      <noscript><p class="live-result">In still air the 40 km Kestrel loop takes about 100 minutes at 24 km/h.</p></noscript>
+    </div>
+  </div>
+  <img class="hero-media" src="assets/img/compass.png" width="960" height="960"
+       alt="Compass rose with the wind arrow flying to the north-east">
+</header>
+
+<main>
+<section id="how">
+  <div class="section-head">
+    <h2>How Kestrel plans</h2>
+    <p class="lead">Three passes over the forecast, then one honest route.</p>
+  </div>
+  <div class="how-grid">
+    <div class="how-text">
+      <p>First, Kestrel pulls the hourly wind forecast for your whole ride window and resolves it onto every road segment, so each stretch of tarmac knows the wind it will carry.</p>
+      <p>Second, it splits your possible loop into legs and works out the true ground speed on each one: a 24 km/h rider with an 18 km/h headwind is not a 24 km/h rider, and no gradient profile will tell you that.</p>
+      <p>Third, it searches the loop both ways round and shows you the one where the long leg carries the wind home. The difference between the two is printed in minutes, before you clip in.</p>
+    </div>
+    <img src="assets/img/windfield.png" width="960" height="540"
+         alt="A field of wind arrows all flying to the north-east, drawn on pine">
+  </div>
+</section>
+
+<section id="routes">
+  <div class="section-head">
+    <h2>Three loops</h2>
+    <p class="lead">Ridden this spring with the wind quality Kestrel assigned them.</p>
+  </div>
+  <img class="routes-media" src="assets/img/routes.png" width="960" height="540"
+       alt="Three loop ribbons of different lengths drawn on paper">
+  <div class="route-list">
+    <div class="route">
+      <h3>The Harbour Drag</h3>
+      <p>40 km, 180 m of climbing. Long straight causeway legs, so the wind quality swings hardest here: 18 km/h from the west and the loop flips from calm to a grind.</p>
+    </div>
+    <div class="route">
+      <h3>Millstone Ridge</h3>
+      <p>58 km, 640 m of climbing. Hedged lanes soften the wind to a whisper; Kestrel rates it a fair-weather loop and tells you why when the gusts top 30.</p>
+    </div>
+    <div class="route">
+      <h3>The Estuary Ring</h3>
+      <p>72 km, 240 m of climbing. Flat, exposed and shaped like a bent horseshoe: the ring that rewards reading the forecast before the map.</p>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="pricing-panel">
+    <div class="pricing-text">
+      <h2>One price</h2>
+      <p class="price">€4 a month</p>
+      <p>Unlimited wind-aware routes, the full forecast archive for your region, GPX and Komoot export, and the wind math for any loop you draw yourself.</p>
+      <p>The free tier plans five routes a month, on this device, with tomorrow's forecast only.</p>
+      <a class="button" href="#download">Start free</a>
+    </div>
+    <img src="assets/img/elevation.png" width="960" height="540"
+         alt="The stepped elevation profile of the Harbour Drag, drawn in three tones">
+  </div>
+</section>
+
+<section id="faq">
+  <div class="section-head">
+    <h2>Questions</h2>
+  </div>
+  <div class="faq-list">
+    <div class="qa">
+      <h3>Where does the wind forecast come from?</h3>
+      <p>From the national weather service's hourly model output, resolved to a 1 km grid and refreshed every three hours. Kestrel keeps the last two days of every forecast so you can see what the wind actually did.</p>
+    </div>
+    <div class="qa">
+      <h3>Does it work for running and hiking?</h3>
+      <p>It does. The wind math is the same; only your still-air speed changes, and you set that on the route page. Slower travel makes the wind matter more, not less.</p>
+    </div>
+    <div class="qa">
+      <h3>What happens when the forecast is wrong?</h3>
+      <p>Kestrel shows the confidence band on every leg. When the band is wide it says so on the route card and suggests the loop with the most shelter, instead of pretending to be certain.</p>
+    </div>
+    <div class="qa">
+      <h3>Can I export a route to my bike computer?</h3>
+      <p>Yes — GPX for every device, and a direct send for the common head units. The exported file carries the wind notes as course points, so you see them on the road.</p>
+    </div>
+    <div class="qa">
+      <h3>Do I need an account to try it?</h3>
+      <p>No. The first five routes are planned on this device with no sign-up. An account only syncs your routes and unlocks the archive.</p>
+    </div>
+  </div>
+</section>
+
+<section id="download" class="download">
+  <h2>Ride with the wind</h2>
+  <p class="lead">Plan your first wind-aware route before the next window of fair weather closes.</p>
+  <a class="button button-on-dark" href="mailto:ride@kestrel.example?subject=Plan%20a%20wind-aware%20route&body=Plan%20me%20a%2040%20km%20loop%20this%20weekend.">Plan a route</a>
+</section>
+</main>
+
+<footer id="footer">
+  <h2 class="footer-wordmark">Kestrel</h2>
+  <p class="footer-meta">Built with the taste-skill design rules.</p>
+  <p class="footer-meta">Type: Fraunces & Public Sans, SIL OFL.</p>
+  <p class="footer-meta">Kestrel is a fictional product.</p>
+</footer>
+
+<script>document.documentElement.classList.add('js')</script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>
+<script>console.error("mutant: boom")</script>
