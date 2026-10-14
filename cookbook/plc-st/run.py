@@ -50,8 +50,8 @@ def main():
     env = dict(os.environ)
     env.setdefault("SBX_API_KEY", key)
 
-    def wall(label):
-        print(f"[{label}] {time.monotonic():.1f}s wall", flush=True)
+    def wall(label, since):
+        print(f"[{label}] {time.monotonic() - since:.1f}s wall", flush=True)
 
     t0 = time.monotonic()
     print(f"plc-st: creating sandbox (ref={ref})", flush=True)
@@ -61,9 +61,10 @@ def main():
     lines = [l.strip() for l in r.stdout.splitlines() if l.strip()]
     sid = lines[-1] if lines else ""
     if not sid or not all(c.isascii() and (c.isalnum() or c == "-") for c in sid):
-        raise RuntimeError(f"sbx create returned an unexpected id {sid!r}:\n{r.stdout}")
+        raise RuntimeError(f"sbx create returned an unexpected id {sid!r} "
+                           f"(check `sbx list` for a sandbox to kill):\n{r.stdout}")
     print(f"plc-st: sandbox {sid}", flush=True)
-    wall("create")
+    wall("create", t0)
 
     # in-sandbox script: clone this repo at ref, set up, self-test, grade.
     # All output is streamed by sbx exec.
@@ -88,7 +89,7 @@ grep -E '^selftest: (mutant KILLED:|kill rate)' /tmp/selftest.log || true
               flush=True)
         r = sh(f"sbx exec {sid} --timeout 900 -- {shlex_quote(script)}", env=env)
         print(r.stdout, flush=True)
-        wall("in-sandbox")
+        wall("in-sandbox", t1)
         if r.returncode != 0:
             raise RuntimeError(f"in-sandbox run failed with exit {r.returncode}")
     finally:
@@ -104,7 +105,7 @@ grep -E '^selftest: (mutant KILLED:|kill rate)' /tmp/selftest.log || true
             print(f"plc-st: destroyed {sid}; verified absent", flush=True)
         else:
             raise RuntimeError(f"cleanup unconfirmed for {sid}: still listed in sbx list\n{rl.stdout}")
-        wall("total")
+        wall("total", t0)
 
 
 def shlex_quote(s):

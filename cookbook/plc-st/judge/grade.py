@@ -108,7 +108,10 @@ def run_scenario(engine, events, level0=50.0, max_steps=MAX_STEPS,
         out = engine.stdout.readline()
         if not out:
             break
-        p, iv, ov, al, run = (int(x) for x in out.split())
+        try:
+            p, iv, ov, al, run = (int(x) for x in out.split())
+        except ValueError:
+            break
         outs.append({'k': k, 'pump': p, 'inlet': iv, 'outlet': ov,
                      'alarm': al, 'running': run, 'level': plant.level,
                      'estop': cur['estop']})
@@ -312,7 +315,10 @@ def main():
                             trace_path=trace_path)
         engine.stdin.close()
         engine.wait()
-        fails = check_all(outs, gates)
+        if len(outs) < MAX_STEPS:
+            fails = [f'engine stopped after {len(outs)} of {MAX_STEPS} scans']
+        else:
+            fails = check_all(outs, gates)
         ok = not fails
         allok = allok and ok
         results.append({'name': name, 'pass': ok, 'failures': fails,

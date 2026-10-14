@@ -48,6 +48,11 @@ for sig in "start" "estop" "high_ls" "low_ls" "level" \
     grep -q "$sig" "$ARTIFACT" || fail "artifact missing interface signal '$sig'"
 done
 
+# MATIEC passes {{ ... }} blocks through as raw C; the artifact must be plain ST
+if grep -q '{{' "$ARTIFACT"; then
+    fail "artifact embeds C code ({{ ... }} pragma); only plain Structured Text is graded"
+fi
+
 # hash the judge before any artifact code runs
 JUDGE_HASH_BEFORE="$(find "$HERE" -type f ! -name 'setup.sh' ! -name 'grade.sh' \
                      ! -name 'selftest.sh' ! -name 'RECEIPT.md' -exec sha256sum {} + | sort | sha256sum)"
