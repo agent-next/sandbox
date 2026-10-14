@@ -206,8 +206,10 @@ class RV32ISS:
             else:
                 raise Trap()
             self.setreg(rd, r)
-        elif op == 0x0F:                    # FENCE (incl. FENCE.I) -> NOP
-            pass
+        elif op == 0x0F:                    # FENCE
+            if f3 != 0:                     # FENCE.I is NOT in the ISA
+                raise Trap()                # (SPEC: RV32I minus FENCE.I)
+            pass                            # FENCE executes as a NOP
         elif op == 0x73:                    # ECALL / EBREAK / CSR -> trap
             raise Trap()
         else:

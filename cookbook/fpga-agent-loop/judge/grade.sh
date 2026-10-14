@@ -3,17 +3,23 @@ set -euo pipefail
 
 # fpga-agent-loop judge — grading entry point (SPEC.md, judge/grade.sh).
 #
-#   grade.sh <cpu.v> [--seed N] [--json out.json]
+#   grade.sh <cpu.v> [--seed N] [--json out.json] [--g2-count K]
 #
-# Gates run end-to-end in T1:
+# Gates:
 #   G0  lint    : verilator --lint-only -Wall (errors fatal, warnings allowed)
 #                 + yosys read_verilog; proc; check -assert
 #   G1  isa     : every judge/tests/*.hex (riscv-tests rv32ui, no-CSR build)
 #                 passes (tohost == 1) in the Verilator testbench, with the
 #                 seeded random mem_ready latency enabled (G4 model)
+#   G2  diff    : K seeded random programs (gen.py) on the DUT vs the Python
+#                 ISS (iss.py via g2check.py); every program must end
+#                 tohost==1 and its x1..x31 signature must match the ISS.
+#                 K defaults to the SPEC's 200 (--g2-count for quick runs);
+#                 each program is 500 instructions with per-program random
+#                 mem_ready latency derived from the seed
 #   G3  trap    : every judge/tests/trap/*.hex asserts trap and goes quiet
 #   G4  bus     : G1 re-run under 3 different latency seeds derived from --seed
-#   G2/G5/G6    : SKIP (T2/T3), recorded as skipped in the JSON verdict
+#   G5/G6       : SKIP (T3), recorded as skipped in the JSON verdict
 #
 # Exit 0 only if every non-skipped gate passes.
 
@@ -33,18 +39,21 @@ fi
 
 SEED=7
 JSON_OUT=""
+G2_COUNT=200
+G2_INSTRS=500
 CPU_V=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --seed) SEED="$2"; shift 2 ;;
         --json) JSON_OUT="$2"; shift 2 ;;
+        --g2-count) G2_COUNT="$2"; shift 2 ;;
         -*) echo "unknown option: $1" >&2; exit 2 ;;
-        *)  if [[ -n "$CPU_V" ]]; then echo "usage: $0 <cpu.v> [--seed N] [--json out.json]" >&2; exit 2; fi
+        *)  if [[ -n "$CPU_V" ]]; then echo "usage: $0 <cpu.v> [--seed N] [--json out.json] [--g2-count K]" >&2; exit 2; fi
             CPU_V="$1"; shift ;;
     esac
 done
 if [[ -z "$CPU_V" || ! -f "$CPU_V" ]]; then
-    echo "usage: $0 <cpu.v> [--seed N] [--json out.json]" >&2
+    echo "usage: $0 <cpu.v> [--seed N] [--json out.json] [--g2-count K]" >&2
     [[ -n "$CPU_V" ]] && echo "  cpu file not found: $CPU_V" >&2
     exit 2
 fi
@@ -108,7 +117,7 @@ verilator --cc --exe --build -j "$(nproc)" --top-module cpu \
 if [[ $build_rc -ne 0 || ! -x "$WORK/obj_dir/sim_cpu" ]]; then
     echo "   build FAILED:"
     tail -20 "$BUILD_LOG"
-    for g in G1 G3 G4; do GATE_PASS[$g]=false; GATE_DETAIL[$g]="verilator build failed"; done
+    for g in G1 G2 G3 G4; do GATE_PASS[$g]=false; GATE_DETAIL[$g]="verilator build failed"; done
 else
     SIM="$WORK/obj_dir/sim_cpu"
     echo "   build OK"
@@ -145,6 +154,28 @@ if [[ "${GATE_PASS[G1]}" != false ]]; then
         GATE_PASS[G1]=false
         GATE_DETAIL[G1]="$(printf '"%d/%d tests pass; failing: %s"' "$((total-fails))" "$total" "$fail_names")"
         echo "   G1: FAIL ($((total-fails))/$total)"
+    fi
+fi
+
+# ---- G2: random differential vs the Python ISS ---------------------------------
+# Program i uses gen.program_seed(SEED, i); each program runs on the DUT with
+# per-program random mem_ready latency (tb --latency --seed <program seed>)
+# and in-process on the ISS; the x1..x31 signature must match exactly.
+if [[ "${GATE_PASS[G2]}" != false ]]; then
+    echo "== G2: random differential vs ISS (${G2_COUNT} programs x ${G2_INSTRS} instrs, base seed $SEED)"
+    G2_LOG="$WORK/g2.log"
+    if python3 "$JUDGE_DIR/g2check.py" --sim "$SIM" --seed "$SEED" \
+            --count "$G2_COUNT" --len "$G2_INSTRS" \
+            --max-cycles "$MAX_CYCLES" >"$G2_LOG" 2>&1; then
+        GATE_PASS[G2]=true
+        GATE_DETAIL[G2]="\"$G2_COUNT/$G2_COUNT random programs match the ISS (x1..x31 signature)\""
+        sed 's/^/   /' "$G2_LOG" | tail -1
+    else
+        GATE_PASS[G2]=false
+        GATE_DETAIL[G2]="$(grep -m1 "G2:" "$G2_LOG" | json_escape)"
+        echo "   G2: FAIL (first mismatch):"
+        sed 's/^/   /' "$G2_LOG" | head -5
+        echo "   G2: FAIL"
     fi
 fi
 
@@ -201,15 +232,14 @@ if [[ "${GATE_PASS[G4]}" != false ]]; then
     fi
 fi
 
-# ---- G2/G5/G6: not in T1 ------------------------------------------------------
-for g in G2 G5 G6; do
+# ---- G5/G6: not in T2 ---------------------------------------------------------
+for g in G5 G6; do
     if [[ "$g" == G6 ]]; then
         echo "== G6: perf benchmark: SKIP (T3) - not a gate"
     else
-        echo "== $g: SKIP (T2/T3)"
+        echo "== $g: SKIP (T3)"
     fi
 done
-GATE_DETAIL[G2]="differential test lands in T2"
 GATE_DETAIL[G5]="synth gate lands in T3"
 GATE_DETAIL[G6]="perf report lands in T3 (not a gate)"
 
@@ -217,7 +247,7 @@ GATE_DETAIL[G6]="perf report lands in T3 (not a gate)"
 T_END=$(date +%s)
 WALL=$((T_END - T_START))
 VERDICT=true
-for g in G0 G1 G3 G4; do
+for g in G0 G1 G2 G3 G4; do
     [[ "${GATE_PASS[$g]}" == true ]] || VERDICT=false
 done
 

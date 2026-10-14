@@ -57,6 +57,37 @@ MUTANTS = [
         "mem_ready ignored: only survives if the tb never stretches a "
         "request - G4's random latency must break it",
     ),
+    (
+        "bimm-sign-drop",
+        "					decoded_imm <= $signed({mem_rdata_q[31], mem_rdata_q[7], mem_rdata_q[30:25], mem_rdata_q[11:8], 1'b0});",
+        "					decoded_imm <= {1'b0, mem_rdata_q[7], mem_rdata_q[30:25], mem_rdata_q[11:8], 1'b0};",
+        "branch immediate sign bit dropped: backward branches decode as "
+        "large forward jumps. CAUGHT BY G1 (6/40): this judge's no-CSR "
+        "riscv_test.h FAIL macro and some test bodies do use backward "
+        "branches - kept as a G1/G4-killer documenting that corner",
+    ),
+    (
+        "jal-sign-drop",
+        "			{ decoded_imm_j[31:20], decoded_imm_j[10:1], decoded_imm_j[11], decoded_imm_j[19:12], decoded_imm_j[0] } <= $signed({mem_rdata_latched[31:12], 1'b0});",
+        "			{ decoded_imm_j[31:20], decoded_imm_j[10:1], decoded_imm_j[11], decoded_imm_j[19:12], decoded_imm_j[0] } <= {1'b0, mem_rdata_latched[30:12], 1'b0};",
+        "JAL immediate sign bit (imm[20]) forced to 0: backward JALs "
+        "decode as +1 MiB-ish forward jumps. Executed rv32ui JALs are all "
+        "small forward jumps (imm bits >= 8 never set; the negative JALs "
+        "in the images sit in data regions and never execute), so G1 "
+        "passes and only G2's backward JAL catches it (T2 power test)",
+    ),
+    (
+        "jal-imm-hi-zero",
+        "			{ decoded_imm_j[31:20], decoded_imm_j[10:1], decoded_imm_j[11], decoded_imm_j[19:12], decoded_imm_j[0] } <= $signed({mem_rdata_latched[31:20], 9'b0});",
+        "JAL immediate bits imm[19:12] forced to 0 (by zeroing their "
+        "source, insn[19:12], on the RHS - the LHS must stay a plain "
+        "lvalue or Verilator rejects the build): any JAL with an offset "
+        "offset >= 4 KiB (or a backward JAL, whose 21-bit two's-complement "
+        "encoding has imm[19:12] all ones) jumps to the wrong address. "
+        "rv32ui's executed JALs are all < 256 B forward, so G1 passes; "
+        "G2's coverage block contains a backward JAL and the filler "
+        "mixes JALs into long programs (T2 power test)",
+    ),
 ]
 
 
