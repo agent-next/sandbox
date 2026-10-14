@@ -2,25 +2,18 @@
 
 An agent works on a real RF design problem inside a disposable agent-next
 sandbox: design (or debug) a 2.45 GHz microstrip patch antenna on FR-4, and a
-judge the agent cannot modify runs a full-wave 3-D FDTD simulation and
-decides. The judge never trusts the artifact's self-report — it re-runs the
-simulation itself, checks |S11| ≤ −10 dB at 2.45 GHz with the resonance
-within ±2 %, verifies the whole toolchain against an analytic 50 Ω microstrip
-line (Hammerstad-Jensen closed-form within 3 %), and requires a mesh
-convergence repeat.
-
-> **Deviation from the original brief:** openEMS has no pinnable binary
-> distribution (no PyPI/conda/Debian packages, no hosted release tarballs from
-> upstream since 2019), so the judge uses **pymeep 1.31.0 (MEEP, MIT licence)
-> from conda-forge**, pinned by exact version with recorded sha256 package
-> hashes — same physics (cartesian 3-D FDTD), same deliverable, same oracle
-> class. See `SPEC.md` and `RECEIPT.md`.
+judge the agent cannot modify runs a full-wave 3-D FDTD simulation (openEMS)
+and decides. The judge never trusts the artifact's self-report — it re-runs
+the simulation itself, checks |S11| ≤ −10 dB at 2.45 GHz with the resonance
+within ±2 %, re-derives S11 from the raw port time series, verifies the whole
+toolchain against an analytic ~50 Ω microstrip line (Hammerstad-Jensen
+closed form within 4 %), and requires a mesh-convergence repeat.
 
 ## Ask your agent
 
 > In this repo there is a sandbox demo at `cookbook/rf-openems/`. Run
 > `python3 cookbook/rf-openems/run.py` — it spins up a disposable sandbox with
-> MEEP installed and grades `examples/good/antenna.py`. Then **improve the
+> openEMS installed and grades `examples/good/antenna.py`. Then **improve the
 > artifact in the sandbox**: write your own `antenna.py` (parameterised with
 > the variables listed in `SPEC.md`), point `judge/grade.sh` at it with
 > `bash judge/grade.sh /path/to/antenna.py --json /tmp/v.json`, and iterate on
@@ -38,23 +31,31 @@ python3 cookbook/rf-openems/run.py --ref some-branch --keep
 
 ## What it does
 
-1. `sbx create` a fresh 30-min sandbox.
+1. `sbx create` a fresh sandbox.
 2. Clones this repo at `--ref`.
-3. `judge/setup.sh` — downloads micromamba 2.3.2 (sha256-checked), creates a
-   pinned conda env (`pymeep=1.31.0`, `python=3.12.11`, `numpy=1.26.4`).
-4. `judge/selftest.sh` — grades the known-good example (must pass) and six
-   single-edit mutants (must all fail); kills the run unless kill rate ≥ 90 %.
+3. `judge/setup.sh` — installs into `$HOME/.rf-openems` without root:
+   Debian bookworm `python3-openems` 0.0.35 plus its library closure (each
+   .deb sha256-verified against `judge/packages.txt` and the signed apt
+   metadata) and a pinned PyPI wheel set (`judge/requirements.txt`,
+   `--hash=sha256:` per package, re-verified after download).
+4. `judge/selftest.sh` — grades the known-good example (must pass) and seven
+   single-edit mutants (must all fail, killer gate reported per mutant);
+   checks verdict determinism; exits non-zero unless kill rate ≥ 90 %.
 5. `judge/grade.sh examples/good/antenna.py --json …` — full verdict JSON.
 6. Always kills and verifies the sandbox is gone.
 
-## Measured wall time (this repo's RECEIPT.md)
+## Measured wall time (see RECEIPT.md)
 
-See `RECEIPT.md` — setup ~2 min, one grade ≈ 10-15 min on 2 vCPU.
+- setup: ~45 s
+- one grade of the good example: ~5–7 min (artifact sim ~2 min, oracle line
+  sim ~10 s, fine-mesh convergence sim ~3 min)
+- selftest (good + 7 mutants + determinism check): ~15 min
 
 ## Limits
 
-- One frequency band (2.2–2.7 GHz), driving-point only — gain/pattern are not
-  graded.
-- A coarse-but-converged mesh (10 cells/mm, confirmed at 12) — not a
-  production convergence study.
-- Runtime rises linearly with `resolution³`; keep it ≤ 12 on a 2-vCPU sandbox.
+- One frequency band (2.2–2.7 GHz), driving-point only — gain, efficiency and
+  far-field pattern are not graded.
+- One coarse→fine confirmation run (mesh_res × 0.75), not a production
+  convergence study.
+- The physics model is a probe-fed patch on an ungrounded-edge FR-4 slab with
+  PML boundaries — a teaching-grade geometry, not a manufacturing design.

@@ -9,7 +9,7 @@ regenerate them via `bash judge/selftest.sh` or `mutants.py generate`.
 | `bad_substrate_er.py` | `er = 2.2` (out of FR-4 range 3.5–5.0) | G2 physical sanity |
 | `bad_patch_length.py` | `patch_L = 22.0` (resonance ≈ 3.1 GHz) | G5 resonance (±2 %) |
 | `bad_no_ground.py` | ground-plane box deleted | G4 S11 / G5 (structure does not resonate) |
-| `bad_feed_center.py` | `feed_inset = 14.2` (feed on the TM010 voltage null) | G4 S11 (match destroyed) |
+| `bad_feed_center.py` | `feed_inset = 12.0` (feed near the TM010 voltage null; passes sanity but destroys the match) | G4 S11 at target |
 | `bad_coarse_mesh.py` | `mesh_res = 2.4` mm (out of range) | G2 physical sanity |
 | `bad_nan_er.py` | `er = float("nan")` (not a literal constant) | G1 parameter block |
 | `bad_thick_substrate.py` | `sub_h = 3.5` mm (out of range) | G2 physical sanity |

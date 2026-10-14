@@ -18,7 +18,7 @@ f_target_ghz = 2.45     # GHz  -- target resonance
 er           = 4.4      # FR-4 relative permittivity
 tanD         = 0.02     # FR-4 loss tangent
 sub_h        = 1.6      # mm   -- substrate thickness
-patch_L      = 28.4     # mm   -- patch length along the resonant direction
+patch_L      = 27.6     # mm   -- patch length along the resonant direction
 patch_W      = 37.0     # mm   -- patch width
 feed_inset   = 8.0     # mm   -- probe feed inset from the radiating edge
 mesh_res     = 1.2      # mm   -- max mesh step inside the substrate footprint
@@ -74,16 +74,18 @@ def simulate(p, sim_path):
         return np.linspace(a, b, n + 1)
 
     fx = p["feed_inset"]
+    # mesh lines pin the metal edges so geometry does not snap differently
+    # at different mesh_res (convergence gate G8 depends on this)
     mx = np.unique(np.concatenate([
         lines(-sub_m - air_l, -sub_m, 2.5),
         lines(-sub_m, L + sub_m, res)[1:-1],
         lines(L + sub_m, L + sub_m + air_l, 2.5),
-        [fx - 0.4, fx, fx + 0.4]]))
+        [0.0, L, fx - 0.4, fx, fx + 0.4]]))
     my = np.unique(np.concatenate([
         lines(-W/2 - sub_m - air_l, -W/2 - sub_m, 2.5),
         lines(-W/2 - sub_m, W/2 + sub_m, res)[1:-1],
         lines(W/2 + sub_m, W/2 + sub_m + air_l, 2.5),
-        [-0.4, 0.0, 0.4]]))
+        [-W/2, W/2, -0.4, 0.0, 0.4]]))
     mz = np.unique(np.concatenate([
         lines(-air_dn, 0, 1.0),
         np.linspace(0, h, 6)[1:-1],

@@ -36,7 +36,7 @@ source of truth.
    er           = 4.4     # substrate permittivity
    tanD         = 0.02    # substrate loss tangent
    sub_h        = 1.6     # mm  substrate thickness
-   patch_L      = 28.4    # mm  resonant length
+   patch_L      = 27.6    # mm  resonant length
    patch_W      = 37.0    # mm
    feed_inset   = 8.0     # mm  probe inset from the radiating edge
    mesh_res     = 1.2     # mm  max mesh step inside the substrate footprint
