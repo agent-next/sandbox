@@ -383,10 +383,10 @@ def _error(exc: Exception) -> str:
 def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 600) -> None:
     """Wait for the runner to exit. A dropped stream (gateway restart, network) is not an exit:
     reattach to the runner process, or a blip would kill the job it is running. Reattaching
-    gives up after `outage` seconds without a connection."""
+    gives up after `outage` seconds without a stream that holds for a minute."""
     from e2b import CommandExitException, NotFoundException, TimeoutException
 
-    pid = handle.pid
+    pid, delay, give_up, attached = handle.pid, 2, None, time.monotonic()
     while True:
         try:
             emit("runner_exit", runner=slot.name, code=handle.wait().exit_code)
@@ -399,20 +399,30 @@ def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 60
             if slot.retiring:  # killed on retire
                 return
             emit("stream_lost", runner=slot.name, error=_error(exc))
-        delay, give_up = 2, min(deadline, time.monotonic() + outage)
+        if time.monotonic() - attached >= 60:  # the last stream held: a new outage
+            delay, give_up = 2, None
+        give_up = give_up or min(deadline, time.monotonic() + outage)
         while True:
+            if slot.retiring:
+                return
             if time.monotonic() >= give_up:
                 emit("runner_exit", runner=slot.name, error="could not reattach to the runner")
                 return
+            time.sleep(delay)  # also paces a flapping gateway that drops each new stream at once
+            delay = min(delay * 2, 15)
             try:
                 handle = sbx.commands.connect(pid, timeout=max(1, deadline - time.monotonic()))
+                attached = time.monotonic()
                 break
-            except (NotFoundException, TimeoutException) as exc:  # the runner (or its sandbox) is gone
-                emit("runner_exit", runner=slot.name, error=_error(exc))
+            except NotFoundException:  # the runner exited while the stream was down
+                emit("runner_exit", runner=slot.name, code=None, note="exited while disconnected")
+                return
+            except TimeoutException as exc:  # the sandbox is gone
+                if not slot.retiring:
+                    emit("runner_exit", runner=slot.name, error=_error(exc))
                 return
             except Exception:
-                time.sleep(delay)
-                delay = min(delay * 2, 15)
+                continue
 
 
 def _kill(sbx, slot: Slot) -> None:

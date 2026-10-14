@@ -264,7 +264,9 @@ class FakeSbx:
         self.killed += 1
 
     def connect(self, pid, timeout=None):
-        return FakeHandle()  # the runner had exited when the stream came back
+        from e2b import NotFoundException
+
+        raise NotFoundException(f"process with pid {pid} not found")  # what envd answers for an exited pid
 
 
 @pytest.fixture
@@ -417,6 +419,42 @@ def test_reattaching_gives_up_after_the_outage_window(fake_sbx, monkeypatch, cap
     exits = [e for e in events(capsys) if e["event"] == "runner_exit"]
     assert exits[0]["error"] == "could not reattach to the runner"
     assert 600 <= clock.now - 1000 < 700 and fake_sbx.made[0].killed == 1
+
+
+def test_a_flapping_stream_is_paced_and_bounded(fake_sbx, monkeypatch, capsys):
+    clock = Clock()
+    monkeypatch.setattr(runners.time, "monotonic", clock)
+    monkeypatch.setattr(runners.time, "sleep", lambda s: setattr(clock, "now", clock.now + s))
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    # every reattach succeeds, and every new stream drops at once
+    monkeypatch.setattr(FakeSbx, "connect", lambda self, pid, timeout=None: FakeHandle(httpx.ConnectError("again")))
+    runners.sandbox_boot(FakeGitHub(), fake_sbx, snapshot="s", labels=["x"], group_id=1,
+                         job_timeout_s=3600, idle_ttl_s=60)(runners.Slot("sbx-1", 0.0))
+    evs = events(capsys)
+    assert evs[-2] == {**evs[-2], "event": "runner_exit", "error": "could not reattach to the runner"}
+    assert 600 <= clock.now - 1000 < 700 and sum(e["event"] == "stream_lost" for e in evs) < 60
+
+
+def test_a_runner_that_exits_while_disconnected_is_not_an_error(fake_sbx, monkeypatch, capsys):
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))  # FakeSbx.connect: pid not found
+    (exit_,) = [e for e in events(capsys) if e["event"] == "runner_exit"]
+    assert "error" not in exit_ and exit_["note"] == "exited while disconnected"
+
+
+def test_a_slot_retired_during_the_outage_stops_reattaching_quietly(fake_sbx, monkeypatch, capsys):
+    from e2b import TimeoutException
+
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    slot = runners.Slot("sbx-1", 0.0)
+
+    def connect(self, pid, timeout=None):
+        slot.retiring = True  # retire() killed the sandbox: connect now times out
+        raise TimeoutException("The sandbox was not found")
+
+    monkeypatch.setattr(FakeSbx, "connect", connect)
+    blip_boot(fake_sbx, monkeypatch)(slot)
+    assert not [e for e in events(capsys) if e["event"] == "runner_exit"]
 
 
 def test_a_kill_that_never_succeeds_is_reported_not_claimed(fake_sbx, monkeypatch, capsys):
