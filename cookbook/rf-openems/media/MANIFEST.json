@@ -18,8 +18,8 @@
         "data/traces/good__s11_fine.csv"
       ],
       "command": "media/make_media.sh -> $RF_PY media/fig_result.py",
-      "sha256": "565f4abab0e0255c60a2ad0817b5fa2bfe7091dbdbe253cb00af40c7997e9b57",
-      "bytes": 401598,
+      "sha256": "02f11c050c6f62605f2ef3d6a9bb9039ccbdcdac69d3109f364943de300ce7ea",
+      "bytes": 401493,
       "source_sha256": {
         "data/verdicts/good.json": "e746a86156d7a6f40a38a27f87f99dd4da5ae42f30dbb77b846f14d2c765b1e9",
         "data/traces/good__s11_artifact.csv": "7a422a015d355a462f6b02e4b239b2eaed629749a3899e7d481e575bc096dece",
@@ -63,8 +63,8 @@
         "data/selftest.txt"
       ],
       "command": "media/make_media.sh -> $RF_PY media/make_video.py (lossless master: media/master/demo_lossless.mp4, -crf 0, git-ignored)",
-      "sha256": "4b9231883645b7e61fe05f810c18000d266f9eaeb3a54cf8ea5f532de3ba9c2a",
-      "bytes": 527340,
+      "sha256": "69a42efa20916541f83edb86955b17459bf5769d813a9959872e738e46f15ac4",
+      "bytes": 533619,
       "source_sha256": {
         "data/verdicts/bad_coarse_mesh.json": "77611d206f65ffc46032591a41fecb613dbf89419b438063f57e67fe4bc43b88",
         "data/verdicts/bad_feed_center.json": "63faca529b42b36d97cd5dc18214638ff4fada474f77d925da0ad70b7562e2ba",
