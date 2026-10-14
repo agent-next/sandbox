@@ -3,6 +3,8 @@
 *.npy
 *.f32
 *.hdr
+*.tgz
+*.log
 verdict*.json
 serve/
 work/

@@ -1,0 +1,22 @@
+{
+  "seed": 17,
+  "resolution": [64, 64],
+  "spp": 32,
+  "camera": {"position": [0, 2.6, 7], "target": [0, 0.7, 0], "fov": 42},
+  "materials": {
+    "clay": {"baseColor": [0.55, 0.12, 0.06], "specularWeight": 0, "specularRoughness": 0.7},
+    "metal": {"baseColor": [0.7, 0.55, 0.25], "baseMetalness": 1, "specularRoughness": 0.35},
+    "coat": {"baseColor": [0.05, 0.24, 0.45], "specularRoughness": 0.4, "coatWeight": 0.7, "coatRoughness": 0.25},
+    "floor": {"baseColor": [0.42, 0.42, 0.42], "specularWeight": 0, "specularRoughness": 0.8}
+  },
+  "spheres": [
+    {"position": [-1.5, 0.65, 0], "radius": 0.65, "material": "clay"},
+    {"position": [0, 0.65, 0], "radius": 0.65, "material": "metal"},
+    {"position": [1.5, 0.65, 0], "radius": 0.65, "material": "coat"}
+  ],
+  "floor": {"y": 0, "size": 20, "material": "floor"},
+  "environment": {"type": "constant", "color": [0.3, 0.3, 0.3]},
+  "lights": [
+    {"type": "rect", "size": [3, 3], "position": [-2, 4, 2], "target": [0, 0, 0], "color": [1, 0.95, 0.9], "intensity": 1.5}
+  ]
+}

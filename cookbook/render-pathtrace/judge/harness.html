@@ -1,0 +1,89 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Trusted material studio harness</title>
+<script src="/dist/mutracer.umd.js"></script>
+<script>
+"use strict";
+let engine;
+function transform(mesh, position, scale) {
+  const t = mesh.transform;
+  t[0] = scale[0]; t[5] = scale[1]; t[10] = scale[2];
+  t[12] = position[0]; t[13] = position[1]; t[14] = position[2];
+}
+window.renderScene = async function (s, spp, seed, api = "webgpu") {
+  const M = MuTracer;
+  if (!engine) {
+    engine = new M.Engine({backend: api, bvhWorkerCount: 1,
+                           textureAtlasBudgetBytes: 8 * 1024 * 1024});
+    await engine.init();
+  }
+  const materials = Object.fromEntries(Object.entries(s.materials).map(
+    ([name, value]) => {
+      const {emissive, ...params} = value;
+      return [name, new M.OpenPBRMaterial(params)];
+    }));
+  const geometry = M.createSphereGeometry(16, 8);
+  const meshes = s.spheres.map(ball => {
+    const mesh = new M.Mesh(geometry, materials[ball.material]);
+    transform(mesh, ball.position, [ball.radius, ball.radius, ball.radius]);
+    return mesh;
+  });
+  if (s.floor) {
+    const floor = new M.Mesh(M.createPlaneGeometry(), materials[s.floor.material]);
+    transform(floor, [0, s.floor.y, 0], [s.floor.size, 1, s.floor.size]);
+    meshes.push(floor);
+  }
+  const env = s.environment;
+  const width = env.type === "gradient" ? 16 : 1;
+  const height = env.type === "gradient" ? 8 : 1;
+  const data = new Float32Array(width * height * 4);
+  for (let y = 0; y < height; ++y) {
+    const t = height === 1 ? 0 : y / (height - 1);
+    for (let x = 0; x < width; ++x) {
+      for (let c = 0; c < 3; ++c)
+        data[4 * (y * width + x) + c] = env.type === "gradient"
+          ? env.top[c] * (1 - t) + env.bottom[c] * t : env.color[c];
+      data[4 * (y * width + x) + 3] = 1;
+    }
+  }
+  const lights = [new M.EnvironmentLight({
+    map: new M.Texture({data, width, height})
+  })];
+  for (const desc of s.lights) {
+    const light = desc.type === "rect"
+      ? new M.RectLight({size: desc.size, color: desc.color, intensity: desc.intensity})
+      : new M.SphereLight({radius: desc.radius, color: desc.color, intensity: desc.intensity});
+    light.position = desc.position;
+    if (desc.target) light.lookAt(desc.target);
+    lights.push(light);
+  }
+  const camera = new M.Camera({projection: "perspective", fov: s.camera.fov,
+                               near: 0.01, far: 1000});
+  camera.position = s.camera.position;
+  camera.lookAt(s.camera.target);
+  engine.scene = {meshes, lights};
+  engine.camera = camera;
+  engine.update();
+  const render = new M.Render(engine, {
+    width: s.resolution[0], height: s.resolution[1],
+    maxSamples: spp, samplingPattern: "random", bounces: 3,
+    bevel: false, bevelSamples: 1, dispersionWavelengths: 1,
+    directLightCandidates: 1, clamping: 0
+  });
+  try {
+    await render.converge({samples: spp, samplesPerBatch: 4,
+                          sampleSequenceOffset: seed * 65536, timeoutMs: 550000});
+    const image = await render.readPixels("hdr");
+    const bytes = new Uint8Array(image.data.buffer, image.data.byteOffset,
+                                 image.data.byteLength);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 8192)
+      binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    return {width: image.width, height: image.height, data: btoa(binary),
+            samples: render.samples, backend: engine.backend,
+            adapter: engine.info.adapterName};
+  } finally {
+    render.dispose();
+  }
+};
+</script>
