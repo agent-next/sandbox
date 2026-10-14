@@ -69,7 +69,8 @@
       "analytic_volume_expr": "40000 - 4*pi*2.5^2*40 + 40*5^2*(1-pi/4)",
       "analytic_volume_mm3": 37073.00918301276,
       "cylinders": [
-        {"class": "mount_hole", "count": 4, "radius_mm": 2.5, "axis": "Y"}
+        {"class": "mount_hole", "count": 4, "radius_mm": 2.5, "axis": "Y"},
+        {"class": "fillet", "count": 1, "radius_mm": 5.0, "axis": "Y"}
       ],
       "hole_centres": [
         {"class": "mount_hole", "count": 4,

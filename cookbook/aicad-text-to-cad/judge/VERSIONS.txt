@@ -7,3 +7,4 @@ manifold3d = 3.5.2
 ezdxf = 1.4.4
 numpy = 2.5.4
 shapely = 2.2.0
+OCP = importable
