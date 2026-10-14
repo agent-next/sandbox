@@ -314,7 +314,7 @@ class CompletingTheSquare(m.Scene):
         # check the roots on the parabola
         axes = m.Axes(
             x_range=[-6.5, 0.5, 1],
-            y_range=[-2, 9.5, 1],
+            y_range=[-4.5, 9.5, 1],  # deep enough that the vertex stays on screen
             x_length=9,
             y_length=5.6,
             tips=False,

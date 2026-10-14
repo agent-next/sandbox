@@ -1,0 +1,49 @@
+{
+ "text": "Add that corner to both sides.",
+ "voice": "scene._narrate#d7961deba3fe937b((), (), (), ())",
+ "suffix": ".mp3",
+ "audio": "556084cbbb096523",
+ "edit": {
+  "start": 0.0,
+  "end": null,
+  "speed": 1.0,
+  "loop": null,
+  "gain": 0.0,
+  "fade_in": 0.0,
+  "fade_out": 0.0,
+  "pan": 0.0,
+  "duck": 0.0
+ },
+ "words": [
+  [
+   "Add",
+   0.0,
+   0.16
+  ],
+  [
+   "that",
+   0.192,
+   0.32
+  ],
+  [
+   "corner",
+   0.377,
+   0.72
+  ],
+  [
+   "to",
+   0.8,
+   0.96
+  ],
+  [
+   "both",
+   1.008,
+   1.2
+  ],
+  [
+   "sides.",
+   1.28,
+   1.68
+  ]
+ ]
+}
