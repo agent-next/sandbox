@@ -1,0 +1,32 @@
+# Python dependencies of the judge (check_gates.py) — install with:
+#   python3 -m venv ~/.anatomy-judge/venv
+#   ~/.anatomy-judge/venv/bin/pip install --require-hashes -r judge/requirements.txt
+# (judge/setup.sh does exactly this.)
+#
+# Hashes: wheels published on PyPI, per the filenames below (2026-10-14).
+# playwright 1.60.0 (released 2026-05-18) and pillow 11.3.0 (2025-07-01)
+# are both older than the two-week floor.  The browser binary itself is
+# fetched separately by setup.sh and sha256-checked against
+# judge/browser-sha256.txt.
+
+playwright==1.60.0 \
+    --hash=sha256:1c2bfae7884fb3fb05b853290eab8f343d524e5016f2f1def702acbbdf14c93e \
+    --hash=sha256:43e66564125ee31b07a58cefb21e256d62d67d8d1713e6858df7a3019d8ed353 \
+    --hash=sha256:2581d0e6a3392c71f91b27460c7fd093356818dc430f48153896c8aeeaef7705 \
+    --hash=sha256:39b5420ba6145045b69ced4c5c47d4d9fe5bddfc8ff816c518913afcb25ec7a5 \
+    --hash=sha256:6a8cd0fec171fb3089e95e898c8bc8a6f35dea0b78b399e12fcc19427e91b1d7 \
+    --hash=sha256:ec94e416ea320711e0ad4bf185dcbf41833672961e90773e1885255d7db7b7e7 \
+    --hash=sha256:9566821ce6030a1f9e7146a24e19355ab0d98805fd0f9be50bb3d8fef1750c02 \
+    --hash=sha256:6e4f6700a4c2250efff8e690a81d66e3855754fb587b6b87cf5c784014f91537
+greenlet==3.2.3 \
+    --hash=sha256:706d016a03e78df129f68c4c9b4c4f963f7d73534e48a24f5f5a7101ed13dbbb
+pyee==13.0.0 \
+    --hash=sha256:b391e3c5a434d1f5118a25615001dbc8f669cf410ab67d04c4d4e07c55481c37 \
+    --hash=sha256:48195a3cddb3b1515ce0695ed76036b5ccc2ef3a9f963ff9f77aec0139845498
+typing-extensions==4.15.0 \
+    --hash=sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466 \
+    --hash=sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548
+pillow==11.3.0 \
+    --hash=sha256:676b2815362456b5b3216b4fd5bd89d362100dc6f4945154ff172e206a22c024 \
+    --hash=sha256:106064daa23a745510dabce1d84f29137a37224831d88eb4ce94bb187b1d7e5f \
+    --hash=sha256:13f87d581e71d9189ab21fe0efb5a23e9f28552d5be6979e84001d3b8505abe8
