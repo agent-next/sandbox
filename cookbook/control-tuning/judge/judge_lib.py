@@ -1,0 +1,265 @@
+"""Oracle for the control-tuning demo judge.
+
+Everything here is derived by the judge itself: the artifact under test only
+supplies LQR weights (Q, R). The judge recomputes K with control.lqr(),
+simulates the linear and nonlinear plant, measures the spec mask and the
+loop-at-a-time margins, and runs the Monte-Carlo robustness sweep.
+
+Plant: inverted pendulum on a cart, linearised about the upright.
+Standard model (point-mass pendulum, massless rod, no friction):
+
+    (M + m) xdd + m l thedd = F
+    m l xdd + m l^2 thedd = m g l theta + tau
+
+State [x, xdot, theta, thetadot]; inputs [F (cart force), tau (pendulum
+torque)]; theta measured from upright. Actuator limits |F| <= FMAX,
+|tau| <= TAUMAX are hard clamps in the nonlinear simulation; the demand is
+measured before clamping.
+"""
+import math
+
+import numpy as np
+from scipy.integrate import solve_ivp
+
+# --- judge-fixed plant constants (artifact cannot change these) ---
+G = 9.81          # m/s^2
+M0 = 1.0          # cart mass, kg
+M1 = 0.1          # pendulum mass, kg
+L0 = 0.5          # pivot -> COM distance, m
+FMAX = 10.0       # N
+TAUMAX = 1.0      # N*m
+
+THETA0 = 0.15     # initial lean, rad (scenario 1)
+XDISP = 1.0       # initial cart displacement, m (scenario 2)
+
+THETA_BAND = 0.02 * THETA0    # 2 % settling band for theta, rad
+X_BAND = 0.01                 # settling band for x, m (scenario 1)
+
+SIM_T = 10.0
+
+
+def ab_of(M, m, l):
+    """Linearised A, B for cart mass M, pendulum mass m, COM distance l."""
+    A = np.array([
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, -m * G / M, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+        [0.0, 0.0, G * (M + m) / (M * l), 0.0],
+    ])
+    B = np.array([
+        [0.0, 0.0],
+        [1.0 / M, -1.0 / (M * l)],
+        [0.0, 0.0],
+        [-1.0 / (M * l), (M + m) / (m * l)],
+    ])
+    return A, B
+
+
+A0, B0 = ab_of(M0, M1, L0)
+
+
+def nonlinear_rhs(K, M, m, l):
+    """Full nonlinear cart-pole right-hand side with input clamping."""
+    def rhs(t, s):
+        F = float(np.clip(-(K[0] @ s), -FMAX, FMAX))
+        tu = float(np.clip(-(K[1] @ s), -TAUMAX, TAUMAX))
+        x, v, th, w = s
+        a11 = M + m
+        a12 = m * l * math.cos(th)
+        a21 = m * l
+        a22 = m * l * l
+        b1 = F + m * l * w * w * math.sin(th)
+        b2 = tu + m * G * l * math.sin(th)
+        det = a11 * a22 - a12 * a21
+        return [v, (b1 * a22 - b2 * a12) / det,
+                w, (a11 * b2 - a21 * b1) / det]
+    return rhs
+
+
+def sim_nonlinear(K, M, m, l, ic, T=SIM_T, max_step=0.01,
+                  rtol=1e-8, atol=1e-10):
+    sol = solve_ivp(nonlinear_rhs(K, M, m, l), [0.0, T], ic,
+                    max_step=max_step, rtol=rtol, atol=atol,
+                    dense_output=True)
+    t = np.linspace(0.0, T, int(T * 100) + 1)
+    return t, sol.sol(t)
+
+
+def settling_time(t, y, band):
+    """Last time |y| exceeds band; 0.0 if it never does."""
+    idx = np.abs(y) > band
+    return float(t[np.where(idx)[0][-1]]) if idx.any() else 0.0
+
+
+def demands(K, Y):
+    """Unclamped actuator demands along a trajectory."""
+    F = np.array([-(K[0] @ Y[:, j]) for j in range(Y.shape[1])])
+    T = np.array([-(K[1] @ Y[:, j]) for j in range(Y.shape[1])])
+    return F, T
+
+
+GM_NO_CROSSING_DB = 99.0   # phase never crosses -180 deg in the sweep band
+W_SWEEP = np.logspace(-2.0, 3.0, 6000)
+
+
+def siso_margins(Ki, bi):
+    """Loop-at-a-time margins: L(s) = Ki (sI - A0)^-1 bi, negative feedback.
+
+    Returns (gm_db, pm_deg); gm_db is GM_NO_CROSSING_DB when the phase never
+    crosses -180 deg, pm_deg is 180.0 when |L| never crosses 1.
+    """
+    L = np.array([Ki @ np.linalg.solve(1j * wi * np.eye(4) - A0, bi)
+                  for wi in W_SWEEP])
+    mag = np.abs(L)
+    ph = np.unwrap(np.angle(L))
+    gms, pms = [], []
+    for i in range(len(W_SWEEP) - 1):
+        if (mag[i] - 1.0) * (mag[i + 1] - 1.0) <= 0 and mag[i] != mag[i + 1]:
+            f = (1.0 - mag[i]) / (mag[i + 1] - mag[i])
+            wc = math.exp(math.log(W_SWEEP[i])
+                          + f * (math.log(W_SWEEP[i + 1])
+                                 - math.log(W_SWEEP[i])))
+            phn = math.degrees(float(np.interp(math.log(wc), np.log(W_SWEEP),
+                                               ph))) % 360.0
+            if phn > 180.0:
+                phn -= 360.0
+            pms.append(180.0 + phn)
+    t180 = -math.pi
+    for k in range(5):
+        t2 = t180 - 2.0 * math.pi * k
+        for i in range(len(W_SWEEP) - 1):
+            if (ph[i] - t2) * (ph[i + 1] - t2) <= 0 and ph[i] != ph[i + 1]:
+                f = (t2 - ph[i]) / (ph[i + 1] - ph[i])
+                w180 = math.exp(math.log(W_SWEEP[i])
+                                + f * (math.log(W_SWEEP[i + 1])
+                                       - math.log(W_SWEEP[i])))
+                m180 = 20.0 * math.log10(
+                    float(np.interp(math.log(w180), np.log(W_SWEEP), mag)))
+                gms.append(-m180)
+    return (min(gms) if gms else GM_NO_CROSSING_DB,
+            min(pms) if pms else 180.0)
+
+
+# --- gate thresholds ---
+EIG_MAX_REAL_MAX = -0.05      # closed-loop poles left of -0.05
+OVERSHOOT_MAX = 0.10          # fraction of THETA0
+S1_SETTLE_MAX = 5.0           # s (theta and x, scenario 1)
+S2_SETTLE_MAX = 7.0           # s (x, scenario 2)
+PEAK_THETA_MAX = 0.5          # rad, pendulum never falls over
+END_THETA_MAX = 1e-3          # rad steady state
+END_X_MAX = 0.01              # m steady state
+GM_MIN_DB = 6.0
+PM_MIN_DEG = 45.0
+MC_N = 200
+MC_FRACTION_MIN = 0.95
+MC_SETTLE_MAX = 8.0           # s, relaxed
+
+
+def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True):
+    """Run every gate. Q, R are validated numpy arrays. Returns verdict."""
+    import control
+
+    if Q.ndim == 1:
+        Q = np.diag(Q)
+    if R.ndim == 1:
+        R = np.diag(R)
+
+    verdict = {"gates": {}, "passed": False}
+
+    def gate(name, value, ok):
+        verdict["gates"][name] = {"value": value, "pass": bool(ok)}
+
+    # design: K is recomputed here, never read from the artifact
+    try:
+        K, _, _ = control.lqr(A0, B0, Q, R)
+        K = np.atleast_2d(np.asarray(K, dtype=float))
+    except Exception as exc:                       # slycot raises on bad Q/R
+        verdict["error"] = f"lqr failed: {type(exc).__name__}"
+        return verdict
+    if not np.all(np.isfinite(K)):
+        verdict["error"] = "lqr returned non-finite K"
+        return verdict
+    verdict["K"] = K.tolist()
+
+    ev = np.linalg.eigvals(A0 - B0 @ K)
+    eig_max = float(np.max(np.real(ev)))
+    gate("design_stable", eig_max, eig_max < EIG_MAX_REAL_MAX)
+
+    # scenario 1: recover from a 0.15 rad lean, nonlinear plant, clamped inputs
+    t1, Y1 = sim_nonlinear(K, M0, M1, L0, (0.0, 0.0, THETA0, 0.0))
+    th1, x1 = Y1[2], Y1[0]
+    if not np.all(np.isfinite(Y1)):
+        verdict["error"] = "nonlinear sim diverged (scenario 1)"
+        return verdict
+    F1, T1 = demands(K, Y1)
+    gate("s1_F_demand_max_N", float(np.abs(F1).max()),
+         np.abs(F1).max() <= FMAX)
+    gate("s1_tau_demand_max_Nm", float(np.abs(T1).max()),
+         np.abs(T1).max() <= TAUMAX)
+    ov = float(np.abs(th1).max() / THETA0 - 1.0)
+    gate("s1_theta_overshoot", ov, ov <= OVERSHOOT_MAX)
+    st = settling_time(t1, th1, THETA_BAND)
+    gate("s1_theta_settle_s", st, st <= S1_SETTLE_MAX)
+    st = settling_time(t1, x1, X_BAND)
+    gate("s1_x_settle_s", st, st <= S1_SETTLE_MAX)
+    gate("s1_theta_end_rad", float(abs(th1[-1])),
+         abs(th1[-1]) <= END_THETA_MAX)
+    gate("s1_x_end_m", float(abs(x1[-1])), abs(x1[-1]) <= END_X_MAX)
+
+    # scenario 2: cart displaced 1 m, pendulum upright
+    t2, Y2 = sim_nonlinear(K, M0, M1, L0, (XDISP, 0.0, 0.0, 0.0))
+    th2, x2 = Y2[2], Y2[0]
+    if not np.all(np.isfinite(Y2)):
+        verdict["error"] = "nonlinear sim diverged (scenario 2)"
+        return verdict
+    F2, T2 = demands(K, Y2)
+    gate("s2_peak_theta_rad", float(np.abs(th2).max()),
+         np.abs(th2).max() <= PEAK_THETA_MAX)
+    gate("s2_F_demand_max_N", float(np.abs(F2).max()),
+         np.abs(F2).max() <= FMAX)
+    gate("s2_tau_demand_max_Nm", float(np.abs(T2).max()),
+         np.abs(T2).max() <= TAUMAX)
+    st = settling_time(t2, x2, 0.02)
+    gate("s2_x_settle_s", st, st <= S2_SETTLE_MAX)
+    gate("s2_theta_end_rad", float(abs(th2[-1])),
+         abs(th2[-1]) <= END_THETA_MAX)
+
+    # loop-at-a-time margins on the linearised plant
+    gmf, pmf = siso_margins(K[0], B0[:, 0])
+    gmt, pmt = siso_margins(K[1], B0[:, 1])
+    gate("gm_force_db", gmf, gmf >= GM_MIN_DB)
+    gate("pm_force_deg", pmf, pmf >= PM_MIN_DEG)
+    gate("gm_torque_db", gmt, gmt >= GM_MIN_DB)
+    gate("pm_torque_deg", pmt, pmt >= PM_MIN_DEG)
+
+    # Monte-Carlo robustness: +-20 % on M, m, l, nonlinear plant
+    if run_mc:
+        rng = np.random.default_rng(seed)
+        npass = 0
+        for _ in range(n_mc):
+            M_ = M0 * rng.uniform(0.8, 1.2)
+            m_ = M1 * rng.uniform(0.8, 1.2)
+            l_ = L0 * rng.uniform(0.8, 1.2)
+            try:
+                smc = solve_ivp(nonlinear_rhs(K, M_, m_, l_), [0.0, SIM_T],
+                                (0.0, 0.0, THETA0, 0.0), max_step=0.02,
+                                rtol=1e-7, atol=1e-9, dense_output=True)
+                tmc = np.linspace(0.0, SIM_T, 501)
+                Ymc = smc.sol(tmc)
+            except Exception:
+                continue
+            if not np.all(np.isfinite(Ymc)):
+                continue
+            if np.abs(Ymc[2]).max() > PEAK_THETA_MAX:
+                continue
+            if settling_time(tmc, Ymc[2], THETA_BAND) > MC_SETTLE_MAX:
+                continue
+            npass += 1
+        frac = npass / n_mc
+        verdict["mc_pass"] = npass
+        verdict["mc_n"] = n_mc
+        verdict["mc_seed"] = seed
+        gate("mc_pass_fraction", frac, frac >= MC_FRACTION_MIN)
+
+    verdict["passed"] = all(g["pass"] for g in verdict["gates"].values())
+    return verdict
