@@ -5,7 +5,8 @@ Each mutant is the good kernel with exactly one scripted edit; the self-test
 expects every mutant to fail at least one gate (SPEC.md). Mutants cover the
 failure classes from the brief: missing max-subtraction, off-by-one in the
 reduction, wrong block reduction, missing normalisation, min-for-max,
-wrong row stride, and a device-compile error.
+wrong row stride, a device-compile error, and delegating to torch via a
+tensor method after a real kernel launch.
 """
 
 import os
@@ -31,6 +32,8 @@ EDIT = [
      "x_max = tl.max(x, axis=1)"),
     ("masked_other_zero", "other=float(\"-inf\")",
      "other=0.0"),
+    ("delegate_method", "    return y\n",
+     "    return x.softmax(dim=1)  # kernel still launched; result discarded\n"),
     ("store_off_by_one", "tl.store(Y + row * n_cols + cols, e / denom, mask=mask)",
      "tl.store(Y + row * n_cols + cols, e / denom, mask=cols < (n_cols - 1))"),
 ]

@@ -181,6 +181,45 @@ def gate_device_compile(mod):
     return problems
 
 
+class NoTorchSoftmax:
+    """Make every torch softmax entry point raise while the artifact runs.
+
+    The text check in load_artifact only sees literal names; this catches
+    delegation through aliases or methods such as x.softmax(dim=1).
+    """
+
+    TARGETS = ((torch, "softmax"), (torch.Tensor, "softmax"),
+               (torch.nn.functional, "softmax"), (torch.special, "softmax"),
+               (torch, "log_softmax"), (torch.Tensor, "log_softmax"),
+               (torch.nn.functional, "log_softmax"))
+
+    def __enter__(self):
+        self.saved = [(obj, name, getattr(obj, name)) for obj, name in self.TARGETS]
+
+        def refuse(*args, **kwargs):
+            raise RuntimeError("softmax delegation: artifact called a torch softmax")
+        for obj, name, _ in self.saved:
+            setattr(obj, name, refuse)
+        return self
+
+    def __exit__(self, *exc):
+        for obj, name, fn in self.saved:
+            setattr(obj, name, fn)
+        return False
+
+
+def call_artifact(mod, x):
+    """Run the artifact's softmax under the delegation guard.
+
+    Returns (output, error string); output is None when the artifact raised.
+    """
+    try:
+        with NoTorchSoftmax():
+            return mod.softmax(x), None
+    except Exception as exc:  # the artifact is untrusted code
+        return None, f"{type(exc).__name__}: {str(exc)[:200]}"
+
+
 def run_cases(mod, cases, device):
     """Run every correctness case; return per-case results and worst errors."""
     results = []
@@ -191,10 +230,15 @@ def run_cases(mod, cases, device):
         counter = LaunchCounter(mod.KERNEL)
         mod.KERNEL = counter
         try:
-            out = mod.softmax(x)
+            out, error = call_artifact(mod, x)
         finally:
             mod.KERNEL = counter.fn
         case = {"shape": [rows, cols], "dist": dist, "seed": seed}
+        if error is not None:
+            case.update(ok=False, error=error, max_abs_err=None,
+                        launched=counter.count >= 1)
+            results.append(case)
+            continue
         ref = torch.softmax(x, dim=1)
         err = float((out - ref).abs().max().item())
         case["max_abs_err"] = err
@@ -219,7 +263,10 @@ def run_cases(mod, cases, device):
         # shift-invariance case: run once per shape family, on the shift dist
         if dist == "shift":
             x2 = x + 777.0
-            out2 = mod.softmax(x2)
+            out2, error = call_artifact(mod, x2)
+            if error is not None:
+                case.update(ok=False, shift_ok=False, error=error)
+                continue
             shift_err = float((out2 - out).abs().max().item())
             case["shift_err"] = shift_err
             case["shift_ok"] = shift_err <= SHIFT_TOL and case["ok"]

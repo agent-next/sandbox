@@ -123,7 +123,8 @@ for n in names:
     failed = [g for g, x in gs.items() if x.get('pass') is False]
     detail = {{g: (f"{{len(x.get('failed') or [])}}/{{x.get('cases')}} cases" if g == 'correctness'
                   else '; '.join(map(str, x.get('problems') or []))[:60]) for g, x in gs.items()}}
-    kills[n] = dict(rc=rc, failed=failed, gates={{g: x.get('pass') for g, x in gs.items()}}, detail=detail)
+    kills[n] = dict(rc=rc, failed=failed, gates={{g: x.get('pass') for g, x in gs.items()}}, detail=detail,
+                    judge_error=None if v else err[-300:])
 report['mutants'] = kills
 """
 
@@ -141,7 +142,8 @@ def run_gpu_path(key, demo_path, report_json=None):
     if not isinstance(sid, str) or not sid.startswith("gl-") or not all(
         c.isascii() and (c.isalnum() or c == "-") for c in sid
     ):
-        die(f"GPU create returned invalid lease id: {sid!r}")
+        die(f"GPU create returned an unexpected lease id {sid!r}; it was not "
+            "destroyed automatically, delete it with sandbox_kill")
     print(f"created {sid} (1 GiB VRAM slice)", flush=True)
 
     try:
@@ -188,10 +190,17 @@ def run_gpu_path(key, demo_path, report_json=None):
         # Mutant kill rate
         total = len(mutants)
         killed = sum(1 for m in mutants.values() if m.get("failed"))
+        broken = sorted(n for n, m in mutants.items() if m.get("judge_error"))
         print(f"mutants: {killed}/{total} killed")
         for name, m in sorted(mutants.items()):
             failed = m.get("failed", [])
-            print(f"  {name}: {'FAIL' if failed else 'pass'} ({', '.join(failed) if failed else 'ok'})")
+            if m.get("judge_error"):
+                print(f"  {name}: JUDGE ERROR ({m['judge_error'].strip()[-120:]})")
+            else:
+                print(f"  {name}: {'FAIL' if failed else 'SURVIVED'} "
+                      f"({', '.join(failed) if failed else 'no gate failed'})")
+        if broken or killed < total:
+            die(f"judge self-test incomplete: {total - killed} mutant(s) not killed")
 
         return verdict, mutants
 
