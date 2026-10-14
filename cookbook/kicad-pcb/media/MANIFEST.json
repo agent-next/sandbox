@@ -5,7 +5,7 @@
       "description": "kicad-cli 3D render of the known-good board (left) and the per-gate judge verdict with measured values (right)",
       "command": "bash media/make_data.sh && bash media/make_media.sh",
       "source_data": "data/good.json",
-      "sha256": "5a66317b111eb21808cac4de3b4ebb4c17065a377986b3133d4e0cf748808b4e"
+      "sha256": "3ac307f7f2ef6fe163deb8f66acda9255c213e5796cbfb81fff7ff641864f0ca"
     },
     {
       "file": "loop.png",
@@ -19,7 +19,7 @@
       "description": "step-through: real board render, good verdict, each mutant before/after with its ERC/DRC marker circled, kill matrix",
       "command": "bash media/make_data.sh && bash media/make_media.sh",
       "source_data": "master/frames/ + data/*.json",
-      "sha256": "0f5aaeb500b6a785e43eadcbe1228b1f5974b414dab6b470cc4ef033ef648abf"
+      "sha256": "31af2cdc1bf751fc64c90a6b6c2a0a6b17c99e934b983c050481891077879240"
     },
     {
       "file": "make_data.sh",
@@ -40,14 +40,14 @@
       "description": "figure/frame renderer (matplotlib + PyMuPDF)",
       "command": "bash media/make_data.sh && bash media/make_media.sh",
       "source_data": "-",
-      "sha256": "814ee16dd0a021abcfdfbee0c3ed55bae8d65ddf38cd3d8db57efc353d3d3ff9"
+      "sha256": "7d12fcb871112d212d79123c48c555f64d5993dbb700f0bfec1bdd8259461701"
     },
     {
       "file": "REVIEW.md",
       "description": "manual pixel-level review record",
       "command": "bash media/make_data.sh && bash media/make_media.sh",
       "source_data": "-",
-      "sha256": "0c896918ff87e169e999619ff4a1a2f46e8d48dfe585e9813c6fec4e1d4501f0"
+      "sha256": "ee872dd6e241d0e2c5dc17b3b6d4455821149a9a48fb9bbef046bc1fe93b7922"
     }
   ],
   "source_data_sha256": {
