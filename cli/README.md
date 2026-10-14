@@ -102,11 +102,12 @@ gateway still answers 429 the pool pauses spawning until a sandbox is freed.
 Warm runners are running sandboxes and use credit while they wait.
 
 Jobs run as an unprivileged `user` with passwordless `sudo`, like
-GitHub-hosted runners, and see their sandbox id in `E2B_SANDBOX_ID`. Use `--group-id` to register into an organization runner group, and
-`--prefix` to keep two pools apart: a pool manages only runners whose name
-starts with its prefix, and on start it clears the idle runners and sandboxes
-an earlier `serve` with the same prefix left behind (a runner still on a job
-finishes first). Two running pools must not share a prefix.
+GitHub-hosted runners, and see their sandbox id in `E2B_SANDBOX_ID`. Use
+`--group-id` to register into an organization runner group, and `--prefix` to
+keep two pools apart: a pool manages only runners whose name starts with its
+prefix, and on start it clears the idle runners and sandboxes an earlier
+`serve` with the same prefix left behind (a runner still on a job finishes
+first). Two running pools must not share a prefix.
 
 ## Develop
 

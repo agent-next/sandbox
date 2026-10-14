@@ -164,7 +164,7 @@ def _key_concurrency(key: str, domain: str) -> int | None:
         limit = resp.json()["limits"]["max_concurrent"] if resp.status_code == 200 else None
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
         return None
-    return limit if isinstance(limit, int) and limit > 0 else None
+    return limit if type(limit) is int and limit > 0 else None
 
 
 def cmd_runners_serve(args: argparse.Namespace) -> int:
@@ -180,6 +180,8 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
         raise SbxError(f"--job-timeout-min + --idle-min must leave 5 minutes under the {MAX_TIMEOUT_MIN}-minute sandbox lifetime")
     if bool(args.org) == bool(args.repo):
         raise SbxError("runners serve: give exactly one of --org or --repo")
+    if not 0 <= args.warm <= args.max:
+        raise SbxError("runners serve: need 0 <= --warm <= --max")
     if not args.prefix.strip():
         raise SbxError("runners serve: --prefix must not be empty (it decides which runners this pool owns)")
     if args.webhook_port is not None and args.watch:
