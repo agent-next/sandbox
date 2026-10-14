@@ -41,9 +41,6 @@ posted it, then merges that exact head with `--match-head-commit`:
 
     AGENT_REVIEW_POSTERS=<reviewer logins> agent-merge.sh agent-next/sandbox <N>
 
-The script fails closed while this repo declares no required checks; the merge
-waits until they are declared — never a by-hand gate.
-
 ## Moved from LESSONS.md
 
 | Rule | What a reviewer looks at | Evidence |
