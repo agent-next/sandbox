@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 artifact.json
+media/master/
+media/demo.mp4

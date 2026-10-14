@@ -11,6 +11,21 @@ is iterative trial-and-error against a fixed grader: the agent burns CPU on
 simulations, fails against the judge repeatedly, and never touches the
 machine grading it — the artifact is two JSON arrays.
 
+## Results
+
+| | |
+|---|---|
+| **result.png** | ![Good controller under the judge's spec envelope](media/result.png) |
+| **loop.png** | ![Agent loop replay — mutant × gate matrix](media/loop.png) |
+| **demo.mp4** | [56 s animation](media/demo.mp4) (1920×1080, H.264, 1.1 MB) |
+
+Key numbers from the judge verdict (seed 20260101, all 18 gates pass):
+- Scenario 1 θ settles in **0.70 s** (gate ≤ 5 s), overshoot **0 %** (gate ≤ 10 %)
+- Scenario 2 x settles in **6.05 s** (gate ≤ 7 s), peak |θ| **0.019 rad** (gate ≤ 0.5 rad)
+- Actuator demands: |F| ≤ **0.90 N** (limit 10 N), |τ| ≤ **0.50 N·m** (limit 1 N·m)
+- Phase margins: force **59.1°**, torque **67.4°** (both ≥ 45°)
+- Monte-Carlo: **200/200** perturbed plants pass (gate ≥ 95 %)
+
 From this repository's root, with Python 3.10 or newer (no extra packages
 on the host), the `sbx` CLI and `SBX_API_KEY` in the environment:
 

@@ -1,0 +1,49 @@
+{
+  "generated_at": "2026-10-14T13:14:26Z",
+  "files": {
+    "result.png": {"sha256": "038a837a5f54939d4b29034c8557c66e7c4cea9496bdabcd83e6d930650bcf59", "bytes": 495471}
+    ,
+    "loop.png": {"sha256": "be9d50b9ba58514b7db281d88f0e494219e10efeaf2e52a3cfcd6aea438281e2", "bytes": 515279}
+    ,
+    "demo.mp4": {"sha256": "70ed24c68d5c29bcd38c090716123748218d342d3bf13038d2cfebb18d9574b6", "bytes": 1170387}
+  },
+  "source_data": {
+    "verdict_jsons": [
+      "data/good/verdict.json",
+      "data/too-aggressive/verdict.json",
+      "data/too-sluggish/verdict.json",
+      "data/mc-marginal/verdict.json",
+      "data/degenerate-r-force_verdict.json",
+      "data/sign-flip_verdict.json",
+      "data/wrong-type_verdict.json"
+    ],
+    "trace_csvs": [
+      "data/good/s1_trace.csv",
+      "data/good/s2_trace.csv",
+      "data/good/mc_samples.csv",
+      "data/too-aggressive/s1_trace.csv",
+      "data/too-aggressive/s2_trace.csv",
+      "data/too-sluggish/s1_trace.csv",
+      "data/too-sluggish/s2_trace.csv"
+    ],
+    "margin_csvs": [
+      "data/good/margins_force.csv",
+      "data/good/margins_torque.csv"
+    ]
+  },
+  "commands": {
+    "result_png": "cd media/scripts && /home/user/ct-judge-venv/bin/python3 make_result.py",
+    "loop_png": "cd media/scripts && /home/user/ct-judge-venv/bin/python3 make_loop.py",
+    "video_master": "cd media/scripts && /home/user/ct-judge-venv/bin/python3 make_video.py --out media/master/demo_master.mp4 --crf 0",
+    "video_web": "/usr/bin/ffmpeg -i media/master/demo_master.mp4 -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart -vf scale=1920:1080 -r 30 media/demo.mp4"
+  },
+  "video_checks": {
+    "duration_sec": 56.000000,
+    "resolution": "1920,1080",
+    "size_bytes": 1170387,
+    "size_mb": 1,
+    "codec": "h264",
+    "pix_fmt": "yuv420p",
+    "fps": 30
+  }
+}
