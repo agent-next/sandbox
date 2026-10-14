@@ -334,8 +334,7 @@ def main():
         metrics["ref_delta_mm"] = round(r["delta"], 4)
         metrics["ref_sigma_mpa"] = round(r["sigma"], 3)
     except RunError as exc:
-        gates["verification"] = dict(pass_=False, detail=f"run failed: {exc}")
-        fail_all("reference run failed; downstream gates cannot run")
+        fail_all(f"reference run failed ({exc}); downstream gates cannot run")
 
     # ---- gates 2+3: two meshes of the submitted design --------------------
     try:
@@ -389,5 +388,5 @@ def main():
 
 if __name__ == "__main__":
     T0 = time.time()
-    workdir = tempfile.mkdtemp(prefix="fea-judge-")
-    main()
+    with tempfile.TemporaryDirectory(prefix="fea-judge-") as workdir:
+        main()
