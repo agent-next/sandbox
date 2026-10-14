@@ -74,3 +74,15 @@ def test_runner_sandbox_create_uses_real_sdk_serialization(sdk_http, capsys):
     assert body["metadata"] == {"sbx-runner": "sbx-abc"}
     assert body["autoPause"] is False  # on_timeout kill: a runner sandbox never lingers paused
     assert kill.url.path == "/sandboxes/contract-sandbox"
+
+
+def test_runner_reattach_uses_the_sdk_connect_and_its_error_taxonomy():
+    """sandbox_boot reattaches by pid and tells an exited runner (NotFound) from a gone sandbox (Timeout)."""
+    import inspect
+
+    import e2b
+    from e2b.sandbox_sync.commands.command import Commands
+
+    assert list(inspect.signature(Commands.connect).parameters)[:3] == ["self", "pid", "timeout"]
+    assert issubclass(e2b.SandboxNotFoundException, e2b.NotFoundException)
+    assert not issubclass(e2b.TimeoutException, e2b.NotFoundException)

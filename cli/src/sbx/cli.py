@@ -143,12 +143,28 @@ def cmd_kill(args: argparse.Namespace) -> int:
 def cmd_runners_image(args: argparse.Namespace) -> int:
     from . import runners
 
-    _credentials()
+    key, domain = _credentials()
     with httpx.Client() as http:
         version = args.runner_version or runners.latest_runner_version(http)
-    snapshot = runners.build_image(_sandbox_cls(), template=args.template, runner_version=version)
+    template = args.template
+    if template is None:
+        base = os.environ.get("E2B_API_URL") or f"https://api.{domain}"
+        with httpx.Client(base_url=base.rstrip("/"), headers={"X-API-Key": key}, timeout=60) as api:
+            template = runners.ensure_template(api, image=args.from_image, size=args.size)
+    snapshot = runners.build_image(_sandbox_cls(), template=template, runner_version=version)
     _say(snapshot)
     return 0
+
+
+def _key_concurrency(key: str, domain: str) -> int | None:
+    """The key's concurrent-sandbox limit from the account API, or None if it cannot be read."""
+    base = os.environ.get("E2B_API_URL") or f"https://api.{domain}"
+    try:
+        resp = httpx.get(f"{base.rstrip('/')}/v0/account", headers={"X-API-Key": key}, timeout=30)
+        limit = resp.json()["limits"]["max_concurrent"] if resp.status_code == 200 else None
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return None
+    return limit if isinstance(limit, int) and limit > 0 else None
 
 
 def cmd_runners_serve(args: argparse.Namespace) -> int:
@@ -156,7 +172,7 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
 
     from . import runners
 
-    _credentials()
+    key, domain = _credentials()
     for value, flag in ((args.interval, "--interval"), (args.idle_min, "--idle-min"),
                         (args.job_timeout_min, "--job-timeout-min")):
         _positive_seconds(value, flag)
@@ -188,8 +204,13 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
         queued, cheap = queue.__len__, True
     else:
         queued, cheap = ((lambda: gh.queued(watch, labels)) if watch else (lambda: 0)), False
+    warm, maximum = args.warm, args.max
+    limit = _key_concurrency(key, domain)
+    if limit is not None and limit < maximum:  # past the key's limit every spawn is a 429
+        runners.emit("max_capped", requested=maximum, key_limit=limit)
+        warm, maximum = min(warm, limit), limit
     pool = runners.Pool(
-        gh, boot, warm=args.warm, maximum=args.max, prefix=args.prefix,
+        gh, boot, warm=warm, maximum=maximum, prefix=args.prefix,
         idle_ttl=args.idle_min * 60, queued=queued, queued_is_cheap=cheap,
     )
     runners.sweep(gh, _sandbox_cls(), args.prefix)
@@ -241,7 +262,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("runners", help="serve GitHub Actions jobs from disposable sandboxes")
     rsub = p.add_subparsers(dest="runners_cmd", required=True, parser_class=_Parser)
     r = rsub.add_parser("image", help="bake a runner snapshot (actions/runner + Docker) and print its id")
-    r.add_argument("--template", default=None, help="base template (default: the default template)")
+    r.add_argument("--from-image", default="ubuntu:24.04", help="public OCI image to bake from (default ubuntu:24.04, like GitHub's runners)")
+    r.add_argument("--size", default="small", choices=["small", "standard"], help="runner size: small 2 vCPU / 8 GB (default), standard 4 vCPU / 16 GB")
+    r.add_argument("--template", default=None, help="bake from this existing template instead of --from-image")
     r.add_argument("--runner-version", default=None, help="actions/runner version (default: latest release)")
     r.set_defaults(func=cmd_runners_image)
 

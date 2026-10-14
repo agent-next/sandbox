@@ -7,6 +7,14 @@ import pytest
 from sbx import cli, runners
 
 
+_real_key_concurrency = cli._key_concurrency
+
+
+@pytest.fixture(autouse=True)
+def no_account_lookup(monkeypatch):
+    monkeypatch.setattr(cli, "_key_concurrency", lambda key, domain: None)
+
+
 class FakeGitHub:
     def __init__(self):
         self.registered = {}  # name -> {"id", "status", "busy"}
@@ -256,7 +264,9 @@ class FakeSbx:
         self.killed += 1
 
     def connect(self, pid, timeout=None):
-        return FakeHandle()  # the runner had exited when the stream came back
+        from e2b import NotFoundException
+
+        raise NotFoundException(f"process with pid {pid} not found")  # what envd answers for an exited pid
 
 
 @pytest.fixture
@@ -277,8 +287,10 @@ def test_boot_registers_runs_one_job_and_kills(fake_sbx, capsys):
     assert gh.jits == [("sbx-abc", ["self-hosted", "sbx"], 3)]
     assert sbx.written == {"/tmp/jit": "JIT-sbx-abc"}
     cmd, run_kw = sbx.ran[0]
-    assert run_kw == {"background": True, "timeout": 960}  # never an unbounded stream
-    assert "dockerd" in cmd and 'exec ./run.sh --jitconfig "$jit"' in cmd and "rm -f /tmp/jit" in cmd
+    assert run_kw == {"background": True, "timeout": 960, "user": "root"}  # never an unbounded stream
+    assert "dockerd" in cmd and "rm -f /tmp/jit" in cmd
+    assert 'exec sudo -n -u user -H ./run.sh --jitconfig "$jit"' in cmd  # the job never runs as root
+    assert 'echo "E2B_SANDBOX_ID=$E2B_SANDBOX_ID" >> .env' in cmd  # keeps the image's AGENT_TOOLSDIRECTORY
     assert sbx.killed == 1 and slot.sandbox_id == sbx.sandbox_id
     events = [json.loads(line)["event"] for line in capsys.readouterr().out.splitlines()]
     assert events == ["sandbox", "runner_exit", "killed"]
@@ -407,6 +419,42 @@ def test_reattaching_gives_up_after_the_outage_window(fake_sbx, monkeypatch, cap
     exits = [e for e in events(capsys) if e["event"] == "runner_exit"]
     assert exits[0]["error"] == "could not reattach to the runner"
     assert 600 <= clock.now - 1000 < 700 and fake_sbx.made[0].killed == 1
+
+
+def test_a_flapping_stream_is_paced_and_bounded(fake_sbx, monkeypatch, capsys):
+    clock = Clock()
+    monkeypatch.setattr(runners.time, "monotonic", clock)
+    monkeypatch.setattr(runners.time, "sleep", lambda s: setattr(clock, "now", clock.now + s))
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    # every reattach succeeds, and every new stream drops at once
+    monkeypatch.setattr(FakeSbx, "connect", lambda self, pid, timeout=None: FakeHandle(httpx.ConnectError("again")))
+    runners.sandbox_boot(FakeGitHub(), fake_sbx, snapshot="s", labels=["x"], group_id=1,
+                         job_timeout_s=3600, idle_ttl_s=60)(runners.Slot("sbx-1", 0.0))
+    evs = events(capsys)
+    assert evs[-2] == {**evs[-2], "event": "runner_exit", "error": "could not reattach to the runner"}
+    assert 600 <= clock.now - 1000 < 700 and sum(e["event"] == "stream_lost" for e in evs) < 60
+
+
+def test_a_runner_that_exits_while_disconnected_is_not_an_error(fake_sbx, monkeypatch, capsys):
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))  # FakeSbx.connect: pid not found
+    (exit_,) = [e for e in events(capsys) if e["event"] == "runner_exit"]
+    assert "error" not in exit_ and exit_["note"] == "exited while disconnected"
+
+
+def test_a_slot_retired_during_the_outage_stops_reattaching_quietly(fake_sbx, monkeypatch, capsys):
+    from e2b import TimeoutException
+
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    slot = runners.Slot("sbx-1", 0.0)
+
+    def connect(self, pid, timeout=None):
+        slot.retiring = True  # retire() killed the sandbox: connect now times out
+        raise TimeoutException("The sandbox was not found")
+
+    monkeypatch.setattr(FakeSbx, "connect", connect)
+    blip_boot(fake_sbx, monkeypatch)(slot)
+    assert not [e for e in events(capsys) if e["event"] == "runner_exit"]
 
 
 def test_a_kill_that_never_succeeds_is_reported_not_claimed(fake_sbx, monkeypatch, capsys):
@@ -556,7 +604,86 @@ def test_image_bakes_runner_and_docker_then_snapshots(fake_sbx, monkeypatch):
     script = "\n".join(cmd for cmd, _ in sbx.ran)
     assert "actions-runner-linux-x64-2.338.0.tar.gz" in script and "installdependencies.sh" in script
     assert "dockerd" in script and "docker run --rm hello-world" in script and "/etc/hosts" in script
+    assert all(kw["user"] == "root" for _, kw in sbx.ran)  # a bare image has no sudo yet
+    assert "lsb-release" in sbx.ran[0][0] and "python3" in sbx.ran[0][0]  # setup-python reads lsb_release
+    assert "libgl1" in sbx.ran[0][0]  # a real CI run failed on a missing libGL.so.1
+    assert "useradd -m -s /bin/bash user" in script and "NOPASSWD" in script and "get.docker.com" in script
+    assert "chown -R user: /opt/actions-runner" in script
+    # setup-python/-node find these preinstalled, as on GitHub's image
+    assert "python-versions/main/versions-manifest.json" in script and "for v in 3.12 3.13" in script
+    assert "nodejs.org/dist/index.json" in script and "for v in 20 22" in script
+    assert "echo AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache > /opt/actions-runner/.env" in script
     assert sbx.killed == 1
+
+
+def template_api(routes):
+    """Sandbox API double: routes maps 'METHOD path' to a response or a list of them (served in turn)."""
+    calls = []
+
+    def handler(req):
+        key = f"{req.method} {req.url.path}"
+        calls.append((key, json.loads(req.content) if req.content else None))
+        resp = routes.get(key, httpx.Response(404))
+        return resp.pop(0) if isinstance(resp, list) else resp
+
+    return httpx.Client(base_url="https://api.example", transport=httpx.MockTransport(handler)), calls
+
+
+def test_template_is_reused_when_the_key_already_has_it(capsys):
+    http, calls = template_api({"GET /templates/aliases/sbx-runner-ubuntu-24-04-small": httpx.Response(200, json={})})
+    assert runners.ensure_template(http, image="ubuntu:24.04", size="small") == "sbx-runner-ubuntu-24-04-small"
+    assert [c for c, _ in calls] == ["GET /templates/aliases/sbx-runner-ubuntu-24-04-small"]
+
+
+def test_template_is_imported_from_the_image_and_awaited(monkeypatch):
+    monkeypatch.setattr(runners.time, "sleep", lambda s: None)
+    status = "/templates/tpl-1/builds/bld-1/status"
+    http, calls = template_api({
+        "POST /v3/templates": httpx.Response(202, json={"templateID": "tpl-1", "buildID": "bld-1"}),
+        "POST /v2/templates/tpl-1/builds/bld-1": httpx.Response(202),
+        f"GET {status}": [httpx.Response(200, json={"status": "building"}), httpx.Response(200, json={"status": "ready"})],
+    })
+    alias = runners.ensure_template(http, image="ubuntu:24.04", size="standard")
+    assert alias == "sbx-runner-ubuntu-24-04-standard"
+    assert calls[1] == ("POST /v3/templates", {"name": alias, "resourceClass": "standard"})
+    assert calls[2] == ("POST /v2/templates/tpl-1/builds/bld-1", {"fromImage": "ubuntu:24.04"})
+    assert [c for c, _ in calls].count(f"GET {status}") == 2
+
+
+@pytest.mark.parametrize("failure", ["status", "import"])
+def test_a_failed_import_deletes_the_template(failure, monkeypatch):
+    monkeypatch.setattr(runners.time, "sleep", lambda s: None)
+    http, calls = template_api({
+        "POST /v3/templates": httpx.Response(202, json={"templateID": "tpl-1", "buildID": "bld-1"}),
+        "POST /v2/templates/tpl-1/builds/bld-1": httpx.Response(400 if failure == "import" else 202, text="bad image"),
+        "GET /templates/tpl-1/builds/bld-1/status": httpx.Response(200, json={"status": "error"}),
+        "DELETE /templates/tpl-1": httpx.Response(204),
+    })
+    with pytest.raises(runners.RunnerError):
+        runners.ensure_template(http, image="no/such:image", size="small")
+    assert calls[-1][0] == "DELETE /templates/tpl-1"  # a broken alias would otherwise be reused
+
+
+def test_image_command_bakes_from_the_ubuntu_template_by_default(monkeypatch, capsys):
+    monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
+    seen = {}
+    monkeypatch.setattr(runners, "latest_runner_version", lambda http: "2.338.0")
+    monkeypatch.setattr(runners, "ensure_template", lambda api, **kw: seen.update(kw, base=str(api.base_url)) or "tpl-alias")
+    monkeypatch.setattr(runners, "build_image", lambda cls, **kw: seen.update(built=kw) or "snap-1")
+    assert cli.main(["runners", "image"]) == 0
+    assert seen["image"] == "ubuntu:24.04" and seen["size"] == "small" and seen["base"].startswith("https://api.")
+    assert seen["built"] == {"template": "tpl-alias", "runner_version": "2.338.0"}
+    assert capsys.readouterr().out.strip().endswith("snap-1")
+
+
+def test_image_command_with_a_template_skips_the_import(monkeypatch):
+    monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
+    monkeypatch.setattr(runners, "latest_runner_version", lambda http: "2.338.0")
+    monkeypatch.setattr(runners, "ensure_template", lambda api, **kw: pytest.fail("must not import"))
+    built = {}
+    monkeypatch.setattr(runners, "build_image", lambda cls, **kw: built.update(kw) or "snap-1")
+    assert cli.main(["runners", "image", "--template", "mine"]) == 0
+    assert built["template"] == "mine"
 
 
 def test_image_kills_the_build_sandbox_on_failure(fake_sbx, monkeypatch):
@@ -1077,3 +1204,45 @@ def test_signed_payload_with_an_odd_job_id_is_a_400():
     body, sig = signed("s3cret", {"action": "queued", "workflow_job": {"id": {"x": 1}, "labels": ["sbx"]}})
     assert q.handle("workflow_job", sig, body) == 400
 
+
+
+@pytest.mark.parametrize("limit,warm,maximum", [(2, 2, 2), (1, 1, 1), (None, 2, 8), (10, 2, 8)])
+def test_serve_caps_max_at_the_keys_concurrency(limit, warm, maximum, monkeypatch, capsys):
+    monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
+    monkeypatch.setenv("GH_TOKEN", "gh-test-token")
+    monkeypatch.setattr(cli, "_key_concurrency", lambda key, domain: limit)
+    monkeypatch.setattr(runners, "sandbox_boot", lambda gh, cls, **kw: None)
+    monkeypatch.setattr(runners, "sweep", lambda *a: None)
+    monkeypatch.setattr(runners, "serve", lambda *a, **k: None)
+    seen = {}
+    monkeypatch.setattr(runners, "Pool", lambda gh, boot, **kw: seen.update(kw))
+    assert cli.main(serve_argv("--warm", "2", "--max", "8")) == 0
+    assert (seen["warm"], seen["maximum"]) == (warm, maximum)
+    assert ('"max_capped"' in capsys.readouterr().out) == (limit is not None and limit < 8)
+
+
+@pytest.mark.parametrize("status,body,expected", [
+    (200, {"limits": {"max_concurrent": 2}, "tier": "free"}, 2),
+    (200, {"limits": {"max_concurrent": None}}, None),
+    (200, {"tier": "free"}, None),
+    (404, {}, None),
+])
+def test_key_concurrency_reads_the_account_limit(status, body, expected, monkeypatch):
+    seen = {}
+
+    def get(url, headers, timeout):
+        seen.update(url=url, key=headers["X-API-Key"])
+        return httpx.Response(status, json=body)
+
+    monkeypatch.setattr(cli.httpx, "get", get)
+    monkeypatch.delenv("E2B_API_URL", raising=False)
+    assert _real_key_concurrency("e2b-test-key", "sbx.example") == expected
+    assert seen == {"url": "https://api.sbx.example/v0/account", "key": "e2b-test-key"}
+
+
+def test_key_concurrency_is_none_when_the_gateway_is_unreachable(monkeypatch):
+    def get(*a, **kw):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(cli.httpx, "get", get)
+    assert _real_key_concurrency("e2b-test-key", "sbx.example") is None

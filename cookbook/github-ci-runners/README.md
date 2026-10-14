@@ -2,12 +2,12 @@
 
 Prompt:
 
-> Run this repository's GitHub Actions jobs in sandboxes: bake a runner image, keep two warm runners for the org, point one workflow job at them with `runs-on: [self-hosted, sbx]`, and show me how long the job waited and whether `docker run` worked.
+> Run this repository's GitHub Actions jobs in sandboxes: bake a runner image, keep four warm runners for the org, point one workflow job at them with `runs-on: [self-hosted, sbx]`, and show me how long the job waited and whether `docker run` worked.
 
 Run:
 
 ```bash
-claude -p "Run this repository's GitHub Actions jobs in sandboxes: bake a runner image with 'sbx runners image', keep two warm runners with 'sbx runners serve --org <your-org> --snapshot <the image id> --warm 2 --max 8', point one workflow job at them with runs-on: [self-hosted, sbx], and show me how long the job waited and whether 'docker run' worked. Stop serve with Ctrl-C when done." --allowedTools "Bash(sbx:*)" "Bash(gh:*)"
+claude -p "Run this repository's GitHub Actions jobs in sandboxes: bake a runner image with 'sbx runners image', keep four warm runners with 'sbx runners serve --org <your-org> --snapshot <the image id> --warm 4 --max 10', point one workflow job at them with runs-on: [self-hosted, sbx], and show me how long the job waited and whether 'docker run' worked. Stop serve with Ctrl-C when done." --allowedTools "Bash(sbx:*)" "Bash(gh:*)"
 ```
 
 Or by hand:
@@ -15,7 +15,7 @@ Or by hand:
 ```bash
 export E2B_API_KEY=<sandbox key>  GH_TOKEN=<token with admin:org>
 snap=$(sbx runners image | tail -1)
-sbx runners serve --org <your-org> --snapshot "$snap" --warm 2 --max 8
+sbx runners serve --org <your-org> --snapshot "$snap" --warm 4 --max 10
 ```
 
 ```yaml
@@ -34,17 +34,29 @@ Docker daemon, nothing survives into the next job, and the runner is
 single-use (JIT), so a fork PR's build cannot touch the next job or your
 machine.
 
-What we measured (5 rounds of a 16-job matrix, same jobs on GitHub-hosted
-runners and two other self-hosted pools):
+What we measured (2026-10-14, a 9-job workflow run 15 times on sandbox runners
+and on GitHub-hosted `ubuntu-latest`, 2 vCPU each, two runs at 4 vCPU): every
+sandbox job passed (135/135, as on GitHub-hosted): `make check` of a Python
+repo, `setup-python` + `setup-node`, `sudo apt-get`, `docker build`, `docker
+compose`, a `container:` job, a `services:` (Redis) job, and a check that the
+next job sees nothing the previous one left (files, Docker images).
 
-| | queue wait (median / worst) | `docker run` |
+| | sandbox runners | GitHub-hosted |
 | --- | --- | --- |
-| sandbox runners, 4 warm | 1 s / 1 s | 5/5 |
-| GitHub-hosted `ubuntu-latest` | 2 s / 3 s | 5/5 |
-| VM pool (droplets) | 2 s / 402 s | 0/5 (no Docker) |
-| container pool | 5 s / 13 s | 0/5 (no Docker) |
+| queue wait, `--warm 10` (median / worst of 27 jobs) | 1 s / 2 s | 2 s / 3 s |
+| `setup-python` + `setup-node` job (median of 4) | 17 s | 18 s |
+| `docker build` / `docker compose` job | 16 s / 16 s | 11 s / 15 s |
+| CPU-bound `make check` | 94 s | 68 s |
+| cancelled job's sandbox reclaimed | 45 s after cancel | - |
+
+Jobs start sooner and toolchains are ready; CPU-bound steps run slower on
+today's hosts (2.5 GHz cores; 4 vCPU runners via `--size standard` did not
+change a single-threaded suite).
 
 A sandbox restores from the runner snapshot in about a second, with Docker
-already running. Bursts past the warm pool scale up to `--max` and to your
-key's concurrent-sandbox quota; add `--webhook-port` (see the `sbx` README)
-so queued jobs grow the pool the moment they are queued.
+running and Python 3.12/3.13 and Node 20/22 in the tool cache. Set `--warm` to
+the jobs one push starts: with `--warm 2`, a 9-job push waited 11 s (median)
+while the pool grew. `serve` keeps `--max` within your key's concurrent limit
+(a free key runs 2 at once, so a 9-job push queues), and warm runners use
+credit while they wait. Add `--webhook-port` (see the `sbx` README) so queued
+jobs grow the pool the moment they are queued.

@@ -57,7 +57,7 @@ a fresh sandbox with Docker, and the sandbox is killed when the job ends.
 
 ```bash
 export GH_TOKEN=<token>            # admin rights on the org (admin:org) or repo
-snap=$(sbx runners image | tail -1)          # actions/runner + running dockerd, ~40 s
+snap=$(sbx runners image | tail -1)          # Ubuntu 24.04 + Docker + actions/runner, ~2 min
 sbx runners serve --org my-org --snapshot "$snap" --labels sbx --warm 2 --max 10
 ```
 
@@ -71,6 +71,14 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker run --rm hello-world
 ```
+
+`image` imports `ubuntu:24.04` once as your key's own template (GitHub's
+hosted runners are Ubuntu; `actions/setup-python` ships Ubuntu-only builds),
+then adds build tools, Docker with Compose and buildx, Python 3.12/3.13 and
+Node 20/22 in the tool cache (where `actions/setup-python` and
+`actions/setup-node` find them, as on GitHub's image), and the runner, and
+snapshots it. `--size standard` bakes 4 vCPU / 16 GB runners
+instead of 2 vCPU / 8 GB; `--from-image` or `--template` choose another base.
 
 `serve` keeps `--warm` single-use (JIT) runners registered and idle, so a
 queued job starts at once; each runner takes one job, exits, and its sandbox
@@ -88,12 +96,13 @@ tunnel. Queued jobs then grow the pool the moment they are queued, instead of
 after the warm runners are used up.
 
 Give the pool its own API key: the key's concurrent-sandbox quota caps the
-pool, so CI bursts never take sandboxes from your other workloads. Keep
-`--max` at or below that quota; when the gateway answers 429 the pool pauses
-spawning until a sandbox is freed.
+pool, so CI bursts never take sandboxes from your other workloads. `serve`
+lowers `--max` to that quota at start (a free key runs 2 at once); when the
+gateway still answers 429 the pool pauses spawning until a sandbox is freed.
+Warm runners are running sandboxes and use credit while they wait.
 
-Runners run as the sandbox user with passwordless `sudo`, like GitHub-hosted
-runners. Use `--group-id` to register into an organization runner group, and
+Jobs run as an unprivileged `user` with passwordless `sudo`, like
+GitHub-hosted runners, and see their sandbox id in `E2B_SANDBOX_ID`. Use `--group-id` to register into an organization runner group, and
 `--prefix` to keep two pools apart: a pool manages only runners whose name
 starts with its prefix, and on start it clears the idle runners and sandboxes
 an earlier `serve` with the same prefix left behind (a runner still on a job
