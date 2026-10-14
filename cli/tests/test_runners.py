@@ -219,6 +219,8 @@ def test_bad_pool_sizes_are_rejected(warm, maximum):
 
 
 class FakeHandle:
+    pid = 42
+
     def __init__(self, error=None):
         self.error = error
 
@@ -293,6 +295,109 @@ def test_boot_skips_the_runner_when_retired_during_create(fake_sbx):
                                 job_timeout_s=1, idle_ttl_s=1)
     boot(slot)
     assert fake_sbx.made[0].ran == [] and fake_sbx.made[0].killed == 1
+
+
+class Blip:
+    """A gateway blip: the next `fails` calls raise, later ones succeed."""
+
+    def __init__(self, fails, error):
+        self.fails, self.error, self.calls = fails, error, 0
+
+    def __call__(self, *a, **kw):
+        self.calls += 1
+        if self.calls <= self.fails:
+            raise self.error
+
+
+def blip_boot(fake_sbx, monkeypatch):
+    monkeypatch.setattr(runners.time, "sleep", lambda s: None)
+    return runners.sandbox_boot(FakeGitHub(), fake_sbx, snapshot="s", labels=["x"], group_id=1,
+                                job_timeout_s=600, idle_ttl_s=60)
+
+
+def events(capsys):
+    return [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+
+
+def test_a_dropped_stream_reconnects_to_the_runner_instead_of_killing_the_job(fake_sbx, monkeypatch, capsys):
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    connects = []
+
+    def connect(self, pid, timeout=None):
+        connects.append((pid, self.killed))
+        return FakeHandle()
+
+    monkeypatch.setattr(FakeSbx, "connect", connect, raising=False)
+    blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
+    assert connects == [(42, 0)]  # reattached before any kill
+    names = [e["event"] for e in events(capsys)]
+    assert names == ["sandbox", "stream_lost", "runner_exit", "killed"]
+
+
+def test_a_runner_gone_after_the_blip_ends_the_slot(fake_sbx, monkeypatch, capsys):
+    from e2b import NotFoundException
+
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    monkeypatch.setattr(FakeSbx, "connect", Blip(1, NotFoundException("process 42 not found")), raising=False)
+    blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
+    assert fake_sbx.made[0].killed == 1
+    assert [e["event"] for e in events(capsys)][-1] == "killed"
+
+
+def test_reconnect_retries_through_a_gateway_restart(fake_sbx, monkeypatch, capsys):
+    from e2b import SandboxException
+
+    fake_sbx.next_error = httpx.ConnectError("Error reading content")
+    blip = Blip(3, SandboxException("503: gateway is restarting"))
+
+    def connect(self, pid, timeout=None):
+        blip()
+        return FakeHandle()
+
+    monkeypatch.setattr(FakeSbx, "connect", connect, raising=False)
+    blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
+    assert blip.calls == 4
+    exits = [e for e in events(capsys) if e["event"] == "runner_exit"]
+    assert exits == [{**exits[0], "code": 0}]
+
+
+def test_a_retired_slot_does_not_reconnect(fake_sbx, monkeypatch):
+    fake_sbx.next_error = httpx.ConnectError("killed under us")
+    monkeypatch.setattr(FakeSbx, "connect", Blip(99, AssertionError("must not reconnect")), raising=False)
+    slot = runners.Slot("sbx-1", 0.0)
+    real_create = FakeSbx.create.__func__
+
+    def create(cls, template, **kw):
+        slot.retiring = False
+        sbx = real_create(cls, template, **kw)
+        sbx.write = lambda path, data: setattr(slot, "retiring", True)  # retired while registering
+        return sbx
+
+    monkeypatch.setattr(FakeSbx, "create", classmethod(create))
+    blip_boot(fake_sbx, monkeypatch)(slot)
+    assert fake_sbx.made[0].killed == 1
+
+
+def test_a_failed_kill_is_retried(fake_sbx, monkeypatch, capsys):
+    from e2b import SandboxException
+
+    blip = Blip(2, SandboxException("503: gateway is restarting"))
+    monkeypatch.setattr(FakeSbx, "kill", lambda self: blip(), raising=True)
+    blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
+    assert blip.calls == 3
+    names = [e["event"] for e in events(capsys)]
+    assert names.count("killed") == 1 and "kill_failed" not in names
+
+
+def test_a_kill_that_never_succeeds_is_reported_not_claimed(fake_sbx, monkeypatch, capsys):
+    from e2b import SandboxException
+
+    blip = Blip(10**6, SandboxException("503: gateway is restarting"))
+    monkeypatch.setattr(FakeSbx, "kill", lambda self: blip(), raising=True)
+    blip_boot(fake_sbx, monkeypatch)(runners.Slot("sbx-1", 0.0))
+    names = [e["event"] for e in events(capsys)]
+    assert "killed" not in names and names[-1] == "kill_failed"
+    assert 1 < blip.calls < 20
 
 
 # --- GitHub client ---------------------------------------------------------
