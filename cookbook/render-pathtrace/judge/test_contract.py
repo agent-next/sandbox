@@ -7,11 +7,12 @@ import json
 from pathlib import Path
 import unittest
 import subprocess
+import tempfile
 from unittest.mock import Mock, patch
 
 import numpy as np
 
-from grade import g1, g3, g4, masks, validate
+from grade import g1, g3, g4, masks, save_outputs, validate
 from driver import Renderer
 import grade as judge
 
@@ -25,6 +26,13 @@ spec.loader.exec_module(runner)
 class ContractTests(unittest.TestCase):
     def test_good(self):
         validate(GOOD)
+
+    def test_gpu_resolution_and_sample_budgets(self):
+        for resolution, spp in (([1024, 1024], 128), ([512, 512], 512)):
+            scene = copy.deepcopy(GOOD)
+            scene.update(resolution=resolution, spp=spp)
+            with self.assertRaises(AssertionError):
+                validate(scene)
 
     def test_material_nonfinite(self):
         for value in (float("nan"), float("inf"), -0.1, 1.6):
@@ -87,10 +95,41 @@ class ContractTests(unittest.TestCase):
         renderer = Renderer("cpu")
         renderer.page = Mock()
         renderer.page.evaluate.return_value = result
-        self.assertTrue(np.array_equal(renderer.render(GOOD, 32, 17), image))
+        scene = copy.deepcopy(GOOD)
+        scene["resolution"] = [64, 64]
+        self.assertTrue(np.array_equal(renderer.render(scene, 32, 17), image))
         result["adapter_info"] = {"architecture": "hardware"}
         with self.assertRaisesRegex(AssertionError, "not SwiftShader"):
-            renderer.render(GOOD, 32, 17)
+            renderer.render(scene, 32, 17)
+
+    def test_gpu_rejects_software_or_unidentified_adapter(self):
+        image = np.ones((64, 64, 4), dtype="<f4")
+        renderer = Renderer("gpu")
+        renderer.page = Mock()
+        result = {"backend": "webgpu", "adapter": "nvidia",
+                  "adapter_info": {"vendor": "nvidia", "architecture": "blackwell"},
+                  "samples": 32, "width": 64, "height": 64,
+                  "data": base64.b64encode(image.tobytes()).decode()}
+        renderer.page.evaluate.return_value = result
+        scene = copy.deepcopy(GOOD)
+        scene["resolution"] = [64, 64]
+        self.assertTrue(np.array_equal(renderer.render(scene, 32, 17), image))
+        for info in (None, {"vendor": "google", "architecture": "swiftshader"},
+                     {"vendor": "nvidia", "architecture": "swiftshader"}):
+            result["adapter_info"] = info
+            with self.assertRaises(AssertionError):
+                renderer.render(scene, 32, 17)
+
+    def test_saved_hdr_and_preview(self):
+        image = np.full((2, 3, 4), 0.5, dtype="<f4")
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "studio.npy"
+            save_outputs(path, image)
+            self.assertTrue(np.array_equal(np.load(path), image))
+            summary = json.loads(path.with_suffix(".json").read_text())
+            self.assertEqual(summary["rgb_mean"], [0.5, 0.5, 0.5])
+            self.assertEqual(summary["shape"], [2, 3, 4])
+            self.assertTrue(path.with_suffix(".png").read_bytes().startswith(b"\x89PNG"))
 
     def test_process_deadline_fails_closed(self):
         process = Mock(pid=123)
@@ -114,7 +153,7 @@ class ContractTests(unittest.TestCase):
              patch.object(runner, "remote_step", side_effect=RuntimeError("step failed")), \
              patch.object(runner.shutil, "which", return_value="/usr/bin/sbx"), \
              patch.dict(runner.os.environ, {"SBX_API_KEY": "<your key>"}), \
-             patch("sys.argv", ["run.py"]):
+             patch("sys.argv", ["run.py", "--backend", "cpu"]):
             self.assertEqual(runner.main(), 1)
         self.assertIn(("kill", "sandbox-test"), calls)
         self.assertIn(("list",), calls)
@@ -128,7 +167,7 @@ class ContractTests(unittest.TestCase):
                           return_value='{"pass":true,"backend":"webgpu","adapter":"test"}'), \
              patch.object(runner.shutil, "which", return_value="/usr/bin/sbx"), \
              patch.dict(runner.os.environ, {"SBX_API_KEY": "<your key>"}), \
-             patch("sys.argv", ["run.py"]):
+             patch("sys.argv", ["run.py", "--backend", "cpu"]):
             self.assertEqual(runner.main(), 1)
 
 

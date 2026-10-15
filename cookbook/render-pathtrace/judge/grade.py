@@ -7,10 +7,12 @@ import os
 from pathlib import Path
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
 import time
+import zlib
 
 import numpy as np
 
@@ -76,10 +78,10 @@ def validate(s):
     fields(s, ["seed", "resolution", "spp", "camera", "materials", "spheres",
                "floor", "environment", "lights"])
     assert type(s["seed"]) is int and 0 <= s["seed"] < 32767, "seed budget"
-    vector(s["resolution"], 64, 128, 2)
+    vector(s["resolution"], 64, 512, 2)
     assert all(type(x) is int and x % 16 == 0 for x in s["resolution"]), \
         "resolution must be 16-pixel aligned"
-    assert type(s["spp"]) is int and 16 <= s["spp"] <= 64, "spp budget"
+    assert type(s["spp"]) is int and 16 <= s["spp"] <= 256, "spp budget"
     fields(s["camera"], ["position", "target", "fov"])
     for key in ("position", "target"):
         vector(s["camera"][key], -50, 50)
@@ -239,6 +241,30 @@ def g5(scene, a, b):
             "spp": scene["spp"]}
 
 
+def save_outputs(path, image):
+    """Keep the linear buffer and a losslessly encoded, unit-exposure preview."""
+    np.save(path, image, allow_pickle=False)
+    path = Path(path)
+    rgb = image[..., :3]
+    summary = {"shape": list(image.shape), "dtype": str(image.dtype),
+               "hdr_sha256": hashlib.sha256(image.tobytes()).hexdigest(),
+               "rgb_min": float(rgb.min()), "rgb_max": float(rgb.max()),
+               "rgb_mean": rgb.mean(axis=(0, 1)).tolist(),
+               "nonfinite": int((~np.isfinite(image)).sum())}
+    path.with_suffix(".json").write_text(json.dumps(summary, sort_keys=True) + "\n")
+    pixels = np.rint(np.clip(rgb, 0, 1) * 255).astype(np.uint8)
+    height, width = pixels.shape[:2]
+    def chunk(kind, data):
+        return (struct.pack(">I", len(data)) + kind + data
+                + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+    scanlines = b"".join(b"\0" + row.tobytes() for row in pixels)
+    png = (b"\x89PNG\r\n\x1a\n"
+           + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+           + chunk(b"IDAT", zlib.compress(scanlines))
+           + chunk(b"IEND", b""))
+    path.with_suffix(".png").write_bytes(png)
+
+
 def patch_is_floor(scene, h, w, region):
     origin = np.array(scene["camera"]["position"], dtype=float)
     forward = np.array(scene["camera"]["target"], dtype=float) - origin
@@ -300,7 +326,7 @@ def run(args):
                 verdict["timing"]["G4"] = round(time.monotonic() - then, 3)
                 verdict["gates"]["G5"] = g5(scene, a, b)
                 if args.hdr_out:
-                    np.save(args.hdr_out, a, allow_pickle=False)
+                    save_outputs(args.hdr_out, a)
                 verdict.update(renderer.info)
                 verdict["chromium"] = renderer.version
     except Exception as exc:

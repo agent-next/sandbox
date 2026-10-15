@@ -1,7 +1,7 @@
 {
   "seed": 17,
-  "resolution": [64, 64],
-  "spp": 32,
+  "resolution": [512, 512],
+  "spp": 128,
   "camera": {"position": [0, 2.6, 7], "target": [0, 0.7, 0], "fov": 42},
   "materials": {
     "clay": {"baseColor": [0.55, 0.12, 0.06], "specularWeight": 0, "specularRoughness": 0.7},

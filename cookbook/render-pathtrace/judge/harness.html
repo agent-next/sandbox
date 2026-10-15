@@ -4,7 +4,7 @@
 <script src="/dist/mutracer.umd.js"></script>
 <script>
 "use strict";
-let engine;
+let engine, adapter, device;
 function transform(mesh, position, scale) {
   const t = mesh.transform;
   t[0] = scale[0]; t[5] = scale[1]; t[10] = scale[2];
@@ -13,10 +13,17 @@ function transform(mesh, position, scale) {
 window.renderScene = async function (s, spp, seed, api = "webgpu") {
   const M = MuTracer;
   if (!engine) {
-    engine = new M.Engine({backend: api, bvhWorkerCount: 1,
-                           textureAtlasBudgetBytes: 8 * 1024 * 1024});
+    if (api === "webgpu") {
+      // Keep the adapter alive and identify the exact device supplied to MuTracer.
+      adapter = await navigator.gpu.requestAdapter({powerPreference: "high-performance"});
+      if (!adapter) throw new Error("WebGPU adapter unavailable");
+      device = await adapter.requestDevice(M.getRecommendedDeviceDescriptor(adapter));
+    }
+    engine = new M.Engine({backend: api, ...(device ? {device} : {})});
+    engine.bvhWorkerCount = 1;
+    engine.textureAtlasBudgetBytes = 8 * 1024 * 1024;
     await engine.init();
-    const info = engine.device?.adapterInfo;
+    const info = adapter?.info;
     window.renderInfo = {
       backend: engine.backend, adapter: engine.info.adapterName,
       adapter_info: info ? {vendor: info.vendor, architecture: info.architecture,

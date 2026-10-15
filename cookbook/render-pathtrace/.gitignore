@@ -1,3 +1,4 @@
+outputs-*/
 # Renders, buffers and downloaded tools never belong in git.
 *.png
 *.npy

@@ -25,7 +25,7 @@ def generate(good, directory):
         elif name == "nan_material":
             scene["materials"]["clay"]["specularRoughness"] = float("nan")
         else:
-            scene["resolution"] = [512, 512]
+            scene["resolution"] = [1024, 1024]
         path = directory / f"{name}.json"
         path.write_text(json.dumps(scene) + "\n")
         result.append((name, path))

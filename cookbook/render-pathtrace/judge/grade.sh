@@ -8,4 +8,5 @@ if [ ! -x "$PYTHON" ]; then
 fi
 export PYTHONDONTWRITEBYTECODE=1
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+export PYTHONPATH="$HOME/.local/share/render-pathtrace/deps${PYTHONPATH:+:$PYTHONPATH}"
 exec "$PYTHON" "$HERE/grade.py" "$@"

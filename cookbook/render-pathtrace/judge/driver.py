@@ -38,10 +38,14 @@ class Renderer:
         self.thread.start()
         os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "/opt/ms-playwright")
         self.pw = sync_playwright().start()
-        args = ["--enable-unsafe-webgpu"]
+        args = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
+                "--enable-unsafe-webgpu"]
         if self.backend == "cpu":
             args += ["--enable-unsafe-swiftshader", "--use-webgpu-adapter=swiftshader",
                      "--disable-gpu-watchdog"]
+        else:
+            args += ["--enable-features=Vulkan", "--use-angle=vulkan",
+                     "--ignore-gpu-blocklist", "--disable-vulkan-surface"]
         try:
             self.browser = self.pw.chromium.launch(
                 channel="chromium", headless=True, args=args
@@ -80,6 +84,12 @@ class Renderer:
         if self.backend == "cpu":
             identity = json.dumps([result["adapter"], result.get("adapter_info")]).lower()
             assert "swiftshader" in identity, "CPU adapter identity is not SwiftShader"
+        else:
+            info = result.get("adapter_info") or {}
+            assert info.get("vendor", "").lower() == "nvidia", \
+                f"GPU adapter is not NVIDIA: {info}"
+            assert "swiftshader" not in json.dumps(info).lower(), \
+                "GPU adapter is SwiftShader"
         assert result["samples"] == spp, result["samples"]
         self.info = {k: result[k] for k in ("backend", "adapter", "adapter_info")}
         image = np.frombuffer(base64.b64decode(result["data"]), dtype="<f4")
