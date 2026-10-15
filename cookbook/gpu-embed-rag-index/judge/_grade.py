@@ -18,6 +18,7 @@ import importlib.util
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -93,6 +94,12 @@ def gate_structure(mod, text):
             problems.append(f"{fn} is not callable")
     if "all-MiniLM-L6-v2" not in text:
         problems.append("artifact text does not contain 'all-MiniLM-L6-v2'")
+    # a GPU artifact must not hard-code device='cpu' (SPEC.md: this is what
+    # kills the cpu-only mutant on CPU-only machines, where the embeddings
+    # themselves are identical)
+    if re.search(r'return\s+"cpu"\s*$', text, re.M) or \
+            re.search(r"device\s*=\s*['\"]cpu['\"]", text):
+        problems.append("artifact hard-codes device selection to 'cpu'")
     return problems
 
 
@@ -133,12 +140,21 @@ def cosine_similarity(a, b):
 def gate_embedding_equality(mod, passages):
     """Compare artifact embeddings vs judge's independent reference."""
     import numpy as np
-    ref = compute_reference_embeddings(passages)
-    art = mod.embed_passages(passages)
-    if art.shape != ref.shape:
+    try:
+        ref = compute_reference_embeddings(passages)
+    except Exception as exc:
+        return {"pass": False,
+                "problems": [f"judge reference embedding failed: {str(exc)[:200]}"]}
+    try:
+        art = mod.embed_passages(passages)
+    except Exception as exc:
+        return {"pass": False,
+                "problems": [f"embed_passages raised: {str(exc)[:200]}"]}
+    art = np.asarray(art)
+    if art.ndim != 2 or art.shape != ref.shape:
         return {"pass": False,
                 "problems": [f"shape mismatch: artifact {art.shape} vs ref {ref.shape}"]}
-    cos = cosine_similarity(art, ref)
+    cos = cosine_similarity(art.astype(np.float64), ref.astype(np.float64))
     worst = float(np.min(cos))
     return {"pass": worst >= EMB_COSINE_MIN,
             "problems": [] if worst >= EMB_COSINE_MIN else
@@ -270,7 +286,57 @@ def main():
 
         if rc == 0:
             # embedding-equality gate
-            for n_passages, seed in EMB_CASES:
+            try:
+                emb_result = self._gate_embedding_equality(mod)
+            except Exception as exc:  # artifact crashed or returned garbage
+                emb_result = {"pass": False,
+                              "problems": [f"embedding-equality error: {str(exc)[:300]}"]}
+            verdict["cases"].append({"gate": "embedding-equality",
+                                      "n_passages": 200, "seed": 0, **emb_result})
+            if not emb_result["pass"]:
+                verdict["gates"]["embedding-equality"] = emb_result
+                rc = 1
+            else:
+                verdict["gates"]["embedding-equality"] = {
+                    "pass": True,
+                    "worst_cosine": emb_result.get("worst_cosine"),
+                    "n_passages": emb_result.get("n_passages")}
+
+        if rc == 0:
+            # index-correctness gate
+            try:
+                idx_result = self._gate_index_correctness(mod)
+            except Exception as exc:
+                idx_result = {"pass": False,
+                              "problems": [f"index-correctness error: {str(exc)[:300]}"]}
+            verdict["cases"].append({"gate": "index-correctness",
+                                      "n_queries": 20, "n_corpus": 2000,
+                                      "seed": 0, **idx_result})
+            if not idx_result["pass"]:
+                verdict["gates"]["index-correctness"] = idx_result
+                rc = 1
+            else:
+                verdict["gates"]["index-correctness"] = {
+                    "pass": True,
+                    "recall_at_10": idx_result.get("recall_at_10"),
+                    "n_queries": idx_result.get("n_queries")}
+
+        if rc == 0 and mode == "full":
+            # throughput (reported, gated only with --speed-target)
+            try:
+                timing = self._gate_throughput(mod)
+            except Exception as exc:
+                timing = {"throughput_error": str(exc)[:300]}
+            verdict["timing"].update(timing)
+            if args.speed_target is not None:
+                ok = timing.get("speedup", 0) >= args.speed_target
+                verdict["gates"]["throughput"] = {
+                    "pass": ok, "target": args.speed_target,
+                    "speedup": timing.get("speedup")}
+                if not ok:
+                    rc = 1
+
+        sha_after = check_shas(judge_dir)
                 # generate deterministic passages
                 import random
                 rng = random.Random(CORPUS_SEED + seed + args.seed)
