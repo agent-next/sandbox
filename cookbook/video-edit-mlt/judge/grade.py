@@ -37,7 +37,7 @@ def command(argv, **kw):
 
 def checksums():
     return {str(p.relative_to(JDIR)): hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in sorted(JDIR.rglob("*")) if p.is_file() and "__pycache__" not in p.parts}
+            for p in sorted(JDIR.rglob("*")) if p.is_file()}
 
 
 def probe(path):
@@ -82,6 +82,16 @@ def logo_score(rgb, template):
     b -= b.mean()
     den = np.linalg.norm(a) * np.linalg.norm(b)
     return float(a @ b / den) if den > 1e-9 else 0.0
+
+
+def ebu_levels(text):
+    summary = text.rsplit("Summary:", 1)[-1]
+    number = r"(-?(?:\d+(?:\.\d+)?|inf))"
+    integrated = re.search(r"I:\s*" + number + r" LUFS", summary)
+    peak = re.search(r"Peak:\s*" + number + r" dBFS", summary)
+    if not integrated or not peak:
+        raise ValueError("ffmpeg did not report an EBU R128 summary")
+    return float(integrated[1]), float(peak[1])
 
 
 def render(root, work):
@@ -197,12 +207,11 @@ def grade(artifact, spec, seed, export=None):
                  "on >=0.85, off <0.30 on every frame")
             ebu = command([FFMPEG, "-v", "info", "-i", str(out), "-vn",
                            "-af", "ebur128=peak=true", "-f", "null", "-"]).stderr.decode()
-            summary = ebu[ebu.rfind("Summary:"):]
-            lufs = float(re.search(r"I:\s*([-\d.]+) LUFS", summary)[1])
-            peak = float(re.search(r"Peak:\s*([-\d.]+) dBFS", summary)[1])
+            lufs, peak = ebu_levels(ebu)
             a = spec["audio"]
             gate("loudness", abs(lufs-a["lufs"]) <= a["lufs_tol"] and peak <= a["true_peak_dbtp"],
-                 {"integrated_lufs": lufs, "true_peak_dbtp": peak},
+                 {"integrated_lufs": lufs if math.isfinite(lufs) else str(lufs),
+                  "true_peak_dbtp": peak if math.isfinite(peak) else str(peak)},
                  {"lufs": [a["lufs"]-a["lufs_tol"], a["lufs"]+a["lufs_tol"]],
                   "true_peak_max_dbtp": a["true_peak_dbtp"]})
             # Narrow-band projection avoids a speech harmonic or broad-band

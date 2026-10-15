@@ -43,8 +43,8 @@ The agent does not choose these; `spec.json` is the contract.
 Everything is synthesized deterministically — no downloaded footage:
 
 - `assets/clip_a.mp4`, `clip_b.mp4`, `clip_c.mp4` — 1280×720, 25 fps,
-  150 frames each. A flat hue (A red, B green, C blue) fills the frame;
-  animated geometric test shapes and a 16-block black/white barcode band at the top encodes `clip_id` and
+  150 frames each. A flat hue (A red, B green, C blue) is the background
+  for moving geometric test shapes. A 16-block barcode at the top encodes `clip_id` and
   the source frame index (4 sync bits `1010`, 2 clip bits, 10 frame
   bits), so any rendered frame names exactly which source frame it came
   from.
@@ -73,8 +73,8 @@ One file: `edit.mlt` — an MLT XML document that `melt` renders with
 ```bash
 QT_QPA_PLATFORM=offscreen melt -quiet edit.mlt \
     -consumer avformat:out.mp4 vcodec=libx264 acodec=aac \
-    width=1280 height=720 frame_rate_num=25 frame_rate_den=1 \
-    sample_aspect_num=1 sample_aspect_den=1 ar=48000 ac=2
+    crf=18 preset=fast pix_fmt=yuv420p ar=48000 ac=2 \
+    threads=1 real_time=-1 movflags=+faststart
 ```
 
 Only the six relative `assets/` resources are accepted. Absolute paths,
