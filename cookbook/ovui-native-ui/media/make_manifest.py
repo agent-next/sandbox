@@ -56,17 +56,21 @@ def main():
             "media/data/selftest.txt",
             MEDIA / "loop.png"),
         entry(
-            "20-60 s, 1920x1080 @ 30 fps H.264 walkthrough of the same "
-            "real judge outputs: title card with the verdict and "
-            "determinism sha256, the real render, the measured widget "
-            "bboxes (widget_tree gate), the PASS stamp (pixels + "
-            "determinism gates), the swatch pixel-gate chart, the "
-            "agent-loop replay, and the kill table. Encoded with -crf 18 "
-            "-preset slow -pix_fmt yuv420p -movflags +faststart from a "
-            "lossless -crf 0 master (media/master/, git-ignored).",
+            "25-60 s, 1920x1080 @ 30 fps H.264 walkthrough cut from 600 "
+            "real camera frames of the known-good panel (media/.frames/, "
+            "recaptured each run) with hard-cut black flashes: the "
+            "finished render as the hook, the spec beside the render, "
+            "the judge's measured widget bboxes, the swatch close-up with "
+            "its measured median vs the analytic target, the self-test "
+            "terminal replay labelled with its real speed-up, the 4-gate "
+            "PASS verdict and kill matrix, and a static end card with the "
+            "one-command launch. Encoded with -crf 18 -preset slow "
+            "-pix_fmt yuv420p -movflags +faststart from a lossless -crf 0 "
+            "master (media/master/, git-ignored).",
             "media/.venv/bin/python -I media/make_video.py",
-            "media/data/* (all five files: render.png, facts.json, "
-            "grade_good.json, mutants.json, selftest.txt)",
+            "media/data/* (render.png, facts.json, grade_good.json, "
+            "mutants.json, selftest.txt, timings.json) + media/.frames/ "
+            "(the make_frames.py camera captures)",
             MEDIA / "demo.mp4"),
     ]
     (MEDIA / "MANIFEST.json").write_text(

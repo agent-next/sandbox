@@ -177,14 +177,16 @@ def result_png():
                 label=f"judge mask: target ± tol ({tol} per channel)")
     ax.scatter(xs, target, marker="_", s=260, color=TEXT2, zorder=5,
                linewidths=1.6)
-    # measured value inside its bar (white, centered); target label above
-    # the mask cap, off to the right of its tick so neither collides with
-    # the bar tops, the caps or each other
+    # measured value inside its bar (white, just below the bar top); target
+    # label centred above its own bar's mask cap. Each label sits on its own
+    # bar, a full bar-width from the next, and the legend lives below the
+    # axis -- so no label can collide with another, with the caps or with
+    # the B bar.
     for x, m, t in zip(xs, med, target):
-        ax.text(x, m, f"{m:.0f}", va="bottom", ha="center", fontsize=9,
+        ax.text(x, m - 8, f"{m:.0f}", va="top", ha="center", fontsize=9,
                 color=SURFACE, zorder=6)
-        ax.text(x + 0.24, t + max(tol) + 6, f"target {t:.0f}",
-                va="bottom", ha="left", fontsize=8.5, color=TEXT2)
+        ax.text(x, t + max(tol) + 5, f"target {t:.0f}",
+                va="bottom", ha="center", fontsize=8.5, color=TEXT2)
     ax.set_xticks(xs)
     ax.set_xticklabels(chans, fontsize=10)
     ax.set_ylabel("8-bit value")
@@ -192,7 +194,8 @@ def result_png():
     ax.set_xlim(-0.5, 3.4)
     ax.grid(True, axis="y", color=GRID, lw=0.6)
     ax.set_axisbelow(True)
-    ax.legend(loc="upper left", fontsize=8.4, frameon=False)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), ncol=2,
+              fontsize=8.4, frameon=False)
     ax.set_title("Colour swatch gate: measured median vs the judge's "
                  f"±{tol} mask around the analytic sRGB target "
                  f"[{', '.join(str(t) for t in target)}]",
