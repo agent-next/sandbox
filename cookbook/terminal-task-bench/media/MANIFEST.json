@@ -1,0 +1,23 @@
+{
+  "demo.mp4": {
+    "command": "media/make_media.sh",
+    "sha256": "501f9c4561cc857bac8b0501644fc70bf12b2e5275dce6d2169dd6140fba0aa8",
+    "shows": "24 s captioned step-through: the ten tasks, the pass line, the verifier-rewrite cheat being killed, the kill rate, and the all-gates-pass verdict",
+    "size": 477336,
+    "source": "media/master/ (frames from make_frames.py)"
+  },
+  "loop.png": {
+    "command": "media/make_media.sh",
+    "sha256": "d68e1e204f56753220f96b4c8a80849e95134b06efed8eb2b548cc8d25b4113f",
+    "shows": "self-test kill rate (12/12 mutants, known-good passing) and the gate outcome of every arm",
+    "size": 90915,
+    "source": "data/selftest.log, data/grade_good.json, data/grade_cheat.json"
+  },
+  "result.png": {
+    "command": "media/make_media.sh",
+    "sha256": "80d5dbfccc68f772e73664448e8278025362b88cfba942a248c413c222abbb3e",
+    "shows": "tasks solved per agent arm (G1 pass line) and verifier wall time against the G4 budget; known-good 10/10 PASS, negative control 0/10, adversarial 0/10 FAIL",
+    "size": 107261,
+    "source": "data/grade_good.json, data/grade_cheat.json"
+  }
+}
