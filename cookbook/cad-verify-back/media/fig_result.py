@@ -52,14 +52,14 @@ def main():
              f"{g['step_volume']['expected_mm3']:.1f} mm³ "
              f"(rel err {g['step_volume']['rel_err']:.1e})",
              fontsize=10, color=rd.INK2, va="center")
-    fig.text(0.015, 0.881,
+    fig.text(0.015, 0.890,
              f"manifold3d XOR vs the spec-built reference solid: "
              f"{g['step_xor']['xor_volume_mm3']:.1f} mm³ symmetric difference "
              f"(gate G7 pass rule ≤ 1% of {g['step_xor']['reference_volume_mm3']:.0f} mm³)",
              fontsize=10, color=rd.INK2, va="center")
 
     # ---- left: delivered STL beside the spec-built reference ---------------
-    axA = fig.add_axes([0.015, 0.30, 0.465, 0.555])
+    axA = fig.add_axes([0.015, 0.295, 0.465, 0.535])
     rd.draw_mesh(axA, art, YAW, TILT, base=rd.BLUE)
     ext = rd.mesh_extent(art, R)
 
@@ -69,14 +69,13 @@ def main():
                   color=rd.INK2, pad=1)
 
     axA.set_title("delivered part.stl (examples/good) — parsed with trimesh 5.1.1",
-                  fontsize=8.5, color=rd.INK2, pad=4)
-    fig.text(0.015, 0.262,
-             "gate G7 (step_xor): manifold3d boolean XOR of the tessellated delivered "
-             f"solid vs the reference — {g['step_xor']['xor_volume_mm3']:.1f} mm³ "
+                  fontsize=8.5, color=rd.INK2, pad=3)
+    fig.text(0.015, 0.257,
+             "gate G7 (step_xor): manifold3d boolean XOR of the tessellated\n"
+             f"delivered solid vs the reference — {g['step_xor']['xor_volume_mm3']:.1f} mm³ "
              f"symmetric difference (rel {g['step_xor']['rel_err']:.3%});\n"
-             "pass rule ≤ 1% of the reference volume — identical geometry gives an "
-             "empty XOR, which is why a zero bar passes (rule on the figure, not "
-             "just a small number)",
+             "pass rule ≤ 1% of the reference volume — identical geometry gives an\n"
+             "empty XOR, which is why a zero bar passes (rule on the figure)",
              fontsize=7.5, color=rd.INK, va="top", linespacing=1.45,
              bbox=dict(facecolor=rd.GOOD_WASH, edgecolor=rd.GOOD,
                        linewidth=0.8, boxstyle="round,pad=0.4"))
@@ -126,7 +125,7 @@ def main():
                        linewidth=0.8, boxstyle="round,pad=0.3"))
 
     # ---- right: per-gate measured numbers from the verdict JSON -------------
-    axC = fig.add_axes([0.5095, 0.145, 0.4755, 0.325])
+    axC = fig.add_axes([0.5095, 0.135, 0.4755, 0.305])
     rd.style_axes(axC)
     axC.set_axisbelow(True)
     names, vals, lims, cols = [], [], [], []
@@ -182,7 +181,7 @@ def main():
                                    linestyle=(0, (4, 3)),
                                    label="spec PCD (56 mm)"),
     ]
-    axC.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, -0.30),
+    axC.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, -0.24),
                ncol=3, fontsize=6.8, frameon=False)
 
     rd.assert_no_overlaps(fig, "result.png")

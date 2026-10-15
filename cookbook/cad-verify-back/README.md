@@ -1,5 +1,28 @@
 # cad-verify-back: mechanical CAD with CadQuery, judged from the delivered files
 
+## Results
+
+![The delivered part vs the customer spec, with every gate measured against the spec](media/result.png)
+
+![The fixing-agent loop and the mutant × gate kill matrix](media/loop.png)
+
+[`demo.mp4`](media/demo.mp4) — turntable of the real delivered STL, the
+replay of a fixing agent's iterations, and one card per mutant with the
+defect and the gate that caught it (24 s, 1920×1080, H.264).
+
+Headline numbers from `grade.sh examples/good --json` (all 14 gates pass):
+
+- OCCT volume 56 327.655 mm³ vs closed-form 56 327.655 mm³ (rel err 5.2×10⁻¹⁶)
+- XOR symmetric difference vs the spec-built reference solid: 0.0 mm³
+  (gate G7 pass rule ≤ 1% of 56 328.18 mm³)
+- STL watertight, winding consistent, 8 104 faces; STL volume within
+  2.3×10⁻⁶ of STEP
+- angular spacing max deviation 0° vs the 0.05° rule; 8 DXF circles
+- self-test kill rate **10/10**; determinism PASS (same seed → byte-identical
+  verdict)
+
+
+
 An agent designs an industrial adapter plate (plate + central bore + raised
 boss + bolt circle) with **CadQuery 2.7.0** on OCCT from a customer spec JSON,
 and delivers `part.step`, `part.stl` and `part.dxf`. A judge it cannot fool
@@ -95,6 +118,6 @@ it) and requires every one to fail at least one **named** gate — kill rate
 - the good `part.py` was written for this demo; no third-party geometry files
   are used
 
-Media (result figure, agent-loop figure, demo video): not done yet — a later
-task builds `media/` for this demo (see the media section of
-`cookbook/DEMO-STANDARD.md`).
+Media (result figure, agent-loop figure, demo video) lives in `media/` and is
+regenerated from real judge output by `bash media/make_media.sh` (see
+`media/MANIFEST.json` for sources and sha256).

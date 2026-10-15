@@ -242,8 +242,11 @@ def main():
         ax.text(len(x) - 0.45, 14.3, "all 14 gates pass (verdict PASS, exit 0)",
                 fontsize=15, color=rd.GOOD, ha="right", va="bottom")
         for xi, yi, name in zip(x, npass, names):
+            # for the last point (good, y=14) label below the point so it
+            # cannot collide with the "all 14 gates pass" line label
+            above = yi < 14
             ax.annotate(f"{yi}/14", (xi, yi), textcoords="offset points",
-                        xytext=(0, 22), fontsize=15, ha="center",
+                        xytext=(0, 22 if above else -30), fontsize=15, ha="center",
                         color=rd.INK2)
         ax.set_xticks(x)
         ax.set_xticklabels(labels, fontsize=14, color=rd.INK2)
@@ -292,9 +295,11 @@ def main():
         save(fig, i)
         i += 1
 
+    # concat demuxer needs an explicit per-frame duration, else it treats
+    # each still as 0 s and the encoder drops all but the first few frames
     with open(os.path.join(FRAMES, "concat.txt"), "w") as f:
         for k in range(i):
-            f.write(f"file '{frame_name(k)}'\n")
+            f.write(f"file '{frame_name(k)}'\nduration {1.0 / 30.0:.6f}\n")
     print(f"video.py: wrote {i} frames ({i / 30.0:.2f} s) to {FRAMES}")
 
 

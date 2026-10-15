@@ -74,9 +74,13 @@ stage_data() {
     grep -E "kill rate|determinism" "${DATA}/selftest.log" | sed 's/^/[data]   /'
 
     # every figure below reads these files; refuse to invent any of them
-    for f in "${DATA}/verdicts/good.json" \
-             "${DATA}/verdicts/"{good,${MUTANTS[*]}}.json \
-             "${DATA}/replay/"iter*.json "${DATA}/selftest.log"; do
+    local needed=("${DATA}/verdicts/good.json")
+    local m
+    for m in "${MUTANTS[@]}"; do
+        needed+=("${DATA}/verdicts/${m}.json")
+    done
+    needed+=("${DATA}/replay/"iter*.json "${DATA}/selftest.log")
+    for f in "${needed[@]}"; do
         [ -s "$f" ] || fail "data stage: judge output $f missing or empty"
     done
     echo "[data] done."
@@ -93,7 +97,7 @@ stage_video() {
     mkdir -p "${HERE}/master"
     echo "[video] lossless crf-0 master (media/master/, git-ignored)"
     ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 \
-        -i "${frames}/concat.txt" -vsync vfr -framerate 30 \
+        -i "${frames}/concat.txt" -vf fps=30 \
         -c:v libx264 -crf 0 -preset veryfast -pix_fmt yuv420p \
         "${HERE}/master/demo_master.mp4"
     echo "[video] web encode (crf 18, slow, yuv420p, +faststart)"

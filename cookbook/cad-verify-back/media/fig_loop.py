@@ -69,15 +69,15 @@ def main():
 
     fig = rd.plt.figure(figsize=(12.4, 8.2), dpi=200, facecolor=rd.SURFACE)
     gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.55], left=0.185,
-                          right=0.985, top=0.885, bottom=0.075, hspace=0.42)
+                          right=0.985, top=0.835, bottom=0.075, hspace=0.52)
 
     fig.text(0.015, 0.955, "cad-verify-back: the agent loop, judged from the delivered files",
              fontsize=17, fontweight="bold", color=rd.INK, va="center")
-    fig.text(0.015, 0.915,
+    fig.text(0.015, 0.890,
              f"grade.sh verdict per iteration (replay of a fixing agent: bad → partly "
-             f"fixed → good; graded, not a live trace)  ·  self-test kill rate {kill}  ·  "
-             f"determinism PASS (same seed ⇒ identical verdict)",
-             fontsize=10, color=rd.INK2, va="center")
+             f"fixed → good; graded, not a live trace) · kill rate {kill} · "
+             f"determinism PASS",
+             fontsize=9.2, color=rd.INK2, va="center")
 
     # ---- top: replay of the fixing-agent loop -------------------------------
     ax = fig.add_subplot(gs[0])
@@ -107,6 +107,9 @@ def main():
     ax.set_xticklabels(labels, fontsize=7.2, color=rd.INK2)
     ax.set_ylim(0, 15.6)
     ax.set_yticks([0, 4, 8, 12, 14])
+    # explicit xlim with a right margin so the pass-line label (right-aligned
+    # at len(x)-0.42) stays inside the axes and cannot run off the figure
+    ax.set_xlim(-0.45, len(x) - 0.05)
     ax.set_ylabel("gates passing (of 14)", fontsize=8, color=rd.INK2)
     ax.set_title("judge feedback per iteration — gates passing out of 14, "
                  "with the gates that failed on their own evidence",
