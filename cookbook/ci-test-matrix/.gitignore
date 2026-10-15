@@ -1,0 +1,12 @@
+# Per-cell JUnit XML and the aggregated table: produced by run_matrix.py,
+# never committed (the judge regenerates them on a copy of the artifact).
+examples/good/junit/
+examples/good/matrix-result.yaml
+
+# python caches
+__pycache__/
+*.pyc
+
+# scratch sandbox checkouts (run.py clones into /tmp, but a manual run here
+# leaves the tree behind)
+/repo/

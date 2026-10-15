@@ -114,8 +114,11 @@ hashes and clipped labels are rejected.
 ```text
 $ python -m pytest -q cookbook/tools/test_video_gate.py --color=no
 ....................                                                     [100%]
-20 passed in 160.24s (0:02:40)
+20 passed in 189.72s (0:03:09)
 ```
+
+This final run includes `origin/main` through `ecfbcfa1`; the later merge
+adds the CI-matrix demo without changing the video gate or this renderer.
 
 Final `video_gate.py` verdict: `passed: true`, `failed: []`.
 
