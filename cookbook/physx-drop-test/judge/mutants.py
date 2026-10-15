@@ -2,26 +2,98 @@
 """mutants.py — generate the known-bad scenes for the self-test.
 
 Each mutant is a SINGLE-EDIT copy of examples/good/scene.usda: exactly one
-contiguous block differs.  Every edit is a realistic authoring mistake (the
-silent failure modes listed in the ovphysx authoring docs) or a deliberate
-cheat attempt; every one loads without error, so each is killed by a judge
-gate, never by a crash before grading.
+contiguous block differs, or (for planted-verdict) exactly one thing is
+added to the artifact directory.  Every edit is a realistic authoring
+mistake (the silent failure modes listed in the ovphysx authoring docs) or
+a deliberate cheat attempt; every one loads without error, so each is
+killed by a judge gate, never by a crash before grading.
 
   physics mutants (1-7)  — wrong physics, killed by the analytic gates
-  cheat mutants (8-10)   — scenes that try to fool the judge itself:
-                           kinematic animation, a joint scaffold, and a
-                           hidden external reference; killed by G7_contract,
+  cheat mutants (8-11)   — artifacts that try to fool the judge itself:
+                           kinematic animation, a joint scaffold, a hidden
+                           external reference, and forged judge outputs
+                           planted beside the scene; killed by G7_contract,
                            the gate that re-reads the artifact itself
 
 Usage: mutants.py <good_scene.usda> <out_dir>
-Writes <out_dir>/<name>/scene.usda plus <out_dir>/mutants.json.
+Writes <out_dir>/<name>/scene.usda (plus any planted files) and
+<out_dir>/mutants.json.
 """
 
+import io
 import json
+import math
+import struct
 import sys
+import zipfile
 from pathlib import Path
 
+G = 9.81
+DT = 1.0 / 240.0
+STEPS = 2400
+Y_REST = 0.10
+E_REST = 0.50
+
+
+def _npy_bytes(values):
+    """A 1-D float64 .npy in the v1 header format (stdlib only, so this
+    script runs on a bare python3 the way selftest.sh calls it)."""
+    arr = b"".join(struct.pack("<d", v) for v in values)
+    header = ("{'descr': '<f8', 'fortran_order': False, 'shape': (%d,)}"
+              % len(values)).encode("ascii")
+    pad = 64 - (10 + len(header)) % 64 or 64
+    return (b"\x93NUMPY\x01\x00" + struct.pack("<H", len(header) + pad)
+            + header + b" " * pad + arr)
+
+
+def _analytic_bounce(h0):
+    """Perfect closed-form drop/bounce/rest samples for one body: exactly
+    what G2-G6 want, which is what makes the forged outputs a real cheat
+    (a judge that read files from beside the scene would pass them)."""
+    ys, vs = [], []
+    apex, t_apex = h0, 0.0
+    for k in range(STEPS):
+        t = k * DT
+        while True:
+            t_fall = math.sqrt(2.0 * max(apex - Y_REST, 0.0) / G)
+            if t < t_apex + t_fall - 1e-12 or apex - Y_REST < 5e-4:
+                break
+            v_up = E_REST * math.sqrt(2.0 * G * (apex - Y_REST))
+            t_apex = t_apex + t_fall + v_up / G
+            apex = Y_REST + v_up * v_up / (2.0 * G)
+        if apex - Y_REST < 5e-4:
+            ys.append(Y_REST)
+            vs.append(0.0)
+            continue
+        dt_a = t - t_apex
+        ys.append(apex - 0.5 * G * dt_a * dt_a)
+        vs.append(-G * dt_a)
+    return ys, vs
+
+
+def forged_outputs():
+    """(traj.npz bytes, meta.json text) that pass every gate if read."""
+    box_y, box_vy = _analytic_bounce(0.80)
+    ball_y, ball_vy = _analytic_bounce(1.20)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        for name, values in (("box_y", box_y), ("box_vy", box_vy),
+                             ("ball_y", ball_y), ("ball_vy", ball_vy)):
+            zf.writestr(f"{name}.npy", _npy_bytes(values))
+    meta = {
+        "dt": DT, "steps": STEPS,
+        "bodies": {p: {"mass": 4.0 if p.endswith("Box") else 1.0,
+                       "staticFriction": 0.6, "dynamicFriction": 0.4,
+                       "restitution": 0.5, "shapeCount": 1.0}
+                   for p in ("/World/Box", "/World/Ball")},
+        "sampled": {"/World/Box": True, "/World/Ball": True},
+        "missing": [],
+    }
+    return buf.getvalue(), json.dumps(meta, indent=2) + "\n"
+
+
 # name -> (description, old, new); `old` must match exactly one place.
+# `old is None` marks a mutant that adds files instead of editing text.
 MUTANTS = {
     # --- physics mutants: the silent authoring failure modes ---------------
     "gravity-flip": (
@@ -102,6 +174,17 @@ MUTANTS = {
         ")\n"
         "{",
     ),
+    # the scene itself is unmodified: the single edit is the two files this
+    # mutant adds beside it.  If the judge ever read its inputs from the
+    # artifact's own directory, these would pass every gate — that is the
+    # cheat being tested, and G7_contract names it.
+    "planted-verdict": (
+        "cheat: forged judge outputs (a perfect analytic traj.npz + meta.json) "
+        "planted beside the scene — the scene passes, the plant would too; "
+        "G7_contract rejects judge-output files in the artifact directory",
+        None,
+        None,
+    ),
 }
 
 
@@ -116,6 +199,15 @@ def main():
 
     made = {}
     for name, (desc, old, new) in MUTANTS.items():
+        d = out_dir / name
+        d.mkdir(exist_ok=True)
+        if old is None:                      # a file-planting mutant
+            (d / "scene.usda").write_text("\n".join(lines) + "\n")
+            npz, meta = forged_outputs()
+            (d / "traj.npz").write_bytes(npz)
+            (d / "meta.json").write_text(meta)
+            made[name] = desc
+            continue
         old_lines = old.splitlines()
         new_lines = new.splitlines()
         hits = []
@@ -127,8 +219,6 @@ def main():
                   f"places (need exactly 1)", file=sys.stderr)
             return 1
         mutated = lines[:hits[0]] + new_lines + lines[hits[0] + len(old_lines):]
-        d = out_dir / name
-        d.mkdir(exist_ok=True)
         (d / "scene.usda").write_text("\n".join(mutated) + "\n")
         made[name] = desc
 

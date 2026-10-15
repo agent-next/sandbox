@@ -25,12 +25,17 @@ Gates (SPEC.md):
                      both bodies dynamic (no kinematic flags), no joints
                      or other constraint prims, stage self-contained (no
                      references/payload/sublayers), no velocity/drive
-                     authoring.  Re-derived by the judge from the artifact
-                     text; catches scenes that animate or scaffold their
-                     way to a passing trajectory.
+                     authoring, and no judge-output files planted beside
+                     the scene.  Re-derived by the judge from the artifact
+                     text and directory; catches scenes that animate or
+                     scaffold their way to a passing trajectory, and
+                     artifacts that ship their own "passing" outputs.
 
 check_gates.py is handed the same scratch copy the simulator stepped, so
-the judged scene and the judged numbers cannot differ.
+the judged scene and the judged numbers cannot differ.  Every number it
+judges is re-derived here from the simulator's own output files
+(traj.npz/meta.json, written by judge-run code into a scratch directory
+the artifact cannot reach) — never from anything the artifact shipped.
 
 Prints one JSON verdict and exits 0 only if every gate passes.
 Wall-time fields live only under 'timing' (added by grade.sh).
@@ -38,6 +43,7 @@ Wall-time fields live only under 'timing' (added by grade.sh).
 
 import json
 import math
+import os
 import re
 import sys
 from pathlib import Path
@@ -64,6 +70,10 @@ REST_ABS_TOL = 0.001     # G4: 1 mm
 APEX_REL_TOL = 0.10      # G5: 10%
 ENERGY_TOL = 0.005       # G6: 0.5% of initial potential energy
 CONTACT_SPEED_EPS = 0.05  # m/s: pre-contact if still falling freely
+
+# G7: file names the judge's own simulator produces.  They must never
+# appear in the directory the artifact ships.
+JUDGE_OUTPUT_NAMES = frozenset({"traj.npz", "meta.json"})
 
 
 def gate_freefall(y, vy, y0):
@@ -174,7 +184,7 @@ def gate_bounce_apex(y, contact_idx, y0):
     }
 
 
-def gate_contract(usd_text):
+def gate_contract(usd_text, artifact_dir=None):
     """G7: the artifact obeys the SPEC's dynamics contract.
 
     The analytic gates above judge the trajectory; this gate judges the
@@ -218,6 +228,20 @@ def gate_contract(usd_text):
     if re.search(r"^\s*physics:drive\w*\s*=", usd_text, re.MULTILINE):
         problems.append("physics:drive* authored — motion must come from "
                         "gravity alone")
+
+    # 5. no forged judge outputs beside the scene.  This oracle reads its
+    #    numbers only from the scratch directory the judge's own simulator
+    #    wrote (grade.sh hands it <sim_out_dir>); a file here named like a
+    #    simulator output is an attempt to feed the judge its own verdict.
+    #    Those names are exact, so a normal artifact directory (which holds
+    #    only the scene) can never trip this.
+    if artifact_dir is not None:
+        for fname in sorted(os.listdir(artifact_dir)):
+            if fname in JUDGE_OUTPUT_NAMES:
+                problems.append(
+                    f"'{fname}' sits beside the scene — the artifact ships a "
+                    "file named like the judge's own simulator output; the "
+                    "judge reads only the outputs it generated itself")
 
     return (not problems), {"violations": problems}
 
@@ -319,7 +343,7 @@ def main():
         ok7, d7 = False, {"violations": [
             f"artifact is not a readable ASCII stage: {e}"]}
     else:
-        ok7, d7 = gate_contract(usd_text)
+        ok7, d7 = gate_contract(usd_text, scene_path.parent)
     verdict["gates"]["G7_contract"] = {"passed": bool(ok7), "detail": d7}
     all_ok = all_ok and ok7
 

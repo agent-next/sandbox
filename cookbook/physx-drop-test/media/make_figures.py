@@ -10,7 +10,7 @@ Data sources (all produced by this repo's judge, never hand-edited):
 result.png: the measured PhysX trajectory against the analytic oracle with
 the pass lines drawn on (free fall + contact gate, bounce apex gate,
 energy gate).  loop.png: the agent loop replayed (each iteration a real
-grade verdict) plus the per-mutant gate matrix (kill rate 7/7).
+grade verdict) plus the per-mutant gate matrix (kill rate 11/11).
 
 Raises if any input is missing; every number in the output comes from the
 JSON/npz files above.
@@ -71,12 +71,17 @@ plt.rcParams.update({
 REPLAY = ["cm-units", "spawn-inside-ground", "no-rigidbody",
           "no-ground-collision", "mass-zero", "gravity-flip",
           "restitution-over-unity"]
+# the matrix shows every mutant the self-test grades, cheats included
+MATRIX = ["cm-units", "gravity-flip", "hidden-reference", "joint-scaffold",
+          "kinematic-cheat", "mass-zero", "no-ground-collision",
+          "no-rigidbody", "planted-verdict", "restitution-over-unity",
+          "spawn-inside-ground"]
 GATE_ORDER = ["G1_loads", "G2_freefall", "G3_contact_time", "G4_resting",
-              "G5_bounce_apex", "G6_energy"]
+              "G5_bounce_apex", "G6_energy", "G7_contract"]
 GATE_LABEL = {"G1_loads": "G1\nloads", "G2_freefall": "G2\nfree fall",
               "G3_contact_time": "G3\ncontact time",
               "G4_resting": "G4\nresting", "G5_bounce_apex": "G5\nbounce apex",
-              "G6_energy": "G6\nenergy"}
+              "G6_energy": "G6\nenergy", "G7_contract": "G7\ncontract"}
 
 
 def need(path):
@@ -144,7 +149,8 @@ def fig_result():
     fig, axes = plt.subplots(1, 3, figsize=(15.5, 5.4), dpi=200,
                              constrained_layout=True)
     fig.suptitle("physx-drop-test: measured PhysX trajectory vs the "
-                 "analytic oracle -- all 6 gates pass",
+                 "analytic oracle -- all "
+                 f"{len(v['gates'])} gates pass",
                  fontsize=15, fontweight="bold")
     fig.text(0.01, 0.005,
              f"source: grade.sh examples/good/scene.usda --seed 42 | "
@@ -339,11 +345,15 @@ def cell_text(gate, g):
 
 def fig_loop():
     good = load(os.path.join(VERDICTS, "good.json"))
-    muts = {m: load(os.path.join(MUTANTS, f"{m}.json")) for m in REPLAY}
+    n_gates = len(good["gates"])
+    muts = {m: load(os.path.join(MUTANTS, f"{m}.json")) for m in MATRIX}
     desc = load(os.path.join(MUTANTS, "mutants", "mutants.json"))
+    killed = sum(1 for v in muts.values()
+                 if any(not r.get("passed", False)
+                        for r in v.get("gates", {}).values()))
 
-    fig = plt.figure(figsize=(15.5, 9.8), dpi=200, constrained_layout=True)
-    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.45])
+    fig = plt.figure(figsize=(15.5, 10.6), dpi=200, constrained_layout=True)
+    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.6])
     fig.suptitle("The agent loop and the self-test -- every point and "
                  "cell is a real grade.sh verdict (--seed 42)",
                  fontsize=15, fontweight="bold")
@@ -358,8 +368,9 @@ def fig_loop():
         gates = v.get("gates", {})
         passed.append(sum(1 for r in gates.values() if r.get("passed")))
     xs = np.arange(len(names))
-    ax.axhline(6, color=GOOD_C, lw=1.2)
-    ax.text(0.02, 6.06, "all 6 gates pass", fontsize=9.5, color=GOOD_C)
+    ax.axhline(n_gates, color=GOOD_C, lw=1.2)
+    ax.text(0.02, n_gates + 0.08, f"all {n_gates} gates pass", fontsize=9.5,
+            color=GOOD_C)
     ax.plot(xs[:-1], passed[:-1], "-o", color=BOX_C, lw=2, ms=9,
             mfc=BOX_C, mec=SURFACE, mew=2, zorder=4)
     ax.plot(xs[-1], passed[-1], "o", ms=11, mfc=GOOD_C, mec=SURFACE, mew=2,
@@ -392,16 +403,16 @@ def fig_loop():
             lines.append(cur)
             labels.append("\n".join(lines[:3]))
     ax.set_xticks(xs, labels, fontsize=8.6)
-    ax.set_ylim(0, 7.2)
-    ax.set_yticks(range(0, 7))
-    ax.set_ylabel("gates passed (of 6)")
+    ax.set_ylim(0, n_gates + 1.2)
+    ax.set_yticks(range(0, n_gates + 1))
+    ax.set_ylabel(f"gates passed (of {n_gates})")
     ax.set_title("replayed authoring iterations: the judge names the "
                  "failed gate(s) until the scene passes", fontsize=11)
 
     # --- bottom: scene x gate matrix --------------------------------------
     ax = fig.add_subplot(gs[1])
     ax.grid(False)
-    rows = ["good"] + REPLAY
+    rows = ["good"] + MATRIX
     for ri, n in enumerate(rows):
         v = good if n == "good" else muts[n]
         for ci, gate in enumerate(GATE_ORDER):
@@ -439,9 +450,10 @@ def fig_loop():
                   fontsize=9)
     ax.set_yticks([len(rows) - 0.5 - i for i in range(len(rows))],
                   rows, fontsize=9.5)
-    ax.set_title("self-test matrix: every known-bad scene is killed by at "
-                 "least one gate -- kill rate 7/7 = 100 % (rule: "
-                 "≥ 90 %)", fontsize=11)
+    ax.set_title(f"self-test matrix: every known-bad scene is killed by at "
+                 f"least one gate -- kill rate {killed}/{len(muts)} = "
+                 f"{round(100 * killed / len(muts))} % (rule: ≥ 90 %)",
+                 fontsize=11)
     for s in ("top", "right", "left", "bottom"):
         ax.spines[s].set_visible(False)
 

@@ -11,6 +11,8 @@
 #   judge_runs/mutants/mutants/mutants.json    mutants.py descriptions
 #   judge_runs/traces/good/traj.npz            simulate.py per-step y / vy
 #   judge_runs/traces/good/meta.json           simulate.py run metadata
+#   judge_runs/selftest.log                    one timed bash judge/selftest.sh
+#   judge_runs/selftest.time                   its measured wall seconds
 #   judge_runs/paths/*.txt                     sha256 of each input trace
 #
 # Usage: bash media/make_judge_runs.sh [--seed N]   (default seed 42)
@@ -94,18 +96,37 @@ cp "$WORK/sim/traj.npz" "$RUNS/traces/good/traj.npz"
 cp "$WORK/sim/meta.json" "$RUNS/traces/good/meta.json"
 log "wrote $RUNS/traces/good/{traj.npz,meta.json}"
 
-# 4. record where every file came from (sha256 of the sources, plus the exact
+# 4. one timed self-test run: the terminal capture the video scrolls and the
+#    measured wall time its "Nx speed" label is computed from.  A fresh
+#    sandbox run of the same command appears verbatim in RECEIPT.md.
+log "running bash judge/selftest.sh, timed, for the terminal capture"
+SELFTEST_START="$(date +%s.%N)"
+bash judge/selftest.sh > "$RUNS/selftest.log" 2>&1
+SELFTEST_RC=$?
+SELFTEST_END="$(date +%s.%N)"
+if [[ $SELFTEST_RC -ne 0 ]]; then
+    echo "[judge_runs] ERROR: judge/selftest.sh failed (exit $SELFTEST_RC)" >&2
+    tail -20 "$RUNS/selftest.log" >&2
+    exit 1
+fi
+python3 -c "import sys; print(round(float(sys.argv[1]) - float(sys.argv[2]), 3))" \
+    "$SELFTEST_END" "$SELFTEST_START" > "$RUNS/selftest.time"
+log "wrote $RUNS/selftest.log and selftest.time ($(cat "$RUNS/selftest.time") s)"
+
+# 5. record where every file came from (sha256 of the sources, plus the exact
 #    commands) so make_figures.py can prove the figures were regenerated from
 #    these runs and nothing else.
 mkdir -p "$RUNS/paths"
 sha256sum "$RUNS/verdicts/good.json" "$RUNS/traces/good/traj.npz" \
-    "$RUNS/traces/good/meta.json" > "$RUNS/paths/sha256.txt"
+    "$RUNS/traces/good/meta.json" "$RUNS/selftest.log" \
+    > "$RUNS/paths/sha256.txt"
 cat > "$RUNS/paths/commands.txt" <<EOF
 seed $SEED
 judge/grade.sh examples/good/scene.usda --seed $SEED --json judge_runs/verdicts/good.json
 judge/mutants.py examples/good/scene.usda judge_runs/mutants/mutants
 judge/grade.sh <mutant>/scene.usda --seed $SEED --json judge_runs/mutants/<name>.json   (for each mutant)
 judge/simulate.py examples/good/scene.usda <out>     (as grade.sh calls it, WARP_CACHE_PATH=$WARP_CACHE)
+bash judge/selftest.sh                               (timed, -> judge_runs/selftest.log + selftest.time)
 EOF
 log "wrote $RUNS/paths/{sha256.txt,commands.txt}"
 

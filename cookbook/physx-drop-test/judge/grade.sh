@@ -49,14 +49,20 @@ trap 'rm -rf "$WORK"' EXIT
 SUM_BEFORE="$(cd "$SCRIPT_DIR" && find . -type f -not -path './scratch*' -print0 \
               | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
 
+# The artifact is the whole directory the scene came from, not just the
+# file: grade.sh copies it verbatim into the scratch artifact dir (an
+# artifact that ships forged judge outputs ships them here) and simulates
+# the copy.  The scene path is exactly the one that was handed to grade.sh.
 mkdir -p "$WORK/artifact"
-cp "$SCENE" "$WORK/artifact/scene.usda"
+SCENE_DIR="$(dirname "$SCENE")"
+SCENE_BASE="$(basename "$SCENE")"
+cp -a "$SCENE_DIR/." "$WORK/artifact/"
 
 T_START="$(date +%s.%N)"
 
 set +e
 WARP_CACHE_PATH="$WARP_CACHE" "$PY" -I "$SCRIPT_DIR/simulate.py" \
-    "$WORK/artifact/scene.usda" "$WORK/sim" >"$WORK/simulate.log" 2>&1
+    "$WORK/artifact/$SCENE_BASE" "$WORK/sim" >"$WORK/simulate.log" 2>&1
 SIM_RC=$?
 if [[ $SIM_RC -ne 0 ]]; then
     set -e
@@ -80,7 +86,8 @@ fi
 # The oracle re-derives every judged quantity from the simulator's own
 # output files (traj.npz/meta.json) plus the same scratch copy of the
 # scene the simulator stepped — never from anything the artifact can reach.
-"$PY" -I "$SCRIPT_DIR/check_gates.py" "$WORK/sim" "$WORK/artifact/scene.usda" \
+"$PY" -I "$SCRIPT_DIR/check_gates.py" "$WORK/sim" \
+    "$WORK/artifact/$SCENE_BASE" \
     "${JSON_ARG[@]}"
 RC=$?
 set -e
