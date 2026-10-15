@@ -140,14 +140,22 @@ are deterministic at a fixed seed.
   once on the clean corpus, once on the corpus with 2 corrupted pages
   (blank + noise). The corrupted run must satisfy, with the **same**
   extractor binary and no flag telling it about the corruption:
-  - exactly 2 pages quarantined, and they are exactly the corrupted ids;
-  - every corrupted page's reason code is `NO_TEXT` or `UNREADABLE_PAGE`;
-  - `records.json` still holds exactly 10 pages — no invented values, no
-    dropped pages, total page count across both files still 12.
+  - both corrupted pages quarantined, each with its expected reason code
+    (`NO_TEXT` for the blank, `UNREADABLE_PAGE` for the smear), and no
+    page whose ink is intact quarantined — the default corpus still
+    carries its one already-unreadable page (`inv-08`), which a correct
+    extractor legitimately quarantines alongside the two corrupted ones;
+  - `records.json` never carries a record for a corrupted page — no
+    invented values, no dropped pages; total page count across both
+    files still 12.
 - **G5 — determinism and self-consistency.** Two grading runs at the same
   seed produce byte-identical verdict JSON apart from the `timing` key
   (checked by `selftest.sh`); the extractor may not read the ground truth
-  (see Judge integrity).
+  (see Judge integrity).  `selftest.sh` additionally proves the grounding
+  gate is load-bearing: a judge-guard mutant with the ink check weakened
+  to a fixed threshold (blind to the low-contrast pages) must *fail* the
+  known-good artifact — if it does not, the gate was never checking
+  grounding.
 
 ### Gate thresholds, one table
 
@@ -157,8 +165,8 @@ are deterministic at a fixed seed.
 | G1 | field accuracy ≥ 0.95 (48 slots) |
 | G2 | 0 boxes failing area bound or ink check |
 | G3 | exact totals == correct totals, 0 ulp |
-| G4 | 2/2 corrupted pages quarantined, 0 invented values, 12/12 pages accounted |
-| G5 | verdict JSON identical across two runs at the same seed |
+| G4 | 2/2 corrupted pages quarantined with expected codes, no intact page quarantined, 0 invented values, 12/12 pages accounted |
+| G5 | verdict JSON identical across two runs at the same seed; weakened-judge mutant fails the good artifact |
 
 ## Acceptance oracle
 
