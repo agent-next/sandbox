@@ -1,12 +1,13 @@
 """result.png - the good controller under the judge's spec envelope.
 
 Top: hero still - one MuJoCo frame of the good controller's scenario-1
-replay, frozen at the measured theta settle time (0.70 s), with the
-numbers and the pass line overlaid by render3d.py. The render is a
-kinematic replay of the judge's own --trace CSV, never re-simulated.
+replay, frozen at the measured theta settle time, with the numbers and
+the pass line overlaid by render3d.py. The render is a kinematic replay
+of the judge's own --trace CSV, never re-simulated.
 Bottom-left: the gate table with measured values from the verdict JSON.
 Bottom-right: the Monte-Carlo panel - 200 real per-sample settle times
-against the per-sample gate limits.
+(theta from the lean run, x from the displacement run) against the
+per-sample gate limits.
 """
 
 import os
@@ -49,7 +50,9 @@ axh.set_title(
 # ---------------------------------------------------------- bottom-left: table
 axt = fig.add_subplot(gs[1, 0])
 axt.axis("off")
-axt.set_title("Judge verdict - good controller (18/18 gates pass)",
+NPASS = sum(gg["pass"] for gg in g.values())
+axt.set_title(f"Judge verdict - good controller "
+              f"({NPASS}/{len(g)} gates pass)",
               fontsize=12.5, color=c.INK, pad=10)
 rows = [
     ("design_stable", "max Re(λ) of $A-BK$", f"{g['design_stable']['value']:.4f}",
@@ -66,6 +69,10 @@ rows = [
      "≤ 0.5 rad"),
     ("s2_F_demand_max_N", "S2 peak |F| demand", f"{g['s2_F_demand_max_N']['value']:.3f} N",
      "≤ 10 N"),
+    ("gm_force_db", "gain margin, force loop", f"{g['gm_force_db']['value']:.0f} dB",
+     "≥ 6 dB"),
+    ("gm_torque_db", "gain margin, torque loop", f"{g['gm_torque_db']['value']:.0f} dB",
+     "≥ 6 dB"),
     ("pm_force_deg", "phase margin, force loop", f"{g['pm_force_deg']['value']:.1f}°",
      "≥ 45°"),
     ("pm_torque_deg", "phase margin, torque loop", f"{g['pm_torque_deg']['value']:.1f}°",
@@ -73,7 +80,7 @@ rows = [
     ("mc_pass_fraction", "Monte-Carlo pass fraction", f"{V['mc_pass']}/{V['mc_n']}",
      "≥ 95 %"),
 ]
-y0, dy = 0.955, 0.061
+y0, dy = 0.955, 0.049
 axt.text(0.01, y0 + 0.052, "gate", fontsize=10, color=c.MUTED, va="center")
 axt.text(0.40, y0 + 0.052, "measured", fontsize=10, color=c.MUTED, va="center")
 axt.text(0.58, y0 + 0.052, "rule", fontsize=10, color=c.MUTED, va="center")
@@ -144,7 +151,8 @@ c.caption(fig, "The hero frame is the simulator's own 3-D render (MuJoCo "
           "the same CSV row, and the settle band strip on the rail marks "
           "±0.01 m around x = 0. Gate values are read from the verdict "
           "JSON; gain margins are unlimited (99 dB = judge sentinel for "
-          "\"no -180° crossing in the 0.01-1000 rad/s sweep\").")
+          "\"no crossing of any odd multiple of 180° in the 0.01-1000 "
+          "rad/s sweep\").")
 c.check_layout(fig)
 fig.savefig(os.path.join(c.MEDIA, "result.png"), dpi=200)
 print("result.png written")

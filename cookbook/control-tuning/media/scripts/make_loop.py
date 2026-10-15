@@ -5,9 +5,16 @@ JSONs (4 replay candidates x 18 gates), the trace of the gate that actually
 killed too-aggressive (actuator demand), and the trace that killed
 too-sluggish (settling). Right column: which gate ended each replay step,
 and the selftest kill bars.
+
+Every number is read from a judge output: verdict JSONs and trace CSVs under
+media/data/, plus the self-test log (media/data/selftest.log) written by
+media/regen_data.sh running judge/selftest.sh verbatim. The kill bars, the
+rejection labels and the kill rate come from that log, never from here; a
+missing, empty or incomplete log is a hard error.
 """
 
 import os
+import re
 
 import numpy as np
 from matplotlib.colors import ListedColormap
@@ -15,6 +22,52 @@ from matplotlib.colors import ListedColormap
 import common as c
 
 plt = c.rc_params()
+
+
+def selftest_log():
+    """Parse media/data/selftest.log -> (rows, n_good, killed, total, rate).
+
+    rows: [(name, killed_bool, label)] per mutant, in the self-test's own
+    order, label = the description + measured detail the self-test
+    printed; n_good: how many of the expected-pass gradings passed;
+    killed/total/rate: the kill-rate line verbatim. The log must exist,
+    be nonempty and carry the closing kill-rate line - anything else
+    means the self-test did not run to completion against the current
+    judge, and no kill bar may be drawn.
+    """
+    path = os.path.join(c.DATA, "selftest.log")
+    if not os.path.isfile(path):
+        c.die(f"missing {path} - run media/regen_data.sh (it runs "
+              "judge/selftest.sh verbatim and captures this log)")
+    with open(path, encoding="utf-8") as fh:
+        log = fh.read()
+    if not log.strip():
+        c.die(f"{path} is empty - the self-test produced no output")
+    m = re.search(r"kill rate:\s*(\d+)/(\d+)\s*=\s*(\d+)%", log)
+    if not m:
+        c.die(f"{path} has no 'kill rate: k/n = p%' line - the self-test "
+              "did not complete")
+    killed, total, rate = (int(g) for g in m.groups())
+    rows = []
+    for verdict, name, label in re.findall(
+            r"^(PASS|FAIL) \(expected reject\): (\S+?)(?: \[isolated\])?"
+            r"(?: - (.*))?$", log, re.M):
+        # drop the trailing measured detail the self-test appends
+        # ("... (gate = value)" / "... (invalid artifact: ...)") so the
+        # bar labels stay one line; the full line stays in the log
+        label = re.sub(r" \((?:invalid artifact:.*|[\w]+ = [^()]*)\)$",
+                       "", label or "")
+        rows.append((name, verdict == "PASS", label))
+    n_good = len(re.findall(r"^PASS \(expected pass\):", log, re.M))
+    n_good_total = len(re.findall(r"^\w+ \(expected pass\):", log, re.M))
+    if len(rows) != total or sum(k for _, k, _ in rows) != killed:
+        c.die(f"self-test log does not add up: {len(rows)} reject lines, "
+              f"{sum(k for _, k, _ in rows)} clean kills, but the "
+              f"self-test printed {killed}/{total}")
+    if n_good != n_good_total:
+        c.die(f"self-test log shows {n_good_total - n_good} expected-pass "
+              f"grading(s) that did not pass")
+    return rows, n_good, killed, total, rate
 
 Vg = c.verdict("good")
 
@@ -163,6 +216,7 @@ axf.set_title("The gate that ended each replay step", fontsize=12,
 Vm = c.verdict("mc-marginal")
 Va = c.verdict("too-aggressive")
 Vs = c.verdict("too-sluggish")
+NGATES = len(Vg["gates"])
 FIRST = [("too-aggressive", "actuator demand",
           f"peak |τ| = {Va['gates']['s2_tau_demand_max_Nm']['value']:.2f} N·m > 1 N·m"),
          ("too-sluggish", "settling time",
@@ -170,7 +224,7 @@ FIRST = [("too-aggressive", "actuator demand",
          ("mc-marginal", "Monte-Carlo robustness",
           f"{Vm['mc_pass']}/{Vm['mc_n']} = "
           f"{Vm['gates']['mc_pass_fraction']['value']:.3f} < 0.95"),
-         ("good", "all 18 gates", "verdict: PASS")]
+         ("good", f"all {NGATES} gates", "verdict: PASS")]
 yy = 0.94
 for name, gname, detail in FIRST:
     if name == "good":
@@ -189,39 +243,42 @@ axf.text(0.02, 0.02,
 axf.set_xlim(0, 1)
 axf.set_ylim(0, 1)
 
-# ------------------------------------------------ right bottom: selftest bars
+# ------------------------------------------- right bottom: selftest kill bars
+# Every bar, label and the kill rate come from the captured self-test log
+# (media/data/selftest.log, written by media/regen_data.sh); nothing here
+# invents a kill. NGATES and the good row's pass count come from the good
+# verdict JSON.
+ST_ROWS, N_GOOD, KILLED, TOTAL, RATE = selftest_log()
 axs = fig.add_subplot(gs[1:, 1])
-MUT = ["nan-weight", "wrong-type", "wrong-shape", "sign-flip",
-       "degenerate-r-force", "degenerate-r-torque", "too-aggressive",
-       "too-sluggish", "mc-marginal"]
-HOW = {"nan-weight": "gate 1: NaN weight", "wrong-type": "gate 1: type ≠ \"lqr\"",
-       "wrong-shape": "gate 1: Q length 3", "sign-flip": "gate 2: no stabilising K",
-       "degenerate-r-force": "gate 3: |F| demand", "degenerate-r-torque": "gate 3: |τ| demand",
-       "too-aggressive": "gate 3: |τ| demand", "too-sluggish": "gate 3/4: settling",
-       "mc-marginal": "gate 6: Monte-Carlo"}
-axs.barh([0], [1], height=0.62, color=c.GOOD, zorder=3)
-axs.text(0.04, 0, "good", fontsize=10.5, color="white",
-         va="center", fontweight="bold")
-axs.text(1.06, 0, "18/18 gates pass", fontsize=10.5, color=c.GOOD,
-         va="center", fontweight="bold")
-for i, m in enumerate(MUT):
-    axs.barh([-(i + 1)], [1], height=0.62, color=c.CRIT, zorder=3)
-    axs.text(0.04, -(i + 1), m, fontsize=10.5, color="white",
-             va="center", fontweight="bold")
-    axs.text(1.06, -(i + 1), f"rejected - {HOW[m]}", fontsize=10.5,
-             color=c.CRIT, va="center")
-axs.set_xlim(0, 2.35)
-axs.set_ylim(-len(MUT) - 2.0, 0.6)
+rows = [("good", True,
+         f"{sum(g['pass'] for g in Vg['gates'].values())}/{NGATES} "
+         "gates pass")] + ST_ROWS
+BAR_H = 0.62 if len(rows) <= 11 else 0.58
+FS = 10.5 if len(rows) <= 11 else 9.0
+for i, (name, killed, label) in enumerate(rows):
+    y = -i
+    col = c.GOOD if killed else c.CRIT
+    axs.barh([y], [1], height=BAR_H, color=col, zorder=3)
+    axs.text(0.035, y, name, fontsize=FS, color="white", va="center",
+             fontweight="bold")
+    tag = "pass" if killed and name == "good" else (
+        "rejected" if killed else "NOT KILLED")
+    txt = f"{tag} - {label}" if label else tag
+    axs.text(1.05, y, txt, fontsize=FS, color=col, va="center")
+axs.set_xlim(0, 2.42)
+axs.set_ylim(-len(rows) - 1.7, 0.62)
 axs.set_yticks([])
 axs.set_xticks([])
 for s in ("top", "right", "left", "bottom"):
     axs.spines[s].set_visible(False)
-axs.set_title("Selftest - known-bad mutants the judge must reject\n"
-              "(kill rate 9/9 = 100 %, threshold ≥ 90 %)",
+axs.set_title(f"Selftest - known-bad mutants the judge must reject\n"
+              f"(kill rate {KILLED}/{TOTAL} = {RATE} %, threshold ≥ 90 %)",
               fontsize=12, color=c.INK, pad=8)
-axs.text(0.0, -(len(MUT) + 0.7),
-         "gate 1 rejects invalid JSON before any simulation runs;\n"
-         "gate 6 alone kills mc-marginal", fontsize=9.5, color=c.MUTED,
+axs.text(0.0, -(len(rows) + 0.55),
+         f"bars and kill rate parsed from the captured selftest output "
+         f"(media/data/selftest.log);\n"
+         f"{N_GOOD} expected-pass grading(s) incl. the full Monte-Carlo "
+         "grade of the good example", fontsize=9.0, color=c.MUTED,
          va="top")
 
 fig.suptitle("The agent loop under the judge - replayed with the committed "

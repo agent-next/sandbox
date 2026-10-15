@@ -158,6 +158,14 @@ def main():
     backend = r3.gl_backend()
     print(f"make_video: GL backend {backend}")
 
+    # measured gate values read from the verdict JSONs the judge wrote —
+    # the card subtitles quote them, so they must come from the data, not
+    # from this file
+    Vag = c.verdict("too-aggressive")
+    Vsl = c.verdict("too-sluggish")
+    tau_bad = Vag["gates"]["s2_tau_demand_max_Nm"]["value"]
+    x_sluggish = Vsl["gates"]["s2_x_settle_s"]["value"]
+
     sink = FFmpegSink(args.out, FPS, args.crf, args.preset)
 
     # 1. title
@@ -194,7 +202,7 @@ def main():
     # readable before the replay starts moving.
     sink.fade_to(card("side by side - too-aggressive vs good",
                       sub="scenario 2 - the torque gate kills it: "
-                          "peak |\u03c4| = 2.52 N\u00b7m > 1 N\u00b7m",
+                          f"peak |\u03c4| = {tau_bad:.2f} N\u00b7m > 1 N\u00b7m",
                       accent=c.ORANGE))
     sink.hold(sink.last, 0.7)
     repL, infoL = r3.make("too-aggressive", 2, camera="track",
@@ -211,7 +219,7 @@ def main():
     # 8-9. side-by-side: too-sluggish never settles (S2), 1.7x speed
     sink.fade_to(card("side by side - too-sluggish vs good",
                       sub="scenario 2 at 1.7x - x never enters the "
-                          "\u00b10.02 m band (10.00 s > 7 s)",
+                          f"\u00b10.02 m band ({x_sluggish:.2f} s > 7 s)",
                       accent=c.ORANGE))
     sink.hold(sink.last, 0.7)
     repL, infoL = r3.make("too-sluggish", 2, camera="track", width=960)
