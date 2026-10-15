@@ -25,9 +25,13 @@ command -v uv >/dev/null 2>&1 || {
 }
 export PATH="$HOME/tools/bin:$PATH"
 
+# grade <artifact-dir> <name> — a failing verdict is an expected result,
+# so a non-zero exit must not stop the collection.
 grade() {  # grade <artifact-dir> <name>
-    "$JUDGE/grade.sh" "$DEMO/$1" --seed "$SEED" \
-        --json "$DATA/verdict-$2.json" > "$DATA/grade-$2.txt"
+    if ! "$JUDGE/grade.sh" "$DEMO/$1" --seed "$SEED" \
+            --json "$DATA/verdict-$2.json" > "$DATA/grade-$2.txt"; then
+        echo "collect.sh: $1: judge verdict FAIL (expected for known-bad)"
+    fi
 }
 
 MUT_DIR="$HERE/scratch/mutants"
@@ -41,12 +45,12 @@ NAMES=$(cat "$DATA/mutants.txt")
 if [ "$QUICK" -eq 0 ]; then
     for name in $NAMES; do
         echo "== collect.sh: grading mutant $name =="
-        grade "scratch/mutants/$name" "$name"
+        grade "media/scratch/mutants/$name" "$name"
     done
 else
     for name in $(echo "$NAMES" | head -3); do
         echo "== collect.sh: quick mode: grading mutant $name =="
-        grade "scratch/mutants/$name" "$name"
+        grade "media/scratch/mutants/$name" "$name"
     done
 fi
 

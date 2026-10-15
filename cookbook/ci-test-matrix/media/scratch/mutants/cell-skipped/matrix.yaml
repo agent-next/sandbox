@@ -1,0 +1,16 @@
+# matrix.yaml — the matrix definition for the ci-test-matrix demo.
+#
+# One cell per CPython version: each cell is its own uv-managed interpreter
+# (see SPEC.md).  The runner (run_matrix.py) reads this file, runs one cell
+# per version, collects one JUnit XML file per cell and aggregates them into
+# the matrix table appended below.
+#
+# keys (graded by judge/grade.sh):
+#   python_versions : the cells, one uv-managed interpreter each
+#   fixture         : path to the fixture library's test package
+#   toggle          : name of the version-specific-failure toggle
+#   junit_dir       : where the per-cell JUnit XML files are written
+python_versions: ["3.10", "3.11", "3.12", "3.13"]
+fixture: fixture
+toggle: DEMOLIB_MATCH
+junit_dir: junit
