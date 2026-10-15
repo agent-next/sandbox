@@ -1,0 +1,9 @@
+{
+  "name": "hyperframes-judge",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Pinned HyperFrames install for cookbook/hyperframes-video judge",
+  "dependencies": {
+    "hyperframes": "0.8.61"
+  }
+}

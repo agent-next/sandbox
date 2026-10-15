@@ -2,9 +2,7 @@
 **/renders/
 **/output.mp4
 **/out*.mp4
+*.log
+examples/bad/
 media/demo.mp4
 media/master/
-*.log
-judge/http-root/composition/*.js
-judge/http-root/composition/*.json
-judge/http-root/spec.json
