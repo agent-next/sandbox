@@ -70,12 +70,17 @@ judge's own outputs by `bash media/make_media.sh` (never hand-edited):
 
 | step | wall time |
 |---|---|
-| `sbx create` | ~3–4 s |
-| `git clone --depth 1` | ~5 s |
-| `judge/setup.sh` (fresh venv) | 32–36 s (idempotent re-run: a few s) |
-| `judge/grade.sh examples/good` | 10–13 s |
-| `judge/selftest.sh` (good + 13 mutants + determinism) | 80–106 s |
-| `run.py` end to end | ~2 m 10 s – 2 m 40 s |
+| `sbx create` | ~3–6 s |
+| `git clone --depth 1` | ~5–9 s |
+| `judge/setup.sh` (fresh venv) | 31–62 s (idempotent re-run: a few s) |
+| `judge/grade.sh examples/good` | 9–18 s |
+| `judge/selftest.sh` (good + 13 mutants + determinism) | 80–176 s |
+| `run.py` end to end | ~2 m – 4 m 30 s |
+
+These ranges are what was observed across fresh sandboxes on 2 vCPU hosts;
+the top of each range is a loaded machine, not a different code path.
+`run.py` gives each step a sandbox-side limit of 900 s (plus a 60 s local
+buffer), so a loaded host slows the run down but does not fail it.
 
 Grading runs the model three times (nominal, repeat, zero-melt); each run
 is ~3 s. `run.py` prints a per-step timing line. Times vary with machine
