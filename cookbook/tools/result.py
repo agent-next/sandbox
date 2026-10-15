@@ -182,6 +182,7 @@ def _sniff_ftyp(head):
 def _moov_box(f):
     """The top-level moov box (up to _SNIFF_WINDOW bytes), found by walking
     box headers — files written without +faststart keep it after mdat."""
+    end = f.seek(0, 2)
     f.seek(0)
     while True:
         header = f.read(8)
@@ -196,7 +197,7 @@ def _moov_box(f):
             return b""
         if typ == b"moov":
             return header + f.read(_SNIFF_WINDOW)
-        if size is None:
+        if size is None or f.tell() + size - 8 > end:
             return b""
         f.seek(size - 8, 1)
 
