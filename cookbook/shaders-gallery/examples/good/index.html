@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Northlight Hero — shaders demo</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overflow-x: hidden;
+               background: #0b0e17; color: #eef1f8;
+               font-family: system-ui, sans-serif; }
+  .hero { max-width: 1200px; margin: 0 auto; padding: 48px 24px 64px; }
+  h1 { font-size: clamp(28px, 5vw, 56px); line-height: 1.1; margin: 0 0 16px; }
+  .lede { font-size: clamp(15px, 2vw, 20px); color: #aab3c5; max-width: 60ch;
+          margin: 0 0 32px; }
+  .fx-grid { display: grid; gap: 20px;
+             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .fx { border-radius: 14px; overflow: hidden; background: #141a2b;
+        border: 1px solid #232c47; }
+  .fx .stage { height: 180px; }
+  .fx figcaption { padding: 10px 14px; font-size: 13px; color: #8f9ab3; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .cta { margin-top: 36px; }
+  .cta a { display: inline-block; padding: 12px 22px; border-radius: 8px;
+           background: #4f6ef7; color: #fff; text-decoration: none; }
+  @media (max-width: 480px) { .fx .stage { height: 140px; } }
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>Ship shader-driven heroes without a GPU budget</h1>
+  <p class="lede">Three effects from the <em>shaders</em> component library,
+     mounted by the judge on this page's own canvases and graded on the
+     pixels they actually render.</p>
+
+  <div class="fx-grid">
+    <figure class="fx"><div class="stage" id="hero-aurora"><canvas></canvas></div>
+      <figcaption>Aurora — layered light curtains</figcaption></figure>
+    <figure class="fx"><div class="stage" id="hero-blob"><canvas></canvas></div>
+      <figcaption>Blob — soft morphing gradient mass</figcaption></figure>
+    <figure class="fx"><div class="stage" id="hero-plasma"><canvas></canvas></div>
+      <figcaption>FlowingGradient — drifting colour field</figcaption></figure>
+  </div>
+
+  <p class="cta"><a href="#">Read the docs</a></p>
+</header>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# generated mutant artifacts + run outputs
+examples/bad/
+**/__pycache__/
+*.pyc
+verdict*.json
+media/master/

@@ -1,0 +1,17 @@
+{
+  "title": "Northlight Hero",
+  "effects": [
+    {
+      "type": "Aurora",
+      "region": "hero-aurora"
+    },
+    {
+      "type": "Blob",
+      "region": "hero-blob"
+    },
+    {
+      "type": "FlowingGradient",
+      "region": "hero-plasma"
+    }
+  ]
+}
