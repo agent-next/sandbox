@@ -37,8 +37,10 @@ debs_ok() {
         [[ "$sha" == \#* || -z "$sha" ]] && continue
         [[ "$fname" == *.deb ]] || continue
         name="${fname%%_*}"; ver="${fname#*_}"; ver="${ver%_*}"
-        [[ "$(dpkg-query -W -f='${Version}' "$name" 2>/dev/null)" == "$ver" ]] \
-            || return 1
+        inst="$(dpkg-query -W -f='${Version}' "$name" 2>/dev/null)"
+        # dpkg reports epoch-qualified versions (7:5.1.9-...); deb filenames
+        # omit the epoch — compare without it.
+        [[ "${inst##*:}" == "$ver" ]] || return 1
     done < "$SHA_FILE"
 }
 if [[ $FORCE -eq 0 && -f "$MARK" \

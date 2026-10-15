@@ -297,14 +297,14 @@ def main():
                                       "PASS" if passed else "FAIL",
                                       json.dumps(detail)[:240]))
 
-    def finish(code):
+    def finish():
         verdict["all_gates_passed"] = all(g["passed"] for g in gates) \
             and len(gates) >= 6
         if json_out:
             with open(json_out, "w") as f:
                 json.dump(verdict, f, indent=2)
                 f.write("\n")
-        return code
+        return 0 if verdict["all_gates_passed"] else 1
 
     work = tempfile.mkdtemp(prefix="hf-gates-")
     rlog = open(os.path.join(work, "render.log"), "w")
@@ -337,7 +337,7 @@ def main():
             gate(n, nm, False, {"skipped": "input invalid"})
         rlog.close()
         shutil.rmtree(work, ignore_errors=True)
-        return finish(2)
+        return finish()
     gate(0, "input-validation", True, {"checked": len(problems)})
 
     dur = float(spec["duration_s"])
@@ -359,7 +359,7 @@ def main():
             gate(n, nm, False, {"skipped": "render failed"})
         rlog.close()
         shutil.rmtree(work, ignore_errors=True)
-        return finish(1)
+        return finish()
 
     # -- gate 2: container format ----------------------------------------------
     probe = ffprobe_json(out1)
@@ -509,6 +509,8 @@ def main():
                      "[0:v][1:v]psnr", "-f", "null", "-"])
             m = re.search(r"average:([0-9.]+|inf)", p.stderr)
             psnr = float(m.group(1)) if m else 0.0
+            if math.isinf(psnr):
+                psnr = 99.0          # identical streams; cap for reporting
             gate(6, "determinism",
                  ssim >= SSIM_MIN and psnr >= PSNR_MIN,
                  {"ssim_all": round(ssim, 4),
@@ -520,7 +522,7 @@ def main():
 
     rlog.close()
     shutil.rmtree(work, ignore_errors=True)
-    return finish(0 if verdict["all_gates_passed"] else 1)
+    return finish()
 
 
 if __name__ == "__main__":

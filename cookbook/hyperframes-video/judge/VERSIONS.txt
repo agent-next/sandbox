@@ -1,0 +1,57 @@
+# What judge/setup.sh actually installed — recorded by the tools' own
+# --version output, not by hand.
+#
+# Reproduce:
+#   bash judge/setup.sh && bash judge/versions.sh > judge/VERSIONS.txt
+#
+# Debian bookworm archive + upstream downloads, pinned by sha256 in
+# judge/package-sha256.txt.  A superseded upstream build changes a digest
+# and setup.sh fails loudly instead of silently installing something else.
+
+### Toolchain
+
+$ node --version
+    v22.23.3
+
+$ hyperframes --version
+    0.8.61
+
+$ chrome-headless-shell --version
+    Google Chrome for Testing 152.0.7977.30
+
+$ ffmpeg -version | head -1
+    ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
+
+$ ffprobe -version | head -1
+    ffprobe version 5.1.9-0+deb12u1 Copyright (c) 2007-2026 the FFmpeg developers
+
+$ tesseract --version | head -2
+    tesseract 5.3.0
+     leptonica-1.82.0
+
+### dpkg versions (dpkg-query -W)
+
+ffmpeg=7:5.1.9-0+deb12u1
+tesseract-ocr=5.3.0-2
+libtesseract5=5.3.0-2
+liblept5=1.82.0-3+b3
+tesseract-ocr-eng=1:4.1.0-2
+fonts-dejavu-core=2.37-6
+
+### Pinned download sha256 digests (judge/package-sha256.txt)
+
+  2ba8ead87657c123ce6de2de5ecdbc1fb4ead9a4b317b85b8ec41e16c890fe01  ffmpeg_5.1.9-0+deb12u1_amd64.deb            http://deb.debian.org/debian/pool/main/f/ffmpeg/ffmpeg_5.1.9-0%2bdeb12u1_amd64.deb
+  9242d054563262398f8cf41fbd96fcc72f9dde70db16de18539882a6cff74f9d  tesseract-ocr-eng_4.1.0-2_all.deb           http://deb.debian.org/debian/pool/main/t/tesseract-lang/tesseract-ocr-eng_4.1.0-2_all.deb
+  311fed91c7311cfee54c28a0f21d700377b8131a9d114628d36d2563f99e1730  tesseract-ocr_5.3.0-2_amd64.deb             http://deb.debian.org/debian/pool/main/t/tesseract/tesseract-ocr_5.3.0-2_amd64.deb
+  19b1719f30235eaf209866b219d4dbdd4dddd813758a8d5b9715c78c40702ff1  libtesseract5_5.3.0-2_amd64.deb             http://deb.debian.org/debian/pool/main/t/tesseract/libtesseract5_5.3.0-2_amd64.deb
+  cddc18cffc38bb1839f2b5336822646b34dafc5dd40468b658d26c20e0eb97af  liblept5_1.82.0-3+b3_amd64.deb                http://deb.debian.org/debian/pool/main/l/leptonlib/liblept5_1.82.0-3%2bb3_amd64.deb
+  8892669e51aab4dc56682c8e39d8ddb7d70fad83c369344e1e240bf3ca22bb76  fonts-dejavu-core_2.37-6_all.deb            http://deb.debian.org/debian/pool/main/f/fonts-dejavu/fonts-dejavu-core_2.37-6_all.deb
+  df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de  node-v22.23.3-linux-x64.tar.xz              https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz
+  1b150320178ecabe39726bcf3198ebb896ba2b7a07d870db1710914c42d55221  chrome-headless-shell-linux64-152.0.7977.30.zip  https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.30/linux64/chrome-headless-shell-linux64.zip
+  c174bfce53a729418d57a8ad8625e7247c793a22fef8e2851e3cfa3de9cd8280  gsap-3.14.2.min.js                           https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js
+
+### npm lockfile
+
+packages in judge/package-lock.json: 124
+hyperframes: 0.8.61
+
