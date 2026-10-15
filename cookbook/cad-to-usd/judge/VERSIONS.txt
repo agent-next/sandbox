@@ -1,4 +1,4 @@
-recorded: 2026-10-15T16:51:32Z by judge/setup.sh
+recorded: 2026-10-15T20:20:46Z by judge/setup.sh
 python: Python 3.12.15
 usd-convert-cad: 0.3.0
 usd-core (pxr): 0.26.8
