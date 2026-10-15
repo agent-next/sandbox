@@ -70,11 +70,12 @@ class Lease:
         except URLError as exc:
             raise LeaseError(f"API unreachable: {exc.reason}") from exc
 
-    def exec(self, code, timeout_s=600, retries=2):
+    def exec(self, code, timeout_s=600, retries=4):
         """Run Python on the lease; returns the `result` dict (report/stdout/stderr/ok).
 
-        A 5xx from the gateway (a lease still resuming, a transient drop) is
-        retried; an `ok: False` in the result is a job failure, not retried.
+        A 409/429/5xx from the gateway (a lease still resuming, a transient drop,
+        contention on the exec slot) is retried; an `ok: False` in the result is
+        a job failure, not retried.
         """
         if self.closed:
             raise LeaseError("lease is closed")
@@ -86,9 +87,11 @@ class Lease:
                 result = executed.get("result") or {}
                 result.setdefault("ok", False)
                 return result
-            if status < 500 or attempt == retries:
+            if status not in (409, 429) and status < 500:
                 raise LeaseError(f"GPU exec: HTTP {status}")
-            time.sleep(3 * (attempt + 1))
+            if attempt == retries:
+                raise LeaseError(f"GPU exec: HTTP {status} after {retries + 1} attempts")
+            time.sleep(min(5 * (attempt + 1), 30))
         raise LeaseError("unreachable")
 
     def upload_tar(self, tar_bytes, dest="~/payload", chunk_bytes=4 * 1024 * 1024):
