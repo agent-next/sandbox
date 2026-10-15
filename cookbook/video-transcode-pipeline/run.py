@@ -35,9 +35,15 @@ def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
                           timeout=timeout)
 
 
-def step(name: str, fn) -> subprocess.CompletedProcess:
+def step(name: str, fn, client_timeout: float | None = None) -> subprocess.CompletedProcess:
+    """Run one step. `client_timeout` is the local subprocess timeout; it must
+    outlast the sandbox-side --timeout, so a slow step is reported by the
+    sandbox rather than killed here mid-write."""
     start = time.monotonic()
-    proc = fn()
+    if client_timeout is None:
+        proc = fn()
+    else:
+        proc = fn(client_timeout)
     dt = time.monotonic() - start
     print(f"run: [{dt:6.1f}s] {name} -> exit {proc.returncode}", flush=True)
     if proc.returncode != 0:
@@ -82,9 +88,10 @@ def main() -> int:
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
-            proc = step(name, lambda: sbx(
+            proc = step(name, lambda ct: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"))
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}", timeout=ct),
+                client_timeout=timeout + 120)
             if echo:
                 show(proc)
             return proc
