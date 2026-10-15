@@ -202,6 +202,196 @@
    "solidcraft": "0.10.1"
   }
  },
+ "csg_bore_shifted": {
+  "demo": "solidcraft-cad",
+  "failed_gate": "features",
+  "gates": {
+   "build": {
+    "pass": true,
+    "reason": "STEP and STL written"
+   },
+   "cross_check": {
+    "area_rel_dev": 2.00056e-07,
+    "bodies": 1,
+    "com_max_dev_mm": 1.00841e-05,
+    "limit_com_mm": 0.01,
+    "limit_rel": 0.001,
+    "occt_area_mm2": 7572.66,
+    "pass": true,
+    "solidcraft_area_mm2": 7572.66,
+    "solidcraft_volume_mm3": 16644.9,
+    "volume_rel_dev": 1.36042e-06
+   },
+   "features": {
+    "bolt_diameter_max_dev_mm": 18.6,
+    "bolt_holes": 5,
+    "bore_diameter_mm": null,
+    "boss_height_mm": 3.0,
+    "corner_fillets": 4,
+    "min_edge_distance_mm": 7.8,
+    "pass": false,
+    "pcd_max_dev_mm": 21.6203,
+    "problems": [
+     "expected 1 centre bore, found 0",
+     "expected 4 bolt holes, found 5",
+     "bolt hole diameter off by 18.6000 mm",
+     "bolt hole off the pitch circle by 21.6203 mm",
+     "bolt hole spacing off by 72.000 deg"
+    ],
+    "spacing_max_dev_deg": 72.0
+   },
+   "mass": {
+    "density_g_cm3": 2.7,
+    "limit_g": 52.0,
+    "mass_g": 44.9412,
+    "pass": true
+   },
+   "occt_shape": {
+    "bbox_max": [
+     30.0,
+     25.0,
+     9.0
+    ],
+    "bbox_max_dev_mm": 1e-07,
+    "bbox_min": [
+     -30.0,
+     -25.0,
+     -1e-07
+    ],
+    "limit_mm": 0.01,
+    "pass": true,
+    "solids": 1,
+    "valid": true
+   },
+   "parametric": {
+    "analytic_delta_mm3": 5124.18,
+    "expected_top_z_mm": 11.0,
+    "limit_rel": 0.002,
+    "new_value_mm": 8.0,
+    "parameter": "thickness",
+    "pass": true,
+    "rel_dev": 1.2053e-07,
+    "solids": 1,
+    "top_z_mm": 11.0,
+    "volume_delta_mm3": 5124.18
+   },
+   "stl": {
+    "limit_rel": 0.005,
+    "non_manifold_edges": 0,
+    "pass": true,
+    "rel_dev_vs_step": 0.000135529,
+    "stl_volume_mm3": 16647.1,
+    "triangles": 3692
+   },
+   "volume": {
+    "analytic_mm3": 16644.9,
+    "limit_rel": 0.002,
+    "occt_mm3": 16644.9,
+    "pass": true,
+    "rel_dev": 1.66979e-07
+   }
+  },
+  "passed": false,
+  "reason": "expected 1 centre bore, found 0; expected 4 bolt holes, found 5; bolt hole diameter off by 18.6000 mm; bolt hole off the pitch circle by 21.6203 mm; bolt hole spacing off by 72.000 deg",
+  "seed": 20261014,
+  "versions": {
+   "python": "3.12.15",
+   "solidcraft": "0.10.1"
+  }
+ },
+ "csg_corner_missing": {
+  "demo": "solidcraft-cad",
+  "failed_gate": "volume",
+  "gates": {
+   "build": {
+    "pass": true,
+    "reason": "STEP and STL written"
+   },
+   "cross_check": {
+    "area_rel_dev": 3.3789e-07,
+    "bodies": 1,
+    "com_max_dev_mm": 1.82536e-05,
+    "limit_com_mm": 0.01,
+    "limit_rel": 0.001,
+    "occt_area_mm2": 7546.26,
+    "pass": true,
+    "solidcraft_area_mm2": 7546.27,
+    "solidcraft_volume_mm3": 16527.1,
+    "volume_rel_dev": 1.93769e-06
+   },
+   "features": {
+    "bolt_diameter_max_dev_mm": 2.66454e-14,
+    "bolt_holes": 4,
+    "bore_diameter_mm": 22.0,
+    "boss_height_mm": 3.0,
+    "corner_fillets": 3,
+    "min_edge_distance_mm": 7.8,
+    "pass": false,
+    "pcd_max_dev_mm": 2.4869e-14,
+    "problems": [
+     "expected 4 corner fillets of R5.0, found 3"
+    ],
+    "spacing_max_dev_deg": 5.68434e-14
+   },
+   "mass": {
+    "density_g_cm3": 2.7,
+    "limit_g": 52.0,
+    "mass_g": 44.6231,
+    "pass": true
+   },
+   "occt_shape": {
+    "bbox_max": [
+     30.0,
+     25.0,
+     9.0
+    ],
+    "bbox_max_dev_mm": 1e-07,
+    "bbox_min": [
+     -30.0,
+     -25.0,
+     -1e-07
+    ],
+    "limit_mm": 0.01,
+    "pass": true,
+    "solids": 1,
+    "valid": true
+   },
+   "parametric": {
+    "analytic_delta_mm3": 5124.18,
+    "expected_top_z_mm": 11.0,
+    "limit_rel": 0.002,
+    "new_value_mm": 8.0,
+    "parameter": "thickness",
+    "pass": false,
+    "rel_dev": 0.00766353,
+    "solids": 1,
+    "top_z_mm": 11.0,
+    "volume_delta_mm3": 5084.91
+   },
+   "stl": {
+    "limit_rel": 0.005,
+    "non_manifold_edges": 0,
+    "pass": true,
+    "rel_dev_vs_step": 0.000145572,
+    "stl_volume_mm3": 16529.5,
+    "triangles": 3528
+   },
+   "volume": {
+    "analytic_mm3": 16644.9,
+    "limit_rel": 0.002,
+    "occt_mm3": 16527.1,
+    "pass": false,
+    "rel_dev": 0.00707767
+   }
+  },
+  "passed": false,
+  "reason": "{\"occt_mm3\": 16527.1, \"analytic_mm3\": 16644.9, \"rel_dev\": 0.00707767, \"limit_rel\": 0.002}",
+  "seed": 20261014,
+  "versions": {
+   "python": "3.12.15",
+   "solidcraft": "0.10.1"
+  }
+ },
  "file_export": {
   "demo": "solidcraft-cad",
   "failed_gate": "build",

@@ -15,13 +15,13 @@
    "shows": "Scripted repair replay (3 mistakes fixed one per grade) + self-test kill rate over 12 mutants",
    "command": "bash media/make_media.sh (make_media.py figures)",
    "source": "data/replay.json, data/verdicts.json",
-   "sha256": "5340712e6ce0cfb74f5b22aeb66b071e537ffbcd196bfd2dd829bf687c0c8a36"
+   "sha256": "859e495777232ff9ea680457441528684b5b86a3aab2a04241852fe3e8928a11"
   },
   "demo.mp4": {
    "shows": "Spec -> SolidCraft build stages -> delivered views -> parametric sweep -> judge verdict -> loop",
    "command": "bash media/make_media.sh (make_media.py frames + ffmpeg crf 0 master -> crf 18 web)",
    "source": "data/*.json, data/renders/*.png",
-   "sha256": "4deb22884c59474981319d177bd0060edf282393664a0d1a736b7b78bd1dabef"
+   "sha256": "5dad75910c6da9495e13cb9d5b3c90050c783383314b37887c5815c22094c266"
   },
   "data/renders": {
    "shows": "SolidCraft snapshot PNGs used by the figures and video",

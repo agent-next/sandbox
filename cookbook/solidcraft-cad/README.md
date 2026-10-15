@@ -33,8 +33,9 @@ Key numbers from the judge verdict on `examples/good/design.json`:
 - **Mass**: 44.94 g in 6061 aluminium (limit ≤ 52 g)
 - **Two kernels agree**: SolidCraft vs OpenCascade volume 1.2e-6 and area 4.9e-7 relative, centre of mass within 1e-5 mm
 - **Parametric**: `thickness` 6 → 8 mm adds 5124.18 mm³; the analytic value is 5124.18 mm³ (deviation 5e-12)
-- **STL**: 3772 triangles, closed and consistently oriented, volume within 0.013 % of the STEP
-- **Self-test kill rate**: 12/12 = 100 % (requirement ≥ 90 %)
+- **STL**: 3772 triangles, closed and consistently oriented, volume 0.0131 % from the STEP (limit 0.5 %)
+- **Self-test**: both known-good designs pass; 14/14 mutants killed = 100 % (requirement ≥ 90 %)
+- **Independent agent**: a different model family (GPT-6.1 Sol in Factory Droid) followed only this README, matched every number above, then modelled the part itself and passed on attempt 12. See REPRODUCE.md
 
 ## Ask your agent
 
@@ -43,9 +44,11 @@ Key numbers from the judge verdict on `examples/good/design.json`:
 > `bash cookbook/solidcraft-cad/judge/setup.sh`, read
 > `cookbook/solidcraft-cad/SPEC.md` and `cookbook/solidcraft-cad/spec.json`,
 > then model the part yourself with SolidCraft. Write a command script
-> `design.json` with a `thickness` parameter that drives the plate. Use
-> `~/.local/solidcraft-0.10.1-linux-x86_64/bin/solidcraft-cli commands` to see
-> every command, `solidcraft-cli eval design.json` to measure it, and
+> `design.json` with a `thickness` parameter that drives the plate. setup.sh
+> does not put SolidCraft on PATH, so first run
+> `export PATH="$HOME/.local/solidcraft-0.10.1-linux-x86_64/bin:$PATH"`. Then use
+> `solidcraft-cli commands` to see every command,
+> `solidcraft-cli eval design.json` to measure it, and
 > `solidcraft-cli snapshot design.json --out part.png` to look at it.
 > Iterate with
 > `bash cookbook/solidcraft-cad/judge/grade.sh design.json --json v.json`
@@ -90,6 +93,13 @@ Eight gates, all numeric (full rules in `SPEC.md`):
 6. **cross_check**: SolidCraft's `eval` and OpenCascade agree to 0.1 %.
 7. **parametric**: the judge bumps `thickness` by 2 mm, rebuilds, and the volume change must match the analytic value.
 8. **stl**: the mesh is watertight, oriented, and matches the STEP volume to 0.5 %.
+
+Any modelling style is accepted. `examples/good/` has two known-good designs:
+`design.json` (sketch, then extrude) and `design-csg.json` (boxes and cylinders
+combined; it was written by the independent agent). SolidCraft exports some of
+that design's cylinders as B-spline faces. The features gate recognises those
+by fitting circles to them, and the self-test proves it: it moves the bore
+0.3 mm, which leaves the volume unchanged, and the judge still rejects it.
 
 ## Limits
 
