@@ -101,7 +101,7 @@ real	1m25.683s
 ```
 
 Run 1 wall time **2m3s**, run 2 **1m46s**; the block above is a third run
-from a fresh clone of the pushed commit (23 renders at ~4.5 s each, plus two
+from a fresh clone of the pushed commit (13 graded runs, 26 renders at ~4.5 s each, plus the two
 graded known-good runs). All runs: `kill rate: 11/11 = 100%`, `exit 0`.
 
 Every mutant fails a **gate assertion**, not a crash: `missing_slider`

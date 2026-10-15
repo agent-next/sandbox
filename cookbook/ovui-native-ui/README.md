@@ -83,14 +83,14 @@ From the receipt (2 vCPU, ~4 GB RAM, no GPU; Debian 12, Python 3.12):
 
 | step | wall time |
 |---|---|
-| `judge/setup.sh` (cold: apt + pinned wheels + stubs) | 56 s |
+| `judge/setup.sh` (cold: apt + pinned wheels + stubs) | 56–92 s |
 | `judge/setup.sh` (warm, idempotent) | 8 s |
-| `judge/selftest.sh` (23 renders) | 86 s |
-| `judge/grade.sh examples/good/panel.py` (2 renders + gates) | 8 s |
+| `judge/selftest.sh` (13 graded runs, 26 renders) | 86–123 s |
+| `judge/grade.sh examples/good/panel.py` (2 renders + gates) | 5–12 s |
 | one render (`judge/render.py`) | ~4.5 s |
 
 The render itself is CPU rasterisation of a 1280x720 offscreen Vulkan target
-on Mesa lavapipe; a 420x360 panel is ~4 s, and the selftest's 23 renders
+on Mesa lavapipe; a 420x360 panel is ~4 s, and the selftest's 26 renders
 dominate its wall time.
 
 ## How the CPU-only path works

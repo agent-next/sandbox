@@ -101,8 +101,8 @@ a scratch copy of the artifact and exits 0 only if every gate passes.
 - **Gate 2 — pixel spec mask.** Against the screenshot:
   - **no overflow:** every widget rect (from `screen_position_*` /
     `computed_*`) lies fully inside the window content region — the window
-    rect (`position_x/y`, `width/height`) inset by the 26 px title bar and a
-    4 px border;
+    rect (`position_x/y`, `width/height`) inset by the 26 px title bar
+    (top) and a 4 px border (other three sides);
   - **expected bboxes:** each widget rect matches its expected bbox in
     `judge/reference.json` within 8 px on position and 4 px on size;
   - **swatch colour:** the median RGB over the swatch rect inset by 3 px
