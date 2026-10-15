@@ -60,6 +60,15 @@ class Renderer:
                             else route.abort())
             self.page.goto(origin)
             self.page.wait_for_function("typeof renderScene === 'function'")
+            if self.backend == "gpu":
+                # Chromium silently falls back to SwiftShader when the NVIDIA device
+                # cannot be created; fail in seconds instead of rendering in software.
+                vendor = self.page.evaluate(
+                    "async () => (await navigator.gpu?.requestAdapter("
+                    "{powerPreference: 'high-performance'}))?.info?.vendor ?? null")
+                if vendor != "nvidia":
+                    raise RuntimeError(f"GPU backend requested but the WebGPU adapter is "
+                                       f"{vendor!r}, not NVIDIA")
             self.version = self.browser.version
             return self
         except BaseException:
