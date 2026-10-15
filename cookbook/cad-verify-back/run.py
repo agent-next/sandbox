@@ -72,9 +72,20 @@ def main():
 
     # in-sandbox script: clone this repo at ref, set up, self-test, grade.
     # All output is streamed by sbx exec.
+    qref = shlex_quote(ref)
+    qrepo = shlex_quote(REPO)
     script = f"""set -euo pipefail
 cd /root 2>/dev/null || cd "$HOME"
-git clone --depth 1 -b {ref} {REPO} sandbox 2>&1
+# -b accepts only branch/tag names; for a commit SHA, clone without a
+# checkout, fetch that commit shallowly and check out FETCH_HEAD
+if git clone --depth 1 -b {qref} {qrepo} sandbox 2>&1; then
+    :
+else
+    rm -rf sandbox
+    git clone --depth 1 --no-checkout {qrepo} sandbox 2>&1
+    git -C sandbox fetch --depth 1 origin {qref} 2>&1
+    git -C sandbox checkout -q FETCH_HEAD 2>&1
+fi
 cd sandbox/cookbook/cad-verify-back
 echo '=== judge/setup.sh ==='
 bash judge/setup.sh
