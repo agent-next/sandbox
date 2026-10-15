@@ -172,10 +172,20 @@ def main():
 
     print("create GPU lease (4 GiB VRAM slice)...", flush=True)
     t0 = time.monotonic()
-    st, created = request(key, "POST", "/sandboxes", {"accel": {"vram_gb": 4, "reserve": "exec"}})
-    if st != 201:
+    created = None
+    for attempt in range(5):
+        st, created = request(key, "POST", "/sandboxes", {"accel": {"vram_gb": 4, "reserve": "exec"}})
+        if st == 201:
+            break
+        if st in (429, 503):
+            wait = 5 * (attempt + 1)
+            print(f"create: HTTP {st} {fmt_body(created)}; retry in {wait} s", flush=True)
+            time.sleep(wait)
+            continue
         die(f"GPU create: HTTP {st} {fmt_body(created)}; "
             "check GPU access, credit and capacity")
+    if st != 201 or not isinstance(created, dict) or "sandboxID" not in created:
+        die(f"GPU create failed after retries: HTTP {st} {fmt_body(created)}")
     sid = created["sandboxID"]
     if not isinstance(sid, str) or not sid.startswith("gl-") or not all(
             c.isascii() and (c.isalnum() or c == "-") for c in sid):
