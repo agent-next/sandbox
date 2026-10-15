@@ -1,0 +1,158 @@
+{
+  "all_pass": false,
+  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/bad/plate_hole_drift",
+  "artifact_files": [
+    "plate"
+  ],
+  "gates": {
+    "bbox": {
+      "_s": 0.0,
+      "max_axis_error_mm": 0.0,
+      "measured": [
+        100.0,
+        80.0,
+        10.0
+      ],
+      "pass": true,
+      "spec": [
+        100.0,
+        80.0,
+        10.0
+      ],
+      "tolerance_mm": 0.05
+    },
+    "brep": {
+      "_s": 0.035,
+      "analytic_mm3": 71505.9189,
+      "brepcheck_valid": true,
+      "pass": true,
+      "rel_error": 0.0,
+      "solids": 1,
+      "tolerance": 0.005,
+      "volume_mm3": 71505.9189
+    },
+    "dxf": {
+      "_s": 0.019,
+      "audit_errors": 0,
+      "bolt_circles_rho_angle": [
+        [
+          2.75,
+          35.0,
+          0.0
+        ],
+        [
+          2.75,
+          35.0,
+          60.0
+        ],
+        [
+          2.75,
+          35.0,
+          120.0
+        ],
+        [
+          2.75,
+          35.0,
+          180.0
+        ],
+        [
+          2.75,
+          35.0,
+          240.0
+        ],
+        [
+          2.75,
+          35.0,
+          300.0
+        ]
+      ],
+      "circles": 7,
+      "outline": {
+        "cx": 0.0,
+        "cy": 0.0,
+        "h": 80.0,
+        "w": 100.0
+      },
+      "pass": true
+    },
+    "features": {
+      "_s": 0.002,
+      "bolt_holes_found": 6,
+      "bore_faces_R15": 1,
+      "cylindrical_faces": 7,
+      "hole_positions": [
+        [
+          35.0,
+          3.0
+        ],
+        [
+          35.0,
+          63.0
+        ],
+        [
+          35.0,
+          123.0
+        ],
+        [
+          35.0,
+          183.0
+        ],
+        [
+          35.0,
+          243.0
+        ],
+        [
+          35.0,
+          303.0
+        ]
+      ],
+      "pass": false,
+      "radii": [
+        2.75,
+        2.75,
+        2.75,
+        2.75,
+        2.75,
+        2.75,
+        15.0
+      ]
+    },
+    "files": {
+      "_s": 0.0,
+      "missing": [],
+      "pass": true
+    },
+    "min_wall": {
+      "_s": 0.692,
+      "limit_mm": 1.2,
+      "measured_min_mm": 6.0675,
+      "pass": true,
+      "samples": 2400,
+      "seed": 20261015,
+      "spec_min_mm": 1.5
+    },
+    "stl_topology": {
+      "_s": 0.021,
+      "analytic_mm3": 71505.9189,
+      "faces": 3568,
+      "pass": true,
+      "rel_error": 4.9e-05,
+      "stl_volume_mm3": 71509.4387,
+      "tolerance": 0.005,
+      "watertight": true,
+      "winding_consistent": true
+    },
+    "xor_reference": {
+      "_s": 0.413,
+      "pass": true,
+      "reference_mm3": 71518.9034,
+      "tolerance_fraction": 0.01,
+      "xor_fraction": 0.008377,
+      "xor_mm3": 599.1487
+    }
+  },
+  "part": "plate",
+  "timing": {
+    "grade_wall_s": 1.182
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "all_pass": false,
+  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/bad/bushing_no_flange",
+  "artifact_files": [],
+  "gates": {
+    "files": {
+      "error": "artifact must contain exactly one of bushing.step, plate.step, bracket.step (found: [])",
+      "pass": false
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "all_pass": true,
+  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/good/bracket",
+  "artifact_files": [
+    "bracket"
+  ],
+  "gates": {
+    "bbox": {
+      "_s": 0.0,
+      "max_axis_error_mm": 0.0,
+      "measured": [
+        80.0,
+        50.0,
+        60.0
+      ],
+      "pass": true,
+      "spec": [
+        80.0,
+        50.0,
+        60.0
+      ],
+      "tolerance_mm": 0.05
+    },
+    "brep": {
+      "_s": 0.03,
+      "analytic_mm3": 61853.9828,
+      "brepcheck_valid": true,
+      "pass": true,
+      "rel_error": 0.0,
+      "solids": 1,
+      "tolerance": 0.005,
+      "volume_mm3": 61853.9828
+    },
+    "features": {
+      "_s": 0.002,
+      "cylindrical_faces": 5,
+      "faces_R5": 2,
+      "faces_R6": 2,
+      "faces_R8_fillet": 1,
+      "pass": true,
+      "radii": [
+        5.0,
+        5.0,
+        6.0,
+        6.0,
+        8.0
+      ]
+    },
+    "files": {
+      "_s": 0.0,
+      "missing": [],
+      "pass": true
+    },
+    "min_wall": {
+      "_s": 0.445,
+      "limit_mm": 1.2,
+      "measured_min_mm": 8.0604,
+      "pass": true,
+      "samples": 2400,
+      "seed": 20261015,
+      "spec_min_mm": 1.5
+    },
+    "stl_topology": {
+      "_s": 0.013,
+      "analytic_mm3": 61853.9828,
+      "faces": 2180,
+      "pass": true,
+      "rel_error": 4.2e-05,
+      "stl_volume_mm3": 61856.58,
+      "tolerance": 0.005,
+      "watertight": true,
+      "winding_consistent": true
+    },
+    "xor_reference": {
+      "_s": 0.218,
+      "pass": true,
+      "reference_mm3": 61867.0659,
+      "tolerance_fraction": 0.01,
+      "xor_fraction": 0.00017,
+      "xor_mm3": 10.5433
+    }
+  },
+  "part": "bracket",
+  "timing": {
+    "grade_wall_s": 0.709
+  }
+}

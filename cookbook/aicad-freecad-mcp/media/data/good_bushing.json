@@ -1,0 +1,87 @@
+{
+  "all_pass": true,
+  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/good/bushing",
+  "artifact_files": [
+    "bushing"
+  ],
+  "gates": {
+    "bbox": {
+      "_s": 0.0,
+      "max_axis_error_mm": 0.0,
+      "measured": [
+        60.0,
+        60.0,
+        40.0
+      ],
+      "pass": true,
+      "spec": [
+        60.0,
+        60.0,
+        40.0
+      ],
+      "tolerance_mm": 0.05
+    },
+    "brep": {
+      "_s": 0.093,
+      "analytic_mm3": 42625.1291,
+      "brepcheck_valid": true,
+      "pass": true,
+      "rel_error": 0.0,
+      "solids": 1,
+      "tolerance": 0.005,
+      "volume_mm3": 42625.1291
+    },
+    "features": {
+      "_s": 0.001,
+      "cylindrical_faces": 3,
+      "pass": true,
+      "radii": [
+        10.0,
+        18.0,
+        30.0
+      ],
+      "want_radii": {
+        "10.0": 1,
+        "18.0": 1,
+        "30.0": 1
+      }
+    },
+    "files": {
+      "_s": 0.0,
+      "missing": [],
+      "pass": true
+    },
+    "min_wall": {
+      "_s": 1.582,
+      "limit_mm": 1.2,
+      "measured_min_mm": 7.9974,
+      "pass": true,
+      "samples": 2400,
+      "seed": 20261015,
+      "spec_min_mm": 1.5
+    },
+    "stl_topology": {
+      "_s": 0.033,
+      "analytic_mm3": 42625.1291,
+      "faces": 1512,
+      "pass": true,
+      "rel_error": 0.000414,
+      "stl_volume_mm3": 42607.4657,
+      "tolerance": 0.005,
+      "watertight": true,
+      "winding_consistent": true
+    },
+    "xor_reference": {
+      "_s": 0.283,
+      "pass": true,
+      "reference_mm3": 42607.7852,
+      "tolerance_fraction": 0.01,
+      "xor_fraction": 0.000361,
+      "xor_mm3": 15.3664
+    }
+  },
+  "part": "bushing",
+  "timing": {
+    "grade_wall_s": 1.993
+  }
+}

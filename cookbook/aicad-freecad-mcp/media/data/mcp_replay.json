@@ -1,0 +1,45 @@
+[
+ {
+  "tool": "initialize",
+  "part": "-",
+  "line": "initialize -> serverInfo={\"name\": \"FreeCADMCP\", \"version\": \"\"}"
+ },
+ {
+  "tool": "get_rpc_status",
+  "part": "-",
+  "elapsed_s": 0.005,
+  "line": "get_rpc_status -> {\n  \"success\": true,\n  \"rpc_server\": \"running\",\n  \"gui_dispatch\": {\n    \"state\": \"healthy\",\n    \"task_id\": 0,\n    \"opera"
+ },
+ {
+  "tool": "execute_code_headless",
+  "part": "bushing",
+  "script": "build_bushing.py",
+  "elapsed_s": 0.766,
+  "volume_mm3": 42607.4657,
+  "line": "execute_code_headless build_bushing.py -> _OK volume=42607.4657 (0.8 s)"
+ },
+ {
+  "tool": "execute_code_headless",
+  "part": "plate",
+  "script": "build_plate.py",
+  "elapsed_s": 0.408,
+  "volume_mm3": 71509.4387,
+  "line": "execute_code_headless build_plate.py -> _OK volume=71509.4387 (0.4 s)"
+ },
+ {
+  "tool": "execute_code_headless",
+  "part": "plate",
+  "script": "draw_plate_dxf.py",
+  "elapsed_s": 1.102,
+  "volume_mm3": 71509.4387,
+  "line": "execute_code_headless draw_plate_dxf.py -> _OK volume=71509.4387 (1.1 s)"
+ },
+ {
+  "tool": "execute_code_headless",
+  "part": "bracket",
+  "script": "build_bracket.py",
+  "elapsed_s": 0.317,
+  "volume_mm3": 61856.58,
+  "line": "execute_code_headless build_bracket.py -> _OK volume=61856.58 (0.3 s)"
+ }
+]
