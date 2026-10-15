@@ -1,3 +1,12 @@
+## Results
+
+![result](media/result.png)
+
+![loop](media/loop.png)
+
+[demo.mp4](media/demo.mp4)
+
+
 # FDM 3D-print toolpath: OrcaSlicer G-code judged by an independent interpreter + Klipper
 
 An agent produces a real FDM 3D-print toolpath — a slicer profile plus the
