@@ -79,6 +79,27 @@ else
     exit 1
 fi
 
+# A failing verdict quotes tool output, which can carry the per-run scratch
+# dir; grade the build-breaking mutant twice and require the same
+# byte-identical-verdict guarantee there. Without _grade.py's workdir
+# scrubbing this fails on the temp path inside the npm error text.
+echo "selftest: determinism check (two grades of a failing artifact)"
+bash "$HERE/grade.sh" "$MUT/build_broken" --json "$WORK/detf1.json" >/dev/null 2>&1 || true
+bash "$HERE/grade.sh" "$MUT/build_broken" --json "$WORK/detf2.json" >/dev/null 2>&1 || true
+if python3 - "$WORK/detf1.json" "$WORK/detf2.json" <<'EOF'
+import json, sys
+a, b = (json.load(open(p)) for p in sys.argv[1:3])
+a.pop("timing", None), b.pop("timing", None)
+sys.exit(0 if a == b else 1)
+EOF
+then
+    echo "selftest: determinism on a failing artifact: OK"
+else
+    echo "selftest: determinism FAILED on a failing artifact (two runs \
+differ beyond timing)" >&2
+    exit 1
+fi
+
 sha > "$WORK/sha_after"
 if cmp -s "$WORK/sha_before" "$WORK/sha_after"; then
     echo "selftest: judge/ checksums unchanged"
