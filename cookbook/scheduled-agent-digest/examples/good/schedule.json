@@ -1,0 +1,19 @@
+{
+  "job": {
+    "name": "nightly-digest",
+    "schedule": "0 2 * * *",
+    "timezone": "local",
+    "command": "python3 -I digest.py --log /var/log/events.csv --date YESTERDAY --out /out/digest-YESTERDAY.json"
+  },
+  "sandbox": {
+    "pause_between_runs": true,
+    "idle_paused": true
+  },
+  "steps": [
+    {"name": "wait for 02:00", "uses": "sleep_until_fire"},
+    {"name": "wake the sandbox", "uses": "resume"},
+    {"name": "digest the log", "uses": "digest"},
+    {"name": "collect the digest", "uses": "collect"},
+    {"name": "pause the sandbox", "uses": "pause"}
+  ]
+}
