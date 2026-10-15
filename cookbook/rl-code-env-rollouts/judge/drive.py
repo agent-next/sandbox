@@ -44,7 +44,7 @@ HOSTILE_S = float(os.environ.get("HOSTILE_S", 20.0))
 # 4x margin under the measured rate, so a slower or loaded host still passes,
 # while an environment that is catastrophically slow -- a sleep per step, a
 # subprocess storm, a per-step model call -- fails.  See SPEC.md.
-ROLLOUTS = int(os.environ.get("ROLLOUTS", 3))
+ROLLOUTS = int(os.environ.get("ROLLOUTS", 5))
 THROUGHPUT_MIN = float(os.environ.get("THROUGHPUT_MIN", 0.05))
 
 SCHEMA = "rl-code-env-rollouts/grade/1"
@@ -580,11 +580,14 @@ def gate_hostile_zero(v, artifact_env, tasks_path, seed, bank):
             out = ""
         dt = time.time() - t0
 
-        leaked = _leftovers(proc, before)
+        leaked = _leftovers(proc, before, group, session)
         if leaked:
             _kill_tree(proc, before, group, session)
-            still = [pid for pid in leaked
-                     if _state(pid) not in ("Z", "")]
+            # A SIGKILL is not instantaneous: a process that just received it
+            # still shows in /proc until the kernel reaps it.  Give the sweep a
+            # bounded moment to land before calling the leftovers a leak --
+            # but a survivor of that grace period really is one.
+            still = _alive_after(leaked, grace_s=2.0)
             if still:
                 problems.append(
                     "%s: left %d process(es) running after step returned "
@@ -622,28 +625,47 @@ def gate_hostile_zero(v, artifact_env, tasks_path, seed, bank):
     return results
 
 
-def _leftovers(proc, before):
+def _leftovers(proc, before, group, session):
     """Processes the hostile action left running, excluding the judge's own.
 
-    `before` is the pid snapshot taken just before the probe was spawned, so
-    anything alive now that was not alive then was started by the action.  This
-    is the only membership test that survives an artifact that reshapes its own
-    process groups: a fork bomb's children are orphaned and reparented to pid 1
-    the moment their parent dies, so neither their parent nor their group is
-    still there to walk.  The judge's own lineage is excluded, so the judge's
-    helpers are never mistaken for a leak.
+    A process is the action's if it was not alive when the probe started
+    (`before`) and it carries the probe's fingerprints: its process group,
+    its session, or its parentage.  This is the only membership test that
+    survives an artifact that reshapes its own process groups -- a fork
+    bomb's children are orphaned and reparented to pid 1 the moment their
+    parent dies, but their group and session still point at the dead probe.
+
+    Restricting the test to the probe's fingerprints (rather than blaming
+    every process that appeared meanwhile) keeps an unrelated process
+    started on the host during the gate from being mistaken for a leak.
     """
     mine = _own_lineage()
+    mine.add(proc.pid)
     out = []
     for pid in _all_pids():
         if pid in before or pid in mine or pid == 1:
             continue
-        if pid == proc.pid or pid == os.getpid():
-            continue
         if _state(pid) in ("Z", ""):
             continue
-        out.append(pid)
+        pgid = _field(pid, _PGID)
+        sid = _field(pid, _SID)
+        if ((group is not None and pgid == group)
+                or (session is not None and sid == session)
+                or pid in _descendants(proc.pid)):
+            out.append(pid)
     return out
+
+
+def _alive_after(pids, grace_s):
+    """Which of `pids` are still alive once a just-sent SIGKILL has had
+    `grace_s` seconds to land.  A process in state Z is already dead for this
+    purpose; an unreadable one is assumed gone, never blamed."""
+    deadline = time.monotonic() + grace_s
+    remaining = set(pids)
+    while remaining and time.monotonic() < deadline:
+        time.sleep(0.1)
+        remaining = {pid for pid in remaining if _state(pid) not in ("Z", "")}
+    return sorted(remaining)
 
 
 # /proc/<pid>/stat field names, in order, counted after the "(comm)" part.
