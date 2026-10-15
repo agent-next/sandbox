@@ -38,7 +38,7 @@ by a numeric factor.
   same seed produce byte-identical commit SHAs — this is what lets the judge,
   the sweep sandboxes and the known-good example agree on a SHA without
   sharing state.
-- The suite carries a fixed settle delay (`SOAK_S = 2.0` s) standing in for
+- The suite carries a fixed settle delay (`SOAK_S = 3.0` s) standing in for
   real-suite I/O, so per-commit cost is latency-dominated (as real test suites
   and sandbox lifecycles are). This is what the speedup gate overlaps; on
   2 vCPU the CPU work alone caps at ~1.2×.
@@ -112,6 +112,16 @@ Exit 0 only if every gate passes.
    3.0× by overlapping per-commit latency (settle delay; in the sandbox run,
    sandbox create/clone/exec latency), which is the honest physics of parallel
    sandbox bisection on 2 vCPU.
+
+## Reproduction tolerances (for RECEIPT.md / REPRODUCE.md)
+
+- Exact (must match bit-for-bit): culprit SHA and index, evidence booleans,
+  suite verdicts at indices 24 and 25, negative-control report string,
+  self-test kill rate, `git`/`python3` versions, `judge/VERSIONS.txt`.
+- Walls are machine- and network-dependent: `serial_seconds`,
+  `parallel_seconds`, each run.py step wall, and the judge's own
+  `judge_measured_speedup` may differ between runs by any amount, but the
+  artifact `speedup` must stay ≥ 3.0 (G7) in every fresh run.
 
 ## Self-test (`judge/selftest.sh`)
 

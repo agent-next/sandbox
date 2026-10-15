@@ -104,8 +104,8 @@ def fig_result(d: dict, out: Path) -> None:
     fig.suptitle("One sandbox per suspect commit: the sweep that names the "
                  "regression", x=0.08, ha="left", fontsize=15, weight="bold")
     fig.text(0.08, 0.90, f"commit {rep['identified_index']} blamed from "
-             f"receipts; judge re-derived the same boundary "
-             f"(seed {rep.get('seed', 20261015) if 'seed' in rep else 20261015})",
+             f"receipts; the judge re-derived the same boundary "
+             f"(seed 20261015, ref pinned in RECEIPT.md)",
              ha="left", fontsize=9, color=INK2)
 
     # --- left: serial vs parallel wall, with the judge's pass line --------

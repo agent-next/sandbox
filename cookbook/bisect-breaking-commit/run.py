@@ -109,27 +109,30 @@ class CleanupError(RuntimeError):
     pass
 
 
-def kill_and_confirm(sid: str, what: str) -> None:
-    """Kill one sandbox this run created and confirm via sbx list."""
+def kill_with_backoff(sid: str, what: str) -> None:
+    """Kill one sandbox this run created, retrying through the 405 settle
+    window a busy sandbox answers kills with for a couple of minutes after
+    its execs (observed; clears well inside this window)."""
     backoff = (5, 15, 30, 45, 60, 60, 60)
-    # a busy sandbox can answer kills with 405 for a couple of minutes
-    # after its execs; observed to clear well inside this window
     for attempt, sleep_s in enumerate(backoff, start=1):
         rc, out = sbx("kill", sid, timeout=180)
         if rc == 0:
-            break
+            return
         if attempt == len(backoff):
             raise CleanupError(f"could not kill sandbox {sid} ({what}): "
                                f"rc={rc} {out.strip()}")
         time.sleep(sleep_s)
+
+
+def confirm_gone(ids: dict[str, str]) -> list[str]:
+    """Confirm via sbx list that every sandbox this run created (what -> id)
+    is gone; return a failure message per survivor."""
     rc, listing = sbx("list", timeout=120)
     if rc != 0:
-        raise CleanupError(f"sandbox {sid} ({what}): sbx list failed "
-                           f"(rc={rc}): {listing.strip()}")
-    if sid in listing:
-        raise CleanupError(f"sandbox {sid} ({what}) still in `sbx list` "
-                           "after kill — run `sbx kill "
-                           f"{sid}` by hand before it holds a slot")
+        return [f"sbx list failed (rc={rc}): {listing.strip()}"]
+    return [f"sandbox {sid} ({what}) still in `sbx list` after kill — run "
+            f"`sbx kill {sid}` by hand before it holds a slot"
+            for what, sid in sorted(ids.items()) if sid in listing]
 
 
 def create_sandbox(what: str, registry: dict) -> str:
@@ -207,9 +210,10 @@ def fetch_sources(sid: str, ref: str) -> tuple[str, str]:
 
 
 def run_one_sandbox(sid: str, mf_b64: str, oc_b64: str, i: int) -> dict:
-    """Stage the scripts in sandbox `sid`, run sweep/one_commit.sh for index
-    i between sentinels, then kill the sandbox (its receipt is all we need
-    from it)."""
+    """Stage the scripts in sandbox `sid` and run sweep/one_commit.sh for
+    index i between sentinels.  The sandbox is killed later, outside the
+    timed sweep region (kills right after execs can wait out a 405 settle
+    window — that wall belongs to cleanup, not to the sweep)."""
     cmd = (stage_cmd(mf_b64, oc_b64) +
            f" && echo SWEEP_BEGIN && FIXTURE_DIR=/tmp/fixture-{i} "
            f"bash /tmp/sw/sweep/one_commit.sh {i} && echo SWEEP_END")
@@ -222,7 +226,6 @@ def run_one_sandbox(sid: str, mf_b64: str, oc_b64: str, i: int) -> dict:
     if receipt.get("index") != i:
         raise RuntimeError(f"sandbox {sid} printed a receipt for commit "
                            f"{receipt.get('index')}, expected {i}")
-    kill_and_confirm(sid, f"commit {i}")
     return receipt
 
 
@@ -353,8 +356,29 @@ def main():
                       f"{'pass' if r['passed'] else 'FAIL'} "
                       f"({r['sha'][:12]})", flush=True)
         timings["parallel_sweep_s"] = round(time.monotonic() - t0, 2)
-        print(f"[run] parallel sweep: {timings['parallel_sweep_s']}s "
-              f"(sandboxes killed as receipts arrived)", flush=True)
+        print(f"[run] parallel sweep: {timings['parallel_sweep_s']}s",
+              flush=True)
+
+        # kill the sweep sandboxes outside the timed region (cleanup wall,
+        # reported separately; a busy sandbox may need the 405 settle
+        # window before its kill lands)
+        t0 = time.monotonic()
+        kill_failures = []
+
+        def _kill_sweep(i: int) -> None:
+            try:
+                kill_with_backoff(ids[i], f"commit {i}")
+            except CleanupError as exc:
+                kill_failures.append(str(exc))
+
+        with concurrent.futures.ThreadPoolExecutor(N_SANDBOXES) as ex:
+            list(ex.map(_kill_sweep, sorted(ids)))
+        timings["kill_sandboxes_s"] = round(time.monotonic() - t0, 2)
+        print(f"[run] killed {len(ids)} sweep sandboxes "
+              f"in {timings['kill_sandboxes_s']}s", flush=True)
+        if kill_failures:
+            raise RuntimeError("sweep-sandbox cleanup failed:\n  "
+                               + "\n  ".join(kill_failures))
 
         # --- 4. serial baseline: same staged commands, one machine --------
         serial_cmd = (stage_cmd(mf_b64, oc_b64) +
@@ -452,9 +476,10 @@ def main():
             to_kill = sorted(created.items())
             for sid, what in to_kill:
                 try:
-                    kill_and_confirm(sid, what)
+                    kill_with_backoff(sid, what)
                 except CleanupError as exc:
                     cleanup_failures.append(str(exc))
+            cleanup_failures += confirm_gone(created)
             if cleanup_failures:
                 failed = True
                 print("[run] ERROR: cleanup could not be confirmed —\n  "
