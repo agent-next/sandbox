@@ -208,8 +208,43 @@ def layer_heights(layer_first_z):
             for i in range(len(layer_first_z) - 1)]
 
 
+def write_trace(m, gcode_path, trace_dir, label):
+    """Dump the interpreter's parsed moves for the media pipeline.
+
+    Writes <trace_dir>/<label>.trace.json: every extruding and travel move
+    as replayed by interp.py (start x/y, end x/y/z, dE, feed) plus the
+    extrusion-layer index per extruding move and the layer Z list.  Numbers
+    only ever come from this replay; nothing is invented downstream.
+    """
+    os.makedirs(trace_dir, exist_ok=True)
+    layers = [round(z, 4) for z, _s in m.layer_first_z]
+    layer_of = []
+    li = 0
+    for mv in m.extr_moves:
+        while li + 1 < len(layers) and mv[0] > layers[li] + 0.05:
+            li += 1
+        layer_of.append(li)
+    out = {
+        "gcode": os.path.basename(gcode_path) if gcode_path else None,
+        "layers_z": layers,
+        "layer_heights_mm": layer_heights(m.layer_first_z),
+        # extruding moves: (z1, x0, y0, x1, y1, dE, feed) as replayed
+        "extr": [[round(v, 4) for v in mv] for mv in m.extr_moves],
+        "travel": [[round(v, 4) for v in mv] for mv in m.travel_moves],
+        "layer_of_extr": layer_of,
+        "nozzle_setpoints_c": sorted({t for _s, t in m.nozzle_cmds}),
+        "bed_setpoints_c": sorted({t for _s, t in m.bed_cmds}),
+        "time_s": round(m.time_s, 1),
+        "e_consumed_mm": round(m.e_consumed, 2),
+    }
+    path = os.path.join(trace_dir, "%s.trace.json" % label)
+    with open(path, "w") as fh:
+        json.dump(out, fh, separators=(",", ":"))
+    return path
+
+
 # --------------------------------------------------------------- main ----
-def grade(artifact_dir, seed, json_path):
+def grade(artifact_dir, seed, json_path, trace_dir=None, trace_label=None):
     t_start = time.time()
     spec = load_spec()
     artifact = os.path.abspath(artifact_dir)
@@ -271,6 +306,11 @@ def grade(artifact_dir, seed, json_path):
     m = interp.replay(part_gcode) if os.path.exists(part_gcode) else None
     m_res = interp.replay(resliced) if (resliced and os.path.exists(resliced)) else None
     timing["replay_s"] = round(time.time() - t0, 1)
+
+    # media trace: the parsed moves behind every render (no verdict effect)
+    if trace_dir and m is not None and os.path.exists(part_gcode):
+        write_trace(m, part_gcode, trace_dir,
+                    trace_label or os.path.basename(artifact))
 
     fa = 3.141592653589793 * (spec["filament_diameter_mm"] / 2.0) ** 2
 
@@ -577,8 +617,12 @@ def main():
     ap.add_argument("artifact")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--trace", default=None, metavar="DIR",
+                    help="write the parsed moves of <artifact>/part.gcode "
+                         "to DIR/<artifact-name>.trace.json (media only)")
     args = ap.parse_args()
-    sys.exit(grade(args.artifact, args.seed, args.json))
+    sys.exit(grade(args.artifact, args.seed, args.json,
+                    trace_dir=args.trace))
 
 
 if __name__ == "__main__":
