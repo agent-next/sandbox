@@ -18,6 +18,10 @@
 
 set -euo pipefail
 
+# Keep judge/ free of byte-code caches: grade.sh checksums it, and a .pyc
+# appearing mid-run would look like tampering.
+export PYTHONDONTWRITEBYTECODE=1
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 demo="$(cd "$here/.." && pwd)"
 good="$demo/examples/good"

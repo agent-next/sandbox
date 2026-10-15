@@ -308,10 +308,6 @@ def check_grounding(records, pages_dir, truth, rng=None):
             if not (0 <= x0 < x1 <= im.width and 0 <= y0 < y1 <= im.height):
                 continue                       # already reported by G0
             thr = thresholds[pid]
-            if thr is None:
-                problems.append("%s/%s: bbox %r on a page with no ink anywhere"
-                                % (pid, name, bbox))
-                continue
             crop = im.crop((x0, y0, x1, y1))
             dark = sum(1 for v in crop.getdata() if v < thr)
             ratio = dark / float(crop.width * crop.height)

@@ -16,15 +16,23 @@ Usage: python3 run.py [--ref REF] [--keep]
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 
 REPO_URL = "https://github.com/agent-next/sandbox"
 DEMO_DIR = "cookbook/doc-extract-convert"
+SID_RE = re.compile(r"^sbx_[A-Za-z0-9]+$")
 
 
 def scrub(text):
+    """Redact API-key-shaped text before anything is printed.
+
+    The CLI scrubs its own output; this is a second, independent pass so a
+    key can never reach the terminal even if that one drifts.
+    """
+    text = re.sub(r"(?:sbx|e2b)_[A-Za-z0-9_-]{16,}", "[redacted-key]", text)
     for name in ("SBX_API_KEY", "E2B_API_KEY"):
         value = os.environ.get(name)
         if value:
@@ -67,7 +75,13 @@ def main():
                       sbx, "create", "--timeout-min", "30", capture=True)
     if rc != 0 or not out.strip():
         sys.exit(f"run.py: sandbox create failed: {out.strip()}")
-    sid = out.strip().splitlines()[-1].strip()
+    # The id is whatever line looks like one; do not assume it is the last
+    # line, so extra CLI output cannot make us kill or list the wrong thing.
+    ids = [ln.strip() for ln in out.splitlines() if SID_RE.match(ln.strip())]
+    if len(ids) != 1:
+        sys.exit(f"run.py: cannot tell the sandbox id from `sbx create` "
+                 f"output ({len(ids)} candidate lines): {out.strip()}")
+    sid = ids[0]
     print(f"[run] sandbox id: {sid}", flush=True)
 
     timings = {}
@@ -110,19 +124,25 @@ def main():
                 f"--json /tmp/v.json >/tmp/grade.log 2>&1; "
                 f"rc=$?; tail -5 /tmp/grade.log; cat /tmp/v.json; exit $rc",
                 timeout=930, capture=True)
+            # Decide on rc first, then parse: a crash before /tmp/v.json was
+            # written leaves no verdict to look at, and that is still a
+            # failure.  Only a clean rc and a verdict with
+            # all_gates_passed=true is a pass.
+            verdict = {"all_gates_passed": False,
+                       "error": "grading failed and produced no verdict JSON"}
             try:
                 verdict = json.loads(out[out.index("{"):out.rindex("}") + 1])
             except (ValueError, IndexError):
-                verdict = {"all_gates_passed": False,
-                           "error": "no verdict JSON produced"}
-            else:
-                if rc != 0 or not verdict.get("all_gates_passed"):
+                if rc == 0:
                     failed = "grade examples/good"
+                    verdict["error"] = "grade.sh exited 0 with no verdict JSON"
+            if rc != 0 or not verdict.get("all_gates_passed"):
+                failed = failed or "grade examples/good"
 
         print("\n[run] ======== verdict ========", flush=True)
         print(json.dumps(verdict, indent=2) if verdict else
               json.dumps({"failed_at": failed}, indent=2), flush=True)
-        ok = verdict and verdict.get("all_gates_passed")
+        ok = bool(verdict) and verdict.get("all_gates_passed") is True
         print(f"[run] {'PASS' if ok else 'FAIL'}", flush=True)
     finally:
         if args.keep:
@@ -140,8 +160,9 @@ def main():
                       f"run `sbx kill {sid}`", file=sys.stderr, flush=True)
                 failed = failed or "cleanup"
 
-    if failed:
-        sys.exit(f"run.py: failed at step '{failed}' (sandbox {sid})")
+    if failed or not (verdict and verdict.get("all_gates_passed") is True):
+        sys.exit(f"run.py: failed at step '{failed or 'grade examples/good'}' "
+                 f"(sandbox {sid})")
 
 
 if __name__ == "__main__":

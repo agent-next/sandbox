@@ -29,13 +29,22 @@ work="$(mktemp -d /tmp/docgrade.XXXXXX)"
 trap 'rm -rf "$work"' EXIT
 
 # -- judge integrity: checksum judge/ before and after ---------------------
-judge_sum() { (cd "$here" && find . -type f ! -name VERSIONS.txt -print0 \
-                    | sort -z | xargs -0 sha256sum | sha256sum); }
+# Byte-code caches and the versions file are written by the interpreter and
+# by setup.sh, not by the artifact, so they are excluded: including them made
+# the *first* grade.sh call in a fresh clone fail (check_gates.py imports
+# fixtures/corrupt, which materialises judge/__pycache__ between the two sums).
+# Everything that could be tampered with is still hashed.
+judge_sum() { (cd "$here" && find . -type f ! -name '*.pyc' \
+                    ! -path '*/__pycache__/*' ! -name VERSIONS.txt \
+                    -print0 | sort -z | xargs -0 sha256sum | sha256sum); }
 before="$(judge_sum)"
 
 # -- run the artifact from a scratch copy -----------------------------------
 cp -r "$artifact" "$work/artifact"
 chmod -R u+w "$work/artifact"
+
+# Don't let the judge write .pyc into judge/ either.
+export PYTHONDONTWRITEBYTECODE=1
 
 rc=0
 python3 "$here/check_gates.py" "$work/artifact" --work "$work/case" "$@" || rc=$?
