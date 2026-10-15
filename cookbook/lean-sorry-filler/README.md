@@ -10,14 +10,15 @@ elaborate every file, the build log must carry no
 ``declaration uses `sorry` `` warning, and the kernel's own
 `#print axioms` audit must show every proof rests on nothing beyond
 Lean's three standard axioms (`propext`, `Classical.choice`,
-`Quot.sound`). The theorem statements are frozen, so proving something
-easier is caught by a verbatim statement check.
+`Quot.sound`). The theorem statements are frozen line-by-line, so
+proving something easier — even with the original statement parked in
+a comment — is caught by a name-matched, line-anchored statement check.
 
 A sandbox helps because a compile-check loop with untrusted agent
 edits is exactly what you should not run on your own machine: the judge
 builds the submission from a copy, checksums itself before and after,
 and a broken proof can never touch anything local. The whole judge —
-pinned elan 4.2.4 / Lean 4.34.1 toolchain, self-test with 8 mutants,
+pinned elan 4.2.4 / Lean 4.34.1 toolchain, self-test with 9 mutants,
 grading — runs from nothing in a fresh sandbox in a few minutes (the
 Lean download is ~580 MB, ~1–3 min; everything after is seconds).
 

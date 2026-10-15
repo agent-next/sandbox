@@ -23,7 +23,7 @@ fixture and may not change, so a proof of a weaker statement is rejected.
 - Judge: `judge/grade.sh <artifact>` builds the artifact from a fresh
   copy with the pinned toolchain and applies the five gates below.
 - Self-test: `judge/selftest.sh` proves the judge fails known-bad
-  submissions (8 scripted mutants, kill rate ≥ 90 % required).
+  submissions (9 scripted mutants, kill rate ≥ 90 % required).
 
 ## Non-goals
 

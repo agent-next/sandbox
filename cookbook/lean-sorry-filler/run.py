@@ -3,7 +3,7 @@
 
 Creates an agent-next sandbox, clones this repository inside it, installs
 the pinned Lean toolchain (elan 4.2.4 / Lean 4.34.1), runs the judge
-self-test (8 broken mutants must die), then grades the known-good
+self-test (9 broken mutants must die), then grades the known-good
 sorry-free artifact — and always kills the sandbox afterwards,
 confirming it is gone.
 
