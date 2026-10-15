@@ -156,16 +156,17 @@ exit code 0. `P` = measured value, `R` = rule.
 | 6 | `stand` | pelvis height, torso quaternion, contacts over t ∈ [0, 10) s | pelvis z >= 0.9 × its t=0 value for all t; |roll|,|pitch| ≤ 10° for all t; no non-foot body touches the floor |
 | 7 | `push` | same signals over t ∈ [5.0, 10) s, push applied t ∈ [5.0, 5.2) s | `stand` rules hold for all t in the window *and* |roll|,|pitch| ≤ 5° by t = 7.0 s and held to t = 10 s |
 | 8 | `limits` | `qpos`, `qvel`, `ctrl`, `actuator_force` over the run | no hinge beyond its [range] by more than 1e-3 rad; no |ctrl| beyond `ctrlrange`; no |applied actuator force| beyond `ctrlrange` by more than 1 N·m |
-| 9 | `effort` | reported, not gated | energy ´∫|τ·q̇|dt`, peak |τ|, RMS |τ| per joint; always `verdict:"info"` |
+| 9 | `effort` | reported, not gated | energy `∫|τ·q̇|dt`, peak |τ|, RMS |τ| over all joints; always `verdict:"info"` |
 | 10 | `integrity` | sha256 of every file under `judge/`, audit hook log, state/model snapshots, `sys.modules` | identical before vs after; zero forbidden `open`/`connect`/write/exec events; no state or model mutation; no `ctypes` |
 
 Numeric constants. `grade.sh` takes only `--seed` and `--json` on the
-command line; the values below live in `judge/params.json` (and are copied
-into the verdict):
+command line; the values below live in `judge/params.json` (each gate's
+measurements quote the constants it applies):
 
 | constant | value | meaning |
 |---|---|---|
-| `dt_ctrl` | 0.005 s | control period (matches model timestep) |
+| `dt_phys` | 0.0005 s | fixed physics step (`model.opt.timestep`) |
+| `dt_ctrl` | 0.005 s | control period (10 physics steps) |
 | `t_total` | 10.0 s | full episode |
 | `push_t0` | 5.0 s | push start |
 | `push_t1` | 5.2 s | push end |
