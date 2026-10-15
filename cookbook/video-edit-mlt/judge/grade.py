@@ -213,19 +213,27 @@ def grade(artifact, spec, seed, export=None):
             t = np.arange(4800) / 48000
             carrier = np.exp(-2j*np.pi*a["music_hz"]*t)
             inside, outside = [], []
+            per_window = [[] for _ in a["voice_windows"]]
             for i in range(0, len(pcm)-4799, 4800):
                 mid = (i+2400)/48000
                 amp = float(abs(pcm[i:i+4800] @ carrier)*2/4800/math.sqrt(2))
                 if any(l+0.1 <= mid <= h-0.1 for l, h in a["voice_windows"]):
                     inside.append(amp)
+                    for j, (l, h) in enumerate(a["voice_windows"]):
+                        if l+0.1 <= mid <= h-0.1:
+                            per_window[j].append(amp)
                 elif all(not l-0.1 <= mid <= h+0.1 for l, h in a["voice_windows"]):
                     outside.append(amp)
             rms_in = float(np.sqrt(np.mean(np.square(inside))))
             rms_out = float(np.sqrt(np.mean(np.square(outside))))
-            depth = 20*math.log10(max(rms_out, 1e-12)/max(rms_in, 1e-12))
+            depths = [20*math.log10(max(rms_out, 1e-12) /
+                      max(float(np.sqrt(np.mean(np.square(values)))), 1e-12))
+                      for values in per_window]
+            depth = min(depths)
             gate("ducking", depth >= a["duck_db"] and rms_out > 1e-5,
                  round(depth, 6), f'>={a["duck_db"]} dB; outside music RMS >1e-5',
-                 rms_inside=round(rms_in, 8), rms_outside=round(rms_out, 8))
+                 rms_inside=round(rms_in, 8), rms_outside=round(rms_out, 8),
+                 window_depths_db=[round(d, 6) for d in depths])
             if export:
                 export.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(out, export / "render.mp4")

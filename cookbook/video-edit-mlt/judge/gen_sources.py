@@ -9,7 +9,7 @@
 
 Usage: gen_sources.py [--ffmpeg PATH] [--assets DIR] [--verify]
 
-Everything is computed locally (raw frames are streamed into the pinned
+Everything is computed locally (lossless PNGs are encoded by the pinned
 ffmpeg); nothing is downloaded.  --verify decodes every source frame's
 barcode and checks it -- the judge's power check on the raw material.
 """
@@ -75,9 +75,7 @@ def rgb_to_png(rgb, width=W, height=H):
 
 
 def gen_clip(path, clip_id, rgb, frames, work):
-    # Frame PNGs, then image2 -> mp4.  (Piping rawvideo into ffmpeg n8.x
-    # misaligns frames: its demuxer demands whole-frame packets, and a
-    # pipe can't deliver 2.7 MB reads.)
+    # Lossless numbered PNGs keep frame dimensions and boundaries explicit.
     for f in range(frames):
         with open(os.path.join(work, "%04d.png" % f), "wb") as fh:
             fh.write(rgb_to_png(frame_bytes(clip_id, f, rgb)))

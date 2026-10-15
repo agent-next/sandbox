@@ -17,12 +17,12 @@ if ! (cd "$PREFIX" && sha256sum -c tool.sha256 >/dev/null 2>&1); then
     (cd "$PREFIX"; find Shotcut.app -type f -print0 | sort -z | xargs -0 sha256sum > tool.sha256)
 fi
 echo "$SHA  $PREFIX/shotcut.txz" | sha256sum -c -
-if ! ldconfig -p | grep -q libEGL.so.1 || ! ldconfig -p | grep -q libOpenGL.so.0; then
+if ! ldconfig -p | grep libEGL.so.1 >/dev/null || ! ldconfig -p | grep libOpenGL.so.0 >/dev/null; then
     sudo apt-get update
     find /var/lib/apt/lists -maxdepth 1 -name '*Packages*' | grep -q . || {
         echo 'setup: apt update fetched no package lists' >&2; exit 1;
     }
-    sudo apt-get install -y libegl1 libopengl0
+    sudo apt-get install -y libegl1=1.6.0-1 libopengl0=1.6.0-1
 fi
 "$PREFIX/Shotcut.app/melt" -query filters > "$PREFIX/filters.txt" 2>&1
 grep -q qtext "$PREFIX/filters.txt" || { echo 'setup: Qt filters unavailable' >&2; exit 1; }
@@ -56,6 +56,7 @@ fi
     "$VIDEO_EDIT_FFMPEG" -version | sed -n '1p'
     "$PREFIX/Shotcut.app/ffprobe" -version | sed -n '1p'
     "$VENV/bin/python" -c 'import sys,numpy,PIL; print("Python",sys.version.split()[0]); print("numpy",numpy.__version__); print("Pillow",PIL.__version__)'
+    dpkg-query -W -f='${Package} ${Version}\n' libegl1 libopengl0
     echo "Shotcut 26.8.1 sha256 $SHA"
 } | tee "$JDIR/VERSIONS.txt"
 echo 'setup: OK'

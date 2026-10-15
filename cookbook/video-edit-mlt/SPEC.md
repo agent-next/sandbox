@@ -44,7 +44,7 @@ Everything is synthesized deterministically — no downloaded footage:
 
 - `assets/clip_a.mp4`, `clip_b.mp4`, `clip_c.mp4` — 1280×720, 25 fps,
   150 frames each. A flat hue (A red, B green, C blue) fills the frame;
-  a 16-block black/white barcode band at the top encodes `clip_id` and
+  animated geometric test shapes and a 16-block black/white barcode band at the top encodes `clip_id` and
   the source frame index (4 sync bits `1010`, 2 clip bits, 10 frame
   bits), so any rendered frame names exactly which source frame it came
   from.
@@ -77,11 +77,19 @@ QT_QPA_PLATFORM=offscreen melt -quiet edit.mlt \
     sample_aspect_num=1 sample_aspect_den=1 ar=48000 ac=2
 ```
 
-Producer resources resolve relative to the demo directory (where
-`assets/` lives); absolute paths also work. `judge/grade.sh` runs the
-render itself on a copy of the artifact.
+Only the six relative `assets/` resources are accepted. Absolute paths,
+parent traversal, URLs, external XML and non-allowlisted services are
+rejected before rendering. The judge copies trusted assets and XML beside
+each other in a temporary work directory and sets that directory as MLT's
+`root`. The consumer inherits the XML profile: the judge does not override
+resolution or fps and thereby hide a bad profile.
 
-## Judge gates (all must pass; first failure stops the grade)
+## Judge gates (all must pass)
+
+Security, power and format failures stop early. Once format passes, all
+pixel/audio gates run even when another measurement fails. `security` and
+`integrity` are additional numeric guards (zero unsafe constructs and
+zero changed judge files).
 
 `judge/grade.sh <edit.mlt> [--json out.json]`
 
@@ -89,11 +97,11 @@ render itself on a copy of the artifact.
 |---|---|
 | **G1 power check** | The barcode decoder reads **every** frame of the three raw source clips correctly (150/150 each). If it cannot, the judge is broken, not the artifact — fails closed. |
 | **G2 format** | ffprobe: `codec_name=h264`, `width=1280`, `height=720`, `r_frame_rate=25/1`, `nb_frames=225` (decoded frame count is what counts); audio `codec_name=aac`, `sample_rate=48000`, `channels=2`. |
-| **G3 EDL** | Every output frame outside the dissolve window decodes its barcode to exactly the spec'd (clip, source frame); the frame's centre-region colour also matches that clip's measured hue within tolerance (±16/255 per channel). A frame whose barcode fails to decode outside the window is a mismatch. |
+| **G3 EDL** | Every output frame outside the dissolve window decodes its barcode to exactly the spec'd (clip, source frame); the flat sampling patch also matches that clip's measured hue within ±16/255 per channel. During the dissolve, all sixteen barcode block means must match the predicted blend of the two specified source frames, maximum normalized residual ≤0.12. An unreadable cut-frame barcode is a mismatch. |
 | **G4 dissolve** | Over output frames 100–124 the blend weight `w`, estimated by projecting the centre-region colour onto the A→B axis, is a linear ramp: per-frame `|w_measured − t/24| ≤ 0.20`, `w(100) ≤ 0.15`, `w(124) ≥ 0.85`, non-decreasing within ±0.05 slack. Outside the window every frame's colour is a clean clip hue (enforced by G3's colour check). |
 | **G5 logo** | Bottom-right rect template-match score vs `logo.png` ≥ 0.85 on every frame 0–99, and < 0.30 on every frame 100–224. |
 | **G6 loudness** | ebur128 integrated loudness −16 ± 1 LUFS; true peak ≤ −1.0 dBTP. |
-| **G7 ducking** | RMS of the 220 Hz band (bandpass `f=220,w=0.5`) during the two voice windows is **≥ 8 dB below** its RMS outside them (0.1 s guard at each window edge). |
+| **G7 ducking** | 220 Hz RMS, measured by sine/cosine projection over 100 ms windows (exactly 22 cycles), is **≥8 dB lower in each voice window** than outside both windows, with 0.1 s edge guards. Outside music RMS must exceed 1e-5, preventing silence from passing. |
 
 The verdict is one JSON object on stdout with every measured number and
 the pass limit per gate; exit 0 only if all gates pass.
@@ -121,7 +129,7 @@ rendered bytes:
 
 ## Self-test (`judge/selftest.sh`)
 
-- Unit tests (stdlib `unittest`, `judge/tests/`) for the barcode
+- Unit tests (stdlib `unittest`, `tests/`) for the barcode
   decoder, the blend estimator and the EDL comparator — including one
   that fails if the comparator ignored an off-by-one cut.
 - The known-good `examples/good/edit.mlt` passes every gate.
@@ -163,7 +171,7 @@ executes judge code.
 | `judge/edl.py` | barcode decoder, blend estimator, EDL comparator (pure stdlib, unit-tested) |
 | `judge/grade.py` / `grade.sh` | render + the seven gates, one JSON verdict |
 | `judge/mutants.py` | the 11 known-bad timelines as single edits of the good one |
-| `judge/tests/test_edl.py` | unit tests for decoder / estimator / comparator |
+| `tests/` | barcode, blend, EDL, unsafe XML, and run.py fault-injection tests |
 | `judge/setup.sh` | pinned Shotcut 26.8.1 + GL libs + generated assets |
 | `judge/VERSIONS.txt` | what setup.sh actually installed |
 | `examples/good/edit.mlt` | a known-good timeline (written by hand, rendered green) |
@@ -175,3 +183,19 @@ executes judge code.
 225 frames of 720p decoded through ffmpeg crops: a full grade is tens of
 seconds on 2 vCPU / ~3 GB RAM; selftest renders the good timeline plus
 11 mutants.
+
+## Limits and reproduction tolerances
+
+At a dissolve endpoint a zero-weight source is invisible; no pixel oracle
+can prove its identity. In the interior, provenance is measured against
+the expected blend with codec tolerance, not recovered as two exact binary
+codes. The ramp rule is a tolerance mask, not mathematical equality.
+
+The allowlisted XML subset is deliberately narrower than all of Shotcut.
+This validation is not an OS security boundary: render untrusted XML only
+inside a disposable sandbox. Trusted setup owns the assets and judge.
+
+Repeat grades must be byte-identical outside `timing`. Across fresh
+sandboxes, discrete checks match exactly; audio LUFS/peak tolerance is
+0.1 dB, duck depth 0.02 dB, weights/correlations 0.001. Setup supports
+x86_64 Linux and CPython 3.12; run.py itself uses stdlib Python 3.10+.

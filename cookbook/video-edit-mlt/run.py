@@ -20,7 +20,7 @@ def sbx(*args, timeout=120):
 def detached(sid, name, command, timeout):
     """Persist the command and exit status across transient stream failures."""
     tag = "/tmp/video-edit-" + name
-    script = f"{command} >{tag}.log 2>&1; echo $? >{tag}.rc"
+    script = f"({command}) >{tag}.log 2>&1; echo $? >{tag}.rc"
     launch = f"nohup bash -c {shlex.quote(script)} >/dev/null 2>&1 </dev/null &"
     p = sbx("exec", "--timeout", "60", sid, "--", launch)
     if p.returncode:
