@@ -93,18 +93,28 @@ class Renderer:
         self.r = pyrender.OffscreenRenderer(width, height)
 
     def render(self, mesh, yaw=35.0, pitch=22.0, dist=None,
-               rgba=STEEL, face_colors=None, edges=True, fov_deg=28.0):
+               rgba=STEEL, face_colors=None, edges=True, fov_deg=28.0,
+               smooth=False, margin=1.25):
         """Render `mesh` (trimesh, already posed/scaled) -> PIL RGBA image.
 
-        dist: camera distance; None = auto from mesh extents + fov.
+        dist: camera distance; None = auto from mesh extents + fov, scaled
+              by `margin` (1.25 fills the frame; larger leaves headroom).
+        smooth: False draws crisp faceted normals (correct for planar
+              faces; CAD tessellations are coarse, so vertex-averaged
+              normals smear flat faces into starbursts), True averages.
         face_colors: optional (F,4) uint8 overrides baked onto a copy.
+
+        `mesh.visual.face_colors` is honoured — trimesh's own face_colors
+        property does not reach pyrender for a process=False mesh.
         """
         m = mesh.copy()
+        if face_colors is None and getattr(m.visual, "kind", None) == "face":
+            face_colors = m.visual.face_colors
         if face_colors is not None:
             m.visual.face_colors = face_colors
-            pm = pyrender.Mesh.from_trimesh(m, smooth=True)
+            pm = pyrender.Mesh.from_trimesh(m, smooth=smooth)
         else:
-            pm = pyrender.Mesh.from_trimesh(m, smooth=True,
+            pm = pyrender.Mesh.from_trimesh(m, smooth=smooth,
                                             material=_metal_material(rgba))
         scene = pyrender.Scene(
             ambient_light=np.array([0.30, 0.30, 0.33, 1.0]),
@@ -112,7 +122,7 @@ class Renderer:
         scene.add(pm)
         if dist is None:
             ext = float(m.extents.max())
-            dist = 1.25 * (ext / 2.0) / np.tan(np.radians(fov_deg) / 2)
+            dist = margin * (ext / 2.0) / np.tan(np.radians(fov_deg) / 2)
         pose, eye = _cam_pose(yaw, pitch, dist)
         cam = pyrender.PerspectiveCamera(yfov=np.radians(fov_deg),
                                        znear=dist * 0.02, zfar=dist * 20)
@@ -150,8 +160,9 @@ class Renderer:
         p4 = np.hstack([pts, np.ones((len(pts), 1))]) @ view.T
         z = -p4[:, 2]
         ok = z > cam.znear
-        f = cam.projection_matrix[1, 1]
-        fx = cam.projection_matrix[0, 0]
+        P = cam.get_projection_matrix(w, h)
+        f = P[1, 1]
+        fx = P[0, 0]
         # screen coords (y down): x' = cx + fx*X/-Z, y' = cy - fy*Y/-Z
         sx = (w / 2.0) + fx * (p4[:, 0] / z) * (w / 2.0)
         sy = (h / 2.0) - f * (p4[:, 1] / z) * (h / 2.0)
