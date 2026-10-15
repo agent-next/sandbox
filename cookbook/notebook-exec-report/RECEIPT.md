@@ -1,61 +1,24 @@
 # RECEIPT — notebook-exec-report
 
-Real command output, pasted from two from-nothing runs of the demo in this
-disposable Debian sandbox (2 vCPU, ~4 GB RAM; clone + fresh `~/.judge-venv`
-each time — what `run.py`'s steps do in a fresh agent-next sandbox). Every
-block below is the verbatim terminal output of the named command.
+Real command output, pasted from two from-nothing runs of the demo's
+one-command run (`python3 cookbook/notebook-exec-report/run.py --ref
+sbx/demo-notebook-exec-report-f5`), each in its own **fresh agent-next
+sandbox** created by `run.py` itself (clone + fresh `~/.judge-venv` inside
+the sandbox, killed and confirmed gone at the end). Every block below is
+verbatim terminal output; only the sandbox ids and wall times differ
+between the runs.
 
-## Run 1 — fresh clone, fresh venv
+Repo state: branch `sbx/demo-notebook-exec-report-f5`, commit `2dd95c0`,
+local `sbx` CLI 0.0.1.
 
-Repo state: branch `sbx/demo-notebook-exec-report`, commit `06c4b7b`.
+## Run 1 — fresh sandbox (run.py, exit 0, ~6.5 min total)
 
-### `bash judge/setup.sh` (exit 0, 235 s)
-
-    setup: creating /home/user/.judge-venv and installing judge/requirements.txt
-    Collecting asttokens==3.0.2 (from -r .../judge/requirements.txt (line 7))
-      Downloading asttokens-3.0.2-py3-none-any.whl (28 kB)
-    Collecting attrs==26.1.0 (...)
-      Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
-    ... (64 hash-pinned wheels, each "Downloading <name>-<version>.whl"; no version resolved freely)
-    Successfully installed asttokens-3.0.2 attrs-26.1.0 beautifulsoup4-4.15.0 \
-    bleach-6.4.0 cloudpickle-3.1.2 comm-0.2.3 contourpy-1.4.0 cycler-0.12.1 \
-    debugpy-1.8.22 defusedxml-0.7.1 executing-2.2.1 fastjsonschema-2.22.2 \
-    fonttools-4.66.1 ipykernel-7.4.0 ipython-9.17.1 \
-    ipython_pygments_lexers-1.1.1 jedi-0.20.0 Jinja2-3.1.6 joblib-1.6.0 \
-    jsonschema-4.26.0 jsonschema-specifications-2025.9.1 jupyter_client-8.10.0 \
-    jupyter_core-5.9.1 jupyterlab_pygments-0.3.0 kiwisolver-1.5.1 \
-    MarkupSafe-3.0.3 matplotlib-3.11.2 matplotlib-inline-0.2.2 mistune-3.3.4 \
-    narwhals-2.26.0 nbclient-0.11.0 nbconvert-7.17.1 nbformat-5.11.1 \
-    nest-asyncio2-1.7.3 numpy-2.5.3 packaging-26.3 pandas-3.0.6 \
-    pandocfilters-1.5.1 parso-0.8.7 pexpect-4.9.0 pillow-12.3.0 \
-    platformdirs-4.12.2 prompt_toolkit-3.0.53 psutil-7.2.2 ptyprocess-0.7.0 \
-    pure_eval-0.2.4 Pygments-2.21.0 pyparsing-3.3.3 python-dateutil-2.9.0.post0 \
-    pyzmq-27.2.0 referencing-0.37.0 rpds-py-2026.6.3 scikit-learn-1.9.1 \
-    scipy-1.18.1 six-1.17.0 soupsieve-2.10 stack-data-0.6.3 threadpoolctl-3.7.0 \
-    tinycss2-1.5.1 tornado-6.5.10 traitlets-5.16.1 typing_extensions-4.16.0 \
-    wcwidth-0.9.1 webencodings-0.6.1
-    setup: tool versions
-    # notebook-exec-report judge: versions installed by judge/setup.sh
-    # (Linux x86_64)
-    python3 3.12.15
-    ipykernel 7.4.0
-    jupyter-client 8.10.0
-    matplotlib 3.11.2
-    nbclient 0.11.0
-    nbconvert 7.17.1
-    nbformat 5.11.1
-    numpy 2.5.3
-    pandas 3.0.6
-    scikit-learn 1.9.1
-    scipy 1.18.1
-    traitlets 5.16.1
-    [IPKernelApp] WARNING | Kernel is running over TCP without encryption. [...]
-    setup: nbclient smoke kernel OK (smoke 2.5.3)
-    setup: done
-
-### `bash judge/selftest.sh` (exit 0, 502 s)
-
-    selftest: grading known-good .../examples/good/analysis.ipynb
+    run: [   3.3s] sbx create --timeout-min 30 -> exit 0
+    run: sandbox 01a14081-69b5-7c32-8da1-f9a143698e26
+    run: [   5.0s] git clone -> exit 0
+    run: [ 137.2s] judge/setup.sh -> exit 0
+    run: [ 221.8s] judge/selftest.sh -> exit 0
+    selftest: grading known-good /home/user/notebook-demo-repo/cookbook/notebook-exec-report/examples/good/analysis.ipynb
     selftest: known-good PASSED all gates
     mutants: error-cell.ipynb  edit: 'assert len(df) == 1600'
     mutants: train-not-test.ipynb  edit: 'rmse_test = float(np.sqrt(np.mean((log_y[test_idx] - pred_lo'
@@ -64,7 +27,7 @@ Repo state: branch `sbx/demo-notebook-exec-report`, commit `06c4b7b`.
     mutants: round-metric.ipynb  edit: '"rmse_test": round(rmse_test, 6),'
     mutants: stale-report.ipynb  edit: 'f"<tr><th>{k}</th><td>{v}</td></tr>" for k, v in metrics.ite'
     mutants: order-dependence.ipynb  edit: figures cell moved below the metrics cell
-    mutants: wrote 7 mutants to /tmp/tmp.sau5U0GPm7/mutants
+    mutants: wrote 7 mutants to /tmp/tmp.sRSCDSwfVW/mutants
     selftest: killed    error-cell (gate: execution; a cell failed during execution)
     selftest: killed    missing-figure (gate: figures; fewer than three figures were saved)
     selftest: killed    nondeterministic-seed (gate: determinism; two clean runs of the notebook disagree on rmse_test)
@@ -75,8 +38,9 @@ Repo state: branch `sbx/demo-notebook-exec-report`, commit `06c4b7b`.
     selftest: kill rate 7/7 = 100%
     selftest: determinism OK (two --seed 1 runs identical except timing)
     selftest: OK
+    run: [  20.5s] judge/grade.sh examples/good/analysis.ipynb -> exit 0
 
-### `bash judge/grade.sh examples/good/analysis.ipynb --json /tmp/v.json` (exit 0, 78 s)
+Verdict JSON printed by the grading step:
 
     {
       "artifact": "examples/good/analysis.ipynb",
@@ -96,7 +60,7 @@ Repo state: branch `sbx/demo-notebook-exec-report`, commit `06c4b7b`.
         "execution": { "cells_ok": true },
         "figures": {
           "bytes": { "coefficients.png": 37072, "pred_vs_obs.png": 58534,
-                     "residuals.png": 48488 },
+                     "residuals.png": 44848 },
           "count": 3
         },
         "integrity": { "clean": true },
@@ -119,34 +83,66 @@ Repo state: branch `sbx/demo-notebook-exec-report`, commit `06c4b7b`.
       },
       "passed": true,
       "reason": null,
-      "timing": { "first_run_s": 45.67, "total_s": 76.48 }
+      "timing": { "first_run_s": 7.53, "total_s": 17.28 }
     }
+    run: SUMMARY passed=True rmse_test=0.295283 (refit 0.29528270224052927) r2_test=0.877895157 coef_recovery=0.018015198777351894 blind_ratio=0.9933903285423452 figures=3
+    run: killed and confirmed gone: 01a14081-69b5-7c32-8da1-f9a143698e26
 
-## Run 2 — fresh clone, fresh venv
+(figures gate bytes above condensed to one line; everything else verbatim)
 
-(RUN2_PLACEHOLDER)
+## Run 2 — fresh sandbox (run.py, exit 0, ~5.1 min total)
+
+    run: [   2.3s] sbx create --timeout-min 30 -> exit 0
+    run: sandbox 01a14087-889a-7221-bb50-d4fb8e742d05
+    run: [   4.0s] git clone -> exit 0
+    run: [  90.1s] judge/setup.sh -> exit 0
+    run: [ 185.3s] judge/selftest.sh -> exit 0
+    selftest: known-good PASSED all gates
+    selftest: killed    error-cell (gate: execution; a cell failed during execution)
+    selftest: killed    missing-figure (gate: figures; fewer than three figures were saved)
+    selftest: killed    nondeterministic-seed (gate: determinism; two clean runs of the notebook disagree on rmse_test)
+    selftest: killed    order-dependence (gate: execution; a cell failed during execution)
+    selftest: killed    round-metric (gate: oracle; reported rmse_test disagrees with the independent refit)
+    selftest: killed    stale-report (gate: report; report.html omits metric rmse_test)
+    selftest: killed    train-not-test (gate: oracle; reported rmse_test disagrees with the independent refit)
+    selftest: kill rate 7/7 = 100%
+    selftest: determinism OK (two --seed 1 runs identical except timing)
+    selftest: OK
+    run: [  24.0s] judge/grade.sh examples/good/analysis.ipynb -> exit 0
+    run: SUMMARY passed=True rmse_test=0.295283 (refit 0.29528270224052927) r2_test=0.877895157 coef_recovery=0.018015198777351894 blind_ratio=0.9933903285423452 figures=3
+    run: killed and confirmed gone: 01a14087-889a-7221-bb50-d4fb8e742d05
+
+The full verdict JSON of run 2 is byte-identical to run 1's (including the
+`metrics` and every gate number); a diff of the two run logs differs only
+in the sandbox ids, the mutants temp-dir name, and the per-step wall times.
 
 ## Both runs side by side
 
 | quantity | run 1 | run 2 |
 |---|---|---|
-| `judge/setup.sh` | exit 0, 235 s | (RUN2_SETUP) |
-| `judge/selftest.sh` | exit 0, 502 s, kill rate 7/7 = 100 % | (RUN2_SELFTEST) |
-| `judge/grade.sh` verdict | passed | (RUN2_VERDICT) |
-| notebook `rmse_test` | 0.295283 | (RUN2_RMSE) |
-| oracle refit `rmse_test` | 0.29528270224052927 | (RUN2_ORACLE) |
-| `r2_test` | 0.877895157 | (RUN2_R2) |
-| coefficient recovery | 0.018015198777351894 | (RUN2_RECOVERY) |
-| blind ratio | 0.9933903285423452 | (RUN2_BLIND) |
-| figure bytes (3 files) | 37072 / 58534 / 48488 | (RUN2_FIGS) |
+| `sbx create` + clone | 3.3 s + 5.0 s | 2.3 s + 4.0 s |
+| `judge/setup.sh` | exit 0, 137.2 s | exit 0, 90.1 s |
+| `judge/selftest.sh` | exit 0, 221.8 s, kill rate 7/7 = 100 % | exit 0, 185.3 s, kill rate 7/7 = 100 % |
+| `judge/grade.sh` verdict | passed (exit 0, 20.5 s) | passed (exit 0, 24.0 s) |
+| notebook `rmse_test` | 0.295283 | 0.295283 |
+| oracle refit `rmse_test` | 0.29528270224052927 | 0.29528270224052927 |
+| `r2_test` | 0.877895157 | 0.877895157 |
+| coefficient recovery | 0.018015198777351894 | 0.018015198777351894 |
+| blind ratio (median 0.297248) | 0.9933903285423452 | 0.9933903285423452 |
+| figure bytes (3 files) | 37072 / 58534 / 44848 | 37072 / 58534 / 44848 |
+| dataset sha256 | 83029ea2…dae799c | 83029ea2…dae799c |
+| sandbox killed + confirmed gone | yes | yes |
+| `run.py` exit code | 0 | 0 |
+
+Tool versions installed by `judge/setup.sh` in these runs: recorded in
+`judge/VERSIONS.txt` (python3 3.12.15, numpy 2.5.3, scikit-learn 1.9.1,
+pandas 3.0.6, matplotlib 3.11.2, nbclient 0.11.0, ipykernel 7.4.0).
 
 ## Deviations
 
-- **Both runs are in this one disposable sandbox**, each from a fresh
-  clone and a deleted `~/.judge-venv` (the from-nothing state `run.py`
-  creates in a fresh agent-next sandbox). A true second *sandbox* run plus
-  the end-to-end `run.py` execution is the lead's follow-up step; the
-  sandbox cannot be created from inside this environment.
+- The two runs hit different sandbox instances with different I/O speed
+  (setup 90 s vs 137 s); every graded number is identical, and the
+  wall-time spread is the reason `run.py` prints per-step timings.
 - The `[IPKernelApp] WARNING | Kernel is running over TCP without
   encryption` lines on stderr are ipykernel's notice when no key file is
   provisioned; inside a single-use disposable sandbox the loopback
@@ -154,9 +150,6 @@ Repo state: branch `sbx/demo-notebook-exec-report`, commit `06c4b7b`.
 - numpy's PRNG defines the split (stated as a deviation in SPEC.md:
   reimplementing PCG64 + Lemire shuffle bit-for-bit in the stdlib was
   rejected as fragile); everything after the split is judge-owned code.
-- `REPRODUCE.md` (not done: independent reproduction by a *different*
-  agent model family, per the demo standard, happens before merge).
-- `media/` (not done: media is a later task by the lead's instruction).
 - Two transitive pins sit close to, but before, the two-week cutoff
   (ipykernel 7.4.0 and fonttools 4.66.1, both 2026-09-29); every pin in
   `judge/requirements.txt` is ≤ 2026-09-30, enforced by `judge/genlock.py`.
@@ -166,3 +159,8 @@ Repo state: branch `sbx/demo-notebook-exec-report`, commit `06c4b7b`.
   backend registers no figure display hook, so figures render into the
   notebook only with this call (found by the self-test: the first judge
   draft failed its own figures gate).
+- History: an earlier run of `run.py` at commit `90d743c` failed — the
+  client-side subprocess timeout (120 s) was shorter than the sandbox-side
+  `--timeout`, so `judge/setup.sh` was cut off mid-install; fixed in
+  `2dd95c0` (local timeout = sandbox timeout + 120 s margin on every
+  step).

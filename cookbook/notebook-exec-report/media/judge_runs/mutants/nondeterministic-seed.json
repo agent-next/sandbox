@@ -1,0 +1,13 @@
+{
+  "artifact": "/tmp/nb-mutants.HAnSlI/nondeterministic-seed.ipynb",
+  "detail": {
+    "diff": 0.006415000000000004,
+    "rmse_test_a": 0.31733,
+    "rmse_test_b": 0.310915
+  },
+  "failed_gate": "determinism",
+  "gates": {},
+  "metrics": {},
+  "passed": false,
+  "reason": "two clean runs of the notebook disagree on rmse_test"
+}

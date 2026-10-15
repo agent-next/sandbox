@@ -1,0 +1,12 @@
+{
+  "artifact": "/tmp/nb-mutants.HAnSlI/stale-report.ipynb",
+  "detail": {
+    "expected": 0.295283,
+    "key": "rmse_test"
+  },
+  "failed_gate": "report",
+  "gates": {},
+  "metrics": {},
+  "passed": false,
+  "reason": "report.html omits metric rmse_test"
+}

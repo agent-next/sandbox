@@ -1,0 +1,14 @@
+{
+  "artifact": "/tmp/nb-mutants.HAnSlI/train-not-test.ipynb",
+  "detail": {
+    "diff": 0.006085297759470754,
+    "refit": 0.29528270224052927,
+    "reported": 0.301368,
+    "tolerance": 1e-06
+  },
+  "failed_gate": "oracle",
+  "gates": {},
+  "metrics": {},
+  "passed": false,
+  "reason": "reported rmse_test disagrees with the independent refit"
+}

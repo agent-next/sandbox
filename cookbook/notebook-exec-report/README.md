@@ -64,8 +64,13 @@ the SPEC.
 ```bash
 pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 export SBX_API_KEY=<your key>
-python3 cookbook/notebook-exec-report/run.py     # --ref main --keep supported
+python3 cookbook/notebook-exec-report/run.py --ref <ref>   # --keep supported
 ```
+
+`--ref` is the repo ref to clone and run — a branch name while this demo
+is under review (e.g. `--ref sbx/demo-notebook-exec-report-f5`), `main`
+once merged (the default). The demo directory must exist at that ref or
+the run fails at `judge/setup.sh`.
 
 Creates a sandbox, clones the repo, installs pinned tools, runs the judge
 self-test, grades `examples/good/analysis.ipynb`, prints the verdict JSON,
@@ -78,13 +83,13 @@ confirmed.
 | step | wall time |
 |---|---|
 | `git clone --depth 1` | ~4 s |
-| `judge/setup.sh` (fresh install, 64 hash-pinned wheels) | 235 s (idempotent re-run: 8 s) |
-| `judge/selftest.sh` (good + 7 mutants + determinism) | 502 s |
-| `judge/grade.sh examples/good/analysis.ipynb` (2 clean kernel runs + refit) | 78 s |
+| `judge/setup.sh` (fresh install, 64 hash-pinned wheels) | 90–235 s (idempotent re-run: 8 s) |
+| `judge/selftest.sh` (good + 7 mutants + determinism) | 185–502 s |
+| `judge/grade.sh examples/good/analysis.ipynb` (2 clean kernel runs + refit) | 20–78 s |
 
-Whole run including sandbox create/kill: ~15 min. The judge headroom is
-2 vCPU / ~3 GB RAM; the notebook executes twice per grade, ~35 s per
-execution. `run.py` prints a per-step timing line.
+Whole run including sandbox create/kill: 5–15 min (three fresh-sandbox
+runs: 6.6 min, 4.4 min, 4.7 min — see RECEIPT.md; setup.sh dominates and
+varies with PyPI throughput). `run.py` prints a per-step timing line.
 
 ## Limits, plainly
 
