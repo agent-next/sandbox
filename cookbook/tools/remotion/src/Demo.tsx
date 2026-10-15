@@ -1,11 +1,7 @@
-import {Fragment} from 'react';
 import {AbsoluteFill, Sequence, useVideoConfig} from 'remotion';
-import {TransitionSeries, linearTiming} from '@remotion/transitions';
-import {wipe} from '@remotion/transitions/wipe';
 import {
   DemoProps,
   PROOF_S,
-  TRANSITION_FRAMES,
   buildItems,
   itemFrames,
   mainFrames,
@@ -16,6 +12,9 @@ import {EndCard} from './EndCard';
 import {Caption} from './Caption';
 import {FONT} from './fonts';
 
+// Timeline: shots (plus the optional 3D turntable as the second item) join
+// with hard cuts — the gate's scene-cut detector needs the joins to be real
+// cuts (see props.ts) — then the static end card, then overlays.
 export const Demo: React.FC<DemoProps> = (props) => {
   const {fps, durationInFrames} = useVideoConfig();
   const items = buildItems(props);
@@ -29,33 +28,28 @@ export const Demo: React.FC<DemoProps> = (props) => {
       : itemFrames({kind: 'shot', shot: lastShot}, fps);
   const proofStart = main - Math.round(PROOF_S * fps);
 
+  const starts: number[] = [];
+  let cursor = 0;
+  for (const item of items) {
+    starts.push(cursor);
+    cursor += itemFrames(item, fps);
+  }
+
   return (
     <AbsoluteFill style={{backgroundColor: '#04060b', fontFamily: FONT}}>
-      <TransitionSeries>
-        {items.map((item, i) => (
-          <Fragment key={i}>
-            {i > 0 ? (
-              <TransitionSeries.Transition
-                presentation={wipe({direction: 'from-left'})}
-                timing={linearTiming({durationInFrames: TRANSITION_FRAMES})}
-              />
-            ) : null}
-            <TransitionSeries.Sequence
-              durationInFrames={itemFrames(item, fps)}
-            >
-              {item.kind === 'model' ? (
-                <ModelShot glb={props.model3d!.glb} />
-              ) : (
-                <VideoShot
-                  shot={item.shot}
-                  frames={itemFrames(item, fps)}
-                  verdict={i === items.length - 1 ? props.verdict : undefined}
-                />
-              )}
-            </TransitionSeries.Sequence>
-          </Fragment>
-        ))}
-      </TransitionSeries>
+      {items.map((item, i) => (
+        <Sequence key={i} from={starts[i]} durationInFrames={itemFrames(item, fps)}>
+          {item.kind === 'model' ? (
+            <ModelShot glb={props.model3d!.glb} />
+          ) : (
+            <VideoShot
+              shot={item.shot}
+              frames={itemFrames(item, fps)}
+              verdict={i === items.length - 1 ? props.verdict : undefined}
+            />
+          )}
+        </Sequence>
+      ))}
       <Sequence from={main} durationInFrames={endFrames}>
         <EndCard
           lastShot={lastShot}

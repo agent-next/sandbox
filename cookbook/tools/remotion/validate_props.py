@@ -17,7 +17,6 @@ import sys
 
 # --- timeline constants (mirror src/props.ts; keep in sync) ------------------
 FPS = 30
-TRANSITION_S = 6 / FPS  # wipe between shots
 END_CARD_S = 2.5
 MODEL_SHOT_S = 6.0
 MIN_TOTAL_S = 25.0  # video_gate.MIN_DURATION_S
@@ -162,12 +161,11 @@ def check(props: dict) -> None:
     _str(_req(launch, "ask_agent", launch), "launch.ask_agent")
 
     # The rendered length must land inside the video gate's 25-60 s window.
-    n_items = len(shots) + (1 if "model3d" in props else 0)
+    # Shots join with hard cuts, so the timeline is a plain sum.
     total = (
         sum(float(s["duration"]) for s in shots)
         + (MODEL_SHOT_S if "model3d" in props else 0.0)
         + END_CARD_S
-        - (n_items - 1) * TRANSITION_S
     )
     if not MIN_TOTAL_S <= total <= MAX_TOTAL_S:
         raise _err(

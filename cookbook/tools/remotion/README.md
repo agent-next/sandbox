@@ -64,7 +64,8 @@ land inside the gate's 25–60 s window.
 - HUD values count up with `spring()`; the headline is a kinetic caption
   in by 0.5 s; the verdict slides in over the still-playing final clip;
   the last 2.5 s is a static end card (dimmed final frame + launch line).
-- Shots join with a 0.2 s wipe (`@remotion/transitions`).
+- Shots join with hard cuts — a 0.2 s wipe smooths the join below the gate's
+  scene-cut detector (calibration: wipe joins scored 0.0 cuts per 10 s).
 - Colour-blind-safe palette: teal `#2EC4B6` = PASS, orange `#F58518` =
   FAIL.
 - Font: Inter (OFL) bundled in `public/fonts/` — no network at render.

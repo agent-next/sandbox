@@ -48,10 +48,13 @@ log "faststart remux -> $OUT"
 ffmpeg -y -v error -i "$RAW" -c copy -movflags +faststart "$OUT"
 SIZE=$(stat -c %s "$OUT")
 
-for CRF in 20 23 26; do
+# Noise-like lavfi footage (mandelbrot, life) needs surprisingly high CRFs
+# to fit 8 MiB at 1080p30 — the rungs are spaced to land in 1-2 steps
+# without wasting re-encodes (measured 2026-10-15 on the bake-off clips).
+for CRF in 23 29 35 41 45; do
   [ "$SIZE" -le "$MAX_BYTES" ] && break
   log "over 8 MiB ($((SIZE / 1024)) KiB); re-encoding at CRF $CRF"
-  ffmpeg -y -v error -i "$RAW" -c:v libx264 -preset slow -crf "$CRF" \
+  ffmpeg -y -v error -i "$RAW" -c:v libx264 -preset medium -crf "$CRF" \
     -pix_fmt yuv420p -movflags +faststart "$OUT"
   SIZE=$(stat -c %s "$OUT")
 done

@@ -2,7 +2,6 @@
 // The constants below are mirrored in ../validate_props.py — keep in sync.
 
 export const FPS = 30;
-export const TRANSITION_FRAMES = 6; // 0.2 s wipe between shots
 export const END_CARD_S = 2.5;
 export const MODEL_SHOT_S = 6;
 export const PROOF_S = 4.5; // verdict overlay window at the tail of the last shot
@@ -59,11 +58,11 @@ export const itemFrames = (item: TimelineItem, fps: number): number =>
     ? Math.round(MODEL_SHOT_S * fps)
     : Math.max(1, Math.round(item.shot.duration * fps));
 
-export const mainFrames = (props: DemoProps, fps: number): number => {
-  const items = buildItems(props);
-  const sum = items.reduce((acc, it) => acc + itemFrames(it, fps), 0);
-  return sum - (items.length - 1) * TRANSITION_FRAMES;
-};
+// Shots join with hard cuts: a 0.2 s wipe smooths the join below the
+// gate's scene-cut detector (calibrated 2026-10-15: wipe joins scored
+// 0.0 cuts per 10 s), so the timeline is a plain sum of shot lengths.
+export const mainFrames = (props: DemoProps, fps: number): number =>
+  buildItems(props).reduce((acc, it) => acc + itemFrames(it, fps), 0);
 
 export const totalFrames = (props: DemoProps, fps: number): number =>
   mainFrames(props, fps) + Math.round(END_CARD_S * fps);
