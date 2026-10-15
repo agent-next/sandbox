@@ -62,12 +62,13 @@ def dataset_rel(asset_path: str, anchor: Path | None = None) -> str:
     # Some assemblies reference props dataset-root-relative
     # (`@Props/general/X/X.usd@`) instead of `@../../general/...@`, so
     # ComputeAllDependencies resolves them to
-    # `Props/assembly/Asm/Props/general/X/X.usd`.  Truncating at the LAST
-    # `Props/` recovers the real dataset path; the first-occurrence truncation
-    # would only work for paths already relative to the dataset root.
-    idx = p.rfind("Props/")
-    if idx > 0:
-        return p[idx:]
+    # `Props/assembly/Asm/Props/general/X/X.usd`.  Only assembly layers can
+    # produce that double-`Props/` shape, so truncate at the LAST `Props/`
+    # there.  Other trees legitimately contain a second `Props/` in their
+    # real path (Props/modular/Modular_Warehouse/Props/Source/...) and must
+    # be kept whole.
+    if p.startswith("Props/assembly/") and p.count("Props/") > 1:
+        return p[p.rfind("Props/"):]
     idx = p.find("Props/")
     if idx >= 0:
         return p[idx:]
@@ -195,12 +196,17 @@ def closure(entry_rel: str, cache: Path,
                 dep = dataset_rel(str(u), anchor=cache)
                 if not dep or dep in seen:
                     continue
+                # A <UDIM> placeholder expands to the concrete tiles that
+                # exist in the dataset (tile 1001 is the only one the build
+                # pins); keep the placeholder out of the lock.
+                if "<UDIM>" in dep:
+                    dep = dep.replace("<UDIM>", "1001")
+                first = dep.split("/", 1)[0]
                 # A *bare* reference (`@OmniPBR.mdl@`) carries no directory
                 # information, so dataset_rel cannot place it; it resolves
                 # relative to the layer that referenced it.  A resolved path
                 # always keeps a dataset top-level prefix (Props/, SubLayers/,
                 # …), so anything without one is bare and needs re-anchoring.
-                first = dep.split("/", 1)[0]
                 if first not in TOP_LEVEL:
                     # a bare @OmniPBR.mdl@ etc.: re-anchor at the layer that
                     # referenced it so it lands next to that layer.
