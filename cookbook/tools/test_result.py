@@ -268,6 +268,21 @@ def test_ftyp_with_video_track_sniffs_mp4(tmp_path):
     assert result._sniff(root / "media" / "demo.mp4") == "mp4"
 
 
+def test_mp4_with_moov_after_large_mdat_sniffs_mp4(tmp_path):
+    # Valid MP4 without +faststart: moov sits after mdat, past the window.
+    late = tmp_path / "late.mp4"
+    mdat = _box(b"mdat", b"\x00" * (result._SNIFF_WINDOW + 1024))
+    late.write_bytes(MP4[:MP4.index(b"moov") - 4] + mdat + _moov(b"vide"))
+    assert result._sniff(late) == "mp4"
+
+
+def test_m4a_with_moov_after_large_mdat_is_not_video(tmp_path):
+    late = tmp_path / "late.m4a"
+    mdat = _box(b"mdat", b"\x00" * (result._SNIFF_WINDOW + 1024))
+    late.write_bytes(M4A[:M4A.index(b"moov") - 4] + mdat + _moov(b"soun"))
+    assert result._sniff(late) is None
+
+
 # -- path hygiene -----------------------------------------------------------
 
 def test_escaping_path_reports_once(tmp_path):
