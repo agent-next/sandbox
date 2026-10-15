@@ -82,6 +82,14 @@ def main():
     }
     files["demo.mp4"].update(probe(MEDIA / "demo.mp4"))
 
+    # selftest.json is written by make_data.py from judge/mutants.py, so the
+    # number of known-bad mutants lives in the data, not in this file.
+    try:
+        selftest = json.loads((MEDIA / "data" / "selftest.json").read_text())
+        n_mutants = len(selftest.get("mutants", {}))
+    except Exception:
+        n_mutants = 0
+
     try:
         ffmpeg = subprocess.check_output(["ffmpeg", "-version"], text=True)
         ffmpeg = ffmpeg.splitlines()[0].split()[2]
@@ -96,8 +104,8 @@ def main():
             "curve": "media/data/curve.json (judge reference summary metrics)",
             "series": "media/data/series.json (the judge's own blind "
                       "reference equity/position/drawdown series)",
-            "selftest": "media/data/selftest.json (grade verdicts: good + "
-                        "10 known-bad mutants)",
+            "selftest": f"media/data/selftest.json (grade verdicts: good + "
+                        f"{n_mutants} known-bad mutants)",
             "replay": "media/data/replay.json (the known-bad mutants graded "
                       "in the order a fixing agent would meet them)",
             "comparison": "media/data/comparison.json (artifact metrics vs "

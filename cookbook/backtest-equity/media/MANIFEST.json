@@ -31,7 +31,7 @@
  "source_data": {
   "curve": "media/data/curve.json (judge reference summary metrics)",
   "series": "media/data/series.json (the judge's own blind reference equity/position/drawdown series)",
-  "selftest": "media/data/selftest.json (grade verdicts: good + 10 known-bad mutants)",
+  "selftest": "media/data/selftest.json (grade verdicts: good + 11 known-bad mutants)",
   "replay": "media/data/replay.json (the known-bad mutants graded in the order a fixing agent would meet them)",
   "comparison": "media/data/comparison.json (artifact metrics vs reference metrics)"
  },
