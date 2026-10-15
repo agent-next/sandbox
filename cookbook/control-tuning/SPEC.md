@@ -54,6 +54,11 @@ All gates run in `judge/grade.py` against a checksummed copy of `judge/`;
 the artifact only supplies `Q` and `R`. Default Monte-Carlo seed 20260101
 (`--seed N` overrides).
 
+Settling time, everywhere below, is the first sample after which the signal
+stays inside its band for the rest of the run: a sample still outside the
+band never counts as settled, even if it is the last outside sample, and a
+signal outside its band at the horizon never settles.
+
 1. **Artifact valid** — parses as JSON, exact key set, `type == "lqr"`,
    all weights finite, `Q >= 0` with `Q[0]`, `Q[2] > 0`, `R > 0`.
 2. **Linear design valid** — `control.lqr()` succeeds (slycot raises on
@@ -72,9 +77,15 @@ the artifact only supplies `Q` and `R`. Default Monte-Carlo seed 20260101
 5. **Robustness margins** — loop-at-a-time SISO loops of the linearised
    plant, `L_i(s) = K_i·(sI - A)^-1·B_i`, negative feedback, both loops:
    gain margin `>= 6 dB` and phase margin `>= 45 deg`. Margins are measured
-   on a 6000-point log frequency sweep from 0.01 to 1000 rad/s; if the phase
-   never crosses -180 deg the gain margin is taken as unlimited (reported
-   as 99 dB); if `|L|` never crosses 1 the phase margin is 180 deg.
+   on a 6000-point log frequency sweep from 0.01 to 1000 rad/s. The gain
+   margin is read at every phase crossing of an odd multiple of 180 deg —
+   +180 deg crossings count exactly like -180 deg ones (a +180 deg crossing
+   is just as unstable under a gain change), and the worst crossing wins;
+   if the phase crosses no odd multiple of 180 deg the gain margin is
+   taken as unlimited (reported as 99 dB). Phase margins are normalised
+   to the conventional signed range (-180 deg, 180 deg] — a raw margin of
+   209 deg is really -151 deg and fails the 45 deg rule; if `|L|` never
+   crosses 1 the phase margin is 180 deg.
 6. **Monte-Carlo robustness** — 200 samples, each perturbing `M`, `m`, `l`
    independently and uniformly in ±20 % (seeded `numpy.default_rng`): two
    nonlinear 10 s runs per sample, one per spec scenario (the 0.15 rad
@@ -119,10 +130,14 @@ The judge trusts no number the artifact carries: it reads only `Q`, `R`:
 
 `judge/mutants.py` generates known-bad artifacts from the good one by single
 edits; `judge/selftest.sh` requires the good example to pass and every mutant
-to fail at least one gate:
+to be rejected with exit code 1 and a verdict JSON whose overall verdict is
+FAIL and whose declared target gate is the one that failed. A grade that
+crashes, writes no verdict, or trips the judge-integrity check is not a kill.
+Mutants marked **isolated** must fail their target gate and nothing else —
+that is what proves the gate has independent killing power:
 
-1. **sign-flip** — `Q[2] = -50`: negative state weight, lqr has no
-   stabilising solution (gate 2).
+1. **sign-flip** — `Q[2] = -50`: negative state weight, rejected by
+   validation (gate 1).
 2. **too-aggressive** — all `Q` × 1000: high-gain design whose demand far
    exceeds the actuator limits (gate 3).
 3. **too-sluggish** — all `Q` / 100: misses the settling-time gates.
@@ -132,10 +147,20 @@ to fail at least one gate:
 6. **nan-weight** — `Q[2] = NaN`: rejected by validation (gate 1).
 7. **wrong-type** — `type = "pid"`: rejected by validation (gate 1).
 8. **wrong-shape** — `Q` of length 3: rejected by validation (gate 1).
-9. **mc-marginal** — all `Q` × 0.8: passes every deterministic gate
-   (gates 1–5, graded `--no-mc`) but misses displacement settling on
-   perturbed plants; killed by the Monte-Carlo gate alone (gate 6,
-   `mc_pass_fraction` ≈ 0.80 < 0.95). Proves the robustness gate can fail.
+9. **weak-feedback** — all `R` × 1e5: feedback too weak for the pole check
+   (gate 2) — proves the design gate itself can fire on a valid artifact.
+10. **pm-fail** — `R[1]` × 30: the force loop's phase margin sags below
+    45 deg while every other gate passes (**isolated**, gate 5) — proves
+    the phase-margin gate has killing power.
+11. **gm-fail** — `R[1]` × 120: the force loop crosses an odd multiple of
+    180 deg with `|L| > 1`, a negative gain margin, and nothing else fails
+    (**isolated**, gate 5) — proves the gain-margin gate sees +180 deg
+    crossings too.
+12. **mc-marginal** — all `Q` × 0.8: passes every deterministic gate
+    (gates 1–5, graded `--no-mc`) but misses displacement settling on
+    perturbed plants; killed by the Monte-Carlo gate alone (gate 6,
+    `mc_pass_fraction` < 0.95). Proves the robustness gate can fail.
 
-Kill rate must be >= 90 % (the reference judge kills 9/9, one of them by
-the Monte-Carlo gate alone).
+Kill rate must be >= 90 % (the reference judge kills 12/12, three of them
+isolated single-gate kills: one by the Monte-Carlo gate, one by the phase-
+margin gate, one by the gain-margin gate).
