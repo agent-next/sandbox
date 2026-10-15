@@ -1,0 +1,5 @@
+# Intentionally empty: the judge (judge/bisect_judge.py, judge/mutants.py,
+# fixture/make_fixture.py, sweep/local_report.py) is Python 3.10+ standard
+# library only — judge/setup.sh verifies that and installs no pip packages.
+# The only pinned download is Debian's git package (judge/package-sha256.txt).
+# Rendering deps for the media are pinned separately in media/requirements.txt.
