@@ -1,6 +1,9 @@
 # pinned by judge/genlock.py -- install with pip --require-hashes.
 # One exact wheel per line: torch (CPU index) and numpy plus torch's
 # transitive closure (PyPI). Do not edit by hand.
+# torch's +cpu local version exists only on the PyTorch CPU index, so
+# it is an extra index; --require-hashes still pins every wheel.
+--extra-index-url https://download.pytorch.org/whl/cpu
 # torch-2.14.1+cpu-cp313-cp313-manylinux_2_28_x86_64.whl
 torch==2.14.1+cpu \
     --hash=sha256:331fa474e26e428e2e6af1143b2fdab19cee492d7d21897b8899ce1c14755662

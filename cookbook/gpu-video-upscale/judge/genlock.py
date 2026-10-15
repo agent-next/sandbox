@@ -103,6 +103,9 @@ HEADER = [
     "# pinned by judge/genlock.py -- install with pip --require-hashes.",
     "# One exact wheel per line: torch (CPU index) and numpy plus torch's",
     "# transitive closure (PyPI). Do not edit by hand.",
+    "# torch's +cpu local version exists only on the PyTorch CPU index, so",
+    "# it is an extra index; --require-hashes still pins every wheel.",
+    "--extra-index-url https://download.pytorch.org/whl/cpu",
 ]
 
 
