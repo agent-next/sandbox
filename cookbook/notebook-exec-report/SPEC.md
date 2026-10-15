@@ -57,8 +57,13 @@ cells (a fresh kernel must suffice). Requirements:
   stream output that is a JSON object with the keys
   `{"seed": 20261015, "alpha": 10.0, "n_train": <int>, "n_test": <int>,
   "rmse_test": <float>, "rmse_train": <float>, "r2_test": <float>,
-  "rmse_test_usd": <float>, "dataset_sha256": "<hex>", "figures": [...]}`
-  and the cell carries the notebook-metadata tag `metrics`.
+  "rmse_price": <float>, "dataset_sha256": "<hex>", "figures": [...]}`
+  and the cell carries the notebook-metadata tag `metrics`. `rmse_test` /
+  `rmse_train` / `r2_test` are on the natural-log scale of `MED_VALUE`;
+  `rmse_price` is the same held-out error back in the column's own units
+  (MED_VALUE; the generator writes `MED_VALUE = PRICE_SCALE * exp(log
+  truth) + noise`, `PRICE_SCALE = 2.0` = "$1e5 per unit"), which is why it
+  is ~1.1 and not ~2250.
 - Figures: at least three `matplotlib` figures, each a distinct
   `image/png` output in the notebook **and** saved by the notebook to
   `figures/*.png` inside the artifact directory, which the report embeds.
@@ -88,7 +93,8 @@ anything from the artifact directory other than the notebook itself.
   digests, each ≥ 8 kB (a blank or stub figure fails), and the exported
   `report.html` contains an `<img src=...>` reference to **every** figure
   file listed in the artifact's `figures/` directory. Every `<img>` `src`
-  must resolve to a local file that exists.
+  must resolve to a local file that exists: an `src` that points at a
+  file the notebook did not write and that is not on disk fails the gate.
 - **G4 metric vs. judge refit (the acceptance oracle)**: the judge
   re-implements the pipeline independently — the same dataset, the same seed
   and split, natural-log target, and the ridge closed form
@@ -108,7 +114,9 @@ anything from the artifact directory other than the notebook itself.
   lands at 0.2953 ± 0.010; a model that skipped the log transform lands at
   ~1.60 — a factor of 5 away, with a wide margin either side.
 - **G6 report completeness**: `report.html` parses, contains every metric
-  key and its value to 6 decimals, embeds all figures, and contains no
+  key and its value to 6 decimals (`seed`, `alpha`, `n_train`, `n_test`,
+  `rmse_test`, `rmse_train`, `r2_test`, `rmse_price`, `dataset_sha256`,
+  `figures`), embeds all figures, and contains no
   `Traceback` / `CellExecutionError` text.
 - **G7 no judge tampering**: the `judge/` tree's sha256 is unchanged before
   and after grading, and the notebook's sources contain no reference to the
@@ -151,8 +159,14 @@ Reference numbers the good example must hit (measured on the good artifact):
 |---|---|
 | `rmse_test` (log scale) | 0.2953 |
 | `r2_test` | 0.8779 |
-| `rmse_test_usd` | ~2250 |
+| `rmse_price` (MED_VALUE units) | 1.135 |
 | coefficient recovery `‖ŵ−w_true‖/‖w_true‖` | 0.0180 |
+
+`rmse_price` is the held-out error in the dataset's own `MED_VALUE` units
+(`make_dataset.py`: `PRICE_SCALE = 2.0`, "$1e5 per unit") — the same
+held-out rows the log-scale `rmse_test` of 0.2953 refers to, measured on
+the column's own scale instead of its log. It is informational: the gates
+compare only the log-scale numbers.
 
 ## Self-test (`judge/selftest.sh`)
 

@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -196,8 +197,10 @@ def gate_determinism(dest_a: Path, dest_b: Path, nb_path: Path,
             "dirs": [str(dest_a.name), str(dest_b.name)]}
 
 
-def gate_figures(metrics: dict, figs: dict, sizes: dict, nb, html: str) -> dict:
-    """G3: three distinct real figures, and the report references them all."""
+def gate_figures(metrics: dict, figs: dict, sizes: dict, nb, html: str,
+                 out_dir: Path) -> dict:
+    """G3: three distinct real figures; the report references every saved
+    figure, and every <img> src it carries resolves to a real file."""
     names = sorted(figs)
     if len(names) < FIG_MIN_COUNT:
         raise GateFailure("figures", "fewer than three figures were saved",
@@ -225,6 +228,18 @@ def gate_figures(metrics: dict, figs: dict, sizes: dict, nb, html: str) -> dict:
                               "report.html does not reference a figure the "
                               "notebook saved",
                               {"missing": name})
+    # the converse (SPEC G3): every <img> src must resolve to a file that
+    # exists in the artifact directory the notebook wrote.
+    dead = []
+    for src in re.findall(r'<img[^>]+\bsrc=(["\'])(.*?)\1', html, flags=re.I):
+        target = (out_dir / src[1]).resolve()
+        if not target.is_file():
+            dead.append(src[1])
+    if dead:
+        raise GateFailure("figures",
+                          "report.html has an <img> src that is not a file "
+                          "the notebook wrote",
+                          {"dead_src": sorted(set(dead))})
     return {"count": len(names), "bytes": {n: sizes[n] for n in names}}
 
 
