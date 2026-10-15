@@ -85,7 +85,15 @@ def main():
                             REPO, "sandbox"])
         exec_step("setup", ["bash", f"sandbox/{DEMO_DIR}/judge/setup.sh"])
         exec_step("selftest", ["bash",
-                               f"sandbox/{DEMO_DIR}/judge/selftest.sh"])
+                               f"sandbox/{DEMO_DIR}/judge/selftest.sh",
+                               "--json", "/tmp/selftest.json"])
+        proc, _ = run("cat-selftest", "sbx", "exec", sbx_id, "--timeout",
+                      "60", "--", "cat", "/tmp/selftest.json", capture=True)
+        if proc.returncode != 0 or not proc.stdout.strip():
+            die(f"selftest summary missing in sandbox {sbx_id} "
+                f"(cat /tmp/selftest.json exited {proc.returncode})")
+        print("selftest summary (JSON):")
+        print(proc.stdout, end="")
         exec_step("grade", ["bash", f"sandbox/{DEMO_DIR}/judge/grade.sh",
                             f"sandbox/{DEMO_DIR}/examples/good/exercises",
                             "--json", "/tmp/verdict.json"])
