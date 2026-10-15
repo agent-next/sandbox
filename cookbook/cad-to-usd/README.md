@@ -52,9 +52,9 @@ Measured on a 2 vCPU / 4 GB sandbox (real output in RECEIPT.md):
 
 | step | wall time |
 |---|---|
-| setup (two pinned venvs, ~630 MB of sha256-checked wheels) | ~4 min |
-| selftest (good ×3 grades + 9 mutants) | ~8 min |
-| grade the good artifact (fetch + oracle + re-conversion) | ~1.5 min |
+| setup (two pinned venvs, ~630 MB of sha256-checked wheels) | 4 min |
+| selftest (good ×3 grades + 9 mutants, kill rate 100 %) | 20 min |
+| grade the good artifact (fetch + oracle + re-conversion) | 5 min |
 
 ## How the judge works
 

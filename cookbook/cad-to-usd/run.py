@@ -44,8 +44,8 @@ def main():
                     help="git ref to clone (default: main)")
     ap.add_argument("--keep", action="store_true",
                     help="leave the sandbox running and print its id")
-    ap.add_argument("--timeout-min", type=int, default=60,
-                    help="sandbox lifetime in minutes (default: 60 — "
+    ap.add_argument("--timeout-min", type=int, default=90,
+                    help="sandbox lifetime in minutes (default: 90 — "
                          "setup fetches a ~500 MB converter wheel)")
     args = ap.parse_args()
 
