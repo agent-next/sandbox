@@ -1,0 +1,49 @@
+{
+ "ours": {
+  "feeds": 165,
+  "rapids": 67,
+  "arcs": 18,
+  "z_max": 5.0,
+  "z_min": -6.0,
+  "bbox": [
+   0.0,
+   0.0,
+   65.0,
+   45.0
+  ]
+ },
+ "rs274": {
+  "ok": true,
+  "exit": 0,
+  "stderr_tail": "executing",
+  "units_mm": true,
+  "feeds": 165,
+  "rapids": 67,
+  "arcs": 18,
+  "z_max": 5.0,
+  "z_min": -6.0,
+  "bbox": [
+   0.0,
+   0.0,
+   65.0,
+   45.0
+  ],
+  "n_canon": 458
+ },
+ "diffs": {
+  "feeds": 0,
+  "rapids": 0,
+  "arcs": 0,
+  "z_max_mm": 0.0,
+  "z_min_mm": 0.0,
+  "bbox_mm": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "tolerance_mm": 0.001,
+ "ref_tool": "LinuxCNC rs274 2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2",
+ "gate_pass": true
+}
