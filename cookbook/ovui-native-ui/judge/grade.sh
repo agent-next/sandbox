@@ -47,16 +47,20 @@ export LD_LIBRARY_PATH="${STUB}:${LD_LIBRARY_PATH:-}"
 export OVUI_SEED="$SEED"  # informational; ovui does not read it
 
 # Render with the scratch dir as CWD: ovui/ImGui writes its window-state
-# file (imgui.ini) into the CWD, which must not be the repo.
+# file (imgui.ini) into the CWD, which must not be the repo. RENDER_LIMIT is
+# the per-render wall limit from SPEC.md gate 0.
+RENDER_LIMIT=90
 t0=$(date +%s)
-(cd "$SCRATCH" && "$VENV/bin/python" -I "$HERE/render.py" "$SCRATCH/panel.py" \
-    "$SCRATCH/shot1.png" "$SCRATCH/facts1.json") >"$SCRATCH/render1.log" 2>&1 || {
+(cd "$SCRATCH" && timeout "$RENDER_LIMIT" "$VENV/bin/python" -I "$HERE/render.py" \
+    "$SCRATCH/panel.py" "$SCRATCH/shot1.png" "$SCRATCH/facts1.json") \
+    >"$SCRATCH/render1.log" 2>&1 || {
         echo "{\"pass\": false, \"error\": \"render 1 failed\", \"log\": $(python3 -c '
 import json,sys; print(json.dumps(open(sys.argv[1]).read()[-2000:]))' "$SCRATCH/render1.log")}" >&2
         exit 1
     }
-(cd "$SCRATCH" && "$VENV/bin/python" -I "$HERE/render.py" "$SCRATCH/panel.py" \
-    "$SCRATCH/shot2.png" "$SCRATCH/facts2.json") >"$SCRATCH/render2.log" 2>&1 || {
+(cd "$SCRATCH" && timeout "$RENDER_LIMIT" "$VENV/bin/python" -I "$HERE/render.py" \
+    "$SCRATCH/panel.py" "$SCRATCH/shot2.png" "$SCRATCH/facts2.json") \
+    >"$SCRATCH/render2.log" 2>&1 || {
         echo "{\"pass\": false, \"error\": \"render 2 failed\"}" >&2
         exit 1
     }

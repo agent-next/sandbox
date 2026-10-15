@@ -80,7 +80,7 @@ the three `...: FAILED` case (a corrupted or substituted wheel) aborts
 
 ```
 $ bash judge/selftest.sh
-wrote 11 mutants to /tmp/tmp.TCjWRRfarz: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
+wrote 11 mutants to /tmp/tmp.MPCotA6yTA: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
 good: PASS (verdict byte-identical across 2 runs)
 mutant baked_png: FAILS (widget_tree,pixels)
 mutant empty_window: FAILS (widget_tree,pixels)
@@ -96,11 +96,13 @@ mutant wrong_swatch_size: FAILS (widget_tree,pixels)
 kill rate: 11/11 = 100%
 self-test OK
 exit code: 0
+
+real	1m25.683s
 ```
 
-Run 1 wall time **2m3s**, run 2 **1m46s** (23 renders at ~4.5 s each, plus
-two graded known-good runs). Both runs: `kill rate: 11/11 = 100%`,
-`exit 0`.
+Run 1 wall time **2m3s**, run 2 **1m46s**; the block above is a third run
+from a fresh clone of the pushed commit (23 renders at ~4.5 s each, plus two
+graded known-good runs). All runs: `kill rate: 11/11 = 100%`, `exit 0`.
 
 Every mutant fails a **gate assertion**, not a crash: `missing_slider`
 renders fine (its third row is a `Label` instead of a `FloatSlider`) and is
@@ -132,10 +134,14 @@ $ bash judge/grade.sh examples/good/panel.py --json /tmp/v.json
   ],
   "pass": true,
   "seed": 1234,
-  "timing": { "render_wall_s": 7 }
+  "timing": { "render_wall_s": 5 }
 }
 exit code: 0
 ```
+
+(Shown compacted; the command prints the same JSON with one field per line.
+The block is from a fresh clone of the pushed commit — a third run, after
+the first two — and reproduces the first two exactly.)
 
 Run 1: **12.0 s** wall, `exit 0`. Run 2: **10.2 s**, `exit 0`.
 
