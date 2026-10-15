@@ -1,0 +1,8 @@
+# usd-validate-fix judge: versions installed by judge/setup.sh
+# (Linux x86_64)
+python3 3.12.15 (venv: 3.12.15)
+usd-core 25.5
+usd-validation-nvidia 1.22.0
+nvidia_usd_validate path: /home/user/.usd-validate-fix-venv/bin/nvidia_usd_validate
+usd-core==25.5
+usd-validation-nvidia==1.22.0
