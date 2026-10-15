@@ -197,8 +197,8 @@ def api_client(handler):
     ))
 
 
-def mock_recorded_api(monkeypatch, name="mixed"):
-    data, requests = recording(name), []
+def mock_recorded_api(monkeypatch, name="mixed", *, data=None):
+    data, requests = recording(name) if data is None else data, []
 
     def handler(request):
         requests.append(request)
@@ -228,6 +228,58 @@ def test_cli_json_uses_recorded_pagination_and_needs_no_sandbox_key(monkeypatch,
     assert all(r.method == "GET" for r in requests)
     assert gh.http.is_closed
     assert out.err == ""
+
+
+@pytest.mark.parametrize("payload,escaped", [
+    pytest.param("\x1b[2J\x1b[H", r"\x1b[2J\x1b[H", id="clear-screen"),
+    pytest.param("\x1b]52;c;SGVsbG8=\x07", r"\x1b]52;c;SGVsbG8=\x07", id="clipboard-bel"),
+    pytest.param("\x1b]52;c;SGVsbG8=\x1b\\", r"\x1b]52;c;SGVsbG8=\x1b" + "\\",
+                 id="clipboard-st"),
+    pytest.param("\x9b2J\x9d52;c;SGVsbG8=\x9c", r"\x9b2J\x9d52;c;SGVsbG8=\x9c",
+                 id="c1-controls"),
+    pytest.param("\x00\b\t\n\v\f\r\x7f", r"\x00\x08\t\n\x0b\x0c\r\x7f", id="c0-and-del"),
+    pytest.param("\u202e\u2028\u2029", r"\u202e\u2028\u2029", id="unicode-formatting"),
+])
+def test_cli_text_escapes_terminal_controls_but_json_preserves_names(
+    payload, escaped, monkeypatch, capsys,
+):
+    data = recording("cancelled")
+    job = data["jobs_pages"][0]["jobs"][0]
+    job["name"] = f"Job {payload} café 🔧"
+    job["runner_name"] = f"sbx-{payload}runner"
+    job["steps"][0]["name"] = f"Step {payload} café 🔧"
+    original = copy.deepcopy(data)
+    argv = ["runners", "stats", "--repo", "OWNER/REPO", "--run", "1"]
+
+    with monkeypatch.context() as patch:
+        mock_recorded_api(patch, data=data)
+        assert cli.main(argv) == 0
+        output = capsys.readouterr()
+    assert payload not in output.out
+    assert f"Job {escaped} café 🔧" in output.out
+    assert f"sbx-{escaped}runner" in output.out
+    assert f"Step {escaped} café 🔧" in output.out
+    assert len(output.out.splitlines()) == 10
+    assert len(output.out.splitlines()[2].split("\t")) == 9
+    assert output.err == ""
+
+    mock_recorded_api(monkeypatch, data=data)
+    assert cli.main([*argv, "--json"]) == 0
+    output = capsys.readouterr()
+    reported = json.loads(output.out)["jobs"][0]
+    assert reported["name"] == job["name"]
+    assert reported["runner"] == job["runner_name"]
+    assert reported["steps"][0]["name"] == job["steps"][0]["name"]
+    assert data == original
+    assert output.err == ""
+
+
+def test_format_report_escapes_header_controls_without_mutating_report():
+    report = stats.build_report("OWNER/REPO\nforged", [], prefix="sbx-\x1b[2J")
+    original = copy.deepcopy(report)
+    output = stats.format_report(report)
+    assert output.splitlines()[0] == r"OWNER/REPO\nforged (runner prefix sbx-\x1b[2J)"
+    assert report == original
 
 
 @pytest.mark.parametrize("duration", [None, "30m", "24h", "7d"])
