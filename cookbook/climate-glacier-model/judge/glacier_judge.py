@@ -179,7 +179,11 @@ def png_info(path: str) -> tuple[int, int, float]:
 
 
 def check_imports(path: str) -> list[str]:
-    """Top-level module names imported by `path` (relative import -> '.')."""
+    """Top-level module names imported by `path` (relative import -> '.').
+
+    Raises SyntaxError on an unparsable artifact; the caller turns that into
+    a failed gate rather than a traceback.
+    """
     tree = ast.parse(open(path, encoding="utf-8").read(), filename=path)
     names: list[str] = []
     for node in ast.walk(tree):
@@ -220,6 +224,7 @@ def main() -> int:
 
     started = time.monotonic()
     verdict = Verdict()
+    timings: dict[str, float] = {}
     verdict.add("_meta", True, artifact=args.artifact, seed=args.seed,
                 python=args.python,
                 spec_constants={"L0": L0, "V0_mask_km3": V0_MASK,
@@ -228,22 +233,28 @@ def main() -> int:
     model = os.path.abspath(os.path.join(args.artifact, "model.py"))
     if not os.path.isfile(model):
         verdict.add("artifact", False, reason=f"{model} does not exist")
-        return emit(verdict, args, started)
+        return emit(verdict, args, started, timings)
 
     # G1: compiles, imports nothing outside the allow-list, runs cleanly.
-    bad_imports = sorted({n for n in check_imports(model)
+    try:
+        imports = check_imports(model)
+    except (SyntaxError, OSError) as exc:
+        verdict.add("artifact", False,
+                    reason=f"model.py does not parse: {exc}")
+        return emit(verdict, args, started, timings)
+    bad_imports = sorted({n for n in imports
                           if n and n not in ALLOWED_IMPORTS})
     if bad_imports:
         verdict.add("artifact", False,
                     reason=f"model.py imports {bad_imports}, outside the "
                            f"allow-list {sorted(ALLOWED_IMPORTS)}")
-        return emit(verdict, args, started)
+        return emit(verdict, args, started, timings)
 
     if not os.path.isfile(args.python):
         verdict.add("artifact", False,
                     reason=f"python interpreter {args.python} not found; run "
                            "judge/setup.sh first")
-        return emit(verdict, args, started)
+        return emit(verdict, args, started, timings)
 
     work = tempfile.mkdtemp(prefix="glacier-judge-")
     try:
@@ -256,23 +267,23 @@ def main() -> int:
         rc, out, err, secs = run_model(args.python, model, run_a, args.seed)
         if rc != 0:
             verdict.add("artifact", False,
-                        reason=f"model.py exited {rc}: {tail(err or out)}",
-                        seconds=round(secs, 2))
-            return emit(verdict, args, started)
+                        reason=f"model.py exited {rc}: {tail(err or out)}")
+            timings["first_run_seconds"] = round(secs, 2)
+            return emit(verdict, args, started, timings)
         missing = [f for f in ("volumes.csv", "crossings.json", "retreat.png",
                                "run.json")
                    if not os.path.isfile(os.path.join(run_a, f))]
         if missing:
             verdict.add("artifact", False,
-                        reason=f"model.py did not write {missing}",
-                        seconds=round(secs, 2))
-            return emit(verdict, args, started)
+                        reason=f"model.py did not write {missing}")
+            timings["first_run_seconds"] = round(secs, 2)
+            return emit(verdict, args, started, timings)
 
         try:
             table = read_csv(os.path.join(run_a, "volumes.csv"))
         except ValueError as exc:
             verdict.add("artifact", False, reason=f"volumes.csv: {exc}")
-            return emit(verdict, args, started)
+            return emit(verdict, args, started, timings)
 
         # Exactly one row per (scenario, year) pair.
         expected = {(n, y) for n, _ in SCENARIOS for y in range(YEARS + 1)}
@@ -284,8 +295,9 @@ def main() -> int:
                         reason=f"volumes.csv rows do not match the expected "
                                f"{len(expected)} (scenario, year) pairs; "
                                f"unexpected={extra} missing={absent}")
-            return emit(verdict, args, started)
-        verdict.add("artifact", True, rows=len(seen), seconds=round(secs, 2))
+            return emit(verdict, args, started, timings)
+        verdict.add("artifact", True, rows=len(seen))
+        timings["first_run_seconds"] = round(secs, 2)
 
         # G2: same seed twice -> byte-identical data outputs.
         rc2, out2, err2, secs2 = run_model(args.python, model, run_b, args.seed)
@@ -299,8 +311,8 @@ def main() -> int:
             verdict.add("determinism", same,
                         reason=None if same else
                         "two runs with the same seed differ in volumes.csv "
-                        "or crossings.json",
-                        second_run_seconds=round(secs2, 2))
+                        "or crossings.json")
+            timings["second_run_seconds"] = round(secs2, 2)
 
         # G3: zero-melt negative control.
         rc3, out3, err3, secs3 = run_model(args.python, model, zero,
@@ -310,11 +322,11 @@ def main() -> int:
                         reason=f"model.py --zero-melt exited {rc3}: "
                                f"{tail(err3 or out3)}")
         else:
-            verdict.add("zero_melt", *zero_melt_gate(zero, table),
-                        seconds=round(secs3, 2))
+            verdict.add("zero_melt", *zero_melt_gate(zero, table))
+            timings["zero_melt_seconds"] = round(secs3, 2)
 
         # G4/G5/G6: analytic comparison, mask consistency, monotonicity.
-        crossing_detail = crossing_gate(table)
+        crossing_detail = crossing_gate(table, run_a)
         verdict.add("crossing", *crossing_detail)
         verdict.add("final_volume", *final_volume_gate(table))
         verdict.add("shape", *shape_gate(table))
@@ -324,7 +336,7 @@ def main() -> int:
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
-    return emit(verdict, args, started)
+    return emit(verdict, args, started, timings)
 
 
 def run_model(python: str, model: str, outdir: str, seed: int,
@@ -392,21 +404,52 @@ def zero_melt_gate(outdir: str, warm_table) -> tuple[bool, dict]:
     return passed, detail
 
 
-def crossing_gate(table) -> tuple[bool, dict]:
+def crossing_gate(table, run_dir: str) -> tuple[bool, dict]:
+    """G4: the crossing year the artifact *reports* vs. the analytic root.
+
+    The artifact reports it in crossings.json; the CSV is checked to agree,
+    so a stale or invented JSON value cannot pass while the data says
+    otherwise.
+    """
+    try:
+        with open(os.path.join(run_dir, "crossings.json")) as fh:
+            reported_json = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        return False, {"reason": f"crossings.json unreadable: {exc}"}
+    if not isinstance(reported_json, dict):
+        return False, {"reason": "crossings.json is not a JSON object"}
+
     detail: dict = {"tolerance_years": TOL_CROSSING_Y, "scenarios": {}}
     ok = True
     reasons = []
     for name, a2 in SCENARIOS:
         reference = crossing_exact(a2)
-        reported = reported_crossing(table, name)
-        entry = {"reference_year": reference, "reported_year": reported}
+        entry_json = reported_json.get(name)
+        if not isinstance(entry_json, dict) or "year" not in entry_json:
+            ok = False
+            reasons.append(f"crossings.json has no {{'year': ...}} entry for "
+                           f"{name} (got {entry_json!r})")
+            detail["scenarios"][name] = {"reference_year": reference,
+                                         "reported_year": None,
+                                         "passed": False}
+            continue
+        reported = entry_json["year"]
+        if reported is not None and not isinstance(reported, (int, float)):
+            ok = False
+            reasons.append(f"crossings.json {name} year is {reported!r}, "
+                           "expected a number or null")
+            reported = None
+        from_csv = reported_crossing(table, name)
+        entry = {"reference_year": reference, "reported_year": reported,
+                 "csv_year": from_csv}
+
         if reference is None:
-            entry["passed"] = reported is None
-            if reported is not None:
+            entry["passed"] = reported is None and from_csv is None
+            if reported is not None or from_csv is not None:
                 ok = False
-                reasons.append(f"{name} reported a crossing at year "
-                               f"{reported} but the analytic reference never "
-                               "crosses")
+                reasons.append(
+                    f"{name} reports a crossing (json {reported}, csv "
+                    f"{from_csv}) but the analytic reference never crosses")
         elif reported is None:
             entry["passed"] = False
             ok = False
@@ -414,13 +457,24 @@ def crossing_gate(table) -> tuple[bool, dict]:
                            f"reference crosses at year {reference:.3f}")
         else:
             entry["deviation_years"] = reported - reference
-            entry["passed"] = abs(reported - reference) <= TOL_CROSSING_Y
-            if not entry["passed"]:
+            entry["csv_deviation_years"] = (None if from_csv is None
+                                            else from_csv - reference)
+            entry["passed"] = abs(reported - reference) <= TOL_CROSSING_Y and \
+                from_csv is not None and \
+                abs(from_csv - reference) <= TOL_CROSSING_Y
+            if abs(reported - reference) > TOL_CROSSING_Y:
                 ok = False
                 reasons.append(
                     f"{name} crossing year {reported:.3f} is "
                     f"{entry['deviation_years']:+.3f} yr from the analytic "
                     f"{reference:.3f} (tolerance ±{TOL_CROSSING_Y:g})")
+            if from_csv is None or abs(from_csv - reference) > TOL_CROSSING_Y:
+                ok = False
+                reasons.append(
+                    f"{name}: the CSV implies crossing year {from_csv}, "
+                    f"{'which disagrees with' if from_csv is not None else ''} "
+                    f"the analytic {reference:.3f} and the reported "
+                    f"{reported} (tolerance ±{TOL_CROSSING_Y:g})")
         detail["scenarios"][name] = entry
     if not ok:
         detail["reason"] = "; ".join(reasons)
@@ -548,14 +602,16 @@ def tail(text: str, limit: int = 600) -> str:
     return text[-limit:] if text else "(no output)"
 
 
-def emit(verdict: Verdict, args, started: float) -> int:
+def emit(verdict: Verdict, args, started: float,
+         timings: dict[str, float] | None = None) -> int:
     failure = verdict.first_failure()
     doc = {
         "artifact": args.artifact,
         "seed": args.seed,
         "passed": failure is None,
         "gates": verdict.gates,
-        "timing": {"total_seconds": round(time.monotonic() - started, 2)},
+        "timing": {"total_seconds": round(time.monotonic() - started, 2),
+                   **(timings or {})},
     }
     if failure is not None:
         doc["failed_gate"] = failure[0]
