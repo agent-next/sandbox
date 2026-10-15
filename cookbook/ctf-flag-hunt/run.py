@@ -15,8 +15,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 REPO = "https://github.com/agent-next/sandbox"
@@ -65,6 +68,10 @@ def main() -> int:
     if sbx("--version").returncode != 0:
         print("run: the sbx CLI is required: pip install "
               '"git+https://github.com/agent-next/sandbox#subdirectory=cli"',
+              file=sys.stderr)
+        return 1
+    if not (os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")):
+        print("run: export SBX_API_KEY (or E2B_API_KEY) first",
               file=sys.stderr)
         return 1
 

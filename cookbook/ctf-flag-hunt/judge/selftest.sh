@@ -14,16 +14,33 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 echo "selftest: grading known-good $GOOD"
-if bash "$JDIR/grade.sh" "$GOOD" --json "$work/good.json" > /dev/null; then
+if bash "$JDIR/grade.sh" "$GOOD" --json "$work/good.json" \
+        > "$work/good.log" 2>&1; then
     echo "selftest: known-good PASSED all gates"
 else
     echo "selftest: known-good FAILED -- the judge or the example is broken" >&2
+    cat "$work/good.log" >&2
     cat "$work/good.json" >&2
     exit 1
 fi
 
 python3 -I "$JDIR/mutants.py" "$GOOD" "$work/mutants" > "$work/mutants.log"
 cat "$work/mutants.log"
+
+# The mutant set must cover every SPEC-claimed gate at least once.
+python3 -I - "$work/mutants.log" <<'PY' || exit 1
+import re
+import sys
+
+gates = set(re.findall(r"\(gate: (\w+)\)", open(sys.argv[1]).read()))
+need = {"flags", "oracle", "negative_control", "blast_radius", "build"}
+missing = need - gates
+if missing:
+    print(f"selftest: mutant gates missing coverage of: "
+          f"{','.join(sorted(missing))}", file=sys.stderr)
+    raise SystemExit(1)
+print(f"selftest: mutant gate coverage {len(gates)}: {','.join(sorted(gates))}")
+PY
 
 total=0
 killed=0

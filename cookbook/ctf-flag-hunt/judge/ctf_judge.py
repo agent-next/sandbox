@@ -101,7 +101,13 @@ def plant(run_dir: Path, flags: dict[str, str], seed: int, salt: int,
 # --------------------------------------------------------------------------
 
 def build(artifact: Path, bindir: Path) -> dict:
-    """G1: compile each entry file with the fixed, documented rule."""
+    """G1: compile each entry file with the fixed, documented rule.
+
+    `artifact` is the judge's own temp copy (see grade()); compiling from a
+    copy means the artifact's sources are never touched by the compiler
+    (no #include writes, no cwd tricks) and the G5 sweep sees only the
+    original, unmodified tree.
+    """
     bindir.mkdir(parents=True, exist_ok=True)
     result = {"compiled": [], "missing": [], "warnings": {}, "errors": {}}
     for name in SERVICES:
@@ -238,9 +244,13 @@ def legit_actions(binaries: Path, run_dir: Path, planted: dict) -> dict:
 # gates
 # --------------------------------------------------------------------------
 
-def gate_g2(artifact: Path, binaries: Path, run_dir: Path, flags: dict,
+def gate_g2(workdir: Path, binaries: Path, run_dir: Path, flags: dict,
             planted: dict, cfg: dict, timing: dict) -> dict:
-    """G2: 5/5 flags captured, each matched by sha256 against its plant."""
+    """G2: 5/5 flags captured, each matched by sha256 against its plant.
+
+    `workdir` is the judge's temp copy of the artifact; nothing the
+    artifact does can reach the planted range outside it.
+    """
     cap: dict[str, str] = {}
     for c in ("c1", "c2", "c4", "c5"):
         cap[c] = EXPLOITS[c](binaries, run_dir, flags, planted)
@@ -258,7 +268,7 @@ def gate_g2(artifact: Path, binaries: Path, run_dir: Path, flags: dict,
             "planted_sha256": {c: sha256_text(flags[c]) for c in CHALLENGES}}
 
 
-def gate_g3(artifact: Path, binaries: Path, run_dir: Path, flags: dict,
+def gate_g3(workdir: Path, binaries: Path, run_dir: Path, flags: dict,
             planted: dict, cfg: dict, timing: dict) -> dict:
     """G3: an independent check per challenge, not just 'a flag appeared'."""
     checks: dict[str, bool] = {}
@@ -331,9 +341,14 @@ def gate_g3(artifact: Path, binaries: Path, run_dir: Path, flags: dict,
             "detail": detail}
 
 
-def gate_g4(binaries: Path, run_dir: Path, artifact: Path, flags: dict,
+def gate_g4(binaries: Path, run_dir: Path, workdir: Path, flags: dict,
             planted: dict) -> dict:
-    """G4: the legitimate action set captures 0/5; nothing bakes a flag in."""
+    """G4: the legitimate action set captures 0/5; nothing bakes a flag in.
+
+    `workdir` is the judge's temp copy of the artifact; the sweep runs
+    over that copy (the sweep target is the artifact, not the caller's
+    tree, whose location the judge does not control).
+    """
     hits: dict[str, list[str]] = {}
     for c, procs in legit_actions(binaries, run_dir, planted).items():
         found = []
@@ -347,7 +362,7 @@ def gate_g4(binaries: Path, run_dir: Path, artifact: Path, flags: dict,
     # Reported as root-relative names so the verdict stays deterministic
     # (the binaries and docroot live in temp dirs).
     sweep = []
-    for label, root in (("artifact", artifact), ("binaries", binaries),
+    for label, root in (("artifact", workdir), ("binaries", binaries),
                         ("docroot", Path(planted["docroot"]))):
         for p in sorted(root.rglob("*")):
             if not p.is_file():
