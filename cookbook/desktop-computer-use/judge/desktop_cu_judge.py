@@ -44,6 +44,10 @@ AGENT_S = float(os.environ.get("AGENT_S", "240"))
 CU_DIR = Path("/tmp/desktop-cu")
 REPORT = CU_DIR / "report.xlsx"
 
+# openpyxl is installed by setup.sh into judge/.wheels (sha256-pinned);
+# the engine runs with -I, so wire the path in explicitly before importing.
+sys.path.insert(0, str(Path(__file__).resolve().parent / ".wheels"))
+
 
 def log(msg: str) -> None:
     print(f"judge: {msg}", flush=True)
@@ -226,6 +230,26 @@ def gate(name: str, ok: bool, detail: dict | None = None) -> dict:
 class Desktop:
     """A private X display + fluxbox + the fixture CSV opened in Calc."""
 
+    # CSV import without the Text Import dialog (comma, quote ", UTF-8,
+    # first line 1, quoted fields as text, detect special numbers).
+    CSV_INFILTER = ("Text - txt - csv (StarCalc)"
+                    ":44,34,76,1,,0,false,true,true")
+
+    # Disable the first-run Tip-of-the-Day dialog: a modal on top of Calc
+    # would eat the artifact's keystrokes.  Seeds a throwaway profile.
+    PROFILE_XCU = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<oor:items xmlns:oor="http://openoffice.org/2001/registry"'
+        ' xmlns:xs="http://www.w3.org/2001/XMLSchema">\n'
+        ' <item oor:path="/org.openoffice.Office.Common/Misc">'
+        '<prop oor:name="FirstRun" oor:op="fuse"><value>false</value>'
+        '</prop></item>\n'
+        ' <item oor:path="/org.openoffice.Office.Common/Misc">'
+        '<prop oor:name="ShowTipOfTheDay" oor:op="fuse"><value>false'
+        '</value></prop></item>\n'
+        '</oor:items>\n'
+    )
+
     def __init__(self, fixture: Path, seed: int):
         self.fixture = fixture
         self.seed = seed
@@ -265,14 +289,21 @@ class Desktop:
         time.sleep(1.0)
 
         # the judge opens the CSV itself, so the "before" state is the same
-        # for every artifact
-        CU_DIR.mkdir(parents=True, exist_ok=True)
+        # for every artifact.  A throwaway profile keeps every run a
+        # first-run-free, dialog-free start.
+        profile = CU_DIR / "lo-profile"
+        (profile / "user").mkdir(parents=True, exist_ok=True)
+        (profile / "user" / "registrymodifications.xcu").write_text(
+            self.PROFILE_XCU)
         env = dict(os.environ)
         env["DISPLAY"] = self.display
         self.soffice = subprocess.Popen(
             ["soffice", "--calc", "--norestore", "--nologo",
+             f"-env:UserInstallation=file://{profile}",
+             f"--infilter={self.CSV_INFILTER}",
              str(self.fixture)],
-            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True)
         # wait for the Calc window
         deadline = time.monotonic() + SOFFICE_READY_S
         while time.monotonic() < deadline:
@@ -284,7 +315,7 @@ class Desktop:
             if self.soffice.poll() is not None:
                 raise RuntimeError("soffice exited before showing its window")
             time.sleep(0.5)
-        self.soffice.terminate()
+        self.__exit__()
         raise RuntimeError(f"Calc window did not appear within "
                            f"{SOFFICE_READY_S}s")
 
@@ -294,8 +325,23 @@ class Desktop:
         return p
 
     def __exit__(self, *exc):
-        for proc, name in ((self.soffice, "soffice"), (self.wm, "fluxbox"),
-                           (self.xvfb, "Xvfb")):
+        # soffice runs in its own session (start_new_session): kill the
+        # whole group or the wrapper's child (oosplash/soffice.bin) leaks
+        # past the grade holding the profile lock.
+        if self.soffice is not None:
+            try:
+                os.killpg(os.getpgid(self.soffice.pid), signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
+            try:
+                self.soffice.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(os.getpgid(self.soffice.pid), signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    pass
+                self.soffice.wait(timeout=10)
+        for proc in (self.wm, self.xvfb):
             if proc is not None and proc.poll() is None:
                 proc.terminate()
                 try:
@@ -308,9 +354,18 @@ class Desktop:
 
 # --- the gates ---------------------------------------------------------------
 
-def grade(artifact: Path, seed: int, fixture: Path) -> dict:
+def grade(artifact: Path, seed: int, fixture_text: str) -> dict:
     timing: dict[str, float] = {}
     t_all = time.monotonic()
+
+    # every grade starts from nothing: a stale report.xlsx from a previous
+    # grade would let a no-save mutant pass, and a stale lock file would
+    # pop a "locked for editing" dialog over Calc.
+    if CU_DIR.exists():
+        shutil.rmtree(CU_DIR)
+    CU_DIR.mkdir(parents=True)
+    fixture = CU_DIR / "input.csv"
+    fixture.write_text(fixture_text)
 
     n, expected, qty_sum, total_sum = workbook_truth(fixture)
 
@@ -369,23 +424,28 @@ def grade(artifact: Path, seed: int, fixture: Path) -> dict:
             shot(desk.display, after_path)
             timing["after_shot_s"] = round(time.monotonic() - t0, 2)
 
-            # gate 3: after screenshot
+            # gate 3: after screenshot.  The raw pixel count varies with
+            # the capture instant (caret, repaint), so it is recorded in
+            # `timing`, not in the gate: same-seed verdicts must be
+            # identical modulo `timing` (DEMO-STANDARD.md).
             w2, h2, c2, _ = decode_png_rgb(after_path)
             flat2 = is_flat(after_path)
             w1, h1, diff, note = count_diff_pixels(before_path, after_path)
+            timing["diff_pixels"] = diff
             changed = diff >= DIFF_PIXELS_MIN
             g3 = (w2 >= 100 and h2 >= 100 and not flat2 and changed)
             gates["screenshot_after"] = gate(
                 "screenshot_after", g3,
                 {"width": w2, "height": h2, "flat": flat2,
-                 "diff_pixels": diff, "diff_pixels_min": DIFF_PIXELS_MIN,
+                 "diff_pixels_min": DIFF_PIXELS_MIN,
                  "diff_note": note})
         except Exception as exc:
             timing["after_shot_s"] = round(time.monotonic() - t0, 2)
             gates["screenshot_after"] = gate(
                 "screenshot_after", False, {"error": str(exc)})
 
-    # gate 4: the report exists and is real OOXML
+    # gate 4: the report exists and is real OOXML.  The byte size carries
+    # LibreOffice's save timestamp, so it lives in `timing` too.
     is_zip = False
     zip_note = ""
     if not (REPORT.exists() and REPORT.is_file()):
@@ -406,10 +466,10 @@ def grade(artifact: Path, seed: int, fixture: Path) -> dict:
         except Exception as exc:
             is_zip = False
             zip_note = str(exc)
+        timing["report_size_bytes"] = REPORT.stat().st_size
         gates["report_exists"] = gate(
             "report_exists", is_zip,
-            {"path": str(REPORT), "zip": is_zip,
-             "size_bytes": REPORT.stat().st_size, "note": zip_note})
+            {"path": str(REPORT), "zip": is_zip, "note": zip_note})
 
     # workbook gates, read back with openpyxl (different library than the
     # one that produced the file)
@@ -521,15 +581,12 @@ def main() -> int:
         print(f"judge: artifact {artifact} not found", file=sys.stderr)
         return 2
 
-    fixture = (Path(__file__).resolve().parent / "fixtures.py")
-    # fixtures.py holds the CSV on a single line; materialise it
-    csv_text = fixture.read_text()
-    CU_DIR.mkdir(parents=True, exist_ok=True)
-    fixture_csv = CU_DIR / "input.csv"
-    fixture_csv.write_text(csv_text)
+    # fixtures.py holds the CSV as plain text; grade() materialises it
+    # into a freshly wiped /tmp/desktop-cu.
+    csv_text = (Path(__file__).resolve().parent / "fixtures.py").read_text()
 
     try:
-        v = grade(artifact, args.seed, fixture_csv)
+        v = grade(artifact, args.seed, csv_text)
     except Exception as exc:
         v = verdict(str(artifact), args.seed, False, {},
                     failed_gate="judge", reason=f"judge error: {exc}")
@@ -539,7 +596,8 @@ def main() -> int:
     jdir = Path(__file__).resolve().parent
     jsum = hashlib.sha256()
     for p in sorted(jdir.rglob("*")):
-        if p.is_file() and "__pycache__" not in str(p):
+        if (p.is_file() and "__pycache__" not in p.parts
+                and ".wheels" not in p.parts):
             jsum.update(p.read_bytes())
     v["gates"]["judge_intact"] = gate(
         "judge_intact", True,

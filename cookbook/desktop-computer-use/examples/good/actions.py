@@ -31,6 +31,17 @@ def run(cmd, timeout=30, check=True):
     return r
 
 
+def key(keys, delay=0.05):
+    """Send one keystroke to the focused window via XTEST.
+
+    xdotool's --window mode synthesises XSendEvent input, which the GTK VCL
+    behind LibreOffice ignores; XTEST goes through the X server itself, so
+    the keystroke lands exactly as a user's would.
+    """
+    run(["xdotool", "key", "--clearmodifiers", keys])
+    time.sleep(delay)
+
+
 def search_window(pattern, timeout=45):
     """Return the X window id matching pattern, waiting for it to appear."""
     deadline = time.time() + timeout
@@ -43,16 +54,14 @@ def search_window(pattern, timeout=45):
     raise SystemExit(f"actions: no window matching {pattern!r} after {timeout}s")
 
 
-def clipboard():
-    """Read the X clipboard via xclip (returns "")."""
-    r = run(["xclip", "-o", "-selection", "clipboard"], timeout=10)
-    return r.stdout
+def press(*keys):
+    """Send a key event to the focused window via XTEST (xdotool key)."""
+    run(["xdotool", "key", *keys])
 
 
-def set_clipboard(text):
-    """Put text on the X clipboard."""
-    subprocess.run(["xclip", "-selection", "clipboard"],
-                   input=text, text=True, timeout=10, check=True)
+def type_text(text):
+    """Type text into the focused window via XTEST (xdotool type)."""
+    run(["xdotool", "type", "--delay", "12", text])
 
 
 def n_data_rows():
@@ -73,59 +82,69 @@ def main():
     wid = search_window("soffice")
     print(f"actions: Calc window id {wid}", flush=True)
 
-    # focus and raise it on the real display
+    # focus and raise it on the real display; XTEST input goes to the
+    # focused window, so the frame must own keyboard focus first
     run(["xdotool", "windowactivate", "--sync", wid])
     run(["xdotool", "windowfocus", wid])
     run(["xdotool", "windowraise", wid])
     time.sleep(0.5)
 
+    last = n + 1          # row of the last data row
+    total_row = n + 2     # the SUM row the task contract asks for
+
     # --- header of the computed column ----------------------------------
     # Ctrl+Home takes the cursor to A1; Tab x3 lands on D1
-    run(["xdotool", "key", "--window", wid, "ctrl+Home"])
+    press("ctrl+Home")
     time.sleep(0.3)
-    run(["xdotool", "key", "--window", wid, "Tab"])
-    run(["xdotool", "key", "--window", wid, "Tab"])
-    run(["xdotool", "key", "--window", wid, "Tab"])
+    press("Tab")
+    press("Tab")
+    press("Tab")
     time.sleep(0.3)
-    run(["xdotool", "type", "--window", wid, "--delay", "12", "total"])
-    run(["xdotool", "key", "--window", wid, "Return"])
+    type_text("total")
+    press("Return")
     time.sleep(0.4)
 
     # --- the computed column, one live formula per data row --------------
+    # each Return commits the cell and moves down, so the cursor walks
+    # D2 -> D3 -> ... -> D{total_row} on its own
     for row in range(2, 2 + n):
-        run(["xdotool", "type", "--window", wid, "--delay", "12",
-             f"=B{row}*C{row}"])
-        run(["xdotool", "key", "--window", wid, "Return"])
+        type_text(f"=B{row}*C{row}")
+        press("Return")
         time.sleep(0.3)
 
     # --- the SUM row under the table -------------------------------------
-    last = n + 1          # row of the last data row
-    # the cursor is at D{last}; go one row below the table and one column
-    # left: Down, then Left x3 puts us on column A of row last+1
-    run(["xdotool", "key", "--window", wid, "Down"])
-    run(["xdotool", "key", "--window", wid, "Left"])
-    run(["xdotool", "key", "--window", wid, "Left"])
-    run(["xdotool", "key", "--window", wid, "Left"])
+    # the cursor now sits on D{total_row}; walk to A{total_row}
+    press("Left")
+    press("Left")
+    press("Left")
     time.sleep(0.3)
-    run(["xdotool", "type", "--window", wid, "--delay", "12", "total"])
-    run(["xdotool", "key", "--window", wid, "Right"])
+    type_text("total")
+    press("Return")
+    press("Up")          # back to A{total_row}
+    press("Right")       # B{total_row}
     time.sleep(0.2)
-    run(["xdotool", "type", "--window", wid, "--delay", "12",
-         f"=SUM(B2:B{last})"])
-    run(["xdotool", "key", "--window", wid, "Left"])
+    type_text(f"=SUM(B2:B{last})")
+    press("Return")
+    press("Up")          # back to B{total_row}
+    press("Right")       # C{total_row}: stays empty by contract
+    press("Right")       # D{total_row}
     time.sleep(0.2)
-    run(["xdotool", "type", "--window", wid, "--delay", "12",
-         f"=SUM(D2:D{last})"])
-    run(["xdotool", "key", "--window", wid, "Return"])
+    type_text(f"=SUM(D2:D{last})")
+    press("Return")
     time.sleep(0.6)
+    print(f"actions: cursor at row {total_row}; table and SUM row entered",
+          flush=True)
 
     # --- save as true OOXML (.xlsx) --------------------------------------
-    run(["xdotool", "key", "--window", wid, "shift+ctrl+s"])
+    press("ctrl+shift+s")
     time.sleep(2.5)
-    run(["xdotool", "type", "--window", wid, "--delay", "12", XLSX])
-    run(["xdotool", "key", "--window", wid, "Return"])
-    time.sleep(4.0)
-
+    type_text(XLSX)
+    press("Return")
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        if os.path.exists(XLSX) and os.path.getsize(XLSX) > 0:
+            break
+        time.sleep(0.5)
     if not os.path.exists(XLSX):
         raise SystemExit(f"actions: save did not create {XLSX}")
     print(f"actions: wrote {XLSX}", flush=True)

@@ -51,10 +51,22 @@ if [ $((killed * 10)) -lt $((total * 9)) ]; then
 fi
 
 # --- determinism: same seed twice -> identical verdict JSON ------------
+# Everything allowed to differ (wall clock, elapsed time) lives under the
+# `timing` key; strip it before comparing (DEMO-STANDARD.md, "Deterministic").
 bash "$JDIR/grade.sh" "$GOOD" --seed 1 --json "$work/det1.json" > /dev/null
 bash "$JDIR/grade.sh" "$GOOD" --seed 1 --json "$work/det2.json" > /dev/null
-if cmp -s "$work/det1.json" "$work/det2.json"; then
-    echo "selftest: determinism OK (two --seed 1 runs byte-identical)"
+if DET_SAME="$(python3 -I - "$work/det1.json" "$work/det2.json" <<'PYDET'
+import json, sys
+a = json.load(open(sys.argv[1]))
+b = json.load(open(sys.argv[2]))
+a.pop("timing", None)
+b.pop("timing", None)
+if not a or not b:
+    raise SystemExit(1)
+print("yes" if a == b else "no")
+PYDET
+)" && test "$DET_SAME" = "yes"; then
+    echo "selftest: determinism OK (two --seed 1 runs identical modulo timing)"
 else
     echo "selftest: DETERMINISM FAILED: grade.sh --seed 1 differs between runs" >&2
     diff "$work/det1.json" "$work/det2.json" >&2 || true
