@@ -46,7 +46,8 @@ pip_ensure() {
         return 0
     fi
     echo "[setup] installing pinned python wheels (cadquery 2.7.0, ezdxf 1.4.4, trimesh 5.1.1, manifold3d 3.5.4, occt via cadquery-ocp)"
-    "$PY" -m pip install --require-hashes --no-deps --no-warn-script-location -r "$REQS"
+    "$PY" -m pip install --require-hashes --no-deps --no-warn-script-location \
+        --disable-pip-version-check -r "$REQS"
 }
 
 # ---------------------------------------------------------------------------
