@@ -11,6 +11,8 @@ node v22.23.3, npm 10.9.9, Playwright Python binding 1.63.0, Chromium
 153.0.8010.12 (rev 1243), react 19.3.0, react-dom 19.3.0, vite 8.3.4,
 @vitejs/plugin-react 6.1.1.
 
+Both runs below are on ref `2c80403` of `sbx/demo-app-builder-preview-f3` (the only later commits touch `README.md` and this file, which the judge never reads).
+
 ## Fresh-sandbox run 1 — `python3 cookbook/app-builder-preview/run.py --ref sbx/demo-app-builder-preview-f3`
 
 ```text
