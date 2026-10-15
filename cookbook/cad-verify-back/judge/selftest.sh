@@ -53,22 +53,34 @@ for k, g in v.get("gates", {}).items():
 EOF
         killed=$((killed + 0))
     else
-        first=""
+        # list EVERY failing gate for this mutant (not just the first);
+        # a kill only counts if at least one gate failed on its own
+        # evidence (a verdict with only "skipped" gates is not a kill)
         first="$(python3 - "$LOGDIR/${name}.json" <<'EOF'
 import json, sys
 try:
     v = json.load(open(sys.argv[1]))
-    for k, g in v.get("gates", {}).items():
-        if not g.get("pass"):
-            print(f"{k}: {g.get('error', '?')[:80]}")
-            break
+    fails = [(k, v["gates"][k].get("error", "?"))
+             for k, g in v.get("gates", {}).items() if not g.get("pass")]
+    named = [k for k, e in fails if not e.startswith("skipped:")]
+    for k, e in fails:
+        print(f"    FAILED {k}: {e[:110]}")
+    if not named:
+        print("NO_NAMED_GATE")
     else:
-        print(v.get("reason", "no gate failed"))
+        print(f"KILLED_BY {', '.join(named)}")
 except Exception as e:
     print(f"unreadable verdict: {e}")
+    print("NO_NAMED_GATE")
 EOF
 )"
-        echo "selftest: mutant KILLED: $name ($first)"
+        if grep -q "NO_NAMED_GATE" <<<"$first"; then
+            fail_banner "mutant $name produced a FAIL verdict but no named gate failed (only skipped gates)"
+            exit 1
+        fi
+        gates="$(grep '^KILLED_BY' <<<"$first" | cut -d' ' -f2-)"
+        echo "selftest: mutant KILLED: $name ($gates)"
+        grep '^    FAILED' <<<"$first" || true
         killed=$((killed + 1))
     fi
 done
