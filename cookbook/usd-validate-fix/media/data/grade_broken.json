@@ -1,6 +1,12 @@
 {
  "artifact": "task/traffic_cone_broken.usda",
  "facts": {
+  "crosscheck": {
+   "errors": [
+    "cross-check: oracle defaultPrim='None' != recount None"
+   ],
+   "passed": false
+  },
   "geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
@@ -50,6 +56,58 @@
    "metersPerUnit": 1.0,
    "upAxis": "Z"
   },
+  "recount": {
+   "colliders": 1,
+   "defaultPrim": null,
+   "meshes": {
+    "/TrafficCone/Band": {
+     "bound_material": null,
+     "extent": null,
+     "face_corners": 44,
+     "max_normal_dev": 0.0,
+     "normals": null,
+     "normals_interpolation": null,
+     "points": 20,
+     "zero_area_faces": 1
+    },
+    "/TrafficCone/Base": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": null,
+     "face_corners": 24,
+     "max_normal_dev": 0.0,
+     "normals": null,
+     "normals_interpolation": null,
+     "points": 8,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": null,
+     "face_corners": 60,
+     "max_normal_dev": 0.0,
+     "normals": null,
+     "normals_interpolation": null,
+     "points": 20,
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 1.0,
+   "upAxis": "Z"
+  },
+  "recount_geometry": {
+   "/TrafficCone/Band": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   },
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 0.0,
+    "points": 8
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   }
+  },
   "validator": {
    "issues_by_severity": {
     "FAILURE": 7,
@@ -88,17 +146,34 @@
    ],
    "passed": false
   },
+  "recount": {
+   "errors": [
+    "metersPerUnit = 1.0 != 0.01",
+    "upAxis = 'Z' != 'Y'",
+    "defaultPrim not authored on the root layer",
+    "/TrafficCone/Band: normals not authored",
+    "/TrafficCone/Band: 1 face(s) with triangle-fan area < 1e-09 cm^2",
+    "/TrafficCone/Band: no computable bound material",
+    "/TrafficCone/Band: extent not authored",
+    "/TrafficCone/Base: normals not authored",
+    "/TrafficCone/Base: extent not authored",
+    "/TrafficCone/Body: normals not authored",
+    "/TrafficCone/Body: extent not authored",
+    "cross-check: oracle defaultPrim='None' != recount None"
+   ],
+   "passed": false
+  },
   "validator": {
    "errors": [
     "nvidia_usd_validate exited 1",
     "validator status 'FAIL' != 'PASS'",
-    "ExtentsChecker: Prim does not have any extent value",
-    "ExtentsChecker: Prim does not have any extent value",
-    "ExtentsChecker: Prim does not have any extent value",
-    "DefaultPrimChecker: Stage has missing or invalid defaultPrim.",
     "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
     "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
-    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop "
+    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
+    "ExtentsChecker: Prim does not have any extent value",
+    "ExtentsChecker: Prim does not have any extent value",
+    "ExtentsChecker: Prim does not have any extent value",
+    "DefaultPrimChecker: Stage has missing or invalid defaultPrim."
    ],
    "issues_by_severity": {
     "FAILURE": 7,
@@ -119,9 +194,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.008,
-  "oracle_s": 0.825,
-  "total_s": 4.647,
-  "validator_s": 3.803
+  "geometry_s": 0.003,
+  "oracle_s": 0.365,
+  "recount_s": 0.01,
+  "total_s": 1.525,
+  "validator_s": 1.146
  }
 }

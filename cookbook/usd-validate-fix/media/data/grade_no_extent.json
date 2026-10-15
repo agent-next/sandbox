@@ -1,6 +1,10 @@
 {
  "artifact": "<mutant>/no_extent.usda",
  "facts": {
+  "crosscheck": {
+   "errors": [],
+   "passed": true
+  },
   "geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
@@ -53,6 +57,58 @@
    "metersPerUnit": 0.01,
    "upAxis": "Y"
   },
+  "recount": {
+   "colliders": 1,
+   "defaultPrim": "TrafficCone",
+   "meshes": {
+    "/TrafficCone/Band": {
+     "bound_material": "</TrafficCone/Looks/WhitePlastic>",
+     "extent": null,
+     "face_corners": 40,
+     "max_normal_dev": 8e-09,
+     "normals": 40,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Base": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": null,
+     "face_corners": 24,
+     "max_normal_dev": 1.6e-08,
+     "normals": 24,
+     "normals_interpolation": "faceVarying",
+     "points": 8,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": null,
+     "face_corners": 60,
+     "max_normal_dev": 3.4e-08,
+     "normals": 60,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 0.01,
+   "upAxis": "Y"
+  },
+  "recount_geometry": {
+   "/TrafficCone/Band": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   },
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 0.0,
+    "points": 8
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   }
+  },
   "validator": {
    "issues_by_severity": {
     "FAILURE": 3
@@ -78,6 +134,14 @@
    ],
    "passed": false
   },
+  "recount": {
+   "errors": [
+    "/TrafficCone/Band: extent not authored",
+    "/TrafficCone/Base: extent not authored",
+    "/TrafficCone/Body: extent not authored"
+   ],
+   "passed": false
+  },
   "validator": {
    "errors": [
     "nvidia_usd_validate exited 1",
@@ -100,9 +164,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.03,
-  "oracle_s": 1.166,
-  "total_s": 5.54,
-  "validator_s": 4.334
+  "geometry_s": 0.004,
+  "oracle_s": 0.352,
+  "recount_s": 0.021,
+  "total_s": 1.442,
+  "validator_s": 1.064
  }
 }

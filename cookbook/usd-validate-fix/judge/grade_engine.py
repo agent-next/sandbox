@@ -8,6 +8,12 @@ Runs the three SPEC.md gates on a scratch copy of the artifact:
   gate 2  judge/oracle.py -- an independent recount with usd-core alone.
   gate 3  oracle geometry check against task/traffic_cone_broken.usda
           (point count and bbox invariance).
+  gate 4  judge/text_recount.py -- a clean-room recount from the artifact's
+          own text (stdlib only), cross-checked against the oracle's
+          numbers.  Kills an artifact that composes in external geometry
+          (subLayers) or otherwise influences the pxr stack: the oracle
+          sees the composed stage while the text parser sees only the one
+          self-contained layer, and any disagreement fails the grade.
 
 Prints one JSON verdict on stdout.  Wall-clock fields live only under the
 "timing" key, so two runs with the same seed are byte-identical.  Exits 0
@@ -102,10 +108,25 @@ def main() -> int:
         g3_errors, g3_facts = oracle.check_geometry(copy, REFERENCE)
         t4 = time.monotonic()
 
+        # gate 4: clean-room text recount + cross-check against the oracle.
+        # text_recount is stdlib-only and reads the artifact's own text file,
+        # never pxr, so composing an external layer (subLayers cheat) is
+        # visible to it even when the pxr oracle sees the composed stage.
+        import text_recount  # noqa: E402  (stdlib only; is our code, not the
+        #                                     artifact -- it runs in this process,
+        #                                     the artifact itself never executes)
+        r4_errors, r4_facts = text_recount.check_asset(copy)
+        r4g_errors, r4g_facts = text_recount.check_geometry(copy, REFERENCE)
+        x_errors = text_recount.cross_check(
+            g2_facts, r4_facts, g3_facts, r4g_facts)
+        g4_errors = (r4_errors + r4g_errors + x_errors)
+        t5 = time.monotonic()
+
         timing.update(validator_s=round(t2 - t1, 3),
                       oracle_s=round(t3 - t2, 3),
                       geometry_s=round(t4 - t3, 3),
-                      total_s=round(t4 - t0, 3))
+                      recount_s=round(t5 - t4, 3),
+                      total_s=round(t5 - t0, 3))
 
         gates["validator"] = {"passed": not g1_errors,
                              "errors": g1_errors, **g1_facts}
@@ -113,13 +134,20 @@ def main() -> int:
                            "errors": g2_errors}
         gates["geometry"] = {"passed": not g3_errors,
                              "errors": g3_errors}
+        gates["recount"] = {"passed": not g4_errors,
+                            "errors": g4_errors}
+
+        facts = {"validator": g1_facts, "oracle": g2_facts,
+                 "geometry": g3_facts, "recount": r4_facts,
+                 "recount_geometry": r4g_facts,
+                 "crosscheck": {"passed": not x_errors,
+                                "errors": x_errors}}
 
         verdict = {
             "artifact": os.path.abspath(args.artifact),
             "seed": args.seed,
             "gates": gates,
-            "facts": {"validator": g1_facts, "oracle": g2_facts,
-                      "geometry": g3_facts},
+            "facts": facts,
             "timing": timing,
         }
         verdict["passed"] = all(g["passed"] for g in gates.values())

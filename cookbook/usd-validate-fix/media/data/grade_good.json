@@ -1,6 +1,10 @@
 {
  "artifact": "examples/good/traffic_cone_fixed.usda",
  "facts": {
+  "crosscheck": {
+   "errors": [],
+   "passed": true
+  },
   "geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
@@ -86,6 +90,91 @@
    "metersPerUnit": 0.01,
    "upAxis": "Y"
   },
+  "recount": {
+   "colliders": 1,
+   "defaultPrim": "TrafficCone",
+   "meshes": {
+    "/TrafficCone/Band": {
+     "bound_material": "</TrafficCone/Looks/WhitePlastic>",
+     "extent": [
+      [
+       -13.8,
+       -13.12458,
+       30.0
+      ],
+      [
+       13.8,
+       13.12458,
+       44.0
+      ]
+     ],
+     "face_corners": 40,
+     "max_normal_dev": 8e-09,
+     "normals": 40,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Base": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -18.0,
+       -18.0,
+       0.0
+      ],
+      [
+       18.0,
+       18.0,
+       4.0
+      ]
+     ],
+     "face_corners": 24,
+     "max_normal_dev": 1.6e-08,
+     "normals": 24,
+     "normals_interpolation": "faceVarying",
+     "points": 8,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -13.0,
+       -12.363734,
+       4.0
+      ],
+      [
+       13.0,
+       12.363734,
+       58.0
+      ]
+     ],
+     "face_corners": 60,
+     "max_normal_dev": 3.4e-08,
+     "normals": 60,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 0.01,
+   "upAxis": "Y"
+  },
+  "recount_geometry": {
+   "/TrafficCone/Band": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   },
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 0.0,
+    "points": 8
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   }
+  },
   "validator": {
    "issues_by_severity": {},
    "rules_not_passing": [],
@@ -103,6 +192,10 @@
    "errors": [],
    "passed": true
   },
+  "recount": {
+   "errors": [],
+   "passed": true
+  },
   "validator": {
    "errors": [],
    "issues_by_severity": {},
@@ -115,9 +208,10 @@
  "passed": true,
  "seed": 20261015,
  "timing": {
-  "geometry_s": 0.009,
-  "oracle_s": 0.78,
-  "total_s": 3.511,
-  "validator_s": 2.722
+  "geometry_s": 0.003,
+  "oracle_s": 0.291,
+  "recount_s": 0.01,
+  "total_s": 1.538,
+  "validator_s": 1.233
  }
 }
