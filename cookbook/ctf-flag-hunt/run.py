@@ -40,6 +40,10 @@ LOG_DIR = "/tmp/ctf-logs"
 SBX_TIMEOUT = 180.0
 POLL_INTERVAL = 15.0
 STEP_DEADLINE = 900.0
+# How long the sandbox may stay unreachable (one exec timeout per poll)
+# before the step is declared lost.  A blip shorter than this is survived:
+# the step is detached, so nothing it did is lost by waiting.
+OUTAGE_BUDGET = 240.0
 
 
 class Failure(RuntimeError):
@@ -91,21 +95,40 @@ def wait_step(sid: str, name: str, log: str,
 
     A poll that returns non-zero is the sandbox being unreachable, not the
     step failing: the step's own result is only ever the __RC__ marker.
-    The step is declared missing only if its log never appeared at all --
-    a log that appears and stops growing is the step itself hanging, and
-    the deadline handles that.
+    Blips are retried until OUTAGE_BUDGET of *consecutive* failures (the
+    window restarts on every successful read); the step is declared
+    missing only if its log never appeared at all -- a log that appears
+    and stops growing is the step itself hanging, and the deadline
+    handles that.
     """
     start = time.monotonic()
     last = ""
     read_ok = False
+    # A poll that fails is the sandbox being unreachable, not the step
+    # failing: the step's own result is only ever the __RC__ marker.  A
+    # gateway restart can drop a poll at any time, so a blip is retried
+    # with backoff and only a sustained outage (or a deadline) fails the
+    # run -- and the outage window restarts on every drop, so one slow
+    # gateway cannot eat the whole deadline (LESSONS.md, 114975e).
+    outage = 0.0
     while time.monotonic() - start < deadline:
         time.sleep(POLL_INTERVAL)
-        proc = sh(sid, f"cat {log} 2>/dev/null || true")
+        try:
+            proc = sh(sid, f"cat {log} 2>/dev/null || true")
+        except subprocess.TimeoutExpired:
+            # a hung exec is the same transport failure as a non-zero one
+            proc = subprocess.CompletedProcess(args=[], returncode=124,
+                                               stdout="", stderr="timed out")
         if proc.returncode != 0:
             if not read_ok:
                 continue
-            raise Failure(f"{name}: could not read {log} in the sandbox: "
-                          f"{(proc.stderr or '').strip()[-300:]}")
+            outage += POLL_INTERVAL
+            if outage >= OUTAGE_BUDGET:
+                raise Failure(f"{name}: could not read {log} in the "
+                              f"sandbox for {OUTAGE_BUDGET:.0f}s: "
+                              f"{(proc.stderr or '').strip()[-300:]}")
+            continue
+        outage = 0.0
         read_ok = True
         text = proc.stdout
         if "__RC__" in text:
