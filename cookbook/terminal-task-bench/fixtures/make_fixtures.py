@@ -63,6 +63,20 @@ TASKS = [
 ]
 
 
+def wal_checksum(data: bytes, s1: int = 0, s2: int = 0):
+    """SQLite's WAL checksum: little-endian word pairs, chained.
+
+    Header: over bytes 0..24.  Frame: over bytes 0..8 then 24..page_size
+    (the stored checksum field at 16..24 is skipped).  Reproducing it lets
+    the fixture be byte-deterministic and lets a repair rebuild the header.
+    """
+    for i in range(0, len(data), 8):
+        x, y = struct.unpack("<II", data[i:i + 8])
+        s1 = (s1 + x + s2) & 0xFFFFFFFF
+        s2 = (s2 + y + s1) & 0xFFFFFFFF
+    return s1, s2
+
+
 def sha256_file(path: str) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -157,8 +171,31 @@ def gen_wal_repair(work: str, rng: random.Random) -> dict:
     if len(wal_bytes) <= 32:
         raise RuntimeError("fixture bug: nothing committed to the WAL")
 
+    # SQLite picks a random salt per WAL instance, which would make two
+    # same-seed fixtures differ.  Pin the salt, then recompute the header
+    # and every frame checksum for the pinned salt, so the whole file is a
+    # pure function of the seed.
     torn = bytearray(wal_bytes)
-    torn[24:32] = b"\x00" * 8          # torn WAL header checksum
+    salt = (1, 0x5B4E0001)
+    struct.pack_into(">II", torn, 16, *salt)
+    offset = 32
+    while offset + 24 <= len(torn):
+        struct.pack_into(">II", torn, offset + 8, *salt)
+        offset += 4096 + 24
+    s1, s2 = wal_checksum(bytes(torn[0:24]))
+    struct.pack_into(">II", torn, 24, s1, s2)
+    offset = 32
+    while offset + 4096 + 24 <= len(torn):
+        frame = bytes(torn[offset:offset + 4096 + 24])
+        s1, s2 = wal_checksum(frame[0:8], s1, s2)
+        s1, s2 = wal_checksum(frame[24:4096 + 24], s1, s2)
+        struct.pack_into(">II", torn, offset + 16, s1, s2)
+        offset += 4096 + 24
+
+    # the damage: a torn header write, the header checksum zeroed.  SQLite
+    # then ignores the whole log, so the rows committed after the last
+    # checkpoint vanish -- silently, because the database still opens.
+    struct.pack_into(">II", torn, 24, 0, 0)
     write(dbfile, bytes(db_bytes))
     write(dbfile + "-wal", bytes(torn))
     shm = dbfile + "-shm"
@@ -229,6 +266,14 @@ def gen_git_lost_branch(work: str, rng: random.Random) -> dict:
     ingest_sha = sha256_file(os.path.join(repo, "src", "ingest.py"))
     git(repo, "checkout", "-q", "--detach", tip)
     git(repo, "branch", "-q", "-D", "feature/ingest")
+
+    # The index git writes on checkout carries a stat cache (inode, mtime,
+    # size per file), so two same-seed fixtures would differ.  Rebuild it
+    # from the tree alone: `read-tree` writes only the recorded object ids
+    # and modes, which makes the fixture byte-reproducible.
+    os.remove(os.path.join(repo, ".git", "index"))
+    git(repo, "read-tree", "HEAD")
+
     return {
         "repo": "repo",
         "branch": "feature/ingest",

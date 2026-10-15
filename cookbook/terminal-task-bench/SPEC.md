@@ -152,8 +152,12 @@ This is the mask idea from the standard: the oracle measures the *intent*
 
 - Every fixture is generated from `--seed` (default `20261015`) by
   `fixtures/make_fixtures.py`; two runs with the same seed produce
-  byte-identical trees (fixed commit dates and author identity for git,
-  fixed mtimes inside the tarball, no timestamps written into fixtures).
+  **byte-identical trees**, verified by hashing every file. The two places
+  where a naive generator would drift are pinned: the WAL salt and its
+  header/frame checksums are recomputed for a fixed salt, and the git index
+  is rebuilt with `git read-tree HEAD` so it carries no stat cache (inode,
+  mtime) — only object ids and modes. Git commit dates and author identity
+  are fixed, and the tarball's mtimes are fixed.
 - `grade.sh` sorts its `tasks` array by task id, so parallel execution
   order never reaches the verdict.
 - The only non-deterministic field is `timing` (per-task and total wall
@@ -187,6 +191,14 @@ not a tolerance.
 ## Third-party inputs
 
 None. Every fixture byte is produced by `fixtures/make_fixtures.py` from a
-seed; the tools the judge installs are pinned Debian packages with sha256
-in `judge/setup.sh` and are recorded in `judge/VERSIONS.txt`. No
+seed; the one tool the judge installs is the pinned Debian `sqlite3` package
+(sha256 in `judge/setup.sh`, recorded in `judge/VERSIONS.txt`). No
 third-party dataset, and therefore no third-party licence, is involved.
+
+## What this demo does not ship
+
+`media/` (the key figure, the agent-loop figure and the video) is produced by
+a separate later task. This demo ships the numbers instead: the README and
+RECEIPT carry the measured gates and wall times, each naming the command and
+seed that produced it. When media is added, `media/MANIFEST.json` must name,
+for every file, the command and source data that produced it.
