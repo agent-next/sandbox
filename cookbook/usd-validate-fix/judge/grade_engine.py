@@ -84,7 +84,6 @@ def main() -> int:
     timing = {"total_s": None}
     t0 = time.monotonic()
     gates: dict[str, dict] = {}
-    ok = True
 
     with tempfile.TemporaryDirectory() as tmp:
         # scratch copy: the artifact must never touch the judge or the repo
@@ -118,9 +117,6 @@ def main() -> int:
         verdict = {
             "artifact": os.path.abspath(args.artifact),
             "seed": args.seed,
-            "passed": ok and all(g["passed"] for g in gates.values()),
-            "failed_gate": next((name for name, g in gates.items()
-                                 if not g["passed"]), None),
             "gates": gates,
             "facts": {"validator": g1_facts, "oracle": g2_facts,
                       "geometry": g3_facts},
@@ -131,11 +127,12 @@ def main() -> int:
             (name for name, g in gates.items() if not g["passed"]), None)
 
         text = json.dumps(verdict, indent=1, sort_keys=True)
+        # Always print the verdict on stdout (run.py parses it from there)
+        # and additionally write the file when --json was given.
+        print(text)
         if args.json:
             with open(args.json, "w", encoding="utf-8") as fh:
                 fh.write(text + "\n")
-        else:
-            print(text)
         return 0 if verdict["passed"] else 1
 
 
