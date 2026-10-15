@@ -308,8 +308,11 @@ def drive_flows(port, ids, shots_dir=None):
         try:
             for name, texts, toggles, delete, filt, reload in FLOWS:
                 problems = []
+                # light colour scheme so the captured screenshots are
+                # readable against dark video backgrounds; deterministic
                 ctx = browser.new_context(viewport={"width": 1280,
-                                                    "height": 800})
+                                                    "height": 800},
+                                          color_scheme="light")
                 page = ctx.new_page()
                 page.on("console", lambda msg: (
                     console_errors.append(f"[{name}] {msg.text}")
