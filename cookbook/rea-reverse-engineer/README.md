@@ -103,15 +103,18 @@ The binaries are built by `judge/setup.sh` with `gcc -O2 -s` (pinned Debian
 gcc 12.2.0); `judge/ground_truth/EXPECTED.sha256` pins their exact bytes so
 the committed REA evidence (which embeds those sha256s) always matches.
 
-## Measured wall times (2 vCPU, Debian 12, ~4 GB RAM)
+## Measured wall times (2 vCPU, Debian 12, ~3–4 GB RAM)
+
+Measured on two different sandboxes (see RECEIPT.md); the spread is CPU
+speed, verdicts were identical.
 
 | step | wall time |
 |---|---|
-| `judge/setup.sh` (cold: downloads JDK + Ghidra + rea, ~700 MB) | ~3 min 30 s |
-| `judge/setup.sh` (warm, everything cached) | ~11 s |
-| one `rea analyze` / `rea function` / `rea decompile` call | ~28–29 s each (Ghidra startup dominates) |
-| `judge/grade.sh examples/good` (21 gates, 1500 process pairs) | ~31 s |
-| `judge/selftest.sh` (good + determinism + 7 mutants) | ~5 min 16 s |
+| `judge/setup.sh` (cold: downloads JDK + Ghidra + rea, ~700 MB) | ~3–3.5 min |
+| `judge/setup.sh` (warm, everything cached) | ~19–24 s |
+| one `rea analyze` / `rea function` / `rea decompile` call | ~0.5–1.3 min each (Ghidra JVM startup dominates) |
+| `judge/grade.sh examples/good` (21 gates, 1500 process pairs) | ~1.25–2.5 min |
+| `judge/selftest.sh` (good + determinism + 7 mutants) | ~18–20 min |
 
 ## Credit
 

@@ -25,7 +25,7 @@ echo
 
 echo "--- rea analyze (checksum) -> evidence the frame shows"
 ( cd "${DEMO}" && . ./env.sh && \
-  rea analyze targets/checksum --detail detailed | sha256sum )
+  rea analyze targets/checksum --detail detailed --format json | sha256sum )
 
 echo "--- differential spot-check rows (seed 20261014)"
 ( cd "${DEMO}" && printf 'hello' | targets/checksum )

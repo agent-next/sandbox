@@ -5,7 +5,7 @@
     {
       "file": "rea-analyze-checksum.png",
       "what": "Terminal screenshot of the REA evidence JSON from `rea analyze` on the stripped `checksum` target: segments, procedure_count 27, string_count 42, Ghidra 12.1.2 provider profile, subject sha256 8f827dae... binding the analysis to this exact binary.",
-      "command": "source env.sh; rea analyze targets/checksum --detail detailed > examples/good/checksum/rea/overview.json   (evidence_id ev_39bff3ea...)",
+      "command": "source env.sh; rea analyze targets/checksum --detail detailed --format json > examples/good/checksum/rea/overview.json   (evidence_id ev_39bff3ea...)",
       "source_data": "examples/good/checksum/rea/overview.json",
       "sha256": "9e3ff2dcbac430be6a7f47c769156d7802221aa96ddd08b59b2cd85ccc300170",
       "bytes": 77795
@@ -13,7 +13,7 @@
     {
       "file": "rea-function-keycheck.png",
       "what": "Terminal screenshot of the REA evidence JSON from `rea function` + `rea decompile` on `keycheck` procedure 0x1011f0 (FUN_001011f0): the Ghidra-pseudocode of the hidden key rule (3 modular constraints over the 32-symbol alphabet) the agent recovered.",
-      "command": "source env.sh; rea function targets/keycheck 0x1011f0 > examples/good/keycheck/rea/core-function.json; rea decompile targets/keycheck 0x1011f0",
+      "command": "source env.sh; rea function targets/keycheck 0x1011f0 --format json > examples/good/keycheck/rea/core-function.json; rea decompile targets/keycheck 0x1011f0 --format json",
       "source_data": "examples/good/keycheck/rea/core-function.json, examples/good/keycheck/rea/core-decompile.json",
       "sha256": "4c96d55f73aed2892286ceb4ae91cadaa84aae0083c4bdc7a0d6c9708d043bdb",
       "bytes": 81525
