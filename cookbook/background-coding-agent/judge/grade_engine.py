@@ -64,6 +64,11 @@ FORBIDDEN_BASENAMES = {
     "conftest.py", "ruff.toml", ".ruff.toml",
 }
 FORBIDDEN_PREFIXES = ("tests/",)
+# Interpreter startup hooks: the checkout root is on PYTHONPATH for the
+# test and CLI subprocesses, and `site` imports `sitecustomize` at startup,
+# so a planted sitecustomize.py could rewrite pytest's results.  New files
+# with these names are refused.
+STARTUP_HOOKS = {"sitecustomize.py", "usercustomize.py"}
 JSON_SCHEMA = "measurectl/summary/v1"
 TOP_KEYS = {"schema", "total_count", "metrics"}
 METRIC_KEYS = {"name", "count", "sum", "mean", "min", "max"}
@@ -109,6 +114,7 @@ def child_env(root: Path, extra: dict | None = None) -> dict:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(root) + os.pathsep + env.get("PYTHONPATH", "")
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONNOUSERSITE"] = "1"
     env["MEASURECTL_CHECKOUT"] = str(root)
     env.pop("PYTEST_ADDOPTS", None)
     if extra:
@@ -173,6 +179,7 @@ DELETED_FILE = re.compile(r"^deleted file mode ")
 class PatchInfo:
     def __init__(self) -> None:
         self.files: list[str] = []
+        self.new_files: set[str] = set()
         self.added = 0
         self.removed = 0
         self.hunks = 0
@@ -182,19 +189,23 @@ class PatchInfo:
 def parse_patch(text: str) -> PatchInfo:
     info = PatchInfo()
     seen: set[str] = set()
+    current: str | None = None
     for line in text.splitlines():
         header = DIFF_HEADER.match(line)
         if header:
-            path = header.group("b")
-            if path not in seen:
-                seen.add(path)
-                info.files.append(path)
+            current = header.group("b")
+            if current not in seen:
+                seen.add(current)
+                info.files.append(current)
             continue
         if FILE_HEADER.match(line) and not info.files:
-            path = FILE_HEADER.match(line).group("path")
-            if path not in seen:
-                seen.add(path)
-                info.files.append(path)
+            current = FILE_HEADER.match(line).group("path")
+            if current not in seen:
+                seen.add(current)
+                info.files.append(current)
+            continue
+        if NEW_FILE.match(line) and current is not None:
+            info.new_files.add(current)
             continue
         if line.startswith("@@"):
             info.hunks += 1
@@ -321,8 +332,13 @@ def check_pr(text: str, files: list[str]) -> dict:
 # --------------------------------------------------------------------------
 def run_pytest(tool: str, root: Path, targets: list[str], timeout: int) -> dict:
     cmd = [tool, "-q", "-p", "no:cacheprovider", "--no-header", *targets]
-    proc = subprocess.run(cmd, capture_output=True, text=True,
-                          cwd=str(root), env=child_env(root), timeout=timeout)
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              cwd=str(root), env=child_env(root),
+                              timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        return {"exit": 124, "summary": f"pytest exceeded {timeout} s",
+                "counts": {}, "output": str(exc)}
     out = (proc.stdout or "") + (proc.stderr or "")
     summary = ""
     for line in reversed(out.splitlines()):
@@ -346,8 +362,12 @@ def collected_count(result: dict) -> int:
 def run_ruff(tool: str, root: Path) -> dict:
     cmd = [tool, "check", "--config", str(RUFF_CONFIG),
            "--no-cache", "--output-format", "concise", "."]
-    proc = subprocess.run(cmd, capture_output=True, text=True,
-                          cwd=str(root), env=child_env(root), timeout=180)
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              cwd=str(root), env=child_env(root), timeout=180)
+    except subprocess.TimeoutExpired as exc:
+        return {"exit": 124, "findings": [f"ruff exceeded 180 s: {exc}"],
+                "output": str(exc)}
     out = ((proc.stdout or "") + (proc.stderr or "")).strip()
     findings = [ln for ln in out.splitlines()
                 if re.match(r"^\S+:\d+:\d+:", ln)]
@@ -451,11 +471,14 @@ def compare_document(got: dict, want: dict, label: str) -> list[str]:
 
 
 def run_cli_json(root: Path, csv_path: Path) -> tuple[int, str, str]:
-    proc = subprocess.run(
-        [sys.executable, "-m", "measurectl", "--json", str(csv_path)],
-        capture_output=True, text=True, cwd=str(root), env=child_env(root),
-        timeout=CLI_TIMEOUT,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "measurectl", "--json", str(csv_path)],
+            capture_output=True, text=True, cwd=str(root),
+            env=child_env(root), timeout=CLI_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, "", f"the CLI exceeded {CLI_TIMEOUT} s"
     return proc.returncode, proc.stdout, proc.stderr
 
 
@@ -596,6 +619,9 @@ def _grade(patch: Path, pr: Path, seed: int, gates: dict) -> None:
         for path in source_files:
             base = Path(path).name
             if path.startswith(FORBIDDEN_PREFIXES) or base in FORBIDDEN_BASENAMES:
+                forbidden.append(path)
+        for path in info.new_files:
+            if Path(normalise_path(path)).name in STARTUP_HOOKS:
                 forbidden.append(path)
         if forbidden:
             raise GateFail("integrity",

@@ -52,7 +52,7 @@ Key numbers from the judge verdict (`examples/good/delivery.patch`, seed
   1e-9 relative — the sample plus two seeded synthetic files
 - **PR gate**: 1253-char `PR.md`, both required sections, 2/2 changed
   files named
-- **Self-test kill rate**: 10/10 = 100 % (requirement ≥ 90 %, ≥ 5 mutants)
+- **Self-test kill rate**: 11/11 = 100 % (requirement ≥ 90 %, ≥ 5 mutants)
 
 Media (`media/`) is added by a later task; the numbers above come from the
 verdict JSON pasted in `RECEIPT.md`.

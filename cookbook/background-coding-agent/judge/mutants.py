@@ -49,6 +49,10 @@ EDITS = [
         "the per-metric document loses its `max` field",
     ),
     (
+        "startup-hook", "integrity", "__NEW__:sitecustomize.py", None, None,
+        "a planted sitecustomize.py is added (interpreter startup hook)",
+    ),
+    (
         "json-count-as-float", "acceptance", "measurectl/jsonout.py",
         '                "count": metric.count,',
         '                "count": float(metric.count),',
@@ -141,6 +145,12 @@ def main() -> int:
             pr_text = good_pr_text
             if rel is None:
                 patch_text = ""  # empty-patch
+            elif rel.startswith("__NEW__:"):
+                (work / rel[len("__NEW__:"):]).write_text(
+                    "import builtins\n\nbuiltins.__dict__.setdefault('_x', 0)\n")
+                git(work, "add", "-A")
+                git(work, "commit", "-qm", name)
+                patch_text = rediff(work, base)
             elif rel == "PR.md":
                 if pr_text.count(old) != 1:
                     print(f"mutants: anchor not unique in PR.md for {name!r}",
