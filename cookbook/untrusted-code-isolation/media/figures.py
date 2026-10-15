@@ -84,7 +84,7 @@ def numeric_rows(verdict, policy):
          (measured.get("memory_balloon_maxrss_kb") or 0) / 1024.0,
          512.0, "peak RSS, MiB"),
         ("CPU spinner",
-         measured.get("infinite_loop_wall_s"),
+         measured.get("infinite_loop_judge_wall_s"),
          0.85 * wall, "judge-measured wall, s"),
         ("disk filler",
          (effects.get("largest_file_bytes")
@@ -98,7 +98,7 @@ def numeric_rows(verdict, policy):
          1.05 * float(policy["output_cap_bytes"]) / (1024.0 * 1024.0),
          "stdout captured, MiB"),
         ("eternal sleep",
-         measured.get("sleep_forever_wall_s"),
+         measured.get("sleep_forever_runner_wall_s"),
          2.5 * wall, "runner wall, s"),
     ]
     out = []

@@ -649,6 +649,25 @@ def main():
             verdict["measured"]["proc_delta_after"] = ctx_base["proc_delta"]
             verdict["measured"]["fork_bomb_peak_proc_delta"] = \
                 records.get("fork_bomb", {}).get("peak_proc_delta")
+            # The media and RECEIPT quote the numbers the gates scored, so
+            # the judge reports each one it measured (largest file, its own
+            # wall per snippet, the runner's peak RSS and stdout bytes) under
+            # `measured`: reported, never gated, and excluded from the
+            # determinism comparison like every other live-machine number.
+            verdict["measured"]["largest_file_bytes"] = largest
+            verdict["measured"]["largest_file"] = os.path.basename(
+                largest_path or "")
+            for _name in HOSTILE:
+                _entry = records.get(_name) or {}
+                _rec = _entry.get("record") or {}
+                verdict["measured"]["%s_judge_wall_s" % _name] = \
+                    _entry.get("wall_s")
+                verdict["measured"]["%s_runner_wall_s" % _name] = \
+                    _rec.get("wall_s")
+                verdict["measured"]["%s_maxrss_kb" % _name] = \
+                    _rec.get("maxrss_kb")
+                verdict["measured"]["%s_stdout_bytes" % _name] = \
+                    _rec.get("stdout_bytes")
             # Leftovers of a *failed* runner must not skew the benign gate's
             # health numbers; what this grade created, this grade reaps.
             reap(survivors)
