@@ -136,13 +136,13 @@ def gate_run(artifact, cases_dir, workdir, compile_timing):
             case_files = sorted(
                 f for f in os.listdir(cases_dir) if f.startswith(prob + "_") and f.endswith(".in")
             )
+            slowest = 0.0
             for cf in case_files:
                 stdin_text = open(os.path.join(cases_dir, cf)).read()
                 rc, out, err, wall = run_cmd(run_cmd_base,
                                              stdin_data=stdin_text.encode(),
                                              timeout=RUN_TIMEOUT)
-                key = "%s/%s" % (prob, cf)
-                run_timing[lang]["run_s"][key] = round(wall, 3)
+                slowest = max(slowest, wall)
                 if rc != 0:
                     failures.append("%s/%s run %s: rc=%s %s" % (lang, prob, cf, rc, err[:200]))
                     continue
@@ -152,6 +152,7 @@ def gate_run(artifact, cases_dir, workdir, compile_timing):
                         "%s/%s output mismatch on %s: got %r want %r"
                         % (lang, prob, cf, out[:120], expected[:120])
                     )
+            run_timing[lang]["run_s"][prob] = round(slowest, 3)
     return failures, run_timing
 
 
@@ -243,7 +244,11 @@ def main():
     gates["G6_run_all_sh"] = not g6
     all_failures += g6
 
-    # G7 timing table
+    # G7 timing table: compile and run wall time per language, per problem.
+    # The run times are keyed by problem only (not by case file) so that two
+    # same-seed runs give byte-identical verdict JSON once the timing key is
+    # dropped: a dict keyed by case name would still be deterministic, but
+    # keying by problem keeps the table the SPEC describes.
     timing = {"compile": compile_timing, "run": run_timing}
     gates["G7_timing_table"] = bool(timing["compile"] and timing["run"])
 
