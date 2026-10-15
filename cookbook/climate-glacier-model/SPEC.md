@@ -95,27 +95,36 @@ root of that, never against the artifact's own trajectory.
 
 ## Artifact
 
-One directory containing at least:
+One directory containing at least `model.py`, the sweep. The judge runs it
+itself, into a temp dir, and grades the outputs **it** produced — committed
+output files are neither required nor read, so a stale CSV cannot pass.
 
-- `model.py` — the sweep. Runs in ≤ 180 s on 2 vCPU / 3 GB. Imports
-  nothing outside `{numpy, matplotlib, csv, json, math, os, sys, argparse}`;
-  writes only inside its output directory; accepts `--out DIR`,
-  `--seed N` and `--zero-melt`.
-- `volumes.csv` — header `scenario,year,volume_km3`, exactly 303 data rows:
-  one for every `(scenario, year)` pair, `year` integers `0..100`, volumes
-  finite and ≥ 0.
-- `crossings.json` — `{"warm_2p0": {"year": <number|null>, "volume_km3":
-  <number>}, ...}`; `year` is the first year at which volume is ≤ 50 % of
-  that scenario's year-0 volume, linearly interpolated between the two
-  bracketing yearly samples, or `null` if it never crosses.
-- `retreat.png` — one figure, all three scenarios, volume (km³) vs. year
-  (yr), labelled axes, title, legend naming the three scenarios, ≥ 900 px
-  wide, ≥ 150 dpi.
-- `run.json` — `{"seed": <int>, "scenarios": {...}, "model": {...}}`: the
-  `seed`, per-scenario constants used (`a2`, `ELA_at_year_100`, `L0`,
-  `crossing_year`) and the shared model constants.
+`model.py` must:
 
-The artifact the judge is pointed at is the artifact **directory**.
+- run in ≤ 180 s on 2 vCPU / 3 GB and exit 0;
+- import nothing outside `{numpy, matplotlib, csv, json, math, os, sys,
+  argparse}` and write only inside the directory given by `--out`;
+- accept `--out DIR`, `--seed N` and `--zero-melt`;
+- write, into `--out`:
+
+  - `volumes.csv` — header `scenario,year,volume_km3`, exactly 303 data
+    rows: one per `(scenario, year)` pair, `year` integers `0..100`,
+    volumes finite and ≥ 0.
+  - `crossings.json` — `{"warm_2p0": {"year": <number|null>,
+    "volume_km3": <number>}, ...}`; `year` is the first year at which
+    volume is ≤ 50 % of that scenario's year-0 volume, linearly
+    interpolated between the two bracketing yearly samples, or `null` if it
+    never crosses.
+  - `retreat.png` — one figure, all three scenarios, volume (km³) vs. year
+    (yr), labelled axes, title, legend naming the three scenarios, ≥ 900 px
+    wide, ≥ 150 dpi. Not written in `--zero-melt` mode.
+  - `run.json` — `{"seed": <int>, "legend": [<3 names>], "scenarios":
+    {...}, "model": {...}}` with the `seed`, the scenario names, the
+    per-scenario constants used (`a2`, `ELA_at_year_100`, `L0`,
+    `crossing_year`) and the shared model constants.
+
+The artifact the judge is pointed at is the artifact **directory** (which
+may contain anything else; only `model.py` is read).
 
 ## Judge gates (`judge/grade.sh <artifact-dir> [--seed N] [--json out.json]`)
 
@@ -123,19 +132,20 @@ All numeric and deterministic; default seed `20261015`. Exit 0 only if
 every gate passes; on failure the verdict names the gate and prints the
 offending numbers.
 
-- **G1 artifact**: the five files exist, `model.py` compiles
-  (`py_compile`), imports nothing outside the allow-list, and the CSV has
-  exactly the 303 expected `(scenario, year)` rows with finite,
-  non-negative volumes.
-- **G2 determinism**: `model.py` run twice into two temp dirs with the same
-  seed produces **byte-identical** `volumes.csv` and `crossings.json`.
+- **G1 artifact**: `model.py` exists, compiles (`py_compile`), imports
+  nothing outside the allow-list, and runs cleanly into the judge's temp
+  dir writing all four outputs; the CSV has exactly the 303 expected
+  `(scenario, year)` rows with finite, non-negative volumes.
+- **G2 determinism**: a second run with the same seed produces
+  **byte-identical** `volumes.csv` and `crossings.json`.
 - **G3 zero-melt control (negative control)**: `model.py` is re-run with
   `--zero-melt`. With no warming the ELA never moves, the glacier is
   exactly in balance, and **no volume may be lost**: for all three
-  scenarios every year's volume equals `V(0)` to within **1e-9 km³**, and
-  every crossing year must be `null`. A model that still shrinks here has
-  hidden state — a stale temperature, an anomaly applied twice, a mask
-  clamped wrongly — and fails even when its warming runs look plausible.
+  scenarios every year's volume equals `V(0)` to within **1e-9 km³**
+  relative, and every crossing year must be `null`. A model that still
+  shrinks here has hidden state — a stale temperature, an anomaly applied
+  twice, a mask clamped wrongly — and fails even when its warming runs
+  look plausible.
 - **G4 crossing years**: each reported crossing year must be within
   **±3 years** of the analytic reference root. A scenario that never
   crosses must be reported `null`, and a reference that never crosses must
@@ -147,8 +157,8 @@ offending numbers.
   monotone non-increasing, and the mask-consistency check below must hold.
 - **G7 figure**: `retreat.png` is a valid PNG, ≥ 900 px wide, ≥ 150 dpi
   (read from its own `pHYs` chunk), ≥ 20 kB, and the three scenario names
-  appear in the artifact's `run.json` legend list. The judge does not OCR
-  the image and says so in the verdict.
+  appear in `run.json`'s `legend` list. The judge does not OCR the image
+  and says so in the verdict.
 
 Reference values for `examples/good/` (default seed; the judge recomputes
 them, they are listed for orientation):
@@ -169,11 +179,13 @@ them, they are listed for orientation):
    forced no-change case whose exact answer is `V(t) = V(0)`. It is the
    gate a plausible-looking but state-corrupting model cannot pass.
 3. **Mask/volume consistency.** The judge re-derives volume from the
-   artifact's *own* length trajectory: it runs the model once more with an
-   instrumented import-free replay of the mask sum and requires `V(t)` to
-   equal `W*sum_{x_i<L} h(x_i)*DX` to **1e-9** relative. A volume computed
-   by a different formula — a constant-width box, `L` in km, the wrong
-   taper — fails here even if the endpoint happens to be close.
+   length the CSV implies: it inverts the mask sum to get the ice-cell
+   count `n(t)` (the unique `n` with `V(t) = W*sum_{i<n} h(x_i)*DX/1e9`)
+   and requires `n(t)` to be consistent with the scenario's analytic
+   length `L_exact(t)` to within one cell. A volume computed by a different
+   formula — a constant-width box, `L` in km, the wrong taper, `Z_HEAD`
+   used as the thickness — has no such `n` and fails here even when the
+   endpoint happens to be close.
 4. **Determinism.** G2, plus the self-test's byte-identical repeat.
 
 The analytic comparison is non-trivial: the good artifact deviates from the
