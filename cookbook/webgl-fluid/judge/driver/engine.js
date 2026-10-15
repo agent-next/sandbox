@@ -97,7 +97,7 @@
         maskProgram: null, maskBroken: false,
         cap: null, capBuf: null, W: 0, H: 0,
         floatBuf: null, floatRead: null,   // null = untested, false = unsupported
-        frames: [], run1Raw: null, runIndex: 0,
+        frames: [], run1Raw: null, rawKept: [], runIndex: 1,
     };
 
     function fatal (msg) {
@@ -119,7 +119,6 @@
         zeroFBO(divergence);    zeroFBO(curl);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         st.frames = [];
-        st.run1Raw = st.run1Raw || null;
         window.__WFS_RESULT__ = undefined;
     }
 
@@ -241,7 +240,7 @@
                 f.ssim = 1.0;
             } else {
                 f.ssim = globalSSIM(prev.raw, buf);
-                st.rawKept.push(buf.slice(0));
+                st.rawKept[st.frames.length] = buf.slice(0);
             }
         } else if (st.runIndex === 1) {
             st.run1Raw.push({ hash: f.hash, raw: buf.slice(0) });
@@ -301,9 +300,12 @@
         frame: frame,
         finish: finish,
         resetAll: function () {
+            // Between the two determinism runs: wipe every upstream FBO,
+            // clear the frame log, and switch the determinism cross-check to
+            // run 2 (per-frame SSIM against run 1's stashed raw frames).
             resetAll();
-            st.runIndex = st.runIndex === 1 ? 2 : st.runIndex;
-            if (st.runIndex === 2 && !st.run1Raw) st.run1Raw = [];
+            st.runIndex = 2;
+            st.rawKept = {};
             window.__WFS_ABORTED__ = undefined;
         },
         exportFrames: function (idxs) {
@@ -319,10 +321,6 @@
     window.__WFS_RAW__ = function (i) {  // debug: last run raw frame b64
         return st.run1Raw && st.run1Raw[i] ? b64(st.run1Raw[i].raw) : null;
     };
-
-    // resetAll bookkeeping: run 1 records raw frames for determinism SSIM;
-    // the runner bumps runIndex before injecting drive.js a second time.
-    var _origReset = resetAll;
 
     st.ready = (async function () {
         try {
@@ -360,12 +358,13 @@
                     dbg.UNMASKED_RENDERER_WEBGL) : 'unknown',
                 dyeWidth: dye.width, dyeHeight: dye.height,
                 simWidth: velocity.width, simHeight: velocity.height,
-                floatRead: null,
+                floatRead: probeFloatRead(),
             };
+            st.floatRead = window.__WFS_META__.floatRead;
 
             st.runIndex = 1;
             st.run1Raw = [];
-            st.rawKept = [];
+            st.rawKept = {};
             resetAll();
             window.__WFS_READY__ = true;
         } catch (e) {

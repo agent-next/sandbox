@@ -76,10 +76,11 @@ function startServer(sceneDir) {
 }
 
 // In-page wait that does not depend on requestAnimationFrame.
-const WAIT_RESULT = `(function () {
-    return new Promise(function (resolve) {
+const WAIT = (what) => `(function () {
+    return new Promise(function (resolve, reject) {
         function check () {
-            if (window.__WFS_RESULT__ !== undefined) return resolve('result');
+            var v = ${what};
+            if (v !== undefined) return resolve(v);
             if (window.__WFS_ABORTED__ === true) return resolve('aborted');
             setTimeout(check, 200);
         }
@@ -88,10 +89,10 @@ const WAIT_RESULT = `(function () {
 })()`;
 
 async function runOnce(page, driveJs) {
-    await page.evaluate(driveJs, undefined, { timeout: RUN_TIMEOUT_MS });
-    const how = await page.evaluate(WAIT_RESULT, undefined,
-                                    { timeout: RUN_TIMEOUT_MS });
-    return how;
+    // The artifact's drive.js is an async IIFE body: fire it, then poll
+    // (via setTimeout, never rAF) for the engine's sealed result.
+    await page.evaluate(driveJs);
+    return page.evaluate(WAIT('window.__WFS_RESULT__ ? "result" : undefined'));
 }
 
 (async function main() {
@@ -104,7 +105,7 @@ async function runOnce(page, driveJs) {
 
     const server = await startServer(artifact);
     const port = server.address().port;
-    const url = `http://127.0.0.1:${port}/index.html`;
+    const url = `http://127.0.0.1:${port}/driver/index.html`;
 
     const browser = await chromium.launch({
         args: [
@@ -128,8 +129,7 @@ async function runOnce(page, driveJs) {
     };
     try {
         await page.goto(url, { waitUntil: 'load', timeout: 60000 });
-        await page.evaluate('window.__WFS__.ready', undefined,
-                            { timeout: READY_TIMEOUT_MS });
+        await page.evaluate(WAIT('window.__WFS_READY__'));
         blob.meta = await page.evaluate('window.__WFS_META__');
 
         const driveJs = fs.readFileSync(path.join(artifact, 'drive.js'),
@@ -154,6 +154,8 @@ async function runOnce(page, driveJs) {
                 (n) => window.__WFS__.exportFrames(
                     Array.from({ length: n }, (_, i) => i)), stash);
         }
+        blob.console_errors = await page.evaluate(
+            'window.__WFS_CONSOLE__.errors');
         blob.ok = how1 === 'result' && how2 === 'result' &&
                   !!(blob.run1 && blob.run2);
         if (!blob.ok)
@@ -164,9 +166,9 @@ async function runOnce(page, driveJs) {
             blob.console_errors = await page.evaluate(
                 'window.__WFS_CONSOLE__ ? window.__WFS_CONSOLE__.errors : []');
             if (!blob.meta) blob.meta = await page.evaluate(
-                'window.__WFS_META__ || null');
+                'window.__WFS_META__ ? window.__WFS_META__ : null');
             if (!blob.run1) blob.run1 = await page.evaluate(
-                'window.__WFS_RESULT__ || null');
+                'window.__WFS_RESULT__ ? window.__WFS_RESULT__ : null');
         } catch (_) { /* page may be gone */ }
     } finally {
         blob.wall_ms = Date.now() - t0;

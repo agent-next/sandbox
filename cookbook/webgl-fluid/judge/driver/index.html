@@ -59,16 +59,53 @@
                 window.cancelAnimationFrame = function () {};
             })();
         </script>
-        <script src="up/dat.gui.min.js"></script>
     </head>
     <body>
+        <!-- upstream script.js dereferences these at load; they must exist -->
         <canvas></canvas>
         <div class="stub promo"></div>
         <div class="stub promo-close"></div>
         <a class="stub" id="apple_link"></a>
         <a class="stub" id="google_link"></a>
+        <script>
+            // Stub upstream's load-time side effects BEFORE script.js runs:
+            //  - ga() is called inside getWebGLContext at load;
+            //  - startGUI() needs window.dat with real DOM nodes.
+            window.ga = function () {};
+            (function () {
+                function stubCtl () {
+                    var ctl = {
+                        domElement: document.createElement('div'),
+                        __li: document.createElement('li'),
+                    };
+                    var chain = ['name', 'onFinishChange', 'onChange',
+                                 'step', 'min', 'max', 'listen', 'setValue'];
+                    chain.forEach(function (m) { ctl[m] = function () { return ctl; }; });
+                    // detektiv gameUI surfaces used by startGUI
+                    setTimeout(function () {
+                        if (ctl.__li && ctl.__li.parentNode == null)
+                            document.body.appendChild(ctl.__li);
+                    }, 0);
+                    return ctl;
+                }
+                function StubGUI () { this.domElement = document.createElement('div'); }
+                StubGUI.prototype.add = function () { return stubCtl(); };
+                StubGUI.prototype.addColor = function () { return stubCtl(); };
+                StubGUI.prototype.addFolder = function () {
+                    var f = new StubGUI();
+                    f.add = StubGUI.prototype.add;
+                    f.addColor = StubGUI.prototype.addColor;
+                    f.name = function () { return f; };
+                    return f;
+                };
+                StubGUI.prototype.close = function () {};
+                window.dat = { GUI: StubGUI };
+            })();
+        </script>
         <script src="up/script.js"></script>
         <script src="driver/engine.js"></script>
-        <script src="scene/drive.js"></script>
+        <!-- NOTE: scene/drive.js is NOT loaded here; the runner injects it
+             via page.evaluate so each of the two determinism runs is driven
+             exactly once, under the judge's control. -->
     </body>
 </html>
