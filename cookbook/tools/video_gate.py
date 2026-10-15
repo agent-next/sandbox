@@ -109,10 +109,11 @@ def probe(path: str) -> dict:
 
 
 def _ratio(text: str | None) -> float | None:
-    """'30/1' -> 30.0; '0/0' or absent -> None."""
-    if not text or "/" not in text:
+    """'30/1' or '2:1' -> float; '0/0', '0:1' or absent -> None."""
+    sep = next((c for c in "/:" if text and c in text), None)
+    if sep is None:
         return None
-    num, _, den = text.partition("/")
+    num, _, den = text.partition(sep)
     try:
         num_f, den_f = float(num), float(den)
     except ValueError:
