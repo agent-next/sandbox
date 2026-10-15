@@ -124,7 +124,7 @@ class Lease:
                 f"    f.write({piece!r})\n"
                 f"report['chunk'] = {i}\n"
             )
-            r = self.exec(code, timeout_s=600)
+            r = self.exec(code, timeout_s=600, retries=8)
             if not r.get("ok"):
                 raise LeaseError(f"upload chunk {i}/{chunks} failed: {r.get('stderr', '')[-300:]}")
         code = (
