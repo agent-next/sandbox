@@ -70,18 +70,19 @@ id if cleanup could not be confirmed.
 
 | step | wall time |
 |---|---|
-| `git clone --depth 1` | ~10 s |
-| `judge/setup.sh` (fresh install: Node tarball, 2 Chromium zips, npm cache) | ~75 s (idempotent re-run: ~3 s) |
-| `judge/selftest.sh` (good + 6 mutants + determinism double-grade) | ~10–11 min |
-| `judge/grade.sh examples/good/app` (build + serve + 6 flows + reference) | ~1.5–2 min |
+| `git clone --depth 1` | ~5 s |
+| `judge/setup.sh` (fresh install: Node tarball, 2 Chromium zips, npm cache) | ~1 min (idempotent re-run: ~3 s) |
+| `judge/selftest.sh` (good + 6 mutants + two determinism checks) | ~6–11 min |
+| `judge/grade.sh examples/good/app` (build + serve + 6 flows + reference) | ~1–2 min |
 
-A full `run.py` from `sbx create` to confirmed kill is ~15–16 minutes; the
+A full `run.py` from `sbx create` to confirmed kill is ~9–16 minutes; the
 sandbox is created with a 30-minute lifetime, which the run fits with
 margin. `run.py` prints a per-step timing line.
 
 The per-step numbers above are measured; they vary with the sandbox's CPU
 share, and the browser-driven steps (self-test, grade) are the ones that
-move most. The authoritative numbers, with the per-gate `timing` key, are
+move most — the range is real, measured with and without other runs on the
+same host. The authoritative numbers, with the per-gate `timing` key, are
 in `RECEIPT.md`.
 
 ## Limits, plainly
