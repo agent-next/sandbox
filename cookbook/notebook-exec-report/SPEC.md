@@ -131,7 +131,10 @@ Violating any gate fails with the offending numbers printed.
 2. **Blind-seed sanity** — the judge repeats the same refit under five
    *other* split seeds and requires the graded split's `rmse_test` to be
    ≤ 1.25× the median of those five (0.2972 median). A notebook that fit one
-   lucky split, or reports a train metric, is outside that band.
+   lucky split, or reports a train metric, is outside that band. The five
+   blind seeds default to 1..5 and shift with `--seed N` (seeds N..N+4) —
+   that is what the flag drives; the graded split's own seed is the
+   artifact's reported `seed`, never overridden.
 3. **Held-out analytic bound** — the judge computes the coefficient recovery
    `‖ŵ − w_true‖ / ‖w_true‖` from its own refit and requires it ≤ **0.05**,
    since the generator's `w_true` is exact by construction (measured 0.0180
