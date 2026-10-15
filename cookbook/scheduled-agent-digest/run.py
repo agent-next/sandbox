@@ -21,10 +21,46 @@ import time
 REPO = "https://github.com/agent-next/sandbox"
 DEFAULT_REF = "main"
 
+# sbx create retry (transient platform errors): the window the account's
+# concurrent-quota / host-capacity blips have been observed to clear within.
+# Every attempt still fails loudly if the last one fails.
+CREATE_RETRIES = 9
+CREATE_BACKOFF_S = 20.0
+
 
 def sh(cmd, **kw):
     return subprocess.run(cmd, shell=True, text=True,
                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kw)
+
+
+def sbx_create(env):
+    """sbx create with bounded backoff; returns (sid, last_output).
+
+    A 429 (concurrent quota) or 503 (host capacity) at create time is
+    transient: the account's other sandboxes expire and the host recovers.
+    Retrying with backoff rides those out; a create that still fails after
+    the last attempt raises, keeping the failure identity.
+    """
+    last = ""
+    for attempt in range(1, CREATE_RETRIES + 1):
+        r = sh("sbx create --timeout-min 30", env=env)
+        if r.returncode == 0:
+            lines = [l.strip() for l in r.stdout.splitlines() if l.strip()]
+            sid = lines[-1] if lines else ""
+            if sid and all(c.isascii() and (c.isalnum() or c == "-") for c in sid):
+                return sid, r.stdout
+            raise RuntimeError(f"sbx create returned an unexpected id {sid!r} "
+                               f"(check `sbx list` for a sandbox to kill):\n{r.stdout}")
+        last = r.stdout
+        transient = ("429" in r.stdout or "RateLimit" in r.stdout
+                     or "503" in r.stdout)
+        if transient and attempt < CREATE_RETRIES:
+            wait = CREATE_BACKOFF_S * attempt
+            print(f"scheduled-agent-digest: sbx create failed "
+                  f"(attempt {attempt}/{CREATE_RETRIES}); retrying in {wait:.0f}s:\n{r.stdout}",
+                  flush=True)
+            time.sleep(wait)
+    raise RuntimeError(f"sbx create failed after {CREATE_RETRIES} attempts:\n{last}")
 
 
 def shlex_quote(s):
@@ -60,14 +96,7 @@ def main():
 
     t0 = time.monotonic()
     print(f"scheduled-agent-digest: creating sandbox (ref={ref})", flush=True)
-    r = sh("sbx create --timeout-min 30", env=env)
-    if r.returncode != 0:
-        raise RuntimeError(f"sbx create failed:\n{r.stdout}")
-    lines = [l.strip() for l in r.stdout.splitlines() if l.strip()]
-    sid = lines[-1] if lines else ""
-    if not sid or not all(c.isascii() and (c.isalnum() or c == "-") for c in sid):
-        raise RuntimeError(f"sbx create returned an unexpected id {sid!r} "
-                           f"(check `sbx list` for a sandbox to kill):\n{r.stdout}")
+    sid, create_out = sbx_create(env)
     print(f"scheduled-agent-digest: sandbox {sid}", flush=True)
     wall("create", t0)
 
