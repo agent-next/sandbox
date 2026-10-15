@@ -37,7 +37,7 @@ label, or render settings are trusted.
 | --- | --- | --- |
 | G1 framing | at every pose 1–12, projected hero bounding-box area / frame area 0.07–0.22; center x within 0.055 of 0.5, y within 0.12; all vertices inside 4% frame margins and in front of near clip | Project every evaluated subdivided hero vertex through the actual camera. Off-center, orbiting or too-close camera fails. This is bounding-box coverage, not silhouette area. Frame-1 metrics and failing pose indices are reported. |
 | G2 exposure | mean display-referred RGB luminance 0.15–0.65; fraction with any channel >=253/255 <=0.005 | Read judge-rendered 8-bit PNG pixels; luminance weights 0.2126/0.7152/0.0722. Eight extra exposure stops fails. This is a display clipping gate, not an HDR energy-conservation claim. |
-| G3 backdrop | zero primary pixels hit unexpected geometry anywhere in frame; >=99.5% of two background strips see Cyclorama; >=4000 valid difference pixels; maximum vertical second luminance difference <=0.055 | Full-frame independent primary ray casts reject a visible seam at any height. The strips (x 8–47 and 208–247, bottom-up y 78–133 at 256×144) measure smoothness away from products and shadows. Three vertically adjacent pixels must all see backdrop. Large gradient discontinuities fail smoothness. |
+| G3 backdrop | zero primary pixels or filter-border rays hit unexpected geometry; >=99.5% of two background strips see Cyclorama; >=4000 valid difference pixels; maximum vertical second luminance difference <=0.055 | Full-frame primary rays and a surrounding 1.5-pixel filter band reject visible seams, including off-frame geometry blended into edge pixels by Cycles. This is sampled visibility, not a continuous/subpixel guarantee. The strips (x 8–47 and 208–247, bottom-up y 78–133 at 256×144) measure smoothness away from products and shadows. Three vertically adjacent pixels must all see backdrop. |
 | G4 loop | each of 12 evaluated angular steps differs from 2π/12 by <=0.00001 radians; frame 1 vs 13 mean absolute RGB difference <=0.003 | Read evaluated Turntable rotation after setting every frame, then render both endpoints at the same seed. A period of 13 fails both speed and endpoint gates. Checking only the endpoint would incorrectly accept extra complete revolutions. |
 | G5 linking | direct-only rim-on/off backdrop mean RGB delta <=0.001; product delta >=0.001; exact rim receivers GlassOrb/GoldRing/Hero/Plinth and halo receiver Cyclorama | Two additional renders with all other lights/world disabled, zero indirect bounces, and independent primary-ray masks. The positive product signal prevents a missing/off rim from passing vacuously. Wrong rim or halo receiver collection fails. |
 
@@ -58,7 +58,7 @@ OpenImageDenoise, no adaptive sampling, AgX Punchy, seed 17 by default.
 Linking probes: 128×72, 4 samples, no denoising, no indirect bounces.
 No animated seed. `--seed` controls all stochastic renders.
 `selftest.sh` grades good twice and compares the serialized JSON after removing
-only `timing`. All nine single-setting mutants must fail an actual numeric
+only `timing`. All ten single-setting mutants must fail an actual numeric
 gate, with no runtime error and unchanged judge. Required kill rate is 100%
 (stricter than the standard's 90%).
 

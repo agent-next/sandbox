@@ -54,16 +54,26 @@ def visibility(scene, width, height):
     mask = np.zeros((height, width), dtype=bool)
     unexpected = 0
     allowed = {"Cyclorama", "Hero", "Plinth", "GlassOrb", "GoldRing"}
+    def hit_at(x, y):
+        direction = rotation @ Vector((
+            min(xs) + (max(xs) - min(xs)) * (x + 0.5) / width,
+            min(ys) + (max(ys) - min(ys)) * (y + 0.5) / height, -1))
+        hit, _, _, _, obj, _ = scene.ray_cast(
+            graph, camera.matrix_world.translation, direction.normalized())
+        return obj.name if hit else None
     for y in range(height):
         for x in range(width):
-            direction = rotation @ Vector((
-                min(xs) + (max(xs) - min(xs)) * (x + 0.5) / width,
-                min(ys) + (max(ys) - min(ys)) * (y + 0.5) / height, -1))
-            hit, _, _, _, obj, _ = scene.ray_cast(
-                graph, camera.matrix_world.translation, direction.normalized())
-            mask[y, x] = hit and obj.name == "Cyclorama"
-            unexpected += int(hit and obj.name not in allowed)
-    return mask, unexpected
+            name = hit_at(x, y)
+            mask[y, x] = name == "Cyclorama"
+            unexpected += int(name is not None and name not in allowed)
+    # Cycles filters nearby off-frame geometry into the edge pixels. Probe the
+    # surrounding 1.5-pixel band too, without changing the pixel mask above.
+    edge = [(x, y) for y in (-2, -1, height, height + 1)
+            for x in range(-2, width + 2)]
+    edge += [(x, y) for x in (-2, -1, width, width + 1) for y in range(height)]
+    unexpected_edge = sum((name := hit_at(x, y)) is not None and name not in allowed
+                          for x, y in edge)
+    return mask, unexpected, unexpected_edge
 
 
 def grade(settings, seed, out):
@@ -82,18 +92,20 @@ def grade(settings, seed, out):
     strips = np.zeros((144, 256), dtype=bool)
     strips[78:134, 8:48] = True
     strips[78:134, 208:248] = True
-    mask, unexpected = visibility(scene, 256, 144)
+    mask, unexpected, unexpected_edge = visibility(scene, 256, 144)
     valid = (mask[2:] & mask[1:-1] & mask[:-2] &
              strips[2:] & strips[1:-1] & strips[:-2])
     second = np.abs(lum[2:] - 2 * lum[1:-1] + lum[:-2])
     seam = float(second[valid].max()) if valid.any() else 1.0
     visible = float(mask[strips].mean())
-    gates["G3_backdrop"] = {"pass": bool(unexpected == 0 and visible >= 0.995 and
+    gates["G3_backdrop"] = {"pass": bool(unexpected == unexpected_edge == 0 and
+                                        visible >= 0.995 and
                                         valid.sum() >= 4000 and seam <= 0.055),
                             "max_second_difference": round(seam, 6),
                             "backdrop_visibility_fraction": round(visible, 6),
                             "verified_pixels": int(valid.sum()),
-                            "unexpected_primary_pixels": unexpected}
+                            "unexpected_primary_pixels": unexpected,
+                            "unexpected_filter_rays": unexpected_edge}
     angles = []
     framing = []
     for frame in range(1, 14):
@@ -131,7 +143,7 @@ def grade(settings, seed, out):
     linked = render(scene, out / "rim-on.png")
     rim.data.energy = 0
     dark = render(scene, out / "rim-off.png")
-    mask, _ = visibility(scene, 128, 72)
+    mask, _, _ = visibility(scene, 128, 72)
     difference = np.abs(linked - dark).mean(axis=2)
     delta = float(difference[mask].mean()) if mask.any() else 1
     signal = float(difference[~mask].mean()) if (~mask).any() else 0

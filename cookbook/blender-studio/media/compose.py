@@ -56,7 +56,7 @@ def kill_matrix(data):
     for j in range(5):
         text(draw, (1100 + 145*j, 245), f"G{j+1}", 64)
     for i, (name, verdict) in enumerate(data["mutants"].items()):
-        y = 325 + 75*i
+        y = 315 + 70*i
         text(draw, (65, y), name.replace("_", " "), 64)
         for j, gate in enumerate(names):
             color = BLUE if verdict["gates"][gate]["pass"] else ORANGE
@@ -110,7 +110,7 @@ def main():
     text(draw, (110, 510), "Failed scene        Repaired scene", 42)
     text(draw, (65, 625), f"PASS line = 5 gates. Kill rate {data['killed']}/{data['total']}.", 50)
     for i, (name, verdict) in enumerate(data["mutants"].items()):
-        y = 190 + i * 80
+        y = 190 + i * 72
         draw.rectangle((1010, y, 1080, y+55), fill=BLUE if not verdict["pass"] else ORANGE)
         text(draw, (1110, y), name.replace("_", " "), 45)
     text(draw, (65, 965), "Source: selftest.json, seed 17. Known mutant → good, not inferred history.", 35)

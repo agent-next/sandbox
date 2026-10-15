@@ -12,7 +12,7 @@ Background panels and cropping are presentation only, never substitute geometry.
 | 10–16 | actual 12-frame turntable, repeated at six frames/s | full-resolution frames 1–12, period 12 | “Real Cycles turntable · 6 fps playback” |
 | 16–20 | full-resolution linked/unlinked A/B, then direct light-linking probes | frame 1 and unlinked.png; selftest good and unlinked_rim rim-on.png | measured backdrop deltas / “Products-only rim” |
 | 20–23 | real off-center mutant beside repaired good; sped-up replay of measured sandbox selftest output rows | selftest.json and mutant hero.png | “Self-test output replay · measured runtime / 3 s speed” |
-| 23–27 | PASS, five gate metrics and nine-mutant kill matrix | selftest.json, good verdict | “PASS 5/5 · 9/9 mutants caught” only if measured |
+| 23–27 | PASS, five gate metrics and ten-mutant kill matrix | selftest.json, good verdict | “PASS 5/5 · 10/10 mutants caught” only if measured |
 | 27–30 | static launch card over real hero | frame 1 | `python3 run.py` |
 
 Planned cuts at 2, 6, 10, 16, 20, 23, 27 seconds; visual layouts deliberately

@@ -10,6 +10,7 @@ MUTANTS = {
     "clipped_hero": ("camera_y", -2.0),
     "visible_seam": ("seam_height", 2.6),
     "high_seam": ("seam_height", 3.4),
+    "filtered_seam": ("seam_height", 3.6),
     "orbiting_hero": ("hero_x", 0.6),
     "unlinked_halo": ("halo_link", False),
 }
