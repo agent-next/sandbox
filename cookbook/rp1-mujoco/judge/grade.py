@@ -182,21 +182,65 @@ def sim_loop(model, data, params, ctrl_fn, record):
         record(data)
 
 
+# --------------------------------------------------------------------------
+# --trace DIR: per-step trace CSV of the judged trajectory (media figures).
+#    Media-only: gates read only the aggregate `traj` dict, never this file,
+#    and the trace writer is wrapped around (not instead of) art_record.
+# --------------------------------------------------------------------------
+class _Trace:
+    def __init__(self, outdir, params, model, base_id, foot_ids,
+                 geom_bodyid, ctrl_lim):
+        import csv
+        if not outdir:
+            raise ValueError("--trace needs a directory")
+        os.makedirs(outdir, exist_ok=True)
+        self.path = os.path.join(outdir, "trace.csv")
+        self.fh = _B_OPEN(self.path, "w", newline="")
+        self.w = csv.writer(self.fh)
+        self.params = params
+        self.model, self.base_id = model, base_id
+        self.foot_ids, self.geom_bodyid = foot_ids, geom_bodyid
+        self.ctrl_lim = ctrl_lim
+        self.n = 0
+        self.w.writerow(
+            ["t_s", "pelvis_z_m", "roll_deg", "pitch_deg", "tilt_deg",
+             "feet_fz_n", "tau_peak_nm", "tau_max_frac_of_limit"]
+            + [f"qpos_{i:02d}" for i in range(24)]
+            + [f"tau_{i:02d}" for i in range(24)])
+
+    @staticmethod
+    def wrap(record, trace):
+        if trace is None:
+            return record
+
+        def wrapped(d):
+            record(d)
+            trace.step(d)
+        return wrapped
+
+    def step(self, d):
+        f6 = np.zeros(6)
+        fz, _touched = contact_fz_feet(
+            self.model, d, self.geom_bodyid, self.foot_ids, f6)
+        roll, pitch = quat_roll_pitch(d.xquat[self.base_id])
+        tau = np.abs(np.asarray(d.actuator_force, dtype=float))
+        frac = float(np.max(tau / self.ctrl_lim)) if len(tau) else 0.0
+        self.w.writerow(
+            [f"{d.time:.4f}",
+             f"{float(d.xpos[self.base_id][2]):.5f}",
+             f"{float(np.degrees(roll)):.3f}",
+             f"{float(np.degrees(pitch)):.3f}",
+             f"{float(np.degrees(max(abs(roll), abs(pitch)))):.3f}",
+             f"{fz:.3f}", f"{float(tau.max()):.4f}", f"{frac:.5f}"]
+            + [f"{float(v):.5f}" for v in d.qpos[7:31]]
+            + [f"{float(v):.4f}" for v in d.actuator_force[:]])
+        self.n += 1
+
+    def close(self):
+        self.fh.close()
+
+
 def contact_fz_feet(model, data, geom_bodyid, foot_ids, f6):
-    """Total vertical contact force on the feet; also floor-contact bodies."""
-    fz = 0.0
-    touched = _B_SET()
-    for ci in _B_RANGE(data.ncon):
-        con = data.contact[ci]
-        b1, b2 = _B_INT(geom_bodyid[con.geom1]), _B_INT(geom_bodyid[con.geom2])
-        if (b1 == 0) != (b2 == 0):
-            other = b2 if b1 == 0 else b1
-            _MJ_CF(model, data, ci, f6)
-            if other in foot_ids:
-                fz += _B_ABS(f6[0] * con.frame[2])
-            else:
-                touched.add(other)
-    return fz, touched
 
 
 def main():
@@ -208,6 +252,10 @@ def main():
     ap.add_argument("--judge-dir", required=True)
     ap.add_argument("--seed", type=int, default=20261014)
     ap.add_argument("--json", default="")
+    ap.add_argument("--trace", default="",
+                    help="write a per-step trace CSV of the judged "
+                         "trajectory into this directory (media figures; "
+                         "never affects any gate)")
     args = ap.parse_args()
 
     t_wall0 = time.time()
@@ -485,7 +533,15 @@ def main():
                 raise ValueError("artifact modified simulator state")
             return u
 
-        sim_loop(model, data, params, art_ctrl, art_record)
+        trace = (_Trace(args.trace, params, model, base_id,
+                        foot_ids, geom_bodyid, ctrl_lim)
+                 if args.trace else None)
+        try:
+            sim_loop(model, data, params, art_ctrl,
+                     _Trace.wrap(art_record, trace))
+        finally:
+            if trace is not None:
+                trace.close()
     except Exception as exc:  # an artifact that crashes fails, with a verdict
         art_err = f"{type(exc).__name__}: {exc}"
     finally:

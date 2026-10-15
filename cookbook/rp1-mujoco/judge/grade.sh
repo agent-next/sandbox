@@ -3,6 +3,7 @@
 #
 # Usage:
 #   bash judge/grade.sh <controller.py> [--seed N] [--json out.json]
+#                       [--trace DIR]
 #
 # 1. checks the pinned tools are installed (judge/setup.sh)
 # 2. assembles the judged scene: a scratch copy of the pinned model with the
@@ -11,7 +12,9 @@
 # 3. copies the artifact into a scratch dir and runs every gate (grade.py)
 # 4. verifies the judge sources were not modified by the artifact
 #
-# Exit 0 iff every gate passes.  Prints one verdict JSON object.
+# --trace DIR additionally writes a per-step CSV of the judged trajectory
+# (media figures only; never affects a gate).  Exit 0 iff every gate
+# passes.  Prints one verdict JSON object.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,10 +26,12 @@ PY="${VENV}/bin/python"
 ARTIFACT="${1:-}"
 SEED="20261014"
 JSON_OUT=""
+TRACE_OUT=""
 while [ $# -gt 1 ]; do
     case "$2" in
         --seed) SEED="$3"; shift 2 ;;
         --json) JSON_OUT="$3"; shift 2 ;;
+        --trace) TRACE_OUT="$3"; shift 2 ;;
         *) shift ;;
     esac
 done
