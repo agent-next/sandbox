@@ -1,4 +1,4 @@
-# judge/VERSIONS.txt — recorded by judge/setup.sh on 2026-10-15T03:22:44+00:00
+# judge/VERSIONS.txt — recorded by judge/setup.sh on 2026-10-15T04:41:34+00:00
 pip 26.2.1 from /home/user/.genesis-demo-venv/lib/python3.12/site-packages/pip (python 3.12)
 genesis-world==1.4.3
 numpy==2.5.4
