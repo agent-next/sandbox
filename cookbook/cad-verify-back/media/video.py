@@ -21,6 +21,7 @@ formatted but never invented.  Captions are burned in with Pillow at 52/44 px
 make_media.sh (crf-0 master, then the crf-18 web encode).
 """
 import glob
+import hashlib
 import math
 import os
 import subprocess
@@ -160,6 +161,8 @@ class Turntable:
         reader = vtk.vtkSTLReader()
         reader.SetFileName(STL)
         reader.Update()
+        with open(STL, "rb") as f:
+            self.stl_sha = hashlib.sha256(f.read()).hexdigest()[:16]
         poly = reader.GetOutput()
         lo, hi = np.array(poly.GetBounds()[0::2]), np.array(poly.GetBounds()[1::2])
         self.center = (lo + hi) / 2.0
@@ -205,11 +208,14 @@ class Turntable:
     def frame(self, az_deg, el_deg, dist, path):
         """Place the camera and write one rendered PNG.
 
-        Renders are cached on disk by pose (data/rawcache/, git-ignored):
-        re-cutting the video is seconds, not minutes, and the cache never
-        changes a pixel — a miss just re-renders the identical frame.
+        Renders are cached on disk by STL content hash + pose
+        (data/rawcache/, git-ignored): re-cutting the video is seconds,
+        not minutes, and the cache never changes a pixel — a miss just
+        re-renders the identical frame. The STL sha256 is part of the
+        key so changed geometry can never reuse stale frames.
         """
         key = os.path.join(rd.DATA, "rawcache",
+                           f"{self.stl_sha}_"
                            f"a{az_deg:.3f}_e{el_deg:.3f}_d{dist:.5f}.png")
         if os.path.exists(key):
             with open(key, "rb") as src, open(path, "wb") as dst:
