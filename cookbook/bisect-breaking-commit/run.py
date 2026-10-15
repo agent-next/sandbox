@@ -49,6 +49,8 @@ import os
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 REPO_URL = "https://github.com/agent-next/sandbox"
@@ -473,8 +475,10 @@ def main():
                   f"{sorted(created.values())}", flush=True)
         else:
             cleanup_failures = []
+            # created maps what -> id, so unpack (what, sid): killing a
+            # name (what) instead of an id is how a sandbox survives cleanup.
             to_kill = sorted(created.items())
-            for sid, what in to_kill:
+            for what, sid in to_kill:
                 try:
                     kill_with_backoff(sid, what)
                 except CleanupError as exc:
