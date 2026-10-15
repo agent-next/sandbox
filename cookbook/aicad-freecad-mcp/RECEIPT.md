@@ -152,3 +152,116 @@ face, min wall 8.06 mm.
   strip (e.g. the plate's 2.25 mm rim reports 6.94 mm); it is a
   manufacturability trip-wire, not a certified minimum. Documented in
   SPEC.md.
+
+## Clean-sequence rerun (lead's failure)
+
+The lead's `run.py --ref sbx/demo-aicad-freecad-mcp-fix-p` run failed at the
+MCP drive step on a fresh sandbox (`FATAL: FreeCAD RPC addon is not listening
+on port 9875`). Root cause, reproduced in a clean build sandbox: the image
+ships `xvfb-run` but **not `xauth`**, and `xvfb-run` refuses to start without
+it — it exits 3 with `xvfb-run: error: xauth command not found`, so FreeCAD
+never launched and the RPC port never opened. `judge/setup.sh` only checked
+`command -v xvfb-run`, concluded the X stack was present, and skipped the
+apt install. (The original build sandbox had xauth, which is why the
+pipeline passed there.)
+
+Fixes (branch commits `85ad3a7`, `01bc2ac`):
+
+- `judge/setup.sh` installs and then verifies both `xvfb` and `xauth`,
+  failing loudly if either is missing after apt; it also resolves the addon
+  Mod dir and the settings file from `freecadcmd`'s `getUserAppDataDir()`
+  instead of a hard-coded path, and fails if the addon did not land there.
+- `driver/drive_freecad.py` prints the tail of `/tmp/freecad.log` when the
+  RPC port does not open in time, so this failure names its cause.
+- `run.py` checks the FreeCAD GUI process is alive 2 s after launch (same
+  log tail on failure) and narrows the cleanup `pkill` to the exact
+  `$FREECAD_DIR/usr/bin/freecad` path.
+
+Verification below: each in-sandbox script string copied from `run.py`, run
+as its own `bash -lc` process (as `sbx exec` would), in order, in a sandbox
+wiped first with
+`rm -rf ~/.config/FreeCAD ~/.local/share/FreeCAD ~/.cache/freecad-mcp ~/freecad-1.0.1 ~/freecad-mcp-* ~/.venvs ~/FreeCAD_*.AppImage`
+plus `sudo apt-get purge -y xauth xvfb` (the fixed setup.sh must reinstall
+them) and no FreeCAD process left running. Environment: Debian 12, 2 vCPU,
+3 GB RAM, Python 3.12.15 — same image class as the lead's failing sandbox.
+
+Step 1 — clone (as `run.py` sends it):
+
+```
+$ git clone --depth 1 -b sbx/demo-aicad-freecad-mcp-fix-p \
+    https://github.com/agent-next/sandbox /tmp/sandbox
+→ HEAD 01bc2ac, exit 0
+```
+
+Step 2 — `judge/setup.sh` (fresh `$HOME`: both venvs created, AppImage
+downloaded 810 MB + sha256 `5a3fc405…` verified + extracted, freecad-mcp
+cloned at pinned SHA, **xvfb + xauth installed by the fixed guard**):
+
+```
+[setup] creating judge venv at /home/user/.venvs/aicad-judge
+[setup] installing pinned judge deps (trimesh, manifold3d, cadquery/OCP, ezdxf)
+[setup] downloading FreeCAD 1.0.1 AppImage (~850 MB)
+[setup] FreeCAD sha256 verified
+[setup] extracting AppImage (takes a couple of minutes)
+[setup] extracted to /home/user/freecad-1.0.1
+[setup] cloning freecad-mcp at pinned SHA 78bf0230a03324b56c9a0b7f55150fb5be2a0d42
+[setup] installing freecad-mcp into its own venv
+[setup] freecad-mcp addon installed with loopback-only RPC auto-start
+[setup] apt lists may be empty in this image; refreshing
+[setup] installing xvfb + xauth (FreeCAD GUI needs an X server for the RPC addon)
+[setup] versions recorded in .../judge/VERSIONS.txt
+[setup] setup complete
+SETUP_DONE
+EXIT=0   wall ≈ 277 s
+```
+
+Step 3 — MCP drive (the step that failed for the lead):
+
+```
+$ xvfb-run -a -s "-screen 0 1280x1024x24" $FREECAD_DIR/usr/bin/freecad \
+    > /tmp/freecad.log 2>&1 &            (add-on auto-starts RPC on 9875)
+$ python3 driver/drive_freecad.py --mcp-command $HOME/.venvs/freecad-mcp/bin/freecad-mcp \
+    --freecadcmd $FREECAD_DIR/usr/bin/freecadcmd
+[drive] MCP server initialized: {'name': 'FreeCADMCP', 'version': ''}
+[drive] bracket  OK  volume=61853.9828 mm^3  (1.0 s)
+[drive] bushing  OK  volume=42625.1291 mm^3  (0.6 s)
+[drive] plate    OK  volume=71505.9189 mm^3  (2.7 s)
+DRIVE_DONE
+EXIT=0   real 0m20.934s
+```
+
+Step 4 — `judge/selftest.sh`:
+
+```
+== selftest: known-good artifacts ==
+  good/bushing PASS (volume 42625.13 mm^3)
+  good/plate   PASS (volume 71505.92 mm^3)
+  good/bracket PASS (volume 61853.98 mm^3)
+== selftest: known-bad mutants ==
+  bracket_no_fillet killed by: brep,features,stl_topology,xor_reference
+  bushing_bore_22 killed by: brep,features,stl_topology,xor_reference
+  bushing_stl_flip killed by: stl_topology
+  bushing_stl_gap killed by: stl_topology
+  plate_hole_count_5 killed by: features,xor_reference
+  plate_hole_drift killed by: features
+  plate_scale_25_4 killed by: bbox,brep,stl_topology
+kill rate: 7/7 = 100%
+== selftest: determinism ==
+  two grades identical (excluding timing)
+  judge/ unchanged
+selftest OK
+EXIT=0   real 2m23.455s   (kill rate unchanged from Run 2: 7/7 = 100 %)
+```
+
+Step 5 — `judge/grade.sh` per part:
+
+```
+bushing  EXIT=0  wall 19.0 s   all_pass: True, 7/7 gates
+plate    EXIT=0  wall  8.4 s   all_pass: True, 8/8 gates
+bracket  EXIT=0  wall 10.7 s   all_pass: True, 7/7 gates
+```
+
+`python3 -m py_compile run.py` and `python3 -m py_compile
+driver/drive_freecad.py`: clean. Still not done here: the lead's
+end-to-end `sbx create → … → sbx kill` wrapper itself (no `sbx` CLI inside
+this build sandbox — same limitation as noted above).
