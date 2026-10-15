@@ -1,0 +1,13 @@
+{
+  "cloth": {
+    "core_shear_modulus": 240000.0,
+    "core_damping": 0.03,
+    "edge_ke": 0.0001,
+    "tri_ke": 10000.0
+  },
+  "contact": {
+    "contact_ke": 10000.0,
+    "friction": 0.25
+  },
+  "shell": "slab"
+}

@@ -27,6 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TABLE = json.load(open(os.path.join(HERE, "params_table.json")))
 FIELDS = TABLE["fields"]
 SHELLS = TABLE["shells"]
+COUPLINGS = TABLE["couplings"]
 
 
 def sha256_dir(path):
@@ -65,6 +66,21 @@ def gate_g1(params, table=FIELDS):
     shell = params.get("shell")
     if shell is not None and shell not in SHELLS:
         problems.append(f"shell = {shell!r} is not one of {SHELLS}")
+    # The scene's explicit constraint entries (the paper's Sec. 3 solver/contact
+    # choices): they are choices, so an unknown value is rejected rather than
+    # ignored, the same way an unknown parameter is.
+    constraint = params.get("constraint")
+    if constraint is not None:
+        if not isinstance(constraint, dict):
+            problems.append(f"constraint = {constraint!r} is not an object")
+        else:
+            for key, value in constraint.items():
+                if key == "coupling" and value not in COUPLINGS:
+                    problems.append(f"constraint.coupling = {value!r} is not one of {COUPLINGS}")
+                elif key == "full_surface_contact" and not isinstance(value, bool):
+                    problems.append(f"constraint.full_surface_contact = {value!r} is not a bool")
+                elif key not in ("coupling", "full_surface_contact"):
+                    problems.append(f"constraint.{key!r} is not a scene entry")
     if not seen:
         problems.append("no cloth or contact parameters given")
     return {"pass": not problems, "problems": problems, "n_params": len(seen)}

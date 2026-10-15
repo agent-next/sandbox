@@ -17,5 +17,7 @@
     "contact_kd":         {"unit": "N*s/m",     "lo": 1.0e-3,"hi": 1.0e2, "log": true,  "group": "contact",    "tier": "RECAPTURE"},
     "friction":           {"unit": "-",         "lo": 0.0,   "hi": 2.0,   "log": false, "group": "contact",    "tier": "RECAPTURE"}
   },
-  "shells": ["slab", "membrane"]
+  "shells": ["slab", "membrane"],
+  "couplings": ["two_way", "one_way", "off"],
+  "_couplings_source": "robosimstudio/specs/declare.py: COUPLINGS = (\"two_way\", \"one_way\", \"off\")"
 }

@@ -37,7 +37,16 @@ OVER_EDGE = (0.274, 2.114, 2.003, -1.459, 0.0, 0.274)
 
 
 def build_scene(rss, params, size=SIZE, cells=CELLS):
-    """The towel scene with the artifact's material."""
+    """The towel scene with the artifact's material and scene constraints.
+
+    `constraint` carries the scene's own explicit entries, the ones the paper's
+    Sec. 3 calls out: the coupler and the contact model. They are choices, not
+    numbers, and the paper's Sec. 4.3 argument is about exactly this kind of
+    entry -- a constraint that is fixed in simulation but free in reality. On
+    this towel, `full_surface_contact: false` is that constraint: the pads can
+    push the sheet but not pinch it, which is the upstream example's own
+    documented default, and the fold does not happen.
+    """
     from robosimstudio.robots.registry import get_embodiment
 
     changes = {}
@@ -48,10 +57,13 @@ def build_scene(rss, params, size=SIZE, cells=CELLS):
         changes["shell"] = params["shell"]
     material = rss.replace(rss.materials.TERRY_TOWELLING, **changes)
 
+    constraint = params.get("constraint") or {}
+    coupling = str(constraint.get("coupling", "one_way"))
+    full_surface = bool(constraint.get("full_surface_contact", True))
     physics = rss.replace(
         rss.GENERIC,
-        coupling=rss.coupler("one_way"),
-        collision=rss.CollisionSpec(full_surface_contact=True),
+        coupling=rss.coupler(coupling),
+        collision=rss.CollisionSpec(full_surface_contact=full_surface),
     )
     yam = get_embodiment("yam_bimanual")
     left, right = yam.arms
