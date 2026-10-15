@@ -155,6 +155,26 @@ class PPO:
                 self.opt.step()
         return float(buf["rew"].mean())
 
+    def state_dict(self):
+        import torch
+        return {"actor": self.actor.state_dict(),
+                "critic": self.critic.state_dict(),
+                "log_std": self.log_std.detach().cpu(),
+                "opt": self.opt.state_dict(),
+                "torch_rng": torch.get_rng_state(),
+                "cuda_rng": torch.cuda.get_rng_state_all()}
+
+    def load_state(self, sd):
+        import torch
+        self.actor.load_state_dict(sd["actor"])
+        self.critic.load_state_dict(sd["critic"])
+        with torch.no_grad():
+            self.log_std.copy_(sd["log_std"].to(self.log_std.device))
+        self.opt.load_state_dict(sd["opt"])
+        torch.set_rng_state(sd["torch_rng"].cpu())
+        torch.cuda.set_rng_state_all(
+            [t.cpu() for t in sd["cuda_rng"]])
+
 
 DEFAULT_CFG = {
     "seed": 1,
@@ -203,27 +223,6 @@ def evaluate(env, policy, steps, cmd=(1.0, 0.0, 0.0)):
     env.auto_reset = True
     return {"forward_mps": round(float(fwd.mean()), 4),
             "upright": round(float(alive.float().mean()), 4)}
-
-
-    def state_dict(self):
-        import torch
-        return {"actor": self.actor.state_dict(),
-                "critic": self.critic.state_dict(),
-                "log_std": self.log_std.detach().cpu(),
-                "opt": self.opt.state_dict(),
-                "torch_rng": torch.get_rng_state(),
-                "cuda_rng": torch.cuda.get_rng_state_all()}
-
-    def load_state(self, sd):
-        import torch
-        self.actor.load_state_dict(sd["actor"])
-        self.critic.load_state_dict(sd["critic"])
-        with torch.no_grad():
-            self.log_std.copy_(sd["log_std"].to(self.log_std.device))
-        self.opt.load_state_dict(sd["opt"])
-        torch.set_rng_state(sd["torch_rng"].cpu())
-        torch.cuda.set_rng_state_all(
-            [t.cpu() for t in sd["cuda_rng"]])
 
 
 def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
