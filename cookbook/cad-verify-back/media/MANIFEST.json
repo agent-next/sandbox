@@ -1,0 +1,54 @@
+{
+  "git_tip": "09709340507f86c1431a5bc1e17c07a0a8293a7e",
+  "data_stage": "bash media/make_media.sh data (judge/grade.sh on examples/good, the 10 judge/mutants.py mutants and the replay artifacts, all with --json; plus judge/selftest.sh)",
+  "files": {
+    "result.png": {
+      "shows": "the delivered part (examples/good STL parsed with trimesh 5.1.1) beside the spec-built reference solid with the manifold3d XOR difference, the DXF bolt-circle overlay with angular deviations vs the G6 tolerance, and per-gate measured errors vs pass limits",
+      "command": "bash media/make_media.sh figs  (fig_result.py)",
+      "source_data": [
+        "data/verdicts/good.json",
+        "examples/good/part.stl",
+        "examples/good/part.dxf",
+        "judge/spec.json"
+      ],
+      "sha256": "482ca570091893a4701256f196224b3810ff6e277f106bdea695053be62c1ef4",
+      "bytes": 507399
+    },
+    "loop.png": {
+      "shows": "the fixing-agent loop replay (gates passing per iteration with the 14/14 pass line) and the mutant x gate matrix (known-good + 10 mutants x 14 gates) with red cells showing measured vs limit",
+      "command": "bash media/make_media.sh figs  (fig_loop.py)",
+      "source_data": [
+        "data/replay/iter1_scale_inch_mm.json",
+        "data/replay/iter2_boss_missing.json",
+        "data/replay/iter3_tangential_hole_drift.json",
+        "data/replay/iter4_good.json",
+        "data/verdicts/good.json",
+        "data/verdicts/wrong_bolt_count.json",
+        "data/verdicts/wrong_pcd.json",
+        "data/verdicts/bore_off.json",
+        "data/verdicts/boss_missing.json",
+        "data/verdicts/scale_inch_mm.json",
+        "data/verdicts/stl_flipped_facet.json",
+        "data/verdicts/stl_not_watertight.json",
+        "data/verdicts/dxf_missing_hole.json",
+        "data/verdicts/edge_violation.json",
+        "data/verdicts/tangential_hole_drift.json",
+        "data/selftest.log"
+      ],
+      "sha256": "af81b871a3fff9fb2eafc0dc14d12abcd40eb5577ee1f5ef4eff27a885ca94b9",
+      "bytes": 392893
+    },
+    "demo.mp4": {
+      "shows": "storyboarded to media/STORYBOARD.md: a full-frame turntable of the real delivered STL rendered offscreen by VTK, a push-in on the bolt circle, then full-frame cards of result.png and loop.png (per-gate verdict vs the spec; the agent loop and the mutant x gate kill matrix), and the static end card (34.7 s, 1920x1080, 30 fps, H.264)",
+      "command": "bash media/make_media.sh video  (video.py + ffmpeg)",
+      "source_data": [
+        "data/verdicts/*.json",
+        "data/replay/iter*.json",
+        "data/selftest.log",
+        "examples/good/part.stl"
+      ],
+      "sha256": "0091765aa311c3491a236b88b02ff16eb3d7d4d347d4fb74b4e2a96b4c541ee1",
+      "bytes": 2938997
+    }
+  }
+}

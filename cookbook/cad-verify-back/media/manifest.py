@@ -60,17 +60,17 @@ def main():
                            + ["data/selftest.log"],
         },
         "demo.mp4": {
-            "shows": "storyboarded to media/STORYBOARD.md: hook turntable of "
-                     "the real delivered STL, spec.json -> delivered files, "
-                     "bolt-circle close-up, the agent-loop replay at ~10x "
-                     "speed, one card per mutant showing the defect and the "
-                     "gate that caught it, verdict + kill matrix, end card "
-                     "(37 s, 1920x1080, 30 fps)",
+            "shows": "storyboarded to media/STORYBOARD.md: a full-frame "
+                     "turntable of the real delivered STL rendered offscreen "
+                     "by VTK, a push-in on the bolt circle, then full-frame "
+                     "cards of result.png and loop.png (per-gate verdict vs "
+                     "the spec; the agent loop and the mutant x gate kill "
+                     "matrix), and the static end card (34.7 s, 1920x1080, "
+                     "30 fps, H.264)",
             "command": "bash media/make_media.sh video  (video.py + ffmpeg)",
             "source_data": ["data/verdicts/*.json", "data/replay/iter*.json",
-                            "examples/good/part.stl",
-                            "data/mutants/*/part.stl",
-                            "data/mutants/*/part.dxf"],
+                            "data/selftest.log",
+                            "examples/good/part.stl"],
         },
     }
     out = {"git_tip": tip,
