@@ -25,8 +25,8 @@ notional is charged on every position change.
 
 ![Self-test kill rate per mutant](media/loop.png)
 
-[media/demo.mp4](media/demo.mp4) — 32 s: the equity curve, the drawdown
-panel and the position panel drawn day by day, then the agent loop's error
+[media/demo.mp4](media/demo.mp4) — 35 s: the market tape rolling through
+every trading day, then the finished equity curve, the agent loop's error
 per iteration and the self-test kill rates (1920×1080, H.264).
 
 Key numbers from the judge verdict on `examples/good` (fresh sandbox run
@@ -42,7 +42,7 @@ recorded in RECEIPT.md, `judge/grade.sh examples/good --seed 42`):
 - **Lookahead control**: the reference's final equity moves from 0.9470
   (shift 1) to 0.6763 (shift 2) as required, so the engine is really
   trading the signal
-- **Self-test kill rate**: 10/10 mutants = 100 % (requirement ≥ 90 %)
+- **Self-test kill rate**: 11/11 mutants = 100 % (requirement ≥ 90 %)
 - The strategy is *deliberately mediocre*: total return −5.3 % on this
   fixture. The judge grades correctness, not cleverness.
 
@@ -105,7 +105,7 @@ bash judge/grade.sh examples/good --seed 42 --json verdict.json
 |---|---|
 | `git clone --depth 1` | 9 s |
 | `judge/setup.sh` (fresh install) | 60–90 s (idempotent re-run: ~1 s) |
-| `judge/selftest.sh` (good + 10 mutants + determinism) | 10–15 s |
+| `judge/selftest.sh` (good + 11 mutants + determinism) | 10–15 s |
 | `judge/grade.sh examples/good` | 6–7 s |
 
 Whole run, including sandbox create and kill: about two minutes, dominated
@@ -126,11 +126,13 @@ by the pinned wheel download. `run.py` prints a per-step timing line.
   (fixture sha256), G2 (final equity vs the blind reference, ≤ 0.1 %),
   G3 (Sharpe vs the artifact's own `returns.csv`, < 1e-6), G4 (max
   drawdown from the same CSV, ≤ 1e-6), G5 (lookahead negative control) and
-  G6 (schema sanity), prints one JSON verdict, exits 0 only if all pass.
+  G6 (schema sanity, including `lookahead_shift ≥ 1` — a declared shift of
+  0 is the lookahead cheat this demo exists to catch), prints one JSON
+  verdict, exits 0 only if all pass.
   Wall time lives under a `timing` key; everything else is a pure function
   of the pinned fixture, the artifact and `--seed`, so two runs with the
   same seed are byte-identical. The artifact is copied to a temp dir first.
-- `judge/selftest.sh` — the good artifact must pass, all ten mutants
+- `judge/selftest.sh` — the good artifact must pass, all eleven mutants
   (`judge/mutants.py`) must fail (each kill line and the kill rate are
   printed), the good artifact graded twice with `--seed 42` must give
   identical JSON except `timing`, and `judge/`'s checksum must be unchanged
