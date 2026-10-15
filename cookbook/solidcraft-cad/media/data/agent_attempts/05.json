@@ -1,0 +1,356 @@
+{
+ "commands": [
+  {
+   "command": "document.units",
+   "params": {
+    "units": "mm"
+   }
+  },
+  {
+   "command": "parameters.add",
+   "params": {
+    "name": "thickness",
+    "expression": "6 mm",
+    "unit": "mm"
+   }
+  },
+  {
+   "command": "solid.box",
+   "params": {
+    "length": 60,
+    "width": 40,
+    "height": "thickness",
+    "corner": [
+     -30,
+     -20,
+     0
+    ],
+    "operation": "new",
+    "body_name": "MotorAdapter"
+   }
+  },
+  {
+   "command": "solid.box",
+   "params": {
+    "length": 50,
+    "width": 50,
+    "height": "thickness",
+    "corner": [
+     -25,
+     -25,
+     0
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "radius": 5,
+    "height": "thickness",
+    "operation": "new",
+    "body_name": "CornerNE"
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerNE"
+    ],
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "angle": 45
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerNE"
+    ],
+    "translate": [
+     25,
+     20,
+     0
+    ]
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "CornerNE"
+    ],
+    "operation": "join"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "radius": 5,
+    "height": "thickness",
+    "operation": "new",
+    "body_name": "CornerNW"
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerNW"
+    ],
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "angle": 45
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerNW"
+    ],
+    "translate": [
+     -25,
+     20,
+     0
+    ]
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "CornerNW"
+    ],
+    "operation": "join"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "radius": 5,
+    "height": "thickness",
+    "operation": "new",
+    "body_name": "CornerSW"
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerSW"
+    ],
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "angle": 45
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerSW"
+    ],
+    "translate": [
+     -25,
+     -20,
+     0
+    ]
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "CornerSW"
+    ],
+    "operation": "join"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "radius": 5,
+    "height": "thickness",
+    "operation": "new",
+    "body_name": "CornerSE"
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerSE"
+    ],
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "angle": 45
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerSE"
+    ],
+    "translate": [
+     25,
+     -20,
+     0
+    ]
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "CornerSE"
+    ],
+    "operation": "join"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 32,
+    "height": 3,
+    "base": [
+     0,
+     0,
+     "thickness"
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 22,
+    "height": "thickness + 3 mm",
+    "operation": "new",
+    "body_name": "BoreTool"
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "BoreTool"
+    ],
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "angle": 45
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "BoreTool"
+    ],
+    "operation": "cut"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "material.assign",
+   "params": {
+    "bodies": [
+     "MotorAdapter"
+    ],
+    "material": "Aluminum"
+   }
+  }
+ ]
+}

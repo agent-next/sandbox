@@ -1,0 +1,247 @@
+{
+ "commands": [
+  {
+   "command": "document.units",
+   "params": {
+    "units": "mm"
+   }
+  },
+  {
+   "command": "parameters.add",
+   "params": {
+    "name": "thickness",
+    "expression": "6 mm",
+    "unit": "mm"
+   }
+  },
+  {
+   "command": "solid.box",
+   "params": {
+    "length": 60,
+    "width": 40,
+    "height": "thickness",
+    "corner": [
+     -30,
+     -20,
+     0
+    ],
+    "operation": "new",
+    "name": "Plate",
+    "body_name": "MotorAdapter"
+   }
+  },
+  {
+   "command": "solid.box",
+   "params": {
+    "length": 50,
+    "width": 50,
+    "height": "thickness",
+    "corner": [
+     -25,
+     -25,
+     0
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "PlateMiddle"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "radius": 5,
+    "height": "thickness",
+    "base": [
+     25,
+     20,
+     0
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "CornerNE"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "radius": 5,
+    "height": "thickness",
+    "base": [
+     -25,
+     20,
+     0
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "CornerNW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "radius": 5,
+    "height": "thickness",
+    "base": [
+     -25,
+     -20,
+     0
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "CornerSW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "radius": 5,
+    "height": "thickness",
+    "base": [
+     25,
+     -20,
+     0
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "CornerSE"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 32,
+    "height": 3,
+    "base": [
+     0,
+     0,
+     "thickness"
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "RaisedBoss"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XY",
+    "name": "BoreProfile"
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     0,
+     0
+    ],
+    "diameter": 22
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.extrude",
+   "params": {
+    "sketch": "BoreProfile",
+    "distance": "thickness + 3 mm",
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "CenterBore"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltNE"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltNW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltSW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltSE"
+   }
+  },
+  {
+   "command": "material.assign",
+   "params": {
+    "bodies": [
+     "MotorAdapter"
+    ],
+    "material": "Aluminum"
+   }
+  }
+ ]
+}

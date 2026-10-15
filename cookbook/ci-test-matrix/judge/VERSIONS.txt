@@ -1,0 +1,20 @@
+# What judge/setup.sh actually installed — recorded by the tools'
+# own --version output, not by hand.
+#
+# Reproduce:
+#   bash judge/setup.sh && bash judge/versions.sh > judge/VERSIONS.txt
+
+### uv (GitHub release tarball, sha256-pinned)
+
+$ /home/user/tools/bin/uv --version
+uv 0.12.16 (x86_64-unknown-linux-gnu)
+
+uv release: 0.12.16
+uv tarball: https://github.com/astral-sh/uv/releases/download/0.12.16/uv-x86_64-unknown-linux-gnu.tar.gz
+uv sha256 : 8e5c6e5523dffc2dcf615bd995554c84c9feb4e577808a3fb8698a639d3f8d9c
+
+### interpreters and pytest (uv-managed, pinned by hash)
+
+Interpreter major.minor pins (SPEC.md): 3.9 3.10 3.11 3.12 3.13
+uv fetched (acceptance runs, 2026-10-15): 3.9.25 3.10.21 3.11.2 3.12.14 3.13.15
+Wheel pins: judge/requirements.txt (--require-hashes)

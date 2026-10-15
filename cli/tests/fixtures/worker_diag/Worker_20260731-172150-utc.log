@@ -1,0 +1,32 @@
+[2026-07-31 17:21:50Z INFO Worker] Job message:
+ {
+  "variables": {
+    "system.github.job": {
+      "value": "test"
+    }
+  },
+  "contextData": {
+    "github": {
+      "t": 2,
+      "d": [
+        {
+          "k": "sha",
+          "v": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "k": "repository",
+          "v": "acme/app"
+        },
+        {
+          "k": "run_id",
+          "v": "9"
+        },
+        {
+          "k": "run_attempt",
+          "v": "2"
+        }
+      ]
+    }
+  }
+}
+[2026-07-31 17:21:51Z INFO Worker] Listening for cancel message from the channel.

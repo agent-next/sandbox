@@ -206,13 +206,13 @@ def parse_traj(path):
     return cols
 
 
-def slope_coordinate(rows):
-    th = math.radians(35.0)     # incline_slide tilt from the spec
+def slope_coordinate(rows, tilt_deg):
+    th = math.radians(tilt_deg)
     ux, uz = math.cos(th), -math.sin(th)
     return [x * ux + z * uz for x, z in zip(rows["x"], rows["z"])]
 
 
-def agreement_metric(name, art_rows, ref_rows):
+def agreement_metric(name, art_rows, ref_rows, sc):
     """Max pointwise deviation on the shared columns, sampled per ms step.
 
     Both trajectories start at t=0 with the same dt, so index i pairs row
@@ -221,7 +221,9 @@ def agreement_metric(name, art_rows, ref_rows):
     if name == "drop":
         a, b = art_rows.get("z"), ref_rows.get("z")
     elif name.startswith("incline"):
-        a, b = (slope_coordinate(art_rows), slope_coordinate(ref_rows))
+        angle = sc["plane"]["tilt_deg"]
+        a, b = (slope_coordinate(art_rows, angle),
+                slope_coordinate(ref_rows, angle))
     elif name == "pendulum":
         a, b = art_rows.get("theta"), ref_rows.get("theta")
     else:
@@ -343,8 +345,8 @@ def csv_shape(name, rows, sc):
         problems.append(f"header {got_hdr} != spec columns {want_hdr}")
         return problems
     n = len(rows["t"])
-    want_rows = int(round(sc["duration_s"] / sc["timestep"] )) + 1 \
-        if "timestep" in sc else \
+    want_rows = int(round(sc["duration_s"] / sc["timestep_s"])) + 1 \
+        if "timestep_s" in sc else \
         int(round(sc["duration_s"] / SPEC_DT)) + 1
     if not (0.9 * want_rows <= n <= 1.1 * want_rows):
         problems.append(f"{n} rows, expected about {want_rows}")
@@ -476,7 +478,7 @@ def main():
                     name = sc["name"]
                     art_rows = parse_traj(os.path.join(csv_dir, sc["output"]))
                     ref_rows = parse_traj(os.path.join(refdir, sc["output"]))
-                    dev = agreement_metric(name, art_rows, ref_rows)
+                    dev = agreement_metric(name, art_rows, ref_rows, sc)
                     scale = AGREE_SCALE[name]
                     metrics[name] = {"max_dev": dev, "scale": scale}
                     if dev is None:

@@ -1,4 +1,4 @@
-"""Keep compact judge evidence, and verify the separately retained CSVs."""
+"""Run the real judge, retaining its actual artifact outputs before cleanup."""
 
 import importlib.util
 import json
@@ -26,6 +26,22 @@ def main():
     module = importlib.util.spec_from_file_location("grade", work / "judge/_grade.py")
     grade = importlib.util.module_from_spec(module)
     module.loader.exec_module(grade)
+    original = grade.run_artifact
+
+    def retain(*args):
+        result = original(*args)
+        csv_dir = Path(args[3])
+        for path in list(csv_dir.glob("traj_*.csv")) + list(csv_dir.glob("model_*.xml")):
+            shutil.copyfile(path, out / path.name)
+        return result
+
+    grade.run_artifact = retain
+    sys.argv = ["_grade.py", str(work / "examples/good/sim.py"),
+                "--seed", "0", "--json", str(work / "grade.json")]
+    try:
+        grade.main()
+    except SystemExit as exc:
+        assert exc.code == 0, "Full judge failed"
     spec = json.loads((work / "judge/spec.json").read_text())
     verdict = json.loads((work / "grade.json").read_text())
     assert verdict["judge_intact"] and verdict["seed"] == 0
@@ -35,17 +51,16 @@ def main():
     expected = grade.oracle_values(spec)
     for scene in spec["scenarios"]:
         name = scene["name"]
-        src = work / "trajectories" / scene["output"]
+        src = out / scene["output"]
         rows = grade.parse_traj(src)
         assert not grade.csv_shape(name, rows, scene)
         assert grade.analyze(name, rows, expected[name], spec) == \
             verdict["scenarios"][name]["oracle"], f"{name}: CSV/grade mismatch"
-        shutil.copyfile(src, out / scene["output"])
     read_selftest(out / "selftest.txt")
     # Wall times are not plotted. Exclude them for byte-reproducible evidence.
     verdict.pop("timing")
     (out / "grade.json").write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n")
-    print("CSV oracle metrics: exactly equal to the full-run grade (4/4)")
+    print("Actual graded CSVs retained; oracle metrics exactly equal (4/4)")
 
 
 if __name__ == "__main__":

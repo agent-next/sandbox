@@ -291,6 +291,18 @@ def run_gpu_lane(key, demo_path, report_json=None):
 
 # ---------------------------------------------------------------- main
 
+def confirm_gone(sbx_id):
+    """Exit 2 unless `sbx list` succeeds and no longer shows the sandbox."""
+    proc, _ = run("list", "sbx", "list", timeout=60, capture=True)
+    if proc.returncode != 0:
+        die(f"cleanup not confirmed: `sbx list` failed (exit {proc.returncode}); "
+            "check with: sbx list, and kill it with: sbx kill " + sbx_id, 2)
+    if sbx_id in (proc.stdout or ""):
+        die(f"cleanup not confirmed: sandbox {sbx_id} still live; "
+            "kill it with: sbx kill " + sbx_id, 2)
+    print(f"cleanup: sandbox {sbx_id} killed and confirmed gone")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", default="main",
@@ -343,11 +355,7 @@ def main():
                   "kill it with: sbx kill " + sbx_id)
         else:
             run("kill", "sbx", "kill", sbx_id, timeout=120)
-            proc, _ = run("list", "sbx", "list", timeout=60, capture=True)
-            if sbx_id in (proc.stdout or ""):
-                die(f"cleanup not confirmed: sandbox {sbx_id} still live; "
-                    "kill it with: sbx kill " + sbx_id, 2)
-            print(f"cleanup: sandbox {sbx_id} killed and confirmed gone")
+            confirm_gone(sbx_id)
 
     gpu_report = None
     if args.gpu:

@@ -1,0 +1,182 @@
+{
+ "commands": [
+  {
+   "command": "document.units",
+   "params": {
+    "units": "mm"
+   }
+  },
+  {
+   "command": "parameters.add",
+   "params": {
+    "name": "thickness",
+    "expression": "6 mm",
+    "unit": "mm"
+   }
+  },
+  {
+   "command": "solid.box",
+   "params": {
+    "length": 600,
+    "width": 500,
+    "height": "(thickness) * 10",
+    "corner": [
+     -300,
+     -250,
+     0
+    ],
+    "operation": "new",
+    "name": "Plate",
+    "body_name": "MotorAdapter"
+   }
+  },
+  {
+   "command": "solid.fillet",
+   "params": {
+    "body": "MotorAdapter",
+    "edges": [
+     [
+      300,
+      250,
+      30
+     ],
+     [
+      -300,
+      250,
+      30
+     ],
+     [
+      -300,
+      -250,
+      30
+     ],
+     [
+      300,
+      -250,
+      30
+     ]
+    ],
+    "radius": 50
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 320,
+    "height": 30,
+    "base": [
+     0,
+     0,
+     "(thickness) * 10"
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "RaisedBoss"
+   }
+  },
+  {
+   "command": "solid.hole",
+   "params": {
+    "diameter": 220,
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "direction": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 34.0,
+    "height": "(thickness) * 10",
+    "base": [
+     155.0,
+     155.0,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltNE"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 34.0,
+    "height": "(thickness) * 10",
+    "base": [
+     -155.0,
+     155.0,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltNW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 34.0,
+    "height": "(thickness) * 10",
+    "base": [
+     -155.0,
+     -155.0,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltSW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 34.0,
+    "height": "(thickness) * 10",
+    "base": [
+     155.0,
+     -155.0,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltSE"
+   }
+  },
+  {
+   "command": "material.assign",
+   "params": {
+    "bodies": [
+     "MotorAdapter"
+    ],
+    "material": "Aluminum"
+   }
+  },
+  {
+   "command": "solid.scale",
+   "params": {
+    "bodies": [
+     "MotorAdapter"
+    ],
+    "factor": 0.1
+   }
+  }
+ ]
+}
