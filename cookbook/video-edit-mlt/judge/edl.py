@@ -137,6 +137,8 @@ def compare_edl(decoded, colours, expect, clip_rgb, tol=16):
     frames are skipped here -- gate G4 owns them.
     """
     bad = []
+    if len(decoded) != len(expect) or len(colours) != len(expect):
+        return ["frame count mismatch"]
     for i, exp in enumerate(expect):
         kind = exp[0]
         if kind == "blend":
@@ -160,6 +162,8 @@ def check_dissolve(weights, span=24, lo_tol=0.15, hi_tol=0.85,
     t/span within `lin_tol` at every frame, and never falls more than
     `mono_slack` below the previous frame."""
     bad = []
+    if len(weights) != span + 1:
+        return ["dissolve length mismatch"]
     if weights[0] > lo_tol:
         bad.append("w(t=0)=%.3f > %.2f" % (weights[0], lo_tol))
     if weights[-1] < hi_tol:

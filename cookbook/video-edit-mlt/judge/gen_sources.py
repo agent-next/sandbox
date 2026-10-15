@@ -39,9 +39,27 @@ FFMPEG = os.environ.get("VIDEO_EDIT_FFMPEG", "ffmpeg")
 def frame_bytes(clip_id, frame, rgb):
     """One 1280x720 rgb24 source frame: flat hue, barcode band on top."""
     band = edl.band_row(edl.encode_code(clip_id, frame)) * edl.BAND_H
-    body = bytes(rgb) * (W * (H - edl.BAND_H))
+    body = bytes(rgb) * (W * (H - edl.BAND_H - edl.BAND_Y))
     pad = bytes(rgb) * (W * edl.BAND_Y)
-    return pad + band + body
+    image = bytearray(pad + band + body)
+    # Kinetic test pattern below the judge's flat colour sampling patch.
+    # Its motion makes a rendered cut visible without downloaded footage.
+    for k in range(3):
+        cx = 240 + k*350 + int(65*math.sin(frame/12 + k))
+        cy = 420 + int(50*math.cos(frame/17 + k))
+        radius = 105 - k*12
+        for y in range(cy-radius, cy+radius+1):
+            half = int(math.sqrt(max(0, radius*radius-(y-cy)**2)))
+            x0, x1 = cx-half, cx+half
+            colour = (245, 239, 217) if k != 1 else (25, 28, 44)
+            image[(y*W+x0)*3:(y*W+x1)*3] = bytes(colour)*(x1-x0)
+    # A per-frame playhead on a quiet lower ruler.
+    for y in range(640, 650):
+        image[(y*W+80)*3:(y*W+1200)*3] = bytes((240, 240, 240))*1120
+    px = 80 + frame*1110//149
+    for y in range(625, 665):
+        image[(y*W+px)*3:(y*W+px+10)*3] = bytes((20, 24, 40))*10
+    return bytes(image)
 
 
 def rgb_to_png(rgb, width=W, height=H):
@@ -66,7 +84,9 @@ def gen_clip(path, clip_id, rgb, frames, work):
     subprocess.run(
         [FFMPEG, "-y", "-loglevel", "error",
          "-framerate", str(FPS), "-i", os.path.join(work, "%04d.png"),
-         "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+         "-vf", "scale=out_color_matrix=bt709",
+         "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+         "-c:v", "libx264", "-threads", "1", "-preset", "medium", "-crf", "18",
          "-pix_fmt", "yuv420p", "-movflags", "+faststart", path],
         check=True)
 

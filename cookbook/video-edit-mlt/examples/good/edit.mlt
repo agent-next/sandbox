@@ -18,7 +18,7 @@
     <property name="mlt_service">avformat</property>
     <filter id="duck">
       <property name="mlt_service">volume</property>
-      <property name="gain">0=-6;24=-6;25=-18;49=-18;50=-6;124=-6;125=-18;149=-18;150=-6</property>
+      <property name="level">0=-6;24=-6;25=-18;49=-18;50=-6;124=-6;125=-18;149=-18;150=-6;224=-6</property>
     </filter>
   </producer>
   <producer id="voice" in="0" out="224">
@@ -26,7 +26,7 @@
     <property name="mlt_service">avformat</property>
     <filter id="voice_gain">
       <property name="mlt_service">volume</property>
-      <property name="gain">-6</property>
+      <property name="level">-6</property>
     </filter>
   </producer>
   <producer id="logo" in="0" out="99">
@@ -42,14 +42,16 @@
   <tractor id="xfade" in="0" out="24">
     <track producer="xfade_a"/>
     <track producer="xfade_b"/>
-    <transition id="xfade_luma">
+    <transition id="xfade_luma" in="0" out="24">
       <property name="mlt_service">luma</property>
       <property name="a_track">0</property>
       <property name="b_track">1</property>
       <property name="in">0</property>
       <property name="out">24</property>
+      <property name="start">0</property>
+      <property name="end">1</property>
     </transition>
-    <transition id="xfade_mix">
+    <transition id="xfade_mix" in="0" out="24">
       <property name="mlt_service">mix</property>
       <property name="a_track">0</property>
       <property name="b_track">1</property>
@@ -102,7 +104,7 @@
     </transition>
     <filter id="master_gain">
       <property name="mlt_service">volume</property>
-      <property name="gain">-4</property>
+      <property name="level">0.2</property>
     </filter>
   </tractor>
 </mlt>
