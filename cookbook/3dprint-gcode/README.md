@@ -26,9 +26,9 @@ Steps and measured wall time (fresh sandbox, 2 vCPU / ~3 GB RAM):
 | step | what | wall time |
 |---|---|---|
 | `sbx create` | disposable sandbox | ~10 s |
-| `judge/setup.sh` | OrcaSlicer 2.3.0 AppImage + Klipper (pinned commit) + apt libs | ~3 min |
-| `judge/selftest.sh` | known-good passes; 10 single-edit mutants killed | ~4 min |
-| `judge/grade.sh examples/good` | 12 gates, full verdict JSON | ~2 min |
+| `judge/setup.sh` | OrcaSlicer 2.3.0 AppImage + Klipper (pinned commit) + apt libs | ~4 min |
+| `judge/selftest.sh` | known-good passes; 10 single-edit mutants killed | ~7 min |
+| `judge/grade.sh examples/good` | 12 gates, full verdict JSON | ~1 min |
 
 Limits, plainly: slicing needs ~1.5 GB RAM peak; the whole grade fits in the
 default 30-minute sandbox; nothing here prints plastic — see SPEC.md
@@ -51,8 +51,9 @@ part.gcode     the G-code OrcaSlicer produces from bracket.stl with that profile
 
 The judge merges `profile.ini` over its fixed base preset and **re-slices the
 part itself**: the shipped G-code must match the re-slice (so a hand-edited
-or fabricated G-code fails), and the re-sliced path is what every geometric
-gate measures.
+or fabricated G-code fails), and every behavioural gate is measured on
+**both** the shipped G-code and the judge's re-slice — a bad G-code is
+caught on the shipped file, a bad profile on its re-slice.
 
 ### Ask your agent
 
@@ -102,9 +103,10 @@ verdict JSON, exit 0 only if all pass:
 passes, 10 known-bad single-edit mutants (2.85 mm filament, PETG temps,
 0.35 mm layers, X shifted off the bed, first layer Z0, relative/absolute E
 mix-up, 100 % infill, cold nozzle, bed heats late, a travel cut through the
-part) each fail at least one gate; kill rate >= 90 % required, plus a
-determinism check (same-seed verdicts byte-identical excluding `timing`)
-and a judge-tamper check.
+part) each fail at least one gate **and** the specific behavioural gate
+named for it in SPEC.md; kill rate >= 90 % required, plus a determinism
+check (same-seed verdicts byte-identical excluding `timing`) and a
+judge-tamper check.
 
 ## Reproduce the numbers
 

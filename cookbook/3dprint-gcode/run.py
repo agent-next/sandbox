@@ -80,7 +80,7 @@ def main():
             if line.startswith(("mutant ", "kill rate:", "determinism:")):
                 print(f"    {line}")
         out = step("grade", f"cd {d} && bash judge/grade.sh examples/good"
-                            " --json /tmp/v.json && tail -n1 /tmp/v.json")
+                            " --json /tmp/v.json >/dev/null && cat /tmp/v.json")
         verdict = json.loads(out[out.index("{"):])
         print(json.dumps(verdict, indent=2))
         ok = verdict.get("verdict") == "PASS"

@@ -12,7 +12,7 @@ GOOD="$DEMO_DIR/examples/good"
 BAD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BAD_DIR"' EXIT
 
-judge_hash() { find "$SCRIPT_DIR" -type f -exec sha256sum {} + | sha256sum | cut -d' ' -f1; }
+judge_hash() { find "$SCRIPT_DIR" -type f ! -path '*/__pycache__/*' ! -name '*.pyc' -exec sha256sum {} + | sha256sum | cut -d' ' -f1; }
 HASH_BEFORE=$(judge_hash)
 
 failing_gates() {  # failing_gates <verdict.json> -> comma-separated gate names

@@ -100,10 +100,14 @@ def gcode_content_hash(path):
 
 
 def judge_dir_hash():
-    """sha256 over every file under judge/ (tamper check)."""
+    """sha256 over every file under judge/ (tamper check).  Generated
+    bytecode (__pycache__) is excluded: importing interp.py creates it."""
     h = hashlib.sha256()
-    for root, _, files in sorted(os.walk(HERE)):
+    for root, dirs, files in sorted(os.walk(HERE)):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
         for f in sorted(files):
+            if f.endswith((".pyc", ".pyo")):
+                continue
             p = os.path.join(root, f)
             if os.path.samefile(root, HERE) and f == "VERSIONS.txt":
                 continue  # setup artifact, not judge logic
