@@ -240,16 +240,31 @@ def check_layout(fig) -> None:
     """Fail when any text bbox leaves the figure or overlaps another.
 
     The demo standard: no clipping, no overlapping text.  Renders the
-    canvas, measures every Text's bbox in display space, and raises
-    naming the offending texts.
+    canvas, measures every visible Text's bbox in display space, and
+    raises naming the offending texts.  Artists hidden behind a
+    visibility flag (a tick's unrendered mirror label) and boxes the
+    draw never laid out (unit-sized) are skipped; a rendered text
+    that is clipped by its own axes is caught by the figure-bounds
+    test only, so panels are given real margins instead.
     """
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
+
+    def rendered(artist):
+        while artist is not None:
+            if not artist.get_visible():
+                return False
+            artist = artist.parent
+        return True
+
     boxes = []
-    for text in fig.findobj(match=type(fig.axes[0].title)):
-        if not text.get_text().strip():
+    for text in fig.findobj(match=matplotlib.text.Text):
+        if not text.get_text().strip() or not rendered(text):
             continue
-        boxes.append((text, text.get_window_extent(renderer=renderer)))
+        box = text.get_window_extent(renderer=renderer)
+        if box.width <= 1.5 and box.height <= 1.5:
+            continue
+        boxes.append((text, box))
     for i, (a, box_a) in enumerate(boxes):
         if (box_a.x0 < -0.5 or box_a.y0 < -0.5
                 or box_a.x1 > fig.bbox.width + 0.5
