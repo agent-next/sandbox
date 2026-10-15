@@ -149,12 +149,15 @@ def main():
         for part in ("bushing", "plate", "bracket"):
             r = in_sandbox(
                 "cd /tmp/sandbox/%(demo)s && bash judge/grade.sh examples/good/%(part)s "
-                "--json /tmp/v-%(part)s.json && cat /tmp/v-%(part)s.json"
+                "--json /tmp/v-%(part)s.json"
                 % {"demo": DEMO_DIR, "part": part}, timeout_s=900)
             ok = r.returncode == 0
             all_ok = all_ok and ok
             try:
-                verdicts[part] = json.loads(r.stdout[r.stdout.index("{"):])
+                # grade.sh prints its verdict JSON on stdout; decode the
+                # first object only (anything after it is not the verdict)
+                verdicts[part], _ = json.JSONDecoder().raw_decode(
+                    r.stdout[r.stdout.index("{"):])
             except (ValueError, IndexError):
                 verdicts[part] = {"error": r.stdout[-500:], "pass": False}
                 all_ok = False
