@@ -293,4 +293,47 @@ Gotchas recorded for `judge/setup.sh`:
   `judge/lease.py` is sound.
 - `close()` (DELETE + confirm 404) took 10.9 s / 1.1 s.
 
-### B3. RSS on the GPU lease — pending
+### B2b. Re-measured 2026-10-15 (this round, second CPU sandbox)
+
+The numbers above were taken on an 8-vCPU sandbox; this round's are lower
+because that machine was 8× and this one is 2×, and because the gateway was
+carrying two concurrent uploads from this key. Both are real; take the
+*larger* upload rate when budgeting.
+
+```
+lease gl-951d38-30  (POST {"accel":{"vram_gb":4,"reserve":"exec"}})
+{"mb": 1,  "ok": true, "wall_s":  38.2, "s_per_mb_b64": 38.2, "md5": "e115ec72d20e68d3b4c1ffa145d981bd"}
+{"mb": 4,  "ok": true, "wall_s":  67.6, "s_per_mb_b64": 16.9, "md5": "e655b98e456359fa63485de415ab871f"}
+{"mb": 16, "ok": true, "wall_s": 347.5, "s_per_mb_b64": 21.7, "md5": "b32cd56e6a9ce200e341405c4472babc"}
+LEASE_STILL_ALIVE 200
+closed gl-951d38-30 0.6 s
+```
+
+- **16 MB is still the safe chunk** and it is still alive afterwards; the
+  `32 MB → 404, lease destroyed` result above was not re-tested (it costs a
+  lease to re-test, and one measurement of a hard failure is enough).
+- End to end, a **93 MB** payload (30 chunks) took **1924 s = 32 min**
+  (21.7 s/MB) on lease `gl-951d38-40`; a **33 MB** payload (11 chunks) took
+  **1154 s = 19 min** (36.3 s/MB, degraded by the second concurrent upload).
+  Budget **~20–35 s/MB**.
+- A second lease probe (`gl-951d38-36`) measured what the slice already has:
+
+```
+{"python": "3.13.5", "has_pip": false, "pip": "25.3", "venv": "yes",
+ "warp": "1.13.0", "numpy": "1.26.4", "home": "/home/ubuntu",
+ "disk": 23756, "cpus": 32}
+```
+
+  `pip` is importable (`python -m pip`) but not on `PATH`; `venv` works; 23.7 GB
+  free; **32 CPUs**. `python -m pip install --no-index --no-deps --target`
+  is the install path.
+
+- **The file-upload route is not live.** `PUT /sandboxes/{id}/files/test.txt`
+  answers **405** on this key today, so nothing may depend on it (see C).
+- **`POST /sandboxes/{id}/exec` can answer 409 under contention**, not only
+  5xx: lease `gl-951d38-41` uploaded its whole 33 MB payload and then lost it
+  to a 409 on the very next exec, because `judge/lease.py` only retried 5xx.
+  Fixed in `judge/lease.py` (409/429 now retried with backoff), and the cost
+  of the bug is exactly the upload time above — which is why it matters here.
+
+### B3. RSS on the GPU lease
