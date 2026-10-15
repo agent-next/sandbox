@@ -1,7 +1,7 @@
 """demolib — the small pinned fixture library this demo tests.
 
 Pure standard library, no dependencies, hand-written for this demo so the
-five interpreter cells run in seconds and the expected test count (6) and
+five interpreter cells run in seconds and the expected test count (7) and
 failure behaviour are known exactly:
 
   * 5 tests pass on every CPython from 3.9 to 3.13;

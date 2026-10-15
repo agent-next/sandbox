@@ -12,7 +12,7 @@ The five mutants SPEC.md names:
   same-interpreter every cell stamped 3.12
   failure-masked   runner exits 0 despite a failing cell (bad table, no trace)
   junit-missing   no JUnit XML written for one cell
-  wrong-count     the aggregated table reports 5 tests instead of 6
+  wrong-count     the aggregated table reports 6 tests instead of 7
 
 ...plus four more that each break a different gate:
   no-versions-key matrix.yaml missing python_versions

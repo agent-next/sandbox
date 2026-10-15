@@ -90,7 +90,7 @@ Violating any gate fails with the offending numbers printed.
 ## Acceptance oracle (independent of "it ran")
 
 1. **Analytic reference**: the fixture library is hand-written and pinned.
-   Its test count is known (6 tests), and its failure behaviour is known
+   Its test count is known (7 tests), and its failure behaviour is known
    exactly: the `match`-syntax module fails to import on Python 3.9 and
    below (a `SyntaxError`), so with the toggle on, exactly the 3.9 cell
    fails. The judge computes this expectation from first principles (the
