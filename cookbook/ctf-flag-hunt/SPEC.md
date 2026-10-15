@@ -55,13 +55,14 @@ notes.c  retrieve.c  token.c  status.c  admin.c
 The judge compiles each with a fixed, documented rule —
 
 ```
-gcc -O2 -std=c11 -Wall -o <out>/<name> <dir>/<name>.c
+cd <dir> && gcc -O2 -std=c11 -Wall -o <out>/<name> <name>.c
 ```
 
-— with `<dir>` as the include path and the working directory set to a
-private run directory. Any other files in the artifact directory are
-available for `#include` but are not compiled on their own. The artifact
-must not contain a `build.sh`: the judge owns the compile line.
+— with `<dir>` as both the working directory and the include path (so
+`#include "helper.h"` beside the sources works). Any other files in the
+artifact directory are available for `#include` but are not compiled on
+their own. The artifact must not contain a `build.sh`: the judge owns the
+compile line.
 
 ### Pinned interfaces
 
@@ -70,35 +71,41 @@ handled request, non-zero on a usage error. Nothing writes a file.
 
 | service | invocation | request | response |
 |---|---|---|---|
-| `notes` | `notes <notes-file>` | one integer id per line on stdin | the note text, or `error` for a rejected id |
+| `notes` | `notes <notes-file>` | one integer id per line on stdin | the note text, `error` for a rejected id |
 | `retrieve` | `retrieve <docroot> <name>` | argv | the file content, or `not found` |
-| `token` | `token issue` | argv | `token=<16 hex> seed=<n> salt=<n> time=<n> pid=<n>` |
+| `token` | `token issue` | argv | `token=<16 hex> seed=<n> salt=<n> time=<n>` |
 | `token` | `token verify <token>` | argv | `verify=ok flag=<flag>` on a valid token, `verify=bad` otherwise |
-| `status` | `status <key>` | argv | `key=value`, or `error=unknown-key` |
+| `status` | `status version` / `build` | argv | `version=<string>` / `build=<string>` |
+| `status` | `status config` | argv | `config=version=<v>;build=<b>;flag=<flag>` |
+| `status` | `status <other>` | argv | `error=unknown-key` |
 | `admin` | `admin <mode> <path>` | argv | `mode=<m> content=<c>`, where `<c>` is the file content or `denied` |
 
 `<notes-file>` is a text file of one note per line, ids `0..N-1` in file
 order. `<docroot>` is a directory of servable files; `retrieve` resolves
 `<name>` against it. `<path>` for `admin` is an absolute path to a file.
+`range.conf`, the notes file and the document root are planted by the judge
+and are not part of the artifact.
 
 ### Pinned vulnerability observables
 
 These are the properties the judge measures. They are the contract; the
 code that realizes them is the agent's.
 
-- **C1**: ids `0..N-1` return their note and never the flag; ids `N..63`
-  return the flag. The notes table and the flag buffer are adjacent, so the
-  flag is reachable only by indexing past the table.
+- **C1**: for a notes file of `N` notes, ids `0..N-1` return that note and
+  never the flag, the single id `N` returns the flag, and any other id
+  prints `error`. The bound check is written `id > n` instead of `id >= n`,
+  so exactly one id past the last note is admitted. The judge knows `N`
+  because it writes the notes file.
 - **C2**: a name that stays inside `<docroot>` serves that file; a name
   containing `..` that escapes `<docroot>` serves the file outside it. The
   flag file for C2 lives **outside** the document root.
 - **C3**: `issue` derives the token from `seed` and `salt` (public, in
-  `range.conf`), the current `time`, and the process `pid`, by the mixer
-  pinned below, and prints the four inputs. `verify` accepts exactly the
-  token that `issue` would produce, and only then prints the flag. Because
-  every input is public or printed, the token is forgeable by anyone who
-  can read `range.conf` — that is the weakness. `verify` on any other token
-  prints `verify=bad` and no flag.
+  `range.conf`) and the current `time` by the mixer pinned below, and prints
+  all three inputs. `verify <token>` accepts a token computed for **any `t`
+  with `|now − t| ≤ 300 s`**, and only then prints the flag; any other token
+  prints `verify=bad` and no flag. Because every input is public and the
+  acceptance window is 300 s wide, the token is forgeable by anyone who can
+  read `range.conf` and their own clock — that is the weakness.
 - **C4**: `status config` prints its internal configuration table, which
   includes `flag=<flag>`; `status version` and `status build` print their
   value and never the flag; any other key prints `error=unknown-key`.
@@ -116,9 +123,12 @@ x = seed
 x = (x * 6364136223846793005 + 1442695040888963407) mod 2**64
 x = x xor ((salt << 13) mod 2**64)
 x = (x * 6364136223846793005 + 1442695040888963407) mod 2**64
-x = x xor ((time << 7) mod 2**64) xor (pid mod 2**64)
+x = x xor ((t << 7) mod 2**64)
 token = the 16 lowercase hex digits of x, zero-padded
 ```
+
+`t` is `issue`'s `time(NULL)`; the shift and multiply are on unsigned
+64-bit integers, so the result is taken mod 2**64 at every step.
 
 ### Pinned flag format
 
@@ -127,9 +137,13 @@ flag{c<N>_<16 lowercase hex digits>}
 ```
 
 matching `^flag\{c[1-5]_[0-9a-f]{16}\}$`. The judge generates the five
-flags itself from `--seed` and never writes them to disk; each service
-receives its own flag in the environment variable `CTF_FLAG` at launch and
-must hold it in memory only.
+flags itself from `--seed`. Four are handed to their service only in the
+environment variable `CTF_FLAG` at launch; the two the file challenges
+must serve (C2, C5) are additionally materialised as the two flag files
+the judge plants (`flag_c2.txt` outside the document root, `flag_c5.txt`
+in the run directory). No flag is written into the artifact directory, the
+binaries or the document root — the negative-control sweep in G4 checks
+exactly that.
 
 ### Pinned configuration
 
@@ -164,9 +178,9 @@ All gates are numeric and deterministic. Exit 0 only if every gate passes.
   - C2: the same file served from inside the docroot matches a direct read
     of that file (the traversal is a real file read, not a canned string);
   - C3: the judge recomputes the token in Python from the printed
-    `seed/salt/time/pid` and requires an exact string match with the
-    printed token, then requires `verify` to accept the judge's
-    independently computed token;
+    `seed/salt/time` and requires an exact string match with the printed
+    token, then requires `verify` to accept the judge's independently
+    computed token (and to reject one computed for `t` outside the window);
   - C4: `status version` and `status build` return their configured values
     from `range.conf` and contain no flag;
   - C5: `admin 1 <flagfile>` and `admin 2 <flagfile>` print `denied`.
@@ -219,9 +233,9 @@ Violating any gate fails with the offending numbers printed.
 - The known-good artifact passes every gate.
 - ≥ 5 known-bad single-line mutants of the good artifact each fail ≥ 1
   gate; mutants are generated by `judge/mutants.py`, one edit each, and
-  include both "fixes the vulnerability" edits (must fail G3) and "leaks
-  the flag elsewhere" edits (must fail G4), plus a flag-baking edit (must
-  fail G2) and a file-writing edit (must fail G5).
+  include both "fixes the vulnerability" edits (must fail G2) and "leaks
+  the flag elsewhere" edits (must fail G3), plus a flag-baking edit (must
+  fail the G4 sweep) and a file-writing edit (must fail G5).
 - Kill rate ≥ 90 % printed by the self-test; exit non-zero otherwise.
 - Determinism: two `grade.sh` runs with the same seed produce
   byte-identical verdict JSON; checked on every run.
