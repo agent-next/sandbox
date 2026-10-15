@@ -31,6 +31,11 @@ need "${FFMPEG}"
 # than raise. On a headless host without libEGL, point CT_OSMESA_LIB at
 # a libOSMesa shared object (this build host uses the Debian bookworm
 # libosmesa6 deb extracted under $HOME/gl-libs, no root needed).
+# A fresh Debian sandbox has neither libEGL nor libOSMesa: install the
+# distro libosmesa6 when it is missing and sudo is available.
+if ! ldconfig -p | grep -q libOSMesa && command -v sudo >/dev/null; then
+    sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq libosmesa6 >/dev/null
+fi
 OSMESA_SO="${CT_OSMESA_LIB:-$HOME/gl-libs/root/usr/lib/x86_64-linux-gnu/libOSMesa.so.8}"
 if [[ -f "${OSMESA_SO}" ]]; then
     export CT_OSMESA_LIB="${OSMESA_SO}"
