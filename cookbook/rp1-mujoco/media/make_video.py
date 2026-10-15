@@ -126,22 +126,46 @@ class Card:
         return self
 
 
+def fit_font(d, s, path, size, max_w):
+    """The largest font <= `size` whose rendering of s fits max_w.
+
+    Captions must keep a cap height >= 4 % of the frame height (>= 44 px,
+    i.e. em size >= 60) *and* must never run off the frame, so the size is
+    only ever shrunk down to that floor -- never below it.  A string that
+    does not fit at the floor is a bug in the caller's wording, not
+    something to silently truncate.
+    """
+    floor = FS_CAP
+    while size > floor:
+        if d.textlength(s, font=font(path, size)) <= max_w:
+            return font(path, size)
+        size -= 2
+    if d.textlength(s, font=font(path, floor)) > max_w:
+        raise SystemExit(
+            f"text does not fit in {max_w}px at the {floor}px caption "
+            f"floor: {s[:70]!r}")
+    return font(path, floor)
+
+
 def banner(card, title, sub=None, bar=(12, 20, 32), tcol=(255, 255, 255),
            scol=(178, 196, 214)):
     """A solid strip at the top so captions never sit on a busy render."""
     card.d.rectangle([0, 0, W, 96], fill=bar)
-    card.text((36, 48), title, font(FONT_B, FS_CAP), fill=tcol,
-              anchor="lm", caption=True)
+    sub_w = 0
     if sub:
-        card.text((W - 36, 48), sub, font(FONT_M, FS_CAP), fill=scol,
-                  anchor="rm", caption=True)
+        f = fit_font(card.d, sub, FONT_M, FS_CAP, W * 0.46)
+        sub_w = card.d.textlength(sub, font=f) + 40
+        card.text((W - 36, 48), sub, f, fill=scol, anchor="rm", caption=True)
+    ft = fit_font(card.d, title, FONT_B, FS_CAP, W - 72 - sub_w)
+    card.text((36, 48), title, ft, fill=tcol, anchor="lm", caption=True)
 
 
 def footnote(card, s):
     """Provenance line on a solid strip at the bottom (also a caption)."""
     card.d.rectangle([0, H - 78, W, H], fill=(12, 20, 32))
-    card.text((W // 2, H - 39), s, font(FONT_M, FS_CAP),
-              fill=(226, 234, 242), anchor="mm", caption=True)
+    f = fit_font(card.d, s, FONT_M, FS_CAP, W - 60)
+    card.text((W // 2, H - 39), s, f, fill=(226, 234, 242), anchor="mm",
+              caption=True)
 
 
 def render_frame(shot, i):
@@ -263,43 +287,50 @@ def main():
     # ======================================================================
     # 6. the verdict, quoted (20.5-23.5 s, 90 frames)
     # ======================================================================
+    # (gate, measured, rule) -- two columns of cells, three short lines
+    # each, so every string fits at the 44 px caption floor (checked below)
     rows = [
-        ("model_loads", f"nq {good['model_loads']['nq']}  nv "
-         f"{good['model_loads']['nv']}  nu {good['model_loads']['nu']}, "
-         f"{good['model_loads']['total_mass_kg']:.2f} kg", "compiles"),
+        ("model_loads",
+         f"nq {good['model_loads']['nq']} nv {good['model_loads']['nv']} "
+         f"nu {good['model_loads']['nu']}",
+         f"{good['model_loads']['total_mass_kg']:.2f} kg"),
         ("mass_match",
-         f"worst link dev {100 * good['mass_match']['worst_link_rel']:.2f} %",
-         "<= 1 % (URDF)"),
-        ("gravity_statics", f"fz/mg {good['gravity_statics']['ratio']:.4f}",
-         "within 2 %"),
+         f"worst link {100 * good['mass_match']['worst_link_rel']:.2f} %",
+         "<= 1 %"),
+        ("gravity_statics",
+         f"fz/mg {good['gravity_statics']['ratio']:.4f}", "within 2 %"),
         ("stand", f"tilt {good['stand']['max_tilt_deg']:.2f} deg, z "
-         f"{good['stand']['zmin_m']:.4f} m", "10 deg / 0.702 m"),
+         f"{good['stand']['zmin_m']:.3f} m", ">= 0.702 m"),
         ("push", f"{good['push']['max_tilt_after_recovery_deg']:.2f} deg "
          f"after t = 7 s", "<= 5 deg"),
-        ("limits", "qpos / ctrl / force all in range", "tol 1 mrad"),
-        ("integrity", "judge checksums + audit clean", "no tamper"),
+        ("limits", "qpos, ctrl, force in range", "tol 1 mrad"),
+        ("integrity", "checksums + audit clean", "no tamper"),
     ]
     n = 90
     for _ in range(n):
         c = Card(PAPER)
-        c.text((W // 2, 84), "judge verdict:  PASS", font(FONT_B, 78),
+        c.text((W // 2, 78), "judge verdict:  PASS", font(FONT_B, 78),
                fill=GREEN, anchor="mm", caption=True)
-        y = 200
-        c.text((120, y), "gate", font(FONT_MB, FS_CAP), fill=SUB)
-        c.text((640, y), "measured", font(FONT_MB, FS_CAP), fill=SUB)
-        c.text((1400, y), "rule", font(FONT_MB, FS_CAP), fill=SUB)
-        y += 74
-        c.d.line([120, y - 22, W - 120, y - 22], fill=(200, 205, 210), width=3)
-        for name, meas, rule in rows:
-            c.text((120, y), name, font(FONT_MB, FS_CAP), fill=INK)
-            c.text((640, y), meas, font(FONT_M, FS_CAP), fill=INK)
-            c.text((1400, y), rule, font(FONT_M, FS_CAP), fill=SUB)
-            y += 78
-        c.d.rectangle([0, H - 78, W, H], fill=(12, 20, 32))
-        c.text((W // 2, H - 39),
-               "every number from data/verdicts/good.json (grade.sh --json)",
-               font(FONT_M, FS_CAP), fill=(226, 234, 242), anchor="mm",
-               caption=True)
+        fn = font(FONT_B, FS_CAP)
+        fm = font(FONT, FS_CAP)
+        margin, gap = 60, 50
+        cellw = (W - 2 * margin - gap) // 2
+        y0, rowh, lh = 150, 196, 62
+        n_rows = (len(rows) + 1) // 2
+        if y0 + (n_rows - 1) * rowh + 2 * lh + 60 > H - 96:
+            raise SystemExit("verdict card does not fit above the footnote")
+        for i, (name, meas, rule) in enumerate(rows):
+            col, row = i % 2, i // 2
+            x = margin + col * (cellw + gap)
+            y = y0 + row * rowh
+            for s, f in ((name, fn), (meas, fm), (rule, fm)):
+                if c.d.textlength(s, font=f) > cellw:
+                    raise SystemExit(f"verdict cell {name}: {s!r} is wider "
+                                     f"than {cellw}px")
+            c.text((x, y), name, fn, fill=INK)
+            c.text((x, y + lh), meas, fm, fill=INK)
+            c.text((x, y + 2 * lh), rule, fm, fill=SUB)
+        footnote(c, "source: data/verdicts/good.json (grade.sh --json)")
         emit(c)
 
     # ======================================================================
