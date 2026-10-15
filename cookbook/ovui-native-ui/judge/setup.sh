@@ -16,7 +16,9 @@ STUB_DIR="$TOOLS_DIR/cuda-stub"
 WHEEL_DIR="$TOOLS_DIR/wheels"
 
 # -- pinned apt packages (Debian bookworm, amd64) --------------------------
-APT_PACKAGES="mesa-vulkan-drivers libvulkan1 libgl1 gcc libc6-dev"
+# vulkan-tools is not needed to render; it provides `vulkaninfo`, whose
+# device summary is the "== vulkan device ==" section of VERSIONS.txt.
+APT_PACKAGES="mesa-vulkan-drivers libvulkan1 libgl1 gcc libc6-dev vulkan-tools"
 
 # -- pinned pip wheels (Python 3.12, linux x86_64), sha256-checked ---------
 OVUI_VERSION="0.3.0"
@@ -153,6 +155,8 @@ print('omni.ui import OK')" \
     || { echo "ERROR: omni.ui did not import with the CUDA stubs" >&2; exit 1; }
 
 # -- record exact versions --------------------------------------------------
+# Written to $TOOLS_DIR/VERSIONS.txt; judge/VERSIONS.txt in the repo is a
+# copy of one such run with the $TOOLS_DIR prefix replaced by <tools>.
 {
     echo "== apt =="
     dpkg -l $APT_PACKAGES 2>/dev/null | awk '/^ii/{print $2, $3}'
