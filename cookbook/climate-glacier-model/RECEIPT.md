@@ -17,6 +17,28 @@ python3 cookbook/climate-glacier-model/run.py --ref sbx/demo-climate-glacier-mod
 `judge/setup.sh` installs only Python wheels into `~/glacier-venv`; no
 system package is touched, so "fresh" means exactly "no venv".
 
+## A third confirming run at the final code
+
+The two runs below were made after the timeout fix (commit `31b2677`). Two
+later commits changed only how `run.py` reports (`e1a3204`: echo a step's
+output even when it fails) and documentation (`0ab3c9d`, `bb6f021`); neither
+touches the judge or the artifact. A third fresh run at `0ab3c9d` reproduced
+the same result exactly:
+
+```text
+run: [   2.9s] sbx create --timeout-min 30 -> exit 0
+run: sandbox 01a13ffc-b2e3-76a2-8b8d-40a968f13cc2
+run: [   5.4s] git clone -> exit 0
+run: [  35.8s] judge/setup.sh -> exit 0
+run: [ 105.7s] judge/selftest.sh -> exit 0
+selftest: known-good PASSED all gates
+selftest: kill rate 13/13 = 100%
+selftest: OK
+run: [  10.2s] judge/grade.sh examples/good -> exit 0
+run: SUMMARY passed=True zero_melt_worst=0.0 rows=303 warm_2p0:V100=2.832/t50=96.0076481835564 warm_2p4:V100=2.04288/t50=81.60555821753714 warm_2p8:V100=1.20192/t50=71.40555289612254
+run: killed and confirmed gone: 01a13ffc-b2e3-76a2-8b8d-40a968f13cc2
+```
+
 ## Two fresh runs, side by side
 
 | step | run 1 exit / s | run 2 exit / s |
