@@ -42,9 +42,10 @@ viewer: ready
 render_smoke: ok (llvmpipe headless render, deterministic)
 ```
 
-Wall time: **~14:45** (process start 13:24 per `ps`, `VERSIONS.txt` written
-13:38:47). A rerun of `setup.sh` on the same prefix exits 0 in ~10 s
-(idempotent: builds, smoke, venv installs are skipped).
+Wall time: **~14:21** (process start 13:24:26 per log birth time,
+`VERSIONS.txt` written 13:38:47). A rerun of `setup.sh` on the same prefix
+exits 0 in **12.4 s** (`real 0m12.360s`; idempotent — the builds, smoke and
+venv installs are skipped).
 
 `judge/VERSIONS.txt` written by the run:
 
@@ -186,10 +187,10 @@ image.
 
 ### `bash judge/setup.sh` — exit 0 (`SETUP2_EXIT=0`)
 
-Same `[setup]` progress line sequence as Run 1. Wall time **~17:30**
-(start ~13:39, `VERSIONS.txt` rewritten 13:56:44). The `time` wrapper's
-report was lost to the nohup redirect, so the wall figure comes from process
-start/end timestamps.
+Same `[setup]` progress line sequence as Run 1. Wall time **~15:57**
+(process birth 13:40:47, `VERSIONS.txt` rewritten 13:56:44). The `time`
+wrapper's report was lost to the nohup redirect, so the wall figure comes
+from process birth/end timestamps.
 
 ### `bash judge/selftest.sh` — exit 0
 
@@ -220,7 +221,7 @@ Wall time: **~4.5 s** (`real 0m4.484s`).
 | number | Run 1 | Run 2 | within SPEC tolerance |
 |---|---|---|---|
 | setup exit | 0 | 0 | — |
-| setup wall | ~14:50 | ~17:30 | same order; on 2 vCPU it is the fixed build cost |
+| setup wall | ~14:21 | ~15:57 | same order; on 2 vCPU it is the fixed build cost |
 | selftest exit | 0 | 0 | — |
 | mutants killed | 10/10 | 10/10 | — |
 | kill rate | 100.0% | 100.0% | ≥ 90% |
