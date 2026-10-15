@@ -40,16 +40,28 @@ def _valid_sid(sid):
 class Lease:
     """One owned lease. `close()` is mandatory; use try/finally."""
 
-    def __init__(self, key=None, vram_gb=4, api=API):
+    def __init__(self, key=None, vram_gb=4, api=API, retries=5, retry_wait_s=15):
         self.key = key or os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")
         if not self.key:
             raise LeaseError("export SBX_API_KEY (a key with GPU access)")
         self.api = api
-        status, created = self._request("POST", "/sandboxes", {
-            "accel": {"vram_gb": int(vram_gb), "reserve": "exec"},
-        })
+        # 409 is what a contended or capacity-limited GPU pool answers, and it
+        # clears on its own; 5xx is a gateway still coming up. Neither is fatal,
+        # and a caller that gave up on either would never have a lease at all.
+        status, created = 0, None
+        for attempt in range(retries + 1):
+            status, created = self._request("POST", "/sandboxes", {
+                "accel": {"vram_gb": int(vram_gb), "reserve": "exec"},
+            })
+            if status == 201 and isinstance(created, dict):
+                break
+            if status not in (409, 429) and status < 500:
+                break
+            if attempt < retries:
+                time.sleep(retry_wait_s)
         if status != 201 or not isinstance(created, dict):
-            raise LeaseError(f"GPU create: HTTP {status}; check GPU access, credit and capacity")
+            raise LeaseError(f"GPU create: HTTP {status} after {retries + 1} attempts; "
+                             "check GPU access, credit and capacity")
         self.sid = created.get("sandboxID")
         if not _valid_sid(self.sid):
             raise LeaseError(f"GPU create returned an invalid lease id {self.sid!r}; "
