@@ -21,6 +21,18 @@ every grade, so the artifact cannot tamper with its own grader.
 
 ## Results
 
+**[▶ demo video (31 s, mp4)](media/demo.mp4)** — the judge's simulation of
+the graded `part.nc` as a solid turntable, the three defective mutants, and
+the figures below.
+
+[![the graded run: judge's toolpath parse, material-removal heightmap, every mutant vs its gate, and the LinuxCNC rs274 cross-check](media/result.png)](media/result.png)
+
+[![self-test matrix: known-good example and the 7 mutants × the 12 gates, green pass / red fail with measured values, and the kill-rate bar](media/loop.png)](media/loop.png)
+
+Both figures are rebuilt from the judge's own outputs by
+`media/make_result.py` and `media/make_loop.py` (source data in
+`media/data/`); the video by `media/make_demo.py`.
+
 | | |
 |---|---|
 | **Verdict** | ✅ **PASS** — all 12 gates, 7/7 mutants killed by named gates (100 % kill rate) |
