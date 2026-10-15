@@ -135,7 +135,7 @@ def fig_result(d: dict, out: Path) -> None:
         mark = "✓ pass" if c["passed"] else "✗ FAIL"
         ax2.scatter(i, 0, s=760 if i == culprit else 430, color=color,
                     zorder=3 if i == culprit else 2,
-                    edgecolors=SURF, linewidths=1.5)
+                    edgecolor=SURF, linewidths=1.5)
         ax2.text(i, 0, mark.split()[0], ha="center", va="center",
                  fontsize=9, color=SURF, weight="bold", zorder=4)
         ax2.text(i, -0.22 if i == culprit else -0.16, mark.split()[1],
@@ -231,7 +231,7 @@ def render_video(d: dict, out_dir: Path) -> None:
         """One commit chip: state None (pending) / True (pass) / False (fail)."""
         color = {None: "#d8d7d0", True: GOOD_C, False: CRITICAL_C}[state]
         ax.add_patch(Circle((x, y), r, facecolor=color,
-                            edgecolors=SURF if state is not None else BASE,
+                            edgecolor=SURF if state is not None else BASE,
                             linewidths=4))
         mark = {None: str(idx), True: "✓", False: "✗"}[state]
         ax.text(x, y, mark, ha="center", va="center", fontsize=fs,

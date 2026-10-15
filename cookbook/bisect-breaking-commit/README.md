@@ -12,8 +12,8 @@ rebuilds the fixture, re-runs the suite at every commit itself and re-runs the
 same sweep on a reverted fixture as a negative control — checks the answer
 (`judge/grade.sh`, gates G1–G8 in `SPEC.md`). Parallel sandboxes help because
 per-commit cost is latency (clone + suite), not CPU: on 2 vCPU the sweep
-measures ~3.9× (good example) to ~7.6× (judge's own re-measure) over the
-serial baseline.
+measures ~4.4–4.6× over the serial baseline in fresh runs (RECEIPT.md; the
+judge's own re-measure ~10×; the local good example reports 5.85×).
 
 ## Ask your agent
 
@@ -53,14 +53,15 @@ From the fresh-sandbox runs in `RECEIPT.md` (2 vCPU judge, seed 20261015):
 | step | wall time |
 | --- | --- |
 | `judge/setup.sh` (git already matching the pin) | ~2 s |
-| `judge/selftest.sh` (good + determinism + 9 mutants) | ~2 min 50 s |
-| `judge/grade.sh examples/good/report.json` | ~31 s |
-| sweep, parallel (11 commits, 11 sandboxes) | see `run.py` output |
-| sweep, serial baseline (11 commits, one machine) | see `run.py` output |
+| `judge/selftest.sh` (good + determinism + 9 mutants) | ~2 min 47 s – 3 min |
+| `judge/grade.sh sweep_report.json` | ~48–51 s |
+| sweep, parallel (11 commits, 11 sandboxes) | ~21–22 s |
+| sweep, serial baseline (11 commits, one machine) | ~67–97 s |
 
 Numbers for the sweep itself come from `run.py`'s per-step timings on your
-key's quota; the good example's local-sweep numbers (39.4 s serial vs
-10.1 s parallel = 3.91×) are in `examples/good/report.json`.
+key's quota (the three fresh runs in RECEIPT.md/REPRODUCE.md); the good
+example's local-sweep numbers (47.3 s serial vs 8.1 s parallel = 5.85×) are
+in `examples/good/report.json`.
 
 ## Limits, plainly
 
