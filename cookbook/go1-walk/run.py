@@ -74,21 +74,24 @@ report['gpu'] = out.stdout.strip()
 report['files'] = sorted(FILES)
 """
 
-TRAIN_JOB = """
+TRAIN_CHUNK = """
 import json, os, subprocess, sys, time
 os.chdir(os.path.expanduser('~/go1job'))
 t0 = time.time()
-proc = subprocess.run([sys.executable, 'train.py', '--config',
-                       'train_config.json', '--out', 'out'],
-                      capture_output=True, text=True, timeout=2400)
+cmd = [sys.executable, 'train.py', '--config', 'train_config.json',
+       '--out', 'out', '--progress', 'out/progress.json',
+       '--max-wall-s', '__WALL__']
+if __RESUME__:
+    cmd += ['--resume', 'out/state.pt']
+proc = subprocess.run(cmd, capture_output=True, text=True, timeout=560)
 report['rc'] = proc.returncode
-report['stdout_tail'] = proc.stdout[-6000:]
+report['stdout_tail'] = proc.stdout[-4000:]
 report['stderr_tail'] = proc.stderr[-2000:]
-report['train_wall_s'] = round(time.time() - t0, 1)
-if proc.returncode == 0:
-    report['summary'] = json.load(open('out/curve.json'))
-    report['policy_sha256'] = __import__('hashlib').sha256(
-        open('out/policy.npz', 'rb').read()).hexdigest()
+report['chunk_wall_s'] = round(time.time() - t0, 1)
+try:
+    report['status'] = json.load(open('out/progress.json'))
+except Exception as exc:
+    report['status_error'] = str(exc)
 """
 
 EVAL_JOB = """
@@ -96,7 +99,7 @@ import json, os, subprocess, sys, time
 os.chdir(os.path.expanduser('~/go1job'))
 t0 = time.time()
 proc = subprocess.run([sys.executable, '_eval.py'] + ARGS,
-                      capture_output=True, text=True, timeout=1200)
+                      capture_output=True, text=True, timeout=500)
 report['rc'] = proc.returncode
 report['stdout_tail'] = proc.stdout[-3000:]
 report['stderr_tail'] = proc.stderr[-2000:]
@@ -178,18 +181,41 @@ def main():
             res = lease.exec(up, 120)
             eval_args = ["--policy", "policy_eval.npz"]
         else:
-            t = time.monotonic()
-            res = lease.exec(TRAIN_JOB, 2500)
+            # train in chunks well under the exec endpoint's ~600 s cap
+            # (measured: HTTP 502 once a call passes 10 min)
+            chunk_wall = 420 if a.iters is None else 60
+            n_chunks = 0
+            while True:
+                code = (TRAIN_CHUNK.replace("__WALL__", str(chunk_wall))
+                        .replace("__RESUME__",
+                                 "True" if n_chunks else "False"))
+                res = lease.exec(code, 600)
+                rep = res.get("report") or {}
+                n_chunks += 1
+                if res.get("ok") is not True or rep.get("rc") != 0:
+                    G.die(f"training chunk {n_chunks} failed: "
+                          + (rep.get("stderr_tail") or "")[-600:])
+                st = rep.get("status") or {}
+                print(f"[{time.monotonic()-total0:6.1f}s] chunk {n_chunks}: "
+                      f"it {st.get('it')} reward {st.get('mean_reward')} "
+                      f"walk_evals={len(st.get('walk_evals') or [])}",
+                      flush=True)
+                if st.get("finished"):
+                    break
+                if n_chunks > 40:
+                    G.die("training did not finish in 40 chunks")
+            print(f"  training done: env_steps={st.get('env_steps')} "
+                  f"iters={st.get('it')} wall={st.get('train_wall_s')}s",
+                  flush=True)
+            res = lease.exec(
+                "import json, os\n"
+                "os.chdir(os.path.expanduser('~/go1job'))\n"
+                "report['summary'] = json.load(open('out/curve.json'))\n",
+                120)
             rep = res.get("report") or {}
-            print(f"[{time.monotonic()-total0:6.1f}s] training done "
-                  f"(job wall {rep.get('train_wall_s')} s)", flush=True)
-            if res.get("ok") is not True or rep.get("rc") != 0:
-                G.die("training failed: "
-                      + (rep.get("stderr_tail") or "")[-600:])
-            s = rep.get("summary") or {}
-            print(f"  env_steps={s.get('env_steps')} "
-                  f"steps/s={s.get('steps_per_s')} "
-                  f"iters={s.get('iters')}", flush=True)
+            s = rep.get("summary") or st
+            if s.get("steps_per_s"):
+                print(f"  env-steps/s={s['steps_per_s']}", flush=True)
             for e in s.get("walk_evals") or []:
                 print(f"  walk check it {e['it']}: "
                       f"{e['forward_mps']} m/s upright {e['upright']}",
@@ -205,7 +231,7 @@ def main():
 
         eval_args += ["--json", "verdict_out.json", "--seeds", a.seeds]
         code = EVAL_JOB.replace("ARGS", repr(eval_args))
-        res = lease.exec(code, 1200)
+        res = lease.exec(code, 590)
         rep = res.get("report") or {}
         verdict = rep.get("verdict")
         if verdict is None:
@@ -253,7 +279,7 @@ def main():
                     "ARGS", repr(["--policy", "mut.npz", "--json",
                                   "verdict_out.json", "--seeds", a.seeds,
                                   "--mass-scale", str(ms)]))
-                rep = (lease.exec(code, 1200).get("report") or {})
+                rep = (lease.exec(code, 590).get("report") or {})
                 v = rep.get("verdict")
                 failed = [k for k, g in ((v or {}).get("gates") or {})
                           .items() if g.get("pass") is False]

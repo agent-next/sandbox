@@ -1,9 +1,14 @@
 """PPO trainer for the Go1 walking task. Produces the artifact the judge
 grades: policy.npz (actor weights + metadata) driven by train_config.json.
 
-    python train.py --config train_config.json --out outdir
+    python train.py --config train_config.json --out outdir \
+        [--resume outdir/state.pt] [--max-wall-s S] [--progress FILE]
 
-Reads env.py's Go1Batch. stdlib + torch only on top of the lease stack.
+The lease exec endpoint caps a single call at ~600 s, so training runs in
+chunks: each invocation trains until the iteration target or --max-wall-s
+is exhausted, saves full resumable state (nets + optimizer + RNG + curve)
+to <out>/state.pt and a one-line status to --progress, then exits 0.
+The caller (run.py) repeats until status.finished. stdlib + torch only.
 """
 
 from __future__ import annotations
@@ -200,7 +205,29 @@ def evaluate(env, policy, steps, cmd=(1.0, 0.0, 0.0)):
             "upright": round(float(alive.float().mean()), 4)}
 
 
-def train(cfg, out, log=print):
+    def state_dict(self):
+        import torch
+        return {"actor": self.actor.state_dict(),
+                "critic": self.critic.state_dict(),
+                "log_std": self.log_std.detach().cpu(),
+                "opt": self.opt.state_dict(),
+                "torch_rng": torch.get_rng_state(),
+                "cuda_rng": torch.cuda.get_rng_state_all()}
+
+    def load_state(self, sd):
+        import torch
+        self.actor.load_state_dict(sd["actor"])
+        self.critic.load_state_dict(sd["critic"])
+        with torch.no_grad():
+            self.log_std.copy_(sd["log_std"].to(self.log_std.device))
+        self.opt.load_state_dict(sd["opt"])
+        torch.set_rng_state(sd["torch_rng"].cpu())
+        torch.cuda.set_rng_state_all(
+            [t.cpu() for t in sd["cuda_rng"]])
+
+
+def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
+          progress_file=None):
     import torch
     t0 = time.time()
     n_envs = cfg["num_envs"]
@@ -216,17 +243,48 @@ def train(cfg, out, log=print):
     eval_env = None
     curve, walk_evals, hits = [], [], 0
     t_train = time.time()
-    steps_per_it = n_envs * cfg["rollout_steps"]
     done_it = 0
+    if resume and os.path.exists(resume):
+        sd = torch.load(resume, map_location="cuda", weights_only=False)
+        ppo.load_state(sd["ppo"])
+        done_it = sd["iter"]
+        curve, walk_evals = sd["curve"], sd["walk_evals"]
+        hits, t_train = sd["hits"], sd["train_wall_s"]
+        env.gen.set_state(sd["env_gen"].cpu())
+        log(f"resumed at iteration {done_it} "
+            f"(+{time.time() - t0:.0f}s restore)")
+    steps_per_it = n_envs * cfg["rollout_steps"]
+
+    def save_state(finished):
+        torch.save({"ppo": ppo.state_dict(), "iter": done_it,
+                    "curve": curve, "walk_evals": walk_evals,
+                    "hits": hits,
+                    "train_wall_s": t_train + (time.time() - t_start),
+                    "env_gen": env.gen.get_state()}, state_path)
+        status = {"finished": finished, "it": done_it,
+                  "env_steps": steps_per_it * done_it,
+                  "train_wall_s": round(
+                      t_train + (time.time() - t_start), 1),
+                  "mean_reward": curve[-1]["mean_reward"] if curve
+                  else None,
+                  "walk_evals": walk_evals}
+        with open(progress_file, "w") as fh:
+            json.dump(status, fh)
+        return status
+
+    state_path = os.path.join(out, "state.pt")
+    t_start = time.time()
     while done_it < cfg["iters"]:
+        if max_wall_s and time.time() - t_start > max_wall_s:
+            return save_state(False)
         buf, last_val = ppo.rollout(env)
         r = ppo.update(buf, last_val)
         done_it += 1
         curve.append({"it": done_it, "mean_reward": round(r, 4),
-                      "wall_s": round(time.time() - t_train, 2)})
+                      "wall_s": round(t_train + time.time() - t_start, 2)})
         if done_it % 10 == 0:
             log(f"it {done_it} reward {r:.3f} "
-                f"({steps_per_it * done_it / (time.time() - t_train):.0f} "
+                f"({steps_per_it * done_it / (t_train + time.time() - t_start):.0f} "
                 "env-steps/s)")
         if done_it >= cfg["eval_start"] and done_it % cfg["eval_every"] == 0:
             if eval_env is None:
@@ -239,6 +297,8 @@ def train(cfg, out, log=print):
                 and ev["upright"] >= 0.95 else 0
             if hits >= 2:
                 break
+    train_wall = t_train + time.time() - t_start
+    status = save_state(True)
     meta = {"trained_iters": done_it,
             "trained_env_steps": steps_per_it * done_it,
             "seed": cfg["seed"],
@@ -248,26 +308,35 @@ def train(cfg, out, log=print):
                 json.dumps(cfg, sort_keys=True).encode()).hexdigest()}
     save_policy(ppo.actor, os.path.join(out, "policy.npz"), meta)
     summary = {"iters": done_it, "env_steps": steps_per_it * done_it,
-               "train_wall_s": round(time.time() - t_train, 1),
+               "train_wall_s": round(train_wall, 1),
                "total_wall_s": round(time.time() - t0, 1),
-               "steps_per_s": round(steps_per_it * done_it
-                                    / (time.time() - t_train)),
+               "steps_per_s": round(steps_per_it * done_it / train_wall),
                "walk_evals": walk_evals, "curve": curve,
                "reward_end": curve[-1]["mean_reward"]}
     with open(os.path.join(out, "curve.json"), "w") as fh:
         json.dump(summary, fh, indent=1)
-    return summary
+    return {**summary, **status}
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--resume", default=None,
+                    help="state.pt from a previous chunk")
+    ap.add_argument("--max-wall-s", type=float, default=0.0,
+                    help="stop and save resumable state after S seconds "
+                         "of training in this chunk")
+    ap.add_argument("--progress", default=None,
+                    help="write a one-line JSON status here after every "
+                         "chunk")
     a = ap.parse_args()
     cfg = {**DEFAULT_CFG, **json.load(open(a.config))}
     cfg["ppo"] = {**DEFAULT_CFG["ppo"], **cfg.get("ppo", {})}
     os.makedirs(a.out, exist_ok=True)
-    summary = train(cfg, a.out)
+    pf = a.progress or os.path.join(a.out, "progress.json")
+    summary = train(cfg, a.out, resume=a.resume, max_wall_s=a.max_wall_s,
+                    progress_file=pf)
     print(json.dumps({k: v for k, v in summary.items() if k != "curve"}))
 
 
