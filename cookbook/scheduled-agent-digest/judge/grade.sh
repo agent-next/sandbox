@@ -40,11 +40,13 @@ PINNED_BIN="${HOME}/.scheduled-agent-digest/bin"
 command -v python3 >/dev/null 2>&1 || fail "python3 missing -- run 'bash judge/setup.sh' first"
 command -v sqlite3 >/dev/null 2>&1 || fail "sqlite3 missing -- run 'bash judge/setup.sh' first"
 
-# hash the judge before any artifact code runs (SPEC judge-integrity rule)
-JUDGE_HASH_BEFORE="$(find "$HERE" -type f ! -path '*/__pycache__/*' \
-                     ! -name 'setup.sh' ! -name 'grade.sh' \
-                     ! -name 'selftest.sh' ! -name 'RECEIPT.md' -exec sha256sum {} + \
-                     | sort | sha256sum | awk '{print $1}')"
+# hash the judge before any artifact code runs (SPEC judge-integrity rule).
+# Everything in the judge tree is hashed; grading never rewrites any of it.
+judge_hash() {
+    find "$HERE" -type f ! -path '*/__pycache__/*' -exec sha256sum {} + \
+        | sort | sha256sum | awk '{print $1}'
+}
+JUDGE_HASH_BEFORE="$(judge_hash)"
 
 set +e
 python3 "${HERE}/grade.py" "$ARTIFACT" --seed "$SEED" ${JSON_OUT:+--json "$JSON_OUT"}
@@ -52,10 +54,7 @@ rc=$?
 set -e
 
 # the artifact must not have touched the judge
-JUDGE_HASH_AFTER="$(find "$HERE" -type f ! -path '*/__pycache__/*' \
-                    ! -name 'setup.sh' ! -name 'grade.sh' \
-                    ! -name 'selftest.sh' ! -name 'RECEIPT.md' -exec sha256sum {} + \
-                    | sort | sha256sum | awk '{print $1}')"
+JUDGE_HASH_AFTER="$(judge_hash)"
 [ "$JUDGE_HASH_BEFORE" = "$JUDGE_HASH_AFTER" ] \
     || fail "judge sources changed during grading (checksum mismatch)"
 

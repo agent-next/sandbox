@@ -468,10 +468,14 @@ def grade(artifact_dir: Path, seed: int = DEFAULT_SEED) -> dict:
         gates["digest"] = gate_digest(work, digests, seed)
         gates["dates"] = gate_dates(digests, work)
         gates["shape"] = gate_shape(digests)
-        schedule = load_json(artifact / "schedule.json", Gate("schedule"),
+        # one gate object for the whole schedule check: a load failure must
+        # mark the gate failed, never be replaced by a fresh passing one
+        gsched = Gate("schedule")
+        schedule = load_json(artifact / "schedule.json", gsched,
                             "schedule.json")
-        gates["schedule"] = (gate_schedule(schedule)
-                             if schedule is not None else Gate("schedule"))
+        if schedule is not None:
+            gsched = gate_schedule(schedule) if gsched.passed else gsched
+        gates["schedule"] = gsched
         gates["lifecycle"] = gate_lifecycle(work, records)
         gates["negative"] = gate_negative(work, artifact)
         gates["failure"] = gate_failure(work, artifact)

@@ -72,10 +72,11 @@ def main():
     wall("create", t0)
 
     # in-sandbox script: clone this repo at ref, set up, self-test, grade.
-    # All output is streamed by sbx exec.
+    # All output is streamed by sbx exec.  The ref is quoted: it arrives on
+    # the command line and must never be parsed by the in-sandbox shell.
     script = f"""set -euo pipefail
 cd /root 2>/dev/null || cd "$HOME"
-git clone --depth 1 -b {ref} {REPO} sandbox 2>&1
+git clone --depth 1 -b {shlex_quote(ref)} {REPO} sandbox 2>&1
 cd sandbox/cookbook/scheduled-agent-digest
 echo '=== judge/setup.sh ==='
 bash judge/setup.sh
@@ -88,6 +89,7 @@ cat /tmp/digest-verdict.json || true
 echo '=== selftest kill summary ==='
 grep -E '^selftest: (mutant KILLED:|kill rate)' /tmp/selftest.log || true
 """
+    failed = False
     try:
         t1 = time.monotonic()
         print("scheduled-agent-digest: running in-sandbox pipeline (clone + setup + selftest + grade)",
@@ -96,21 +98,29 @@ grep -E '^selftest: (mutant KILLED:|kill rate)' /tmp/selftest.log || true
         print(r.stdout, flush=True)
         wall("in-sandbox", t1)
         if r.returncode != 0:
+            failed = True
             raise RuntimeError(f"in-sandbox run failed with exit {r.returncode}")
     finally:
         if keep:
             print(f"scheduled-agent-digest: --keep; sandbox left up: {sid}", flush=True)
-            return
-        # always kill; a failure to confirm cleanup names the id
-        rk = sh(f"sbx kill {sid}", env=env)
-        rl = sh(f"sbx list", env=env)
-        if rk.returncode != 0:
-            raise RuntimeError(f"cleanup unconfirmed for {sid}: sbx kill exit {rk.returncode}\n{rk.stdout}")
-        if sid not in rl.stdout:
-            print(f"scheduled-agent-digest: destroyed {sid}; verified absent", flush=True)
         else:
-            raise RuntimeError(f"cleanup unconfirmed for {sid}: still listed in sbx list\n{rl.stdout}")
-        wall("total", t0)
+            # always kill; a failure to confirm cleanup names the id
+            rk = sh(f"sbx kill {sid}", env=env)
+            rl = sh(f"sbx list", env=env)
+            if rk.returncode != 0:
+                raise RuntimeError(f"cleanup unconfirmed for {sid}: sbx kill exit {rk.returncode}\n{rk.stdout}")
+            # a failed `sbx list` is not proof of absence: the CLI prints
+            # its errors to stderr and exits non-zero, so an empty stdout
+            # must never be read as "verified absent"
+            if rl.returncode != 0:
+                raise RuntimeError(f"cleanup unconfirmed for {sid}: sbx list exit {rl.returncode}\n{rl.stdout}")
+            if sid not in rl.stdout:
+                print(f"scheduled-agent-digest: destroyed {sid}; verified absent", flush=True)
+            else:
+                raise RuntimeError(f"cleanup unconfirmed for {sid}: still listed in sbx list\n{rl.stdout}")
+            wall("total", t0)
+    if failed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
