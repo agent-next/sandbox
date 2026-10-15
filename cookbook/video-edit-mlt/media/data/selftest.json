@@ -1,0 +1,61 @@
+{
+  "deterministic": true,
+  "intact": true,
+  "mutants": {
+    "off_by_one_cut": {
+      "killed": true,
+      "failed_gate": "edl",
+      "intended": "edl"
+    },
+    "wrong_in_point": {
+      "killed": true,
+      "failed_gate": "edl",
+      "intended": "edl"
+    },
+    "clip_order_swapped": {
+      "killed": true,
+      "failed_gate": "edl",
+      "intended": "edl"
+    },
+    "hard_cut": {
+      "killed": true,
+      "failed_gate": "dissolve",
+      "intended": "dissolve"
+    },
+    "short_dissolve": {
+      "killed": true,
+      "failed_gate": "dissolve",
+      "intended": "dissolve"
+    },
+    "logo_wrong_corner": {
+      "killed": true,
+      "failed_gate": "logo",
+      "intended": "logo"
+    },
+    "logo_too_long": {
+      "killed": true,
+      "failed_gate": "logo",
+      "intended": "logo"
+    },
+    "no_ducking": {
+      "killed": true,
+      "failed_gate": "ducking",
+      "intended": "ducking"
+    },
+    "too_loud": {
+      "killed": true,
+      "failed_gate": "loudness",
+      "intended": "loudness"
+    },
+    "wrong_fps": {
+      "killed": true,
+      "failed_gate": "format",
+      "intended": "format"
+    },
+    "wrong_resolution": {
+      "killed": true,
+      "failed_gate": "format",
+      "intended": "format"
+    }
+  }
+}

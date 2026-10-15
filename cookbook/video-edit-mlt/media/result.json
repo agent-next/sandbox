@@ -1,0 +1,100 @@
+{
+  "demo": "video-edit-mlt",
+  "headline": "225 video frames checked; 11 of 11 bad edits rejected.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "dissolve",
+      "pass": true,
+      "measured": "0.041486",
+      "threshold": "\"max ramp error <=0.20; endpoints <=0.15 and >=0.85; decrease <=0.05\""
+    },
+    {
+      "name": "ducking",
+      "pass": true,
+      "measured": "11.948775",
+      "threshold": "\">=8.0 dB; outside music RMS >1e-5\""
+    },
+    {
+      "name": "edl",
+      "pass": true,
+      "measured": "0",
+      "threshold": "\"0 mismatched output frames\""
+    },
+    {
+      "name": "format",
+      "pass": true,
+      "measured": "{\"audio\": {\"channels\": 2, \"codec_name\": \"aac\", \"sample_rate\": \"48000\"}, \"codec_name\": \"h264\", \"field_order\": \"progressive\", \"height\": 720, \"nb_read_frames\": \"225\", \"pix_fmt\": \"yuv420p\", \"r_frame_rate\": \"25/1\", \"sample_aspect_ratio\": \"1:1\", \"width\": 1280}",
+      "threshold": "{\"acodec\": \"aac\", \"channels\": 2, \"fps_den\": 1, \"fps_num\": 25, \"frames\": 225, \"height\": 720, \"sample_rate\": 48000, \"vcodec\": \"h264\", \"width\": 1280}"
+    },
+    {
+      "name": "integrity",
+      "pass": true,
+      "measured": "0",
+      "threshold": "\"0 changed judge files\""
+    },
+    {
+      "name": "logo",
+      "pass": true,
+      "measured": "{\"max_off\": 0.079241, \"min_on\": 0.999981}",
+      "threshold": "\"on >=0.85, off <0.30 on every frame\""
+    },
+    {
+      "name": "loudness",
+      "pass": true,
+      "measured": "{\"integrated_lufs\": -16.0, \"true_peak_dbtp\": -8.5}",
+      "threshold": "{\"lufs\": [-17.0, -15.0], \"true_peak_max_dbtp\": -1.0}"
+    },
+    {
+      "name": "power",
+      "pass": true,
+      "measured": "0",
+      "threshold": "\"0 barcode errors across 450 raw frames\""
+    },
+    {
+      "name": "security",
+      "pass": true,
+      "measured": "0",
+      "threshold": "\"0 unsafe XML constructs\""
+    }
+  ],
+  "numbers": [
+    {
+      "label": "EDL mismatches",
+      "value": 0,
+      "unit": "frames",
+      "source": "media/data/verdict.json: gates.edl"
+    },
+    {
+      "label": "Mutants killed",
+      "value": 11,
+      "unit": "/11",
+      "source": "media/data/selftest.json"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "Real edit and numeric pass lines"
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "Builder history and mutant matrix"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "44-second edit and independent proof"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/video-edit-mlt/run.py",
+    "ask_agent": "> Clone https://github.com/agent-next/sandbox and run `bash cookbook/video-edit-mlt/judge/setup.sh` in a fresh sandbox.\n> Read `cookbook/video-edit-mlt/SPEC.md` and `spec.json`, then write your\n> own `edit.mlt`: A frames 0\u201399, a 25-frame dissolve A100\u2013124 to B0\u201324,\n> B25\u201399, then C50\u201374. Overlay the logo in its specified bottom-right\n> rectangle on frames 0\u201399 only. Mix the supplied music and voice;\n> duck music at least 8 dB in each voice window, master to \u221216 \u00b11 LUFS,\n> and keep true peak at or below \u22121 dBTP.\n> Use only relative `assets/` resources and the services allowed in\n> `judge/security.py`; name every producer's `mlt_service` and point the\n> root `<mlt producer=\"...\">` at your output tractor. Relative resources resolve beside the XML, not\n> beside the shell's current directory; the judge stages assets for you.\n> The wrappers are under `$HOME/.local/video-edit-mlt/Shotcut.app/`;\n> set `QT_QPA_PLATFORM=offscreen`. Use an affine transition on a separate\n> logo track, not the watermark filter. MLT's animated volume property\n> is `level` in dB. Iterate with\n> `bash cookbook/video-edit-mlt/judge/grade.sh edit.mlt --seed 1 --json verdict.json`\n> until it prints `\"verdict\": \"PASS\"`. Paste the final verdict and rendered\n> frame. Do not modify the judge, spec or generated assets. Kill the\n> sandbox and confirm it is gone when finished."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "82e7bde6a44b0efcc7e0ec365e2df0b12402d8b5",
+  "schema": "agent-next/result@1"
+}

@@ -1,0 +1,74 @@
+{
+  "REVIEW.json": {
+    "command": "(not done: two different-family blind video reviewers required)",
+    "sha256": "8c6ffb7f01708f0d692da2ee28a0c48907203fb5a9d0d7845a481e3c6fc6e4e6",
+    "shows": "Explicitly unperformed blind review panel",
+    "source": "cookbook/tools/video_review_prompt.md"
+  },
+  "data/commit.txt": {
+    "command": "git rev-parse HEAD",
+    "sha256": "ecd2b6427578980b1f6f7d13bec0f03235f8770936062adaa0c2e2fd5a1325ed",
+    "shows": "Sandbox clone commit",
+    "source": "git rev-parse HEAD"
+  },
+  "data/frames.json": {
+    "command": "bash judge/grade.sh examples/good/edit.mlt --seed 1 --export media/data --json media/data/verdict.json",
+    "sha256": "9be0f38600764baa51c16f0e50d51f6a06c28938e2633064d4b6d6be1746faca",
+    "shows": "Every decoded frame and audio-band measurement",
+    "source": "data/render.mp4"
+  },
+  "data/history.json": {
+    "command": "judge/grade.sh examples/good/edit.mlt --seed 1 (two recorded builder edits)",
+    "sha256": "f8522495f14b0504d9bda0a82aea615bdf7a2f84acf45c1521e9ebd9808a38b8",
+    "shows": "Two measured builder iterations",
+    "source": "RECEIPT.md: Development iteration measurements + RUN-1"
+  },
+  "data/run.log": {
+    "command": "python3 cookbook/video-edit-mlt/run.py --ref sbx/demo-video-edit-mlt (selected stdout)",
+    "sha256": "4f7decfc06db297fb493ade4aa1f5b9162cd8b5f0cecad2d3ff21e7727af3674",
+    "shows": "Verbatim selected fresh-run log lines",
+    "source": "RECEIPT.md: RUN-1"
+  },
+  "data/selftest.json": {
+    "command": "python3 cookbook/video-edit-mlt/run.py --ref sbx/demo-video-edit-mlt (selected stdout)",
+    "sha256": "5630997955d405fddf1bcda2a01e3e9cd7a67ddcad9d353ee4189f1da55fc27f",
+    "shows": "Intended and observed mutant gates",
+    "source": "RECEIPT.md: RUN-1"
+  },
+  "data/verdict.json": {
+    "command": "bash judge/grade.sh examples/good/edit.mlt --seed 1 --export media/data --json media/data/verdict.json",
+    "sha256": "3df5e78495dc3fc149c76cca6b78f25a55f72c553f4b52da0cd82c9ba3f03fab",
+    "shows": "All measured judge gates",
+    "source": "examples/good/edit.mlt + spec.json"
+  },
+  "demo.mp4": {
+    "command": "bash cookbook/video-edit-mlt/media/make_media.sh",
+    "sha256": "73af2f6471c144f20f2c8b0814ad684650a9e3b8b679c30ee4dd43b6c7daed7d",
+    "shows": "44-second storyboard with real rendered edit",
+    "source": "data/render.mp4 + data/frames.json + data/run.log"
+  },
+  "loop.png": {
+    "command": "bash cookbook/video-edit-mlt/media/make_media.sh",
+    "sha256": "9f7f4dc1dd6b49223b4d21c90ad18ad0d33bbd68a206055e61fe822f49e41bd7",
+    "shows": "Measured builder history and mutant matrix",
+    "source": "data/history.json + data/selftest.json"
+  },
+  "result.json": {
+    "command": "bash cookbook/video-edit-mlt/media/make_media.sh",
+    "sha256": "2bf0df0100f6e2e02fef32e2b90f412e8001b9bea504045783ea1ef234162950",
+    "shows": "Result card from grade output",
+    "source": "data/verdict.json + data/selftest.json"
+  },
+  "result.png": {
+    "command": "bash cookbook/video-edit-mlt/media/make_media.sh",
+    "sha256": "236b94e6e4a995973dbcf7445094d86bf16828cb8224e5e4454764412af1d41b",
+    "shows": "Real edit and pass-limit chart",
+    "source": "data/render.mp4 + data/verdict.json"
+  },
+  "video_gate.json": {
+    "command": "bash cookbook/video-edit-mlt/media/make_media.sh",
+    "sha256": "55a13e4eff57f1d3879cd5dd0d57842d56eb86ed9aa31d69c6c32a3f6fcdcc96",
+    "shows": "Mechanical video checks",
+    "source": "demo.mp4"
+  }
+}
