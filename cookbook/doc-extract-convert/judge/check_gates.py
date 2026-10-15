@@ -191,55 +191,86 @@ def _is_iso_date(text):
 # G1 / G3 — accuracy and exact totals, against the generator's truth
 # --------------------------------------------------------------------------
 
-def score_accuracy(records, truth):
-    """Compare every non-quarantined field with the truth, exactly."""
-    by_id = {p["page_id"]: p for p in truth["pages"]}
+def score_accuracy(records, truth, quarantine):
+    """Score all 12 pages x 4 field slots against the truth, exactly.
+
+    The denominator is every field slot on every page (SPEC G1), not just
+    the pages the artifact chose to report: a page it quarantines or drops
+    loses its four slots, because silence about a page it could have read
+    is not accuracy.  The one handling that scores as correct is
+    quarantining a page the truth itself marks unreadable.
+    """
+    reported = {p.get("page_id"): p for p in records}
+    quarantined = {p.get("page_id") for p in quarantine}
     slots = correct = 0
-    exact_totals = correct_totals = 0
+    correct_totals = totals_slots = 0
     wrong = []
-    for page in records:
-        pid = page.get("page_id")
-        expected = by_id.get(pid)
-        if expected is None or expected["status"] != "ok":
-            # A record for a page the truth says is unreadable: every field
-            # it claims is wrong by construction.
-            fields = page.get("fields") or {}
-            for name in FIELDS:
-                slots += 1
-                if isinstance(fields.get(name), dict):
-                    wrong.append("%s/%s: claimed a value for an unreadable page"
-                                 % (pid, name))
+    for expected in truth["pages"]:
+        pid = expected["page_id"]
+        if expected["status"] != "ok":
+            # A page whose fields do not exist.  Quarantining it is the
+            # correct reading of all four slots; inventing a record, or
+            # dropping the page silently, loses all four.
+            slots += len(FIELDS)
+            if pid in quarantined:
+                correct += len(FIELDS)
+            elif pid in reported:
+                wrong.append("%s: invented a record for an unreadable page"
+                             % pid)
+            else:
+                wrong.append("%s: missing from both files" % pid)
             continue
-        fields = page.get("fields") or {}
+        rep = reported.get(pid)
+        fields = (rep or {}).get("fields") or {}
         for name in FIELDS:
             slots += 1
             entry = fields.get(name)
             got = entry.get("value") if isinstance(entry, dict) else None
             want = expected["fields"][name]["value"]
             if name == "total":
-                if got == want:
-                    correct_totals += 1
-                exact_totals += 1
-                if got is not None and _is_exact_decimal(got):
-                    if decimal.Decimal(got) != decimal.Decimal(want):
+                totals_slots += 1
+            if got is None:
+                wrong.append("%s/%s: no value (page quarantined or field "
+                             "missing)" % (pid, name))
+                continue
+            if name == "total":
+                if _is_exact_decimal(got):
+                    if decimal.Decimal(got) == decimal.Decimal(want):
+                        correct += 1
+                        correct_totals += 1
+                    else:
                         wrong.append("%s/total: %s != %s" % (pid, got, want))
-                elif got != want:
-                    wrong.append("%s/total: %r != %r" % (pid, got, want))
+                else:
+                    wrong.append("%s/total: %r is not an exact 2-decimal "
+                                 "value" % (pid, got))
             elif got == want:
                 correct += 1
             else:
                 wrong.append("%s/%s: %r != %r" % (pid, name, got, want))
-            if name != "total" and got == want:
-                pass
-    # totals counted once, above
-    correct += correct_totals
     return {"slots": slots, "correct": correct, "wrong": wrong,
-            "exact_totals": exact_totals, "correct_totals": correct_totals}
+            "totals_slots": totals_slots, "correct_totals": correct_totals}
 
 
 # --------------------------------------------------------------------------
 # G2 — grounding: the box must sit on ink
 # --------------------------------------------------------------------------
+
+def _ink_threshold(im):
+    """Per-page binarisation threshold from the page's own histogram.
+
+    A fixed threshold cannot see ink on a faded photocopy: the low-contrast
+    degradation washes ink up to ~156 and paper up to ~217, so nothing is
+    below 128.  The paper brightness is the page's *modal* value (paper is
+    by far the most common level on any scan), and in every degradation
+    profile of this corpus ink is at least 60 levels darker than paper --
+    so "ink" is anything 40+ levels below the mode, whatever the scanner
+    did to the range.  A blank page has nothing 40 levels below its mode,
+    so every box on it fails, which is the point.
+    """
+    hist = im.histogram()
+    mode = max(range(len(hist)), key=lambda v: hist[v])
+    return max(0, mode - 40)
+
 
 def check_grounding(records, pages_dir, truth, rng=None):
     """Re-read each claimed region from the raster and require ink in it.
@@ -252,6 +283,7 @@ def check_grounding(records, pages_dir, truth, rng=None):
     from PIL import Image
     problems = []
     images = {}
+    thresholds = {}
     for page in records:
         pid = page.get("page_id")
         fields = page.get("fields") or {}
@@ -270,12 +302,18 @@ def check_grounding(records, pages_dir, truth, rng=None):
             if pid not in images:
                 images[pid] = Image.open(
                     os.path.join(pages_dir, page_meta["file"])).convert("L")
+                thresholds[pid] = _ink_threshold(images[pid])
             im = images[pid]
             x0, y0, x1, y1 = bbox
             if not (0 <= x0 < x1 <= im.width and 0 <= y0 < y1 <= im.height):
                 continue                       # already reported by G0
+            thr = thresholds[pid]
+            if thr is None:
+                problems.append("%s/%s: bbox %r on a page with no ink anywhere"
+                                % (pid, name, bbox))
+                continue
             crop = im.crop((x0, y0, x1, y1))
-            dark = sum(1 for v in crop.getdata() if v < 128)
+            dark = sum(1 for v in crop.getdata() if v < thr)
             ratio = dark / float(crop.width * crop.height)
             if ratio < INK_MIN_RATIO:
                 problems.append("%s/%s: bbox %r has no ink (%.2f%% dark)"
@@ -301,22 +339,31 @@ def _index(pages_dir):
 # --------------------------------------------------------------------------
 
 def check_negative_control(corrupt_report, truth, corrupt_meta):
-    """The corrupted pages must be quarantined, with the right codes."""
+    """The corrupted pages must be quarantined, with the right codes.
+
+    The corrupted corpus still contains the one already-unreadable page
+    (inv-08 in the default corpus), so a correct extractor legitimately
+    quarantines 3 pages there: the 2 corrupted ones plus that one.  What
+    G4 forbids is inventing a record for a corrupted page, quarantining a
+    page whose ink is intact, or losing pages.
+    """
     problems = []
     expected = {r["page_id"]: r for r in corrupt_meta["replaced"]}
+    unreadable = {p["page_id"] for p in truth["pages"]
+                  if p["status"] != "ok"}
     records, quarantine = corrupt_report
     quarantined = {p.get("page_id"): p for p in quarantine}
 
     got_ids = set(quarantined)
-    if got_ids != set(expected):
-        missing = sorted(set(expected) - got_ids)
-        extra = sorted(got_ids - set(expected))
-        if missing:
-            problems.append("corrupted page(s) not quarantined: %s"
-                            % ", ".join(missing))
-        if extra:
-            problems.append("quarantined page(s) that are not corrupted: %s"
-                            % ", ".join(extra))
+    allowed = set(expected) | unreadable
+    missing = sorted(set(expected) - got_ids)
+    extra = sorted(got_ids - allowed)
+    if missing:
+        problems.append("corrupted page(s) not quarantined: %s"
+                        % ", ".join(missing))
+    if extra:
+        problems.append("quarantined page(s) whose ink is intact: %s"
+                        % ", ".join(extra))
 
     for pid, meta in expected.items():
         entry = quarantined.get(pid)
@@ -408,7 +455,7 @@ def main(argv=None):
               % (len(records), len(quarantine)),
          violations=schema[:20])
 
-    score = score_accuracy(records, truth)
+    score = score_accuracy(records, truth, quarantine)
     accuracy = (score["correct"] / score["slots"]) if score["slots"] else 0.0
     gate("G1", accuracy >= FIELD_ACCURACY_MIN and not score["wrong"],
          "field accuracy %.3f (%d/%d, min %.2f)"
@@ -421,12 +468,12 @@ def main(argv=None):
          "%d box(es) not grounded on ink" % len(grounding) if grounding
          else "every claimed box sits on ink", violations=grounding[:20])
 
-    exact_ok = (score["correct_totals"] == score["exact_totals"]
-                and score["exact_totals"] > 0)
+    exact_ok = (score["correct_totals"] == score["totals_slots"]
+                and score["totals_slots"] > 0)
     gate("G3", exact_ok,
          "%d/%d totals exact to 0 ulp"
-         % (score["correct_totals"], score["exact_totals"]),
-         exact=score["correct_totals"], totals=score["exact_totals"])
+         % (score["correct_totals"], score["totals_slots"]),
+         exact=score["correct_totals"], totals=score["totals_slots"])
 
     if args.skip_corrupt:
         gate("G4", True, "skipped (--skip-corrupt)", skipped=True)

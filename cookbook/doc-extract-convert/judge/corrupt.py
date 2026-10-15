@@ -8,9 +8,11 @@ named pages with pages an extractor must refuse to read:
     b1  noise   -- scanner mis-fed / head failure: dense salt-and-pepper
                    speckle, no glyphs
 
-The two replaced page ids are recorded in `corrupt.json` next to the
-corpus, which is what lets judge/grade.sh check "quarantined exactly
-these two" as an exact set comparison rather than a guess.
+The two replaced page ids are recorded in `corrupt.json` at the corpus
+root -- deliberately *outside* pages/, the only directory the extractor
+is pointed at, so the negative control cannot be read off the input.  It
+is what lets judge/grade.sh check "quarantined exactly these two" as an
+exact set comparison rather than a guess.
 
 The corrupted pages carry no field values, so an extractor that invents a
 plausible-looking record for them is caught by G4 regardless of how good
@@ -107,7 +109,7 @@ def corrupt(clean_dir, out_dir, which, seed):
                          "reason_expected": "NO_TEXT" if key == BLANK
                          else "UNREADABLE_PAGE"})
 
-    with open(os.path.join(out_dir, "pages", "corrupt.json"), "w") as f:
+    with open(os.path.join(out_dir, "corrupt.json"), "w") as f:
         json.dump({"seed": seed, "replaced": replaced}, f, indent=2)
         f.write("\n")
     return replaced
