@@ -1,49 +1,58 @@
 {
  "ours": {
-  "feeds": 165,
-  "rapids": 67,
+  "moves": 250,
+  "cutting_moves": 183,
+  "cutting_lines": 165,
   "arcs": 18,
-  "z_max": 5.0,
-  "z_min": -6.0,
-  "bbox": [
-   0.0,
-   0.0,
-   65.0,
-   45.0
-  ]
- },
- "rs274": {
-  "ok": true,
-  "exit": 0,
-  "stderr_tail": "executing",
-  "units_mm": true,
-  "feeds": 165,
-  "rapids": 67,
-  "arcs": 18,
-  "z_max": 5.0,
-  "z_min": -6.0,
-  "bbox": [
+  "length_units": "G21 (mm)",
+  "feed_range_mm_min": [
+   400.0,
+   1600.0
+  ],
+  "xy_bbox": [
    0.0,
    0.0,
    65.0,
    45.0
   ],
-  "n_canon": 458
+  "z_range": [
+   -6.0,
+   5.0
+  ]
+ },
+ "rs274": {
+  "moves": 232,
+  "cutting_moves": 183,
+  "cutting_lines": 165,
+  "arcs": 18,
+  "length_units": "MM (G21)",
+  "feed_range_mm_min": null,
+  "xy_bbox": [
+   0.0,
+   0.0,
+   65.0,
+   45.0
+  ],
+  "z_range": [
+   -6.0,
+   5.0
+  ]
  },
  "diffs": {
-  "feeds": 0,
-  "rapids": 0,
-  "arcs": 0,
-  "z_max_mm": 0.0,
-  "z_min_mm": 0.0,
-  "bbox_mm": [
+  "feeds_diff": 0,
+  "rapids_diff": 0,
+  "arcs_diff": 0,
+  "z_range_mm": 0.0,
+  "xy_bbox_mm": [
    0.0,
    0.0,
    0.0,
    0.0
-  ]
+  ],
+  "length_units": 0
  },
  "tolerance_mm": 0.001,
  "ref_tool": "LinuxCNC rs274 2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2",
+ "ref_exit": 0,
  "gate_pass": true
 }

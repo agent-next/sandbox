@@ -42,7 +42,8 @@ def main():
     with open(os.path.join(work, "spec.json"), "w") as fh:
         fh.write(open(os.path.join(DEMO, "spec.json")).read())
     subprocess.run(
-        [sys.executable, "cam.py", "--spec", "spec.json", "--out", "part.nc"],
+        [sys.executable, "-I", "cam.py", "--spec", "spec.json",
+         "--out", "part.nc"],
         cwd=work, check=True, timeout=120)
     with open(os.path.join(work, "part.nc")) as fh:
         nc_text = fh.read()
@@ -80,12 +81,48 @@ def main():
     assert abs(diffs["z_min_mm"] - g["z_min_diff_mm"]) < 1e-9
     assert diffs["bbox_mm"] == g["bbox_diff_mm"]
 
+    # -- wider comparison rows the table shows (both sides measured now) ------
+    # moves convention: judge counts every parsed move (250 = 67 rapids + 183
+    # feeds incl. 18 arcs); rs274 emits one canonical call per motion and
+    # merges the plunge straight-feed into ARC_FEED, so its feeds+rapids is
+    # lower by exactly the arc count. Both are reported verbatim; the table
+    # shows the convention so the 232 vs 250 difference is explained, not
+    # hidden.
+    cuts = [m for m in moves if m["kind"] == "feed"]
+    frange = [min(m["feed"] for m in cuts), max(m["feed"] for m in cuts)]
     out = {
-        "ours": ours,
-        "rs274": theirs,
-        "diffs": diffs,
+        "ours": {
+            "moves": len(moves),
+            "cutting_moves": len(cuts),
+            "cutting_lines": ours["feeds"],
+            "arcs": ours["arcs"],
+            "length_units": "G21 (mm)",
+            "feed_range_mm_min": frange,
+            "xy_bbox": ours["bbox"],
+            "z_range": [ours["z_min"], ours["z_max"]],
+        },
+        "rs274": {
+            "moves": theirs["feeds"] + theirs["rapids"],
+            "cutting_moves": theirs["feeds"] + theirs["arcs"],
+            "cutting_lines": theirs["feeds"],
+            "arcs": theirs["arcs"],
+            "length_units": "MM (G21)" if theirs["units_mm"] else "INCH (G20)",
+            "feed_range_mm_min": None,
+            "xy_bbox": theirs["bbox"],
+            "z_range": [theirs["z_min"], theirs["z_max"]],
+        },
+        "diffs": {
+            # gate-checked geometry: identical under each side's conventions
+            "feeds_diff": diffs["feeds"],
+            "rapids_diff": diffs["rapids"],
+            "arcs_diff": diffs["arcs"],
+            "z_range_mm": diffs["z_max_mm"],
+            "xy_bbox_mm": diffs["bbox_mm"],
+            "length_units": 0 if theirs["units_mm"] else 1,
+        },
         "tolerance_mm": g["tolerance_mm"],
         "ref_tool": g["ref_tool"],
+        "ref_exit": theirs["exit"],
         "gate_pass": g["pass"],
     }
     with open(os.path.join(DATA, "ref_compare.json"), "w") as fh:
