@@ -103,12 +103,12 @@ bash judge/grade.sh examples/good --seed 42 --json verdict.json
 
 | step | wall time |
 |---|---|
-| `git clone --depth 1` | 9 s |
-| `judge/setup.sh` (fresh install) | 60–90 s (idempotent re-run: ~1 s) |
-| `judge/selftest.sh` (good + 11 mutants + determinism) | 10–15 s |
-| `judge/grade.sh examples/good` | 6–7 s |
+| `git clone --depth 1` | 5–12 s |
+| `judge/setup.sh` (fresh install) | 30–90 s (idempotent re-run: ~1 s) |
+| `judge/selftest.sh` (good + 11 mutants + determinism) | 5–15 s |
+| `judge/grade.sh examples/good` | 2–7 s |
 
-Whole run, including sandbox create and kill: about two minutes, dominated
+Whole run, including sandbox create and kill: one to two minutes, dominated
 by the pinned wheel download. `run.py` prints a per-step timing line.
 
 ## How the judge works
