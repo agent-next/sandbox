@@ -1,13 +1,18 @@
 {
-  "swatch_rgb": [
-    51.0,
-    128.0,
-    230.0
-  ],
-  "swatch_tol": [
-    12,
-    12,
-    12
-  ],
-  "source": "3 renders of examples/good/panel.py, ovui 0.3.0 headless Vulkan/lavapipe"
+  "swatch_rgb": [51.0, 128.0, 230.0],
+  "swatch_tol": [12, 12, 12],
+  "swatch_uniform_std_max": 1.0,
+  "bbox": {
+    "slider1": [466, 208, 268, 24],
+    "slider2": [466, 238, 268, 24],
+    "slider3": [466, 268, 268, 24],
+    "swatch": [434, 298, 140, 24],
+    "checkbox": [434, 328, 140, 22],
+    "button": [434, 356, 140, 28]
+  },
+  "source": {
+    "swatch_rgb": "analytic sRGB of the spec colour rgba(0.2,0.5,0.9,1.0): round(255*c) = [51,128,230]. ovui 0.3.0 writes the colour model value straight to the framebuffer in sRGB, so the measured median equals this exactly (no conversion).",
+    "swatch_tol": "max(12, 4 * measured jitter); measured per-channel jitter over 3 known-good renders was 0.0, so the band is the fixed floor of 12.",
+    "bbox": "widget screen rects measured from 3 known-good renders of examples/good/panel.py (identical every time). The window is centred by ovui at 1280x720, so these are absolute screen coordinates for the fixed 420x360 window."
+  }
 }
