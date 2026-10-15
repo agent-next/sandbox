@@ -1,0 +1,6 @@
+# What judge/setup.sh actually installed — recorded by the tools'
+# own --version output, not by hand.  Debian bookworm, snapshot 2026-10-15.
+# Reproduce: bash judge/setup.sh && bash judge/versions.sh
+git version 2.39.5
+Python 3.12.15
+dpkg git: 1:2.39.5-0+deb12u3
