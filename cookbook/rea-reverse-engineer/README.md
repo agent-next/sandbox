@@ -21,6 +21,18 @@ a `report.json` (recovered algorithm + function roles + addresses), a
 Gates and thresholds are in [SPEC.md](SPEC.md); real command output is in
 [RECEIPT.md](RECEIPT.md).
 
+## Media (all real run output, none synthesized)
+
+| frame | what it shows |
+|---|---|
+| ![REA analyze](media/rea-analyze-checksum.png) | REA `analyze` evidence JSON for the stripped `checksum` — segments, 27 procedures, Ghidra 12.1.2 provider profile |
+| ![REA function](media/rea-function-keycheck.png) | REA `function`/`decompile` on `keycheck` `0x1011f0` — the Ghidra pseudocode that reveals the hidden key rule |
+| ![binary vs reimpl](media/binary-vs-reimpl.png) | side-by-side: real binary stdout vs recovered `reimpl.py` stdout on seeded inputs — byte-identical |
+| ![judge verdict](media/judge-verdict.png) | `grade.sh examples/good` listing all 21 gates PASS |
+
+`media/MANIFEST.json` names the command and source data per frame. The
+final demo video is produced by a separate media step.
+
 ## Results
 
 - All **21/21 gates pass** on the known-good artifact (seed 20261014, 500
