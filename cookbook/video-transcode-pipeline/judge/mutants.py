@@ -13,7 +13,6 @@ substitution that does not apply is an error, not a silently missing mutant.
 
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 
@@ -94,11 +93,8 @@ def main() -> int:
         path = target / "pipeline.sh"
         path.write_text(source.replace(old, new))
         path.chmod(0o755)
-        # The pipeline resolves its fixtures relative to its own directory.
-        fixtures = target / "fixtures"
-        if fixtures.is_symlink() or fixtures.exists():
-            fixtures.unlink() if fixtures.is_symlink() else shutil.rmtree(fixtures)
-        shutil.copytree(HERE.parent / "fixtures", fixtures)
+        # No fixtures here: the judge copies its own next to the artifact
+        # before running it, so a mutant only ever contributes pipeline.sh.
         print(f"mutants: {name}  edit: {description}")
     print(f"mutants: wrote {len(MUTANTS)} mutants to {out}")
     return 0
