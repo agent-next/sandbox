@@ -47,6 +47,10 @@ MUTANTS = [
      '    if (l) { fputs("req\\n", l); fclose(l); }\n'
      "    char path[PATH_LEN];",
      "logs every request to a file: the blast-radius gate catches it"),
+    ("build-warning", "notes.c",
+     "    int n = 0;",
+     "    int n = 0;\n    int unused;",
+     "declares an unused variable: -Wall warns, the build gate fails"),
 ]
 
 
