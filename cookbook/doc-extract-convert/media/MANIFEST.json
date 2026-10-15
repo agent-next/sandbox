@@ -2,7 +2,7 @@
   "files": {
     "demo.mp4": {
       "command": "bash media/make_media.sh  (seed 42)",
-      "sha256": "984cc7647ec14451ff18348a2d7a52ab70907677972932234d15d8b4c9226024",
+      "sha256": "65402b911e72d90b64d23b4ffee6d8150a0d7123adb520add62a3093d6cfa01e",
       "source_data": [
         "media/data/good.json",
         "media/data/m01-total-as-float.json",
@@ -17,7 +17,7 @@
     },
     "loop.png": {
       "command": "python3 media/make_figures.py  (seed 42)",
-      "sha256": "8e666399e604568510d6677aac9aca09f5c58784e4521502aa4f9063fd1cfa90",
+      "sha256": "dccee6263d0cf070dd37151d8c102001965c2cdd86a32789b134b7a0c8598ef1",
       "source_data": [
         "media/data/good.json",
         "media/data/m01-total-as-float.json",
