@@ -19,7 +19,7 @@ Headline numbers from `grade.sh examples/good --json` (all 14 gates pass):
 - STL watertight, winding consistent, 8 104 faces; STL agrees with the
   STEP solid (volume rel err 2.3×10⁻⁶, bbox exact, XOR 3.6 mm³ ≪ 1%)
 - angular spacing max deviation 0° vs the 0.05° rule; 8 DXF circles
-- self-test kill rate **15/15** plus 2/2 pass-cases; determinism PASS
+- self-test kill rate **14/14** plus 2/2 pass-cases; determinism PASS
   (same seed → byte-identical verdict)
 
 
@@ -102,7 +102,7 @@ A known-good `part.py` is in `examples/good/` (regenerate its exports with
   closed rectangular outline `plate_l × plate_w` centred on the origin.
 - **Design rules**: min edge distance and min ligament ≥ spec (0.01 mm slack).
 
-The self-test (`judge/selftest.sh`) regenerates 15 single-edit mutants
+The self-test (`judge/selftest.sh`) regenerates 14 single-edit mutants
 (wrong bolt count, wrong PCD, bore +0.5 mm, boss missing, inch/mm ×25.4,
 STL with one reversed facet, STL with one dropped facet, DXF missing a
 hole, edge-distance violation, one bolt hole drifted 0.5 mm along the PCD
@@ -111,7 +111,7 @@ angular-spacing and DXF-circle gates — a bow-tie outline, a bulged
 outline, an equal-volume box STL, and one hole 0.1 mm along the PCD with
 the DXF kept at spec positions, which must fail **only** the
 angular-spacing gate), requires every one to fail at least one **named**
-gate — kill rate 15/15 = 100 % — and re-grades pass-cases that must
+gate — kill rate 14/14 = 100 % — and re-grades pass-cases that must
 survive (a 4-LINE rectangle; the outline shifted 0.005 mm, inside the
 0.01 mm rule). It prints every failing gate per mutant.
 
