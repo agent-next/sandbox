@@ -81,10 +81,10 @@
   "reason": "oracle: False/5 independent checks (failed c4)",
   "seed": 20261015,
   "timing": {
-    "blast_radius_s": 0.001,
-    "build_s": 1.104,
-    "c3_forge_t": 1792093415,
-    "exploit_s": 0.098,
-    "total_s": 1.207
+    "blast_radius_s": 0.002,
+    "build_s": 0.87,
+    "c3_forge_t": 1792095544,
+    "exploit_s": 0.09,
+    "total_s": 0.964
   }
 }

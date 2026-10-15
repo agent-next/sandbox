@@ -84,9 +84,9 @@
   "seed": 20261015,
   "timing": {
     "blast_radius_s": 0.001,
-    "build_s": 1.371,
-    "c3_forge_t": 1792093420,
-    "exploit_s": 0.15,
-    "total_s": 1.524
+    "build_s": 1.162,
+    "c3_forge_t": 1792095549,
+    "exploit_s": 0.124,
+    "total_s": 1.289
   }
 }

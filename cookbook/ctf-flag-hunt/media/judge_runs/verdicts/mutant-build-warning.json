@@ -22,7 +22,7 @@
   "reason": "the five services did not all compile warning-free",
   "seed": 20261015,
   "timing": {
-    "build_s": 1.13,
-    "total_s": 1.13
+    "build_s": 0.777,
+    "total_s": 0.778
   }
 }

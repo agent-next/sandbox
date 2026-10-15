@@ -24,11 +24,11 @@ The judge verdict for `examples/good` (seed `20261015`):
 - **Negative control**: 0/5 flags on the legitimate action set, and 0
   hits from a flag sweep over the artifact, the binaries and the docroot
 - **Blast radius**: clean — no file added, removed or modified
-- **Self-test kill rate**: 7/7 = 100 % (requirement ≥ 90 %)
+- **Self-test kill rate**: 8/8 = 100 % (requirement ≥ 90 %)
 
 The judge writes one JSON verdict; every gate above is a numeric pass rule
-(see `SPEC.md`). Figures and video are produced by a later task and are not
-part of this one.
+(see `SPEC.md`). The figures and the video under `media/` are regenerated
+from real judge verdicts by `media/make_media.sh` — never hand-edited.
 
 ## Ask your agent
 
@@ -67,14 +67,15 @@ failure, naming the sandbox id if cleanup cannot be confirmed.
 
 | step | wall time |
 |---|---|
-| `git clone --depth 1` | ~1 s |
-| `judge/setup.sh` (fresh install) | ~20 s (idempotent re-run: 0.3 s) |
-| `judge/selftest.sh` (good + 7 mutants + determinism) | 23 s |
-| `judge/grade.sh examples/good` | 2.7 s |
+| `git clone --depth 1` | ~8 s |
+| `judge/setup.sh` (already installed) | ~6 s (purged + fresh download+install: ~30 s) |
+| `judge/selftest.sh` (good + 8 mutants + determinism) | ~20–32 s |
+| `judge/grade.sh examples/good` | ~2–8 s |
 
-Grading is seconds; the self-test is ~24 s because it grades the good range
-plus seven mutants plus two determinism runs, each a full compile-and-
-exploit pass. `run.py` prints a per-step timing line.
+Grading is seconds; the self-test is tens of seconds because it grades the
+good range plus eight mutants plus two determinism runs, each a full
+compile-and-exploit pass. `run.py` prints a per-step timing line; a full
+run is ~2.5–3 minutes end to end including sandbox create/kill.
 
 ## Limits, plainly
 

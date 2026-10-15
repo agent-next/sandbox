@@ -1,5 +1,5 @@
 {
-  "artifact": "/tmp/tmpbwtp8ndt/partial",
+  "artifact": "/tmp/tmphkcz5bkq/partial",
   "demo": "ctf-flag-hunt",
   "failed_gate": "flags",
   "gates": {
@@ -82,9 +82,9 @@
   "seed": 20261015,
   "timing": {
     "blast_radius_s": 0.001,
-    "build_s": 1.416,
-    "c3_forge_t": 1792093424,
-    "exploit_s": 0.112,
-    "total_s": 1.532
+    "build_s": 1.415,
+    "c3_forge_t": 1792095552,
+    "exploit_s": 0.138,
+    "total_s": 1.556
   }
 }

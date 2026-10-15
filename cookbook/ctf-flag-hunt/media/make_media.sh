@@ -2,7 +2,7 @@
 # media/make_media.sh — regenerate every media file from real judge output.
 #
 # Pipeline (nothing is hand-edited or invented):
-#   1. make_data.py regrades the committed range, all seven judge mutants
+#   1. make_data.py regrades the committed range, all eight judge mutants
 #      and the three agent-loop stages with judge/grade.sh, writing one
 #      verdict JSON per run to media/judge_runs/verdicts/
 #   2. fig_result.py renders result.png from the good verdict
@@ -68,7 +68,7 @@ spec = {
     'loop.png': ('The agent loop, replayed with real judge verdicts: the '
                  'broken -> partial -> good stages against the gate counts '
                  'the judge requires, plus the self-test kill matrix for '
-                 'all seven mutants.',
+                 'all eight mutants.',
                  'bash media/make_media.sh  (fig_loop.py)',
                  'media/judge_runs/verdicts/01-broken.json, '
                  'media/judge_runs/verdicts/02-partial.json, '

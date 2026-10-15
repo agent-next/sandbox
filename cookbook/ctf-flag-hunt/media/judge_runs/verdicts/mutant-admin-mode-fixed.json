@@ -81,10 +81,10 @@
   "reason": "flags: captured 4/5 (missing c5)",
   "seed": 20261015,
   "timing": {
-    "blast_radius_s": 0.005,
-    "build_s": 1.389,
-    "c3_forge_t": 1792093409,
-    "exploit_s": 0.144,
-    "total_s": 1.54
+    "blast_radius_s": 0.001,
+    "build_s": 0.975,
+    "c3_forge_t": 1792095539,
+    "exploit_s": 0.087,
+    "total_s": 1.065
   }
 }
