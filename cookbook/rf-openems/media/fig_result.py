@@ -127,7 +127,7 @@ def main():
     axA.plot([f_res], [s11_min], "o", ms=7, mfc="white", mec=C_GOOD,
              mew=1.8, zorder=5)
     reg(axA.annotate(f"min S11 = {s11_min:.1f} dB @ {f_res:.2f} GHz",
-                     xy=(f_res, s11_min), xytext=(f_res + 0.035, s11_min - 1),
+                     xy=(f_res, s11_min), xytext=(2.215, -14.0),
                      fontsize=11, fontweight="bold",
                      arrowprops=dict(arrowstyle="-", color=C_GOOD, lw=1.0)),
          axA, "min-annotation")

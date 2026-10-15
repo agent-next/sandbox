@@ -4,6 +4,7 @@
  "convergence": {
   "S11_at_target_fine_dB": -10.0,
   "f_res_fine_GHz": 2.45,
+  "f_res_fine_in_band": true,
   "f_res_shift_pct": 0.4,
   "mesh_res_fine_mm": 0.9
  },
@@ -24,12 +25,12 @@
    "pass": true
   },
   {
-   "detail": "S11=-17.0 dB (need <= -10.0)",
+   "detail": "S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
    "gate": "G4_S11_at_target",
    "pass": true
   },
   {
-   "detail": "f_res=2.44 GHz (+/-2 %)",
+   "detail": "f_res=2.44 GHz (judge-derived, +/-2 %)",
    "gate": "G5_resonance",
    "pass": true
   },
@@ -44,7 +45,7 @@
    "pass": true
   },
   {
-   "detail": "fine mesh: S11=-10.0 dB f_res=2.45 GHz (shift 0.4 % <= 1.5 %)",
+   "detail": "fine mesh: S11=-10.0 dB f_res=2.45 GHz (G4 ok, G5 band ok, shift 0.4 % <= 1.5 % ok)",
    "gate": "G8_convergence",
    "pass": true
   },
@@ -79,9 +80,9 @@
  "raw_crosscheck_maxdiff_db": 0.0,
  "seed": 42,
  "timing": {
-  "artifact_sim_s": 92.2,
-  "convergence_s": 270.3,
-  "oracle_s": 5.1,
-  "wall_s": 367.7
+  "artifact_sim_s": 91.9,
+  "convergence_s": 247.3,
+  "oracle_s": 9.3,
+  "wall_s": 348.6
  }
 }

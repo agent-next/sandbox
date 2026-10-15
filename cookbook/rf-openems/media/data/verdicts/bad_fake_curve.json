@@ -1,0 +1,80 @@
+{
+ "all_pass": false,
+ "artifact": "/home/user/w/cookbook/rf-openems/examples/bad/bad_fake_curve.py",
+ "gates": [
+  {
+   "detail": "missing=[] simulate=found",
+   "gate": "G1_syntax_and_params",
+   "pass": true
+  },
+  {
+   "detail": "{\"f_target_ghz\": 2.45, \"er\": 4.4, \"tanD\": 0.02, \"sub_h\": 1.6, \"patch_L\": 27.6, \"patch_W\": 37.0, \"feed_inset\": 8.0, \"mesh_res\": 1.2}",
+   "gate": "G2_physical_sanity",
+   "pass": true
+  },
+  {
+   "detail": "rc=0 raw=yes result_line=True",
+   "gate": "G3_sim_runs",
+   "pass": true
+  },
+  {
+   "detail": "S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
+   "gate": "G4_S11_at_target",
+   "pass": true
+  },
+  {
+   "detail": "f_res=2.44 GHz (judge-derived, +/-2 %)",
+   "gate": "G5_resonance",
+   "pass": true
+  },
+  {
+   "detail": "max|S11_judge - S11_artifact| = 8.0 dB (<= 1.5)",
+   "gate": "G6_raw_crosscheck",
+   "pass": false
+  },
+  {
+   "detail": "eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)",
+   "gate": "G7_oracle_msline",
+   "pass": true
+  },
+  {
+   "detail": "not run (earlier gates failed)",
+   "gate": "G8_convergence",
+   "pass": false
+  },
+  {
+   "detail": "judge/ checksums stable",
+   "gate": "G9_judge_integrity",
+   "pass": true
+  }
+ ],
+ "oracle": {
+  "delta_pct": 2.8,
+  "eeff_HJ": 3.33,
+  "eeff_sim": 3.24,
+  "freq_GHz": 2.44,
+  "mesh_res_mm": 1.0,
+  "phases_deg": [
+   117.0,
+   38.0,
+   -42.0,
+   -121.0,
+   -200.0
+  ],
+  "probes_mm": [
+   30.0,
+   45.0,
+   60.0,
+   75.0,
+   90.0
+  ]
+ },
+ "patch_quasistatic_GHz": 2.619,
+ "raw_crosscheck_maxdiff_db": 8.0,
+ "seed": 42,
+ "timing": {
+  "artifact_sim_s": 130.9,
+  "oracle_s": 9.8,
+  "wall_s": 140.7
+ }
+}

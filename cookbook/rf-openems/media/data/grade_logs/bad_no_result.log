@@ -1,0 +1,65 @@
+[PASS] G1_syntax_and_params: missing=[] simulate=found
+[PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 1.2}
+[FAIL] G3_sim_runs: rc=0 raw=no:port_ut_1/port_it_1 missing result_line=True
+[FAIL] G4_S11_at_target: not run (earlier gates failed)
+[FAIL] G5_resonance: not run (earlier gates failed)
+[FAIL] G6_raw_crosscheck: not run (earlier gates failed)
+[FAIL] G7_oracle_msline: not run (earlier gates failed)
+[FAIL] G8_convergence: not run (earlier gates failed)
+[PASS] G9_judge_integrity
+{
+ "all_pass": false,
+ "artifact": "/home/user/w/cookbook/rf-openems/examples/bad/bad_no_result.py",
+ "gates": [
+  {
+   "detail": "missing=[] simulate=found",
+   "gate": "G1_syntax_and_params",
+   "pass": true
+  },
+  {
+   "detail": "{\"f_target_ghz\": 2.45, \"er\": 4.4, \"tanD\": 0.02, \"sub_h\": 1.6, \"patch_L\": 27.6, \"patch_W\": 37.0, \"feed_inset\": 8.0, \"mesh_res\": 1.2}",
+   "gate": "G2_physical_sanity",
+   "pass": true
+  },
+  {
+   "detail": "rc=0 raw=no:port_ut_1/port_it_1 missing result_line=True",
+   "gate": "G3_sim_runs",
+   "pass": false
+  },
+  {
+   "detail": "not run (earlier gates failed)",
+   "gate": "G4_S11_at_target",
+   "pass": false
+  },
+  {
+   "detail": "not run (earlier gates failed)",
+   "gate": "G5_resonance",
+   "pass": false
+  },
+  {
+   "detail": "not run (earlier gates failed)",
+   "gate": "G6_raw_crosscheck",
+   "pass": false
+  },
+  {
+   "detail": "not run (earlier gates failed)",
+   "gate": "G7_oracle_msline",
+   "pass": false
+  },
+  {
+   "detail": "not run (earlier gates failed)",
+   "gate": "G8_convergence",
+   "pass": false
+  },
+  {
+   "detail": "judge/ checksums stable",
+   "gate": "G9_judge_integrity",
+   "pass": true
+  }
+ ],
+ "seed": 42,
+ "timing": {
+  "artifact_sim_s": 2.1,
+  "wall_s": 2.2
+ }
+}

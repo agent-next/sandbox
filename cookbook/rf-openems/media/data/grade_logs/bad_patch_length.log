@@ -1,10 +1,10 @@
 [PASS] G1_syntax_and_params: missing=[] simulate=found
 [PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 22.0, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 1.2}
 [PASS] G3_sim_runs: rc=0 raw=yes result_line=True
-[FAIL] G4_S11_at_target: S11=-1.0 dB (need <= -10.0)
-[FAIL] G5_resonance: f_res=2.7 GHz (+/-2 %)
+[FAIL] G4_S11_at_target: S11=-1.0 dB at 2.45 GHz (judge-derived, need <= -10.0)
+[FAIL] G5_resonance: f_res=2.7 GHz (judge-derived, +/-2 %)
 [PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)
-/home/user/w/cookbook/rf-openems/judge/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
+/tmp/rfjudge-busz53bt/rfjudge-mods-k2onqby4/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
   if not hasattr(np, _a):
  ---------------------------------------------------------------------- 
  | openEMS 64bit -- version v0.0.35
@@ -27,10 +27,11 @@ Excitation signal length is: 6140 timesteps (2.33889e-09s)
 Max. number of timesteps: 60000 ( --> 9.77199 * Excitation signal length)
 Create FDTD engine (compressed SSE + multi-threading)
 Running FDTD engine... this may take a while... grab a cup of coffee?!?
-[@        4s] Timestep:         6141 || Speed:   54.1 MC/s (6.515e-04 s/TS) || Energy: ~3.88e-15 (-25.11dB)
-[@        8s] Timestep:        12727 || Speed:   58.0 MC/s (6.082e-04 s/TS) || Energy: ~3.60e-20 (-75.43dB)
-Time for 12727 iterations with 35256.00 cells : 8.01 sec
-Speed: 56.04 MCells/s 
+[@        4s] Timestep:         2314 || Speed:   20.3 MC/s (1.736e-03 s/TS) || Energy: ~1.07e-13 (- 0.00dB)
+[@        8s] Timestep:         5696 || Speed:   29.7 MC/s (1.186e-03 s/TS) || Energy: ~3.43e-14 (-15.65dB)
+[@       12s] Timestep:        10057 || Speed:   37.8 MC/s (9.326e-04 s/TS) || Energy: ~3.58e-20 (-75.46dB)
+Time for 10057 iterations with 35256.00 cells : 12.10 sec
+Speed: 29.31 MCells/s 
 [PASS] G7_oracle_msline: eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)
 [FAIL] G8_convergence: not run (earlier gates failed)
 [PASS] G9_judge_integrity
@@ -54,12 +55,12 @@ Speed: 56.04 MCells/s
    "pass": true
   },
   {
-   "detail": "S11=-1.0 dB (need <= -10.0)",
+   "detail": "S11=-1.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
    "gate": "G4_S11_at_target",
    "pass": false
   },
   {
-   "detail": "f_res=2.7 GHz (+/-2 %)",
+   "detail": "f_res=2.7 GHz (judge-derived, +/-2 %)",
    "gate": "G5_resonance",
    "pass": false
   },
@@ -109,8 +110,8 @@ Speed: 56.04 MCells/s
  "raw_crosscheck_maxdiff_db": 0.0,
  "seed": 42,
  "timing": {
-  "artifact_sim_s": 76.2,
-  "oracle_s": 9.2,
-  "wall_s": 85.4
+  "artifact_sim_s": 120.6,
+  "oracle_s": 14.0,
+  "wall_s": 134.7
  }
 }

@@ -1,0 +1,124 @@
+[PASS] G1_syntax_and_params: missing=[] simulate=found
+[PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 1.2}
+[PASS] G3_sim_runs: rc=0 raw=yes result_line=True
+[PASS] G4_S11_at_target: S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)
+[PASS] G5_resonance: f_res=2.44 GHz (judge-derived, +/-2 %)
+[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)
+/tmp/rfjudge-41mtaw2e/rfjudge-mods-qcpvngs8/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
+  if not hasattr(np, _a):
+ ---------------------------------------------------------------------- 
+ | openEMS 64bit -- version v0.0.35
+ | (C) 2010-2018 Thorsten Liebig <thorsten.liebig@gmx.de>  GPL license
+ ---------------------------------------------------------------------- 
+	Used external libraries:
+		CSXCAD -- Version: v0.6.2
+		hdf5   -- Version: 1.10.8
+		          compiled against: HDF5 library version: 1.10.8
+		tinyxml -- compiled against: 2.6.2
+		fparser
+		boost  -- compiled against: 1_74
+		vtk -- Version: 9.1.0
+		       compiled against: 9.1.0
+
+Create FDTD operator (compressed SSE + multi-threading)
+FDTD simulation size: 113x24x13 --> 35256 FDTD cells 
+FDTD timestep is: 3.80927e-13 s; Nyquist rate: 357 timesteps @3.67672e+09 Hz
+Excitation signal length is: 6140 timesteps (2.33889e-09s)
+Max. number of timesteps: 60000 ( --> 9.77199 * Excitation signal length)
+Create FDTD engine (compressed SSE + multi-threading)
+Running FDTD engine... this may take a while... grab a cup of coffee?!?
+[@        4s] Timestep:         4539 || Speed:   39.4 MC/s (8.942e-04 s/TS) || Energy: ~1.08e-12 (- 0.66dB)
+[@        8s] Timestep:        10680 || Speed:   53.5 MC/s (6.587e-04 s/TS) || Energy: ~3.57e-20 (-75.47dB)
+Time for 10680 iterations with 35256.00 cells : 8.10 sec
+Speed: 46.46 MCells/s 
+[PASS] G7_oracle_msline: eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)
+[FAIL] G8_convergence: fine mesh: S11=-1.0 dB f_res=2.23 GHz (G4 FAIL, G5 band FAIL, shift 8.6 % <= 1.5 % FAIL)
+[PASS] G9_judge_integrity
+{
+ "all_pass": false,
+ "artifact": "/home/user/w/cookbook/rf-openems/examples/bad/bad_fine_geometry.py",
+ "convergence": {
+  "S11_at_target_fine_dB": -1.0,
+  "f_res_fine_GHz": 2.23,
+  "f_res_fine_in_band": false,
+  "f_res_shift_pct": 8.6,
+  "mesh_res_fine_mm": 0.9
+ },
+ "gates": [
+  {
+   "detail": "missing=[] simulate=found",
+   "gate": "G1_syntax_and_params",
+   "pass": true
+  },
+  {
+   "detail": "{\"f_target_ghz\": 2.45, \"er\": 4.4, \"tanD\": 0.02, \"sub_h\": 1.6, \"patch_L\": 27.6, \"patch_W\": 37.0, \"feed_inset\": 8.0, \"mesh_res\": 1.2}",
+   "gate": "G2_physical_sanity",
+   "pass": true
+  },
+  {
+   "detail": "rc=0 raw=yes result_line=True",
+   "gate": "G3_sim_runs",
+   "pass": true
+  },
+  {
+   "detail": "S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
+   "gate": "G4_S11_at_target",
+   "pass": true
+  },
+  {
+   "detail": "f_res=2.44 GHz (judge-derived, +/-2 %)",
+   "gate": "G5_resonance",
+   "pass": true
+  },
+  {
+   "detail": "max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)",
+   "gate": "G6_raw_crosscheck",
+   "pass": true
+  },
+  {
+   "detail": "eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)",
+   "gate": "G7_oracle_msline",
+   "pass": true
+  },
+  {
+   "detail": "fine mesh: S11=-1.0 dB f_res=2.23 GHz (G4 FAIL, G5 band FAIL, shift 8.6 % <= 1.5 % FAIL)",
+   "gate": "G8_convergence",
+   "pass": false
+  },
+  {
+   "detail": "judge/ checksums stable",
+   "gate": "G9_judge_integrity",
+   "pass": true
+  }
+ ],
+ "oracle": {
+  "delta_pct": 2.8,
+  "eeff_HJ": 3.33,
+  "eeff_sim": 3.24,
+  "freq_GHz": 2.44,
+  "mesh_res_mm": 1.0,
+  "phases_deg": [
+   117.0,
+   38.0,
+   -42.0,
+   -121.0,
+   -200.0
+  ],
+  "probes_mm": [
+   30.0,
+   45.0,
+   60.0,
+   75.0,
+   90.0
+  ]
+ },
+ "patch_quasistatic_GHz": 2.619,
+ "raw_crosscheck_maxdiff_db": 0.0,
+ "seed": 42,
+ "timing": {
+  "artifact_sim_s": 110.0,
+  "convergence_s": 332.5,
+  "oracle_s": 9.8,
+  "wall_s": 452.4
+ }
+}

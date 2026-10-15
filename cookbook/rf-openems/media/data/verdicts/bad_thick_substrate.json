@@ -13,32 +13,32 @@
    "pass": false
   },
   {
-   "detail": "not run (G2 physical sanity failed)",
+   "detail": "not run (earlier gates failed)",
    "gate": "G3_sim_runs",
    "pass": false
   },
   {
-   "detail": "not run (G2 physical sanity failed)",
+   "detail": "not run (earlier gates failed)",
    "gate": "G4_S11_at_target",
    "pass": false
   },
   {
-   "detail": "not run (G2 physical sanity failed)",
+   "detail": "not run (earlier gates failed)",
    "gate": "G5_resonance",
    "pass": false
   },
   {
-   "detail": "not run (G2 physical sanity failed)",
+   "detail": "not run (earlier gates failed)",
    "gate": "G6_raw_crosscheck",
    "pass": false
   },
   {
-   "detail": "not run (G2 physical sanity failed)",
+   "detail": "not run (earlier gates failed)",
    "gate": "G7_oracle_msline",
    "pass": false
   },
   {
-   "detail": "not run (G2 physical sanity failed)",
+   "detail": "not run (earlier gates failed)",
    "gate": "G8_convergence",
    "pass": false
   },
