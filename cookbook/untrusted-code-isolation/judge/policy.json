@@ -1,0 +1,11 @@
+{
+  "_comment": "Runtime policy for the runner under test. These numbers are supplied to the artifact at grade time and are deliberately NOT committed inside runner.py: gate 1 rejects an artifact whose text contains any of these values (within 1 %), so the limits must be read from this file, not hard-coded. wall_s is sized so the CPU limit (cpu_s) fires before the wall clock on a 2 vCPU box.",
+  "cpu_s": 2,
+  "as_bytes": 268435456,
+  "fsize_bytes": 4194304,
+  "nproc": 64,
+  "wall_s": 12.0,
+  "output_cap_bytes": 1048576,
+  "uid_drop": true,
+  "net_isolate": true
+}
