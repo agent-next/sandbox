@@ -1,0 +1,103 @@
+{
+  "stages": {
+    "grade": {
+      "rc": 0,
+      "stderr_tail": "",
+      "stdout_tail": "{\n  \"artifact\": \"params.json\",\n  \"complete\": true,\n  \"demo\": \"sim-tuner\",\n  \"gates\": {\n    \"G1_ranges\": {\n      \"pass\": true,\n      \"problems\": []\n    },\n    \"G2_train\": {\n      \"pass\": true,\n      \"train_err\": 0.016299\n    },\n    \"G3_heldout\": {\n      \"abs_threshold\": 0.025,\n      \"default_err\": 0.118495,\n      \"frac_of_default\": 0.1862,\n      \"heldout_err\": 0.02206,\n      \"pass\": true,\n      \"rel_threshold\": 0.3\n    },\n    \"G4_gpu_cpu_agree\": {\n      \"abs_diff\": 2.3e-05,\n      \"abs_tol\": 0.003,\n      \"cpu_train_err\": 0.016299,\n      \"gpu_sim_s\": 2.85,\n      \"gpu_train_err\": 0.016322,\n      \"lease_versions\": {\n        \"accel\": \"RTX 5090 VRAM slice\",\n        \"mujoco\": \"3.8.1\",\n        \"mujoco_cv\": [\n          3,\n          8,\n          1\n        ],\n        \"mujoco_warp\": \"3.8.1\",\n        \"name\": \"gpu-lease\",\n        \"numpy\": \"1.26.4\",\n        \"os\": \"Linux-6.14.0-27-generic-x86_64-with-glibc2.39\",\n        \"python\": \"3.13.5\",\n        \"warp\": \"1.13.0\"\n      },\n      \"nworld\": 6,\n      \"pass\": true,\n      \"rel_diff\": 0.001441,\n      \"rel_tol\": 0.1,\n      \"version_check\": \"pass\"\n    }\n  },\n  \"judge_intact\": true,\n  \"n_model_params\": 5,\n  \"noise_frac\": 0.015,\n  \"pass\": true,\n  \"recordings\": {\n    \"holdout\": 4,\n    \"train\": 6\n  },\n  \"seed\": 7,\n  \"timing\": {\n    \"gpu_create_s\": 0.0,\n    \"gpu_exec_wall_s\": [\n      5.33\n    ],\n    \"wall_seconds\": 5.41\n  },\n  \"verdict\": \"PASS\",\n  \"versions_cpu\": {\n    \"accel\": \"\",\n    \"mujoco\": \"3.8.1\",\n    \"mujoco_cv\": [\n      3,\n      8,\n      1\n    ],\n    \"name\": \"judge-host\",\n    \"numpy\": \"1.26.4\",\n    \"os\": \"Linux-6.14.0-27-generic-x86_64-with-glibc2.39\",\n    \"python\": \"3.13.5\"\n  }\n}\n",
+      "wall_s": 5.7
+    },
+    "selftest": {
+      "rc": 0,
+      "stderr_tail": "# mut_biased_fit held-out err 0.136026 (G3 absolute threshold 0.025)\n",
+      "stdout_tail": "selftest: generating mutants (seed 7)\nselftest: grading known-good (full judge, G1-G4)\nselftest: known-good: PASS (G1-G4)\nselftest: mutant mut_mu_lo: killed (gate: G3_heldout)\nselftest: mutant mut_mu_hi: killed (gate: G3_heldout)\nselftest: mutant mut_solref_tc_lo: killed (gate: G3_heldout)\nselftest: mutant mut_solref_tc_hi: killed (gate: G3_heldout)\nselftest: mutant mut_solref_dr_lo: killed (gate: G3_heldout)\nselftest: mutant mut_solref_dr_hi: killed (gate: G3_heldout)\nselftest: mutant mut_damping_lo: killed (gate: G3_heldout)\nselftest: mutant mut_damping_hi: killed (gate: G3_heldout)\nselftest: mutant mut_armature_lo: killed (gate: G3_heldout)\nselftest: mutant mut_armature_hi: killed (gate: G3_heldout)\nselftest: mutant mut_truth_shift6: killed (gate: G3_heldout)\nselftest: mutant mut_defaults: killed (gate: G3_heldout)\nselftest: mutant mut_biased_fit: killed (gate: G3_heldout)\nselftest: mutant mut_swapped_units: killed (gate: G1_ranges)\nselftest: mutant mut_extra_key: killed (gate: G1_ranges)\nselftest: mutant mut_nan: killed (gate: G1_ranges)\nselftest: mutant mut_string_value: killed (gate: G1_ranges)\nselftest: mutant mut_out_of_range: killed (gate: G1_ranges)\nselftest: kill rate: 18/18 = 100%\nselftest: determinism check (two CPU-path grades of the good artifact;\n          the GPU engine agreement is compared against fixed tolerances)\nselftest: determinism: OK\nselftest: ok (18/18 mutants killed, seed 7)\n",
+      "wall_s": 71.4
+    },
+    "stack-check": {
+      "rc": 0,
+      "stderr_tail": "",
+      "stdout_tail": "{\"got\": {\"python\": \"3.13.5\", \"mujoco\": \"3.8.1\", \"mujoco_warp\": \"3.8.1\", \"numpy\": \"1.26.4\"}, \"want\": {\"python\": \"3.13.5\", \"mujoco\": \"3.8.1\", \"mujoco_warp\": \"3.8.1\", \"numpy\": \"1.26.4\"}}\n",
+      "wall_s": 0.3
+    }
+  },
+  "total_s": 77.3,
+  "verdict": {
+    "artifact": "params.json",
+    "complete": true,
+    "demo": "sim-tuner",
+    "gates": {
+      "G1_ranges": {
+        "pass": true,
+        "problems": []
+      },
+      "G2_train": {
+        "pass": true,
+        "train_err": 0.016299
+      },
+      "G3_heldout": {
+        "abs_threshold": 0.025,
+        "default_err": 0.118495,
+        "frac_of_default": 0.1862,
+        "heldout_err": 0.02206,
+        "pass": true,
+        "rel_threshold": 0.3
+      },
+      "G4_gpu_cpu_agree": {
+        "abs_diff": 2.3e-05,
+        "abs_tol": 0.003,
+        "cpu_train_err": 0.016299,
+        "gpu_sim_s": 2.85,
+        "gpu_train_err": 0.016322,
+        "lease_versions": {
+          "accel": "RTX 5090 VRAM slice",
+          "mujoco": "3.8.1",
+          "mujoco_cv": [
+            3,
+            8,
+            1
+          ],
+          "mujoco_warp": "3.8.1",
+          "name": "gpu-lease",
+          "numpy": "1.26.4",
+          "os": "Linux-6.14.0-27-generic-x86_64-with-glibc2.39",
+          "python": "3.13.5",
+          "warp": "1.13.0"
+        },
+        "nworld": 6,
+        "pass": true,
+        "rel_diff": 0.001441,
+        "rel_tol": 0.1,
+        "version_check": "pass"
+      }
+    },
+    "judge_intact": true,
+    "n_model_params": 5,
+    "noise_frac": 0.015,
+    "pass": true,
+    "recordings": {
+      "holdout": 4,
+      "train": 6
+    },
+    "seed": 7,
+    "timing": {
+      "gpu_create_s": 0.0,
+      "gpu_exec_wall_s": [
+        5.33
+      ],
+      "wall_seconds": 5.41
+    },
+    "verdict": "PASS",
+    "versions_cpu": {
+      "accel": "",
+      "mujoco": "3.8.1",
+      "mujoco_cv": [
+        3,
+        8,
+        1
+      ],
+      "name": "judge-host",
+      "numpy": "1.26.4",
+      "os": "Linux-6.14.0-27-generic-x86_64-with-glibc2.39",
+      "python": "3.13.5"
+    }
+  }
+}

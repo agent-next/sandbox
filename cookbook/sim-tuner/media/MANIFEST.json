@@ -1,0 +1,126 @@
+{
+  "source_commit": "73128bc3b3f9cd87158434e01737badabe3ef319",
+  "trajectory_note": "trajectories.npz is regenerated inside CPU grading; render-checks.json binds its SHA-256 and records exact state indices, frame checks and playback speed",
+  "files": {
+    "DEVIATIONS.md": {
+      "shows": "DEVIATIONS",
+      "sha256": "2a25d2926be50d9c1fdf36d75846a466e5e0a714315fb6ff068a6df1800b9af8",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "REVIEW.json": {
+      "shows": "REVIEW",
+      "sha256": "b3253227189b8ec5dd8bf86aee3b1bacbb52c1f5cfa83f02266528fe73574174",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "REVIEW.md": {
+      "shows": "REVIEW",
+      "sha256": "14bf463a09b999aa1e92e80e5450a062f8aee585445df1debef67d7b50061fe8",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "STORYBOARD.md": {
+      "shows": "STORYBOARD",
+      "sha256": "bd9e073b47b78d66fca850debfe65ea64034500b51241ac98ed6c225b01777de",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "collect.py": {
+      "shows": "collect",
+      "sha256": "db263b9a3ccf461487566d2f154475ba23d1a00d5c74b6c15e593a11248a10be",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "data/provenance.json": {
+      "shows": "provenance",
+      "sha256": "93ec5f598ec60f5abde9a478bd714b6a12359dc01d3e007c92241f5d26f49c4f",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "data/render-checks.json": {
+      "shows": "render-checks",
+      "sha256": "0c20f532e41ceae00e6e63364e661c5b5fdb8f47a392c8229d92cec048d74270",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "data/replay.json": {
+      "shows": "replay",
+      "sha256": "53d12df625ed52379e3dbb0faff20531cb7772e76eb0af6ca7f8eebe09f9519a",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "data/run-1.json": {
+      "shows": "run-1",
+      "sha256": "99721d3e1d48c0a99978e1c18e7483f15006a40e39be4a78b21e29bd8cb27403",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "data/run-2.json": {
+      "shows": "run-2",
+      "sha256": "d1fcef79ffa9eb472f615ed970f19d0951f41b74e86c142e6e63e268f6285fae",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "demo.mp4": {
+      "shows": "Single-view overlaid MuJoCo slow motion, exact path traces, five-parameter HUD and receipt proof",
+      "sha256": "bde693f27e9fff47ac8a68602d328ac5967a906e8393d46688c2a263d9d85dff",
+      "command": "bash cookbook/sim-tuner/media/make_media.sh",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "loop.png": {
+      "shows": "Recorded CPU search and eighteen mutant gate failures",
+      "sha256": "f1f5612ca330dce0bd95c42260fba8dfb54ed5c3a594fb8ea97e8e9a5879d520",
+      "command": "bash cookbook/sim-tuner/media/make_media.sh",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "make_media.sh": {
+      "shows": "make_media",
+      "sha256": "a48073b196177f5da427f3331cf11612409d0403f28157b58320e3e6bd6688bd",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "manifest.py": {
+      "shows": "manifest",
+      "sha256": "5c8e0acf7dd3d586b3961d3f48e69cb864c79958e24dd10372073bb0c3305460",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "render.py": {
+      "shows": "render",
+      "sha256": "7cb44f172664f410bd591a7cb88b2d5e9d92f286354f7bf39e1d91a79db3e5e3",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "requirements.txt": {
+      "shows": "requirements",
+      "sha256": "ee006384db40a1e1215dcf1e058690e29ae0e8ca5de52cd425e125beb37bd9a6",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "result.json": {
+      "shows": "result",
+      "sha256": "206eabc67c189be90403fdd6d5762aacc8b71781d0861cdbfccc1284b628017a",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "result.png": {
+      "shows": "Default, tuned and truth: overlaid graded box states",
+      "sha256": "2f68320f0dbb17516c345ae6f7dac89b07fc526bb84fb1b2423d3ae41b9b05b2",
+      "command": "bash cookbook/sim-tuner/media/make_media.sh",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "test_media.py": {
+      "shows": "test_media",
+      "sha256": "14e7922ca04f0b278e73448fc48c33a5bad99b8f7597214cdf58aea4b1fe974b",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
+    "video-gate.json": {
+      "shows": "video-gate",
+      "sha256": "f56d121c6538ab5fca129de8684e3e7c6655d47f8f06f60224402a5291512cf3",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    }
+  }
+}
