@@ -297,3 +297,23 @@ def test_api_url_override(api, monkeypatch):
     monkeypatch.setenv("E2B_API_URL", "https://api.sbx.agent-next.com/")
     api.on("GET", "/gpu/templates", 200, [])
     assert cli.main(["gpu", "templates"]) == 0
+
+
+@pytest.mark.parametrize("status,body,headers,want,absent", [
+    (409, {"message": "lease create failed: no GPU node has a free seat (1/1 answered the probe)"}, None,
+     "GPU capacity is full; retry later", "job already running"),
+    (503, {"message": "no GPU node has a free seat"}, {"Retry-After": "9"}, "retry in 9s", None),
+    (409, {"error": "gpu_capacity_exhausted", "message": "x", "retry_after_s": 12}, None,
+     "GPU capacity is full; retry in 12s", "job already running"),
+    (503, {"error": "gpu_capacity_exhausted"}, {"Retry-After": "5"}, "GPU capacity is full; retry in 5s", None),
+    (409, {"error": "gpu_lease_cap", "message": "owner holds 8 leases"}, None,
+     "GPU lease limit reached for this key; kill a lease first", "job already running"),
+    (402, {"error": "gpu_credit_exhausted"}, None, "GPU credit exhausted", None),
+])
+def test_typed_and_capacity_errors(api, capsys, status, body, headers, want, absent):
+    api.on("POST", "/sandboxes", status, body, headers=headers)
+    assert cli.main(["gpu", "create"]) == 2
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and want in err
+    if absent:
+        assert absent not in err
