@@ -4,19 +4,25 @@ dataset USD file.
 The Warehouse-01 assemblies (Props/assembly/*.usd) are pure composition
 layers: they payload files from Props/general/ and Props/modular/ by
 relative path.  Rendering one offline therefore needs its whole closure, so
-this module walks that closure with UsdUtils.ComputeAllDependencies and
-downloads every file from the dataset's official HuggingFace URL, verifying
-each one's sha256.
+this module walks that closure and downloads every file it references from
+the dataset's official HuggingFace URL, verifying each one's sha256.
 
 Only stdlib + pxr are used.  Every fetch is retried (HF rate-limits parallel
 requests with transient 404s) and downloads are resumed per-file so a rerun
 is cheap.
+
+The walk uses `UsdUtils.ComputeAllDependencies`, whose three returns cover
+everything a layer needs:
+  * layers     — every USD layer reached (transitively, so depth 1 suffices)
+  * assets     — every non-USD file it resolved (textures, MDL)
+  * unresolved — the paths it could not locate (bare `@OmniPBR.mdl@`, and a
+                 few assets NVIDIA never published in the dataset)
+A warm cache makes a path "resolved" rather than "unresolved", so the walk
+must read the union of layers + assets, not just the unresolved list.
 """
 from __future__ import annotations
 
 import hashlib
-import json
-import threading
 import time
 import urllib.error
 import urllib.request
@@ -28,6 +34,11 @@ HF_ROOT = ("https://huggingface.co/datasets/nvidia/"
 USER_AGENT = "agent-next-sbx/1.0 (omniverse-rtx-scenes build)"
 RETRIES = 5
 BACKOFF = 1.5
+TOP_LEVEL = {"Props", "SubLayers", "Environments", "Scenes", "images"}
+# extensions that are a file to localise rather than a USD layer
+NON_USD = (".png", ".jpg", ".jpeg", ".tga", ".tif", ".tiff", ".exr",
+           ".hdr", ".mdl", ".usdz", ".mtlx", ".mb")
+USD_EXT = (".usd", ".usda", ".usdc")
 
 
 # --------------------------------------------------------------------------
@@ -39,10 +50,8 @@ def dataset_rel(asset_path: str, anchor: Path | None = None) -> str:
     ComputeAllDependencies *resolves* each asset path before reporting it,
     so a `@../../general/X/X.usd@` reference from
     `Props/assembly/Asm/Asm.usd` comes back as an absolute filesystem path
-    rooted at whatever directory that layer was opened from
-    (`<cache>/Props/general/X/X.usd`).  Anchor stripping (dropping everything
-    up to and including a leading `Props/`) recovers the dataset-relative
-    path.  Passing `anchor=<cache>` makes the strip exact.
+    rooted at whatever directory that layer was opened from.  Anchoring the
+    strip at the cache root recovers the dataset-relative path.
     """
     p = str(asset_path).replace("\\", "/")
     if p.startswith("@"):
@@ -57,6 +66,8 @@ def dataset_rel(asset_path: str, anchor: Path | None = None) -> str:
     while p.startswith("/"):
         p = p[1:]
     first, _, _ = p.partition("/")
+    if first in TOP_LEVEL:
+        return p
     if first in ("assembly", "general", "materials", "modular", "skies"):
         return "Props/" + p
     return p
@@ -120,7 +131,7 @@ def fetch_many(rels: list[str], cache: Path,
         i, rel = i_rel
         out[i] = fetch_to_cache(rel, cache, shas.get(rel))
 
-    with ThreadPoolExecutor(max_workers=max(1, 8)) as ex:
+    with ThreadPoolExecutor(max_workers=8) as ex:
         list(ex.map(one, enumerate(rels)))
     return [p for p in out if p is not None]
 
@@ -128,105 +139,17 @@ def fetch_many(rels: list[str], cache: Path,
 # --------------------------------------------------------------------------
 # Closure walking
 # --------------------------------------------------------------------------
-def _deps_of(usd_path: Path, cache: Path) -> list[str]:
-    """Dataset-relative asset paths referenced by usd_path (unresolved ones)."""
-    from pxr import UsdUtils
-
-    _, _, unresolved = UsdUtils.ComputeAllDependencies(str(usd_path))
-    out = []
-    for u in unresolved:
-        u = str(u)
-        if not (u.endswith(".usd") or u.endswith(".usda")
-                or u.endswith(".usdc")):
-            continue
-        rel = dataset_rel(u, anchor=cache)
-        if rel:
-            out.append(rel)
-    return out
-
-
-def _asset_inputs_of(usd_path: Path, cache: Path) -> list[str]:
-    """Non-USD assets (textures, MDL) a layer references by relative path.
-
-    ComputeAllDependencies only *reports* an asset as unresolved when it
-    cannot be located at all, so files that sit next to the layer (the
-    common SimReady layout: `<asset>/materials/textures/*.png`) never show
-    up there.  Read the shader inputs directly to catch them; UDIM
-    placeholders are expanded to the tiles the dataset actually ships.
-    """
-    from pxr import Sdf, Usd, UsdShade
-
-    out: list[str] = []
-    try:
-        st = Usd.Stage.Open(str(usd_path), load=Usd.Stage.LoadAll)
-    except Exception:  # noqa: BLE001
-        return out
-    rel_layer = dataset_rel(str(usd_path), anchor=cache)
-    layer_dir = rel_layer.rsplit("/", 1)[0] if "/" in rel_layer else ""
-    for prim in st.Traverse(Usd.TraverseInstanceProxies()):
-        for name in ("outputs:mdl:surface", "outputs:surface"):
-            attr = prim.GetAttribute(name)
-            if not attr:
-                continue
-            for path in attr.GetConnections():
-                sp = st.GetPrimAtPath(path.GetPrimPath())
-                if not sp:
-                    continue
-                sa = sp.GetAttribute("info:mdl:sourceAsset")
-                if sa and sa.Get():
-                    add_rel(out, layer_dir, str(sa.Get()))
-                for inp in UsdShade.Shader(sp).GetInputs():
-                    v = inp.Get()
-                    if isinstance(v, Sdf.AssetPath):
-                        add_rel(out, layer_dir, str(v.path))
-    return out
-
-
-UDIM_TILES = ("1001",)
-
-
-def add_rel(out: list[str], layer_dir: str, path_str: str) -> None:
-    """Append the dataset-relative form of one asset path.
-
-    USD asset paths are written `@...@`; the delimiters are stripped here.
-    A UDIM placeholder is expanded to the tiles that exist in the dataset —
-    the SimReady packs author `<UDIM>` but ship only `1001..1003`, and the
-    rendered geometry uses tile 1001, so pulling just that keeps the bundle
-    small (the caller rewrites the remaining `<UDIM>` refs to 1001 anyway).
-    """
-    if not path_str:
-        return
-    s = path_str.strip()
-    if s.startswith("@") and s.endswith("@") and len(s) > 1:
-        s = s[1:-1]
-    if not s or s.startswith("<"):
-        return
-    for tile in UDIM_TILES:
-        expanded = s.replace("<UDIM>", tile)
-        base = expanded.lstrip("./")
-        rel = f"{layer_dir}/{base}" if layer_dir else base
-        parts = []
-        for seg in rel.split("/"):
-            if seg in ("", "."):
-                continue
-            if seg == "..":
-                if parts:
-                    parts.pop()
-                continue
-            parts.append(seg)
-        out.append("/".join(parts))
-
-
 def closure(entry_rel: str, cache: Path,
-            shas: dict[str, str] | None = None,
-            max_depth: int = 8) -> dict[str, dict]:
+            shas: dict[str, str] | None = None) -> dict[str, dict]:
     """Download the transitive closure of a dataset file.
 
     Returns {dataset_rel_path: {"bytes": n, "sha256": s}} for every file
-    fetched, including the entry itself, plus a "_missing" key holding the
-    paths that 404 in the public dataset (a few assemblies reference assets
-    NVIDIA did not publish) — the caller decides whether that is fatal.
+    fetched, plus a "_missing" key listing paths that 404 in the public
+    dataset — expected for the bare `@OmniPBR.mdl@` refs (the build supplies
+    the MDL chain) and for the handful of assets NVIDIA never published.
     """
+    from pxr import UsdUtils
+
     shas = shas or {}
     entry = entry_rel.lstrip("/")
     seen: dict[str, dict] = {}
@@ -234,10 +157,9 @@ def closure(entry_rel: str, cache: Path,
     frontier = [entry]
     seen[entry] = {}
 
-    for _ in range(max_depth):
+    for _ in range(4):
         nxt: list[str] = []
-        # fetch the frontier's USD deps first, then each layer's own assets
-        for rel in frontier:
+        for rel in list(frontier):
             if rel in missing:
                 continue
             try:
@@ -248,18 +170,40 @@ def closure(entry_rel: str, cache: Path,
             if "bytes" not in seen.get(rel, {}):
                 seen[rel] = {"bytes": p.stat().st_size,
                              "sha256": sha256_file(p)}
-            if rel.endswith((".usd", ".usda", ".usdc")):
-                for dep in list(_deps_of(p, cache)) + \
-                        _asset_inputs_of(p, cache):
-                    if dep not in seen:
-                        seen[dep] = {}
-                        nxt.append(dep)
+            try:
+                layers, assets, unresolved = UsdUtils.\
+                    ComputeAllDependencies(str(p))
+            except Exception:  # noqa: BLE001
+                continue
+            for layer in list(layers or []):
+                dep = dataset_rel(layer.identifier, anchor=cache)
+                if dep and dep.endswith(USD_EXT) and dep not in seen:
+                    seen[dep] = {}
+                    nxt.append(dep)
+            # assets + unresolved are the non-USD deps.  ComputeAllDependencies
+            # reports a UDIM tile even when it exists locally, so the paths
+            # already in `seen` are skipped by the membership test above.
+            for u in list(assets or []) + list(unresolved or []):
+                dep = dataset_rel(str(u), anchor=cache)
+                if not dep or dep in seen:
+                    continue
+                if not dep.endswith(NON_USD):
+                    # a bare @OmniPBR.mdl@ etc.: re-anchor at the layer that
+                    # referenced it so it lands next to that layer.
+                    anchor_dir = dataset_rel(str(p), anchor=cache)
+                    folder = anchor_dir.rsplit("/", 1)[0] if \
+                        "/" in anchor_dir else ""
+                    dep = f"{folder}/{dep}" if folder else dep
+                if dep in seen:
+                    continue
+                seen[dep] = {}
+                nxt.append(dep)
         frontier = nxt
         if not frontier:
             break
 
-    # everything still unseen was either enqueued or missing; fetch once more
-    pending = [r for r, v in seen.items() if "bytes" not in v and r != "_missing"]
+    pending = [r for r, v in seen.items()
+               if "bytes" not in v and r != "_missing"]
     for rel in pending:
         try:
             p = fetch_to_cache(rel, cache, shas.get(rel))
