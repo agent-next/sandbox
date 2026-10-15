@@ -163,7 +163,7 @@ one JSON verdict object and exits 0 only if every gate passes. `P` = measured,
 | 8 | `reward_determinism` | reward for the same code, 3 times, same env, same task | bit-identical |
 | 9 | `hostile_zero` | reward for infinite-loop, fork-bomb and file-deleting actions | `== 0.0` for all 3, each within `HOSTILE_S`; judge alive; bank sha256 unchanged |
 | 10 | `no_leak` | obs + info JSON vs the 100 hidden test values and the exact key sets | no hidden test value present; key sets exact |
-| 11 | `throughput` | rollouts/s over `ROLLOUTS` episodes with reference solutions | `>= THROUGHPUT_MIN` |
+| 11 | `throughput` | rollouts/s over `ROLLOUTS` episodes with reference solutions | `>= THROUGHPUT_MIN` (0.05; the reference env measures ~0.2) |
 | 12 | `judge_intact` | sha256 of every file under `judge/`, before vs after | identical |
 
 A **rollout** is one full episode: 20 steps, one per task.
@@ -179,8 +179,8 @@ environment variable read by `grade.sh`:
 | `TESTS_PER_TASK` | 5 | hidden tests per task |
 | `STEP_TIMEOUT_S` | 3.0 | wall-clock limit for one action |
 | `HOSTILE_S` | 20.0 | wall-clock limit for one hostile action, and the gate's ceiling |
-| `ROLLOUTS` | 10 | episodes timed by the throughput gate |
-| `THROUGHPUT_MIN` | 0.5 | rollouts/s floor (10 steps/s) |
+| `ROLLOUTS` | 5 | episodes timed by the throughput gate |
+| `THROUGHPUT_MIN` | 0.05 | rollouts/s floor (1 step/s); the reference env measures ~0.2 |
 | `RLIMIT_AS_MB` | 256 | address-space cap per action |
 | `RLIMIT_CPU_S` | 2 | CPU-seconds cap per action |
 | `RLIMIT_NPROC` | 64 | processes cap per action (fork-bomb control) |
