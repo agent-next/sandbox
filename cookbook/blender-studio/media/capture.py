@@ -133,7 +133,7 @@ def main():
     sid = args.sandbox
     try:
         if not sid:
-            sid = runner.create(90)
+            sid = runner.create(180)
             print(f"media sandbox={sid}", flush=True)
             runner.remote_step(sid, "snapshot", runner.snapshot(), 120)
             upload(sid, MEDIA / "render.py", runner.REMOTE + "/media/render.py")
