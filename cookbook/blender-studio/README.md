@@ -12,6 +12,12 @@ installing them on your computer, and is deleted after the run.
 [Watch the 1080p demo](media/demo.mp4) · [Judge specification](SPEC.md) ·
 [Two-run receipt](RECEIPT.md)
 
+The two launch runs are verified. The shipped media is a documented fallback:
+retained sandbox renders, one separately recovered pose, and local
+pinned-Blender proof images. A fresh complete media render finished, but service
+credit exhaustion blocked its download. This is **not** a completed fresh cloud
+media reproduction; details and remaining gates are in the receipt.
+
 ## Ask your agent
 
 > In an agent-next sandbox with template `blender`, improve
@@ -95,16 +101,19 @@ are ignored by Git. Command, seed, render time and hashes live in
 `media/MANIFEST.json` and `RECEIPT.md`.
 Install those exact local media tools before running this optional command.
 The template's judge tools need no installation or downloads.
+Media also needs DejaVu Sans (`DejaVuSans.ttf`, supplied by the standard
+`fonts-dejavu-core` package). The composer verifies its exact SHA-256
+`ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280`
+and records it in the manifest.
 
 Regeneration renders **all** poses together in one sandbox and records their
 new checksums. Future PNG files need not be byte-identical to this capture;
 the determinism requirement applies to verdict JSON excluding `timing`.
 Do not splice a re-rendered single frame into an older capture.
 
-For faster binary transfers, `STUDIO_USE_SDK=1` enables the `sbx` installation's
-already-pinned e2b 2.40.0 streaming transport. If it is installed in a separate
-Python environment, set `STUDIO_CAPTURE_PYTHON` to that environment's Python.
-The default transfer path uses only the `sbx` CLI.
+Transfers use only stdlib and the `sbx` CLI, with bounded chunk retries and
+SHA-256 verification before replacing a local source file. An optional SDK
+streaming path tried during development was removed after a slow live transfer.
 
 ## Limits and pending pre-merge gates
 

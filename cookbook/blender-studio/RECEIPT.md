@@ -3,8 +3,10 @@
 The final judge passed `python3 run.py` twice from fresh `blender` sandboxes,
 strictly sequentially, seed 17. Both processes exited 0, caught 10/10 mutants,
 and produced byte-identical verdicts excluding `timing`. Both sandbox deletions
-were confirmed by `sbx list`. Full-resolution media validation is recorded
-below when completed; no pending gate is claimed as passing.
+were confirmed by `sbx list`. The shipped fallback video passes the mechanical
+gate. A fresh cloud media capture is **not accepted**: its renders completed,
+but credit exhaustion blocked downloading them. No pending gate is claimed
+as passing.
 
 ## Versions
 
@@ -19,9 +21,10 @@ setup PASS (pinned image tools; no downloads)
 ```
 
 The local launcher uses Python 3.12.3 and sbx 0.0.1. Media composition uses
-Pillow 10.2.0 and ffmpeg/ffprobe 6.1.1-3ubuntu5. Optional binary file transport
-uses the CLI installation's e2b 2.40.0; `run.py` itself uses only stdlib and
-`sbx`. No key is uploaded, printed or written to a file.
+Pillow 10.2.0 and ffmpeg/ffprobe 6.1.1-3ubuntu5. Both launch and media transfer
+use stdlib and `sbx`. An e2b 2.40.0 streaming transfer was tried during media
+development and removed after slow progress. No key is uploaded, printed or
+written to a file.
 
 Clone commit in both launch runs:
 `253df342fa4fd1c772d4eb3e801e87f1bb5f1a01` (public `main` at run time).
@@ -165,8 +168,146 @@ This code review is **not** the independent README reproduction or media panel.
 
 ## Media
 
-Pending complete-set capture and mechanical video gate. Prior partial frame
-captures and single-frame retries are superseded, not used as final evidence.
+**Fresh complete capture blocked.** Sandbox
+`01a13f18-bae3-7ee1-b05e-ada941a5ae7c` ran the final ten-mutant self-test and
+rendered all thirteen 1920×1080 images at seed 17, 8 samples, Cycles CPU, four
+threads. The exact render command was:
+
+```sh
+blender -b --factory-startup --python-exit-code 1 -t 4 \
+  -P media/render.py -- --out media/source --seed 17
+```
+
+Real output excerpts:
+
+```text
+SELFTEST killed=10/10 kill_rate=100.0% exit=0 wall=176.756s
+selftest: exit=0 wall=182.1s
+media-render: exit=0 wall=675.2s
+```
+
+The optional SDK streaming download progressed too slowly and its local
+process was stopped (exit 143). The default CLI collector then tried to read
+the same completed sandbox, without creating a replacement. It failed before
+collecting any new complete file:
+
+```text
+cleanup confirmed: 01a13f18-bae3-7ee1-b05e-ada941a5ae7c absent from sbx list
+RuntimeError: sbx exec failed: sbx: SandboxException: Code.FAILED_PRECONDITION: credit exhausted; add credit to resume
+PROCESS_EXIT=1
+```
+
+The collector's `finally` killed the sandbox and confirmed deletion. There is
+no authority here to purchase credit. Restore service credit, then run the
+README's `sh media/make_media.sh` to replace the fallback with a complete
+single-sandbox capture. The optional SDK path was removed; the default uses
+bounded CLI chunks and verifies files before replacing local evidence.
+
+### Shipped fallback and provenance
+
+The clip uses twelve intact retained files from the earlier sandbox capture
+(eleven poses plus unlinked.png), and the intact frame-02 retry recovered from
+task scratch. All are actual Blender 1920×1080 renders, not drawings or
+interpolated geometry. The twelve retained files match their recorded remote
+SHA-256s. Frame 02 decodes fully and has recorded local SHA-256
+`6967cca179bf011c80c2dc6fc0f50c45f463c8d5eeec34caa4d3f424303014d9`;
+its own remote checksum is unavailable, so it is explicitly **not**
+remote-checksum-verified. This is the mixed-capture fallback the requested
+fresh run was intended to replace, not a claim that the fresh transfer passed.
+
+The original capture command was the same render command above, snapshot
+`31a60cd5e6f0deffd3cc9d040dc1861032b1e887c65a5dad4b5005ee894aaab5`,
+in sandbox `01a13e90-0220-7883-8936-c3f03ad3ca30`, render-step wall 1465.5 s.
+`judge/studio.py` and `examples/good/scene.py` are unchanged since that capture;
+only the judge's measurement coverage and mutants were hardened.
+
+| source file | measured seconds | timing basis |
+| --- | --- | --- |
+| frame-01.png | 134.425 | original render |
+| frame-02.png | 73.3 | standalone retry's remote-step wall, not isolated render |
+| frame-03.png | 126.698 | original render |
+| frame-04.png | 102.626 | original render |
+| frame-05.png | 123.168 | original render |
+| frame-06.png | 112.468 | original render |
+| frame-07.png | 128.715 | original render |
+| frame-08.png | 94.494 | original render |
+| frame-09.png | 103.419 | original render |
+| frame-10.png | 102.682 | original render |
+| frame-11.png | 91.128 | original render |
+| frame-12.png | 84.141 | original render |
+| unlinked.png | 81.177 | original render |
+
+Proof images and numeric media data were regenerated locally with the same
+pinned Blender 5.2.2 build `d13f752e3b9c`, host Python 3.12.3, using:
+
+```sh
+sh judge/selftest.sh --seed 17 --out outputs-edge-selftest
+```
+
+Real output:
+
+```text
+MUTANT unlinked_rim: killed=True failed=G3_backdrop,G5_linking
+MUTANT wrong_period: killed=True failed=G4_loop
+MUTANT off_center: killed=True failed=G1_framing,G3_backdrop
+MUTANT overexposed: killed=True failed=G2_exposure
+MUTANT clipped_hero: killed=True failed=G1_framing,G3_backdrop,G5_linking
+MUTANT visible_seam: killed=True failed=G3_backdrop
+MUTANT high_seam: killed=True failed=G3_backdrop
+MUTANT filtered_seam: killed=True failed=G3_backdrop
+MUTANT orbiting_hero: killed=True failed=G1_framing
+MUTANT unlinked_halo: killed=True failed=G2_exposure,G5_linking
+GOOD pass=True repeat=True byte_identical=True
+SELFTEST killed=10/10 kill_rate=100.0% exit=0 wall=37.948s
+PROCESS_EXIT=0
+```
+
+Local display luminance is 0.481605 vs cloud 0.481615 (difference 0.000010);
+endpoint difference is 0.000001 vs cloud 0.000002. Both differences are inside
+SPEC tolerances. All gate booleans, geometry, receiver lists and linking
+measurements agree. The video labels the local self-test replay, not a sandbox
+screen recording. `media/data/capture.json` and MANIFEST preserve this distinction.
+
+Composition command, after recovering the retained input files:
+
+```sh
+STUDIO_REUSE_SOURCE=1 sh media/make_media.sh
+```
+
+Font DejaVuSans.ttf is SHA-256 pinned:
+`ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280`.
+Result and loop figures are 1920×1080 at 200 dpi. The ignored lossless master
+uses CRF 0; the web encode uses CRF 18, preset slow, yuv420p and faststart.
+
+### Mechanical video gate, real output
+
+```json
+{
+  "file": "demo.mp4",
+  "passed": true,
+  "failed": [],
+  "checks": [
+    {"name": "width", "measured": 1920, "threshold": ">= 1920", "pass": true},
+    {"name": "height", "measured": 1080, "threshold": ">= 1080", "pass": true},
+    {"name": "aspect_ratio", "measured": 1.7778, "threshold": "16:9 +/- 1%", "pass": true},
+    {"name": "duration_s", "measured": 30.0, "threshold": "25-60 s", "pass": true},
+    {"name": "fps", "measured": 30.0, "threshold": "29.969-30.001", "pass": true},
+    {"name": "codec", "measured": "h264", "threshold": "== h264", "pass": true},
+    {"name": "pix_fmt", "measured": "yuv420p", "threshold": "== yuv420p", "pass": true},
+    {"name": "size_mib", "measured": 3.1902, "threshold": "<= 8 MiB", "pass": true},
+    {"name": "faststart", "measured": "moov@32 mdat@11672", "threshold": "moov atom before mdat", "pass": true},
+    {"name": "first_frame_luma_mean", "measured": 122.9183, "threshold": ">= 20", "pass": true},
+    {"name": "first_frame_luma_std", "measured": 30.0096, "threshold": ">= 12", "pass": true},
+    {"name": "first_frame_not_solid", "measured": 255, "threshold": ">= 8 (luma max-min)", "pass": true},
+    {"name": "scene_cuts_per_10s", "measured": 2.6667, "threshold": ">= 0.8", "pass": true},
+    {"name": "endcard_static", "measured": 0.0, "threshold": "<= 0.5 (mean YDIF, last 2 s)", "pass": true},
+    {"name": "audio", "measured": "absent", "threshold": "optional", "pass": true}
+  ]
+}
+```
+
+Whitespace is compacted above; values are unchanged. Composition exited 0:
+`media: 900 frames / 30 s / 3345167 bytes`.
 
 ## Repository tests
 
@@ -199,7 +340,21 @@ missing trajectory CSVs, missing render-checks JSON/work directory, and a
 missing ignored lossless master. Those files are unchanged by this branch. The all-cookbook
 `--import-mode=importlib` attempt also had two sibling-import collection errors;
 per-module invocation resolves those imports, not the missing fixtures.
-Final studio media tests and the video baseline will be rerun after composition.
+Final checks after composition:
+
+```text
+python3 -m pytest -q cookbook/blender-studio/test_studio_contract.py cookbook/blender-studio/test_studio_transfer.py cookbook/blender-studio/test_studio_media.py
+18 passed in 0.26s
+PROCESS_EXIT=0
+
+pytest -q cookbook/tools/test_video_gate.py
+17 passed in 140.04s (0:02:20)
+PROCESS_EXIT=0
+```
+
+The second video-suite run includes the shipped Blender clip in the committed
+demo baseline. No baseline exception was added for this demo.
+Full CLI Python-version CI matrices were not run (no CLI change).
 
 ## Sandboxes and cleanup
 
@@ -209,6 +364,7 @@ Final accepted runs:
 | --- | --- | --- |
 | `01a13f01-3ad6-7f63-b842-1b3893b56362` | final run A | killed; confirmed absent by `sbx list` |
 | `01a13f04-53e0-7a22-a898-31233a39eb6d` | final run B | killed; confirmed absent by `sbx list` |
+| `01a13f18-bae3-7ee1-b05e-ada941a5ae7c` | completed fresh render, download blocked | killed; confirmed absent by `sbx list` |
 
 Additional sandboxes created in this resumed round, all killed and confirmed:
 `01a13ee9-44e7-7901-b3df-a9664ee0100d`,
@@ -230,6 +386,28 @@ The last was still listed at resume and was explicitly killed in this round.
 The others are no longer listed; historical cleanup lines exist except for the
 incomplete earlier launch. No unattended sandbox-creation retry loop was used.
 
+Final `sbx list` succeeded with empty output. Both requested scratch directories,
+`/tmp/studio-work` and `/tmp/studio-repo`, were removed or already absent. The
+recovered render was copied into ignored media/source before deleting scratch.
+Four generated interrupted-download partial files were also removed. No other
+worktree was changed.
+
+## Public artifact checks
+
+Real final check output:
+
+```text
+JSON validity: PASS (70 tracked JSON files).
+Public artifact hygiene: PASS (34 changed files; no workstation paths, internal hosts, or key patterns).
+Largest changed file: cookbook/blender-studio/media/demo.mp4 (3345167 bytes).
+Requested scratch directories: absent.
+```
+
+Source and output SHA-256s pass the studio provenance tests. All three media
+deliverables are below 5 MB; source frames, build environments, proof renders
+and the lossless master are ignored, not committed. The font is hash pinned.
+No key, private hostname, workstation path, or person name was added.
+
 ## Deviations
 
 1. `run.py` clones public `main` then overlays the exact local judge/scene
@@ -241,10 +419,15 @@ incomplete earlier launch. No unattended sandbox-creation retry loop was used.
 3. Tools are verified from the pinned `blender` image instead of installed or
    downloaded by `setup.sh`. The exact build and embedded/host dependencies
    are checked; no archives or pip packages are fetched.
-4. Prior single-frame media retries are superseded by a complete-set render.
-   Media reproducibility means regenerated real renders with fresh recorded
-   SHA-256s, not guaranteed byte-identical future PNGs. Only verdict JSON must
-   be byte-identical excluding `timing`.
+4. A fresh complete render succeeded, but its transfer failed on exhausted
+   credit. The shipped media therefore uses retained earlier sandbox renders,
+   one recovered separately rendered pose without its own remote checksum,
+   and local pinned-Blender proof images. MANIFEST marks the complete capture
+   **not accepted**. This is a declared fallback, not the preferred one-sandbox
+   capture. Restore credit and rerun `sh media/make_media.sh`.
+   Media PNGs need not be byte-identical across re-renders; only verdict JSON
+   must be byte-identical excluding `timing`. Every current file has a recorded
+   SHA-256, but local recovery is not proof of remote transfer integrity.
 5. The 30 fps master repeats twelve real poses at six poses/second. The process
    slot is a labelled compressed replay of measured self-test output, not an
    autonomous-agent screen recording.
