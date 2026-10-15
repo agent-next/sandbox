@@ -135,13 +135,67 @@ checked_does_not_hold:
 VERDICT: SHIP
 ```
 
+Correction to that raw review: `test_rendered_job.py` is a standalone
+script, not a collected pytest test. The three pytest cases are in
+`tools/test_run.py`. The primary reran the script directly and obtained:
+
+```text
+ok: rendered job compiles, has no unbound names, and ran end to end
+```
+
+### Final Opus execution-based review
+
+Opus 5.5 reviewed the full branch through `6aedff29`, not only the last
+patch. Its actual conclusion:
+
+> **VERDICT: SHIP-CODE.** I found no blocking bugs in
+> `origin/main..6aedff2`. All 12 findings below are low severity. This
+> verdict covers the code only; it is not media acceptance or merge approval.
+
+It independently ran **34 tests in 15.10 s**, all eighteen actual CPU
+mutants (13 G3 failures and 5 G1 failures), two identical-except-timing
+CPU-only grades, the standalone rendered-job check, schema/hash checks and
+generated no-network probes. Its non-findings include strict artifact
+parsing, infrastructure failures never counting as kills, exception-path
+lease ownership, GPU world layout, exact provenance and truthful media status.
+It removed its own generated fixtures.
+
+Nonblocking findings are retained, not silently treated as fixes:
+
+- The runner's self-test still uses seed 7 even with another grade seed.
+  Only seed 7 has a shipped passing fit; a different rig needs refitting.
+- Standalone `GpuLease.close()` accepts a reported `dead` phase; the
+  one-command runner instead requires GET 404. A lost create response
+  cannot recover an unknown lease id. No blind deletion of unrelated
+  leases was attempted to work around that API limitation.
+- Standalone rendering trusts its captured array. Exact-state checks
+  validate the supplied qpos/qvel, not their origin. The delivered pipeline
+  captures immediately before rendering and checks CPU gates against the
+  lease, but the ignored array is not cryptographically bound in the manifest.
+- The hero's “Oracle” label denotes noiseless truth; the binding acceptance
+  oracle remains the noisy recordings specified in SPEC. The historical
+  CPU search retains a misleading `best_train_err_gpu` key; its actual
+  `engine: cpu` and measured CPU provenance are stated explicitly.
+- Low-priority cleanup includes duplicate payload text in a GPU-template
+  comment, a redundant CPU evaluation, an ineffective search `sys.path`
+  entry and a stale search-docstring calibration link. Verdicts identify
+  the temporary basename rather than an artifact hash. The storyboard
+  caption and this receipt's pytest attribution were corrected.
+
+No grading/search refactor was made after this gate. Shared request code
+stays duplicated so that `run.py` remains stdlib-only; there is no new
+compatibility layer. The quality lenses were covered in this single review,
+not represented as the unrun three-agent simplify panel.
+
 ## Verification
 
 - Demo tests and physics/media contracts: **34 passed in 10.20 s** locally.
 - CLI CI equivalents, isolated installed package: **310 passed** on Python
   3.10.21; **310 passed** on Python 3.13.15.
 - Shared video-gate suite: **20 passed in 361.62 s**. The committed-video
-  baseline is rechecked after the final media encode.
+  baseline after the final media encode: **1 passed in 232.48 s**. Its first
+  attempt hit a 120 s harness timeout; rerunning with a sufficient deadline
+  passed.
 - Result-card schema, JSON/plugin manifests, source hashes, media hashes and
   public-hygiene checks are checked before delivery.
 - Native full-frame-rate two-family vision playback: not available in this
@@ -151,7 +205,15 @@ VERDICT: SHIP
   **Neither passes the complete panel bar. This PR remains draft.**
 - Independent README-only reproduction: **not run**, reserved for another
   agent. No `REPRODUCE.md` was created.
-- No merge, release or deployment was attempted.
+- No PR merge, release or deployment was attempted.
+
+Final base integration: merged `origin/main` at `ecfbcfa1` in `69115e5b`.
+Its only new files are the unrelated `ci-test-matrix` demo. An exact diff
+confirmed no changes to the reviewed sim-tuner source, CLI, workflows,
+plugin manifests or shared cookbook tools. The CLI matrix and video checks
+therefore exercise the same files as this integrated tree.
+The two GPU verdicts differ in measured GPU timings, as expected; the CPU
+gate objects and all accepted GPU/CPU error numbers match exactly.
 
 ## Deviations and limits
 

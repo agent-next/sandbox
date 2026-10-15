@@ -16,7 +16,7 @@
     },
     "STORYBOARD.md": {
       "shows": "STORYBOARD",
-      "sha256": "df877ef7a5595d5fba0db491585afe373768203cf032e66d47a560718dad4268",
+      "sha256": "b4c08c4c585dea9a2d931531fdd514cc991a208c79bcacebfd86905d48f8a238",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },

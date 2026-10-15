@@ -9,7 +9,7 @@ the fresh `run.py --seed 7` receipt, `data/run-1.json`.
 |---|---|---|
 | 0–4 s, hook | Three box close-ups, synchronized real 3D states and a translucent truth ghost | Fit 5 physics values. Match unseen motion. / target gaps in cm / PASS and limit |
 | 4–9 s, input → output | Same box case, alternate lighting | Same caption and score; target gap changes with the actual timestep |
-| 9–14 s, escalate | Close view of the two-link servo arm responding | Default dynamics miss the hidden rig / held-out command 1 |
+| 9–14 s, escalate | Close view of the two-link servo arm responding | Actuation: watch the arm settle. / unseen test 1 |
 | 14–18 s, stress | A second held-out command, overhead camera | Unseen command, same tuned parameters / held-out command 2 |
 | 18–22 s, proof | Three rigs still replaying, judge HUD | PASS 0.02206 < 0.025 held-out error / Judge rejected all 18 broken fits. CPU / GPU agree. |
 | 22–25 s, end | Frozen real 3D frame, launch command | `python3 cookbook/sim-tuner/run.py` |
