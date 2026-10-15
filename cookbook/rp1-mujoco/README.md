@@ -17,6 +17,32 @@ graded artifact is one small Python file it hands back.
 
 ## Results
 
+![result.png](media/result.png)
+*Figure 1: the judged run. Left: a real headless MuJoCo render of the RP1
+humanoid at the exact judged state at t = 5.15 s, mid-push, read back from
+the judge's own trace (`grade.sh --trace`) — not re-simulated. Right: the
+judge's per-step trace of the good controller against each gate's pass line
+— pelvis height vs the 0.9·z0 floor (stand gate), torso tilt vs the 10°
+limit with the 30 N push marked (stand + push gates), foot contact force vs
+`m·g` (the statics oracle) and peak joint torque vs the ankle limit
+(limits gate).*
+
+![loop.png](media/loop.png)
+*Figure 2: the judge can fail. Top: the agent loop replayed in the order a
+fixing agent would submit — `zero_gains` → `no_balance` → `weak_balance` →
+`good` — counting the artifact-dependent gates each real verdict passes.
+Bottom: the self-test kill matrix, the known-good plus 8 single-edit
+mutants × all 10 gates, every cell a real `grade.sh --json` verdict with the
+measured value against its limit. Green = pass, red = fail, blue = info
+(reported, never gated). Kill rate 8/8 = 100 %.*
+
+[▶ demo.mp4 (30 s, 1920×1080, H.264)](media/demo.mp4)
+*Video: a real MuJoCo turntable of the judged pose, the judged episode in
+real time with the live tilt/height readout, then the two figures above,
+the zero-torque mutant falling under the stand gate, and the verdict card.
+Every 3D frame is a real render of the pinned scene at the state the judge
+recorded — nothing is re-simulated and no number is invented.*
+
 Key numbers from the judge verdict (`examples/good/controller.py`,
 seed `20261014`):
 
@@ -29,7 +55,7 @@ seed `20261014`):
 - **Statics oracle**: feet vertical contact force 384.70 N vs `m·g` =
   383.66 N (ratio 1.0027, limit within 2 %)
 - **Effort**: mechanical energy 22.6 J, peak torque 13.6 N·m, RMS 14.7 N·m
-- **Self-test kill rate**: 7/7 = 100 % (requirement ≥ 90 %)
+- **Self-test kill rate**: 8/8 = 100 % (requirement ≥ 90 %)
 - **Finding, not failure**: five right-side joints carry mirror-sign ranges
   (`right_hip_roll`, `right_knee`, `right_shoulder_pitch`,
   `right_shoulder_roll`, `right_elbow`) — an upstream quirk consistent
