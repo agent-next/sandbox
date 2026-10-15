@@ -241,9 +241,7 @@ class GitHub:
                     break
                 page += 1
 
-        for attempt in range(3):
-            if attempt:
-                time.sleep(2)
+        while time.monotonic() < deadline:
             searches = [search(repo) for repo in repos]
             while searches:
                 active = []
@@ -264,7 +262,8 @@ class GitHub:
                         return match
                     active.append(pages)
                 searches = active
-        raise RunnerError(f"no completed GitHub job found for runner {runner}")
+            time.sleep(min(2, max(0, deadline - time.monotonic())))
+        raise RunnerError(f"GitHub job lookup timed out for runner {runner}")
 
 
 @dataclass
