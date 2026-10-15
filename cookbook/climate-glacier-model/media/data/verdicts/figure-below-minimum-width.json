@@ -1,0 +1,139 @@
+{
+  "artifact": "media/data/mutants/figure-below-minimum-width/",
+  "failed_gate": "figure",
+  "gates": {
+    "_meta": {
+      "artifact": "media/data/mutants/figure-below-minimum-width/",
+      "passed": true,
+      "python": "/home/user/glacier-venv/bin/python",
+      "seed": 20261015,
+      "spec_constants": {
+        "L0": 15000.0,
+        "V0_continuum_km3": 6.0,
+        "V0_mask_km3": 6.0
+      }
+    },
+    "artifact": {
+      "passed": true,
+      "rows": 303
+    },
+    "crossing": {
+      "passed": true,
+      "scenarios": {
+        "warm_2p0": {
+          "csv_deviation_years": 0.0006622751760403389,
+          "csv_year": 96.0076481835564,
+          "deviation_years": 0.0006622751760403389,
+          "passed": true,
+          "reference_year": 96.00698590838036,
+          "reported_year": 96.0076481835564
+        },
+        "warm_2p4": {
+          "csv_deviation_years": -0.06465542862589757,
+          "csv_year": 81.60555821753714,
+          "deviation_years": -0.06465542862589757,
+          "passed": true,
+          "reference_year": 81.67021364616303,
+          "reported_year": 81.60555821753714
+        },
+        "warm_2p8": {
+          "csv_deviation_years": -0.02058507876472504,
+          "csv_year": 71.40555289612254,
+          "deviation_years": -0.02058507876472504,
+          "passed": true,
+          "reference_year": 71.42613797488727,
+          "reported_year": 71.40555289612254
+        }
+      },
+      "tolerance_years": 3.0
+    },
+    "determinism": {
+      "passed": true,
+      "reason": null
+    },
+    "figure": {
+      "bytes": 63126,
+      "dpi": 200.0,
+      "height_px": 400,
+      "legend": [
+        "warm_2p0",
+        "warm_2p4",
+        "warm_2p8"
+      ],
+      "note": "the judge checks the PNG header and run.json, not the pixels: it does not OCR the plot",
+      "passed": false,
+      "reason": "retreat.png width 600px < 900px",
+      "width_px": 600
+    },
+    "final_volume": {
+      "passed": true,
+      "scenarios": {
+        "warm_2p0": {
+          "measured_km3": 2.832,
+          "passed": true,
+          "reference_km3": 2.8319807504132917,
+          "relative_deviation": 6.797216649644164e-06
+        },
+        "warm_2p4": {
+          "measured_km3": 2.04288,
+          "passed": true,
+          "reference_km3": 2.0428553314704203,
+          "relative_deviation": 1.2075514697235438e-05
+        },
+        "warm_2p8": {
+          "measured_km3": 1.20192,
+          "passed": true,
+          "reference_km3": 1.201889389519038,
+          "relative_deviation": 2.546863399339138e-05
+        }
+      },
+      "tolerance_relative": 0.02
+    },
+    "shape": {
+      "passed": true,
+      "scenarios": {
+        "warm_2p0": {
+          "increases_at_years": [],
+          "mask_cells": 240,
+          "passed": true,
+          "reference_cells": 240,
+          "worst_relative_deviation": 0.0015196623405686668,
+          "worst_year": 9
+        },
+        "warm_2p4": {
+          "increases_at_years": [],
+          "mask_cells": 168,
+          "passed": true,
+          "reference_cells": 168,
+          "worst_relative_deviation": 0.0021006721855688177,
+          "worst_year": 98
+        },
+        "warm_2p8": {
+          "increases_at_years": [],
+          "mask_cells": 96,
+          "passed": true,
+          "reference_cells": 96,
+          "worst_relative_deviation": 0.0038029067127054884,
+          "worst_year": 99
+        }
+      },
+      "tolerance_relative": 0.02
+    },
+    "zero_melt": {
+      "passed": true,
+      "reported_crossings": {},
+      "tolerance_relative": 1e-09,
+      "worst_at": null,
+      "worst_relative_deviation": 0.0
+    }
+  },
+  "passed": false,
+  "reason": "retreat.png width 600px < 900px",
+  "seed": 20261015,
+  "timing": {
+    "first_run_seconds": 3.08,
+    "second_run_seconds": 1.75,
+    "total_seconds": 6.91,
+    "zero_melt_seconds": 2.01
+  }
+}

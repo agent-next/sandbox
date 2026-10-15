@@ -1,0 +1,32 @@
+# Artifact dependencies for cookbook/climate-glacier-model, pinned with
+# sha256.  Installed by judge/setup.sh into a venv under $HOME:
+#   python3 -m venv "$VENV"
+#   "$VENV/bin/pip" install --no-cache-dir --require-hashes -r requirements.txt
+# The JUDGE itself is stdlib-only and never imports any of these; the
+# artifact (model.py) uses numpy + matplotlib only.
+#
+# Resolved for CPython 3.12 manylinux_2_17 x86_64 (Debian bookworm, glibc
+# 2.36) -- the interpreter judge/VERSIONS.txt records.  Every version was
+# published before 2025-10-01; nothing here is a recent upload.
+numpy==2.2.6 \
+    --hash=sha256:fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249
+matplotlib==3.10.6 \
+    --hash=sha256:56cd2d20842f58c03d2d6e6c1f1cf5548ad6f66b91e1e48f814e4fb5abd1cb95
+contourpy==1.3.2 \
+    --hash=sha256:f26b383144cf2d2c29f01a1e8170f50dacf0eac02d64139dcd709a8ac4eb3cfe
+cycler==0.12.1 \
+    --hash=sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30
+fonttools==4.60.1 \
+    --hash=sha256:8177ec9676ea6e1793c8a084a90b65a9f778771998eb919d05db6d4b1c0b114c
+kiwisolver==1.4.8 \
+    --hash=sha256:cc978a80a0db3a66d25767b03688f1147a69e6237175c0f4ffffaaedf744055a
+packaging==25.0 \
+    --hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484
+pillow==11.3.0 \
+    --hash=sha256:67172f2944ebba3d4a7b54f2e95c786a3a50c21b88456329314caaa28cda70f6
+pyparsing==3.2.5 \
+    --hash=sha256:e38a4f02064cf41fe6593d328d0512495ad1f3d8a91c4f73fc401b3079a59a5e
+python-dateutil==2.9.0.post0 \
+    --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
+six==1.17.0 \
+    --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274

@@ -1,0 +1,27 @@
+{
+  "artifact": "media/data/mutants/import-outside-allow-list/",
+  "failed_gate": "artifact",
+  "gates": {
+    "_meta": {
+      "artifact": "media/data/mutants/import-outside-allow-list/",
+      "passed": true,
+      "python": "/home/user/glacier-venv/bin/python",
+      "seed": 20261015,
+      "spec_constants": {
+        "L0": 15000.0,
+        "V0_continuum_km3": 6.0,
+        "V0_mask_km3": 6.0
+      }
+    },
+    "artifact": {
+      "passed": false,
+      "reason": "model.py imports ['subprocess'], outside the allow-list ['argparse', 'csv', 'json', 'math', 'matplotlib', 'numpy', 'os', 'sys']"
+    }
+  },
+  "passed": false,
+  "reason": "model.py imports ['subprocess'], outside the allow-list ['argparse', 'csv', 'json', 'math', 'matplotlib', 'numpy', 'os', 'sys']",
+  "seed": 20261015,
+  "timing": {
+    "total_seconds": 0.01
+  }
+}
