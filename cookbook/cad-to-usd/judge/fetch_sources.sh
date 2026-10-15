@@ -18,7 +18,7 @@ mkdir -p "$target/sources"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/cad2usd-src.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
-while read -r sha path key; do
+while IFS='|' read -r sha path key; do
     [[ -z "$sha" || "$sha" == \#* ]] && continue
     dest="$target/sources/$path"
     if [[ -f "$dest" ]] && echo "$sha  $dest" | sha256sum -c --quiet -; then
