@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-10-15T13:05:04Z",
+  "generated_at": "2026-10-15T21:40:18Z",
   "files": {
-    "result.png": {"sha256": "f9ff36c28efb74aebcc093f250980c037d4a5984fae11e4fd077a86aa2a6a29d", "bytes": 891577}
+    "result.png": {"sha256": "c78462af5bdbb48b9e2534f96d8bbb8254f4c62bc9a09a5b66908dbc71b133e8", "bytes": 926720}
     ,
-    "loop.png": {"sha256": "f84a7ae2aa36f696b91d36d7df6fbcab3a758c2a1e5828c753c0f7e8dc0e8861", "bytes": 660791}
+    "loop.png": {"sha256": "e49e0212426f332257b255552593b804fdf45528d5ce8ef6bfea01d2532d6b29", "bytes": 692917}
     ,
-    "demo.mp4": {"sha256": "c6891349265856c9813befd352727c13288775ca37baea80d0edb8176c3b8712", "bytes": 5166852}
+    "demo.mp4": {"sha256": "20e73926bdab6ada7bd79373698fb66ee93ad6acd1e0b40dabc8865d19ae777d", "bytes": 5156880}
   },
   "source_files": {
     "mjcf_model": "scripts/cartpole.xml",
@@ -33,6 +33,7 @@
       "data/too-sluggish/s1_trace.csv",
       "data/too-sluggish/s2_trace.csv"
     ],
+    "selftest_log": "data/selftest.log",
     "margin_csvs": [
       "data/good/margins_force.csv",
       "data/good/margins_torque.csv"
@@ -54,7 +55,7 @@
   "video_checks": {
     "duration_sec": 52.234000,
     "resolution": "1920,1080",
-    "size_bytes": 5166852,
+    "size_bytes": 5156880,
     "size_mb": 4,
     "codec": "h264",
     "pix_fmt": "yuv420p",

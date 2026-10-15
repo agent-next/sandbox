@@ -1,15 +1,15 @@
 {
   "gates": {
     "design_stable": {
-      "value": -0.2190160875994172,
+      "value": -0.21353176543462893,
       "pass": true
     },
     "s1_F_demand_max_N": {
-      "value": 0.218457202634677,
+      "value": 0.06290805853771539,
       "pass": true
     },
     "s1_tau_demand_max_Nm": {
-      "value": 0.2868976883208669,
+      "value": 0.1519493468368417,
       "pass": true
     },
     "s1_theta_overshoot": {
@@ -17,31 +17,31 @@
       "pass": true
     },
     "s1_theta_settle_s": {
-      "value": 0.86,
+      "value": 1.1500000000000001,
       "pass": true
     },
     "s1_x_settle_s": {
-      "value": 9.64,
+      "value": 8.34,
       "pass": false
     },
     "s1_theta_end_rad": {
-      "value": 8.442883622643208e-05,
+      "value": 3.3748874280824714e-05,
       "pass": true
     },
     "s1_x_end_m": {
-      "value": 0.008842269023125555,
+      "value": 0.005888109128885195,
       "pass": true
     },
     "s2_peak_theta_rad": {
-      "value": 0.010257273750286323,
+      "value": 0.004493815649111091,
       "pass": true
     },
     "s2_F_demand_max_N": {
-      "value": 0.08265723899940926,
+      "value": 0.09692641640193202,
       "pass": true
     },
     "s2_tau_demand_max_Nm": {
-      "value": 0.022588888527580807,
+      "value": 0.007779908762184588,
       "pass": true
     },
     "s2_x_settle_s": {
@@ -49,7 +49,7 @@
       "pass": false
     },
     "s2_theta_end_rad": {
-      "value": 0.0029170917661866845,
+      "value": 0.001256287208764702,
       "pass": false
     },
     "gm_force_db": {
@@ -57,7 +57,7 @@
       "pass": true
     },
     "pm_force_deg": {
-      "value": 52.53204157782653,
+      "value": 63.44396739778857,
       "pass": true
     },
     "gm_torque_db": {
@@ -65,7 +65,7 @@
       "pass": true
     },
     "pm_torque_deg": {
-      "value": 58.09190766841766,
+      "value": 60.35722163547423,
       "pass": true
     },
     "mc_pass_fraction": {
@@ -76,21 +76,21 @@
   "passed": false,
   "K": [
     [
-      0.069981577224902,
-      0.3156373096916637,
-      -1.4563813508978467,
-      -0.29827531054629586
+      0.09692641640193202,
+      0.4552016814885182,
+      -0.41938705691810263,
+      -0.06908359562497468
     ],
     [
-      0.022588888527580807,
-      0.1107414540507637,
-      1.9126512554724457,
-      0.4150372995954737
+      0.007779908762184588,
+      0.038483053434552564,
+      1.0129956455789446,
+      0.21674560524107242
     ]
   ],
   "mc_pass": 0,
   "mc_n": 200,
   "mc_seed": 20260101,
-  "mc_theta_settle_worst_s": 10.0,
+  "mc_theta_settle_worst_s": 1.72,
   "mc_x_settle_worst_s": 10.0
 }

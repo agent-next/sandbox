@@ -1,13 +1,13 @@
 # Media Review — control-tuning
 
-Generated 2026-10-15 13:05:04 UTC by `make_media.sh`.
+Generated 2026-10-15 21:40:19 UTC by `make_media.sh`.
 
 ## Files produced
 | file | sha256 | bytes |
 |------|--------|-------|
-| result.png | f9ff36c28efb74aebcc093f250980c037d4a5984fae11e4fd077a86aa2a6a29d | 891577 |
-| loop.png | f84a7ae2aa36f696b91d36d7df6fbcab3a758c2a1e5828c753c0f7e8dc0e8861 | 660791 |
-| demo.mp4 | c6891349265856c9813befd352727c13288775ca37baea80d0edb8176c3b8712 | 5166852 |
+| result.png | c78462af5bdbb48b9e2534f96d8bbb8254f4c62bc9a09a5b66908dbc71b133e8 | 926720 |
+| loop.png | e49e0212426f332257b255552593b804fdf45528d5ce8ef6bfea01d2532d6b29 | 692917 |
+| demo.mp4 | 20e73926bdab6ada7bd79373698fb66ee93ad6acd1e0b40dabc8865d19ae777d | 5156880 |
 
 ## 3-D render provenance (DEMO-STANDARD)
 - All motion in demo.mp4 and the result.png hero frame is rendered by
@@ -30,16 +30,16 @@ Generated 2026-10-15 13:05:04 UTC by `make_media.sh`.
 - Duration: 52.234000 s
 - Resolution: 1920,1080
 - Frame rate: 30/1
-- Size: 5166852 bytes (4 MB) — under 8 MB limit: PASS
+- Size: 5156880 bytes (4 MB) — under 8 MB limit: PASS
 - Codec: h264, yuv420p, +faststart
 
 ## PNG verification (opened at full size)
 - **result.png**: 13×12.6 in @ 200 dpi
   - Top: hero frame — the MuJoCo render of good/s1_trace.csv at
-    t = 0.70 s (the measured θ settle time) with HUD numbers, gate
+    t = 0.63 s (the measured θ settle time) with HUD numbers, gate
     card and PASS tag overlaid; the translucent green strip on the
     rail is the ±0.01 m x-settle band.
-  - Bottom-left: gate table with 10 rows — all PASS, values match
+  - Bottom-left: gate table — all PASS, values match
     data/good/verdict.json exactly.
   - Bottom-right: MC scatter (200 dots) with red limits at x = 7 s,
     θ = 8 s — 200/200 = 1.000 ≥ 0.95.
@@ -50,11 +50,12 @@ Generated 2026-10-15 13:05:04 UTC by `make_media.sh`.
   - Left: 4×18 gate matrix (too-aggressive, too-sluggish, mc-marginal,
     good) — ✓/✕ per gate from verdict JSONs
   - Middle-left: too-aggressive vs good torque demand (S2) — red
-    ±1 N·m lines, orange exceeds at 2.52 N·m
+    ±1 N·m lines, orange exceeds at 1.30 N·m
   - Middle-right: too-sluggish vs good cart position (S2) — green
-    band, orange never settles (10 s)
+    band, orange never settles (10.00 s)
   - Right-top: first-failing gate per step with measured values
-  - Right-bottom: selftest bars — 9/9 mutants killed
+  - Right-bottom: selftest kill bars and kill rate parsed from
+    data/selftest.log — 12/12 = 100%
 
 ## Layout gate
 `make_result.py` and `make_loop.py` call `common.check_layout(fig)`
@@ -74,7 +75,7 @@ Commands (run from `cookbook/control-tuning/`):
 |---|----------------------|
 | 2 s  | title card — "LQR cart-pole control tuning" |
 | 10 s | S2 replay start: MuJoCo cart at x = 1 m, pole upright; HUD shows t, θ, x, \|F\|, \|τ\|; green settle strip at x = 0 ahead on the rail; sparkline x(t) with playhead |
-| 20 s | side-by-side S2 — too-aggressive (left) vs good (right); the torque gate's FAIL tag "peak \|τ\| = 2.52 N·m > 1 N·m" pinned on the left half |
+| 20 s | side-by-side S2 — too-aggressive (left) vs good (right); the torque gate's FAIL tag "peak \|τ\| = 1.30 N·m > 1 N·m" pinned on the left half |
 | 30 s | side-by-side S2 at 1.7× — too-sluggish (left) vs good (right); good's cart already inside the green band, sluggish still short of it |
 | 40 s | media/loop.png proof frame — mutant × gate matrix, killer traces, selftest bars |
 | 50 s | closing card — "every number is a judge measurement" |
@@ -89,6 +90,7 @@ Every plotted/overlaid number was spot-checked against its source file:
 - loop.png matrix cells ↔ each candidate's verdict.json gate pass flags
 - loop.png killer traces ↔ data/too-aggressive/s2_trace.csv (τ demand),
   data/too-sluggish/s2_trace.csv (x position)
-- loop.png selftest bars ↔ selftest.sh output (9/9 = 100%)
+- loop.png selftest bars & kill rate ↔ data/selftest.log (the captured
+  output of judge/selftest.sh)
 
 All match. No synthesised data.

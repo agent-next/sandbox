@@ -1,0 +1,28 @@
+== judge unit tests (python3 -m unittest judge/test_judge.py) ==
+...........
+----------------------------------------------------------------------
+Ran 11 tests in 0.085s
+
+OK
+== good example (deterministic gates, --no-mc) ==
+PASS (expected pass): /home/user/w/cookbook/control-tuning/examples/good/controller.json
+== known-bad mutants (deterministic gates, --no-mc) ==
+PASS (expected reject): degenerate-r-force - gate 3: |F| demand > 10 N (s1_F_demand_max_N = 1085.4)
+PASS (expected reject): degenerate-r-torque - gate 3: |τ| demand > 1 N·m (s1_tau_demand_max_Nm = 1060.71)
+PASS (expected reject): gm-fail [isolated] - gate 5: GM < 6 dB only (gm_force_db = -3.77274)
+PASS (expected reject): nan-weight - gate 1: NaN weight (invalid artifact: Q[2] is not finite)
+PASS (expected reject): pm-fail [isolated] - gate 5: PM < 45° only (pm_force_deg = 39.4268)
+PASS (expected reject): sign-flip - gate 1: Q weight < 0 (invalid artifact: Q must be elementwise non-negative)
+PASS (expected reject): too-aggressive - gate 3: |τ| demand > 1 N·m (s1_tau_demand_max_Nm = 10.5907)
+PASS (expected reject): too-sluggish - gate 3/4: misses settling (s2_x_settle_s = 10)
+PASS (expected reject): weak-feedback - gate 2: poles too slow (design_stable = -0.037916)
+PASS (expected reject): wrong-shape - gate 1: Q length 3 (invalid artifact: Q must be a list of 4 numbers)
+PASS (expected reject): wrong-type - gate 1: type ≠ "lqr" (invalid artifact: type must be "lqr", got 'pid')
+== good example (full gates, graded twice with the same seed) ==
+
+PASS (expected pass): full grade of the good example, Monte-Carlo 200/200
+PASS: verdict JSON byte-identical across the two gradings (seed 20260101)
+== mc-marginal mutant (killed by the Monte-Carlo gate alone) ==
+PASS (setup ok): mc-marginal passes every deterministic gate
+PASS (expected reject): mc-marginal [isolated] - gate 6: Monte-Carlo < 95 % (mc_pass_fraction = 0.795)
+== kill rate: 12/12 = 100% ==

@@ -275,11 +275,9 @@ axs.set_title(f"Selftest - known-bad mutants the judge must reject\n"
               f"(kill rate {KILLED}/{TOTAL} = {RATE} %, threshold ≥ 90 %)",
               fontsize=12, color=c.INK, pad=8)
 axs.text(0.0, -(len(rows) + 0.55),
-         f"bars and kill rate parsed from the captured selftest output "
-         f"(media/data/selftest.log);\n"
-         f"{N_GOOD} expected-pass grading(s) incl. the full Monte-Carlo "
-         "grade of the good example", fontsize=9.0, color=c.MUTED,
-         va="top")
+         "kill bars parsed from media/data/selftest.log\n"
+         f"({N_GOOD} expected-pass gradings, MC gate included)",
+         fontsize=9.0, color=c.MUTED, va="top")
 
 fig.suptitle("The agent loop under the judge - replayed with the committed "
              "examples (seed 20260101)", fontsize=15, color=c.INK, x=0.055,

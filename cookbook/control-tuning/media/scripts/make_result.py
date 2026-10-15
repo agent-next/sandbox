@@ -118,10 +118,10 @@ axm.text(c.MC_X_SETTLE_MAX - 0.15, c.MC_THETA_SETTLE_MAX - 0.25,
          "θ settle limit 8 s (lean run)",
          fontsize=10, color=c.CRIT, va="top", ha="right")
 frac = g["mc_pass_fraction"]["value"]
-axm.text(0.25, 3.30,
+axm.text(0.25, 2.20,
          f"{V['mc_pass']}/{V['mc_n']} samples pass both runs\n"
          f"gate: ≥ 95 % of 200 - measured {frac:.3f}\n"
-         f"worst θ settle {V['mc_theta_settle_worst_s']:.2f} s, "
+         f"worst θ settle {V['mc_theta_settle_worst_s']:.2f} s (lean run), "
          f"worst x settle {V['mc_x_settle_worst_s']:.2f} s",
          fontsize=10, color=c.INK2, va="top", ha="left")
 axm.set_title("Monte-Carlo gate - ±20 % plant perturbation, 200 runs",
