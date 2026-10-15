@@ -109,19 +109,21 @@ grep -E '^selftest: (mutant KILLED:|kill rate|determinism)' /tmp/selftest.log ||
         if r.returncode != 0:
             raise RuntimeError(f"in-sandbox run failed with exit {r.returncode}")
     finally:
+        # NB: never `return` here — it would swallow a raised failure and
+        # let a failed run exit 0 under --keep
         if keep:
             print(f"cad-verify-back: --keep; sandbox left up: {sid}", flush=True)
-            return
-        # always kill; a failure to confirm cleanup names the id
-        rk = sh(f"sbx kill {sid}", env=env)
-        rl = sh("sbx list", env=env)
-        if rk.returncode != 0:
-            raise RuntimeError(f"cleanup unconfirmed for {sid}: sbx kill exit {rk.returncode}\n{rk.stdout}")
-        if sid not in rl.stdout:
-            print(f"cad-verify-back: destroyed {sid}; verified absent", flush=True)
         else:
-            raise RuntimeError(f"cleanup unconfirmed for {sid}: still listed in sbx list\n{rl.stdout}")
-        wall("total", t0)
+            # always kill; a failure to confirm cleanup names the id
+            rk = sh(f"sbx kill {sid}", env=env)
+            rl = sh("sbx list", env=env)
+            if rk.returncode != 0:
+                raise RuntimeError(f"cleanup unconfirmed for {sid}: sbx kill exit {rk.returncode}\n{rk.stdout}")
+            if sid not in rl.stdout:
+                print(f"cad-verify-back: destroyed {sid}; verified absent", flush=True)
+            else:
+                raise RuntimeError(f"cleanup unconfirmed for {sid}: still listed in sbx list\n{rl.stdout}")
+            wall("total", t0)
 
 
 if __name__ == "__main__":
