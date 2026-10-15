@@ -18,10 +18,22 @@ REMOTE = "/tmp/studio-repo/cookbook/blender-studio"
 
 
 def sbx(*args):
-    result = subprocess.run(["sbx", *args], text=True, capture_output=True, timeout=150)
+    try:
+        result = subprocess.run(["sbx", *args], text=True, capture_output=True, timeout=150)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"sbx {args[0]} timed out") from None
     if result.returncode:
         raise RuntimeError(f"sbx {args[0]} failed: {result.stderr.strip()}")
     return result.stdout.strip()
+
+
+def create(minutes):
+    output = sbx("create", "--template", "blender", "--timeout-min", str(minutes))
+    # The id is the last line; anything before it is CLI chatter, not a failure.
+    candidate = output.splitlines()[-1].strip() if output else ""
+    if not re.fullmatch(r"[a-zA-Z0-9-]{8,80}", candidate):
+        raise RuntimeError("create returned no sandbox id")
+    return candidate
 
 
 def remote_step(sid, label, command, budget):
@@ -104,10 +116,7 @@ def main():
     start = time.monotonic()
     try:
         before = time.monotonic()
-        candidate = sbx("create", "--template", "blender", "--timeout-min", "30")
-        if not re.fullmatch(r"[a-zA-Z0-9-]{8,80}", candidate):
-            raise RuntimeError("create returned an invalid sandbox id")
-        sid = candidate
+        sid = create(30)
         print(f"create: sandbox={sid} template=blender wall={time.monotonic()-before:.1f}s",
               flush=True)
         remote_step(sid, "clone",

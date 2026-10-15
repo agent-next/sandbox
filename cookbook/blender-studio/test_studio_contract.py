@@ -91,6 +91,19 @@ class ContractTests(unittest.TestCase):
         self.assertIn(("kill", "sandbox-test"), calls)
         self.assertIn(("list",), calls)
 
+    def test_create_chatter_before_id_still_kills(self):
+        calls = []
+        def fake(*args):
+            calls.append(args)
+            return "notice: newer sbx available\nsandbox-test" if args[0] == "create" else ""
+        with patch.object(runner, "sbx", side_effect=fake), \
+             patch.object(runner, "remote_step", side_effect=RuntimeError("failed step")), \
+             patch.object(runner.shutil, "which", return_value="sbx"), \
+             patch.dict(runner.os.environ, {"SBX_API_KEY": "<your key>"}), \
+             patch.object(sys, "argv", ["run.py"]):
+            self.assertEqual(runner.main(), 1)
+        self.assertIn(("kill", "sandbox-test"), calls)
+
     def test_cleanup_fails_when_id_still_listed(self):
         with patch.object(runner, "sbx", return_value="sandbox-test active"), \
              patch.object(runner.time, "sleep"):

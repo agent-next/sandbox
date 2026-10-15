@@ -3,6 +3,7 @@ import base64
 import hashlib
 import importlib.util
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -48,6 +49,22 @@ class TransferTests(unittest.TestCase):
                 capture.download("sandbox-test", "/tmp/frame.png", path, len(payload),
                                  hashlib.sha256(payload).hexdigest())
             remote.assert_not_called()
+
+    def test_stalled_chunk_is_retried(self):
+        payload = b"evidence after one stalled exec"
+        replies = [subprocess.TimeoutExpired("sbx", 150), base64.b64encode(payload).decode()]
+        def fake_run(*args, **kwargs):
+            reply = replies.pop(0)
+            if isinstance(reply, Exception):
+                raise reply
+            return subprocess.CompletedProcess(args, 0, reply, "")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "frame.png"
+            with patch.object(capture.runner.subprocess, "run", side_effect=fake_run), \
+                 patch.object(capture.time, "sleep"):
+                capture.download("sandbox-test", "/tmp/frame.png", path, len(payload),
+                                 hashlib.sha256(payload).hexdigest())
+            self.assertEqual(path.read_bytes(), payload)
 
 
 if __name__ == "__main__":
