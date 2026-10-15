@@ -102,7 +102,7 @@ def main():
             runner.remote_step(sid, "selftest", prefix + "sh judge/selftest.sh", 600)
             runner.remote_step(sid, "media-render", prefix +
                                "blender -b --factory-startup --python-exit-code 1 -t 4 "
-                               "-P media/render.py -- --out media/source --seed 17", 3000)
+                               "-P media/render.py -- --out media/source --seed 17", 5400)
         collect(sid)
     finally:
         if sid:
