@@ -87,7 +87,8 @@ def mutant_blurb(name):
     fn = mut_mod.MUTANTS[name]
     para = " ".join((fn.__doc__ or "").strip().split("\n\n")[0].split())
     if len(para) > 100:               # keep the first whole clause
-        cut = [i for i in (para.find(": "), para.find(". ")) if i > 0]
+        cut = [i for i in (para.find(": "), para.find(". "),
+                           para.find(" \u2014 ")) if i > 0]
         para = para[:min(cut)] if cut else para
     return para
 
