@@ -4,11 +4,15 @@ of examples/good/panel.py.
 Usage: python mutants.py <good_panel.py> <out_dir>
 
 Each mutant is the good file with exactly one spec-relevant edit. The
-self-test expects every mutant to fail at least one gate. The edits map to
-the known-bad classes in SPEC.md: missing slider, wrong slider range, wrong
-swatch colour, layout overflow outside the window, empty window -- plus
-wrong button text, wrong swatch size, a baked-PNG artifact, and a
-nondeterministic render.
+self-test expects every mutant to fail at least one judge gate (a mutant
+that only crashes the build proves nothing about the gates). The edits map
+to the known-bad classes in SPEC.md: missing slider, wrong slider range,
+wrong swatch colour, layout overflow outside the window, empty window --
+plus wrong button text, wrong swatch size, a baked-PNG artifact, and a
+nondeterministic render. The baked-PNG mutant is the full judge-fooling
+exploit (plain objects named after the widget classes, attributes copied
+from a real run, capture_screenshot swapped for baked bytes), generated
+from the demo's committed media data.
 """
 import os
 import sys
@@ -33,10 +37,12 @@ MUTANTS = {
     "swatch_overflow": (
         "SWATCH_W, SWATCH_H = 140, 24",
         "SWATCH_W, SWATCH_H = 500, 24"),
-    # empty window: no sliders at all
+    # empty window (visually): the panel builds and the widgets are live,
+    # but the VStack is invisible so nothing is drawn -- the pixel gate's
+    # "widgets drawn" check must catch it
     "empty_window": (
-        "for label, (lo, hi) in zip(SLIDER_LABELS, SLIDER_RANGES):",
-        "for label, (lo, hi) in zip(SLIDER_LABELS, []):"),
+        "with ui.VStack(spacing=6):",
+        "with ui.VStack(spacing=6, visible=False):"),
 
     # -- further single-edit mutants ---------------------------------------
     # wrong button text: the required "Apply" label is gone
@@ -45,40 +51,120 @@ MUTANTS = {
     "wrong_swatch_size": (
         "SWATCH_W, SWATCH_H = 140, 24",
         "SWATCH_W, SWATCH_H = 90, 24"),
-    # missing checkbox: the widget tree loses a required type
+    # missing checkbox: the widget tree loses a required type (an empty
+    # Label builds fine, so the widget-tree gate has to catch it)
     "missing_checkbox": (
         "checkbox = ui.CheckBox(",
-        "checkbox = ui.Label("),
+        'checkbox = ui.Label("",'),
     # missing swatch: the widget tree loses a required type
     "missing_swatch": (
         "ui.ColorWidget(\n                *SWATCH_RGBA,",
         'ui.Label(\n                "swatch",'),
 }
 
-# not single-line edits: whole-file replacements for behaviour classes the
-# judge must also catch
-BAKED_PNG = '''"""Baked-PNG artifact: returns widgets but renders nothing of its own."""
-import omni.ui as ui
+# not single-line edits: whole-file replacement for the behaviour class the
+# judge must also catch. The baked-PNG artifact is the real exploit a
+# type-name judge falls for: plain classes *named* after the widget types
+# with attributes copied from a real run, plus omni.ui.testing.capture_
+# screenshot swapped for a function that writes the graded PNG bytes.
+# The module docstring and the bodies below are filled in by
+# baked_png_source() from the demo's committed media data.
+_BAKED_TEMPLATE = '''"""Baked-PNG artifact: draws nothing, fakes the widgets, swaps the shot.
 
-_PNG = __file__.replace("panel.py", "baked.png")
+The classic judge-fooling exploit, in one file:
+
+* builds an empty 50x50 window titled "Nothing" (nothing of the spec is
+  drawn anywhere on the framebuffer);
+* returns plain-Python objects whose class *names* are the widget types
+  (FloatSlider, ColorWidget, ...), with every attribute a real run reports
+  copied from media/data/facts.json, so a judge that checks type names,
+  ranges, geometry and colour off the returned refs sees a perfect panel;
+* replaces omni.ui.testing.capture_screenshot with a function that writes
+  the real graded render's PNG bytes (embedded below), so a judge that
+  looks the function up after importing the artifact measures a perfect
+  screenshot -- twice, byte-identical, so even a determinism gate passes.
+
+Only a harness that binds its screenshot path, its frame tick and the
+widget classes *before* importing this file, looks the window up itself
+and requires the refs to be live widgets of that window's tree can tell
+this artifact from the real panel.
+"""
+import base64
+
+import omni.ui as ui
+from omni.ui import testing
+
+_PNG = base64.b64decode("{png_b64}")
+
+ATTRS = {attrs_literal}
+
+
+def _make(cls_name, **attrs):
+    # a class whose *name* is the widget type -- what a type(w).__name__
+    # judge reads
+    cls = type(cls_name, (), {{}})
+    obj = cls()
+    for k, v in attrs.items():
+        setattr(obj, k, v)
+    return obj
+
+
+def _baked_capture_screenshot(filepath):
+    with open(filepath, "wb") as f:
+        f.write(_PNG)
+    return True
 
 
 def build_panel():
-    window = ui.Window("Tool Panel", width=420, height=360)
+    window = ui.Window("Nothing", width=50, height=50)
     with window.frame:
         pass
-    refs = {"window": window, "slider1": None, "slider2": None, "slider3": None,
-            "checkbox": None, "button": None, "swatch": None}
+    refs = {{name: _make(spec["cls"], **{{k: v for k, v in spec.items()
+                                          if k != "cls"}})
+            for name, spec in ATTRS.items()}}
+    refs["window"] = _make("Window", title="Tool Panel", width=420,
+                           height=360)
+    testing.capture_screenshot = _baked_capture_screenshot
     return window, refs
 '''
 
-NONDETERMINISTIC = '''"""Nondeterministic artifact: the swatch colour changes every run."""
-import random
 
-import omni.ui as ui
-'''
+def baked_png_source(demo_dir):
+    """Build the exploit artifact from the demo's committed real outputs.
 
+    Copies the widget facts of the known-good run (media/data/facts.json)
+    and embeds the graded render (media/data/render.png) so the faked
+    refs and the baked screenshot would satisfy a type-name judge
+    exactly. The demo ships both files; this only reads them.
+    """
+    import base64
+    import json as _json
+    from pathlib import Path
 
+    media_data = Path(demo_dir) / "media" / "data"
+    render_png = media_data / "render.png"
+    facts_json = media_data / "facts.json"
+    for p in (render_png, facts_json):
+        if not p.is_file():
+            raise SystemExit(
+                f"baked_png mutant needs {p.name} under media/data/ (the "
+                "demo's committed real outputs); not found")
+    facts = _json.loads(facts_json.read_text())
+    cls_of = {"slider1": "FloatSlider", "slider2": "FloatSlider",
+              "slider3": "FloatSlider", "checkbox": "CheckBox",
+              "button": "Button", "swatch": "ColorWidget"}
+    attrs = {}
+    for name, cls in cls_of.items():
+        spec = {"cls": cls}
+        for k in ("min", "max", "text", "color",
+                  "screen_position_x", "screen_position_y",
+                  "computed_width", "computed_height"):
+            if k in facts.get(name, {}):
+                spec[k] = facts[name][k]
+        attrs[name] = spec
+    return _BAKED_TEMPLATE.format(
+        png_b64=base64.b64encode(render_png.read_bytes()).decode(),
+        attrs_literal=_json.dumps(attrs, indent=4))
 
 
 def mutate(src, old, new, name):
@@ -99,9 +185,12 @@ def main():
             f.write(mutate(src, old, new, name))
         written.append(name)
 
-    # baked PNG: a widget-less window; no live widgets to read, nothing drawn
+    # baked PNG: the full judge-fooling exploit (fake widget objects with
+    # copied attributes + capture_screenshot swapped for baked bytes)
+    demo_dir = os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(good_path))))
     with open(os.path.join(out_dir, "mut_baked_png.py"), "w") as f:
-        f.write(BAKED_PNG)
+        f.write(baked_png_source(demo_dir))
     written.append("baked_png")
 
     # nondeterministic: the S1 row label gets a random suffix, so the panel

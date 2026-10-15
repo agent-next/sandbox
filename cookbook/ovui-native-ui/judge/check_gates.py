@@ -64,7 +64,8 @@ def gate1_widgets(facts):
     win = facts.get("window", {})
     win_ok = (win.get("type") == "Window" and win.get("title") == TITLE
               and (win.get("width") or 0) >= WINDOW_W - 1e-6
-              and (win.get("height") or 0) >= WINDOW_H - 1e-6)
+              and (win.get("height") or 0) >= WINDOW_H - 1e-6
+              and bool(win.get("live")))
     detail["window_ok"] = win_ok
 
     # every required name must be present; extra refs are allowed (an agent
@@ -73,6 +74,13 @@ def gate1_widgets(facts):
     missing = [n for n in REF_NAMES if n not in names]
     refs_ok = not missing
     detail["ref_names_missing"] = missing
+
+    # every graded ref must be a live widget of the window's tree: the
+    # harness (judge/render.py) walks that tree itself, so a plain-Python
+    # object merely *named* after a widget class is not in it
+    live_names = sorted(n for n in REF_NAMES
+                        if facts.get(n, {}).get("live"))
+    detail["refs_live"] = len(live_names) == len(REF_NAMES)
 
     sliders_ok = True
     seen = set()
@@ -103,8 +111,9 @@ def gate1_widgets(facts):
     detail["swatch_size_ok"] = size_ok
     detail["swatch_type_ok"] = sw.get("type") == "ColorWidget"
 
-    ok = all([win_ok, refs_ok, sliders_ok, detail["sliders_distinct"],
-              detail["checkbox_ok"], detail["button_ok"], color_ok, size_ok,
+    ok = all([win_ok, refs_ok, detail["refs_live"], sliders_ok,
+              detail["sliders_distinct"], detail["checkbox_ok"],
+              detail["button_ok"], color_ok, size_ok,
               detail["swatch_type_ok"]])
     return {"gate": "widget_tree", "ok": bool(ok), "detail": detail}
 
@@ -202,14 +211,17 @@ def gate2_pixels(facts, shot, ref):
     return {"gate": "pixels", "ok": bool(ok), "detail": detail}
 
 
-def gate3_determinism(shot1, shot2):
+def gate3_determinism(shot1, shot2, facts1=None, facts2=None):
     try:
         h1 = hashlib.sha256(open(shot1, "rb").read()).hexdigest()
         h2 = hashlib.sha256(open(shot2, "rb").read()).hexdigest()
     except OSError as e:
         return {"gate": "determinism", "ok": False, "error": str(e)}
-    return {"gate": "determinism", "ok": bool(h1 == h2),
-            "sha256": h1[:16]}
+    shots_ok = h1 == h2
+    facts_ok = facts1 is None or facts1 == facts2
+    return {"gate": "determinism", "ok": bool(shots_ok and facts_ok),
+            "sha256": h1[:16], "shots_match": bool(shots_ok),
+            "facts_match": bool(facts_ok)}
 
 
 def main():
@@ -222,14 +234,16 @@ def main():
     json_out = args[args.index("--json") + 1] if "--json" in args else None
 
     facts1 = json.load(open(facts1_p))
-    json.load(open(facts2_p))  # must be readable; determinism is the render
+    facts2 = json.load(open(facts2_p))
     ref = json.load(open(ref_p))
 
     gates = [gate0_render(facts1, shot1_p)]
     if gates[0]["ok"]:
         gates.append(gate1_widgets(facts1))
         gates.append(gate2_pixels(facts1, shot1_p, ref))
-        gates.append(gate3_determinism(shot1_p, shot2_p))
+        # the second render must reproduce both the screenshot bytes and
+        # the widget facts (facts2 was previously loaded but never compared)
+        gates.append(gate3_determinism(shot1_p, shot2_p, facts1, facts2))
     verdict = {"pass": all(g["ok"] for g in gates), "gates": gates}
     if json_out:
         with open(json_out, "w") as f:

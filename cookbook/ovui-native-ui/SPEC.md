@@ -55,7 +55,16 @@ exactly these names to the **widget objects** it created: `window`,
 `slider1`, `slider2`, `slider3` (the three `ui.FloatSlider`, in spec order),
 `checkbox`, `button`, `swatch`. The judge reads geometry, slider ranges and
 the swatch colour directly from these live objects, and renders through its
-own harness (`judge/render.py`), which the artifact cannot modify.
+own harness (`judge/render.py`), which the artifact cannot modify or feed:
+the harness binds the screenshot path, the frame tick, the widget classes,
+the window lookup and the tree walk to locals **before** importing the
+artifact; it looks the spec window up itself and requires every ref to be
+an instance of a pre-bound class and a live widget of that window's tree
+(`Inspector.get_children`). An artifact that returns plain objects named
+after the widget classes with attributes copied from a real run, and swaps
+`omni.ui.testing.capture_screenshot` for a function writing baked PNG
+bytes, fails gates 1 and 2: the screenshot is taken by the pre-bound
+function from the real framebuffer, which drew no panel.
 
 The artifact may import only `omni.ui` (and its submodules), `numpy`, and
 the Python standard library. Its module body must not run the frame loop.
@@ -87,9 +96,18 @@ a scratch copy of the artifact and exits 0 only if every gate passes.
 
 - **Gate 0 — runs and renders.** `judge/render.py` imports the artifact,
   calls `build_panel()`, settles 9 frames, and saves a screenshot, inside a
-  90 s wall limit; exit 0, `out.png` is a valid PNG at least 420x360.
+  90 s wall limit; exit 0, `out.png` is a valid PNG at least 420x360. A
+  build crash exits non-zero with the exception's own name and message
+  (the reason is not swallowed by the frame loop).
 - **Gate 1 — widget objects.** From the returned `refs`:
-  - `refs["window"]` is a `ui.Window` with `title == "Tool Panel"` and
+  - every ref is an instance of the matching pre-bound `omni.ui` class
+    (the harness binds `ui.Window`, `ui.FloatSlider`, `ui.CheckBox`,
+    `ui.Button`, `ui.ColorWidget` before importing the artifact, so a
+    class merely *named* `FloatSlider` does not pass) and a live widget
+    of the window's tree, which the harness walks itself with
+    `Inspector.get_children`; `refs["window"]` must *be* the window the
+    judge looked up itself via `ui.Workspace.get_window("Tool Panel")`;
+  - `refs["window"]` has `title == "Tool Panel"` and
     `width`/`height` >= 420/360;
   - `refs["slider1".."3"]` are exactly three distinct `ui.FloatSlider`
     instances with `(min, max)` = `(0,10)`, `(0,20)`, `(0,50)` (tol 1e-6);
@@ -98,7 +116,10 @@ a scratch copy of the artifact and exits 0 only if every gate passes.
   - `refs["swatch"]` is a `ui.ColorWidget` with `computed_width` 140 +/- 2 and
     `computed_height` 24 +/- 2, and its colour model's first three channels
     equal `(0.2, 0.5, 0.9)` within 1e-6.
-- **Gate 2 — pixel spec mask.** Against the screenshot:
+- **Gate 2 — pixel spec mask.** Against the screenshot, which the harness
+  captured itself through its pre-bound screenshot functions (an artifact
+  that rebinds `omni.ui.testing.capture_screenshot` changes nothing: the
+  graded image is the real framebuffer of what it built):
   - **no overflow:** every widget rect (from `screen_position_*` /
     `computed_*`) lies fully inside the window content region — the window
     rect (`position_x/y`, `width/height`) inset by the 26 px title bar
@@ -117,8 +138,9 @@ a scratch copy of the artifact and exits 0 only if every gate passes.
   - **button text drawn:** the button interior contains >= 25 pixels whose
     luminance differs from the button-face median by >= 28.
 - **Gate 3 — determinism.** The judge renders the artifact a second time in
-  a fresh process; the two screenshots must be byte-identical. A baked-PNG
-  artifact fails Gate 1 (no live widgets); nondeterministic rendering fails
+  a fresh process; the two screenshots must be byte-identical and the two
+  widget-facts dumps equal. A baked-PNG artifact fails gates 1 and 2
+  (no live widgets, no panel drawn); nondeterministic rendering fails
   this gate.
 
 The judge also verifies `judge/` is byte-identical before and after the run,
@@ -129,18 +151,26 @@ so an artifact cannot rewrite the judge.
 Nothing passes because "the script ran":
 
 - **Gate 1** reads the *live widget objects* the artifact's own builder
-  returned: types, slider ranges, swatch size and the swatch colour from the
-  widget's colour model. It cannot be satisfied by pixels alone.
+  returned: types by `isinstance` against classes bound before the
+  artifact ran, membership in the window tree the harness itself walked,
+  slider ranges, swatch size and the swatch colour from the widget's
+  colour model. It cannot be satisfied by pixels alone, by plain objects
+  named after widget classes, or by refs detached from the live tree.
 - **Gate 2** is a **measured spec mask**: required regions (window content
   rect, six widget bboxes, title band, button interior) with numeric
-  predicates, all measured from the render. The swatch target is
+  predicates, all measured from the render the harness itself captured
+  through its pre-bound screenshot functions. The swatch target is
   *analytic* — the sRGB value of the spec colour `(0.2, 0.5, 0.9)`,
   `[51, 128, 230]` — not "whatever the good example produced"; the
   tolerance band comes from the known-good's measured 3-render jitter
   (`judge/reference.json`), and the gate additionally requires the
   known-good's measured median to equal the analytic value within that band.
 - **Gate 3** needs a fresh process to reproduce the render bit-for-bit, so
-  output caching, environment spoofing or a baked screenshot fail.
+  output caching, environment spoofing or a baked screenshot fail. The
+  self-test's `baked_png` mutant is exactly that exploit — plain objects
+  named after the widget classes with attributes copied from the committed
+  `media/data/`, plus `capture_screenshot` swapped for a function writing
+  the graded PNG bytes — and the judge kills it on gates 1 and 2.
 
 ## Determinism
 

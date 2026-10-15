@@ -56,27 +56,40 @@ that the id is gone; it exits non-zero if it cannot).
 `judge/grade.sh <panel.py>` renders the artifact twice in fresh processes
 through its own harness (`judge/render.py` — the artifact only builds
 widgets, it never owns the frame loop or the screenshot) and checks four
-gates; it exits 0 only if all pass.
+gates; it exits 0 only if all pass. The harness binds the screenshot path,
+the frame tick and the widget classes to locals **before** it imports the
+artifact, looks the spec window up itself
+(`ui.Workspace.get_window("Tool Panel")`), and requires every returned ref
+to be a live widget in that window's tree — so an artifact that returns
+plain objects named after the widget classes with attributes copied from a
+real run, and swaps `omni.ui.testing.capture_screenshot` for a function
+that writes baked PNG bytes, still fails: the screenshot it is graded on
+is the real framebuffer, which drew no panel.
 
 - **Gate 0 — runs and renders:** a valid PNG at least 420x360, inside a 90 s limit.
-- **Gate 1 — widget objects:** from the `refs` the artifact returned — window
-  title and size, three distinct `FloatSlider` with the exact ranges, a
-  `CheckBox`, a `Button` labelled `Apply`, and a `ColorWidget` whose size and
-  colour model match the spec.
+- **Gate 1 — widget objects:** from the `refs` the artifact returned — each
+  one an instance of the pre-bound `ui` class and a live child of the
+  window the judge looked up itself (walked with `Inspector.get_children`);
+  window title and size, three distinct `FloatSlider` with the exact
+  ranges, a `CheckBox`, a `Button` labelled `Apply`, and a `ColorWidget`
+  whose size and colour model match the spec.
 - **Gate 2 — pixel spec mask:** no widget overflows the window content
   region; each widget's bbox matches the reference within 8 px (position) /
   4 px (size); the swatch's median RGB matches the analytic sRGB target
   `[51, 128, 230]` within 12 per channel and is uniform; every widget is
   actually drawn (interior differs from the window background); the title
   text and the `Apply` text are rendered.
-- **Gate 3 — determinism:** the two renders are byte-identical.
+- **Gate 3 — determinism:** the two renders are byte-identical, screenshot
+  and widget facts alike.
 
-`judge/selftest.sh` proves the judge can fail: the known-good passes, and 11
-known-bad mutants (missing slider, wrong range, wrong swatch colour, layout
-overflow, empty window, wrong button text, wrong swatch size, missing
-checkbox/swatch, a baked PNG, a nondeterministic render) each fail a gate
-assertion or die at build, which the grade run reports as `render 1 failed`.
-Kill rate 11/11 = 100%.
+`judge/selftest.sh` proves the judge can fail: the known-good passes, and
+11 known-bad mutants (missing slider, wrong range, wrong swatch colour,
+layout overflow, an invisible-panel window, wrong button text, wrong
+swatch size, missing checkbox/swatch, a baked-PNG artifact that fakes the
+widget objects and swaps the screenshot function, and a nondeterministic
+render) each fail a judge gate assertion. The kill rate counts only
+mutants a gate failed — a mutant that merely crashes the build proves
+nothing about the judge — and is 11/11 = 100%.
 
 ## Measured wall time
 
