@@ -25,7 +25,7 @@ notional is charged on every position change.
 
 ![Self-test kill rate per mutant](media/loop.png)
 
-[media/demo.mp4](media/demo.mp4) — 31 s: the equity curve, the drawdown
+[media/demo.mp4](media/demo.mp4) — 32 s: the equity curve, the drawdown
 panel and the position panel drawn day by day, then the agent loop's error
 per iteration and the self-test kill rates (1920×1080, H.264).
 
