@@ -204,9 +204,9 @@ def loop_png():
     # then the known-good pass.  It is a scripted replay of real judge
     # verdicts, not a recorded live trace.
     replay_order = [
-        ("empty_window", "window built but widgets never added"),
-        ("wrong_swatch_color", "swatch colour mis-converted"),
-        ("nondeterministic", "frame counter leaks into the render"),
+        ("empty_window", "empty window\n(build error)"),
+        ("wrong_swatch_color", "wrong swatch\ncolour"),
+        ("nondeterministic", "nondeterministic\nrender"),
         ("good", None),
     ]
     ax = fig.add_subplot(gs[0])
@@ -228,9 +228,12 @@ def loop_png():
         colors.append(GOOD if ok else CRIT)
     ax.plot(range(1, len(ys) + 1), ys, color=GRID, lw=1.5, zorder=1)
     ax.scatter(range(1, len(ys) + 1), ys, s=90, c=colors, zorder=3)
-    for x, y, lab, c in zip(range(1, len(ys) + 1), ys, labels, colors):
+    # stagger the annotation rows so neighbours never collide
+    for i, (x, y, lab, c) in enumerate(zip(range(1, len(ys) + 1), ys,
+                                           labels, colors)):
+        dy, va = (16, "bottom") if i % 2 == 0 else (-16, "top")
         ax.annotate(lab, (x, y), textcoords="offset points",
-                    xytext=(0, 14), ha="center", fontsize=8.6,
+                    xytext=(0, dy), ha="center", va=va, fontsize=8.6,
                     color=TEXT if y == 0 else TEXT2, zorder=4,
                     bbox=dict(fc=SURFACE, ec="none", pad=1))
     ax.set_xticks(range(1, len(ys) + 1))
@@ -238,7 +241,7 @@ def loop_png():
                        fontsize=9)
     ax.set_yticks([0, 1])
     ax.set_yticklabels(["fail", "pass"], fontsize=9)
-    ax.set_ylim(-0.75, 1.75)
+    ax.set_ylim(-1.15, 1.75)
     ax.set_xlim(0.45, len(ys) + 0.55)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
@@ -253,17 +256,15 @@ def loop_png():
     for i, name in enumerate(MUTANT_ORDER, 1):
         v = mutants[name]
         crashed = v.get("pass") is None
-        failed = ("build error" if crashed else
-                  ", ".join(g["gate"] for g in v["gates"] if not g["ok"]))
-        ax.bar([i], [1], width=0.72, color=CRIT, edgecolor=SURFACE, lw=2)
-        ax.text(i, 0.5, "killed", ha="center", fontsize=7.4,
-                color=SURFACE, rotation=90)
-        ax.text(i, -0.13, MUTANT_LABELS[name].replace(" ", "\n", 1),
-                ha="center", fontsize=6.8, color=TEXT2)
-        ax.text(i, -0.40, failed, ha="center", fontsize=7,
+        failed_txt = "build error" if crashed else \
+            ", ".join(g["gate"] for g in v["gates"] if not g["ok"])
+        # wrap the gate list: bars are only ~0.7 apart, a bare
+        # "widget_tree, pixels" runs into its neighbours
+        ax.text(i, -0.42, "\n".join(textwrap.wrap(failed_txt, 14)),
+                ha="center", va="top", fontsize=7,
                 color=CRIT, fontweight="bold")
     ax.set_xlim(-0.6, len(MUTANT_ORDER) + 0.6)
-    ax.set_ylim(-0.55, 1.3)
+    ax.set_ylim(-1.35, 1.3)
     ax.set_yticks([])
     ax.set_xticks([])
     for s in ("top", "right", "left"):
