@@ -62,23 +62,34 @@ Page structure (this is what the scraper has to cope with):
 
 ```html
 <!-- /index.html, page 2 -->
-<div class="product" data-sku="PROD-0011" data-price-pending="true">
+<div class="product" data-sku="PROD-0011" data-price="19.99">
   <span class="name">Aluminium Lid</span>
   <span class="price" data-pending>$--.--</span>   <!-- placeholder, in HTML -->
 </div>
 <script>
-  // runs after load; rewrites every .price span with the real value
-  document.querySelectorAll('.product').forEach(function (el) {
-    var p = el.getAttribute('data-price');
-    el.querySelector('.price').textContent = '$' + p.toFixed(2);
-    el.querySelector('.price').removeAttribute('data-pending');
-  });
+  // runs on the load event, then after a short delay; rewrites every .price
+  // span with the real value and sets data-rendered on <html>
+  window.addEventListener('load', function () { setTimeout(function () {
+    document.querySelectorAll('[data-price]').forEach(function (el) {
+      var p = el.getAttribute('data-price');
+      el.querySelector('.price').textContent = '$' + parseFloat(p).toFixed(2);
+      el.querySelector('.price').removeAttribute('data-pending');
+    });
+    document.documentElement.setAttribute('data-rendered', '1');
+  }, 150); });
 </script>
 ```
 
 `data-price` holds the real price as a decimal string (`"19.99"`); the rendered
-text is `"$19.99"`. A scraper that reads `.price`'s text before the script runs
-sees `$--.--`.
+text is `"$19.99"`. A scraper that reads `.price`'s text before the render runs
+sees `$--.--`. The render is deferred past the `load` event on purpose: an
+inline script at the end of `<body>` would run *during* parsing and leave no
+pre-JS window at all, so the bug the demo is about would not be reachable.
+
+Each product also has a **detail page** (`/product/PROD-00NN.html`) that
+repeats the same card with the same `.product` class, the same `data-sku` and
+the same JS-rendered price. A crawler that follows those links sees every
+product twice and must deduplicate to produce 50 rows.
 
 **50 products.** Product `i` (1-based) has:
 
@@ -121,12 +132,18 @@ Disallow: /internal/
 ```
 
 `/internal/` lists three products (`PROD-9001..9003`) that are **not** part of
-the dataset. Their rows must never appear in the CSV.
+the dataset. Their rows must never appear in the CSV. The path is a real trap,
+not a file nobody would request: the pager on every index page links it (an
+"archive" link), so a crawler that follows the pager without reading
+`robots.txt` fetches it. The good example therefore *reads* the link and then
+*skips* it — the judge's request log is what proves nothing was fetched.
 
-**Seeds.** The catalogue is a function of one seed. `--seed N` re-derives the
-malformed-product choice and the disallowed-path listing from `N`; the 50
-allowed products and their values are fixed. The default seed is `20261015`
-and every number quoted in the README uses it.
+**Seeds.** The catalogue is a function of one seed: the 50 product names and
+SKUs are fixed, but every price, stock and weight — and the choice of which
+three products are malformed — is derived from `N`. A scraper cannot carry a
+hard-coded table from one run to the next; it has to read what the page
+renders. The default seed is `20261015` and every number quoted in the README
+uses it.
 
 ## The artifact
 
@@ -179,7 +196,7 @@ of the product index) and never read back from the served HTML.
 | 2 | `no_internal_paths` | **zero** HTTP requests for any URL whose path starts with `/internal/` — recorded by the judge's request log, not by the scraper's honesty |
 | 3 | `row_count` | exactly `50` data rows in the CSV (47 `ok` + 3 `malformed`) |
 | 4 | `field_exact` | for every `ok` row, all of `sku,name,price,stock,weight_kg` byte-equal the ground truth after normalisation; **0** mismatches |
-| 5 | `no_missing_ok` | every one of the 47 non-malformed products is present with `status=ok`; **0** absent |
+| 5 | `no_missing_ok` | every one of the 47 non-malformed products is present **with `status=ok`**; a row that exists but is flagged `malformed` fails this gate too; **0** problems |
 | 6 | `malformed_flagged` | all 3 malformed products (for the seed's own oracle set) present with `status=malformed`, and each one's `notes` flags exactly the fault kind the oracle assigns it (`missing_sku` / `missing_price` / `bad_price`). **3/3** correct, and no `ok` row may carry a fault flag |
 | 7 | `no_dup_rows` | no `sku` appears more than once among `ok` rows |
 | 8 | `no_invented` | no row has a `sku` not in the ground truth (the `/internal/` products and made-up ids) |
@@ -189,6 +206,12 @@ of the product index) and never read back from the served HTML.
 Gate 2 is the robots gate and it is measured at the **server**: the judge wraps
 `http.server`'s request log and records every path served, so a scraper that
 fetches `/internal/` and then just doesn't write the row is still killed.
+
+Gates 4 and 5 are complementary on purpose. Gate 4 only inspects rows the
+scraper marked `ok`, so a scraper that reads the pre-JS placeholder everywhere
+and marks the whole catalogue `malformed` would slip past it; gate 5 requires
+those same rows to *be* `ok`, which is what kills that mutant. Gate 6 then
+requires the three genuinely malformed rows to carry exactly the right flag.
 
 ## Acceptance oracle
 
@@ -200,8 +223,12 @@ The judge fails (non-zero exit) if any gate fails.
 - each of the single-edit mutants generated by `judge/mutate.py` from the good
   example must fail at least one gate,
 - determinism: same `--seed` twice → byte-identical verdict JSON minus the
-  `timing` key,
+  `timing` and `base_url` keys (the port is ephemeral, and the throwaway
+  workdir path is redacted out of the captured artifact output),
 - kill rate printed; **≥ 90 %** required.
+
+Measured on the committed example: 7 mutants, **7 killed (100 %)**, good
+example 11/11 gates.
 
 ## Tools (pinned by the judge)
 
@@ -219,13 +246,21 @@ its licence file ships in the browser tree. No tool is fetched with `latest`.
 ## Deviations from the lead's brief
 
 - The brief says "50 product pages with pagination". The site uses 5 index
-  pages × 10 products, where each product *also* has its own detail page. A
-  scraper that only crawls the index pages gets all 50 products' data (the
-  brief's ground truth is defined on the 50 products, not on the detail pages),
-  so the detail pages are reachable but optional, and the `/internal/` prefix
-  is behind a link on page 1 (`/internal/index.html`, a link the robot must not
-  follow) so the robots gate is a real trap and not a file nobody would ever
-  request.
-- "JS-rendered prices" is implemented as an inline script that rewrites the
-  price spans and drops a `data-pending` attribute, so a scraper can detect
-  un-rendered content rather than guessing.
+  pages × 10 products, and each product *also* has its own detail page. A
+  scraper that crawls only the index pages still gets all 50 products' data
+  (the brief's ground truth is defined on the 50 products, not on the detail
+  pages), but the detail pages repeat each card, so a crawler that follows them
+  must deduplicate. The robots trap is real: every index page's pager links
+  `/internal/index.html`, so a crawler that ignores `robots.txt` will fetch it.
+- "JS-rendered prices" is implemented as a script on the `load` event plus a
+  150 ms delay, rewriting the price spans and setting `data-rendered="1"` on
+  the document element. The deferral matters: an inline script at the end of
+  `<body>` runs during parsing and leaves no pre-JS window, so the
+  `reads_prejs_price` mutant would have escaped. With the deferral it is
+  killed.
+- The three malformed products are drawn from the seed rather than fixed to
+  `PROD-0001/0014/0017`, and prices/stock/weights move with the seed too. The
+  brief's default seed `20261015` still yields exactly those three SKUs.
+- `no_missing_ok` was tightened from "the SKU is present" to "the SKU is
+  present with `status=ok`" after the self-test showed the pre-JS mutant
+  surviving under the looser rule (see SPEC gates, above).
