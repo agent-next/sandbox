@@ -1,0 +1,14 @@
+{
+  "final_equity": 0.9470302914437041,
+  "total_return": -0.0529697085562959,
+  "n_days": 2517,
+  "n_traded_days": 1254,
+  "n_trades": 101,
+  "max_drawdown": 0.4177213784209337,
+  "sharpe": 0.036536587479012825,
+  "volatility_ann": 0.1471606200700388,
+  "mean_daily_ret": 2.1336297097836283e-05,
+  "risk_free_rate": 0.0,
+  "cost_bps": 10.0,
+  "lookahead_shift": 1
+}

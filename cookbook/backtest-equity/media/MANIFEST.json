@@ -1,0 +1,50 @@
+{
+ "demo": "backtest-equity",
+ "generated_by": "media/make_media.sh",
+ "files": {
+  "result.png": {
+   "shows": "the known-good artifact's equity curve against the blind reference's final equity (the G2 oracle agreement), with the drawdown and position panels",
+   "command": "media/make_media.sh -> media/make_figures.py make_result",
+   "source_data": "media/data/series.json + media/data/metrics.json (the judge's own blind reference run)",
+   "sha256": "42233d0ebd7c98ccbd04c73020f3ed903f95fd0dffd9209c1e7b5a3bba13d8d2",
+   "size_bytes": 274242
+  },
+  "loop.png": {
+   "shows": "the agent-loop replay's judge-measured deviation per attempt until the judge passes, and the self-test kill rate per known-bad mutant",
+   "command": "media/make_media.sh -> media/make_figures.py make_loop",
+   "source_data": "media/data/replay.json + media/data/selftest.json (grade verdicts of the known-bad mutants and the good artifact)",
+   "sha256": "715be6232a419a83e6d330b7c8eda2604cc6c33e344d42c4c039c0ae791236cf",
+   "size_bytes": 183648
+  },
+  "demo.mp4": {
+   "shows": "the same series animated: the backtest running day by day, the agent loop's deviations, then the kill rates",
+   "command": "media/make_media.sh -> media/make_video.py + ffmpeg (crf 0 lossless master in media/master/, then -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart)",
+   "source_data": "media/frames rendered by make_video.py from media/data/*.json",
+   "sha256": "2ff14538fdb82b94636b68d928708cc97fac798d04266dbd6723c1a8a9d1b376",
+   "size_bytes": 1666709,
+   "width": 1920,
+   "height": 1080,
+   "duration_sec": 34.7,
+   "codec": "h264"
+  }
+ },
+ "source_data": {
+  "curve": "media/data/curve.json (judge reference summary metrics)",
+  "series": "media/data/series.json (the judge's own blind reference equity/position/drawdown series)",
+  "selftest": "media/data/selftest.json (grade verdicts: good + 11 known-bad mutants)",
+  "replay": "media/data/replay.json (the known-bad mutants graded in the order a fixing agent would meet them)",
+  "comparison": "media/data/comparison.json (artifact metrics vs reference metrics)"
+ },
+ "commands": {
+  "setup": "bash judge/setup.sh",
+  "selftest": "bash judge/selftest.sh",
+  "grade_good": "bash judge/grade.sh examples/good --seed 42",
+  "media": "bash media/make_media.sh"
+ },
+ "environment": {
+  "ffmpeg": "5.1.9-0+deb12u1",
+  "python": "3.12",
+  "matplotlib": "3.9.4",
+  "numpy": "2.2.6"
+ }
+}

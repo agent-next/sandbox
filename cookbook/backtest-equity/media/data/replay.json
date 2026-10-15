@@ -1,0 +1,80 @@
+[
+ {
+  "step": "lookahead-signal",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G3_sharpe_consistency"
+  ],
+  "error": 1.519330486547059e-15
+ },
+ {
+  "step": "lookahead-shift",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G2_final_equity_oracle"
+  ],
+  "error": 0.40031301217326626
+ },
+ {
+  "step": "sharpe-tamper",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G3_sharpe_consistency"
+  ],
+  "error": 0.2736982485226373
+ },
+ {
+  "step": "mdd-tamper",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G4_max_drawdown"
+  ],
+  "error": 0.2818179401445598
+ },
+ {
+  "step": "returns-drift",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G3_sharpe_consistency"
+  ],
+  "error": 1.519330486547059e-15
+ },
+ {
+  "step": "fixture-drift",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G1_fixture_integrity"
+  ],
+  "error": null
+ },
+ {
+  "step": "cost-tamper",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G6_schema_sanity"
+  ],
+  "error": null
+ },
+ {
+  "step": "tiny-figure",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G6_schema_sanity"
+  ],
+  "error": null
+ },
+ {
+  "step": "short-history",
+  "verdict": "FAIL",
+  "failed_gates": [
+   "G6_schema_sanity"
+  ],
+  "error": null
+ },
+ {
+  "step": "good",
+  "verdict": "PASS",
+  "failed_gates": [],
+  "error": 0.0
+ }
+]
