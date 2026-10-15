@@ -28,8 +28,8 @@
   },
   "seed": "42",
   "timing": {
-    "fetch_sources_s": 0.2,
+    "fetch_sources_s": 0.1,
     "file_set_s": 0.0,
-    "total_s": 0.2
+    "total_s": 0.1
   }
 }

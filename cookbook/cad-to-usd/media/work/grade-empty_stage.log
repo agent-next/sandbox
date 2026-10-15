@@ -4,14 +4,14 @@
   [fetch] Servo Futaba S3003 v6.step already present, digest ok
   [fetch] Servo Futaba S3003 v6.iges already present, digest ok
   [fetch] ShockTowerFront/_ShockTowerFront.stp already present, digest ok
-  [fetch] 3 source file(s) verified in /tmp/cad2usd-grade.MQDbAl/sources
+  [fetch] 3 source file(s) verified in /tmp/cad2usd-grade.Jz6azt/sources
   [grade] file_set: PASS
   [grade] conversion_script: SKIPPED (--no-reconvert)
   [grade] stage_meta: FAIL
   [grade] geometry_counts: FAIL
   [grade] bbox_match: FAIL
   [grade] area_match: FAIL
-  [grade] verdict: FAIL (/tmp/cad2usd-grade.MQDbAl/verdict.json)
+  [grade] verdict: FAIL (/tmp/cad2usd-grade.Jz6azt/verdict.json)
 {
   "all_gates_passed": false,
   "demo": "cad-to-usd",
@@ -31,7 +31,7 @@
           "rel_error": 0.00019
         },
         "ShockTowerFront_stp": {
-          "error": "usd: usd: /tmp/cad2usd-grade.MQDbAl/artifact/ShockTowerFront_stp.usda contains no Mesh prims"
+          "error": "usd: usd: /tmp/cad2usd-grade.Jz6azt/artifact/ShockTowerFront_stp.usda contains no Mesh prims"
         }
       },
       "passed": false
@@ -109,7 +109,7 @@
           }
         ],
         "ShockTowerFront_stp": {
-          "error": "usd: usd: /tmp/cad2usd-grade.MQDbAl/artifact/ShockTowerFront_stp.usda contains no Mesh prims"
+          "error": "usd: usd: /tmp/cad2usd-grade.Jz6azt/artifact/ShockTowerFront_stp.usda contains no Mesh prims"
         }
       },
       "passed": false
@@ -223,7 +223,7 @@
       "ok": true
     },
     "ShockTowerFront_stp": {
-      "error": "usd: usd: /tmp/cad2usd-grade.MQDbAl/artifact/ShockTowerFront_stp.usda contains no Mesh prims",
+      "error": "usd: usd: /tmp/cad2usd-grade.Jz6azt/artifact/ShockTowerFront_stp.usda contains no Mesh prims",
       "ok": false
     }
   },
@@ -232,7 +232,7 @@
     "conversion_script_s": 0.0,
     "fetch_sources_s": 0.1,
     "file_set_s": 0.0,
-    "gates_2_5_s": 17.7,
-    "total_s": 17.9
+    "gates_2_5_s": 14.8,
+    "total_s": 14.9
   }
 }

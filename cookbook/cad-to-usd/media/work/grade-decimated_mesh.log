@@ -4,14 +4,14 @@
   [fetch] Servo Futaba S3003 v6.step already present, digest ok
   [fetch] Servo Futaba S3003 v6.iges already present, digest ok
   [fetch] ShockTowerFront/_ShockTowerFront.stp already present, digest ok
-  [fetch] 3 source file(s) verified in /tmp/cad2usd-grade.LTUPD7/sources
+  [fetch] 3 source file(s) verified in /tmp/cad2usd-grade.JHT0XJ/sources
   [grade] file_set: PASS
   [grade] conversion_script: SKIPPED (--no-reconvert)
   [grade] stage_meta: PASS
   [grade] geometry_counts: PASS
   [grade] bbox_match: PASS
   [grade] area_match: FAIL
-  [grade] verdict: FAIL (/tmp/cad2usd-grade.LTUPD7/verdict.json)
+  [grade] verdict: FAIL (/tmp/cad2usd-grade.JHT0XJ/verdict.json)
 {
   "all_gates_passed": false,
   "demo": "cad-to-usd",
@@ -295,7 +295,7 @@
     "conversion_script_s": 0.0,
     "fetch_sources_s": 0.1,
     "file_set_s": 0.0,
-    "gates_2_5_s": 14.4,
-    "total_s": 14.5
+    "gates_2_5_s": 14.3,
+    "total_s": 14.4
   }
 }

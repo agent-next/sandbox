@@ -11,7 +11,7 @@ known-good: PASS (expected)
 [mutant] cheat_copy_outputs killed_by=conversion_script: convert.sh ships pre-made .usda files and copies them into place instead of converting the pinned sources (the judge's converter log shows no pinned source was ever converted)
 [mutant] missing_part     killed_by=file_set: one part file deleted
 [mutant] cross_part_copy  killed_by=file_set: one part's output replaced by a copy of another part's
-[mutant] 10 mutants written to /tmp/cad2usd-selftest.YPyACQ/mutants
+[mutant] 10 mutants written to /tmp/cad2usd-selftest.PAYEm6/mutants
 mutant axis_swap: FAIL (expected) -- killed by gate: bbox_match
 mutant cheat_copy_outputs: FAIL (expected) -- killed by gate: conversion_script
 mutant cross_part_copy: FAIL (expected) -- killed by gate: file_set
@@ -27,4 +27,4 @@ known-good: passed
 kill rate: 10/10 (100%) — counted only when a judge gate reported the failure
 == selftest: determinism (grade twice with --seed 42) ==
 determinism: PASS (two --seed 42 runs identical excluding "timing")
-selftest: PASS (571 s)
+selftest: PASS (671 s)

@@ -1,6 +1,6 @@
 [setup] cad2usd-convert already installed and matches /home/user/w/cookbook/cad-to-usd/judge/requirements-convert.txt
 [setup] cad2usd-judge already installed and matches /home/user/w/cookbook/cad-to-usd/judge/requirements-judge.txt
-recorded: 2026-10-15T15:18:19Z by judge/setup.sh
+recorded: 2026-10-15T16:51:32Z by judge/setup.sh
 python: Python 3.12.15
 usd-convert-cad: 0.3.0
 usd-core (pxr): 0.26.8

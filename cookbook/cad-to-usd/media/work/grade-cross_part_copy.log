@@ -2,9 +2,9 @@
   [fetch] Servo Futaba S3003 v6.step already present, digest ok
   [fetch] Servo Futaba S3003 v6.iges already present, digest ok
   [fetch] ShockTowerFront/_ShockTowerFront.stp already present, digest ok
-  [fetch] 3 source file(s) verified in /tmp/cad2usd-grade.RlPiYF/sources
+  [fetch] 3 source file(s) verified in /tmp/cad2usd-grade.Yu5oZN/sources
   [grade] file_set: FAIL
-  [grade] verdict: FAIL (/tmp/cad2usd-grade.RlPiYF/verdict.json)
+  [grade] verdict: FAIL (/tmp/cad2usd-grade.Yu5oZN/verdict.json)
 {
   "all_gates_passed": false,
   "demo": "cad-to-usd",
