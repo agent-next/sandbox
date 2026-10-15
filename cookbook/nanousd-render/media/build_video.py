@@ -391,6 +391,28 @@ def shot_orbit(meshes, cam_attribs, n0, n1, with_rects):
         yield img
 
 
+def orbit_rect_frame(t, meshes, cam_attribs, verdict):
+    """One orbit frame with the oracle rectangles burned on, at orbit
+    parameter t in [0,1]. Shared by shot_orbit (rects half) and shot_proof
+    so the proof HUD rides on the same real renders (the memoised
+    render_rgb makes the reuse free)."""
+    fov = math.degrees(2.0 * math.atan(
+        float(cam_attribs["verticalAperture"])
+        / (2.0 * float(cam_attribs["focalLength"]))))
+    target = np.array([0.0, 0.3, 0.0])
+    r, h = 12.0, 4.2
+    theta0, span = 0.0, math.radians(38.0)
+    theta = theta0 - span / 2 + span * t
+    eye = (target[0] + r * math.sin(theta), h, target[2] + r * math.cos(theta))
+    img = render_rgb((W, H), eye, target, (0, 1, 0), fov)
+    V = lookat(eye, target, (0, 1, 0))
+    P = perspective(fov, W / H, 0.1, 1000.0)
+    k = {p: m["illuminance_k"]
+         for p, m in verdict["gates"]["G4"]["meshes"].items()}
+    draw_rects(img, project_rects(meshes, V, P, (W, H)), None, 1.0, k=k)
+    return img
+
+
 def terminal_scroll(lines, pt=MONO_PX, width=1560):
     """A tall image of the real log lines; the shot crops a moving window."""
     f = font("mono", pt)
@@ -438,8 +460,31 @@ def shot_terminal(n, setup_lines, selftest_lines, speed_label, selftest):
         yield img
 
 
-def shot_proof(n, verdict, selftest):
-    """T['proof'] - T['end']: verdict key lines + the mutant kill matrix."""
+def _proof_hud(d, left, rows, ink, good, bad, dim, head):
+    """Draw the verdict + kill-matrix HUD onto an existing image."""
+    fl, fr = font("mono", 34), font("mono", 30)
+    d.text((92, 84), "JUDGE VERDICT", font=font("bold", 46), fill=head)
+    y = 168
+    for ln in left:
+        col = good if ": true" in ln or "k=" in ln else ink
+        d.text((92, y), ln, font=fl, fill=col)
+        y += 52
+    d.text((1012, 84), "MUTANT KILL MATRIX", font=font("bold", 46), fill=head)
+    y = 168
+    for name, verdict_, gates in rows:
+        col = good if verdict_ in ("PASS", "KILLED") else bad
+        d.text((1012, y), f"{name:<20}", font=fr, fill=ink)
+        d.text((1462, y), f"{verdict_:<9}", font=fr, fill=col)
+        d.text((1662, y), gates, font=fr, fill=dim)
+        y += 44
+
+
+def shot_proof(n, verdict, selftest, meshes, cam_attribs):
+    """T['proof'] - T['end']: verdict key lines + the mutant kill matrix,
+    rendered as a HUD overlay over a still-moving orbit of the graded scene
+    (DEMO-STANDARD: proof is an overlay on moving real output, never a text
+    slide). The first half keeps full brightness; the second half fades the
+    render into the background while the HUD stays sharp."""
     left = [
         "verdict.json  (seed 0)",
         f'  pass            : {str(verdict["pass"]).lower()}',
@@ -460,40 +505,52 @@ def shot_proof(n, verdict, selftest):
              for m in selftest["mutants"]]
     rows.append(("kill rate", selftest["kill_rate"], f'{selftest["mutants_total"]} mutants'))
 
+    ink = (26, 28, 34)
+    good = (22, 128, 42)
+    bad = (192, 46, 33)
+    dim = (72, 78, 90)
+    head = (156, 111, 8)
+
+    # orbit camera behind the HUD: keep the meshes drifting left/right so
+    # the proof window is always moving real output
+    target = np.array([0.0, 0.3, 0.0])
+    fov = math.degrees(2.0 * math.atan(
+        float(cam_attribs["verticalAperture"])
+        / (2.0 * float(cam_attribs["focalLength"]))))
+    render_w = 640
+    proof_orbit_center = 0.0
+    render_cache = {}
     mid = max(1, n // 2)
     for i in range(n):
-        light = i >= mid
-        bg = (238, 241, 246) if light else (12, 14, 18)
+        t = i / max(1, n - 1)
+        # small ±12° drift around front
+        theta = math.radians(-12.0 + 24.0 * t)
+        eye = (target[0] + 12.0 * math.sin(theta), 4.2, target[2] + 12.0 * math.cos(theta))
+        base = bv_helpers_render(eye, target, fov, render_w, render_cache)
+        # pillarbox onto 1920x1080 on the render's own background
+        bg = tuple(min(255, max(c, 56) + 20) for c in base.getpixel((3, 3)))
         img = Image.new("RGB", (W, H), bg)
-        d = ImageDraw.Draw(img)
-        panel = (250, 251, 253) if light else (16, 18, 24)
-        d.rectangle([60, 56, 940, 1020], fill=panel)
-        d.rectangle([980, 56, 1860, 1020], fill=panel)
-        ink = (26, 28, 34) if light else (222, 228, 236)
-        good = (22, 128, 42) if light else (126, 231, 135)
-        bad = (192, 46, 33) if light else (240, 113, 99)
-        dim = (72, 78, 90) if light else (178, 186, 196)
-        head = (156, 111, 8) if light else (255, 205, 60)
-        fl, fr = font("mono", 34), font("mono", 30)
-        d.text((92, 84), "JUDGE VERDICT", font=font("bold", 46),
-               fill=head)
-        y = 168
-        for ln in left:
-            col = good if ": true" in ln or "k=" in ln else ink
-            d.text((92, y), ln, font=fl, fill=col)
-            y += 52
-        d.text((1012, 84), "MUTANT KILL MATRIX", font=font("bold", 46),
-               fill=head)
-        y = 168
-        for name, verdict_, gates in rows:
-            col = good if verdict_ in ("PASS", "KILLED") else bad
-            d.text((1012, y), f"{name:<20}", font=fr, fill=ink)
-            d.text((1462, y), f"{verdict_:<9}", font=fr, fill=col)
-            d.text((1662, y), gates, font=fr, fill=dim)
-            y += 44
+        img.paste(base, ((W - render_w) // 2, 0))
+        d = ImageDraw.Draw(img, "RGBA")
+        # scrim behind the HUD panels (dark, readable on phone)
+        d.rectangle([60, 56, 940, 1020], fill=(0, 0, 0, 160))
+        d.rectangle([980, 56, 1860, 1020], fill=(0, 0, 0, 160))
+        _proof_hud(d, left, rows, ink, good, bad, dim, head)
         caption(img, f'{selftest["mutants_killed"]}/{selftest["mutants_total"]} '
                      f'mutants killed by a named gate - the judge fails when it must')
         yield img
+
+
+def bv_helpers_render(eye, target, fov, size, cache):
+    """Render one orbit frame into the camera frame (memoised)."""
+    key = (size, tuple(round(v, 4) for v in eye), tuple(target), round(fov, 4))
+    if key in cache:
+        return cache[key]
+    img = render_rgb((size, size), eye, target, (0, 1, 0), fov)
+    if len(cache) > 4000:
+        cache.clear()
+    cache[key] = img
+    return img
 
 
 def shot_end(n, one_command):
@@ -546,7 +603,8 @@ def frames():
     yield from shot_terminal(fr(T["term"], T["proof"]),
                              setup_lines, selftest_lines, speed_label,
                              selftest)
-    yield from shot_proof(fr(T["proof"], T["end"]), verdict, selftest)
+    yield from shot_proof(fr(T["proof"], T["end"]), verdict, selftest,
+                          meshes, cam_attribs)
     yield from shot_end(fr(T["end"], T["stop"]),
                         "python3 cookbook/nanousd-render/run.py")
 
