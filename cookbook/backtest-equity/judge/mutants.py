@@ -4,12 +4,16 @@
 Usage: mutants.py <out_dir>
 
 Each mutant is one edit away from the known-good artifact in examples/good,
-covering the failure class its name says it covers:
+covering the failure class its name says it covers (the gate named is the
+one that actually kills it -- selftest.sh prints the same list):
 
   lookahead-shift   declares a 2-bar lag while trading a 1-bar signal
-                    -> G5 lookahead negative control
-  lookahead-signal  actually lags the signal one bar later than it declares
                     -> G2 final-equity oracle
+  lookahead-signal  lags the traded returns one bar later than declared
+                    -> G3 sharpe consistency
+  shift-0-declare   the lookahead cheat itself: a fully self-consistent
+                    artifact at lookahead_shift 0, today's close sizing
+                    today's position -> G6 schema sanity (the >= 1 rule)
   sharpe-tamper     reports a Sharpe that disagrees with returns.csv -> G3
   equity-tamper     reports a final equity 20 % off the reference     -> G2
   mdd-tamper        reports a max drawdown that disagrees with the CSV -> G4
@@ -28,6 +32,9 @@ import json
 import struct
 import sys
 from pathlib import Path
+
+import reference  # the judge's own oracle; the mutant generator may drive
+                  # it -- grade.sh never runs this file
 
 HERE = Path(__file__).resolve().parent
 GOOD = HERE.parent / "examples" / "good"
@@ -89,13 +96,14 @@ def main() -> int:
     good = load_good()
     made = []
 
-    # --- G5: declares a 2-bar lag while the reference at 2 bars differs ---
+    # --- G2: declares a 2-bar lag while trading the 1-bar signal, so the
+    #         equity disagrees with the reference run at the declared lag.
     m = dict(good)
     m["metrics.json"] = retune(good["metrics.json"], lookahead_shift=2)
     made.append(emit(outdir, "lookahead-shift", m))
 
-    # --- G2: actually trades a 2-bar lag, so the equity disagrees with
-    #         the reference run at the declared 1-bar lag.
+    # --- G3: lags the traded returns one bar later than declared, so the
+    #         CSV no longer matches the metrics that quote it.
     m = dict(good)
     lines = good["returns.csv"].splitlines(keepends=True)
     rows = [l.rstrip("\n").split(",") for l in lines[1:]]
@@ -106,6 +114,35 @@ def main() -> int:
     m["returns.csv"] = "date,ret\n" + "".join(
         f"{r[0]},{v:.10e}\n" for r, v in zip(rows, lagged))
     made.append(emit(outdir, "lookahead-signal", m))
+
+    # --- G6: the lookahead cheat itself.  Everything is recomputed with
+    #         the judge's own oracle at shift 0 -- today's close sizing the
+    #         position that earns today's return -- so the artifact is
+    #         internally consistent and G2/G3/G4/G5 all pass; only the
+    #         lookahead_shift >= 1 rule in G6 rejects it.  Revert that rule
+    #         and this mutant passes the judge, which is why it exists.
+    m = dict(good)
+    lines = good["ohlcv.csv"].splitlines()
+    dates = [l.split(",")[0] for l in lines[1:]]
+    closes = [float(l.split(",")[4]) for l in lines[1:]]
+    cheat = reference.reference_backtest(dates, closes, 0)
+    m["returns.csv"] = "date,ret\n" + "".join(
+        f"{d},{r:.10e}\n" for d, r in zip(cheat["dates"], cheat["net"]))
+    m["metrics.json"] = json.dumps({
+        "final_equity": cheat["final_equity"],
+        "total_return": cheat["total_return"],
+        "n_days": cheat["n_days"],
+        "n_traded_days": sum(1 for p in cheat["position"] if p == 1.0),
+        "n_trades": cheat["n_trades"],
+        "max_drawdown": cheat["max_drawdown"],
+        "sharpe": cheat["sharpe"],
+        "volatility_ann": cheat["volatility_ann"],
+        "mean_daily_ret": cheat["mean_daily_ret"],
+        "risk_free_rate": 0.0,
+        "cost_bps": 10.0,
+        "lookahead_shift": 0,
+    }, indent=2) + "\n"
+    made.append(emit(outdir, "shift-0-declare", m))
 
     # --- G3: reports a Sharpe that disagrees with its own returns.csv -----
     m = dict(good)

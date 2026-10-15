@@ -79,7 +79,9 @@ All gates are numeric and deterministic. Exit 0 only if every gate passes.
 - **G6 schema sanity**: `returns.csv` has ≥ 252 rows (one trading year),
   dates strictly increasing, no NaNs; `equity.png` is a valid PNG ≥ 800×600;
   `metrics.json` parses and carries the keys listed in Artifact with
-  `cost_bps = 10.0`, `lookahead_shift ≥ 0`.
+  `cost_bps = 10.0`, `lookahead_shift ≥ 1` (a declared shift of 0 would let
+today's close size today's position under the reference's own convention —
+the lookahead cheat this demo exists to catch).
 
 Violating any gate fails with the offending numbers printed.
 

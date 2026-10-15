@@ -57,12 +57,14 @@ python3 "$SCRIPT_DIR/mutants.py" "$WORK" >"$WORK/mutant.list" || exit 1
 
 total=0
 killed=0
+escaped=0
 while read -r name; do
     [ -n "$name" ] || continue
     total=$((total + 1))
     if "$SCRIPT_DIR/grade.sh" "$WORK/$name" --seed "$SEED" \
             --json "$WORK/$name.json" >/dev/null 2>&1; then
         echo "mutant $name: PASS (unexpected)" >&2
+        escaped=$((escaped + 1))
     else
         killed=$((killed + 1))
         echo "mutant $name: FAIL (expected) -- killed by gate: $(failing_gates "$WORK/$name.json")"
@@ -73,6 +75,9 @@ kill_rate=$(python3 -c "print(100*$killed//$total)")
 echo "== selftest summary =="
 echo "known-good: passed"
 echo "kill rate: $killed/$total ($kill_rate%)"
+# a mutant that escapes the judge fails the self-test outright, whatever the
+# kill rate says: an escaped mutant means a gate rule is missing its teeth
+[ "$escaped" -eq 0 ] || { echo "$escaped mutant(s) escaped the judge" >&2; exit 1; }
 [ "$kill_rate" -ge 90 ] || { echo "kill rate below 90%" >&2; exit 1; }
 
 echo "== selftest: determinism (grade twice with --seed $SEED) =="

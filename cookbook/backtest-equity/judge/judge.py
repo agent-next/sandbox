@@ -215,7 +215,7 @@ def grade(artifact_dir: Path, seed: int) -> dict:
                 art_closes = []
                 for i, line in enumerate(fh, start=2):
                     parts = line.rstrip("\r\n").split(",")
-                    if len(parts) not in (6, 7):
+                    if len(parts) != len(FIXTURE_COLS):
                         raise ValueError(f"ohlcv.csv line {i}: {len(parts)} fields")
                     art_closes.append(float(parts[4]))
             if len(art_closes) < 1:
@@ -235,8 +235,15 @@ def grade(artifact_dir: Path, seed: int) -> dict:
                 raise ValueError(f"metrics.json cost_bps is "
                                  f"{raw_metrics.get('cost_bps')!r}, must be 10.0")
             shift = metrics["lookahead_shift"]
-            if shift != int(shift) or shift < 0:
-                raise ValueError(f"lookahead_shift {shift} must be an integer >= 0")
+            # >= 1, not >= 0: under this demo's convention the position held
+            # over [t, t+1) is the signal at t - lookahead_shift and earns
+            # close(t)/close(t-1) - 1, so shift 0 lets today's close size a
+            # return that includes today's move -- the lookahead cheat this
+            # demo exists to catch (SPEC.md G6).
+            if shift != int(shift) or shift < 1:
+                raise ValueError(f"lookahead_shift {shift} must be an integer >= 1 "
+                                 "(0 sizes today's position from today's close: "
+                                 "lookahead)")
             if metrics["risk_free_rate"] != 0.0:
                 raise ValueError(f"risk_free_rate must be 0.0, got {metrics['risk_free_rate']}")
 
@@ -359,8 +366,9 @@ def grade(artifact_dir: Path, seed: int) -> dict:
             # whose equity is insensitive to its declared lag is not
             # trading the signal at all, so it must not pass.
             # The declared lag must also BE a shift the reference can run:
-            # a lag the reference never uses (e.g. 0, no lag at all) is
-            # what a lookahead-cheating engine would declare.
+            # a lag the reference never uses is what a lookahead-cheating
+            # engine would declare -- G6 enforces that by rejecting any
+            # lookahead_shift below 1, so the cheat never reaches this gate.
             try:
                 e0 = ref["final_equity"]
                 e1 = ref_lag["final_equity"]
