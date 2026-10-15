@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import hashlib
 import math
 import os
 import shutil
@@ -151,7 +152,11 @@ def read_csv(path: str) -> dict[str, dict[int, float]]:
         if volume < 0.0:
             raise ValueError(f"volumes.csv line {lineno}: volume {volume} is "
                              "negative")
-        out.setdefault(name, {})[year] = volume
+        column = out.setdefault(name, {})
+        if year in column:
+            raise ValueError(f"volumes.csv line {lineno}: duplicate row for "
+                             f"({name}, {year})")
+        column[year] = volume
     return out
 
 
@@ -258,13 +263,25 @@ def main() -> int:
 
     work = tempfile.mkdtemp(prefix="glacier-judge-")
     try:
+        # The artifact is copied before it is run: it never touches its own
+        # directory (SPEC.md judge-integrity rule), and self_writes below
+        # reports it if it tries.
+        artifact_copy = os.path.join(work, "artifact")
+        os.makedirs(artifact_copy)
+        model_copy = os.path.join(artifact_copy, "model.py")
+        shutil.copyfile(model, model_copy)
+        before_self = sha256(model_copy)
+
         run_a = os.path.join(work, "run-a")
         run_b = os.path.join(work, "run-b")
         zero = os.path.join(work, "zero-melt")
         for d in (run_a, run_b, zero):
             os.makedirs(d)
 
-        rc, out, err, secs = run_model(args.python, model, run_a, args.seed)
+        rc, out, err, secs = run_model(args.python, model_copy, run_a,
+                                       args.seed)
+        self_writes = [] if sha256(model_copy) == before_self else \
+            ["model.py"]
         if rc != 0:
             verdict.add("artifact", False,
                         reason=f"model.py exited {rc}: {tail(err or out)}")
@@ -273,9 +290,12 @@ def main() -> int:
         missing = [f for f in ("volumes.csv", "crossings.json", "retreat.png",
                                "run.json")
                    if not os.path.isfile(os.path.join(run_a, f))]
-        if missing:
-            verdict.add("artifact", False,
-                        reason=f"model.py did not write {missing}")
+        strays = strays_in(run_a)
+        if missing or strays or self_writes:
+            reason = (f"model.py did not write {missing}" if missing else
+                      "model.py wrote outside --out: " +
+                      ", ".join(strays or self_writes))
+            verdict.add("artifact", False, reason=reason)
             timings["first_run_seconds"] = round(secs, 2)
             return emit(verdict, args, started, timings)
 
@@ -341,17 +361,39 @@ def main() -> int:
 
 def run_model(python: str, model: str, outdir: str, seed: int,
               zero_melt: bool = False):
+    """Run the artifact with cwd set to an empty dir of its own.
+
+    The cwd is deliberately *not* the output directory: SPEC.md says the
+    artifact writes only inside `--out`, so anything left in the cwd is a
+    stray write and `strays_in` reports it.
+    """
+    cwd = outdir + "-cwd"
+    os.makedirs(cwd, exist_ok=True)
     cmd = [python, "-I", model, "--out", outdir, "--seed", str(seed)]
     if zero_melt:
         cmd.append("--zero-melt")
     started = time.monotonic()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True,
-                              timeout=RUN_TIMEOUT_S, cwd=outdir)
+                              timeout=RUN_TIMEOUT_S, cwd=cwd)
     except subprocess.TimeoutExpired:
         return 124, "", f"timed out after {RUN_TIMEOUT_S:.0f}s", \
             time.monotonic() - started
-    return proc.returncode, proc.stdout, proc.stderr, time.monotonic() - started
+    return proc.returncode, proc.stdout, proc.stderr, \
+        time.monotonic() - started
+
+
+def sha256(path: str) -> str:
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def strays_in(outdir: str) -> list[str]:
+    """Files left in the artifact's cwd (it should write only to --out)."""
+    cwd = outdir + "-cwd"
+    if not os.path.isdir(cwd):
+        return []
+    return sorted(os.listdir(cwd))
 
 
 def files_equal(a: str, b: str) -> bool:

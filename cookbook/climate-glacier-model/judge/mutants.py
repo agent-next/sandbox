@@ -74,6 +74,11 @@ INSERTIONS = [
     ("import-outside-allow-list", "artifact",
      "import os",
      "import subprocess  # not on the allow-list"),
+    # A plausible "cache the intermediate result" write that lands in the
+    # artifact's cwd instead of --out.
+    ("writes-outside-out-dir", "artifact",
+     "    write_csv(os.path.join(args.out, \"volumes.csv\"), series)",
+     "    open(\"volumes.csv.bak\", \"w\").write(\"scratch\\n\")"),
 ]
 
 
