@@ -1,5 +1,8 @@
 """Fast tests: restrictive artifact protocol and failure/cleanup contracts."""
 import importlib.util
+import contextlib
+import io
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -99,6 +102,26 @@ class ContractTests(unittest.TestCase):
              patch.object(runner.time, "sleep"):
             with self.assertRaisesRegex(RuntimeError, "cleanup unconfirmed"):
                 runner.cleanup("sandbox-test")
+
+    def test_lost_create_reply_warns_before_retry(self):
+        errors = io.StringIO()
+        with patch.object(runner, "sbx", side_effect=TimeoutError("lost create reply")), \
+             patch.object(runner.shutil, "which", return_value="sbx"), \
+             patch.dict(runner.os.environ, {"SBX_API_KEY": "<your key>"}), \
+             patch.object(sys, "argv", ["run.py"]), contextlib.redirect_stderr(errors):
+            self.assertEqual(runner.main(), 1)
+        self.assertIn("sandbox alive", errors.getvalue())
+        self.assertIn("inspect sbx list before retrying", errors.getvalue())
+
+    def test_completion_marker_is_published_atomically(self):
+        def fake(*args):
+            if args[-1].startswith("nohup"):
+                self.assertIn(".exit.tmp; mv ", args[-1])
+                return ""
+            return json.dumps({"done": True, "code": 0, "log": "step complete"})
+        with patch.object(runner, "sbx", side_effect=fake):
+            self.assertEqual(runner.remote_step(
+                "sandbox-test", "fixture", "true", 10), "step complete")
 
 
 if __name__ == "__main__":

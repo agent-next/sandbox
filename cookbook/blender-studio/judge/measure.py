@@ -43,7 +43,7 @@ def geometry(scene):
             "inside_margin": inside}
 
 
-def backdrop_mask(scene, width, height, region=None):
+def visibility(scene, width, height):
     """Independent primary-ray visibility, not artifact labels or object indices."""
     graph = bpy.context.evaluated_depsgraph_get()
     camera = scene.camera
@@ -52,17 +52,18 @@ def backdrop_mask(scene, width, height, region=None):
     ys = [p.y / -p.z for p in corners]
     rotation = camera.matrix_world.to_3x3()
     mask = np.zeros((height, width), dtype=bool)
+    unexpected = 0
+    allowed = {"Cyclorama", "Hero", "Plinth", "GlassOrb", "GoldRing"}
     for y in range(height):
         for x in range(width):
-            if region is not None and not region[y, x]:
-                continue
             direction = rotation @ Vector((
                 min(xs) + (max(xs) - min(xs)) * (x + 0.5) / width,
                 min(ys) + (max(ys) - min(ys)) * (y + 0.5) / height, -1))
             hit, _, _, _, obj, _ = scene.ray_cast(
                 graph, camera.matrix_world.translation, direction.normalized())
             mask[y, x] = hit and obj.name == "Cyclorama"
-    return mask
+            unexpected += int(hit and obj.name not in allowed)
+    return mask, unexpected
 
 
 def grade(settings, seed, out):
@@ -81,21 +82,29 @@ def grade(settings, seed, out):
     strips = np.zeros((144, 256), dtype=bool)
     strips[78:134, 8:48] = True
     strips[78:134, 208:248] = True
-    mask = backdrop_mask(scene, 256, 144, strips)
+    mask, unexpected = visibility(scene, 256, 144)
     valid = (mask[2:] & mask[1:-1] & mask[:-2] &
              strips[2:] & strips[1:-1] & strips[:-2])
     second = np.abs(lum[2:] - 2 * lum[1:-1] + lum[:-2])
     seam = float(second[valid].max()) if valid.any() else 1.0
     visible = float(mask[strips].mean())
-    gates["G3_backdrop"] = {"pass": bool(visible >= 0.995 and
+    gates["G3_backdrop"] = {"pass": bool(unexpected == 0 and visible >= 0.995 and
                                         valid.sum() >= 4000 and seam <= 0.055),
                             "max_second_difference": round(seam, 6),
                             "backdrop_visibility_fraction": round(visible, 6),
-                            "verified_pixels": int(valid.sum())}
+                            "verified_pixels": int(valid.sum()),
+                            "unexpected_primary_pixels": unexpected}
     angles = []
+    framing = []
     for frame in range(1, 14):
         scene.frame_set(frame)
         angles.append(float(bpy.data.objects["Turntable"].rotation_euler.z))
+        if frame <= 12:
+            framing.append(geometry(scene))
+    gates["G1_framing"]["pass"] = all(row["pass"] for row in framing)
+    gates["G1_framing"]["checked_frames"] = len(framing)
+    gates["G1_framing"]["failed_frames"] = [
+        i + 1 for i, row in enumerate(framing) if not row["pass"]]
     errors = [abs((b - a) - 2 * math.pi / 12) for a, b in zip(angles, angles[1:])]
     # Compare rendered endpoint against frame 1 at the same resolution and sample seed.
     endpoint = render(scene, out / "endpoint.png")
@@ -122,7 +131,7 @@ def grade(settings, seed, out):
     linked = render(scene, out / "rim-on.png")
     rim.data.energy = 0
     dark = render(scene, out / "rim-off.png")
-    mask = backdrop_mask(scene, 128, 72)
+    mask, _ = visibility(scene, 128, 72)
     difference = np.abs(linked - dark).mean(axis=2)
     delta = float(difference[mask].mean()) if mask.any() else 1
     signal = float(difference[~mask].mean()) if (~mask).any() else 0

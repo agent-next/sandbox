@@ -49,13 +49,14 @@ def card(title, lines):
 def kill_matrix(data):
     image = Image.new("RGB", (1920, 1080), BG)
     draw = ImageDraw.Draw(image)
-    text(draw, (65, 40), "JUDGE PROOF / 7 OF 7 MUTANTS CAUGHT", 70, BLUE)
+    text(draw, (65, 40), f"JUDGE PROOF / {data['killed']} OF {data['total']} MUTANTS CAUGHT",
+         70, BLUE)
     text(draw, (65, 140), "Blue = PASS. Orange = FAIL. Every row is measured.", 64)
     names = list(data["good"]["gates"])
     for j in range(5):
         text(draw, (1100 + 145*j, 245), f"G{j+1}", 64)
     for i, (name, verdict) in enumerate(data["mutants"].items()):
-        y = 350 + 90*i
+        y = 325 + 75*i
         text(draw, (65, y), name.replace("_", " "), 64)
         for j, gate in enumerate(names):
             color = BLUE if verdict["gates"][gate]["pass"] else ORANGE
@@ -109,7 +110,7 @@ def main():
     text(draw, (110, 510), "Failed scene        Repaired scene", 42)
     text(draw, (65, 625), f"PASS line = 5 gates. Kill rate {data['killed']}/{data['total']}.", 50)
     for i, (name, verdict) in enumerate(data["mutants"].items()):
-        y = 190 + i * 102
+        y = 190 + i * 80
         draw.rectangle((1010, y, 1080, y+55), fill=BLUE if not verdict["pass"] else ORANGE)
         text(draw, (1110, y), name.replace("_", " "), 45)
     text(draw, (65, 965), "Source: selftest.json, seed 17. Known mutant → good, not inferred history.", 35)
@@ -168,7 +169,7 @@ def main():
     text(draw, (55, 990), f"Measured runtime {data['timing']['total_seconds']:.1f}s · seed 17", 64)
     # Real process rows revealed over the three-second slot.
     repairs = []
-    for i in range(7):
+    for i in range(data["total"]):
         r = repair.copy()
         name = list(data["mutants"])[i]
         text(ImageDraw.Draw(r), (55, 815), f"KILLED: {name.replace('_', ' ')}", 64, BLUE)

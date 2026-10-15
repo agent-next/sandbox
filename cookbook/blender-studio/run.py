@@ -28,7 +28,8 @@ def remote_step(sid, label, command, budget):
     start = time.monotonic()
     token = os.urandom(6).hex()
     prefix = f"/tmp/studio-{token}"
-    job = f"{command}; code=$?; printf '%s' \"$code\" > {prefix}.exit"
+    job = (f"{command}; code=$?; printf '%s' \"$code\" > {prefix}.exit.tmp; "
+           f"mv {prefix}.exit.tmp {prefix}.exit")
     sbx("exec", sid, "--timeout", "120",
         f"nohup sh -c {shlex.quote(job)} >{prefix}.log 2>&1 </dev/null &")
     probe = (
@@ -135,6 +136,9 @@ def main():
             if os.environ.get(name):
                 message = message.replace(os.environ[name], "[redacted]")
         print(message, file=sys.stderr)
+        if sid is None:
+            print("No sandbox id was confirmed. A lost create reply can leave a "
+                  "sandbox alive; inspect sbx list before retrying.", file=sys.stderr)
     finally:
         if sid:
             if args.keep:
