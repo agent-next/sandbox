@@ -206,12 +206,49 @@ def test_github_waits_for_terminal_conclusion(monkeypatch):
     def handler(req):
         if req.url.path.endswith("/runs"):
             return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
+        if req.url.path == "/repos/acme/app/actions/jobs/123":
+            return httpx.Response(200, json=responses.pop(0))
         return httpx.Response(200, json={"jobs": [responses.pop(0)]})
 
     gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
         base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
     assert gh.job("sbx-test", ["acme/app"])["conclusion"] == "failure"
     assert responses == []
+
+
+@pytest.mark.parametrize("terminal_after", [6, 58, None])
+def test_github_retries_matching_job_until_terminal_or_deadline(monkeypatch, terminal_after):
+    now, calls = [0.0], []
+    monkeypatch.setattr(runners.time, "monotonic", lambda: now[0])
+
+    def sleep(seconds):
+        now[0] += seconds
+
+    monkeypatch.setattr(runners.time, "sleep", sleep)
+
+    def handler(req):
+        calls.append(req.url.path)
+        now[0] += 0.1
+        if req.url.path.endswith("/runs"):
+            return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
+        if req.url.path.endswith("/runs/9/jobs"):
+            return httpx.Response(200, json={"jobs": [job(conclusion=None)]})
+        assert req.url.path == "/repos/acme/app/actions/jobs/123"
+        conclusion = "failure" if terminal_after is not None and now[0] >= terminal_after else None
+        return httpx.Response(200, json=job(conclusion=conclusion))
+
+    gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
+        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
+    if terminal_after is None:
+        with pytest.raises(cli.SbxError, match="lookup timed out"):
+            gh.job("sbx-test", [])
+        assert now[0] == pytest.approx(60)
+    else:
+        assert gh.job("sbx-test", []) == job()
+        assert terminal_after <= now[0] < 60
+    assert calls.count("/repos/acme/app/actions/runs") == 1
+    assert calls.count("/repos/acme/app/actions/runs/9/jobs") == 1
+    assert "/repos/acme/app/actions/jobs/123" in calls
 
 
 def test_keep_failed_parser_default_and_explicit_cap():
