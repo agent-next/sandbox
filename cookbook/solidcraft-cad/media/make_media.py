@@ -38,11 +38,12 @@ STAGES = [  # (prefix length of the good script, caption)
 ]
 SWEEP = [6.0, 6.5, 7.0, 7.5, 8.0]
 REPLAY = [  # scripted repair replay: draft with three mistakes, fixed one per step
-    ("draft", ["no_fillet", "hole_small", "literal_thickness"]),
-    ("fix parametric thickness", ["no_fillet", "hole_small"]),
-    ("fix bolt hole diameter", ["no_fillet"]),
-    ("add R5 corner fillets", []),
+    ("draft", ["boss_height", "hole_off_pcd", "literal_thickness"]),
+    ("fix boss height", ["hole_off_pcd", "literal_thickness"]),
+    ("move hole onto PCD", ["literal_thickness"]),
+    ("use the thickness\nparameter", []),
 ]
+FLOOR = 1e-12  # ratios below this are drawn at the floor (exact to float precision)
 GATES = ["build", "occt_shape", "volume", "features", "mass", "cross_check", "parametric", "stl"]
 
 
@@ -153,19 +154,20 @@ def draw_result(fig, v: dict):
 
     ax = fig.add_axes([0.62, 0.12, 0.35, 0.74])
     rows = checks(v)
-    ratios = [max(m / lim, 1e-12) for _, m, lim in rows]
+    ratios = [max(m / lim, FLOOR) for _, m, lim in rows]
     y = range(len(rows))[::-1]
     ax.barh(list(y), ratios, color=[OK if r <= 1 else BAD for r in ratios], height=0.6)
     ax.axvline(1.0, color=BAD, lw=2, ls="--")
-    ax.text(1.15, len(rows) - 0.4, "pass line\n(measured = limit)", color=BAD, fontsize=9, va="top")
+    ax.text(0.7, len(rows) - 0.4, "pass line", color=BAD, fontsize=10, va="top", ha="right")
     ax.set_xscale("log")
-    ax.set_xlim(1e-12, 30)
+    ax.set_xlim(FLOOR / 10, 30)
     ax.set_yticks(list(y))
     ax.set_yticklabels([r[0] for r in rows], fontsize=10)
     ax.set_xlabel("measured deviation / pass limit (log scale; < 1 passes)", fontsize=10)
     ax.set_title("Judge gates on the delivered STEP/STL (OpenCascade 8.0.1)", fontsize=12)
     for yi, r in zip(y, ratios):
-        ax.text(min(r * 1.6, 3), yi, f"{r:.1e}", va="center", fontsize=8, color=INK)
+        ax.text(min(r * 1.6, 3), yi, "≤ 1e-12 (exact)" if r <= FLOOR else f"{r:.1e}",
+                va="center", fontsize=8, color=INK)
     ok = v["passed"]
     fig.suptitle(f"solidcraft-cad — verdict: {'PASS' if ok else 'FAIL'}  "
                  f"(OCCT volume {v['gates']['volume']['occt_mm3']} mm³ vs analytic "
@@ -181,10 +183,12 @@ def draw_loop(fig, verdicts: dict, replay: list):
     ax.text(0, len(GATES) + 0.15, f"pass: all {len(GATES)} gates", color=OK, fontsize=10)
     for i, r in enumerate(replay):
         failed = [g for g in GATES if r["gates"].get(g) is False]
-        ax.annotate(", ".join(failed) or "PASS", (i, n[i]), textcoords="offset points", xytext=(0, -22),
-                    ha="center", fontsize=8, color=BAD if failed else OK)
+        ax.annotate("fails:\n" + "\n".join(failed) if failed else "PASS", (i, n[i]),
+                    textcoords="offset points", xytext=(0, -14), ha="center", va="top",
+                    fontsize=9, color=BAD if failed else OK)
     ax.set_xticks(range(len(replay)))
-    ax.set_xticklabels([r["step"] for r in replay], rotation=15, fontsize=9)
+    ax.set_xticklabels([r["step"] for r in replay], fontsize=9)
+    ax.set_xlim(-0.5, len(replay) - 0.5)
     ax.set_ylim(0, len(GATES) + 1)
     ax.set_ylabel("judge gates passed (of 8)")
     ax.set_title("Repair replay: a draft with 3 mistakes, fixed one per grade\n"
@@ -202,8 +206,8 @@ def draw_loop(fig, verdicts: dict, replay: list):
     killed = sum(1 for k in names[1:] if not verdicts[k]["passed"])
     ax2.set_yticks([])
     ax2.set_xticks([])
-    ax2.set_title(f"Self-test: known-good passes, {killed}/{len(names) - 1} mutants killed "
-                  f"({killed / (len(names) - 1):.0%}; requirement ≥ 90 %)", fontsize=11)
+    ax2.set_title(f"Self-test: {killed}/{len(names) - 1} single-edit mutants killed "
+                  f"({killed / (len(names) - 1):.0%}, need ≥ 90 %)\nfirst failing gate shown", fontsize=11)
     fig.suptitle("solidcraft-cad — agent loop and judge power", fontsize=14)
 
 
