@@ -29,10 +29,10 @@ def main():
     os.makedirs(BAD, exist_ok=True)
 
     mutants = {
-        # 1. nothing is ever drawn: only the clear colour remains -> gate 2
+        # 1. no parts are ever drawn: background + labels only -> gates 2, 6
         'blank_canvas': (
-            'gl.drawArrays(gl.LINES, 0, counts[p.id]);',
-            '/* mutant: draw call removed */;'),
+            'for (const p of PARTS) drawPart(p, cam.mvp, viewRot);',
+            '/* mutant: solid pass removed */'),
         # 2. the parts list stops after 8 of 17 parts -> recall 0.47 -> gate 3
         'missing_parts': (
             'for (const p of PARTS) {\n  const li = document.createElement("li");',
@@ -43,7 +43,7 @@ def main():
             '"use strict"; throw new Error("mutant: broken figure");'),
         # 4. dragging no longer turns the camera -> identical frames -> gate 2
         'static_camera': (
-            'yawDeg += (e.clientX - lastX) * 0.4;      // 2.5 px per degree',
+            'yawDeg += (e.clientX - lastX) * 0.4;',
             '/* mutant: camera frozen */;'),
         # 5. every part is relabelled -> recall 0 -> gate 3 (and gate 4)
         'wrong_labels': (
@@ -53,6 +53,10 @@ def main():
         'no_interaction': (
             'li.addEventListener("click", () => select(p));',
             'li.addEventListener("click", () => {});'),
+        # 7. the showcase capture shrinks to 40% of the viewport -> gate 6
+        'tiny_capture': (
+            'html.shot .stage-view { position: fixed; inset: 0; }',
+            'html.shot .stage-view { position: fixed; inset: 30%; }'),
     }
 
     for name, (old, new) in mutants.items():

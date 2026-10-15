@@ -1,5 +1,5 @@
 # judge toolchain as installed by judge/setup.sh
-date: 2026-10-14T22:27:24+00:00
+date: 2026-10-15T09:11:00+00:00
 os: Debian GNU/Linux 12 (bookworm)
 kernel: 6.1.175
 python: Python 3.12.15

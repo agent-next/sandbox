@@ -20,7 +20,7 @@ import json
 import sys
 import time
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageStat
 from playwright.sync_api import sync_playwright
 
 VARIANCE_MIN = 50.0     # gate 2: grayscale population variance, 0-255 scale
@@ -29,6 +29,11 @@ CHANGED_MIN = 0.02      # gate 2: fraction of pixels differing by > 30 levels
 RECALL_MIN = 0.8        # gate 3: fraction of reference parts present
 INFO_DESC_MIN = 20      # gate 4: chars of description beyond the part name
 FPS_FLOOR = 10.0        # gate 5: frames per second under SwiftShader on 2 vCPU
+CAPTURE_W_MIN = 1280    # gate 6: capture must be at least this many px wide
+NONBG_MIN = 0.08        # gate 6: >= 8% of pixels must differ from background
+                        # (good exploded figure measures ~0.13 at seed 42; a
+                        # sparse wireframe scores ~0.02-0.04)
+NONBG_THR = 30          # gate 6: "differs" = grayscale distance > 30 levels
 SETTLE_S = 1.2
 CHROMIUM_ARGS = ["--enable-unsafe-swiftshader", "--disable-gpu"]
 
@@ -224,14 +229,62 @@ def main():
         g5["fps_pass"] = bool(fps >= FPS_FLOOR)
         g5["passed"] = g5["fps_pass"]
 
+        # ---- gate 6: capture quality (showcase shot) ----------------------
+        # The artifact contract requires a ?shot&labels&explode capture mode
+        # rendering the real scene >= CAPTURE_W_MIN px wide, dense enough to
+        # read as a shaded figure (not a sparse wireframe), with part labels
+        # whose chips do not overlap.
+        g6 = {"gate": 6, "name": "capture_quality",
+              "width_min": CAPTURE_W_MIN, "nonbg_min": NONBG_MIN}
+        page.set_viewport_size({"width": 1920, "height": 1080})
+        sep = "&" if "?" in args.url else "?"
+        page.goto(args.url + sep + "shot=1&labels=1&explode=0.72",
+                  wait_until="load", timeout=20000)
+        page.wait_for_timeout(int(SETTLE_S * 1000))
+        target = page.locator("#stageView")
+        if target.count() == 0:
+            target = page.locator("canvas").first
+        png = target.screenshot()
+        img = Image.open(io.BytesIO(png)).convert("RGB")
+        g6["w"], g6["h"] = img.size
+        # background = mean of the four corner patches; a sparse render or
+        # an empty canvas scores near zero on the non-background fraction.
+        corners = [img.crop(b) for b in (
+            (0, 0, 24, 24), (img.width - 24, 0, img.width, 24),
+            (0, img.height - 24, 24, img.height),
+            (img.width - 24, img.height - 24, img.width, img.height))]
+        means = [ImageStat.Stat(c).mean for c in corners]
+        bg = tuple(sorted(m[i] for m in means)[1:3][0] for i in range(3))
+        diff = ImageChops.difference(
+            img, Image.new("RGB", img.size, tuple(round(v) for v in bg)))
+        hist = diff.convert("L").histogram()
+        npx = sum(hist)
+        g6["nonbg_fraction"] = round(sum(hist[NONBG_THR:]) / npx, 4)
+        # label chips must not pairwise overlap
+        rects = page.evaluate(
+            "() => Array.from(document.querySelectorAll('.lbl'))"
+            ".map(el => { const r = el.getBoundingClientRect();"
+            " return [r.x, r.y, r.right, r.bottom]; })")
+        overlaps = 0
+        for i in range(len(rects)):
+            for j in range(i + 1, len(rects)):
+                a, b = rects[i], rects[j]
+                if a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]:
+                    overlaps += 1
+        g6["n_labels"] = len(rects)
+        g6["label_overlaps"] = overlaps
+        g6["passed"] = (g6["w"] >= CAPTURE_W_MIN
+                        and g6["nonbg_fraction"] >= NONBG_MIN
+                        and overlaps == 0)
+
         browser.close()
 
     verdict = {
         "artifact": args.url.rsplit("/", 1)[-1] or args.url,
         "machine": machine,
         "seed": args.seed,
-        "gates": [g1, g2, g3, g4, g5],
-        "all_gates_passed": all(g["passed"] for g in (g1, g2, g3, g4, g5)),
+        "gates": [g1, g2, g3, g4, g5, g6],
+        "all_gates_passed": all(g["passed"] for g in (g1, g2, g3, g4, g5, g6)),
         "timing": {
             "wall_seconds": round(time.monotonic() - t0, 3),
             "measured_fps": round(fps, 1),

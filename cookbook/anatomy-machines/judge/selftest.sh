@@ -69,7 +69,7 @@ fi
 echo ""
 echo "[selftest] Known-bad mutants (must FAIL):"
 MUTANTS=(blank_canvas missing_parts console_error static_camera
-         wrong_labels no_interaction)
+         wrong_labels no_interaction tiny_capture)
 KILLED=0
 TOTAL=0
 declare -a SURVIVED=()
