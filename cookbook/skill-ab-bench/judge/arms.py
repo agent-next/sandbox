@@ -35,14 +35,17 @@ def noskill_kv(text: str, key: str, **_kw) -> str:
     """First attempt: flatten the file into one dict and look the key up.
 
     Loses section scoping, case sensitivity and comment state -- which is
-    exactly what a config-value task is testing.
+    exactly what a config-value task is testing.  Stripping the comment
+    marker is the plausible-looking move that makes it read a
+    commented-out assignment as if it were a real one.
     """
     flat: dict[str, str] = {}
     for line in text.splitlines():
         if "=" not in line:
             continue
         k, _, v = line.partition("=")
-        flat[k.strip().lower()] = v.strip()          # first occurrence wins
+        k = k.strip().lstrip("#;").strip()           # commented-out keys count
+        flat.setdefault(k.lower(), v.strip())        # first occurrence wins
     return flat.get(key.lower(), "")
 
 
@@ -50,11 +53,11 @@ def noskill_kv(text: str, key: str, **_kw) -> str:
 # the input has an escape, a second candidate, or a non-word character.
 _NOSKILL_RE = {
     "digits_join": lambda t: "|".join(re.findall(r"\d+", t)),
-    "first_port": lambda t: re.search(r"port=(\d+)", t).group(1),
-    "quoted": lambda t: re.search(r'"([^"]*)"', t).group(1),
-    "dotted_quad": lambda t: re.search(r"(\d+\.){3}\d+", t).group(0),
-    "version": lambda t: re.search(r"(\d+\.)+\d+", t).group(0),
-    "whole_word_count": lambda t, word: str(t.lower().count(word)),
+    "first_port": lambda t: re.search(r"port=([0-9,]+)", t).group(1),
+    "quoted": lambda t: re.search(r'"[^"]*"', t).group(0),
+    "dotted_quad": lambda t: re.search(r"host is (\S+)", t).group(1),
+    "version": lambda t: re.search(r"\d[0-9.]*", t).group(0),
+    "word_count": lambda t, word: str(t.lower().count(word)),
     "email_local": lambda t: re.search(r"(\w+)@", t).group(1),
     "trailing_int": lambda t: re.search(r"(\d+)$", t).group(1),
 }
@@ -67,7 +70,7 @@ def noskill_answer(task: dict) -> str:
             return _csv_lookup(task["input"], params["csv_row"], params["csv_col"])
         return noskill_kv(task["input"], params["key"])
     fn = _NOSKILL_RE[params["how"]]
-    if params["how"] == "whole_word_count":
+    if params["how"] == "word_count":
         return fn(task["input"], params["word"])
     return fn(task["input"])
 
@@ -77,14 +80,22 @@ def noskill_answer(task: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def placebo_kv(text: str, key: str, **_kw) -> str:
-    """What the README tells you: 'trust the last matching line, ignore
-    case, and keep comments -- they document intent'."""
+    """What the README tells you: 'skip commented-out lines'.
+
+    That is the whole of the placebo's technique.  It is a plausible tip
+    and it changes exactly one task's answer, so the placebo arm is a real
+    control rather than a copy of the no-skill arm -- and the bench must
+    still refuse to call its delta significant.
+    """
     flat: dict[str, str] = {}
     for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") or stripped.startswith(";"):
+            continue
         if "=" not in line:
             continue
         k, _, v = line.partition("=")
-        flat[k.strip().lower()] = v.strip()          # last occurrence wins
+        flat.setdefault(k.strip().lower(), v.strip())   # first occurrence wins
     return flat.get(key.lower(), "")
 
 
@@ -95,10 +106,7 @@ def placebo_answer(task: dict) -> str:
         if "csv_row" in params:
             return _csv_lookup(task["input"], params["csv_row"], params["csv_col"])
         return placebo_kv(task["input"], params["key"])
-    fn = _NOSKILL_RE[params["how"]]
-    if params["how"] == "whole_word_count":
-        return fn(task["input"], params["word"])
-    return fn(task["input"])
+    return noskill_answer(task)
 
 
 # ---------------------------------------------------------------------------
@@ -124,9 +132,9 @@ def skill_answer(task: dict, techniques: dict) -> str:
         if "csv_row" in params:
             return techniques["csv_lookup"](task["input"], params["csv_row"],
                                             params["csv_col"])
-        return techniques["ini_lookup"](task["input"], params["key"], **params)
+        return techniques["ini_lookup"](task["input"], **params)
     fn = techniques[params["how"]]
-    if params["how"] == "whole_word_count":
+    if params["how"] == "word_count":
         return fn(task["input"], params["word"])
     return fn(task["input"])
 

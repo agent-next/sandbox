@@ -24,9 +24,9 @@ Each task carries:
   naive_answer  what the no-skill arm answers (wrong for difficulty 0)
   note          one line on why the naive method misses it
 
-The split below gives, by construction, 10 tasks where both arms answer
-correctly and 6 where only the skill arm does: 25 pass-rate points between
-the arms (10/16 vs 16/16).
+The split below gives, by construction, 4 tasks where both arms answer
+correctly and 12 where only the skill arm does: 75.0 pass-rate points between
+the arms (4/16 vs 16/16).
 """
 
 from __future__ import annotations
@@ -67,11 +67,13 @@ TASK_TABLE = [
      "naive '\".*\"' stops at the escaped quote"),
     ("re04", "re", "Report the v4 address in `v6 host is ::1 and v4 host is 10.0.0.1`.", 0,
      "naive '.*' match on 'host is' starts at ::1 and takes that"),
-    ("re05", "re", "Report the version in `version = 2.10` to three parts.", 0,
-     "naive '\\d+\\.\\d+' stops at the first dot and misses '.10'"),
-    ("re06", "re", "Count the whole word `red` in `red blue|red` (any case).", 0,
-     "naive substring count handles the pipe and both words fine, but the "
-     "honest one is a word-boundary count"),
+    ("re05", "re", "Report the version in `version = 2.10` (digits and dots "
+     "only).", 0,
+     "a naive '[0-9.]+' swallow counts the sentence-ending dot as part of "
+     "the version"),
+    ("re06", "re", "Count the whole word `red` in `red redder red` (any case).", 0,
+     "naive substring count says 3 ('red' occurs inside 'redder'); word "
+     "boundaries say 2"),
     ("re07", "re", "Report the email local part of `Contact: Ada+L@example.com`.", 0,
      "naive '\\w+@' stops at the '+' in the local part"),
     ("re08", "re", "Report the last integer in `id = 007-42`.", 1,
@@ -91,12 +93,12 @@ NAIVE = {
     "kv07": "4",                       # picked the first [pool]
     "kv08": '"release/2.0"   # keep',  # comment kept inside the value
     "re01": "10|22|30",
-    "re02": "8000,8001",
-    "re03": "ab\\",                    # stopped at the escaped quote
-    "re04": "::1",                     # matched the v6 host
-    "re05": "2.10",                    # two-part match, not three
-    "re06": "2",
-    "re07": "Ada",                     # stopped at '+'
+    "re02": "8000,8001",               # greedy class swallowed both ports
+    "re03": '"ab\\"',                  # quote class stopped at the escape
+    "re04": "::1",                     # grabbed the token after 'host is'
+    "re05": "2.10.",                   # the period is inside the swallow
+    "re06": "3",                       # substring count: "red" inside "redder"
+    "re07": "L",                       # "\w+" left only the last char before @
     "re08": "42",
 }
 
@@ -133,9 +135,9 @@ def _corpus() -> dict[str, dict]:
                  "params": {"how": "quoted"}},
         "re04": {"input": "v6 host is ::1 and v4 host is 10.0.0.1\n",
                  "params": {"how": "dotted_quad"}},
-        "re05": {"input": "version = 2.10\n",
+        "re05": {"input": "version = 2.10.\n",
                  "params": {"how": "version"}},
-        "re06": {"input": "red blue|red\n",
+        "re06": {"input": "red redder red\n",
                  "params": {"how": "word_count", "word": "red"}},
         "re07": {"input": "Contact: Ada+L@example.com now\n",
                  "params": {"how": "email_local"}},
@@ -178,7 +180,11 @@ def main() -> int:
                 f"oracle ({t['naive_answer']!r} != {t['answer']!r})")
 
     hard = [t["task_id"] for t in tasks if t["difficulty"] == 0]
-    assert len(hard) == 6, f"expected 6 hard tasks, got {len(hard)}: {hard}"
+    easy = [t["task_id"] for t in tasks if t["difficulty"] == 1]
+    # The corpus split is a pinned fact, not a tuning knob: 4 easy + 12 hard
+    # gives 16/16 vs 4/16 = 75.0 pass-rate points between the arms.
+    assert len(hard) == 12, f"expected 12 hard tasks, got {len(hard)}: {hard}"
+    assert len(easy) == 4, f"expected 4 easy tasks, got {len(easy)}: {easy}"
 
     OUT.write_text(json.dumps({"tasks": tasks}, indent=2, sort_keys=True) + "\n")
     print(f"gen_inputs: wrote {OUT} ({len(tasks)} tasks, {len(hard)} hard: "

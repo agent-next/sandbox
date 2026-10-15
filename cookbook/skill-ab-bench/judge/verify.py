@@ -176,13 +176,21 @@ def _dotted_quad(text: str) -> str:
 
 
 def _version(text: str) -> str:
-    """The first maximal run of digits and dots."""
+    """The first version: a digit run, then any number of '.digit' groups.
+
+    A trailing dot is a sentence period, not part of the version: `2.10.`
+    yields `2.10`, where a bare `[0-9.]+` scan would swallow the period.
+    """
     i = 0
     while i < len(text):
         if text[i].isdigit():
             j = i
-            while j < len(text) and (text[j].isdigit() or text[j] == "."):
+            while j < len(text) and text[j].isdigit():
                 j += 1
+            while j + 1 < len(text) and text[j] == "." and text[j + 1].isdigit():
+                j += 1
+                while j < len(text) and text[j].isdigit():
+                    j += 1
             return text[i:j]
         i += 1
     return ""
@@ -213,10 +221,14 @@ def _email_local(text: str) -> str:
 
 
 def _trailing_int(text: str) -> str:
+    """The last integer, ignoring any trailing whitespace/newline."""
     i = len(text)
+    while i > 0 and text[i - 1].isspace():
+        i -= 1
+    end = i
     while i > 0 and text[i - 1].isdigit():
         i -= 1
-    return text[i:]
+    return text[i:end]
 
 
 def expected_answer(task: dict) -> str:

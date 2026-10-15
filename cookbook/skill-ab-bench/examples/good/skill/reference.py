@@ -75,9 +75,10 @@ def ini_lookup(text: str, key: str, section: str | None = None,
             continue
         k, _, v = line.partition("=")
         k = k.strip()
-        if not case_sensitive:
-            k = k.lower()
-        if k != key and k != key.lower():
+        if case_sensitive:
+            if k != key:
+                continue
+        elif k.lower() != key.lower():
             continue
         value = v.strip()
         if strip_comment:
@@ -137,12 +138,17 @@ def dotted_quad(text: str) -> str:
 
 
 def version(text: str) -> str:
-    """A full multi-part version: keep consuming `.digits` groups."""
+    """A full multi-part version: keep consuming `.digits` groups.
+
+    Anchoring each group on a *digit* after the dot is what stops a
+    sentence-ending period from being read as part of the version:
+    `2.10.` yields `2.10`, not `2.10.`.
+    """
     match = re.search(r"\d+(?:\.\d+)+", text)
     return match.group(0) if match else ""
 
 
-def whole_word_count(text: str, word: str) -> str:
+def word_count(text: str, word: str) -> str:
     """Count whole words, any case -- not substring occurrences."""
     return str(len(re.findall(rf"(?i)\b{re.escape(word)}\b", text)))
 
@@ -171,7 +177,7 @@ TECHNIQUES = {
     "quoted": quoted,
     "dotted_quad": dotted_quad,
     "version": version,
-    "whole_word_count": whole_word_count,
+    "word_count": word_count,
     "email_local": email_local,
     "trailing_int": trailing_int,
 }
