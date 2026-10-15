@@ -16,7 +16,8 @@ Steps (each timed, each printed, each fatal on failure):
      fixture/make_fixture.py + sweep/one_commit.sh (base64), judge/setup.sh,
      judge/selftest.sh (proves the judge can fail before its verdict is
      trusted)
-  2. sbx create x11 (one per suspect commit) — parallel
+  2. sbx create x11 (one per suspect commit) — serialised creates with
+     429-quota backoff, parallel execs
   3. each sweep sandbox: stage the two scripts, run sweep/one_commit.sh <i>
      between SWEEP sentinels, print a receipt JSON; the sandbox is killed as
      soon as its receipt is in
@@ -67,6 +68,12 @@ PLANTED_INDEX = 25          # must match fixture/make_fixture.py
 TRANSIENT = ("503", "bad gateway", "temporarily", "connection reset",
              "connection refused", "timeout occurred", "405",
              "method not allowed")
+# The account's concurrent-running-sandbox quota (measured: 20 running
+# sandboxes, then 429).  A create that loses the race for the last slot is
+# retried with backoff — the quota is shared with every other session on the
+# key, so a busy account can refuse most of an 11-sandbox burst at once.
+# A retry is safe: a refused create starts nothing.
+QUOTA_BACKOFF = (10, 20, 30, 45, 60, 90, 120, 180, 240, 300, 300, 300)
 # The same REST API the `sbx` CLI resolves (E2B_API_URL / E2B_DOMAIN are
 # honoured exactly as the CLI resolves them).  GET /sandboxes/<id> is how a
 # kill is actually verified (404 = gone); DELETE /sandboxes/<id> is the
@@ -187,16 +194,33 @@ def confirm_gone(ids: dict[str, str]) -> list[str]:
 
 def create_sandbox(what: str, registry: dict) -> str:
     """Create one sandbox and register its id immediately, so the finally
-    block can kill it no matter how the run fails afterwards."""
-    rc, out, _ = timed(f"create sandbox ({what})", sbx,
-                       "create", "--timeout-min", TIMEOUT_MIN, timeout=180)
-    if rc != 0 or not out.strip():
+    block can kill it no matter how the run fails afterwards.
+
+    Losing a race for the account's last concurrent-sandbox slot comes back
+    as a 429, so creates are retried with backoff (the quota is shared with
+    every other session on the key and can refuse most of an 11-sandbox
+    burst at once).  A refused create starts nothing, so a retry cannot
+    leak or double-register."""
+    last_out = ""
+    for attempt in range(1, len(QUOTA_BACKOFF) + 2):
+        rc, out, _ = timed(f"create sandbox ({what})", sbx,
+                           "create", "--timeout-min", TIMEOUT_MIN, timeout=180)
+        last_out = out
+        if rc == 0 and out.strip():
+            sid = out.strip().splitlines()[-1].strip()
+            registry[what] = sid
+            print(f"[run]   {what} -> {sid}", flush=True)
+            return sid
+        if attempt <= len(QUOTA_BACKOFF) and "429" in out:
+            wait = QUOTA_BACKOFF[attempt - 1]
+            print(f"[run]   quota 429 for {what}; retry {attempt}/"
+                  f"{len(QUOTA_BACKOFF)} in {wait}s", flush=True)
+            time.sleep(wait)
+            continue
         raise RuntimeError(f"sandbox create for {what} failed "
                            f"(exit {rc}): {out.strip()[-400:]}")
-    sid = out.strip().splitlines()[-1].strip()
-    registry[what] = sid
-    print(f"[run]   {what} -> {sid}", flush=True)
-    return sid
+    raise RuntimeError(f"sandbox create for {what} failed: "
+                       f"{last_out.strip()[-400:]}")
 
 
 def parse_tagged(out: str, begin: str, end: str) -> str:
@@ -384,11 +408,13 @@ def main():
               f"{SWEEP_LAST} ({N_SANDBOXES} sandboxes in parallel)",
               flush=True)
         t0 = time.monotonic()
-        with concurrent.futures.ThreadPoolExecutor(N_SANDBOXES) as ex:
-            for i, sid in ex.map(
-                    lambda i: (i, create_sandbox(f"commit {i}", created)),
-                    range(SWEEP_FIRST, SWEEP_LAST + 1)):
-                ids[i] = sid
+        # Creates are serialised: the account's concurrent-sandbox quota is
+        # shared with every other session on the key, and a burst of 11
+        # simultaneous creates loses most of the races (observed in
+        # acceptance: 10 of 11 refused with 429).  Each create retries with
+        # backoff, so the burst drains as slots free up instead of failing.
+        for i in range(SWEEP_FIRST, SWEEP_LAST + 1):
+            ids[i] = create_sandbox(f"commit {i}", created)
         timings["create_sandboxes_s"] = round(time.monotonic() - t0, 2)
         print(f"[run] created {len(ids)} sandboxes "
               f"in {timings['create_sandboxes_s']}s", flush=True)
@@ -396,6 +422,10 @@ def main():
         # --- 3. every sandbox runs its commit (parallel wall) -------------
         t0 = time.monotonic()
         receipts: dict[int, dict] = {}
+        # The execs stay parallel: they are idempotent (each sandbox stages
+        # its own scripts and runs its own commit), so a lost reply is
+        # re-issued, and the per-commit work is byte-identical to the serial
+        # baseline's — only the machine count differs.
         with concurrent.futures.ThreadPoolExecutor(N_SANDBOXES) as ex:
             futs = {ex.submit(run_one_sandbox, sid, mf_b64, oc_b64, i): i
                     for i, sid in ids.items()}
