@@ -1,0 +1,23 @@
+# Pinned judge tooling for cookbook/pr-review-agent.
+#
+# The judge engine itself is stdlib only; this file pins the one external
+# tool the gates need -- pytest, which runs the reviewer's tests both ways
+# (G4/G5).  Installed by judge/setup.sh with
+#
+#     pip install --no-cache-dir --require-hashes -r judge/requirements.txt
+#
+# Every wheel is py3-none-any, so one hash per package covers every
+# supported interpreter.  pytest 8.4.2 is the exact version already
+# installed in the agent-next base image (measured 2026-10-15), which keeps
+# the in-sandbox run identical to a developer's laptop; it was published
+# 2025-06-04, comfortably older than the two-week window in DEMO-STANDARD.md.
+pytest==8.4.2 \
+    --hash=sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79
+iniconfig==2.3.1 \
+    --hash=sha256:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7
+packaging==26.3 \
+    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+pluggy==1.6.0 \
+    --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
+pygments==2.21.0 \
+    --hash=sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9

@@ -1,0 +1,11 @@
+{
+  "pr": 2,
+  "findings": [
+    {
+      "file": "orders/store.py",
+      "line": 37,
+      "severity": "critical",
+      "kind": "sql-injection"
+    }
+  ]
+}

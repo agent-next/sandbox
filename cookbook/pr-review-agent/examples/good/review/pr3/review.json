@@ -1,0 +1,11 @@
+{
+  "pr": 3,
+  "findings": [
+    {
+      "file": "orders/store.py",
+      "line": 57,
+      "severity": "major",
+      "kind": "none-deref"
+    }
+  ]
+}

@@ -44,8 +44,8 @@ EDITS: list[tuple[int, str | None, str, str, str]] = [
      "    total = order_total(conn, order_id)\n"
      "    return int(total * (1 + rate))"),
     (4, "race", "orders/metrics.py",
-     "        with self._lock:\n            self._value += amount",
-     "        self._value += amount"),
+     "        with self._lock:\n            self._write(self._read() + amount)",
+     "        self._write(self._read() + amount)"),
     # 5: clean refactor -- behaviour identical, no defect.
     (5, None, "orders/config.py",
      "    with open(path, encoding=\"utf-8\") as handle:\n"
@@ -83,13 +83,23 @@ SEVERITY = {
 }
 
 
+SKIP_DIRS = {"__pycache__", ".pytest_cache"}
+
+
 def pristine_files() -> dict[str, str]:
-    """Every tracked file in the pristine tree, as repo-relative path -> text."""
+    """Every tracked file in the pristine tree, as repo-relative path -> text.
+
+    The skip rule matches the judge's ``sha256_tree`` exactly, so a stray
+    ``__pycache__`` from a local test run cannot change the hash.
+    """
     out = {}
     for path in sorted(REPO.rglob("*")):
-        if path.is_file() and "__pycache__" not in path.parts:
-            rel = path.relative_to(REPO).as_posix()
-            out[rel] = path.read_text(encoding="utf-8")
+        if not path.is_file():
+            continue
+        if SKIP_DIRS & set(path.parts) or path.suffix == ".pyc":
+            continue
+        rel = path.relative_to(REPO).as_posix()
+        out[rel] = path.read_text(encoding="utf-8")
     return out
 
 

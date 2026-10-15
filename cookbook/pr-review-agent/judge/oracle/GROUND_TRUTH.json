@@ -1,12 +1,12 @@
 {
-  "pristine_sha256": "81b2a180e0e7a31eafec0c9bdc36d734b7631ce68d2522691620459856c9c4b3",
+  "pristine_sha256": "027e715816e06d63e0ca454278c5a45ad96b2ed12b8f24c9a7e7d4863b8dcbe2",
   "pr_sha256": {
-    "1": "1e425206781e7a09b227214a3f2e5fe3903706f0a74deabf3a7e48b5e5feea84",
-    "2": "e764d3cd68b047dabea31394f3cd44420989d127c4cd073085a583832a59a094",
-    "3": "ebd92895e2b732c3d791d418803d09e7894b27f07790dda17c1dfc5dedf00005",
-    "4": "f38754d262bceea9f6b1f0585cdb9ef1c1ac80f8688c03cae24d80bab54b7f0b",
-    "5": "f48ff181ee1324f4723a2d9d89fdb1e34e311e5012864681fab0d9c8a02e4a4a",
-    "6": "7d324aacea9f52634c36cca0ab1ddd504319e38ccf5280c1e9370f09bf3026aa"
+    "1": "7660b58622169a15c469f41cc02c0029fad4abb784e33dc542ba6fdd94fcfd02",
+    "2": "5c1b515cfa0f3ae838b3a3e53c287abe292228aeb0d08e895bc81e0e31a8bc8f",
+    "3": "78e0662c3547c355be9e0ad14ef796f6c84df8ddeea11092f51cbda2a54c9d3e",
+    "4": "3541c7175a001e8779331f80871722b19520e3ee811ea8bb71f73baee942c2b5",
+    "5": "ee0a1fe2c129311b194d5fb7aee393aa394909302ae3148d9e543a7637b8f1c7",
+    "6": "8cc28448c45d3bc78b802198f1285cec2d571d3c5ae03eca638eab672214e0d3"
   },
   "defects": [
     {
@@ -33,7 +33,7 @@
     {
       "pr": 4,
       "file": "orders/metrics.py",
-      "line": 15,
+      "line": 25,
       "kind": "race",
       "severity": "major"
     }

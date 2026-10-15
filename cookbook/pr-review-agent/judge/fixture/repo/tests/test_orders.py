@@ -33,10 +33,9 @@ def test_load_config_defaults_without_a_file():
     assert load_config()["page_size"] == 20
 
 
-def test_count_concurrently_counts_every_increment():
-    counter = Counter()
-    count_concurrently(counter, [1] * 200, workers=8)
-    assert counter.value == 200
+def test_count_concurrently_counts_every_increment(tmp_path):
+    counter = Counter(tmp_path / "counter.json")
+    assert count_concurrently(counter, [1] * 200, workers=8) == 200
 
 
 def test_order_total_with_tax_of_a_missing_order_is_none():

@@ -1,0 +1,11 @@
+{
+  "pr": 1,
+  "findings": [
+    {
+      "file": "orders/pagination.py",
+      "line": 7,
+      "severity": "major",
+      "kind": "off-by-one"
+    }
+  ]
+}

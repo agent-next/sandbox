@@ -1,0 +1,11 @@
+{
+  "pr": 4,
+  "findings": [
+    {
+      "file": "orders/metrics.py",
+      "line": 25,
+      "severity": "major",
+      "kind": "race"
+    }
+  ]
+}
