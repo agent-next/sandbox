@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -84,7 +85,7 @@ def main():
     def in_sandbox(script, timeout_s=1500):
         """Run a bash script inside the sandbox via sbx exec."""
         r = run(["sbx", "exec", "--timeout", str(timeout_s), sbx_id,
-                 "bash -lc %s" % json.dumps(script)], capture_output=True,
+                 "bash -lc %s" % shlex.quote(script)], capture_output=True,
                 text=True)
         return r
 
