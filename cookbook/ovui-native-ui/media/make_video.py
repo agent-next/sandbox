@@ -144,6 +144,11 @@ def caption(img, s, fill=FG):
 
 def frame_for(name, phase, box, facts, good, mutants, selftest, timings, ref,
               frame_i, n_frames):
+    if name == "black":
+        # a full-frame black flash, so every join between two neighbouring
+        # shots of the same panel reads as a hard cut to the scene detector
+        # (two views of the same render score below its 0.3 threshold)
+        return Image.new("RGB", (W, H), (0, 0, 0))
     img = base(box)
     dr = ImageDraw.Draw(img)
 

@@ -35,13 +35,20 @@ fi
 # -- 1. real judge outputs -> media/data/ ---------------------------------
 "$MVENV/bin/python" -I "$HERE/make_data.py" "$DEMO" "$VENV/bin/python" "$STUB"
 
-# -- 2. figures ------------------------------------------------------------
+# -- 2. the real camera frames the video is cut from (needs the judge venv,
+#      which has omni.ui) -> media/.frames/ (git-ignored) ---------------
+rm -rf "$HERE/.frames"
+(cd "$DEMO" && LD_LIBRARY_PATH="$STUB:${LD_LIBRARY_PATH:-}" \
+    OMNIUI_HEADLESS=1 OMNIUI_LAVAPIPE=1 OMNIUI_BACKEND=vulkan \
+    "$VENV/bin/python" -I "$HERE/make_frames.py" "$DEMO" "$HERE/.frames")
+
+# -- 3. figures ------------------------------------------------------------
 "$MVENV/bin/python" -I "$HERE/make_figures.py"
 
-# -- 3. video (lossless master + web encode) -------------------------------
+# -- 4. video (lossless master + web encode) -------------------------------
 "$MVENV/bin/python" -I "$HERE/make_video.py"
 
-# -- 4. manifest (sha256s of what we just wrote) ----------------------------
+# -- 5. manifest (sha256s of what we just wrote) ----------------------------
 "$MVENV/bin/python" -I "$HERE/make_manifest.py"
 
 echo "make_media.sh: done"

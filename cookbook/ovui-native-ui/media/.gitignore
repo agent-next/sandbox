@@ -5,3 +5,6 @@ master_encode.log
 web_encode.log
 *.tmp
 *.bak
+# The real render frames the video is cut from (600 frames, ~26 MB):
+# make_frames.py recaptures them from examples/good/panel.py every run.
+.frames/
