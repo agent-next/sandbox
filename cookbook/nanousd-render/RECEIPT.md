@@ -8,7 +8,7 @@ Environment (both runs):
 
 - Debian 12 (bookworm), Linux 6.1, 2 vCPU, 3.8 GiB RAM
 - python3 3.12.15 (system interpreter used to create the pinned venv)
-- judge tooling at git commit `1a83ca9` (the last commit before this
+- judge tooling at git commit `55bfadc` (the last commit before this
   RECEIPT; RECEIPT.md itself does not affect any judged output)
 
 ## Run 1
