@@ -84,7 +84,8 @@ sandbox created by another tool — you can run the judge steps directly:
 
 ```bash
 # 1. Install the pinned toolchain into $HOME/.venvs/physx-drop-test
-#    (sha256-verified wheels; needs only python3 + venv — no sudo)
+#    (sha256-verified wheels; needs only python3 + venv — no sudo).
+#    Set PHYSX_DROP_TEST_VENV=/path/to/venv to install somewhere else.
 bash judge/setup.sh
 
 # 2. Self-test: proves the judge can fail (good scene + 10 mutants)
@@ -102,7 +103,9 @@ bash judge/grade.sh examples/good/scene.usda --json /tmp/verdict.json
 | `--seed N` | recorded in verdict JSON (nothing samples it: fixed 2400 steps, single-threaded PhysX) | `--seed 42` |
 
 The judge is deterministic: two runs with the same seed give byte-identical
-verdict JSON except the `timing` key (`selftest.sh` checks this).
+verdict JSON except the `timing` key (`selftest.sh` checks this). The
+verdict JSON written via `--json` additionally carries `seed` and
+`timing.wall_seconds` keys, which the stdout print omits.
 
 ## Toolchain (pinned, sha256-checked via `pip install --require-hashes`)
 
@@ -126,14 +129,16 @@ Example scene, mutants, judge and oracle were written for this repository
 ## Measured wall times (2 vCPU, ~4 GB RAM, Linux x86_64)
 
 All times are measured and pasted in
-[RECEIPT.md](RECEIPT.md) (two from-nothing installs, runs A and C):
+[RECEIPT.md](RECEIPT.md) (two from-nothing installs, runs A and C; the
+first run on a box is faster when pip's wheel cache is warm):
 
 | step | wall time |
 |---|---|
 | `judge/setup.sh` (cold, ~390 MB download) | ~2 min |
+| `judge/setup.sh` (warm pip cache) | ~30 s |
 | `judge/setup.sh` (venv already installed) | ~1 s |
-| `judge/grade.sh` (one scene, grade.sh wall clock) | ~12–22 s |
-| `judge/selftest.sh` (good ×2 + 10 mutants + determinism check) | ~3–4 min |
+| `judge/grade.sh` (one scene, grade.sh wall clock) | ~5–22 s |
+| `judge/selftest.sh` (good ×2 + 10 mutants + determinism check) | ~1–4 min |
 
 ## Media (see the result without running anything)
 
