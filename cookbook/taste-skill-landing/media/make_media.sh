@@ -51,12 +51,29 @@ if [[ $SKIP_GRADE -eq 0 ]]; then
         --json "$WORK/good.json" >"$WORK/good.log" 2>&1
     bash "$BASE/judge/grade.sh" "$BASE/examples/baseline/site" --seed 42 \
         --json "$WORK/base.json" >"$WORK/base.log" 2>&1 || true
+    echo "[media] selftest: judge/selftest.sh (real kill count for the card)"
+    bash "$BASE/judge/selftest.sh" >"$WORK/selftest.log" 2>&1 || {
+        echo "[media] selftest.sh failed — last lines:" >&2
+        tail -20 "$WORK/selftest.log" >&2; exit 1; }
+    KILLS="$(grep 'mutants killed' "$WORK/selftest.log" | tail -1 \
+        | sed -E 's/.*mutants killed *: *//')"
+    [[ -n "$KILLS" ]] || {
+        echo "[media] no kill count in selftest output" >&2; exit 1; }
+    # cache for --skip-grade reruns
+    cp "$WORK/good.json" "$HERE/verdict-good.json"
+    cp "$WORK/base.json" "$HERE/verdict-baseline.json"
+    echo "$KILLS" > "$HERE/selftest-kills.txt"
 else
     cp "$HERE/verdict-good.json" "$WORK/good.json" 2>/dev/null || true
     cp "$HERE/verdict-baseline.json" "$WORK/base.json" 2>/dev/null || true
+    KILLS="$(cat "$HERE/selftest-kills.txt" 2>/dev/null || true)"
 fi
 [[ -f "$WORK/good.json" && -f "$WORK/base.json" ]] || {
     echo "[media] no verdict JSONs — run without --skip-grade" >&2; exit 2; }
+[[ -n "$KILLS" ]] || {
+    echo "[media] no selftest kill count — run without --skip-grade" >&2
+    exit 2; }
+KILL_COUNT="${KILLS%% *}"   # "N/N" from "N/N (100%)"
 
 mapfile -t VERDICT_LINES < <(python3 - "$WORK/good.json" "$WORK/base.json" <<'PY'
 import json, sys
@@ -151,7 +168,7 @@ seg_card 6.0 \
     "56|300|${TITLE_FONT}|judge verdict - seed 42" \
     "36|420|${TEXT_FONT}|${VERDICT_LINES[0]}" \
     "30|500|${TEXT_FONT}|${VERDICT_LINES[1]}" \
-    "28|620|${TEXT_FONT}|judge self-test - 10/10 mutants killed, a failing site exits non-zero"
+    "28|620|${TEXT_FONT}|judge self-test - ${KILL_COUNT} mutants killed, a failing site exits non-zero"
 
 for f in "$MASTER"/seg*.mp4; do printf 'file %s\n' "$f"; done \
     > "$WORK/concat.txt"
