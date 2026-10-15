@@ -120,13 +120,18 @@ def kill_and_confirm(sid: str, what: str) -> None:
                            f"{sid}` by hand before it holds a slot")
 
 
-def create_sandbox(what: str) -> str:
-    rc, out = timed(f"create sandbox ({what})", sbx,
-                    "create", "--timeout-min", TIMEOUT_MIN, timeout=180)
+def create_sandbox(what: str, registry: dict) -> str:
+    """Create one sandbox and register its id immediately, so the finally
+    block can kill it no matter how the run fails afterwards."""
+    rc, out, _ = timed(f"create sandbox ({what})", sbx,
+                       "create", "--timeout-min", TIMEOUT_MIN, timeout=180)
     if rc != 0 or not out.strip():
         raise RuntimeError(f"sandbox create for {what} failed "
                            f"(exit {rc}): {out.strip()[-400:]}")
-    return out.strip().splitlines()[-1].strip()
+    sid = out.strip().splitlines()[-1].strip()
+    registry[what] = sid
+    print(f"[run]   {what} -> {sid}", flush=True)
+    return sid
 
 
 def parse_receipt(out: str, sid: str, i: int) -> dict:
@@ -264,6 +269,7 @@ def main():
         sys.exit("run.py: export SBX_API_KEY (or E2B_API_KEY) first")
 
     ids: dict[int, str] = {}
+    created: dict[str, str] = {}      # every sandbox this run created
     timings: dict[str, float] = {}
     util_sid: str | None = None
     report: dict = {}
@@ -276,8 +282,9 @@ def main():
               flush=True)
         t0 = time.monotonic()
         with concurrent.futures.ThreadPoolExecutor(N_SANDBOXES) as ex:
-            for i, sid in ex.map(lambda i: (i, create_sandbox(f"commit {i}")),
-                                 range(SWEEP_FIRST, SWEEP_LAST + 1)):
+            for i, sid in ex.map(
+                    lambda i: (i, create_sandbox(f"commit {i}", created)),
+                    range(SWEEP_FIRST, SWEEP_LAST + 1)):
                 ids[i] = sid
         timings["create_sandboxes_s"] = round(time.monotonic() - t0, 2)
         print(f"[run] created {len(ids)} sandboxes "
@@ -300,7 +307,8 @@ def main():
               f"(sandboxes killed as receipts arrived)", flush=True)
 
         # --- 3. utility sandbox: setup + selftest --------------------------
-        util_sid = create_sandbox("setup/selftest/serial/control/grade")
+        util_sid = create_sandbox("setup/selftest/serial/control/grade",
+                                  created)
         util_exec(util_sid, "clone repo (utility)",
                   f"git clone --depth 1 -b {args.ref} {REPO_URL} repo",
                   300)
@@ -392,13 +400,11 @@ def main():
         # a re-kill of a gone sandbox is not an error), then confirm each
         # id is gone — naming ids we could not confirm.
         if args.keep:
-            live = [util_sid, *ids.values()]
             print(f"[run] --keep: sandboxes left running: "
-                  f"{[s for s in live if s]}", flush=True)
+                  f"{sorted(created.values())}", flush=True)
         else:
             cleanup_failures = []
-            to_kill = [(util_sid, "utility")] if util_sid else []
-            to_kill += [(sid, f"commit {i}") for i, sid in sorted(ids.items())]
+            to_kill = sorted(created.items())
             for sid, what in to_kill:
                 try:
                     kill_and_confirm(sid, what)
