@@ -155,7 +155,7 @@ def xor_volume_mm3(mesh_a, mesh_b):
     return xor.volume
 
 
-def angular_steps_deg(centres, n_expected):
+def angular_steps_deg(centres):
     """Sorted angular positions and pairwise steps between consecutive holes."""
     angs = sorted((math.degrees(math.atan2(y, x)) + 360.0) % 360.0
                   for x, y in centres)
@@ -293,7 +293,7 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
               "of 360/bolt_n") as g:
         if centres is None:
             g.fail("skipped: no bolt centres from G4")
-        angs, steps = angular_steps_deg(centres, spec["bolt_n"])
+        angs, steps = angular_steps_deg(centres)
         want = exp["angular_step_deg"]
         dev = max(abs(s - want) for s in steps)
         if dev > TOL_ANG:
