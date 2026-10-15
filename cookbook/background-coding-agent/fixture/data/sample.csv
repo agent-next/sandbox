@@ -1,0 +1,13 @@
+# sample measurements
+metric,value
+alpha,1.0
+beta,42
+gamma,-2.5
+
+alpha,2.5
+delta,250
+gamma,-1.0
+alpha,3.0
+# a repeat of an earlier metric
+delta,1500
+gamma,0.5
