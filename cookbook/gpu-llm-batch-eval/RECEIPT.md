@@ -12,8 +12,8 @@ it did.** Every request to the sandbox gateway (`POST /sandboxes` with
 answered `{"code":401,"message":"invalid API key"}` with the
 `$SBX_API_KEY` this sandbox was given, on every endpoint, retried over
 ~50 minutes (curl and Python urllib, `X-API-Key` and `Authorization:
-Bearer`). The key is prefixed `e2b_` and 44 bytes long, so it is formatted
-like a tenant key; the gateway just rejects it. Without a lease there is
+Bearer`). The key is correctly formatted as a tenant key; the gateway just
+rejects it. Without a lease there is
 no GPU run, and a CPU run of the real artifact was measured at **0.35
 tok/s** batch-8 steady-state on this machine (pinned torch, 2 threads) —
 about 20 h for 100 × 256-token problems, which does not fit any sane
