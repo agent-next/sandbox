@@ -5,8 +5,8 @@ G-code **OrcaSlicer** (slicing with the bundled *Bambu Lab A1 0.4 nozzle*
 system profile) generates for a fixed L-bracket — and a judge it cannot fool
 decides whether the result is right. A disposable sandbox helps because the
 toolchain (OrcaSlicer AppImage, a pinned Klipper firmware build, the AVR
-cross-compiler for the MCU data dictionary) installs in ~3 minutes, slices a
-part in ~5 s and grades in ~2 min, and none of it pollutes your machine.
+cross-compiler for the MCU data dictionary) installs in ~1-2 minutes, slices
+a part in ~5 s and grades in ~1 min, and none of it pollutes your machine.
 
 The judge never trusts the slicer's own statistics: a from-scratch G-code
 interpreter (stdlib Python, `judge/interp.py`) replays the artifact and
@@ -26,8 +26,8 @@ Steps and measured wall time (fresh sandbox, 2 vCPU / ~3 GB RAM):
 | step | what | wall time |
 |---|---|---|
 | `sbx create` | disposable sandbox | ~10 s |
-| `judge/setup.sh` | OrcaSlicer 2.3.0 AppImage + Klipper (pinned commit) + apt libs | ~4 min |
-| `judge/selftest.sh` | known-good passes; 10 single-edit mutants killed | ~7 min |
+| `judge/setup.sh` | OrcaSlicer 2.3.0 AppImage + Klipper (pinned commit) + apt libs | ~1.5 min |
+| `judge/selftest.sh` | known-good passes; 10 single-edit mutants killed | ~9 min |
 | `judge/grade.sh examples/good` | 12 gates, full verdict JSON | ~1 min |
 
 Limits, plainly: slicing needs ~1.5 GB RAM peak; the whole grade fits in the
