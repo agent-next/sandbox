@@ -1,15 +1,19 @@
 {
   "base_model": "Qwen/Qwen3-0.6B",
   "seed": 20240917,
-  "epochs": 3,
+  "epochs": 4,
   "batch_size": 16,
   "lr": 0.0002,
   "warmup_steps": 20,
   "record_every": 5,
   "lora": {
-    "r": 32,
-    "lora_alpha": 64,
+    "r": 8,
+    "lora_alpha": 16,
     "lora_dropout": 0.0,
-    "target_modules": ["q_proj", "k_proj", "v_proj"]
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj"
+    ]
   }
 }

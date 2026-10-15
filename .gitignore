@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .coverage
+cookbook/gpu-lora-finetune/examples/bad/
+cookbook/gpu-lora-finetune/media/judge_runs/
+cookbook/gpu-lora-finetune/media/master/

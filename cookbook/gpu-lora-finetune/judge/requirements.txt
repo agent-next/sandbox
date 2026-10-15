@@ -1,0 +1,10 @@
+# The judge's Python dependencies are installed by judge/setup.sh from
+# judge/requirements-cpu.lock (sha256 pins, pip --require-hashes).
+# Regenerate the lock with: python3 judge/genlock.py
+#
+# This file is the standard-required pointer; there is deliberately no
+# unpinned fallback — the lock is the only install path, so every judge run
+# resolves byte-identical wheels (torch 2.14.0+cpu, transformers 5.15.1,
+# peft 0.21.1, safetensors 0.8.0 and the full closure; nothing published
+# after 2026-09-30).
+-r requirements-cpu.lock
