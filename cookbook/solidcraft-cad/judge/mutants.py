@@ -14,8 +14,10 @@ self-test requires the judge to reject every one of them.
 from __future__ import annotations
 
 import copy
+import glob
 import json
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -92,6 +94,24 @@ def file_export(cmds):
     cmds.append({"command": "file.export", "params": {"path": "../../escape.step"}})
 
 
+def holes_all_rotated(cmds):
+    a = math.radians(10)  # spacing and PCD unchanged, the whole 31 mm square pattern turned
+    for c in bolt_holes(cmds):
+        x, y = c["params"]["center"]
+        c["params"]["center"] = [x * math.cos(a) - y * math.sin(a), x * math.sin(a) + y * math.cos(a)]
+
+
+def font_outside(cmds):
+    # sketch.text may name a font *file*; a real one outside the work dir, here
+    # the judge venv's own DejaVu font.  The text sits off the part, so the
+    # geometry is unchanged: only the command check can refuse it.
+    font = sorted(glob.glob(os.path.expanduser(
+        "~/.local/solidcraft-judge-venv/lib/python3*/site-packages/matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf")))
+    i = next(i for i, c in enumerate(cmds) if c["command"] == "sketch.finish")
+    cmds.insert(i, {"command": "sketch.text", "params": {
+        "text": "X", "at": [100, 100], "font": font[0] if font else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"}})
+
+
 def csg_bore_shifted(cmds):
     tool = next(c for c in cmds if c["params"].get("body_name") == "BoreTool")
     tool["params"]["base"] = [0.3, 0, 0]
@@ -104,9 +124,30 @@ def csg_corner_missing(cmds):
     cmds.append({"command": "solid.remove", "params": {"bodies": ["CornerNE"]}})
 
 
-CSG_MUTANTS = [csg_bore_shifted, csg_corner_missing]
+def csg_blocked_holes(cmds):
+    # a 0.5 mm web inside each bolt hole: +0.11 % volume (under the 0.2 % gate),
+    # the hole's wall faces still span 0..T, but no bolt can pass
+    for c in circles_csg(cmds, 3.4):
+        x, y, _ = c["params"]["base"]
+        cmds.append({"command": "solid.cylinder", "params": {
+            "diameter": 3.5, "height": 0.5, "base": [x, y, 3], "operation": "join", "targets": ["MotorAdapter"]}})
+
+
+def csg_shift_on_rebuild(cmds):
+    # unchanged at thickness 6; moves 20 mm sideways when the judge sets 8
+    cmds.append({"command": "solid.move", "params": {
+        "bodies": ["MotorAdapter"], "translate": ["10 * (thickness - 6 mm)", 0, 0]}})
+
+
+def circles_csg(cmds, diameter):
+    return [c for c in cmds if c["command"] == "solid.cylinder"
+            and math.isclose(c["params"].get("diameter", -1), diameter)]
+
+
+CSG_MUTANTS = [csg_bore_shifted, csg_corner_missing, csg_blocked_holes, csg_shift_on_rebuild]
 MUTANTS = [hole_small, hole_off_pcd, hole_rotated, hole_missing, hole_extra, bore_missing,
-           too_thick, boss_height, no_fillet, literal_thickness, broken_command, file_export]
+           too_thick, boss_height, no_fillet, literal_thickness, broken_command, file_export,
+           holes_all_rotated, font_outside]
 
 
 def main() -> int:

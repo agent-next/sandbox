@@ -13,6 +13,9 @@ GOOD="$DEMO/examples/good/design.json"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+echo "selftest: unit tests (judge functions, run.py fault injection)"
+python3 -I -m unittest discover -s "$DEMO/tests" 2>&1 | tail -3
+
 # Every file in examples/good/ is a valid design and must pass: design.json
 # (sketch + extrude) and design-csg.json (boxes and cylinders combined, the
 # way an independent agent modelled it; SolidCraft exports its rotated
