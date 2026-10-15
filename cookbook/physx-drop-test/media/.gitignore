@@ -4,6 +4,9 @@
 # media/make_media.sh via judge/grade.sh and judge/simulate.py, never committed
 judge_runs/
 
+# per-frame PNGs piped into ffmpeg (transient, large)
+frames/
+
 # lossless video master (crf 0), input to the web encode — gitignored per
 # DEMO-STANDARD.md; only demo.mp4 is committed
 master/
