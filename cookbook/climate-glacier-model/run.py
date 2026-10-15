@@ -104,12 +104,12 @@ def main() -> int:
             raise Failure(f"could not parse the verdict JSON: {exc}\n"
                           f"{graded.stdout[-1000:]}") from exc
         gates = verdict.get("gates", {})
-        shape = gates.get("shape", {}).get("scenarios", {})
+        final = gates.get("final_volume", {}).get("scenarios", {})
         crossing = gates.get("crossing", {}).get("scenarios", {})
         summary = " ".join(
-            f"{name}:V100={shape.get(name, {}).get('worst_relative_deviation')}"
+            f"{name}:V100={final.get(name, {}).get('measured_km3')}"
             f"/t50={crossing.get(name, {}).get('reported_year')}"
-            for name in sorted(shape))
+            for name in sorted(final))
         print("run: SUMMARY "
               f"passed={verdict.get('passed')} "
               f"zero_melt_worst="
