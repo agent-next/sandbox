@@ -85,7 +85,8 @@ def main() -> int:
                        echo: bool = False) -> subprocess.CompletedProcess:
             proc = step(name, lambda: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"))
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}",
+                timeout=timeout + 60))
             if echo:
                 show(proc)
             return proc
