@@ -141,20 +141,24 @@ def visit(page, url, robots, stats):
 
 
 def pager_pages(page, base_url):
-    """Every pagination URL the pager links, in order.
+    """Every URL the pager links, in order.
 
     The pager is read from the rendered page 1, so the crawler follows what
-    the site actually offers instead of assuming ?page=N for every N.
+    the site actually offers instead of assuming ?page=N for every N. It links
+    the pagination pages *and* an archive under a prefix robots.txt disallows;
+    the crawl is handed every link and the robots check in `visit` is what
+    keeps the disallowed one from ever being requested.
     """
     urls = [base_url + '/index.html']
     links = page.evaluate(
         """() => [...document.querySelectorAll('.pager a')]
                 .map((a) => a.getAttribute('href'))""")
     for href in links:
-        if href and 'page=' in href:
-            absolute = urljoin(base_url + '/', href)
-            if absolute not in urls:
-                urls.append(absolute)
+        if not href:
+            continue
+        absolute = urljoin(base_url + '/', href)
+        if absolute not in urls:
+            urls.append(absolute)
     return urls
 
 

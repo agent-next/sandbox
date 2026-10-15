@@ -227,9 +227,15 @@ def run(artifact, seed, timeout, port, workdir, keep_going=False):
     ok_skus = truth_skus - malformed_skus
 
     # ---- gate 1: runs ------------------------------------------------------
+    # the throwaway workdir path is redacted from the captured output: it
+    # changes every run, and the verdict JSON has to be reproducible.
+    def redact(text):
+        return text.replace(run_dir, '<rundir>').replace(workdir, '<workdir>')
+
     gates.check('runs', rc == 0,
-                {'exit_code': rc, 'stdout_tail': out.strip().splitlines()[-3:],
-                 'stderr_tail': err.strip().splitlines()[-3:]})
+                {'exit_code': rc,
+                 'stdout_tail': redact(out).strip().splitlines()[-3:],
+                 'stderr_tail': redact(err).strip().splitlines()[-3:]})
 
     # ---- gate 2: no disallowed paths (measured at the server) ---------------
     gates.check('no_internal_paths', not internal_hits,
@@ -300,15 +306,24 @@ def run(artifact, seed, timeout, port, workdir, keep_going=False):
                 diffs['weight_kg'] = [r.get('weight_kg'), t['weight_kg']]
             if diffs:
                 field_mismatch.append({'sku': sku, 'fields': diffs})
+        # every non-malformed product must be present *as ok*: a scraper that
+        # flags the whole catalogue malformed (e.g. it read the pre-JS price
+        # placeholder everywhere) has a row for each SKU but no usable data,
+        # and field_exact alone would never look at those rows.
         for s in sorted(ok_skus):
             if s not in seen:
-                missing_ok.append(s)
+                missing_ok.append({'sku': s, 'why': 'absent'})
+            elif seen[s].get('status') != 'ok':
+                missing_ok.append({'sku': s, 'why': 'status=%s'
+                                   % (seen[s].get('status') or ''),
+                                   'notes': (seen[s].get('notes') or '').strip()})
 
         gates.check('field_exact', not field_mismatch,
                     {'mismatches': field_mismatch[:10],
                      'n_mismatches': len(field_mismatch)})
         gates.check('no_missing_ok', not missing_ok,
-                    {'absent': sorted(missing_ok), 'n': len(missing_ok)})
+                    {'problems': sorted(missing_ok, key=lambda d: d['sku'])[:10],
+                     'n': len(missing_ok)})
         gates.check('malformed_flagged', not bad_flags,
                     {'problems': bad_flags[:10], 'n': len(bad_flags),
                      'expected': {s: sorted(by_sku[s]['expected_notes'])

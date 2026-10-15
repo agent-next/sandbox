@@ -169,8 +169,11 @@ def _detail_card(i, seed):
         price = ''
     elif fault == 'bad_price':
         price = 'N/A'
+    # carries the same `.product` class and the same `data-sku`/`data-price`
+    # attributes as the index card, so a crawler that follows detail links sees
+    # each product a second time -- and has to deduplicate to get 50 rows.
     return (
-        '<div class="product-detail" data-sku="%s" data-price="%s">\n'
+        '<div class="product product-detail" data-sku="%s" data-price="%s">\n'
         '  <h1 class="name">%s</h1>\n'
         '  <p class="price" data-pending>$--.--</p>\n'
         '  <p class="stock">%s in stock</p>\n'
@@ -181,23 +184,32 @@ def _detail_card(i, seed):
 
 RENDER_SCRIPT = """
 <script>
-(function () {
-  document.querySelectorAll('[data-price]').forEach(function (el) {
-    var p = el.getAttribute('data-price');
-    var span = el.querySelector('.price');
-    if (!span) { return; }
-    if (p === '' || isNaN(parseFloat(p))) {
-      // malformed entry: leave the placeholder / bad text in place
-      if (p !== '') { span.textContent = p; span.removeAttribute('data-pending'); }
-      return;
-    }
-    span.textContent = '$' + parseFloat(p).toFixed(2);
-    span.removeAttribute('data-pending');
-  });
-  // deterministic "the JS has run" marker: a scraper that reads before this
-  // sees the placeholder, one that waits for it sees the real price
-  document.documentElement.setAttribute('data-rendered', '1');
-})();
+// Prices are filled in *after* the page loads, the way a real catalogue does
+// it: the served HTML carries a placeholder, and the real value arrives a
+// moment later. A scraper that reads the DOM at DOMContentLoaded sees
+// "$--.--" for every product; only one that waits for the render marker gets
+// the real price. The delay is what makes that difference observable -- an
+// inline script at the end of <body> would run during parsing and leave no
+// pre-JS window at all.
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    document.querySelectorAll('[data-price]').forEach(function (el) {
+      var p = el.getAttribute('data-price');
+      var span = el.querySelector('.price');
+      if (!span) { return; }
+      if (p === '' || isNaN(parseFloat(p))) {
+        // malformed entry: leave the placeholder / bad text in place
+        if (p !== '') { span.textContent = p; span.removeAttribute('data-pending'); }
+        return;
+      }
+      span.textContent = '$' + parseFloat(p).toFixed(2);
+      span.removeAttribute('data-pending');
+    });
+    // deterministic "the JS has run" marker: a scraper that reads before this
+    // sees the placeholder, one that waits for it sees the real price
+    document.documentElement.setAttribute('data-rendered', '1');
+  }, 150);
+});
 </script>
 """
 
