@@ -1,0 +1,119 @@
+{
+  "demo": "sim-engine-arena",
+  "note": "every iteration graded for real by judge/grade.sh; drafts regenerated from the good port by examples/loop.py",
+  "iterations": [
+    {
+      "iteration": 1,
+      "change": "draft 1: hinge body origin at the bob, not the anchor \u2014 the inertial sits at the pivot so gravity applies no torque and the pendulum stays flat",
+      "passed": false,
+      "gates": {
+        "run": true,
+        "structure": true
+      },
+      "scenarios": {
+        "drop": {
+          "pass": true,
+          "t_contact": 0.4405908164210919,
+          "t_contact_err": 0.0011361504543011172
+        },
+        "incline_slide": {
+          "pass": true,
+          "accel": 1.608249455710321,
+          "accel_err": 0.0003695868788500686,
+          "state": "slide",
+          "travel_m": 0.8012394925837607
+        },
+        "incline_stick": {
+          "pass": true,
+          "accel": null,
+          "state": "stick",
+          "travel_m": 0.00178852535729963
+        },
+        "pendulum": {
+          "pass": false,
+          "problems": [
+            "bad-traj: fewer than 2 upward zero crossings"
+          ]
+        }
+      },
+      "judge_intact": true,
+      "failed_gates": [
+        "pendulum"
+      ]
+    },
+    {
+      "iteration": 2,
+      "change": "draft 2: pivot fixed, but the incline box is left axis-aligned instead of lying flat on the tilted plane",
+      "passed": false,
+      "gates": {
+        "run": true,
+        "structure": true
+      },
+      "scenarios": {
+        "drop": {
+          "pass": true,
+          "t_contact": 0.4405908164210919,
+          "t_contact_err": 0.0011361504543011172
+        },
+        "incline_slide": {
+          "pass": true,
+          "accel": 1.5957911999250702,
+          "accel_err": 0.008113193651518805,
+          "state": "slide",
+          "travel_m": 1.0831677239861515
+        },
+        "incline_stick": {
+          "pass": false,
+          "accel": null,
+          "state": "ambiguous",
+          "travel_m": 0.0388778668378227
+        },
+        "pendulum": {
+          "pass": true,
+          "period": 2.0073203848961487,
+          "period_err": 4.3585438645036074e-08
+        }
+      },
+      "judge_intact": true,
+      "failed_gates": [
+        "incline_stick"
+      ]
+    },
+    {
+      "iteration": 3,
+      "change": "final: box oriented with the plane (the committed good port)",
+      "passed": true,
+      "gates": {
+        "agreement": true,
+        "run": true,
+        "structure": true
+      },
+      "scenarios": {
+        "drop": {
+          "pass": true,
+          "t_contact": 0.4405908164210919,
+          "t_contact_err": 0.0011361504543011172
+        },
+        "incline_slide": {
+          "pass": true,
+          "accel": 1.608249455710321,
+          "accel_err": 0.0003695868788500686,
+          "state": "slide",
+          "travel_m": 0.8012394925837607
+        },
+        "incline_stick": {
+          "pass": true,
+          "accel": null,
+          "state": "stick",
+          "travel_m": 0.00178852535729963
+        },
+        "pendulum": {
+          "pass": true,
+          "period": 2.0073203848961487,
+          "period_err": 4.3585438645036074e-08
+        }
+      },
+      "judge_intact": true
+    }
+  ]
+}

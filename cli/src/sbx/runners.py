@@ -15,13 +15,14 @@ import hmac
 import json
 import os
 import secrets
+import shlex
 import signal
 import sys
 import threading
 import time
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Callable
+from typing import Callable, Iterator
 
 import httpx
 
@@ -100,6 +101,53 @@ class GitHub:
     def check_repo(self, repo: str) -> None:
         self._check(self.http.get(f"/repos/{repo}"), f"read repo {repo}")
 
+    def workflow_run(self, repo: str, run_id: int) -> dict:
+        return self._check(self.http.get(f"/repos/{repo}/actions/runs/{run_id}"), "read run").json()
+
+    def workflow_runs(self, repo: str, since: str, until: str) -> list[dict]:
+        """Runs created in a bounded window; fail rather than truncate GitHub's 1,000-run search cap."""
+        runs, page = [], 1
+        while True:
+            body = self._check(self.http.get(
+                f"/repos/{repo}/actions/runs",
+                params={"created": f"{since}..{until}", "per_page": 100, "page": page},
+            ), "list runs").json()
+            if body["total_count"] > 1000:
+                raise RunnerError("runners stats: GitHub limits run searches to 1,000 results; narrow --since")
+            batch = body["workflow_runs"]
+            runs.extend(batch)
+            if len(runs) >= body["total_count"]:
+                return runs
+            if not batch:
+                raise RunnerError("runners stats: incomplete run listing; retry or narrow --since")
+            page += 1
+
+    def jobs(self, repo: str, run_id: int, attempt: int) -> list[dict]:
+        """Only the selected attempt, never mix a rerun with historical jobs."""
+        return list(self._jobs(repo, run_id, attempt))
+
+    def _jobs(self, repo: str, run_id: int, attempt: int, *,
+              deadline: float | None = None) -> Iterator[dict]:
+        """Share attempt pagination; lookup can stop at its runner without reading later pages."""
+        count, page = 0, 1
+        while True:
+            timeout = 30 if deadline is None else min(30, deadline - time.monotonic())
+            if timeout <= 0:
+                raise RunnerError("GitHub job lookup timed out")
+            body = self._check(self.http.get(
+                f"/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs",
+                params={"per_page": 100, "page": page},
+                timeout=timeout,
+            ), "list jobs").json()
+            batch = body["jobs"]
+            yield from batch
+            count += len(batch)
+            if count >= body["total_count"]:
+                return
+            if not batch:
+                raise RunnerError("runners stats: incomplete job listing; retry")
+            page += 1
+
     def jit(self, name: str, labels: list[str], group_id: int) -> str:
         resp = self.http.post(
             f"/{self.scope}/actions/runners/generate-jitconfig",
@@ -149,6 +197,19 @@ class GitHub:
                         page += 1
         return count
 
+    def job(self, runner: str, identity: dict) -> dict:
+        """Poll only the worker's run attempt until our runner's conclusion propagates."""
+        deadline = time.monotonic() + 60
+        repo = identity["repository"]
+        while time.monotonic() < deadline:
+            for job in self._jobs(repo, identity["run_id"], identity["run_attempt"], deadline=deadline):
+                if job.get("runner_name") == runner:
+                    if job.get("conclusion") is not None:
+                        return {**job, "repo": repo, "head_sha": job.get("head_sha") or identity["sha"]}
+                    break
+            time.sleep(min(2, max(0, deadline - time.monotonic())))
+        raise RunnerError(f"GitHub job lookup timed out for runner {runner}")
+
 
 @dataclass
 class Slot:
@@ -160,8 +221,10 @@ class Slot:
     busy: bool = False
     done: bool = False
     retiring: bool = False
+    finishing: bool = False
     sandbox_id: str | None = None
     kill: Callable[[], None] | None = field(default=None, repr=False)
+    state_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
 
 class Pool:
@@ -215,9 +278,16 @@ class Pool:
 
     def retire(self, slot: Slot, registered: dict | None, why: str) -> bool:
         """Deregister then kill. A runner GitHub reports busy is left alone."""
+        if slot.finishing:
+            return False
         if registered is not None and not self.gh.delete(registered["id"]):
             return False
-        slot.retiring = True
+        # Deregistration can block while boot() starts preserving the machine.
+        # Claim retirement atomically against that transition, not across the HTTP call.
+        with slot.state_lock:
+            if slot.finishing:
+                return False
+            slot.retiring = True
         if slot.kill:
             slot.kill()
         emit("retire", runner=slot.name, why=why, sandbox=slot.sandbox_id)
@@ -240,7 +310,7 @@ class Pool:
                         emit("orphan_removed", runner=name)
             starting, idle, busy = [], [], []
             for slot in self.slots.values():
-                if slot.retiring:
+                if slot.retiring or slot.finishing:
                     continue
                 reg = seen.get(slot.name)
                 if reg is None or reg["status"] != "online":
@@ -340,8 +410,61 @@ def sweep(gh: GitHub, sandbox_cls, prefix: str) -> None:
                 emit("orphan_killed", runner=name, sandbox=info.sandbox_id)
 
 
+# Worker.cs logs the serialized message before ExecutionContext adds github.job.
+# See tests/fixtures/worker_diag/README.md for the real-log fixture and source lines.
+# Parse inside the sandbox: diagnostic logs can contain credentials and must not
+# be copied to the serving machine or included in an exception.
+_WORKER_IDENTITY = r"""
+import json, re, sys
+from pathlib import Path
+
+try:
+    logs = sorted(Path(sys.argv[1]).glob("_diag/Worker_*.log"),
+                  key=lambda p: p.stat().st_mtime_ns, reverse=True)
+    for path in logs:
+        with path.open() as log:
+            for line in log:
+                if " INFO Worker] Job message:" in line:
+                    break
+            else:
+                continue
+            lines = []
+            for line in log:
+                if line.startswith("["):
+                    break
+                lines.append(line)
+                if line.rstrip("\r\n") == "}":
+                    break
+        break
+    else:
+        raise ValueError()
+    message = json.loads("".join(lines))
+    github = {p["k"]: p["v"] for p in message["contextData"]["github"]["d"]}
+    repo = github["repository"]
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or any(
+        part in (".", "..") for part in repo.split("/")
+    ):
+        raise ValueError()
+    for key in ("run_id", "run_attempt"):
+        if not re.fullmatch(r"[1-9][0-9]*", github[key]):
+            raise ValueError()
+    job = message["variables"]["system.github.job"]["value"]
+    if not isinstance(job, str) or not job:
+        raise ValueError()
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", github["sha"]):
+        raise ValueError()
+    print(json.dumps({
+        "repository": repo, "run_id": int(github["run_id"]),
+        "run_attempt": int(github["run_attempt"]), "job": job, "sha": github["sha"],
+    }))
+except Exception:
+    sys.exit("runner job identity missing or invalid")
+"""
+
+
 def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], group_id: int,
-                 job_timeout_s: int, idle_ttl_s: int) -> Callable[[Slot], None]:
+                 job_timeout_s: int, idle_ttl_s: int, failed_jobs=None,
+                 keep_failed: int = 0) -> Callable[[Slot], None]:
     """boot() for Pool: JIT-register, start the runner in a fresh sandbox, kill it after one job."""
 
     lifetime = job_timeout_s + idle_ttl_s + 300
@@ -369,9 +492,25 @@ def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], g
             )
             # bounded like the sandbox: a stream from a sandbox killed under the job never ends
             handle = sbx.commands.run(run, background=True, timeout=lifetime, user="root")
-            _wait_runner(sbx, handle, slot, deadline=time.monotonic() + lifetime)
+            exited = _wait_runner(sbx, handle, slot, deadline=time.monotonic() + lifetime)
+            with slot.state_lock:
+                preserve = exited and keep_failed and not slot.retiring
+                if preserve:
+                    slot.finishing = True
+            if preserve:
+                try:
+                    identity = sbx.commands.run(
+                        f"python3 -c {shlex.quote(_WORKER_IDENTITY)} {shlex.quote(RUNNER_DIR)}",
+                        timeout=10, user="root",
+                    )
+                    job = gh.job(slot.name, json.loads(identity.stdout))
+                    if job["conclusion"] == "failure":
+                        failed_jobs.keep(sbx, job, slot.name, maximum=keep_failed)
+                except Exception as exc:
+                    emit("keep_failed_error", runner=slot.name, sandbox=sbx.sandbox_id, error=_error(exc))
         finally:
             _kill(sbx, slot)
+            slot.finishing = False
 
     return boot
 
@@ -380,7 +519,7 @@ def _error(exc: Exception) -> str:
     return f"{type(exc).__name__}: {str(exc)[:200]}"
 
 
-def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 600) -> None:
+def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 600) -> bool:
     """Wait for the runner to exit. A dropped stream (gateway restart, network) is not an exit:
     reattach to the runner process, or a blip would kill the job it is running. Reattaching
     gives up after `outage` seconds without a stream that holds for a minute."""
@@ -390,24 +529,24 @@ def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 60
     while True:
         try:
             emit("runner_exit", runner=slot.name, code=handle.wait().exit_code)
-            return
+            return True
         except (CommandExitException, TimeoutException) as exc:
             if not slot.retiring:
                 emit("runner_exit", runner=slot.name, error=_error(exc))
-            return
+            return isinstance(exc, CommandExitException)
         except Exception as exc:
             if slot.retiring:  # killed on retire
-                return
+                return False
             emit("stream_lost", runner=slot.name, error=_error(exc))
         if time.monotonic() - attached >= 60:  # the last stream held: a new outage
             delay, give_up = 2, None
         give_up = give_up or min(deadline, time.monotonic() + outage)
         while True:
             if slot.retiring:
-                return
+                return False
             if time.monotonic() >= give_up:
                 emit("runner_exit", runner=slot.name, error="could not reattach to the runner")
-                return
+                return False
             time.sleep(delay)  # also paces a flapping gateway that drops each new stream at once
             delay = min(delay * 2, 15)
             try:
@@ -417,10 +556,10 @@ def _wait_runner(sbx, handle, slot: Slot, *, deadline: float, outage: float = 60
             except (SandboxNotFoundException, TimeoutException) as exc:  # the sandbox is gone
                 if not slot.retiring:
                     emit("runner_exit", runner=slot.name, error=_error(exc))
-                return
+                return False
             except NotFoundException:  # the runner exited while the stream was down
                 emit("runner_exit", runner=slot.name, code=None, note="exited while disconnected")
-                return
+                return True
             except Exception:
                 continue
 
@@ -526,10 +665,10 @@ def latest_runner_version(http: httpx.Client) -> str:
     return resp.json()["tag_name"].lstrip("v")
 
 
-def github_token() -> str:
+def github_token(*, access: str = "admin rights on the org or repo") -> str:
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if not token:
-        raise RunnerError("no GitHub token: export GH_TOKEN with admin rights on the org or repo")
+        raise RunnerError(f"no GitHub token: export GH_TOKEN with {access}")
     return token
 
 

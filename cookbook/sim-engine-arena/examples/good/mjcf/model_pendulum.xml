@@ -1,0 +1,10 @@
+<mujoco model="arena-pendulum">
+  <option gravity="0 0 -9.81" timestep="0.001"/>
+    <worldbody>
+    <body name="mover" pos="0 0 2">
+      <joint name="hinge" type="hinge" axis="0 1 0" pos="0 0 0"/>
+      <inertial pos="0 0 -1.0" mass="1.0" diaginertia="1e-8 1e-8 1e-8"/>
+      <geom name="bob" type="sphere" size="0.02" pos="0 0 -1.0"/>
+    </body>
+  </worldbody>
+</mujoco>
