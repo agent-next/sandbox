@@ -322,6 +322,17 @@ def main():
     DOWNSTREAM = ("G4_S11_at_target", "G5_resonance", "G6_raw_crosscheck",
                   "G7_oracle_msline", "G8_convergence")
 
+    # The judge never writes bytecode (PYTHONDONTWRITEBYTECODE) and never
+    # imports from judge/ (private copy), so any .pyc here is left over
+    # from an earlier artifact's plant. Drop it, or a re-plant of the same
+    # bytes would leave the tree hash unchanged and pass G9.
+    for root, dirs, files in os.walk(HERE):
+        for d in [d for d in dirs if d == "__pycache__"]:
+            shutil.rmtree(os.path.join(root, d))
+            dirs.remove(d)
+        for f in files:
+            if f.endswith(".pyc"):
+                os.remove(os.path.join(root, f))
     pre_hash = sha256_tree(HERE)
 
     # ---- G1 ------------------------------------------------------------
