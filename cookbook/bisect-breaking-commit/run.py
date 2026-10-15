@@ -73,6 +73,34 @@ def make_one_sandbox(i: int):
     return i, out.strip().splitlines()[-1].strip()
 
 
+def parse_receipt(out: str, sid: str, i: int) -> dict:
+    """Extract the receipt JSON from a combined `sbx exec` output.
+
+    sbx exec returns the command's stdout and stderr as separate buffers
+    (stdout written first, then stderr), while one_commit.sh sends ALL
+    progress noise to stderr and prints the single JSON receipt line to
+    stdout.  The receipt is therefore a JSON line in the combined output —
+    but NOT the last line (the suite's own stderr follows it), so scan for
+    the last line that parses as a receipt object instead.
+    """
+    for line in reversed(out.strip().splitlines()):
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(obj, dict) and "index" in obj and "sha" in obj:
+            if obj["index"] != i:
+                raise RuntimeError(f"sandbox {sid} (commit {i}) printed a "
+                                   f"receipt for commit {obj['index']}:\n"
+                                   f"{out.strip()}")
+            return obj
+    raise RuntimeError(f"sandbox {sid} (commit {i}) printed no receipt "
+                       f"JSON:\n{out.strip()}")
+
+
 def run_one_sandbox(sid: str, ref: str, i: int) -> dict:
     """Clone the repo in sandbox `sid`, run sweep/one_commit.sh for index i."""
     cmd = ("git clone --depth 1 -b {ref} {url} repo && "
@@ -84,12 +112,7 @@ def run_one_sandbox(sid: str, ref: str, i: int) -> dict:
     if rc != 0:
         raise RuntimeError(f"sandbox {sid} (commit {i}) exec failed "
                            f"(exit {rc}):\n{out.strip()}")
-    line = out.strip().splitlines()[-1]
-    try:
-        return json.loads(line)
-    except ValueError:
-        raise RuntimeError(f"sandbox {sid} (commit {i}) printed no receipt "
-                           f"JSON:\n{out.strip()}")
+    return parse_receipt(out, sid, i)
 
 
 def serial_baseline(ref: str) -> float:
@@ -147,7 +170,7 @@ def negative_control(ref: str) -> dict:
                       timeout=660)
         if rc != 0:
             raise RuntimeError(f"negative-control exec failed: {out.strip()}")
-        return json.loads(out.strip().splitlines()[-1])
+        return parse_negctrl(out, sid)
     finally:
         sbx("kill", sid, timeout=120)
 
