@@ -287,9 +287,14 @@ def gate_oracle(metrics: dict, csv_bytes: bytes, seed: int, alpha: float) -> dic
     return ref
 
 
-def gate_blind(csv_bytes: bytes, seed: int, alpha: float, metrics: dict) -> dict:
+def gate_blind(csv_bytes: bytes, blind_base: int, alpha: float,
+               metrics: dict) -> dict:
+    """The artifact's split seed is part of the artifact (SPEC-fixed), so
+    --seed does not touch it: it offsets the judge's own random choice,
+    the five blind refit seeds."""
+    blind_seeds = tuple(range(blind_base, blind_base + len(BLIND_SEEDS)))
     others = [oracle.refit(csv_bytes, s, alpha)["rmse_test"]
-              for s in BLIND_SEEDS]
+              for s in blind_seeds]
     others.sort()
     median = others[len(others) // 2]
     ratio = metrics["rmse_test"] / median
@@ -300,7 +305,8 @@ def gate_blind(csv_bytes: bytes, seed: int, alpha: float, metrics: dict) -> dict
                                    "median_blind": median,
                                    "limit_ratio": BLIND_MEDIAN_FACTOR,
                                    "ratio": ratio})
-    return {"median_blind": median, "ratio": ratio, "seeds": list(BLIND_SEEDS)}
+    return {"median_blind": median, "ratio": ratio,
+            "seeds": list(blind_seeds)}
 
 
 def gate_integrity(nb) -> dict:
@@ -350,11 +356,17 @@ def grade(artifact: Path, seed: int | None) -> dict:
         metrics = res_a["metrics"]
         gates["figures"] = gate_figures(metrics, res_a["figs"], sizes_a,
                                         res_a["nb"], html_a)
-        seed_used = int(metrics["seed"]) if seed is None else seed
+        # The split seed is the artifact's own (SPEC-fixed) choice; the
+        # oracle refits with that seed so a notebook that reports a
+        # different split than it used cannot match.  --seed offsets only
+        # the judge's own random choice: the blind-seed band.
+        split_seed = int(metrics["seed"])
+        blind_base = seed if seed is not None else 1
         alpha_used = float(metrics["alpha"])
-        gates["oracle"] = gate_oracle(metrics, csv_bytes, seed_used,
+        gates["oracle"] = gate_oracle(metrics, csv_bytes, split_seed,
                                       alpha_used)
-        gates["blind"] = gate_blind(csv_bytes, seed_used, alpha_used, metrics)
+        gates["blind"] = gate_blind(csv_bytes, blind_base, alpha_used,
+                                    metrics)
         gates["report"] = gate_report(metrics, html_a)
         gates["integrity"] = gate_integrity(res_a["nb"])
 
