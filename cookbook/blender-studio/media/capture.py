@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shlex
 import time
@@ -14,6 +15,44 @@ DEMO = MEDIA.parent
 spec = importlib.util.spec_from_file_location("studio_runner", DEMO / "run.py")
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
+
+
+def render_step(sid, command, budget=5400):
+    """Launch once; reattach bounded read-only probes after lost transport."""
+    start = time.monotonic()
+    prefix = f"/tmp/studio-media-{os.urandom(6).hex()}"
+    job = (f"{command}; code=$?; printf '%s' \"$code\" > {prefix}.exit.tmp; "
+           f"mv {prefix}.exit.tmp {prefix}.exit")
+    runner.sbx("exec", sid, "--timeout", "120",
+               f"nohup sh -c {shlex.quote(job)} >{prefix}.log 2>&1 </dev/null &")
+    probe = ("import pathlib,json;"
+             f"p=pathlib.Path({prefix!r});e=pathlib.Path(str(p)+'.exit');"
+             "print(json.dumps({'done':e.exists(),"
+             "'code':int(e.read_text()) if e.exists() else None,"
+             "'log':pathlib.Path(str(p)+'.log').read_text() if e.exists() else ''}))")
+    recoveries = 0
+    while time.monotonic() - start < budget:
+        try:
+            state = json.loads(runner.sbx("exec", sid, "--timeout", "120",
+                                         "python3 -c " + shlex.quote(probe)))
+        except RuntimeError as exc:
+            if recoveries == 3 or not any(message in str(exc) for message in (
+                    "gateway is restarting", "sbx exec timed out")):
+                raise
+            recoveries += 1
+            print(f"media-render: status transport interrupted; reattach {recoveries}/3 "
+                  "in 5s (same job, no launch retry)", flush=True)
+            time.sleep(5)
+            continue
+        if state["done"]:
+            print(state["log"], flush=True)
+            print(f"media-render: exit={state['code']} "
+                  f"wall={time.monotonic()-start:.1f}s", flush=True)
+            if state["code"]:
+                raise RuntimeError(f"media-render failed in sandbox {sid}")
+            return
+        time.sleep(2)
+    raise RuntimeError(f"media-render exceeded {budget}s in sandbox {sid}")
 
 
 def upload(sid, path, destination):
@@ -100,9 +139,9 @@ def main():
             prefix = "cd " + runner.REMOTE + " && "
             runner.remote_step(sid, "setup", prefix + "sh judge/setup.sh", 60)
             runner.remote_step(sid, "selftest", prefix + "sh judge/selftest.sh", 600)
-            runner.remote_step(sid, "media-render", prefix +
-                               "blender -b --factory-startup --python-exit-code 1 -t 4 "
-                               "-P media/render.py -- --out media/source --seed 17", 5400)
+            render_step(sid, prefix +
+                        "blender -b --factory-startup --python-exit-code 1 -t 4 "
+                        "-P media/render.py -- --out media/source --seed 17")
         collect(sid)
     finally:
         if sid:

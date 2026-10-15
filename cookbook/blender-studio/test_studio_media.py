@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 import subprocess
 import unittest
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -15,9 +16,41 @@ MEDIA = HERE / "media"
 spec = importlib.util.spec_from_file_location("studio_compose", MEDIA / "compose.py")
 compose = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(compose)
+capture_spec = importlib.util.spec_from_file_location("studio_media_capture", MEDIA / "capture.py")
+capture = importlib.util.module_from_spec(capture_spec)
+capture_spec.loader.exec_module(capture)
 
 
 class MediaTests(unittest.TestCase):
+    def test_render_reattaches_without_relaunching(self):
+        replies = ["", RuntimeError("gateway is restarting"),
+                   RuntimeError("sbx exec timed out"),
+                   json.dumps({"done": True, "code": 0, "log": "MEDIA_DONE"})]
+        with patch.object(capture.runner, "sbx", side_effect=replies) as remote, \
+                patch.object(capture.time, "sleep"):
+            capture.render_step("sandbox-test", "render-command")
+        self.assertEqual(remote.call_count, 4)
+        self.assertEqual(sum("nohup" in call.args[-1] for call in remote.call_args_list), 1)
+
+    def test_render_probe_recovery_is_bounded(self):
+        replies = [""] + [RuntimeError("gateway is restarting") for _ in range(4)]
+        with patch.object(capture.runner, "sbx", side_effect=replies) as remote, \
+                patch.object(capture.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "gateway is restarting"):
+                capture.render_step("sandbox-test", "render-command")
+        self.assertEqual(remote.call_count, 5)
+
+    def test_render_does_not_retry_permanent_errors_or_launch(self):
+        for replies in ([RuntimeError("gateway is restarting")],
+                        ["", RuntimeError("sandbox not found")]):
+            with self.subTest(replies=len(replies)), \
+                    patch.object(capture.runner, "sbx", side_effect=replies) as remote, \
+                    patch.object(capture.time, "sleep") as sleep:
+                with self.assertRaises(RuntimeError):
+                    capture.render_step("sandbox-test", "render-command")
+                self.assertEqual(remote.call_count, len(replies))
+                sleep.assert_not_called()
+
     def test_hashes_and_scene_provenance(self):
         manifest = json.loads((MEDIA / "MANIFEST.json").read_text())
         self.assertEqual({row["file"] for row in manifest["files"]},
