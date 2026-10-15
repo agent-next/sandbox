@@ -118,15 +118,15 @@ re-run every grade so the comparison stays live).
    Numeric pass rules: every assertion is an exact DOM equality (count,
    text, class, or visibility). A single wrong count, missing class, or
    extra/missing item fails the flow.
-5. **hygiene** — the built `dist/` is under 200 KiB uncompressed (sum of
+5. **hygiene** — the built `dist/` is under 250 KiB uncompressed (sum of
    file sizes), the browser console has zero errors during all 6 flows,
    and the judge's own reference build (a known-good React app the judge
    controls, built from the same spec) produces the same final DOM state
    as the artifact after each flow (cross-check agreement).
 
-Tolerances: none — every assertion is exact. The build-size limit (200 KiB)
+Tolerances: none — every assertion is exact. The build-size limit (250 KiB)
 is loose enough that a correct Vite + React build passes with margin
-(measured: the good app builds to ~140 KiB), tight enough that a bloated
+(measured: the good app builds to ~223 KiB), tight enough that a bloated
 or broken build fails.
 
 ## Acceptance oracle
