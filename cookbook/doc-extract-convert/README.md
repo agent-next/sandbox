@@ -111,6 +111,22 @@ Every random choice in the corpus, the corruption and the grading takes
 the seed (default 42); two grading runs at the same seed are
 byte-identical apart from the `timing` key (checked by `selftest.sh`).
 
+### Regenerating the media
+
+```bash
+bash media/make_media.sh                 # grade all 7 artifacts, then render
+bash media/make_media.sh --render-only   # re-render from media/data/*.json
+```
+
+It grades the known-good extractor, the six mutants and the judge-guard
+mutant with `judge/grade.sh`, keeps every verdict JSON under
+`media/data/` (git-ignored), and draws `result.png`, `loop.png` and
+`demo.mp4` from those verdicts alone. `SEED=7 bash media/make_media.sh`
+works too. Needs `judge/setup.sh` run first and `ffmpeg` on `PATH`; the
+figures use the Pillow the judge already pins, so nothing else installs.
+`media/MANIFEST.json` records the sha256, the command and the seed behind
+each file.
+
 ### Prerequisites
 
 - **Debian 12 (bookworm)** — the pinned tesseract/font packages are from
