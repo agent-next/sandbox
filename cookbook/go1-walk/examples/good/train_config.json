@@ -10,7 +10,7 @@
   "ppo": {"hidden": [512, 256, 128], "lr": 3e-4, "gamma": 0.99,
           "lam": 0.95, "clip": 0.2, "entropy": 0.005, "vf": 1.0,
           "epochs": 5, "minibatches": 4},
-  "eval_every": 50, "eval_start": 200,
+  "eval_every": 50, "eval_start": 150,
   "walk_mps": 0.8,
   "min_iters": 150
 }
