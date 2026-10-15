@@ -1,90 +1,119 @@
 #!/usr/bin/env python3
-"""Generate requirements-cpu.lock with pinned, hash-checked wheels.
+"""Write the pinned, hash-checked pip locks the judge installs.
 
-Queries the PyTorch CPU wheel index for the exact torch/numpy versions,
-resolves the transitive closure, and writes a pip --require-hashes lock.
-Run from the judge/ directory:  python3 genlock.py
+One lock per supported CPython, because both numpy and markupsafe publish
+one platform wheel per interpreter tag:
+
+    judge/requirements-cp311.lock     CPython 3.11
+    judge/requirements-cp312.lock     CPython 3.12
+    judge/requirements-cp313.lock     CPython 3.13
+
+Each lock pins the exact wheel (torch from the PyTorch CPU index, the rest
+from PyPI) with --hash=sha256:, so
+`pip install --require-hashes -r requirements-cpXXX.lock` cannot install
+anything else. setup.sh picks the lock matching the interpreter it runs
+under. Run from anywhere:  python3 genlock.py
 """
 
-import hashlib
 import json
-import sys
+import re
 import urllib.request
 
 CPU_INDEX = "https://download.pytorch.org/whl/cpu"
-PYPI = "https://pypi.org/pypi"
+PYPI_JSON = "https://pypi.org/pypi"
 
-PINNED = {
-    "torch": "2.14.1",
-    "numpy": "2.4.3",
+TORCH_VERSION = "2.14.1"
+TORCH_PLUS = "2.14.1+cpu"
+NUMPY_VERSION = "2.4.3"
+
+# Supported interpreters. numpy has no cp310 wheel for 2.4.x, so 3.10 is
+# not a supported judge interpreter.
+INTERPRETERS = ("cp311", "cp312", "cp313")
+
+# torch's transitive closure on this platform, exact versions.
+DEPS = {
+    "filelock": "3.20.1", "fsspec": "2025.12.0", "jinja2": "3.1.6",
+    "networkx": "3.5", "sympy": "1.14.0", "typing_extensions": "4.16.0",
+    "MarkupSafe": "3.0.3", "mpmath": "1.3.0", "setuptools": "80.9.0",
 }
 
 
-def fetch_html(url):
+def get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": "pip/25.0"})
     with urllib.request.urlopen(req, timeout=60) as r:
-        return r.read().decode()
+        return json.load(r)
 
 
-def parse_simple_index(html, filename_substr):
-    """Return (url, sha256) for the first anchor whose href contains the
-    substring and carries a #sha256 fragment."""
-    import re
-    for m in re.finditer(r'href="([^"]+)"', html):
-        href = m.group(1)
-        if filename_substr in href and "#sha256=" in href:
-            url, frag = href.split("#sha256=", 1)
-            return url, frag
-    raise SystemExit(f"no wheel matching {filename_substr!r} in index")
+def pypi_wheel(pkg, ver, filename):
+    """(filename, sha256) for exactly this file of exactly this release."""
+    data = get_json(f"{PYPI_JSON}/{pkg}/{ver}/json")
+    for entry in data["urls"]:
+        if entry["filename"] == filename:
+            digest = entry["digests"]["sha256"]
+            if len(digest) != 64:
+                raise SystemExit(f"{filename}: digest is not sha256")
+            return filename, digest
+    raise SystemExit(f"{pkg} {ver}: no file named {filename}")
 
 
-def sha256_file(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
+def pytorch_wheel(filename):
+    """(filename, sha256) from the PyTorch CPU index's PEP 503 page.
+
+    The index keeps the filename in its href exactly as published (the
+    '+' of the local version still percent-encoded), so match the encoded
+    name and report the plain one.
+    """
+    plain = filename.replace("%2B", "+")
+    req = urllib.request.Request(f"{CPU_INDEX}/torch/",
+                                 headers={"User-Agent": "pip/25.0"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        html = r.read().decode()
+    for href in re.findall(r'href="([^"]+)"', html):
+        url, _, frag = href.partition("#sha256=")
+        if not frag or url.rsplit("/", 1)[-1] != filename:
+            continue
+        if not re.fullmatch(r"[0-9a-f]{64}", frag):
+            raise SystemExit(f"{plain}: advertised digest is not sha256")
+        return plain, frag
+    raise SystemExit(f"PyTorch CPU index has no wheel {plain}")
 
 
-def pick_wheel(index_html, substr):
-    url, digest = parse_simple_index(index_html, substr)
-    return url.split("/")[-1], digest
+def wheels_for(tag):
+    """The exact (name, version, filename, sha256) rows for one interpreter."""
+    rows = [("torch", TORCH_PLUS, pytorch_wheel(
+        f"torch-{TORCH_VERSION}%2Bcpu-{tag}-{tag}-manylinux_2_28_x86_64.whl"))]
+    rows.append(("numpy", NUMPY_VERSION, pypi_wheel(
+        "numpy", NUMPY_VERSION,
+        f"numpy-{NUMPY_VERSION}-{tag}-{tag}-manylinux_2_27_x86_64."
+        f"manylinux_2_28_x86_64.whl")))
+    for pkg, ver in sorted(DEPS.items()):
+        tagstem = tag if pkg == "MarkupSafe" else None
+        if tagstem:
+            fn = (f"{pkg}-{ver}-{tag}-{tag}-manylinux2014_x86_64."
+                  f"manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl")
+        else:
+            fn = f"{pkg}-{ver}-py3-none-any.whl"
+        rows.append((pkg, ver, pypi_wheel(pkg, ver, fn)))
+    return rows
+
+
+HEADER = [
+    "# pinned by judge/genlock.py -- install with pip --require-hashes.",
+    "# One exact wheel per line: torch (CPU index) and numpy plus torch's",
+    "# transitive closure (PyPI). Do not edit by hand.",
+]
 
 
 def main():
-    # Resolve the transitive closure of torch+numpy.
-    # torch's exact CPU wheel comes from the PyTorch CPU index (PEP 503
-    # HTML); everything else from PyPI's simple index. Versions of the
-    # transitive deps are pinned exactly as of the generation date.
-    DEPS = {
-        "filelock": "3.20.1", "fsspec": "2025.12.0", "jinja2": "3.1.6",
-        "networkx": "3.5", "sympy": "1.14.0", "typing_extensions": "4.16.0",
-        "MarkupSafe": "3.0.3", "mpmath": "1.3.0", "setuptools": "80.9.0",
-    }
-    done = {}  # name -> (version, sha256, filename)
-    html = fetch_html(f"{CPU_INDEX}/torch/")
-    fn, digest = pick_wheel(
-        html, "torch-2.14.1%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl")
-    done["torch"] = ("2.14.1+cpu", digest, fn)
-    for pkg, ver in [("numpy", "2.4.3")] + sorted(DEPS.items()):
-        if pkg in done:
-            continue
-        html = fetch_html(f"{PYPI}/simple/{pkg}/")
-        fn, digest = pick_wheel(html, f"{pkg}-{ver}-py3-none-any.whl")
-        done[pkg] = (ver, digest, fn)
-    lines = ["# pinned by judge/genlock.py; install with pip --require-hashes",
-             "# python 3.10-3.13, linux x86_64; torch wheel is cp312 (any of",
-             "# 3.10-3.13 installs it; pip resolves the rest per interpreter)"]
-    lines = ["# pinned by judge/genlock.py; install with pip --require-hashes",
-             f"# python 3.10-3.13, linux x86_64"]
-    for pkg in sorted(done):
-        ver, digest, fn = done[pkg]
-        lines.append(f"# {pkg} {fn}")
-        lines.append(f"{pkg}=={ver} \\")
-        lines.append(f"    --hash=sha256:{digest}")
-    with open("requirements-cpu.lock", "w") as fh:
-        fh.write("\n".join(lines) + "\n")
-    print("wrote requirements-cpu.lock")
+    for tag in INTERPRETERS:
+        lines = list(HEADER)
+        for pkg, ver, (fn, digest) in wheels_for(tag):
+            lines += [f"# {fn}", f"{pkg}=={ver} \\",
+                      f"    --hash=sha256:{digest}"]
+        path = f"requirements-{tag}.lock"
+        with open(path, "w") as fh:
+            fh.write("\n".join(lines) + "\n")
+        print(f"wrote {path}")
 
 
 if __name__ == "__main__":
