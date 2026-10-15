@@ -40,6 +40,9 @@ command -v ffmpeg >/dev/null || die "ffmpeg missing (distro package)"
 RENDER_ONLY=0
 [ "${1:-}" = "--render-only" ] && RENDER_ONLY=1
 
+# the verdict JSONs land here; git-ignored, rebuilt on every run
+mkdir -p "$MEDIA/data" 
+
 # -- 1. real judge runs ------------------------------------------------------
 if [ "$RENDER_ONLY" -eq 0 ]; then
     echo "== grading the known-good artifact (seed $SEED) =="
