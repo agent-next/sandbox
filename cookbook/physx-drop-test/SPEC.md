@@ -19,8 +19,8 @@ installed) that no one wants on a workstation; a disposable sandbox with
 ## Non-goals
 
 - Rendering inside the judge (the pinned `ovphysx` wheel is simulation-only:
-  it exposes no renderer; `media/` renders the judged trajectory
-  headlessly with matplotlib — see `media/STORYBOARD.md`).
+  it exposes no renderer; `media/` renders the judged trajectory headlessly
+  with a deterministic software 3D renderer — see `media/STORYBOARD.md`).
 - GPU simulation, articulations, deformables, CCD.
 - Contact-force or impulse measurement (positions/velocities only).
 
@@ -33,7 +33,7 @@ The agent authors **one file**: `scene.usda`, a USD ASCII stage containing:
 2. A `PhysicsScene` prim with gravity direction `(0, -1, 0)` and magnitude
    `9.81` (m/s²).
 3. A static ground: a `Cube`-based collider (or `Plane`) whose top surface is
-   at **z = 0** with `PhysicsCollisionAPI` and **no** rigid-body API.
+   at **y = 0** with `PhysicsCollisionAPI` and **no** rigid-body API.
 4. **Box**: dynamic rigid body, `PhysicsRigidBodyAPI` +
    `PhysicsMassAPI` (`physics:mass = 4.0` kg) + child `Cube` collider with
    `PhysicsCollisionAPI`, half-extent **0.10 m** (i.e. a 0.2 m cube), center
@@ -120,13 +120,14 @@ count, CPU, single-threaded PhysX (`num_threads = 1`), no randomness (a
 Single-edit mutants of the good scene. Each must be **killed by a judge
 gate** — a mutant that crashes the simulator before the gates run is a
 broken mutant and fails the self-test. The kill rate counts gate-kills
-only and must be ≥ 90 % (10/10 here → 100 %).
+only and must be ≥ 90 % (11/11 here → 100 %).
 
 1. `gravity-flip` — gravity direction `(0, 1, 0)` → fails G2 (rises) / G3.
 2. `mass-zero` — `physics:mass = 0` → PhysX substitutes a default-density
    mass instead of failing to load; fails G1 (mass read back ≠ authored 4.0).
 3. `no-rigidbody` — `PhysicsRigidBodyAPI` removed from Box's apiSchemas →
-   collider never simulated → G1 (body not sampled).
+   the collider is stepped but never simulated as a rigid body (it never
+   moves) → G2/G3/G4.
 4. `no-ground-collision` — remove `PhysicsCollisionAPI` from ground → falls
    through, G3/G4.
 5. `spawn-inside-ground` — box spawn y = 0.05 < 0.10 → G3/G4.
@@ -139,6 +140,12 @@ only and must be ≥ 90 % (10/10 here → 100 %).
 10. `hidden-reference` — scene prepends
     `references = @./not-in-this-repo.usda@`: physics is unchanged and
     passes; only G7 (self-contained artifact rule) kills it.
+11. `planted-verdict` — the scene itself is unmodified; the single edit is
+    the two forged judge-output files (`traj.npz` + `meta.json`, a perfect
+    analytic trajectory) planted beside it. Every gate would pass if the
+    judge read its inputs from the artifact's directory; G7 names the
+    plant, and the oracle only ever reads the outputs its own simulator
+    wrote into scratch.
 
 ## Acceptance oracle
 

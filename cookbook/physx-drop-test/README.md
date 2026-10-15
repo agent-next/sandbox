@@ -40,13 +40,16 @@ grade.
 | G6 energy | no step gain > 0.5 % E₀; E_final ≤ E₀ | max gain 0.07 % E₀ |
 | G7 contract | self-contained dynamic scene, no cheats | 0 violations |
 
-Self-test kills **10/10** single-edit mutant scenes — 7 physics mistakes
+Self-test kills **11/11** single-edit mutant scenes — 7 physics mistakes
 (gravity flip, mass 0, missing RigidBodyAPI, missing ground collision,
-spawn inside ground, restitution > 1, centimetre units) plus 3 cheat
-attempts that **pass every physics gate** and are caught only by the
-artifact-contract gate G7 (kinematic animation, a joint scaffold, a hidden
-external reference). A mutant killed by crashing the simulator does not
-count: the kill rate counts mutants a **gate** fails (rule: ≥ 90 %).
+spawn inside ground, restitution > 1, centimetre units) plus 4 cheat
+attempts (kinematic animation, a joint scaffold, a hidden external
+reference — three that **pass every physics gate** and are caught only by
+the artifact-contract gate G7 — and forged judge outputs planted beside
+the scene, which would pass every gate if the judge ever read its inputs
+from the artifact's directory). A mutant killed by crashing the simulator
+does not count: the kill rate counts mutants a **gate** fails
+(rule: ≥ 90 %).
 
 ## Ask your agent
 
@@ -147,8 +150,8 @@ first run on a box is faster when pip's wheel cache is warm):
   with the judge's pass lines overlaid, above the three measured panels
   (free fall vs y₀ − g t²/2, bounce apex vs analytic, energy vs E₀).
 - [`media/loop.png`](media/loop.png) — the agent loop: gates passed per
-  authoring iteration, and the mutant × gate kill matrix (10/10).
-- [`media/demo.mp4`](media/demo.mp4) — 42 s, 1920×1080: the drop, the
+  authoring iteration, and the mutant × gate kill matrix (11/11).
+- [`media/demo.mp4`](media/demo.mp4) — 43 s, 1920×1080: the drop, the
   bounce, a sped-up real `selftest.sh` run, the verdict and the kill
   matrix ([STORYBOARD.md](media/STORYBOARD.md); machine-gated with
   `cookbook/tools/video_gate.py`, blind-judged in

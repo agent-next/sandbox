@@ -51,7 +51,7 @@ mkdir -p "$RUNS"
 
 log() { echo "[judge_runs] $*"; }
 
-# 1. the known-good verdict (all 6 gates pass, seed 42) -----------------------
+# 1. the known-good verdict (all 7 gates pass, seed 42) -----------------------
 log "grading examples/good/scene.usda --seed $SEED"
 if ! bash judge/grade.sh examples/good/scene.usda --seed "$SEED" \
         --json "$RUNS/verdicts/good.json"; then
