@@ -126,6 +126,12 @@ def main():
         else:
             run("kill", "sbx", "kill", sbx_id, timeout=120)
             proc, _ = run("list", "sbx", "list", timeout=60, capture=True)
+            # A list that failed is not a list that came back empty: the
+            # sandbox is only gone if a successful list omits it.
+            if proc.returncode != 0:
+                die(f"cleanup not confirmed: sbx list exited "
+                    f"{proc.returncode}; sandbox {sbx_id} may still be live; "
+                    "check with: sbx list", 2)
             if sbx_id in (proc.stdout or ""):
                 die(f"cleanup not confirmed: sandbox {sbx_id} still live; "
                     "kill it with: sbx kill " + sbx_id, 2)
