@@ -1,0 +1,13 @@
+# Pinned wheels for the nanousd-render judge. linux-x86_64, CPython 3.12
+# (the Debian bookworm interpreter used in the reference sandbox runs).
+# Hashes recorded from the reference downloads; install with:
+#   pip install --requirement requirements.txt
+# (pip verifies these hashes when given --require-hashes; we pin versions and
+# record hashes for reference-sandbox reproducibility across platforms where
+# wheel tags differ.)
+numpy==2.2.6 \
+    --hash=sha256:fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249
+pillow==11.2.1 \
+    --hash=sha256:b2dbea1012ccb784a65349f57bbc93730b96e85b42e9bf7b01ef40443db720b4
+usd-core==25.5 \
+    --hash=sha256:6d4dbc80fc6dbbfe1e42cebcb61801197e62490a447ad4f7d946427c802c2037

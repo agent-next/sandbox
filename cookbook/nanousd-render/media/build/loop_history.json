@@ -1,0 +1,26 @@
+[
+  {
+    "name": "no light",
+    "pass": false,
+    "failed": "G1,G3,G4",
+    "nfail": 3
+  },
+  {
+    "name": "camera off",
+    "pass": false,
+    "failed": "G3,G4",
+    "nfail": 2
+  },
+  {
+    "name": "overlapping",
+    "pass": false,
+    "failed": "G4",
+    "nfail": 1
+  },
+  {
+    "name": "graded scene",
+    "pass": true,
+    "failed": "PASS",
+    "nfail": 0
+  }
+]

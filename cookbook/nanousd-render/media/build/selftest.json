@@ -1,0 +1,208 @@
+{
+  "determinism_ok": true,
+  "good_pass": true,
+  "good_verdict": {
+    "artifact": "scene.usda",
+    "gates": {
+      "G1": {
+        "errors": [],
+        "nanousd_meshes": 5,
+        "pass": true,
+        "usdcore_meshes": 5
+      },
+      "G2": {
+        "errors": [],
+        "meshes_compared": 5,
+        "pass": true,
+        "prims_compared": 7
+      },
+      "G3": {
+        "pass": true,
+        "rendered_frac": 0.0928
+      },
+      "G4": {
+        "errors": [],
+        "meshes": {
+          "/World/Cube": {
+            "authored_rgb": [
+              0.85,
+              0.15,
+              0.15
+            ],
+            "illuminance_k": 0.325,
+            "median_rgb": [
+              0.557,
+              0.251,
+              0.259
+            ],
+            "own_dev": 0.05,
+            "rect": [
+              0.0,
+              194.8,
+              50.5,
+              291.7
+            ]
+          },
+          "/World/Cylinder": {
+            "authored_rgb": [
+              0.2,
+              0.35,
+              0.9
+            ],
+            "illuminance_k": 0.118,
+            "median_rgb": [
+              0.184,
+              0.235,
+              0.353
+            ],
+            "own_dev": 0.051,
+            "rect": [
+              281.8,
+              194.5,
+              358.2,
+              289.7
+            ]
+          },
+          "/World/Octahedron": {
+            "authored_rgb": [
+              0.95,
+              0.75,
+              0.1
+            ],
+            "illuminance_k": 0.373,
+            "median_rgb": [
+              0.624,
+              0.561,
+              0.227
+            ],
+            "own_dev": 0.03,
+            "rect": [
+              437.5,
+              244.2,
+              531.5,
+              332.1
+            ]
+          },
+          "/World/Tetra": {
+            "authored_rgb": [
+              0.75,
+              0.15,
+              0.8
+            ],
+            "illuminance_k": 0.465,
+            "median_rgb": [
+              0.612,
+              0.298,
+              0.671
+            ],
+            "own_dev": 0.116,
+            "rect": [
+              591.7,
+              193.8,
+              640.0,
+              300.5
+            ]
+          },
+          "/World/Wedge": {
+            "authored_rgb": [
+              0.15,
+              0.7,
+              0.2
+            ],
+            "illuminance_k": 0.432,
+            "median_rgb": [
+              0.286,
+              0.58,
+              0.341
+            ],
+            "own_dev": 0.088,
+            "rect": [
+              107.8,
+              279.7,
+              211.2,
+              381.0
+            ]
+          }
+        },
+        "pass": true
+      }
+    },
+    "judge_integrity_ok": true,
+    "pass": true,
+    "seed": 0,
+    "timing": {
+      "wall_s": 2.8
+    }
+  },
+  "kill_rate": "100.0%",
+  "mutants": [
+    {
+      "expected_gate": "G4",
+      "gates_failed": "G4",
+      "name": "out_of_frame",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G1",
+      "gates_failed": "G1,G3,G4",
+      "name": "recolored",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G3",
+      "gates_failed": "G3,G4",
+      "name": "camera_away",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G1",
+      "gates_failed": "G1,G2,G3,G4",
+      "name": "malformed",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G1",
+      "gates_failed": "G1,G3,G4",
+      "name": "skelroot_divergence",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G1",
+      "gates_failed": "G1,G3,G4",
+      "name": "missing_light",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G1",
+      "gates_failed": "G1,G3,G4",
+      "name": "too_few_points",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G1",
+      "gates_failed": "G1,G3,G4",
+      "name": "aperture_broken",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G1",
+      "gates_failed": "G1,G3,G4",
+      "name": "composite_arc",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G1",
+      "gates_failed": "G1,G3,G4",
+      "name": "smuggled_arc",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G4",
+      "gates_failed": "G4",
+      "name": "rects_overlap",
+      "verdict": "KILLED"
+    }
+  ],
+  "mutants_killed": 11,
+  "mutants_total": 11
+}
