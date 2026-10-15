@@ -16,6 +16,26 @@ Three parts of rising difficulty: a flanged bushing, an adapter plate with a
 6-hole bolt circle, and an L-bracket with an R8 fillet (specs in
 `specs/*.md`, gates and numeric rules in `SPEC.md`).
 
+## Results
+
+**All three parts pass every judge gate — 22/22** — and the self-test kills
+**7/7 scripted mutants (100 %)**. Numbers below are copied from the committed
+verdict JSONs in `media/data/` (`judge/grade.sh --json`):
+
+- STEP volume == analytic volume, rel error 0.0: bushing 42625.13 mm³,
+  plate 71505.92 mm³, bracket 61853.98 mm³
+- manifold3d XOR vs the judge's reference solids: 3.6e-4 / 1.4e-4 / 1.7e-4
+  of reference volume (gate limit 1 %)
+- measured min wall 6.94–8.06 mm vs the 1.2 mm gate; plate DXF audit clean
+  (0 errors), 7 circles on the R35 bolt circle, centred 100 × 80 outline
+
+![real result: meshes and judge verdicts](media/result.png)
+
+![judge matrix: mutants x gates](media/loop.png)
+
+[Watch the demo (33 s)](media/demo.mp4) — real mesh renders, gate numbers,
+and the judge matrix.
+
 ## One-command run
 
 ```bash
@@ -62,15 +82,6 @@ key in the environment):
 
 The demo's own checked-in artifacts (`examples/good/`) were produced exactly
 this way, through the MCP server, and are what `run.py` grades.
-
-## Results
-
-![real result: meshes and judge verdicts](media/result.png)
-
-![judge matrix: mutants x gates](media/loop.png)
-
-[Watch the demo (33 s)](media/demo.mp4) — real mesh renders, gate numbers,
-and the judge matrix.
 
 ## What the judge checks (see `SPEC.md` for numbers)
 
