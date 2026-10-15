@@ -1,0 +1,28 @@
+selftest: grading known-good /home/user/w/cookbook/usd-validate-fix/examples/good/traffic_cone_fixed.usda
+selftest: known-good PASSED all gates
+mutants: wrote <tmp>/mutants/no_normals.usda (no_normals)
+mutants: wrote <tmp>/mutants/mpu_1.usda (mpu_1)
+mutants: wrote <tmp>/mutants/upaxis_z.usda (upaxis_z)
+mutants: wrote <tmp>/mutants/zero_face.usda (zero_face)
+mutants: wrote <tmp>/mutants/unbind.usda (unbind)
+mutants: wrote <tmp>/mutants/no_defaultprim.usda (no_defaultprim)
+mutants: wrote <tmp>/mutants/no_extent.usda (no_extent)
+mutants: wrote <tmp>/mutants/delete_band.usda (delete_band)
+mutants: wrote <tmp>/mutants/scale_points.usda (scale_points)
+mutants: wrote <tmp>/mutants/short_normals.usda (short_normals)
+mutants: wrote <tmp>/mutants/no_collision.usda (no_collision)
+mutants: 11 mutants
+selftest: killed    delete_band (gate: geometry)
+selftest: killed    mpu_1 (gate: oracle)
+selftest: killed    no_collision (gate: oracle)
+selftest: killed    no_defaultprim (gate: validator)
+selftest: killed    no_extent (gate: validator)
+selftest: killed    no_normals (gate: validator)
+selftest: killed    scale_points (gate: validator)
+selftest: killed    short_normals (gate: validator)
+selftest: killed    unbind (gate: oracle)
+selftest: killed    upaxis_z (gate: oracle)
+selftest: killed    zero_face (gate: validator)
+selftest: kill rate 11/11 = 100%
+selftest: determinism OK (two --seed 1 runs identical except timing)
+selftest: OK
