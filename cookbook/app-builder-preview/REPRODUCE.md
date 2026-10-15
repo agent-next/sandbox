@@ -1,27 +1,46 @@
 # app-builder-preview — independent reproduction
 
-Status: **pending**. This file is filled in by a different agent (a model
-family other than the builder's) following only `README.md` in a fresh
-sandbox, before this demo is merged.
-
-The independent reproducer must, per `cookbook/DEMO-STANDARD.md`:
-
-- work from a **fresh shallow clone** at the merged ref, reading only
-  `README.md` (and `SPEC.md` where the README points to it) to drive the
-  run — not the builder's notes, not the judge source;
-- run the README's one-command run end to end and record its **exit code
-  and measured wall time**;
-- report the numbers it actually measured — gates, flow pass count, build
-  size, console errors, self-test kill rate — side by side with the
-  `RECEIPT.md` values, and state whether they agree within the tolerances
-  in `SPEC.md` (this demo's tolerances are **none**: every assertion is an
-  exact DOM equality, so the verdict must be identical);
-- record every command it ran, and any deviation from the README;
-- confirm its own sandbox(es) are killed and gone (`sbx list` omits them).
-
-The builder does not edit this section's findings; the reproducer's
-recorded numbers stand as written.
+Recorded by an independent agent (a different model family from the
+builder), following only `README.md` in fresh sandboxes. It read
+`README.md`, `DEMO-STANDARD.md` and `run.py`; it did not read the judge
+source to drive the run.
 
 ## Reproduction record
 
-_(to be completed by the independent reproducer)_
+**The independent reproduction did not complete.** Two attempts, each cut
+off before the `selftest` step reported; no exit code and no verdict were
+produced by the reproducer itself.
+
+| attempt | sandbox | reached | outcome |
+|---|---|---|---|
+| 1 | `01a140be-b28a-7ab0-b841-0a364513b4e0` | `[setup]` ok (81 s) | `[selftest]` never returned; task stopped at its limit |
+| 2 | `01a140cc-8c85-75c1-8082-84455dfdba89` | `[setup]` ok (204 s) | selftest alive at +9 min, gone by +24 min; client stopped, sandbox then expired |
+
+Both sandboxes were created by the reproducer's own runs, killed by id, and
+confirmed gone with `sbx list`. The reproducer modified no repository file.
+
+### What it did observe
+
+- `judge/setup.sh` completed cleanly in both attempts: node v22.23.3,
+  Chromium 153.0.8010.12 (rev 1243) twice, launch probe ok.
+- The `layout` gate accepted the ref (it had earlier rejected it for the
+  then-missing `RECEIPT.md`/`REPRODUCE.md`).
+- Attempt 2's setup took 204 s against the README's ~75 s, with three runs
+  contending for the 2-vCPU template (load average ~2.3); attempt 1,
+  uncontended, took 81 s.
+
+### Numbers from the two runs that did complete
+
+Those runs were made by this branch's own acceptance runs (not by the
+reproducer), and are the ones recorded in `RECEIPT.md`; they agree with the
+reproducer's partial observations on setup. The reproducer reports its
+attempts as truncated, **not** as a disagreement with `RECEIPT.md`.
+
+## Status
+
+An independent reproduction that completes end to end is **still required
+before this demo is merged** (`DEMO-STANDARD.md`, "Independent
+reproduction"). This record documents the attempt and its failure mode; it
+is not a passing reproduction. The likely cause is contention: the
+browser-driven `selftest` step takes ~10–11 min uncontended and is the
+step that was still running when each attempt was cut off.
