@@ -56,21 +56,72 @@ PASS = cadviz.PASS
 FAIL = cadviz.FAIL
 
 
+# one short, faithful name per scripted edit; keys are verified against
+# judge/mutants.py's MODEL_EDITS/STL_EDITS below, so a rename there fails
+# this figure loudly rather than mislabelling a row.
+EDIT_LABEL = {
+    ("plate-hole-count", "N_BOLT_HOLES = 4"):
+        "model.py: N_BOLT_HOLES = 4 -> 3",
+    ("plate-hole-diameter", "BOLT_HOLE_D = 6.5"):
+        "model.py: BOLT_HOLE_D = 6.5 -> 5.0",
+    ("plate-hole-drift", "FIRST_ANGLE_DEG = 45.0"):
+        "model.py: FIRST_ANGLE_45 -> 53 deg",
+    ("bracket-missing-fillet",
+     "bd.CenterArc((LEG_T + FILLET_R, LEG_T + FILLET_R), FILLET_R, -90, -90)"):
+        "model.py: R5 fillet -> its chord",
+    ("bracket-fillet-radius", "FILLET_R = 5.0"):
+        "model.py: FILLET_R = 5.0 -> 2.0",
+    ("bushing-scale-25_4", "SHAFT_D = 20.0"):
+        "model.py: SHAFT_D = 20.0 -> 20.0 * 25.4",
+    ("bushing-non-watertight", "drop_triangle"):
+        "STL byte edit: drop one triangle",
+    ("plate-flipped-facet", "flip_facet"):
+        "STL byte edit: flip one facet",
+}
+
+
 def row_label(name):
-    """Row label + the single scripted edit, from judge/mutants.py itself."""
+    """Row label + the single scripted edit, keyed off judge/mutants.py
+    itself (an edit renamed there fails here -- no stale labels)."""
     if name.startswith("good_"):
         return ("good / " + name[5:].replace("_", " "), None)
     sys.path.insert(0, cadviz.JUDGE)
     import mutants
-    for m, part, old, new in mutants.MODEL_EDITS:
+    for m, part, old, _new in mutants.MODEL_EDITS:
         if m == name:
-            return (f"{name}  ({part.replace('_', ' ')})",
-                    f"model.py:  {old}  ->  {new}")
-    for m, part, edit in mutants.STL_EDITS:
-        if m == name:
-            return (f"{name}  ({part.replace('_', ' ')})",
-                    f"delivered STL byte edit: {edit}")
-    raise SystemExit(f"unknown mutant row {name}")
+            key = (name, old)
+            break
+    else:
+        for m, part, edit in mutants.STL_EDITS:
+            if m == name:
+                key = (name, edit)
+                break
+        else:
+            raise SystemExit(f"unknown mutant row {name}")
+    if key not in EDIT_LABEL:
+        raise SystemExit(f"no EDIT_LABEL for {key} -- mutants.py changed")
+    return (f"{name}  ({part.replace('_', ' ')})", EDIT_LABEL[key])
+
+
+def _feature_cell(errs):
+    """The features gate's errors, verbatim but with repeated centre-
+    drift errors collapsed to a count (a mutant with 4 drifted holes
+    otherwise overflows its matrix cell; the verdict JSON keeps every
+    error verbatim)."""
+    errs = list(errs or ["failed"])
+    out, centres = [], {}
+    for e in errs:
+        if "centre (" in e and "not within" in e:
+            key = e.split(":")[0]
+            centres[key] = centres.get(key, 0) + 1
+        else:
+            out.append(e)
+    for key in sorted(centres):
+        out.append(f"{key}: {centres[key]} centres off-spec (>0.05 mm)")
+    txt = "; ".join(out[:2])
+    if len(out) > 2:
+        txt += f"; +{len(out) - 2} more"
+    return txt
 
 
 def cell_text(gate, g):
@@ -112,11 +163,7 @@ def cell_text(gate, g):
     if gate == "features":
         if g["pass"]:
             return "counts, radii, centres, spacing all as spec"
-        errs = m.get("errors") or ["failed"]
-        txt = "; ".join(errs[:2])
-        if len(errs) > 2:
-            txt += f"; +{len(errs) - 2} more"
-        return txt
+        return _feature_cell(m.get("errors"))
     if gate == "min_wall":
         if m.get("applicable") is False:
             return "not graded (spec min_wall_mm = null)"
@@ -137,8 +184,7 @@ def replay_annotation(v):
     g = v["gates"][failed[0]]
     m = g["measured"] or {}
     if failed[0] == "features":
-        errs = m.get("errors") or []
-        txt = f"{failed[0]}: {errs[0] if errs else 'failed'}"
+        txt = f"{failed[0]}: {_feature_cell(m.get('errors'))}"
     elif failed[0] == "volume_analytic":
         txt = (f"{failed[0]}: rel err {m['rel_err'] * 100:.3g} % "
                f"> 0.5 % limit")
@@ -179,7 +225,7 @@ def main():
     fig = plt.figure(figsize=(16.0, 15.2), dpi=200)
     gs = fig.add_gridspec(
         3, 1, height_ratios=[2.5, 8.2, 1.9],
-        left=0.012, right=0.988, top=0.955, bottom=0.008, hspace=0.30)
+        left=0.055, right=0.988, top=0.946, bottom=0.022, hspace=0.30)
 
     # ---------------------------------------------------------------- top
     axR = fig.add_subplot(gs[0])
@@ -222,7 +268,7 @@ def main():
     axM = fig.add_subplot(gs[1])
     axM.set_xlim(0, 11)
     nr = len(ROWS)
-    axM.set_ylim(0, nr + 1.6)
+    axM.set_ylim(-2.3, nr + 1.6)
     axM.set_xticks([])
     axM.set_yticks([])
     for s in axM.spines.values():
@@ -241,15 +287,15 @@ def main():
         y0 = nr - 1 - i
         v = verdicts[name]
         main_lab, edit = row_label(name)
-        axM.text(0.04, y0 + row_h * 0.72, main_lab, ha="left", va="center",
+        axM.text(0.04, y0 + row_h * 0.80, main_lab, ha="left", va="center",
                  fontsize=8.2, fontweight="bold",
                  color=INK if name.startswith("good_") else FAIL)
         if edit:
-            axM.text(0.04, y0 + row_h * 0.30,
-                     cadviz.wrap(edit, 34), ha="left", va="center",
+            axM.text(0.04, y0 + row_h * 0.50,
+                     cadviz.wrap(edit, 42), ha="left", va="center",
                      fontsize=6.8, color=MUTED, linespacing=1.3)
         verdict_all = v["pass"]
-        axM.text(0.04, y0 + row_h * 0.05 if edit else y0 + row_h * 0.28,
+        axM.text(0.04, y0 + row_h * 0.20,
                  ("grade.sh exit 0" if verdict_all else "grade.sh exit 1"),
                  ha="left", va="center", fontsize=6.6,
                  color=PASS if verdict_all else FAIL)
@@ -274,11 +320,11 @@ def main():
     for j, gate in enumerate(GATES):
         x0 = col_x0 + j * col_w
         rule = rule_src["gates"][gate]["rule"]
-        t = axM.text(x0 + col_w / 2, 1.28, cadviz.wrap("rule: " + rule, 24),
+        t = axM.text(x0 + col_w / 2, -1.15, cadviz.wrap("rule: " + rule, 24),
                      ha="center", va="center", fontsize=6.3, color=MUTED,
                      linespacing=1.3)
-        cell_texts.append((t, (x0, 0.18, col_w, 1.9)))
-    axM.text(0.04, 1.9, "gate rules\n(from the\nverdict JSON)", ha="left",
+        cell_texts.append((t, (x0, -2.05, col_w, 1.7)))
+    axM.text(0.04, -1.15, "gate rules\n(from the\nverdict JSON)", ha="left",
              va="center", fontsize=6.8, color=MUTED, linespacing=1.3)
 
     # legend, outside the data
@@ -306,28 +352,26 @@ def main():
     y = [1, 0]
     axK.barh(y, vals, height=0.52, color=[PASS, FAIL], alpha=0.92)
     axK.axvline(90, color=FAIL, lw=1.6, ls=(0, (5, 3)))
-    axK.text(90, 1.42, " 90% kill-rate floor (DEMO-STANDARD.md)", fontsize=8,
+    axK.text(90, 1.20, " 90% kill-rate floor (DEMO-STANDARD.md)", fontsize=8,
              color=FAIL, ha="left", va="center")
     axK.text(gp * 100 + 1.2, 1, f"{gp * 100:.0f}%  (3/3 parts)", va="center",
              fontsize=8.5, color=INK)
     axK.text(kp * 100 + 1.2, 0, f"{kp * 100:.0f}%  (8/8 mutants killed)",
              va="center", fontsize=8.5, color=INK)
     axK.set_yticks(y)
-    axK.set_yticklabels(["known-good parts passing", "known-bad mutants "
-                         "killed"], fontsize=9)
+    axK.set_yticklabels(["good parts", "mutants"], fontsize=8.5)
     axK.set_xlim(0, 132)
-    axK.set_xticks([0, 25, 50, 75, 100])
-    axK.set_xlabel("per cent", fontsize=8.5)
+    axK.set_xticks([])
     for s in ("top", "right"):
         axK.spines[s].set_visible(False)
     axK.tick_params(length=2, labelsize=8)
     axK.set_title("self-test kill rate -- " + summary, fontsize=10,
-                  fontweight="bold", color=INK, pad=8)
+                  fontweight="bold", color=INK, pad=22)
 
     fig.suptitle("the judge an agent cannot fool: every single-edit mutant "
                  "dies on at least one gate, the good parts pass all ten",
                  fontsize=14, fontweight="bold", y=0.983)
-    fig.text(0.012, 0.0015,
+    fig.text(0.012, 0.004,
              "source: media/data/verdicts/*.json (judge/grade.sh --seed 42 "
              "--json, run by media/collect_verdicts.sh) and "
              "media/data/selftest.txt (judge/selftest.sh).  Mutant edits are "
