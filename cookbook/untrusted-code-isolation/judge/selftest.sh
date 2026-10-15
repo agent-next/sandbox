@@ -27,6 +27,17 @@ if bash "$HERE/grade.sh" "$GOOD" --json "$WORK/good.json" >/dev/null 2>&1; then
     echo "selftest: known-good: PASS"
 else
     echo "selftest: known-good FAILED (judge broken or good runner broken)" >&2
+    python3 - "$WORK/good.json" <<'EOF' >&2
+import json, sys
+try:
+    verdict = json.load(open(sys.argv[1]))
+except Exception as exc:
+    print("  no verdict JSON (%s)" % exc)
+    raise SystemExit(0)
+for gate, detail in verdict.get("gates", {}).items():
+    if not detail.get("pass"):
+        print("  gate %s: %s" % (gate, detail.get("problems")))
+EOF
     exit 1
 fi
 

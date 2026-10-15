@@ -1,10 +1,10 @@
 {
-  "_comment": "Runtime policy for the runner under test. These numbers are supplied to the artifact at grade time and are deliberately NOT committed inside runner.py: gate 1 rejects an artifact whose text contains any of these values (within 1 %), so the limits must be read from this file, not hard-coded. wall_s is sized so the CPU limit (cpu_s) fires before the wall clock on a 2 vCPU box.",
+  "_comment": "Runtime policy for the runner under test. These numbers are supplied to the artifact at grade time and are deliberately NOT committed inside runner.py: gate 1 rejects an artifact whose text contains any of these values (within 1 %), so the limits must be read from this file, not hard-coded. wall_s is sized so the CPU limit (cpu_s) always fires first on a 2 vCPU box: a spinner needs ~3.3 CPU s to reach the hard cap, which lands well under 0.85 x wall_s even at a 30 % share of a core, while a runner with no working CPU cap always runs a spinner the full wall window (the judge measures that).",
   "cpu_s": 2,
   "as_bytes": 268435456,
   "fsize_bytes": 4194304,
   "nproc": 64,
-  "wall_s": 9.0,
+  "wall_s": 20.0,
   "output_cap_bytes": 1048576,
   "uid_drop": true,
   "net_isolate": true

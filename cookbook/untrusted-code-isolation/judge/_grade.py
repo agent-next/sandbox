@@ -28,6 +28,7 @@ import os
 import re
 import secrets
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -152,12 +153,19 @@ def largest_file(root):
     return best, size
 
 
-def survivors_under(needles, settle_s=2.0):
-    """Pids whose cmdline mentions any needle after a settle period."""
+def survivors_under(needles, baseline, settle_s=2.0):
+    """Pids created during this grade whose cmdline mentions any needle.
+
+    `baseline` is the pid snapshot taken before the first snippet ran:
+    leftovers from earlier grades (a self-test runs 11 grades back to
+    back) are pre-existing, not survivors of *this* run, and must not
+    fail it. What is left behind by the run under test is exactly the
+    pids that appeared since and still mention the run tree.
+    """
     time.sleep(settle_s)
     found = []
     for entry in os.listdir("/proc"):
-        if not entry.isdigit():
+        if not entry.isdigit() or int(entry) in baseline:
             continue
         try:
             with open("/proc/%s/cmdline" % entry, "rb") as fh:
@@ -167,6 +175,21 @@ def survivors_under(needles, settle_s=2.0):
         if any(n in cmd for n in needles):
             found.append({"pid": int(entry), "cmd": cmd[:160]})
     return found
+
+
+def reap(survivors):
+    """Kill processes this grade itself created (they name this run tree).
+
+    Their cmdline matched this grade's unique run-dir path, so the kill
+    cannot reach anything the grade did not start. Killing them keeps a
+    failed runner's leftovers (the very thing the gate flags) from
+    leaking into the next grade's CPU and load measurements.
+    """
+    for item in survivors:
+        try:
+            os.kill(item["pid"], signal.SIGKILL)
+        except OSError:
+            pass
 
 
 def peak_proc_delta(base, stop_event, interval=0.05):
@@ -441,6 +464,7 @@ def main():
     canary_before = sha256_file(canary)
 
     probe = Probe().start()
+    baseline_pids = set(int(p) for p in os.listdir("/proc") if p.isdigit())
     env = dict(os.environ)
     env["UCI_OUTSIDE_DIR"] = outside
     env["UCI_MARKER"] = "judge-probe"
@@ -571,7 +595,7 @@ def main():
             probe.poll()
             largest_path, largest = largest_file(run_dir)
             survivors = survivors_under([run_dir, "uci-supervisor-"],
-                                        settle_s=2.0)
+                                        baseline_pids, settle_s=2.0)
             proc_after = proc_count()
             canary_after = sha256_file(canary)
             ctx_base = {
@@ -610,6 +634,9 @@ def main():
                             "fork_bomb_peak_proc_delta":
                                 records.get("fork_bomb",
                                             {}).get("peak_proc_delta")}}
+            # Leftovers of a *failed* runner must not skew the benign gate's
+            # health numbers; what this grade created, this grade reaps.
+            reap(survivors)
             if contain_problems:
                 rc = 1
 
@@ -667,8 +694,9 @@ def main():
         load_after = load1()
         proc_final = proc_count()
         survivors_final = survivors_under([run_dir, "uci-supervisor-"],
-                                          settle_s=2.0) \
+                                          baseline_pids, settle_s=2.0) \
             if run_dir else []
+        reap(survivors_final)
         canary_final = sha256_file(canary)
         health = {}
         problems = []
