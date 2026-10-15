@@ -31,6 +31,10 @@ Mutants and the gate each must trip:
                      without the spaces the old text scan
                      matched (the forge-a-pass cheat; now
                      the parser reports it)              -> G1 forbidden_arc
+  dropped_prim       an over-declared prim usd-core reports and
+                     nanousd drops (both readers parse the
+                     file fine, so it is G2's prim-path-set
+                     rule that catches the disagreement)   -> G2 prim_paths
   rects_overlap      the Cube slid right until its projected
                      rectangle overlaps the Cylinder's (every
                      structural rule still holds)          -> G4 rects_overlap
@@ -173,6 +177,19 @@ def m_smuggled_arc(t: str) -> str:
         "smuggled_arc")
 
 
+def m_dropped_prim(t: str) -> str:
+    # An over-declared prim with one custom attribute. Both readers parse
+    # the file cleanly, but usd-core reports /World/Ghost while nanousd
+    # drops it from its prim list: a genuine cross-reader disagreement,
+    # killed by G2's prim-path-set rule alone (the only mutant whose
+    # named gate is G2).
+    return sub_once(
+        t, 'def Mesh "Tetra"\n    {',
+        'over "Ghost"\n    {\n        custom double boom = 0.5\n    }\n\n'
+        'def Mesh "Tetra"\n    {',
+        "dropped_prim")
+
+
 MUTANTS = [
     ("out_of_frame", "G4", m_out_of_frame),
     ("half_offscreen", "G4", m_half_offscreen),
@@ -185,6 +202,7 @@ MUTANTS = [
     ("aperture_broken", "G1", m_aperture_broken),
     ("composite_arc", "G1", m_composite_arc),
     ("smuggled_arc", "G1", m_smuggled_arc),
+    ("dropped_prim", "G2", m_dropped_prim),
     ("rects_overlap", "G4", m_rects_overlap),
 ]
 

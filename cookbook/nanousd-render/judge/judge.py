@@ -199,7 +199,7 @@ def world_matrix(prim, prims_by_path):
     Each flat array is USD row-major ROW-vector (p' = p * G): compose in
     that layout and transpose at the end for column-vector math.
     """
-    flat = prim.get("local_xform") or prim.get("xform")
+    flat = prim.get("local_xform")
     if flat is None or len(flat) != 16:
         return [1.0, 0.0, 0.0, 0.0,
                 0.0, 1.0, 0.0, 0.0,
@@ -217,8 +217,6 @@ def world_matrix(prim, prims_by_path):
             break
         chain.append(p)
         cur = p
-    for p in chain:
-        flat = p.get("local_xform") or flat
     # chain is self-first; compose world = L(parent) @ ... @ L(self)
     acc = [[1.0, 0.0, 0.0, 0.0],
            [0.0, 1.0, 0.0, 0.0],
@@ -241,6 +239,14 @@ def rowvec_mul(a, b):
         for j in range(4):
             out[i][j] = sum(a[i][k] * b[k][j] for k in range(4))
     return out
+
+
+def rowvec_to_colvec(flat):
+    """Transpose a USD row-vector flat (p' = p * G, Gf row-major, translation
+    at flat[12..14]) into the column-vector layout the judge's camera math
+    and the renderer both use (p' = M @ p, flat[r*4 + c], translation at
+    flat[3,7,11])."""
+    return [flat[c * 4 + r] for r in range(4) for c in range(4)]
 
 
 def annotate_world_xforms(prims):
@@ -444,13 +450,16 @@ def compare_readers(nn_flat, uc_prims):
                 f"{path}: world transform differs by {d_xf:.3g} > 1e-9"))
         # cross-check the judge's composition against each reader's own
         # resolved world transform, when the reader reports one -- a
-        # composition bug would show up here, not as a silent pass
+        # composition bug would show up here, not as a silent pass.
+        # Readers report USD row-vector matrices (p' = p * G); the judge's
+        # composition is column-vector (p' = M @ p), so transpose first.
         for who, prim, composed in (("nanousd", nn, nn_w),
                                     ("usd-core", uc, uc_w)):
             own = prim.get("reader_world_xform")
             if own is None or len(own) != 16:
                 continue
-            d_own = max(abs(a - b) for a, b in zip(own, composed))
+            own_cv = rowvec_to_colvec(own)
+            d_own = max(abs(a - b) for a, b in zip(own_cv, composed))
             if d_own > 1e-9:
                 errs.append(fail("G2", "world_xform",
                     f"{path}: judge-composed world transform differs from "

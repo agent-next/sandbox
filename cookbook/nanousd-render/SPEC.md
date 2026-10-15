@@ -164,9 +164,12 @@ accepted for interface uniformity (nothing in this judge is random).
   away, a malformed (syntax-broken) file, a prim typed with a plugin schema
   (`SkelRoot`: both readers keep the prim and still agree, so it is G1's
   forbidden-schema rule that fires, not a G2 prim-set divergence), two
-  meshes whose projected rectangles overlap past the layout rule, and a
-  composition arc smuggled in without the spaces a text-only scan
-  matches (the forge-a-pass cheat; the parser-reported arc check kills it).
+  meshes whose projected rectangles overlap past the layout rule, an
+  over-declared prim usd-core reports and nanousd silently drops (killed
+  by G2's prim-path-set rule alone — the one mutant whose named gate is
+  the cross-reader gate), and a composition arc smuggled in without the
+  spaces a text-only scan matches (the forge-a-pass cheat; the
+  parser-reported arc check kills it).
   Every mutant carries the gate it must fail and the self-test fails a
   mutant whose kill lands on a different gate.
 - **A kill counts only when a judge gate fails**: grade.sh exits non-zero
