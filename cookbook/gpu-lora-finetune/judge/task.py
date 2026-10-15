@@ -4,6 +4,12 @@ Single source of truth shared by the training pipeline (inside the sandbox)
 and the judge. The judge never trusts an artifact's own data: it regenerates
 the held-out test set with its own seed and parses every input back to the
 exact correct ISO answer with `iso_answer` below (no model involved).
+
+Disjointness: the split is drawn from one seeded stream, so a *rendered*
+input can collide across splits (a date is rendered 1/6 with the same
+template as an earlier draw). `generate_split` therefore rejects inputs
+already used in this stream, which is what makes "no test input may equal a
+train input" (judge gate 2) true by construction, not by luck.
 """
 
 import datetime
@@ -27,7 +33,6 @@ MONTH_TO_NUM.update({abbr: i + 1 for i, abbr in enumerate(MONTHS_ABBR)})
 ORDINAL_SUFFIXES = {1: "st", 2: "nd", 3: "rd"}
 # templates 0..5 in SPEC order
 N_TEMPLATES = 6
-
 
 def ordinal_suffix(day: int) -> str:
     if 10 <= day % 100 <= 20:
@@ -110,17 +115,23 @@ def iso_answer(text: str) -> str:
 def generate_split(seed: int, n_train: int, n_test: int):
     """One seeded stream, split: first n_train rows train, last n_test test.
 
-    Disjoint by construction — no rendered input string can appear in both
-    splits — and fully deterministic, so the judge regenerates exactly the
-    test set the trainer saw, from the seed alone.
+    Rendered inputs are kept unique within the stream, so no rendered input
+    string can appear in both splits — disjoint by construction, and fully
+    deterministic: the judge regenerates exactly the test set the trainer
+    saw, from the seed alone.
     """
     rng = random.Random(seed)
     days = (MAX_DATE - MIN_DATE).days
+    used = set()
     items = []
-    for _ in range(n_train + n_test):
+    while len(items) < n_train + n_test:
         date = MIN_DATE + datetime.timedelta(days=rng.randrange(days + 1))
         template = rng.randrange(N_TEMPLATES)
-        items.append((render(date, template), date.isoformat()))
+        text = render(date, template)
+        if text in used:
+            continue
+        used.add(text)
+        items.append((text, date.isoformat()))
     return items[:n_train], items[n_train:]
 
 
@@ -130,3 +141,23 @@ def train_set():
 
 def test_set():
     return generate_split(TRAIN_SEED, TRAIN_SIZE, TEST_SIZE)[1]
+
+
+# The exact prompt/target format shared by the trainer and the judge (gate 3
+# evaluates with this prompt; the trainer fine-tunes on it). Plain language-
+# modelling completion, no chat template, so the judge's CPU eval and the
+# lease's GPU training tokenize identically.
+PROMPT_FMT = "Date: {input}\nISO:"
+
+
+def prompt(text: str) -> str:
+    return PROMPT_FMT.format(input=text)
+
+
+def target(answer: str) -> str:
+    return " " + answer
+
+
+def normalize_prediction(text: str) -> str:
+    """First whitespace-trimmed line of a generated completion."""
+    return text.strip().splitlines()[0].strip() if text.strip() else ""
