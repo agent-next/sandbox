@@ -6,6 +6,8 @@
 cadquery==2.7.0
 cadquery-ocp==7.8.1.1.post1        # OCCT 7.8.1 kernel bindings
 ezdxf==1.4.4
+trimesh==5.1.1
+manifold3d==3.5.4
 numpy==2.5.4
 nlopt==2.11.0
 casadi==3.8.1
@@ -22,5 +24,8 @@ libglu1-mesa 9.0.2-1.1
 libxkbcommon0 1.5.0-1
 libxrender1 1:0.9.10-1.1
 
-# judge itself: python3 stdlib only (struct, math, json, argparse, ezdxf
-# for DXF reading, cadquery/OCP only to re-import the delivered STEP)
+# judge itself: spec rules and the closed-form oracle are own code; geometry
+# checks use the pinned libraries: cadquery/OCP to re-import and validate
+# (BRepCheck_Analyzer) the delivered STEP, trimesh for the STL mesh checks,
+# manifold3d (via trimesh.boolean) for the XOR symmetric difference, ezdxf
+# for DXF reading

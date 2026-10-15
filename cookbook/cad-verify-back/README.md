@@ -4,13 +4,15 @@ An agent designs an industrial adapter plate (plate + central bore + raised
 boss + bolt circle) with **CadQuery 2.7.0** on OCCT from a customer spec JSON,
 and delivers `part.step`, `part.stl` and `part.dxf`. A judge it cannot fool
 then **verifies what was delivered, never the in-memory model**: it
-re-imports the STEP through OCCT (solid count, bbox, volume vs a closed-form
-analytic volume, through-hole count/diameters, bolt-circle PCD and angular
-spacing), parses the STL with its **own** stdlib binary/ASCII parser
-(watertightness, winding consistency, divergence-theorem volume), reads the
-DXF with ezdxf (circle count/diameters/positions, outline), and checks the
-design rules (minimum edge distance, minimum ligament) from the delivered
-geometry. Nothing the agent exports can touch the judge's oracle.
+re-imports the STEP through OCCT (solid count, `BRepCheck_Analyzer` B-rep
+validity, bbox, volume vs a closed-form analytic volume, through-hole
+count/diameters, bolt-circle PCD and angular spacing) and diffs it against a
+reference solid rebuilt from the spec alone via a manifold3d boolean XOR
+(≤ 1 % of the reference volume); it parses the STL with **trimesh**
+(watertightness, winding consistency, volume), reads the DXF with ezdxf
+(circle count/diameters/positions, outline), and checks the design rules
+(minimum edge distance, minimum ligament) from the delivered geometry.
+Nothing the agent exports can touch the judge's oracle.
 
 Why a sandbox helps: the CAD toolchain (CadQuery/OCCT + GL runtime libraries)
 is heavy and pinned; the agent installs it, iterates on its own geometry and
@@ -35,7 +37,7 @@ Measured wall time per step (2 vCPU sandbox, see RECEIPT.md for full output):
 | `sbx create` | ~5 s |
 | clone (depth 1) | ~5 s |
 | `judge/setup.sh` (apt + 44 pinned wheels, ~300 MB) | ~2–4 min |
-| `judge/selftest.sh` (good + 8 mutants + determinism) | ~5 min |
+| `judge/selftest.sh` (good + 10 mutants + determinism) | ~5–7 min |
 | `judge/grade.sh examples/good` | ~25 s |
 
 Limits, stated plainly: the judge needs ~1.5 GB of RAM for the OCCT
@@ -63,27 +65,33 @@ A known-good `part.py` is in `examples/good/` (regenerate its exports with
 
 ## What the judge checks (full numeric rules in SPEC.md)
 
-- **STEP** (re-imported through OCCT): 1 solid; bbox ≤ 0.01 mm from spec;
-  volume ≤ 0.1 % from the closed-form `l·w·t + boss annulus − bore − bolts`;
-  `bolt_n + 1` cylindrical through-holes with diameters ≤ 0.01 mm; bolt
-  centres on the PCD within 0.02 mm, evenly spaced within 0.05°.
-- **STL** (the judge's own parser, no mesh library): every edge shared by
-  exactly 2 triangles; consistent winding; divergence-theorem volume within
-  1 % of the STEP volume.
+- **STEP** (re-imported through OCCT): 1 valid solid (`BRepCheck_Analyzer`);
+  bbox ≤ 0.01 mm from spec; volume ≤ 0.1 % from the closed-form
+  `l·w·t + boss annulus − bore − bolts`; `bolt_n + 1` cylindrical
+  through-holes with diameters ≤ 0.01 mm; bolt centres on the PCD within
+  0.02 mm, evenly spaced within 0.05°; XOR symmetric-difference volume vs
+  the spec-built reference solid ≤ 1 %.
+- **STL** (trimesh): watertight with consistent winding; positive (outward)
+  volume; volume within 1 % of the STEP volume.
 - **DXF** (ezdxf): `bolt_n + 2` CIRCLEs with diameters/positions to spec;
   closed rectangular outline `plate_l × plate_w` centred on the origin.
 - **Design rules**: min edge distance and min ligament ≥ spec (0.01 mm slack).
 
-The self-test (`judge/selftest.sh`) regenerates 8 single-edit mutants
+The self-test (`judge/selftest.sh`) regenerates 10 single-edit mutants
 (wrong bolt count, wrong PCD, bore +0.5 mm, boss missing, inch/mm ×25.4,
-STL with one dropped facet, DXF missing a hole, edge-distance violation)
-and requires every one to fail at least one gate — kill rate 8/8 = 100 %.
+STL with one reversed facet, STL with one dropped facet, DXF missing a
+hole, edge-distance violation, one bolt hole drifted 0.5 mm along the PCD —
+STEP and DXF agree on the drift, so only the angular-spacing gate catches
+it) and requires every one to fail at least one **named** gate — kill rate
+10/10 = 100 %. It prints every failing gate per mutant.
 
 ## Third-party sources
 
 - CadQuery 2.7.0, Apache-2.0, https://github.com/CadQuery/cadquery
 - OCCT via `cadquery-ocp` 7.8.1.1.post1, Apache-2.0, https://github.com/CadQuery/OCP
 - ezdxf 1.4.4, MIT, https://github.com/mozman/ezdxf
+- trimesh 5.1.1, MIT, https://github.com/mikedh/trimesh
+- manifold3d 3.5.4, Apache-2.0, https://github.com/elalish/manifold
 - the good `part.py` was written for this demo; no third-party geometry files
   are used
 
