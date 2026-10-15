@@ -127,7 +127,8 @@ GH_ZIP="ghidra_12.1.2_PUBLIC_20260605.zip"
 GH_SHA256="b62e81a0390618466c019c60d8c2f796ced2509c4c1aea4a37644a77272cf99d"
 GH_URL="https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.2_build/${GH_ZIP}"
 GH_DIR="${TOOLS}/ghidra_12.1.2_PUBLIC"
-if [ ! -f "${GH_DIR}/application.properties" ]; then
+GH_PROPS="${GH_DIR}/Ghidra/application.properties"
+if [ ! -f "${GH_PROPS}" ]; then
     fetch "${GH_URL}" "${DL}/${GH_ZIP}" "${GH_SHA256}"
     log "extracting ${GH_ZIP}"
     unzip -q "${DL}/${GH_ZIP}" -d "${TOOLS}"
@@ -226,7 +227,7 @@ EOF
     echo "ghidra 12.1.2 PUBLIC 20260605"
     echo "  url    : ${GH_URL}"
     echo "  sha256 : ${GH_SHA256}"
-    grep -m1 application.version "${GH_DIR}/application.properties" | sed 's/^/  /'
+    grep -m1 application.version "${GH_PROPS}" | sed 's/^/  /'
     echo "rea-agents 3.1.0"
     echo "  url    : ${REA_URL}"
     echo "  sha512 : ${REA_SHA512}"
