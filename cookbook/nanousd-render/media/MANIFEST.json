@@ -1,0 +1,66 @@
+{
+  "generated_at": "2026-10-15T15:42:20.065144Z",
+  "commit": "c87f47124ce9b0c1becc38283eb7cef47a7b6d8d",
+  "files": [
+    {
+      "file": "STORYBOARD.md",
+      "size_bytes": 3612,
+      "sha256": "3ee9bf845e9ea440ec66faeacd9780f4226232505db5627dfc760c65c8867709",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "demo.mp4",
+      "size_bytes": 2096702,
+      "sha256": "9ad27fb5d78f8db295b7e8abe8edc03130853586f6faf132d941c00bcf6075eb",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "figures.py",
+      "size_bytes": 11868,
+      "sha256": "e56754bb5b5163a751f5bd5ac820a54279b309691c014b20ab366c0bc7df5d33",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "loop.png",
+      "size_bytes": 89903,
+      "sha256": "73f6611658d203424fc896caffc5e0c83ed5fa18e06d2161a3dfd5bde29c35a7",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "make_media.sh",
+      "size_bytes": 2960,
+      "sha256": "9d5b245a57fa734eb31abd31c029ff5a38c88dcf82c30a66d44c46b453671dc3",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "result.png",
+      "size_bytes": 236392,
+      "sha256": "4f235f10bc5a5d5a57c77a2ae4a282542a41fe27ae5c8dd1e4169e4230c7c8d9",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "setup_progress.txt",
+      "size_bytes": 1075,
+      "sha256": "40f0efb331b45e8145ff51472bca03ccaaf040c4b355ee9a9a8503e4d7ec1ab4",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "master/master.mp4",
+      "size_bytes": 20605083,
+      "sha256": "ec4a320d9a957358857974a353dd1c69ed22a4a63a1b00b65112c9a00bc51864",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "__pycache__/build_video.cpython-312.pyc",
+      "size_bytes": 37142,
+      "sha256": "47f64cb5f14fdaa562cb6003e9a09cfe8fea2e4a122b606df267df652878665d",
+      "produced_by": "media/make_media.sh"
+    },
+    {
+      "file": "__pycache__/figures.cpython-312.pyc",
+      "size_bytes": 18611,
+      "sha256": "fb882891d27ec53ed597b4371fea8227bf02750b5d5919aaf5e0f65d4634a466",
+      "produced_by": "media/make_media.sh"
+    }
+  ]
+}

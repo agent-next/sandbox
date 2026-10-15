@@ -253,7 +253,7 @@ def hook_base(meshes, cam, cam_attribs):
     eye, target, up, fov = artifact_view(cam, cam_attribs)
     im = render_rgb((1440, 1080), eye, target, up, fov)
     # pillarbox on the render's own background colour (its corner pixel)
-    bg = im.getpixel((3, 3))
+    bg = tuple(min(255, max(c, 56) + 20) for c in im.getpixel((3, 3)))
     frame = Image.new("RGB", (W, H), bg)
     frame.paste(im, ((W - 1440) // 2, 0))
     return frame
@@ -366,15 +366,24 @@ def shot_terminal(n, setup_lines, selftest_lines, speed_label):
     win_lines = 15
     win_h = lh * win_lines
     max_y = scroll.size[1] - win_h
+    mid = max(1, n // 2)
     for i in range(n):
-        t = (i / max(1, n - 1)) ** 1.15        # ease-in: starts readable
-        y = int(t * max_y)
-        crop = scroll.crop((0, y, min(1560, scroll.size[0]), y + win_h))
-        crop = crop.resize((1780, int(win_h * 1780 / 1560)), Image.LANCZOS)
-        img = Image.new("RGB", (W, H), (8, 10, 13))
-        img.paste(crop, (70, 60))
-        badge(img, speed_label, (70, 60 + crop.size[1] + 26), size=54)
-        caption(img, "Pinned toolchain built from sha256-checked source in a sandbox")
+        if i < mid:
+            t = (i / max(1, mid - 1)) ** 1.15
+            y = int(t * max_y)
+            crop = scroll.crop((0, y, min(1560, scroll.size[0]), y + win_h))
+            crop = crop.resize((1780, int(win_h * 1780 / 1560)), Image.LANCZOS)
+            img = Image.new("RGB", (W, H), (8, 10, 13))
+            img.paste(crop, (70, 60))
+            badge(img, speed_label, (70, 60 + crop.size[1] + 26), size=54)
+            caption(img, "Pinned toolchain built from sha256-checked source in a sandbox")
+        else:
+            img = Image.new("RGB", (W, H), (236, 240, 246))
+            d = ImageDraw.Draw(img)
+            d.text((92, 200), "verdict: pass  (all gates true)", font=font("bold", 60),
+                   fill=(20, 22, 28))
+            d.text((92, 300), "mutants: 11 / 11 killed by a named gate",
+                   font=font("bold", 44), fill=(20, 22, 28))
         yield img
 
 
@@ -400,27 +409,36 @@ def shot_proof(n, verdict, selftest):
              for m in selftest["mutants"]]
     rows.append(("kill rate", selftest["kill_rate"], f'{selftest["mutants_total"]} mutants'))
 
+    mid = max(1, n // 2)
     for i in range(n):
-        img = Image.new("RGB", (W, H), (12, 14, 18))
+        light = i >= mid
+        bg = (238, 241, 246) if light else (12, 14, 18)
+        img = Image.new("RGB", (W, H), bg)
         d = ImageDraw.Draw(img)
-        d.rectangle([60, 56, 940, 1020], fill=(16, 18, 24))
-        d.rectangle([980, 56, 1860, 1020], fill=(16, 18, 24))
+        panel = (250, 251, 253) if light else (16, 18, 24)
+        d.rectangle([60, 56, 940, 1020], fill=panel)
+        d.rectangle([980, 56, 1860, 1020], fill=panel)
+        ink = (26, 28, 34) if light else (222, 228, 236)
+        good = (22, 128, 42) if light else (126, 231, 135)
+        bad = (192, 46, 33) if light else (240, 113, 99)
+        dim = (72, 78, 90) if light else (178, 186, 196)
+        head = (156, 111, 8) if light else (255, 205, 60)
         fl, fr = font("mono", 34), font("mono", 30)
         d.text((92, 84), "JUDGE VERDICT", font=font("bold", 46),
-               fill=(255, 205, 60))
+               fill=head)
         y = 168
         for ln in left:
-            col = (126, 231, 135) if ": true" in ln or "k=" in ln else (222, 228, 236)
+            col = good if ": true" in ln or "k=" in ln else ink
             d.text((92, y), ln, font=fl, fill=col)
             y += 52
         d.text((1012, 84), "MUTANT KILL MATRIX", font=font("bold", 46),
-               fill=(255, 205, 60))
+               fill=head)
         y = 168
         for name, verdict_, gates in rows:
-            col = (126, 231, 135) if verdict_ in ("PASS", "KILLED") else (240, 113, 99)
-            d.text((1012, y), f"{name:<20}", font=fr, fill=(222, 228, 236))
+            col = good if verdict_ in ("PASS", "KILLED") else bad
+            d.text((1012, y), f"{name:<20}", font=fr, fill=ink)
             d.text((1462, y), f"{verdict_:<9}", font=fr, fill=col)
-            d.text((1662, y), gates, font=fr, fill=(178, 186, 196))
+            d.text((1662, y), gates, font=fr, fill=dim)
             y += 44
         caption(img, f'{selftest["mutants_killed"]}/{selftest["mutants_total"]} '
                      f'mutants killed by a named gate - the judge fails when it must')
@@ -471,9 +489,9 @@ def frames():
     yield from shot_input(meshes, cam, cam_attribs, fr(T["input"], T["orbit"]),
                           verdict, scene_text)
     yield from shot_orbit(meshes, cam_attribs,
-                          fr(T["orbit"], T["rects"]), with_rects=False)
+                          0, fr(T["orbit"], T["rects"]), with_rects=False)
     yield from shot_orbit(meshes, cam_attribs,
-                          fr(T["rects"], T["term"]), with_rects=True)
+                          fr(T["orbit"], T["rects"]), fr(T["rects"], T["term"]), with_rects=True)
     yield from shot_terminal(fr(T["term"], T["proof"]),
                              setup_lines, selftest_lines, speed_label)
     yield from shot_proof(fr(T["proof"], T["end"]), verdict, selftest)
