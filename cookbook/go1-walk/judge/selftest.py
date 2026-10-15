@@ -41,14 +41,24 @@ def selftest_on_lease(lease, good, out_json, seeds=SEEDS):
     files = {n: os.path.join(good, n) for n in
              ("policy.npz", "step0.npz", "short.npz", "reward-flipped.npz")}
     files["mutants.py"] = os.path.join(HERE, "mutants.py")
-    payload = {n: base64.b64encode(open(p, "rb").read()).decode()
-               for n, p in files.items()}
-    code = f"""
-import base64, os, subprocess, sys
+    # Four checkpoints together exceed a 4 MB JSON request. Ship each file
+    # separately so mutation setup cannot turn into one oversized RPC.
+    for name, path in files.items():
+        payload = base64.b64encode(open(path, "rb").read()).decode()
+        code = f"""
+import base64, os
 root = os.path.expanduser('~/go1mutants')
 os.makedirs(root, exist_ok=True)
-for name, value in {payload!r}.items():
-    open(os.path.join(root, name), 'wb').write(base64.b64decode(value))
+open(os.path.join(root, {name!r}), 'wb').write(base64.b64decode({payload!r}))
+report['rc'] = 0
+"""
+        result = lease.exec(code, 120)
+        if result.get("ok") is not True or (result.get("report") or {}).get("rc") != 0:
+            raise RuntimeError(f"mutant input transfer failed: {name}")
+    code = f"""
+import os, subprocess, sys
+root = os.path.expanduser('~/go1mutants')
+os.makedirs(root, exist_ok=True)
 p = subprocess.run([sys.executable, os.path.join(root, 'mutants.py'),
                     root, os.path.join(root, 'mutants')],
                    capture_output=True, text=True, timeout=60)

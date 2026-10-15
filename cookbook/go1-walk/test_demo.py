@@ -1,7 +1,7 @@
 """Regression tests, with generated arrays and no GPU/API calls."""
 
-import importlib.util
 import base64
+import importlib.util
 import io
 import json
 import re
@@ -10,7 +10,7 @@ import sys
 import tempfile
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 
 import numpy as np
@@ -43,6 +43,22 @@ def module(name, path, torch):
 
 
 class RegressionTests(unittest.TestCase):
+    def test_mutant_setup_does_not_bundle_all_checkpoints(self):
+        lease = Mock()
+
+        def execute(code, timeout):
+            self.assertLess(len(code.encode()), 1_500_000,
+                            "mutant setup must ship checkpoints in separate bounded RPCs")
+            return {"ok": True, "report": {"rc": 0, "names": []}}
+
+        lease.exec.side_effect = execute
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("policy.npz", "step0.npz", "short.npz", "reward-flipped.npz"):
+                (Path(tmp) / name).write_bytes(b"x" * 750_000)
+            with self.assertRaisesRegex(RuntimeError, "invalid mutant inventory"):
+                selftest.selftest_on_lease(lease, tmp, str(Path(tmp) / "result.json"))
+        self.assertEqual(lease.exec.call_count, 6)
+
     def test_checkpoint_transfer_bounds_report_size(self):
         data = b"x" * 70_000
         lease = grade.Lease("test-only")
