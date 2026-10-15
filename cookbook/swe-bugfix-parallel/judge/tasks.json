@@ -1,0 +1,123 @@
+{
+  "library": "more-itertools",
+  "library_url": "https://github.com/more-itertools/more-itertools",
+  "licence": "BSD-3-Clause",
+  "tasks": {
+    "ichunked-zero-n": {
+      "base_commit": "790bb0bb2c03e7a07282e5f16f4b1fde35b8fcf5",
+      "fix_commit": "f89d7a3331ba6b5421273e556c0a738e3dd1dd35",
+      "fail_to_pass": [
+        "tests/test_more.py::IchunkedTests::test_zero_nonempty",
+        "tests/test_more.py::IchunkedTests::test_negative"
+      ],
+      "pass_to_pass": [
+        "tests/test_more.py::IchunkedTests::test_even",
+        "tests/test_more.py::IchunkedTests::test_odd",
+        "tests/test_more.py::IchunkedTests::test_zero",
+        "tests/test_more.py::IchunkedTests::test_out_of_order",
+        "tests/test_more.py::IchunkedTests::test_laziness",
+        "tests/test_more.py::IchunkedTests::test_memory_in_order"
+      ]
+    },
+    "bucket-falsey-validator": {
+      "base_commit": "1ea82a711c69f590054987b5cb194157f8ce8ac4",
+      "fix_commit": "67fcf640477c78605580f5ee703a54c73c1e7a8a",
+      "fail_to_pass": [
+        "tests/test_more.py::BucketTests::test_falsey_validator_is_honoured"
+      ],
+      "pass_to_pass": [
+        "tests/test_more.py::BucketTests::test_basic",
+        "tests/test_more.py::BucketTests::test_in",
+        "tests/test_more.py::BucketTests::test_validator",
+        "tests/test_more.py::BucketTests::test_list",
+        "tests/test_more.py::BucketTests::test_list_validator",
+        "tests/test_more.py::BucketTests::test_in_does_not_add_key",
+        "tests/test_more.py::BucketTests::test_getitem_miss_does_not_add_key",
+        "tests/test_more.py::BucketTests::test_in_does_not_add_key_with_validator",
+        "tests/test_more.py::BucketTests::test_keys_are_only_those_seen"
+      ]
+    },
+    "sliced-negative-n": {
+      "base_commit": "ed86a1528aa015f219f8d3385ea2ebd3f63a5212",
+      "fix_commit": "958990e22c4ab6daf434d89cf2b86d7a4a7a9e3c",
+      "fail_to_pass": [
+        "tests/test_more.py::SlicedTests::test_negative"
+      ],
+      "pass_to_pass": [
+        "tests/test_more.py::SlicedTests::test_even",
+        "tests/test_more.py::SlicedTests::test_odd",
+        "tests/test_more.py::SlicedTests::test_not_sliceable",
+        "tests/test_more.py::SlicedTests::test_odd_and_strict",
+        "tests/test_more.py::SlicedTests::test_numpy_like_array"
+      ]
+    },
+    "one-only-falsy-exception": {
+      "base_commit": "9ed3dbb0ae527230cd156d91d0af305478558fba",
+      "fix_commit": "def2dabea858b6ecb84ee0c52e6e07929f2c409c",
+      "fail_to_pass": [
+        "tests/test_more.py::OneTests::test_falsy_custom_exception",
+        "tests/test_more.py::OneTests::test_too_long_does_not_evaluate_repr",
+        "tests/test_more.py::OnlyTests::test_falsy_custom_exception",
+        "tests/test_more.py::OnlyTests::test_too_long_does_not_evaluate_repr"
+      ],
+      "pass_to_pass": [
+        "tests/test_more.py::OneTests::test_basic",
+        "tests/test_more.py::OneTests::test_too_short_new",
+        "tests/test_more.py::OneTests::test_too_long",
+        "tests/test_more.py::OneTests::test_too_long_default_message",
+        "tests/test_more.py::OnlyTests::test_defaults",
+        "tests/test_more.py::OnlyTests::test_custom_value",
+        "tests/test_more.py::OnlyTests::test_custom_exception",
+        "tests/test_more.py::OnlyTests::test_default_exception_message"
+      ]
+    },
+    "interleave-evenly-empty": {
+      "base_commit": "5d946b3590bfe92f1465c1b9b9830dd434745c84",
+      "fix_commit": "f51a53bfd2fe9504063a33ef5f4a73e30d82d0e2",
+      "fail_to_pass": [
+        "tests/test_more.py::InterleaveEvenlyTests::test_no_iterables"
+      ],
+      "pass_to_pass": [
+        "tests/test_more.py::InterleaveEvenlyTests::test_equal_lengths",
+        "tests/test_more.py::InterleaveEvenlyTests::test_proportional",
+        "tests/test_more.py::InterleaveEvenlyTests::test_not_proportional",
+        "tests/test_more.py::InterleaveEvenlyTests::test_degenerate_one",
+        "tests/test_more.py::InterleaveEvenlyTests::test_degenerate_empty",
+        "tests/test_more.py::InterleaveEvenlyTests::test_three_iters",
+        "tests/test_more.py::InterleaveEvenlyTests::test_many_iters",
+        "tests/test_more.py::InterleaveEvenlyTests::test_manual_lengths",
+        "tests/test_more.py::InterleaveEvenlyTests::test_no_length_raises",
+        "tests/test_more.py::InterleaveEvenlyTests::test_argument_mismatch_raises"
+      ]
+    },
+    "numeric-range-reversed-empty": {
+      "base_commit": "247e15b3a489d5805375c95dfa79486c9bd0eb1b",
+      "fix_commit": "edb3346f835ca917efbfda5e2d6664ab952da369",
+      "fail_to_pass": [
+        "tests/test_more.py::NumericRangeTests::test_empty_reversed"
+      ],
+      "pass_to_pass": [
+        "tests/test_more.py::NumericRangeTests::test_basic",
+        "tests/test_more.py::NumericRangeTests::test_arg_count",
+        "tests/test_more.py::NumericRangeTests::test_zero_step",
+        "tests/test_more.py::NumericRangeTests::test_bool",
+        "tests/test_more.py::NumericRangeTests::test_contains",
+        "tests/test_more.py::NumericRangeTests::test_eq",
+        "tests/test_more.py::NumericRangeTests::test_get_item_by_index",
+        "tests/test_more.py::NumericRangeTests::test_get_item_by_slice",
+        "tests/test_more.py::NumericRangeTests::test_hash",
+        "tests/test_more.py::NumericRangeTests::test_iter_twice",
+        "tests/test_more.py::NumericRangeTests::test_len",
+        "tests/test_more.py::NumericRangeTests::test_repr",
+        "tests/test_more.py::NumericRangeTests::test_reversed",
+        "tests/test_more.py::NumericRangeTests::test_count",
+        "tests/test_more.py::NumericRangeTests::test_index",
+        "tests/test_more.py::NumericRangeTests::test_parent_classes",
+        "tests/test_more.py::NumericRangeTests::test_bad_key",
+        "tests/test_more.py::NumericRangeTests::test_pickle"
+      ]
+    }
+  },
+  "_pytest_version": "8.4.2",
+  "notes": "base_commit is the parent of fix_commit for every task; the base checkout contains the bug, the fix commit's new tests fail on it. FAIL_TO_PASS are the tests added (or behaviourally extended) by the fix commit; PASS_TO_PASS are existing tests of the same classes that pass on the base checkout."
+}
