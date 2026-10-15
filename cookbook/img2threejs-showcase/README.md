@@ -7,7 +7,7 @@ commit inside the sandbox.
 
 ![every target with its verdict](media/result.png)
 
-[media/demo.mp4](media/demo.mp4): 60 s, the last 2 s of each rendered target's recording.
+[media/demo.mp4](media/demo.mp4): 54 s, cut to the storyboard in `media/STORYBOARD.md`.
 
 Why a sandbox helps: the production build needs more memory than a laptop shell usually has free
 (it OOMs at 3 GB), and rendering 32 WebGL scenes in software takes hours on one machine. Here
@@ -77,9 +77,13 @@ Full per-target table and run log: `RECEIPT.md`.
 ## Media
 
 `media/result.png` (every target's final screenshot with its verdict), `media/demo.mp4` (1920x1080,
-H.264 crf 18, 60 s: the last 2 s of each rendered target's recording from the run that gave its
-verdict, or its final screenshot as a still where that run kept no clip; cropped to the 3D
-viewport), `media/MANIFEST.json` (sources and sha256). Regenerate from run outputs, oldest first:
+H.264 crf 18, 54 s; slots and sources in `media/STORYBOARD.md`: one rendered scene, the command
+beside the result grid, the first 450 s of one target's recording at 50x speed, the last 2.5 s of 9
+more targets' recordings, every screenshot on three pages, the verdicts with the controls, and the
+launch prompt; the blurred backdrop and the 6% push-in are added in post; it passes
+`cookbook/tools/video_gate.py`), `media/REVIEW.json` (two blind judges, see Review panel in
+`cookbook/DEMO-STANDARD.md`), `media/MANIFEST.json` (sources and sha256). Regenerate from run
+outputs, oldest first:
 
 ```bash
 cookbook/img2threejs-showcase/media/make_media.sh RUN_DIR [RUN_DIR ...]   # needs Pillow + ffmpeg

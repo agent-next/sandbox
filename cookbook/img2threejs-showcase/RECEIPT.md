@@ -59,9 +59,11 @@ Controls on every shard: `ctl-pos` PASS (luma std 91.2, 713 colours), `ctl-neg` 
 rendered it in 240 s. `monster-tree` passed the pixel gate in rounds 2 and 5 while the scene still
 said "Preparing nearby woodland" (HTML over the canvas). `greenvale.html` is a 2D PixiJS page.
 
-Media (`media/`): built by `media/make_media.sh` from rounds 1, 2, 3 and 5; 30 segments, 60 s,
-5.0 MB. Frame review by gemini-3.1-pro-preview: round 1 REJECT (greenvale captioned like a 3D
-model; fixed with `notes.json`), round 2 ACCEPT on all 30 segments and `result.png`.
+Media (`media/`): built by `media/make_media.sh` from rounds 1, 2, 3 and 5, cut to
+`media/STORYBOARD.md`; 54 s, 5.8 MiB; `cookbook/tools/video_gate.py` passes (first frame luma mean
+115, 1.48 scene cuts per 10 s, static end card). Frame-by-frame caption check by
+gemini-3.1-pro-preview on an earlier 30-segment cut: round 1 REJECT (greenvale captioned like a 3D
+model; fixed with `notes.json`), round 2 ACCEPT. Blind review panel: see `media/REVIEW.json`.
 
 ## Build wall time
 

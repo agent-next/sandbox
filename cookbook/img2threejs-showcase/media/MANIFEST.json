@@ -1,11 +1,11 @@
 {
   "result.png": {
     "shows": "final screenshot of every target with its verdict",
-    "sha256": "fdc3fe1d44ae1a8ce2e0195fd8f8c912c21b1b0adb8e995ce24ed0c0a41922d7"
+    "sha256": "fbb79f8eb43d380575282a11b5abcaf0446f3edd020ef85d1bbfaaf95b70b4b5"
   },
   "demo.mp4": {
-    "shows": "last 2 s of each rendered target's recording (still frame where that run kept no clip)",
-    "sha256": "a6f9e75df2b0ab60932cc79015ca43963272171a32acd5858fb651645006d873"
+    "shows": "storyboard in media/STORYBOARD.md: doraemon-house (3 s); the command and pipeline beside result.png; the first 450 s of the tropical-island recording at 50x speed; the last 2.5 s of 9 highlight recordings (blurred backdrop and a 6% push-in added in post); every target on 4x3 pages; the verdicts and controls; the launch prompt",
+    "sha256": "e5c471bf6e15f93504c014398a2dfb59665e7d38db839bb9a95a8d8fce46df35"
   },
   "command": "python3 media/make_media.py run-20261014_1615 run-20261014_1720-r2 run-20261014_1830-r3 run-20261014_r5-patience3",
   "targets": {
