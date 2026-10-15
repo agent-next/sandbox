@@ -1,0 +1,112 @@
+{
+  "demo": "sim-engine-arena",
+  "headline": "The agent's MuJoCo port lands all four scenarios on the closed-form oracles \u2014 drop contact 0.4406 s, slide accel +0.04 %, pendulum 2.0073 s \u2014 and matches the reference port pointwise.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "structure",
+      "pass": true,
+      "measured": "sim.py contract; no oracle literals",
+      "threshold": "<= 96 KiB, byte-compiles, no literal within 2 % of an oracle value"
+    },
+    {
+      "name": "run",
+      "pass": true,
+      "measured": "all four CSVs written; exit 0",
+      "threshold": "exit 0 within 900 s"
+    },
+    {
+      "name": "csv-shape",
+      "pass": true,
+      "measured": "headers and row counts per spec for all scenarios",
+      "threshold": "columns exact; finite floats; t monotone"
+    },
+    {
+      "name": "oracle: drop",
+      "pass": true,
+      "measured": "t_contact 0.4406 s (+0.11 %)",
+      "threshold": "0.4401 s +/- 3 %"
+    },
+    {
+      "name": "oracle: incline_stick",
+      "pass": true,
+      "measured": "travel 1.8 mm",
+      "threshold": "< 20 mm (stick)"
+    },
+    {
+      "name": "oracle: incline_slide",
+      "pass": true,
+      "measured": "accel 1.6082 m/s^2 (+0.04 %)",
+      "threshold": "1.6088 m/s^2 +/- 5 %"
+    },
+    {
+      "name": "oracle: pendulum",
+      "pass": true,
+      "measured": "period 2.0073 s (+0.00 %)",
+      "threshold": "2.0073 s +/- 2 %"
+    },
+    {
+      "name": "agreement",
+      "pass": true,
+      "measured": "max pointwise deviation 0.0 on all scenarios",
+      "threshold": "<= 5 % of per-scenario scale"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "drop contact time",
+      "value": 0.4406,
+      "unit": "s",
+      "source": "RECEIPT.md:157"
+    },
+    {
+      "label": "incline_stick travel",
+      "value": 1.8,
+      "unit": "mm",
+      "source": "RECEIPT.md:158"
+    },
+    {
+      "label": "incline_slide acceleration",
+      "value": 1.6082,
+      "unit": "m/s^2",
+      "source": "RECEIPT.md:159"
+    },
+    {
+      "label": "pendulum period",
+      "value": 2.0073,
+      "unit": "s",
+      "source": "RECEIPT.md:160"
+    },
+    {
+      "label": "mutant kill rate",
+      "value": "8/8 = 100 %",
+      "unit": "",
+      "source": "RECEIPT.md:161"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "Measured drop/contact vs free fall, slide/stick vs analytic displacement, pendulum vs the SPEC-period guide, oracle error normalized to each limit."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "the agent loop to a passing port"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "the simulator's own 3D render of the graded trajectories"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/sim-engine-arena/run.py",
+    "ask_agent": "Create a fresh sandbox. Inside it, clone\nhttps://github.com/agent-next/sandbox at ref `main`, then read\n`cookbook/sim-engine-arena/SPEC.md` carefully: you are to write a\nMuJoCo port of the neutral scene spec as one file, `sim.py`, that reads\n`cookbook/sim-engine-arena/judge/spec.json` and writes the four\ntrajectory CSVs exactly as the spec's artifact contract says. The spec\ncontains no expected results \u2014 simulate honestly; any oracle number\nhard-coded in your file is rejected by gate 1. First run\n`cookbook/sim-engine-arena/judge/setup.sh`, then write your port, then\niterate: `bash cookbook/sim-engine-arena/judge/grade.sh\n/path/to/your/sim.py --json /tmp/v.json` and read the verdict JSON\nuntil every gate passes (structure, run, csv-shape, oracle, and\npointwise agreement with the judge's own reference port, which you\nnever see). The judge's self-test shows what it rejects \u2014 run\n`judge/selftest.sh` once to see 8 broken mutants die. When every gate\npasses, report the verdict JSON (contact time, incline accelerations,\npendulum period, worst agreement deviation), then kill the sandbox and\nconfirm it is gone. If you cannot get a gate to pass, say exactly\nwhich gate and what you tried, and stop."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "cfc3dfa0cac752d13273e20e6a25da228cdbcebf",
+  "schema": "agent-next/result@1"
+}
