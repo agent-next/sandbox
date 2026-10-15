@@ -83,15 +83,22 @@ sees `$--.--`.
 **50 products.** Product `i` (1-based) has:
 
 - `sku`: `PROD-%04d` with `i`,
-- `name`: `"<Material> <Part>"` chosen from fixed lists by `i`,
-- `price`: `(i * 7 % 191) + 5` dollars, `+ (i % 100) / 100` cents, i.e. exactly
-  `[5.01 .. 195.99]` in steps of 0.01 — no floating-point fuzz in the ground
-  truth, and the CSV must match it to the cent,
-- `stock`: `(i * 13) % 7` units,
-- `weight_kg`: `((i * 29) % 500) / 100 + 0.05`.
+- `name`: `"<Material> <Part>, <Finish>"` chosen from fixed lists by `i`
+  (Chinese-remainder over 5/7/11, unique for all 50 products and independent
+  of the seed, so a row is identifiable even when its SKU is empty),
+- `price`: integer cents `((i * 7 + seed) % 19101) + 501`, i.e. exactly
+  `[5.01 .. 195.99]` in steps of 0.01 — computed in integer cents so the
+  ground truth has no floating-point fuzz, and the CSV must match it to the cent,
+- `stock`: `(i * 13 + seed) % 7` units, `[0 .. 6]`,
+- `weight_kg`: integer cents `((i * 29 + seed) % 495) + 5`, i.e.
+  `[0.05 .. 4.99]`.
 
-**Three malformed entries**, chosen deterministically. With the default seed
-`20261015`:
+The values are a pure function of `(seed, i)`: a different seed moves every
+price, stock and weight (and the malformed choice), so the scraper cannot
+hard-code a table — it has to read the rendered page.
+
+**Three malformed entries**, one per fault kind, chosen deterministically from
+the seed. With the default seed `20261015`:
 
 | product | fault |
 |---|---|
@@ -101,7 +108,10 @@ sees `$--.--`.
 
 Exactly these three products, and no others, are malformed. Everything else
 must appear as a full, exact row. A different `--seed` moves the three faults
-to different (still determinate) products; the ground truth is always 3.
+to different products (e.g. seed `7` → `PROD-0017`, `PROD-0028`, `PROD-0047`;
+seed `999` → `PROD-0007`, `PROD-0017`, `PROD-0044`); the count is always 3 and
+each fault kind is used exactly once. The judge never assumes which SKUs are
+malformed: it reads them from the oracle for the seed it is running.
 
 **The disallowed path.** `robots.txt` is:
 
@@ -170,7 +180,7 @@ of the product index) and never read back from the served HTML.
 | 3 | `row_count` | exactly `50` data rows in the CSV (47 `ok` + 3 `malformed`) |
 | 4 | `field_exact` | for every `ok` row, all of `sku,name,price,stock,weight_kg` byte-equal the ground truth after normalisation; **0** mismatches |
 | 5 | `no_missing_ok` | every one of the 47 non-malformed products is present with `status=ok`; **0** absent |
-| 6 | `malformed_flagged` | all 3 malformed products present, `status=malformed`; for `PROD-0007` the notes contain `missing_sku`; for `PROD-0023` `missing_price`; for `PROD-0041` `bad_price`. **3/3** correct, and no `ok` row may claim to be malformed |
+| 6 | `malformed_flagged` | all 3 malformed products (for the seed's own oracle set) present with `status=malformed`, and each one's `notes` flags exactly the fault kind the oracle assigns it (`missing_sku` / `missing_price` / `bad_price`). **3/3** correct, and no `ok` row may carry a fault flag |
 | 7 | `no_dup_rows` | no `sku` appears more than once among `ok` rows |
 | 8 | `no_invented` | no row has a `sku` not in the ground truth (the `/internal/` products and made-up ids) |
 | 9 | `used_browser` | at least one request in the server's log came from a user agent that is **not** the Python stdlib default (`Python-urllib/*`) — a real scraper announces itself or presents a browser UA; a bare `urllib` fetch fails here |

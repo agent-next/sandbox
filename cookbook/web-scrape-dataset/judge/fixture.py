@@ -15,10 +15,10 @@ Prices are written into the DOM by an inline script on every page: the HTML
 serves a placeholder ("$--.--"), and the script rewrites it with the real
 price, so a scraper that does not run JS reads the placeholder.
 
-Three products are malformed by construction:
-    PROD-0007  empty sku
-    PROD-0023  empty price (the script leaves the placeholder rendered)
-    PROD-0041  price text is not numeric at all ("N/A")
+Three products are malformed by construction, one per fault kind, picked by
+the seed (default 20261015 -> PROD-0001 empty sku, PROD-0014 empty price, the
+script leaves the placeholder rendered, PROD-0017 price text is not numeric at
+all, "N/A"). The count is always 3 whatever the seed.
 
 Nothing here is random: every value is a pure function of the seed and the
 product index, so the same seed always builds the same site.

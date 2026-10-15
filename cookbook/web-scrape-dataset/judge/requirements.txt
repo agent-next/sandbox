@@ -1,0 +1,31 @@
+# Pinned runtime dependencies for the web-scrape-dataset judge.
+#
+#   $HOME/.web-scrape-dataset/venv/bin/python -m pip install --require-hashes -r judge/requirements.txt
+#
+# Installed by judge/setup.sh. Every line carries the sha256 of the exact
+# artifact, so a substituted wheel or sdist fails the install. Linux x86_64 and
+# aarch64 wheels are listed (that is what the sandbox runs on); the
+# platform-independent wheels have a single hash each.
+#
+# playwright 1.63.0 (Apache-2.0) needs pyee and greenlet at runtime, so they are
+# pinned here rather than left to the resolver.
+playwright==1.63.0 \
+    --hash=sha256:ad21bc07516b187965a7521c5cf0df0bd657b17482eaad74335272d35a2b07de \
+    --hash=sha256:354e15b29503565fc598b89f16fbe070459343bef9d7498a93e304864000c6a7
+pyee==13.0.0 \
+    --hash=sha256:48195a3cddb3b1515ce0695ed76036b5ccc2ef3a9f963ff9f77aec0139845498
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+greenlet==3.1.1 \
+    --hash=sha256:93147c513fac16385d1036b7e5b102c7fbbdb163d556b791f0f11eada7ba65dc \
+    --hash=sha256:da7a9bff22ce038e19bf62c4dd1ec8391062878710ded0a845bcf47cc0200617 \
+    --hash=sha256:0fde093fb93f35ca72a556cf72c92ea3ebfda3d79fc35bb19fbe685853869a83 \
+    --hash=sha256:e347b3bfcf985a05e8c0b7d462ba6f15b1ee1c909e2dcad795e49e91b152c383 \
+    --hash=sha256:9e8f8c9cb53cdac7ba9793c276acd90168f416b9ce36799b9b885790f8ad6c0a \
+    --hash=sha256:09fc016b73c94e98e29af67ab7b9a879c307c6731a2c9da0db5a7d9b7edd1159 \
+    --hash=sha256:99cfaa2110534e2cf3ba31a7abcac9d328d1d9f1b95beede58294a60348fba36 \
+    --hash=sha256:1443279c19fca463fc33e65ef2a935a5b09bb90f978beab37729e1c3c6c25fe9 \
+    --hash=sha256:f406b22b7c9a9b4f8aa9d2ab13d6ae0ac3e85c9a809bd590ad53fed2bf70dc79 \
+    --hash=sha256:efc0f674aa41b92da8c49e0346318c6075d734994c3c4e4430b1c3f853e498e4 \
+    --hash=sha256:0153404a4bb921f0ff1abeb5ce8a5131da56b953eda6e14b88dc6bbc04d2049e \
+    --hash=sha256:935e943ec47c4afab8965954bf49bfa639c05d4ccf9ef6e924188f762145c0ff
