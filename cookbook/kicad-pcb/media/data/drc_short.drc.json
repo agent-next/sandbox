@@ -1,7 +1,7 @@
 {
     "$schema": "https://schemas.kicad.org/drc.v1.json",
     "coordinate_units": "mm",
-    "date": "2026-10-15T05:43:27+0000",
+    "date": "2026-10-15T06:57:45+0000",
     "included_severities": [
         "error",
         "warning",
@@ -30,6 +30,29 @@
                         "y": 115.412
                     },
                     "uuid": "a91db54f-9c86-404e-a3c3-d33bda1e64db"
+                }
+            ],
+            "severity": "error",
+            "type": "shorting_items"
+        },
+        {
+            "description": "Items shorting two nets (nets VCC and GND)",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Track [GND] on F.Cu, length 1.8000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 122.0
+                    },
+                    "uuid": "c3437359-91eb-42fc-913b-6e742ec61075"
                 }
             ],
             "severity": "error",
@@ -99,29 +122,6 @@
                         "y": 115.7
                     },
                     "uuid": "60641527-2238-4c14-a6be-23a55bd01b21"
-                }
-            ],
-            "severity": "error",
-            "type": "shorting_items"
-        },
-        {
-            "description": "Items shorting two nets (nets VCC and GND)",
-            "items": [
-                {
-                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
-                    "pos": {
-                        "x": 128.0,
-                        "y": 108.5
-                    },
-                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
-                },
-                {
-                    "description": "Track [GND] on F.Cu, length 1.8000 mm",
-                    "pos": {
-                        "x": 128.0,
-                        "y": 122.0
-                    },
-                    "uuid": "c3437359-91eb-42fc-913b-6e742ec61075"
                 }
             ],
             "severity": "error",
