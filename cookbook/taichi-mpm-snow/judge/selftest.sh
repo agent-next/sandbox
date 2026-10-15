@@ -73,7 +73,7 @@ echo "[selftest] Known-bad mutants (must FAIL):"
 
 MUTANTS=(
     gravity_flipped dt_too_large no_boundary
-    p2g_weight_bug no_plasticity asymmetric_v0
+    p2g_weight_bug no_plasticity v0_mismatch
 )
 
 KILLED=0

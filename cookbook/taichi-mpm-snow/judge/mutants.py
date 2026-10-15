@@ -50,14 +50,21 @@ def main():
     d = clone(os.path.join(BAD, 'dt_too_large'))
     edit_params(d, lambda j: j.update(dt=j['dt'] * 20.0))
 
-    # 3. boundary condition removed -> boundary gate dies
+    # 3. boundary condition removed -> boundary gate dies on the
+    #    finite prefix before any blow-up
     d = clone(os.path.join(BAD, 'no_boundary'))
     edit_py(d,
             "if i < bound and grid_v[i, j].x < 0:",
             "if i < 0 and grid_v[i, j].x < 0:")
     edit_py(d,
+            "if i > n_grid - 1 - bound and grid_v[i, j].x > 0:",
+            "if i > n_grid - 1 + 999 and grid_v[i, j].x > 0:")
+    edit_py(d,
             "if j < bound and grid_v[i, j].y < 0:",
             "if j < 0 and grid_v[i, j].y < 0:")
+    edit_py(d,
+            "if j > n_grid - 1 - bound and grid_v[i, j].y > 0:",
+            "if j > n_grid - 1 + 999 and grid_v[i, j].y > 0:")
 
     # 4. P2G weight bug: drop one stencil corner -> mass not conserved
     d = clone(os.path.join(BAD, 'p2g_weight_bug'))
@@ -77,12 +84,12 @@ def main():
                 m['jp_max'] = 1e9
     edit_params(d, _no_plastic)
 
-    # 6. asymmetric initial velocity -> momentum gate dies
-    d = clone(os.path.join(BAD, 'asymmetric_v0'))
+    # 6. v0 injected that the params do not declare -> momentum gate
+    #    dies (measured px[0] disagrees with mass_by_material x v0)
+    d = clone(os.path.join(BAD, 'v0_mismatch'))
     edit_py(d,
-            "    x.from_numpy(x_np.astype(np.float32))",
-            "    v_np[:, 0] = 0.5\n"
-            "    x.from_numpy(x_np.astype(np.float32))")
+            "        v_np[a:b, 0] = mats[mi]['v0'][0]",
+            "        v_np[a:b, 0] = mats[mi]['v0'][0] + 0.6")
 
     print('Created 6 mutants in %s' % BAD)
     return 0

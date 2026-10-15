@@ -2,9 +2,11 @@
 """MLS-MPM snow-on-jelly demo for agent-next sandboxes (Taichi, CPU).
 
 An elastoplastic snowball (Stomakhin-style hardening, fixed-corotated
-constitutive model) is dropped onto the ground next to a pure-fluid
-blob; both are integrated with MLS-MPM on a staggered grid.  Frames are
-rendered headless as stacked RGB particle plots (numpy -> PNG).
+constitutive model) is thrown at an angle into the domain wall while a
+soft jelly cube free-falls and bounces; both are integrated with
+MLS-MPM on a single grid.  Frames are rendered headless at 1080x1080
+as anti-aliased soft particle discs over a dark gradient + floor slab
+(numpy -> PNG, supersampled 2x then box-filtered down).
 
 Run:
     python3 sim.py --params params.json --out <run_dir> [--seed N] \
@@ -12,13 +14,15 @@ Run:
 
 Writes to <run_dir>:
     metrics.jsonl          -- one JSON object per step (see below)
-    frames/frame_*.png     -- stacked RGB particle plot every
+    frames/frame_*.png     -- 1080x1080 RGB render every
                               params['frame_stride'] steps
 
 metrics.jsonl rows carry: step, time, mass_particles,
-mass_grid_after_p2g, px, py, com_x, com_y, vel_com_x, vel_com_y,
-x_min, y_min, x_max, y_max, jp_min, jp_max, jp_frac_lt_09,
-jp_frac_gt_11.  `step` 0 is the initial state.
+mass_grid_after_p2g, mass_by_material, px, py, ke, v_max,
+com_x, com_y, vel_com_x, vel_com_y, x_min, y_min, x_max, y_max,
+snow_x_min, snow_y_min, snow_x_max, snow_y_max, snow_height,
+jp_min, jp_max, jp_frac_lt_09, jp_frac_gt_11.  `step` 0 is the
+initial state.
 
 License: MIT (same as Taichi).
 """
@@ -27,7 +31,9 @@ import argparse
 import json
 import math
 import os
+import struct
 import sys
+import zlib
 
 import numpy as np
 import taichi as ti
@@ -40,22 +46,35 @@ def load_params(path):
 
 
 def build_materials(p):
+    """Particle lattices for each material.
+
+    Two shapes: 'box' (lo/hi rectangle) and 'disc' (center/r).  The
+    lattice spacing is dx/sqrt(ppc), giving ppc particles per grid cell.
+    """
+    dx = 1.0 / p['n_grid']
     out = []
     for m in p['materials']:
-        lo = np.array(m['box']['lo'], dtype=np.float64)
-        hi = np.array(m['box']['hi'], dtype=np.float64)
         ppc = int(m['ppc'])
-        # number of particles per side in each box, from ppc and box size
-        nx = max(2, int(round((hi[0] - lo[0]) / (1.0 / p['n_grid']) *
-                              math.sqrt(ppc))))
-        ny = max(2, int(round((hi[1] - lo[1]) / (1.0 / p['n_grid']) *
-                              math.sqrt(ppc))))
+        spacing = dx / math.sqrt(ppc)
+        if 'disc' in m:
+            c = np.array(m['disc']['center'], dtype=np.float64)
+            r = float(m['disc']['r'])
+            lo, hi = c - r, c + r
+        else:
+            lo = np.array(m['box']['lo'], dtype=np.float64)
+            hi = np.array(m['box']['hi'], dtype=np.float64)
+        nx = max(2, int(round((hi[0] - lo[0]) / spacing)))
+        ny = max(2, int(round((hi[1] - lo[1]) / spacing)))
         xs = np.linspace(lo[0], hi[0], nx, endpoint=False) + \
             0.5 * (hi[0] - lo[0]) / nx
         ys = np.linspace(lo[1], hi[1], ny, endpoint=False) + \
             0.5 * (hi[1] - lo[1]) / ny
         pos = np.stack(np.meshgrid(xs, ys, indexing='ij'),
                        axis=-1).reshape(-1, 2)
+        if 'disc' in m:
+            keep = ((pos[:, 0] - c[0]) ** 2 +
+                    (pos[:, 1] - c[1]) ** 2) <= r * r
+            pos = pos[keep]
         out.append({
             'name': m['name'],
             'type': m['type'],
@@ -66,6 +85,7 @@ def build_materials(p):
             'jp_min': float(m['jp_min']),
             'jp_max': float(m['jp_max']),
             'color': m['color'],
+            'v0': np.array(m.get('v0', [0.0, 0.0]), dtype=np.float64),
             'pos': pos,
             'ppc': ppc,
         })
@@ -75,6 +95,51 @@ def build_materials(p):
 def hex_to_rgb(h):
     h = h.lstrip('#')
     return tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def make_background(img, bound_frac):
+    """Dark vertical gradient + subtle floor/wall slabs + vignette."""
+    yy = np.linspace(0.0, 1.0, img)[:, None]
+    top = np.array([0.035, 0.045, 0.085])
+    bot = np.array([0.075, 0.095, 0.150])
+    bg = top[None, None, :] + (bot - top)[None, None, :] * (1.0 - yy[:, :, None])
+    bg = np.broadcast_to(bg, (img, img, 3)).copy()
+    # floor slab: lower `bound_frac` of the image (bottom rows), lighter
+    fy = int(round(bound_frac * img))
+    slab = np.array([0.10, 0.13, 0.20])
+    bg[img - fy:, :, :] = slab[None, None, :] * 0.9 + bg[img - fy:, :, :] * 0.1
+    bg[img - fy, :, :] += np.array([0.10, 0.12, 0.16])  # floor edge line
+    # side wall slabs
+    wx = int(round(bound_frac * img))
+    wall = np.array([0.085, 0.11, 0.17])
+    bg[:, :wx, :] = wall[None, None, :] * 0.55 + bg[:, :wx, :] * 0.45
+    bg[:, img - wx:, :] = wall[None, None, :] * 0.55 + bg[:, img - wx:, :] * 0.45
+    bg[:, wx, :] += np.array([0.05, 0.06, 0.08])
+    bg[:, img - wx - 1, :] += np.array([0.05, 0.06, 0.08])
+    # vignette
+    yy2, xx2 = np.mgrid[0:img, 0:img] / (img - 1.0)
+    r2 = ((xx2 - 0.5) ** 2 + (yy2 - 0.45) ** 2) * 1.1
+    bg *= np.clip(1.0 - 0.35 * r2, 0.0, 1.0)[..., None]
+    return bg
+
+
+def write_png(path, img_float):
+    """RGB float [0,1] -> 8-bit PNG (stdlib only)."""
+    h, w, _ = img_float.shape
+    u8 = (np.clip(img_float, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
+    raw = b''.join(b'\x00' + u8[i].tobytes() for i in range(h))
+
+    def chunk(tag, data):
+        c = tag + data
+        return struct.pack('>I', len(data)) + c + \
+            struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+
+    png = b'\x89PNG\r\n\x1a\n'
+    png += chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+    png += chunk(b'IDAT', zlib.compress(raw, 5))
+    png += chunk(b'IEND', b'')
+    with open(path, 'wb') as f:
+        f.write(png)
 
 
 def main():
@@ -103,6 +168,7 @@ def main():
     gravity = float(p['gravity'])
     bound = int(p['bound'])
     frame_stride = int(p.get('frame_stride', 40))
+    img = int(p.get('img_size', 1080))
 
     mats = build_materials(p)
     N = sum(len(m['pos']) for m in mats)
@@ -128,7 +194,7 @@ def main():
     jpmax_arr = ti.field(dtype=ti.f32, shape=n_mat)
     rho_arr = ti.field(dtype=ti.f32, shape=n_mat)
 
-    # Host-side copy of particle positions for metrics/frames.
+    # Host-side copies for metrics/frames.
     x_np = np.zeros((N, 2), dtype=np.float64)
     v_np = np.zeros((N, 2), dtype=np.float64)
     jp_np = np.ones(N, dtype=np.float64)
@@ -143,17 +209,12 @@ def main():
         slices.append((mi, off, off + n))
         x_np[off:off + n] = pos
         mat_np[off:off + n] = mi
-        vol = dx * dx / m['ppc']            # per-particle volume
-        mass = m['rho'] * vol
-        # v starts at zero; Jp starts at 1; F = I
         off += n
 
     x.from_numpy(x_np.astype(np.float32))
-    v.from_numpy(v_np.astype(np.float32))
     Jp.from_numpy(jp_np.astype(np.float32))
     mat.from_numpy(mat_np.astype(np.int32))
-    F_np = np.stack([np.eye(2)] * N).astype(np.float32)
-    F.from_numpy(F_np)
+    F.from_numpy(np.stack([np.eye(2)] * N).astype(np.float32))
 
     for mi, m in enumerate(mats):
         E_arr[mi] = m['E']
@@ -166,10 +227,18 @@ def main():
     # volumes / masses per particle, fixed
     vol_np = np.zeros(N, dtype=np.float64)
     mass_np = np.zeros(N, dtype=np.float64)
+    mass_by_mat = np.zeros(n_mat, dtype=np.float64)
     for mi, a, b in slices:
         vol_np[a:b] = dx * dx / mats[mi]['ppc']
         mass_np[a:b] = mats[mi]['rho'] * vol_np[a:b]
+        mass_by_mat[mi] = mass_np[a:b].sum()
     total_mass = float(mass_np.sum())
+
+    # initial velocity per material (v0)
+    for mi, a, b in slices:
+        v_np[a:b, 0] = mats[mi]['v0'][0]
+        v_np[a:b, 1] = mats[mi]['v0'][1]
+    v.from_numpy(v_np.astype(np.float32))
 
     # --------------------------------------------------------------------
     # Kernels
@@ -314,40 +383,70 @@ def main():
     frames_dir = os.path.join(out_dir, 'frames')
     os.makedirs(frames_dir, exist_ok=True)
 
-    colors = np.zeros((N, 3), dtype=np.float64)
+    # per-material base colours + tint targets
+    base_col = np.zeros((N, 3), dtype=np.float64)
     for mi, a, b in slices:
-        r, g_, b_ = hex_to_rgb(mats[mi]['color'])
-        colors[a:b] = (r, g_, b_)
+        base_col[a:b] = hex_to_rgb(mats[mi]['color'])
+    warm = np.array(hex_to_rgb('#ffb27a'))   # compressed snow
+    icy = np.array(hex_to_rgb('#7fd4ff'))    # tensioned snow
+    hot = np.array(hex_to_rgb('#8ff2ff'))    # fast jelly
+
+    bg = make_background(img, bound * dx)
+
+    # Gaussian splat: every particle stamps a KRAD x KRAD soft disc at
+    # its subpixel position; weights are evaluated once per frame for
+    # all taps and all particles (vectorized np.add.at).
+    KRAD = 3
+    KSIG = 1.3
+    taps = np.arange(-KRAD, KRAD + 1)
 
     def write_frame(step):
-        img = np.zeros((n_grid, n_grid, 3), dtype=np.float64)
-        # scatter particles to nearest pixel, y flipped for image row 0 at top
-        xs = np.clip((x_np[:, 0] * n_grid).astype(int), 0, n_grid - 1)
-        ys = np.clip((x_np[:, 1] * n_grid).astype(int), 0, n_grid - 1)
-        img[n_grid - 1 - ys, xs] = colors
-        # convert to 8-bit PNG without PIL (stdlib only): use zlib + struct
-        import struct, zlib
-        h, w, _ = img.shape
-        raw = b''
-        for row in (img * 255.0).astype(np.uint8):
-            raw += b'\x00' + row.tobytes()
-        def chunk(tag, data):
-            c = tag + data
-            return struct.pack('>I', len(data)) + c + \
-                struct.pack('>I', zlib.crc32(c) & 0xffffffff)
-        png = b'\x89PNG\r\n\x1a\n'
-        png += chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
-        png += chunk(b'IDAT', zlib.compress(raw, 6))
-        png += chunk(b'IEND', b'')
-        with open(os.path.join(frames_dir,
-                               f'frame_{step:04d}.png'), 'wb') as f:
-            f.write(png)
+        # per-particle colour: base + jp tint (snow) + speed tint (jelly)
+        col = base_col.copy()
+        d = jp_np - 1.0
+        for mi, a, b in slices:
+            if mats[mi]['type'] == 'snow':
+                tc = np.clip(-d[a:b] / 0.15, 0.0, 1.0)
+                tt = np.clip(d[a:b] / 0.15, 0.0, 1.0)
+                col[a:b] += tc[:, None] * (warm - base_col[a:b])
+                col[a:b] += tt[:, None] * (icy - base_col[a:b])
+            else:
+                sp = np.linalg.norm(v_np[a:b], axis=1)
+                ts = np.clip(sp / 4.0, 0.0, 1.0)
+                col[a:b] += ts[:, None] * (hot - base_col[a:b])
+        # splat
+        dens = np.zeros(img * img, dtype=np.float64)
+        acc = np.zeros((img * img, 3), dtype=np.float64)
+        cx = x_np[:, 0] * img - 0.5            # pixel-centre coords
+        cy = (1.0 - x_np[:, 1]) * img - 0.5    # y down
+        i0x = np.floor(cx).astype(np.int64)
+        i0y = np.floor(cy).astype(np.int64)
+        wx = np.exp(-0.5 * ((i0x[:, None] + taps[None, :] - cx[:, None])
+                            / KSIG) ** 2)
+        wy = np.exp(-0.5 * ((i0y[:, None] + taps[None, :] - cy[:, None])
+                            / KSIG) ** 2)
+        for oy in range(2 * KRAD + 1):
+            for ox in range(2 * KRAD + 1):
+                ii = np.clip(i0y + taps[oy], 0, img - 1)
+                jj = np.clip(i0x + taps[ox], 0, img - 1)
+                w = wy[:, oy] * wx[:, ox]
+                idx = ii * img + jj
+                np.add.at(dens, idx, w)
+                for c in range(3):
+                    np.add.at(acc[:, c], idx, w * col[:, c])
+        dens = dens.reshape(img, img)
+        acc = acc.reshape(img, img, 3)
+        alpha = 1.0 - np.exp(-dens * 2.5)
+        pcol = np.clip(acc / np.maximum(dens, 1e-9)[..., None], 0.0, 1.0)
+        out = bg * (1.0 - alpha[..., None]) + pcol * alpha[..., None]
+        write_png(os.path.join(frames_dir, f'frame_{step:04d}.png'), out)
 
     def emit(step, t, metrics):
         row = {
             'step': step,
             'time': t,
             'mass_particles': total_mass,
+            'mass_by_material': mass_by_mat.tolist(),
         }
         # pull host copies
         x_np[:] = x.to_numpy().astype(np.float64)
@@ -359,11 +458,14 @@ def main():
         py = float((mass_np * v_np[:, 1]).sum())
         com_x = float((mass_np * x_np[:, 0]).sum() / total_mass)
         com_y = float((mass_np * x_np[:, 1]).sum() / total_mass)
+        speed2 = v_np[:, 0] ** 2 + v_np[:, 1] ** 2
         row.update({
             'px': px, 'py': py,
+            'ke': float(0.5 * (mass_np * speed2).sum()),
+            'v_max': float(np.sqrt(speed2.max())),
             'com_x': com_x, 'com_y': com_y,
-            'vel_com_x': float((mass_np * v_np[:, 0]).sum() / total_mass),
-            'vel_com_y': float((mass_np * v_np[:, 1]).sum() / total_mass),
+            'vel_com_x': px / total_mass,
+            'vel_com_y': py / total_mass,
             'x_min': float(x_np[:, 0].min()),
             'y_min': float(x_np[:, 1].min()),
             'x_max': float(x_np[:, 0].max()),
@@ -376,7 +478,13 @@ def main():
         row['jp_max'] = float(jp_np[a:b].max())
         row['jp_frac_lt_09'] = float((jp_np[a:b] < 0.9).mean())
         row['jp_frac_gt_11'] = float((jp_np[a:b] > 1.1).mean())
-        row['snow_height'] = float(x_np[a:b, 1].max() - x_np[a:b, 1].min())
+        sx0 = float(x_np[a:b, 0].min()); sx1 = float(x_np[a:b, 0].max())
+        sy0 = float(x_np[a:b, 1].min()); sy1 = float(x_np[a:b, 1].max())
+        row['snow_x_min'] = sx0
+        row['snow_y_min'] = sy0
+        row['snow_x_max'] = sx1
+        row['snow_y_max'] = sy1
+        row['snow_height'] = sy1 - sy0
         metrics.write(json.dumps(row) + '\n')
         metrics.flush()
 
