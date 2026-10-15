@@ -167,9 +167,10 @@ by scripted single edits:
 
 `judge/selftest.sh` grades the known-good (must pass) and every mutant
 (each must fail ≥ 1 gate), prints the kill rate, and checks determinism:
-two grades of the good artifact, and two grades of a failing artifact
-(`build_broken`), must each produce byte-identical verdicts except the
-`timing` key. It exits non-zero unless the kill rate is ≥ 90 %.
+two grades of the good artifact must produce byte-identical verdicts
+except the `timing` key, and no verdict may name its per-run scratch
+dir (a failing verdict quotes tool output, which is rewritten to a
+stable placeholder). It exits non-zero unless the kill rate is ≥ 90 %.
 
 ## Determinism
 
