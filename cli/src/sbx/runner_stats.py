@@ -163,23 +163,28 @@ def build_report(repo: str, jobs: list[dict], *, prefix: str = "sbx-", size: str
 
 
 def format_report(report: dict) -> str:
+    def text(value):
+        """Escape untrusted controls without changing printable Unicode or table separators."""
+        return "".join(char if char.isprintable() else char.encode("unicode_escape").decode("ascii")
+                       for char in value)
+
     def number(value):
         return f"{value:g}" if value is not None else "?"
 
-    lines = [f"{report['repo']} (runner prefix {report['prefix']})",
+    lines = [f"{text(report['repo'])} (runner prefix {text(report['prefix'])})",
              "JOB\tRUN/ATTEMPT\tCONCLUSION\tRUNNER\tSIZE\tWAIT(s)\tRUN(s)\tVM-READY(s)\tRECLAIM(s)"]
     for job in report["jobs"]:
         life = job["lifecycle"]
         size = (job["size"] or "?") + ("*" if job["size_source"] == "assumed" else "")
         lines.append("\t".join([
-            f"{job['id']} {job['name']}", f"{job['run_id']}/{job['run_attempt']}",
-            job["conclusion"] or job["status"], job["runner"], size,
+            f"{job['id']} {text(job['name'])}", f"{job['run_id']}/{job['run_attempt']}",
+            text(job["conclusion"] or job["status"]), text(job["runner"]), text(size),
             number(job["wait_s"]), number(job["run_s"]),
             number(life["vm_ready_s"]), number(life["reclaim_s"]),
         ]))
         for step in job["steps"]:
-            lines.append(f"  step {step['number']} {step['name']}: "
-                         f"{number(step['run_s'])}s ({step['conclusion'] or step['status']})")
+            lines.append(f"  step {step['number']} {text(step['name'])}: "
+                         f"{number(step['run_s'])}s ({text(step['conclusion'] or step['status'])})")
     for name, summary in (("sbx", report["summary"]), ("GitHub-hosted", report["github_hosted"]["summary"])):
         lines.append(f"{name}: {summary['jobs']} jobs, {summary['failures']} failures, "
                      f"{summary['cancelled']} cancelled; wait median/p95 "
@@ -193,6 +198,6 @@ def format_report(report: dict) -> str:
         lines.append(f"run {comparison['run_id']}/{comparison['run_attempt']} sbx minus GitHub-hosted "
                      f"median: wait {number(comparison['median_wait_delta_s'])}s, "
                      f"run {number(comparison['median_run_delta_s'])}s (unmatched job cohorts)")
-    lines.append(f"* size assumed from --size {report['assumed_size']} unless size-labelled; "
+    lines.append(f"* size assumed from --size {text(report['assumed_size'])} unless size-labelled; "
                  "estimate excludes boot, idle and reclaim time. ? = unknown.")
     return "\n".join(lines)
