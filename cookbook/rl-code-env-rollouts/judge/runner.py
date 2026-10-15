@@ -34,8 +34,9 @@ RLIMIT_FSIZE_MB = 8
 RLIMIT_NOFILE = 256
 DEFAULT_TIMEOUT_S = 3.0
 
-# One test per child process: no candidate code is loaded twice, and a test
-# that hangs cannot poison the ones after it.
+# One child per action, scoring every test in that action.  The candidate
+# module is loaded once; a test that raises simply does not count, and the
+# child is killed as a group if the whole action overruns.
 CHILD = r'''
 import importlib.util, json, sys
 
@@ -44,19 +45,23 @@ spec = importlib.util.spec_from_file_location("cand", job["module"])
 mod = importlib.util.module_from_spec(spec)
 try:
     spec.loader.exec_module(mod)
-except BaseException:
-    print(json.dumps({"ok": False}))
+except BaseException as exc:
+    print(json.dumps({"load_error": "%s: %s" % (type(exc).__name__, exc)}))
     sys.exit(0)
 fn = getattr(mod, job["entry"], None)
 if not callable(fn):
-    print(json.dumps({"ok": False}))
+    print(json.dumps({"load_error": "no callable %r" % job["entry"]}))
     sys.exit(0)
-try:
-    got = fn(*job["args"])
-except BaseException:
-    print(json.dumps({"ok": False}))
-    sys.exit(0)
-print(json.dumps({"ok": got == job["expect"] and type(got) is type(job["expect"])}))
+
+passed = 0
+for test in job["tests"]:
+    try:
+        got = fn(*test["args"])
+    except BaseException:
+        continue
+    if got == test["expect"] and type(got) is type(test["expect"]):
+        passed += 1
+print(json.dumps({"passed": passed}))
 '''
 
 
@@ -73,10 +78,13 @@ def _limits():
     os.setsid()
 
 
-def score_one(module, entry, args, expect, timeout_s):
-    """Return True iff the candidate passes this single test."""
-    job = json.dumps({"module": module, "entry": entry, "args": args,
-                      "expect": expect})
+def score_tests(module, entry, tests, timeout_s):
+    """Return how many of `tests` the candidate at `module` passes.
+
+    One child process for the whole action; it is killed as a group if it
+    overruns `timeout_s`, in which case nothing is credited.
+    """
+    job = json.dumps({"module": module, "entry": entry, "tests": tests})
     try:
         proc = subprocess.Popen(
             [sys.executable, "-I", "-c", CHILD],
@@ -84,16 +92,16 @@ def score_one(module, entry, args, expect, timeout_s):
             stderr=subprocess.DEVNULL, text=True,
             cwd=os.path.dirname(module), preexec_fn=_limits)
     except OSError:
-        return False
+        return 0
     try:
         out, _ = proc.communicate(job, timeout=timeout_s)
     except subprocess.TimeoutExpired:
         _kill(proc)
-        return False
+        return 0
     try:
-        return bool(json.loads(out.strip().splitlines()[-1])["ok"])
+        return int(json.loads(out.strip().splitlines()[-1]).get("passed", 0))
     except (ValueError, IndexError, KeyError):
-        return False
+        return 0
 
 
 def _kill(proc):
@@ -118,11 +126,7 @@ def score(task, source, timeout_s=DEFAULT_TIMEOUT_S):
         with open(module, "w") as fh:
             fh.write(source)
         total = len(task["tests"])
-        passed = 0
-        for test in task["tests"]:
-            if score_one(module, task["entry"], test["args"], test["expect"],
-                         timeout_s):
-                passed += 1
+        passed = score_tests(module, task["entry"], task["tests"], timeout_s)
         return passed, total, passed / total
     finally:
         shutil.rmtree(workdir, ignore_errors=True)

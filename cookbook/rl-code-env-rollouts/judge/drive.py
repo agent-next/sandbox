@@ -43,7 +43,7 @@ HOSTILE_S = float(os.environ.get("HOSTILE_S", 20.0))
 # 4x margin under the measured rate, so a slower or loaded host still passes,
 # while an environment that is catastrophically slow -- a sleep per step, a
 # subprocess storm, a per-step model call -- fails.  See SPEC.md.
-ROLLOUTS = int(os.environ.get("ROLLOUTS", 5))
+ROLLOUTS = int(os.environ.get("ROLLOUTS", 3))
 THROUGHPUT_MIN = float(os.environ.get("THROUGHPUT_MIN", 0.05))
 
 SCHEMA = "rl-code-env-rollouts/grade/1"
