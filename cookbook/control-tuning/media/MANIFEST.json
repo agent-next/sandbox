@@ -1,11 +1,18 @@
 {
-  "generated_at": "2026-10-14T13:14:26Z",
+  "generated_at": "2026-10-15T04:53:17Z",
   "files": {
-    "result.png": {"sha256": "038a837a5f54939d4b29034c8557c66e7c4cea9496bdabcd83e6d930650bcf59", "bytes": 495471}
+    "result.png": {"sha256": "bca3e2cb01acf97e33ad6a745d062c6c2b7d365ceaddd7d61e03480b09479617", "bytes": 820438}
     ,
-    "loop.png": {"sha256": "be9d50b9ba58514b7db281d88f0e494219e10efeaf2e52a3cfcd6aea438281e2", "bytes": 515279}
+    "loop.png": {"sha256": "f84a7ae2aa36f696b91d36d7df6fbcab3a758c2a1e5828c753c0f7e8dc0e8861", "bytes": 660791}
     ,
-    "demo.mp4": {"sha256": "70ed24c68d5c29bcd38c090716123748218d342d3bf13038d2cfebb18d9574b6", "bytes": 1170387}
+    "demo.mp4": {"sha256": "f9d93dc4f8185312937f2be2921d4dea8efd0942b4581023f5ad532070f9817d", "bytes": 4456362}
+  },
+  "source_files": {
+    "mjcf_model": "scripts/cartpole.xml",
+    "replay_renderer": "scripts/render3d.py",
+    "video_composer": "scripts/make_video.py",
+    "figures": ["scripts/make_result.py", "scripts/make_loop.py",
+                "scripts/common.py"]
   },
   "source_data": {
     "verdict_jsons": [
@@ -34,16 +41,23 @@
   "commands": {
     "result_png": "cd media/scripts && /home/user/ct-judge-venv/bin/python3 make_result.py",
     "loop_png": "cd media/scripts && /home/user/ct-judge-venv/bin/python3 make_loop.py",
+    "render_backend": "cd media/scripts && /home/user/ct-judge-venv/bin/python3 render3d.py backend",
     "video_master": "cd media/scripts && /home/user/ct-judge-venv/bin/python3 make_video.py --out media/master/demo_master.mp4 --crf 0",
     "video_web": "/usr/bin/ffmpeg -i media/master/demo_master.mp4 -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart -vf scale=1920:1080 -r 30 media/demo.mp4"
   },
+  "render": {
+    "gl_backend": "osmesa",
+    "renderer": "mujoco.Renderer (kinematic replay of --trace CSVs)",
+    "resolution": "1920x1080 (960x1080 per half in side-by-side)",
+    "interpolation": "linear resample of the CSV rows to 30 fps"
+  },
   "video_checks": {
-    "duration_sec": 56.000000,
+    "duration_sec": 53.034000,
     "resolution": "1920,1080",
-    "size_bytes": 1170387,
-    "size_mb": 1,
+    "size_bytes": 4456362,
+    "size_mb": 4,
     "codec": "h264",
     "pix_fmt": "yuv420p",
-    "fps": 30
+    "fps": "30/1"
   }
 }

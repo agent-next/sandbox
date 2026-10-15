@@ -1,0 +1,97 @@
+<mujoco model="cartpole-judge">
+  <!--
+    Kinematic-replay model of the judge plant (judge/judge_lib.py):
+    cart mass M0 = 1.0 kg on an x rail, point-mass pendulum m = 0.1 kg,
+    pivot-to-COM distance L0 = 0.5 m.
+
+    Sign convention, derived from nonlinear_rhs(): pendulum COM sits at
+    (x + L0*sin(theta), L0*cos(theta)), so +theta leans the pole tip
+    toward +x. A hinge joint with axis="0 1 0" gives exactly that: a
+    positive rotation carries +z toward +x. theta = 0 is upright.
+
+    qpos = [x, theta]. The render scripts only set qpos and call
+    mj_forward — the judged scipy trajectory is replayed, never
+    re-simulated.
+  -->
+  <compiler angle="radian" inertiafromgeom="false"/>
+  <option gravity="0 0 -9.81"/>
+  <visual>
+    <global offwidth="1920" offheight="1080" fovy="55"/>
+    <quality shadowsize="4096" offsamples="4"/>
+    <rgba fog="0 0 0 1"/>
+    <scale forcewidth="0.05" contactwidth="0.05"/>
+  </visual>
+
+  <asset>
+    <texture name="sky" type="skybox" builtin="gradient"
+             rgb1="0.955 0.965 0.98" rgb2="0.78 0.82 0.87" width="256" height="256"/>
+    <material name="floor_mat" rgba="0.90 0.89 0.87 1"
+              specular="0.05" shininess="0.05" reflectance="0"/>
+    <material name="cart_mat" rgba="0.165 0.47 0.84 1" specular="0.25" shininess="0.35"/>
+    <material name="pole_mat" rgba="0.22 0.21 0.20 1" specular="0.35" shininess="0.5"/>
+    <material name="mass_mat" rgba="0.816 0.23 0.20 1" specular="0.3" shininess="0.4"/>
+    <material name="rail_mat" rgba="0.42 0.42 0.40 1" specular="0.4" shininess="0.5"/>
+    <material name="band_mat" rgba="0.05 0.64 0.05 0.40" specular="0" shininess="0"/>
+    <material name="band_edge_mat" rgba="0.05 0.64 0.05 0.45" specular="0" shininess="0"/>
+  </asset>
+
+  <worldbody>
+    <light name="key" pos="1.8 -2.2 3.4" dir="-0.45 0.55 -0.85"
+           directional="false" diffuse="1.0 1.0 1.0" specular="0.4 0.4 0.4"
+           ambient="0.42 0.42 0.45" castshadow="true"
+           attenuation="0.4 0.02 0.005"/>
+    <light name="fill" pos="-2.0 1.6 2.6" dir="0.5 -0.4 -0.75"
+           directional="false" diffuse="0.45 0.46 0.50" specular="0 0 0"
+           castshadow="false" attenuation="0.5 0.03 0.01"/>
+
+    <geom name="floor" type="plane" pos="0 0 -0.02" size="8 8 0.02"
+          material="floor_mat"/>
+
+    <!-- rail along x -->
+    <geom name="rail" type="box" pos="0 0 0.03" size="1.75 0.07 0.03"
+          material="rail_mat"/>
+    <!-- settle zone: translucent strip over |x| &lt;= band; render3d.py
+         re-sizes it to the scenario band (S1: 0.01 m, S2: 0.02 m). The
+         band is only centimetres wide, so its two edges are also drawn
+         as thin vertical marker walls the cart must end up between. -->
+    <geom name="settle_strip" type="box" pos="0 0 0.0605" size="0.02 0.066 0.0015"
+          material="band_mat" contype="0" conaffinity="0"/>
+    <geom name="settle_edge_lo" type="box" pos="-0.02 0 0.22" size="0.0016 0.085 0.16"
+          material="band_edge_mat" contype="0" conaffinity="0"/>
+    <geom name="settle_edge_hi" type="box" pos="0.02 0 0.22" size="0.0016 0.085 0.16"
+          material="band_edge_mat" contype="0" conaffinity="0"/>
+    <!-- rail end stops -->
+    <geom name="stop_lo" type="box" pos="-1.78 0 0.10" size="0.03 0.075 0.07"
+          material="rail_mat"/>
+    <geom name="stop_hi" type="box" pos="1.78 0 0.10" size="0.03 0.075 0.07"
+          material="rail_mat"/>
+
+    <!-- fixed 3/4 view: camera at (+x,-y) looking back at the rail centre;
+         world +x projects to the right of frame -->
+    <camera name="hero34" pos="1.55 -1.80 1.10" fovy="52"
+            xyaxes="0.7588 0.6536 0.0 -0.1550 0.1800 0.9729"/>
+    <!-- tracking camera: fixed world position, orientation tracks the cart -->
+    <camera name="track" mode="targetbody" target="cart"
+            pos="0.45 -2.05 1.00" fovy="55"/>
+
+    <body name="cart" pos="0 0 0.135">
+      <inertial mass="1.0" pos="0 0 0" diaginertia="0.012 0.02 0.02"/>
+      <joint name="slide_x" type="slide" axis="1 0 0" damping="0" frictionloss="0"/>
+      <geom name="cart_body" type="box" size="0.13 0.085 0.075"
+            material="cart_mat"/>
+      <geom name="cart_cap" type="box" pos="0 0 0.075" size="0.045 0.045 0.012"
+            material="pole_mat"/>
+      <!-- pivot sits on the cart top; pole extends +z, COM at L0 = 0.5 m -->
+      <body name="pole" pos="0 0 0.087">
+        <inertial mass="0.1" pos="0 0 0.5"
+                  diaginertia="0.0001 0.0001 0.0001"/>
+        <joint name="hinge_theta" type="hinge" axis="0 1 0"
+               damping="0" frictionloss="0"/>
+        <geom name="rod" type="capsule" fromto="0 0 0 0 0 0.52" size="0.018"
+              material="pole_mat" mass="0"/>
+        <geom name="tip_mass" type="sphere" pos="0 0 0.5" size="0.045"
+              material="mass_mat" mass="0"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

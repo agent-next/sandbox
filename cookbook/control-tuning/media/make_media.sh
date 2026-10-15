@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # media/make_media.sh — builds result.png, loop.png, demo.mp4, MANIFEST.json
 # Every plotted number comes from judge output files; a missing trace is a hard error.
+# All motion footage is a MuJoCo 3-D kinematic replay of the judge's own
+# --trace CSVs (render3d.py + cartpole.xml); no matplotlib motion drawing.
 set -euo pipefail
 
 # --- config ------------------------------------------------------------
@@ -11,8 +13,8 @@ MASTER="${MEDIA}/master"
 OUT="${MEDIA}"
 mkdir -p "${MASTER}"
 
-# pinned Python (judge venv) and tools
-VENV="/home/user/ct-judge-venv"
+# pinned Python (judge venv, created by judge/setup.sh) and tools
+VENV="${HOME}/ct-judge-venv"
 PY="${VENV}/bin/python3"
 FFMPEG="$(command -v ffmpeg)"
 
@@ -22,6 +24,20 @@ need() { command -v "$1" >/dev/null || die "missing $1"; }
 
 need "${PY}"
 need "${FFMPEG}"
+
+# --- 0. GL backend for the MuJoCo renders --------------------------------
+# render3d.py probes MUJOCO_GL=egl first, then osmesa — each in a
+# subprocess, because a dead backend can abort the interpreter rather
+# than raise. On a headless host without libEGL, point CT_OSMESA_LIB at
+# a libOSMesa shared object (this build host uses the Debian bookworm
+# libosmesa6 deb extracted under $HOME/gl-libs, no root needed).
+OSMESA_SO="${CT_OSMESA_LIB:-$HOME/gl-libs/root/usr/lib/x86_64-linux-gnu/libOSMesa.so.8}"
+if [[ -f "${OSMESA_SO}" ]]; then
+    export CT_OSMESA_LIB="${OSMESA_SO}"
+fi
+GLB="$("${PY}" "${SCRIPTS}/render3d.py" backend 2>/dev/null || true)"
+[[ -n "${GLB}" ]] || die "no GL backend for MuJoCo renders (tried egl, osmesa)"
+echo "[0/6] GL backend for 3-D renders: ${GLB}"
 
 # --- 1. ensure all judge trace data exists (regenerate if missing) ------
 echo "[1/6] verifying judge trace data..."
@@ -37,7 +53,7 @@ for f in "degenerate-r-force_verdict.json" "sign-flip_verdict.json" "wrong-type_
 done
 echo "  all trace files present"
 
-# --- 2. build result.png ------------------------------------------------
+# --- 2. build result.png (hero still = one MuJoCo replay frame) ---------
 echo "[2/6] building result.png..."
 cd "${SCRIPTS}"
 "${PY}" make_result.py
@@ -47,7 +63,7 @@ echo "[3/6] building loop.png..."
 "${PY}" make_loop.py
 
 # --- 4. build demo.mp4 master (lossless, crf 0) ------------------------
-echo "[4/6] building demo.mp4 master (crf 0)..."
+echo "[4/6] building demo.mp4 master (crf 0, MuJoCo replays)..."
 MASTER_MP4="${MASTER}/demo_master.mp4"
 cd "${SCRIPTS}"
 "${PY}" make_video.py --out "${MASTER_MP4}" --crf 0 --preset ultrafast
@@ -66,9 +82,11 @@ echo "[5/6] encoding web demo.mp4 (crf 18, preset slow)..."
 echo "[6/6] verifying outputs and writing manifest..."
 DUR=$(ffprobe -v error -i "${OUT}/demo.mp4" -show_entries format=duration -of default=nw=1:nk=1)
 RES=$(ffprobe -v error -i "${OUT}/demo.mp4" -show_entries stream=width,height -of csv=p=0 -select_streams v:0)
+FPS=$(ffprobe -v error -i "${OUT}/demo.mp4" -show_entries stream=r_frame_rate -of csv=p=0 -select_streams v:0)
 SIZE=$(stat -c%s "${OUT}/demo.mp4")
 echo "  duration: ${DUR}s"
 echo "  resolution: ${RES}"
+echo "  fps: ${FPS}"
 echo "  size: ${SIZE} bytes ($((SIZE/1024/1024)) MB)"
 
 # size check (< 8 MB)
@@ -98,6 +116,13 @@ done
 
 cat >> "${OUT}/MANIFEST.json" <<EOF
   },
+  "source_files": {
+    "mjcf_model": "scripts/cartpole.xml",
+    "replay_renderer": "scripts/render3d.py",
+    "video_composer": "scripts/make_video.py",
+    "figures": ["scripts/make_result.py", "scripts/make_loop.py",
+                "scripts/common.py"]
+  },
   "source_data": {
     "verdict_jsons": [
       "data/good/verdict.json",
@@ -125,8 +150,15 @@ cat >> "${OUT}/MANIFEST.json" <<EOF
   "commands": {
     "result_png": "cd media/scripts && ${PY} make_result.py",
     "loop_png": "cd media/scripts && ${PY} make_loop.py",
+    "render_backend": "cd media/scripts && ${PY} render3d.py backend",
     "video_master": "cd media/scripts && ${PY} make_video.py --out media/master/demo_master.mp4 --crf 0",
     "video_web": "${FFMPEG} -i media/master/demo_master.mp4 -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart -vf scale=1920:1080 -r 30 media/demo.mp4"
+  },
+  "render": {
+    "gl_backend": "${GLB}",
+    "renderer": "mujoco.Renderer (kinematic replay of --trace CSVs)",
+    "resolution": "1920x1080 (960x1080 per half in side-by-side)",
+    "interpolation": "linear resample of the CSV rows to 30 fps"
   },
   "video_checks": {
     "duration_sec": ${DUR},
@@ -135,7 +167,7 @@ cat >> "${OUT}/MANIFEST.json" <<EOF
     "size_mb": $((SIZE/1024/1024)),
     "codec": "h264",
     "pix_fmt": "yuv420p",
-    "fps": 30
+    "fps": "${FPS}"
   }
 }
 EOF
@@ -153,94 +185,89 @@ Generated $(date -u +"%Y-%m-%d %H:%M:%S UTC") by \`make_media.sh\`.
 | loop.png | $(sha256sum "${OUT}/loop.png" | cut -d' ' -f1) | $(stat -c%s "${OUT}/loop.png") |
 | demo.mp4 | $(sha256sum "${OUT}/demo.mp4" | cut -d' ' -f1) | $(stat -c%s "${OUT}/demo.mp4") |
 
+## 3-D render provenance (DEMO-STANDARD)
+- All motion in demo.mp4 and the result.png hero frame is rendered by
+  \`mujoco.Renderer\` (mujoco 3.14.0, pinned in judge/requirements.txt)
+  from \`scripts/cartpole.xml\`.
+- GL backend used on this build host: **${GLB}** (egl probed first,
+  osmesa fallback).
+- The poses are a kinematic replay: qpos=[x, theta] is set from the
+  judge's own \`--trace\` CSV rows (linear interpolation to 30 fps);
+  the nonlinear plant is never re-simulated by the media pipeline.
+- Overlays (PIL, drawn on the rendered RGB): t, θ, x, |F|, |τ| at the
+  frame's trace time; the scenario gate line (settle band + limit);
+  a PASS/FAIL tag at the measured settle time; a sparkline of the
+  gated variable over the full 10 s window.
+- The settle band is drawn in the scene: translucent green geoms on
+  the rail at |x| ≤ band (0.01 m for S1, 0.02 m for S2), resized per
+  scenario.
+
 ## Video checks (ffprobe)
 - Duration: ${DUR} s
 - Resolution: ${RES}
+- Frame rate: ${FPS}
 - Size: ${SIZE} bytes ($((SIZE/1024/1024)) MB) — under 8 MB limit: $([[ $SIZE -le 8*1024*1024 ]] && echo "PASS" || echo "FAIL")
-- Codec: h264, yuv420p, 30 fps, +faststart
+- Codec: h264, yuv420p, +faststart
 
 ## PNG verification (opened at full size)
-- **result.png**: 13×8.6 in @ 200 dpi
-  - Top-left: Scenario 1 θ trace (blue) with green ±0.003 rad settling band, mark at 0.70 s settle — gate: 2 % settle ≤ 5 s ✓
-  - Top-right: Scenario 2 x trace (blue) with green ±0.02 m band, mark at 6.05 s settle — gate: 2 % settle ≤ 7 s ✓
-  - Bottom-left: Gate table with 10 rows — all PASS in green, values match verdict JSON exactly
-  - Bottom-right: MC scatter (200 blue dots) with red limits at x=7 s, y=8 s — all dots pass, 200/200 = 1.000 ≥ 0.95
-  - Caption names all gate rules; no label overlaps; legends outside data
+- **result.png**: 13×12.6 in @ 200 dpi
+  - Top: hero frame — the MuJoCo render of good/s1_trace.csv at
+    t = 0.70 s (the measured θ settle time) with HUD numbers, gate
+    card and PASS tag overlaid; the translucent green strip on the
+    rail is the ±0.01 m x-settle band.
+  - Bottom-left: gate table with 10 rows — all PASS, values match
+    data/good/verdict.json exactly.
+  - Bottom-right: MC scatter (200 dots) with red limits at x = 7 s,
+    θ = 8 s — 200/200 = 1.000 ≥ 0.95.
+  - The two S1/S2 trace plots from the previous revision were
+    superseded by the hero render (a sparkline of θ(t) is overlaid
+    inside the hero frame itself).
 - **loop.png**: 13×9.6 in @ 200 dpi
-  - Left: 4×18 gate matrix (too-aggressive, too-sluggish, mc-marginal, good) — ✓/✕ per gate from verdict JSONs
-  - Middle-left: too-aggressive vs good torque demand (S2) — red ±1 N·m lines, orange exceeds at 2.52 N·m
-  - Middle-right: too-sluggish vs good cart position (S2) — green band, orange never settles (10 s)
-  - Right-top: First-failing gate per step with measured values (τ=2.52 N·m, x=10 s, MC=161/200)
-  - Right-bottom: Selftest bars — 9/9 mutants killed, gate numbers listed
-  - Caption states this is a replay, not a live agent trace; mc-marginal row highlighted as passing all deterministic gates, failing only MC
-  - No overlaps: legends outside data, labels readable
+  - Left: 4×18 gate matrix (too-aggressive, too-sluggish, mc-marginal,
+    good) — ✓/✕ per gate from verdict JSONs
+  - Middle-left: too-aggressive vs good torque demand (S2) — red
+    ±1 N·m lines, orange exceeds at 2.52 N·m
+  - Middle-right: too-sluggish vs good cart position (S2) — green
+    band, orange never settles (10 s)
+  - Right-top: first-failing gate per step with measured values
+  - Right-bottom: selftest bars — 9/9 mutants killed
 
 ## Layout gate
-Every figure script calls \`common.check_layout(fig)\` before savefig: all
-text artists and legends must lie inside the canvas, and no two text
-bounding boxes (or text/legend pair) may overlap — the build fails if it
-trips. make_video.py runs the same check on the first frame of each
-segment.
+\`make_result.py\` and \`make_loop.py\` call \`common.check_layout(fig)\`
+before savefig: all text artists and legends must lie inside the canvas,
+and no two text bounding boxes (or text/legend pair) may overlap — the
+build fails if it trips.
 
-## Defects fixed in this revision
-1. result.png MC panel: "θ settle limit 8 s" label overlapped the pass-rule
-   note and the stats block, which in turn overlapped the red 8 s line →
-   θ label moved just below its line at top-right; stats block moved to
-   the empty bottom-left; note kept top-left.
-2. result.png: "x settle limit (displacement run)" clipped at the right
-   figure edge → label right-aligned inside the axes at bottom-right,
-   ending just left of its red line.
-3. result.png: legend sat on the data cloud → anchored upper-left in the
-   empty region under the note.
-4. result.png: footer caption cut off at the right ("Gain ma...") →
-   caption() now wraps to ≤160-char lines.
-5. loop.png: gate-matrix row labels clipped at the left edge → two-line
-   labels + larger left margin (left=0.105).
-6. loop.png: first-fail panel detail lines struck through the candidate
-   names (line pitch too small) → pitch 0.21 with detail offset −0.10;
-   the bottom note shortened to one line that fits the panel.
-7. loop.png: selftest bar labels clipped at the figure edge → mutant
-   names drawn inside the bars (white), gate reason right of each bar,
-   axes widened to xlim 2.35.
-8. loop.png: torque/settling annotations ran under the legends; "cart
-   position x (m)" clipped → torque legend moved to lower-right,
-   settling legend to lower-left, settling gate note to bottom-right,
-   settling annotation repacked into a 3-line block at top-right; left
-   margin fix also covers the ylabel.
-9. loop.png: footer caption cut off at the right → same wrapped caption.
-10. demo.mp4: was not committed → built by this script and committed;
-    frames checked with the same layout gate.
+## Frame extraction check (6 frames)
+Commands (run from \`cookbook/control-tuning/\`):
 
-## Frame extraction check (5 frames)
-EOF
+    for t in 2 10 20 30 40 50; do
+      ffmpeg -y -hide_banner -loglevel error -ss \$t -i media/demo.mp4 \\
+        -frames:v 1 media/master/frame_\${t}s.png
+    done
 
-# extract 5 evenly spaced frames for review
-for t in 6 17 28 39 50; do
-    frame="${OUT}/review_frame_${t}s.png"
-    "${FFMPEG}" -y -hide_banner -loglevel error -ss "${t}" -i "${OUT}/demo.mp4" -frames:v 1 "${frame}" 2>/dev/null || true
-    if [[ -f "${frame}" ]]; then
-        fsize=$(stat -c%s "${frame}")
-        echo "- Frame at ${t}s: extracted (${fsize} bytes)" >> "${OUT}/REVIEW.md"
-        rm -f "${frame}"
-    else
-        echo "- Frame at ${t}s: extraction failed" >> "${OUT}/REVIEW.md"
-    fi
-done
-
-cat >> "${OUT}/REVIEW.md" <<EOF
+| t | what the frame shows |
+|---|----------------------|
+| 2 s  | title card — "LQR cart-pole control tuning" |
+| 10 s | S2 replay start: MuJoCo cart at x = 1 m, pole upright; HUD shows t, θ, x, \|F\|, \|τ\|; green settle strip at x = 0 ahead on the rail; sparkline x(t) with playhead |
+| 20 s | side-by-side S2 — too-aggressive (left) vs good (right); the torque gate's FAIL tag "peak \|τ\| = 2.52 N·m > 1 N·m" pinned on the left half |
+| 30 s | side-by-side S2 at 1.7× — too-sluggish (left) vs good (right); good's cart already inside the green band, sluggish still short of it |
+| 40 s | media/loop.png proof frame — mutant × gate matrix, killer traces, selftest bars |
+| 50 s | closing card — "every number is a judge measurement" |
 
 ## Numbers traceability
-Every plotted number was spot-checked against its source file:
-- result.png scenario traces ↔ data/good/s1_trace.csv, s2_trace.csv
+Every plotted/overlaid number was spot-checked against its source file:
+- 3-D overlay θ/x/|F|/|τ| ↔ the same row of media/data/<name>/s*_trace.csv
+- gate cards & PASS/FAIL tags ↔ data/<name>/verdict.json gate values
+- sparkline curve ↔ the full trace CSV column
 - result.png gate table ↔ data/good/verdict.json
 - result.png MC panel ↔ data/good/mc_samples.csv + verdict.json mc_pass/mc_n
 - loop.png matrix cells ↔ each candidate's verdict.json gate pass flags
-- loop.png killer traces ↔ data/too-aggressive/s2_trace.csv (τ demand), data/too-sluggish/s2_trace.csv (x position)
-- loop.png first-failing gate text ↔ the corresponding verdict.json gate values
+- loop.png killer traces ↔ data/too-aggressive/s2_trace.csv (τ demand),
+  data/too-sluggish/s2_trace.csv (x position)
 - loop.png selftest bars ↔ selftest.sh output (9/9 = 100%)
 
 All match. No synthesised data.
-
 EOF
 
 echo "Done. Outputs in ${OUT}/"

@@ -1,7 +1,9 @@
 """result.png - the good controller under the judge's spec envelope.
 
-Top: the two nonlinear scenarios the judge grades (real --trace CSVs) with
-the spec envelope - settling bands, settling limits, actuator limits.
+Top: hero still - one MuJoCo frame of the good controller's scenario-1
+replay, frozen at the measured theta settle time (0.70 s), with the
+numbers and the pass line overlaid by render3d.py. The render is a
+kinematic replay of the judge's own --trace CSV, never re-simulated.
 Bottom-left: the gate table with measured values from the verdict JSON.
 Bottom-right: the Monte-Carlo panel - 200 real per-sample settle times
 against the per-sample gate limits.
@@ -14,74 +16,35 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
 import common as c
+import render3d as r3
 
 plt = c.rc_params()
 
 V = c.verdict("good")
 g = V["gates"]
 
-# ---------------------------------------------------------------- top: traces
-fig = plt.figure(figsize=(13, 8.6), dpi=200)
-gs = fig.add_gridspec(2, 2, height_ratios=[1, 1.06], width_ratios=[1, 1],
-                      left=0.065, right=0.985, top=0.895, bottom=0.140,
-                      wspace=0.20, hspace=0.44)
+# ------------------------------------------------------------- top: hero
+fig = plt.figure(figsize=(13, 12.6), dpi=200)
+gs = fig.add_gridspec(2, 2, height_ratios=[1.62, 1.0], width_ratios=[1, 1],
+                      left=0.065, right=0.985, top=0.935, bottom=0.100,
+                      wspace=0.20, hspace=0.34)
 
-ax1 = fig.add_subplot(gs[0, 0])
-t1, x1, _, th1, _, F1, tau1 = c.trace("good", 1)
-ax1.plot(t1, th1, color=c.BLUE, lw=2.0, zorder=3,
-         label=r"$\theta$ (pendulum angle)")
-ax1.axhline(c.S1_THETA_BAND, color=c.GOOD, lw=1.2, zorder=2)
-ax1.axhline(-c.S1_THETA_BAND, color=c.GOOD, lw=1.2, zorder=2)
-ax1.fill_between([-0.15, 10.15], -c.S1_THETA_BAND, c.S1_THETA_BAND,
-                 color=c.GOOD, alpha=0.08, zorder=1)
-ts = g["s1_theta_settle_s"]["value"]
-ax1.plot([ts], [c.S1_THETA_BAND], "o", ms=9, color=c.BLUE,
-         markeredgecolor=c.SURFACE, markeredgewidth=2, zorder=4)
-ax1.annotate(f"settles {ts:.2f} s into the ±0.003 rad band\n"
-             f"(gate: settle ≤ {c.S1_SETTLE_MAX:.0f} s)",
-             xy=(ts, c.S1_THETA_BAND), xytext=(3.1, 0.064),
-             fontsize=10.5, color=c.INK2,
-             arrowprops=dict(arrowstyle="-", color=c.AXIS, lw=1))
-ax1.set_xlabel("time (s)", fontsize=11.5, color=c.INK2)
-ax1.set_ylabel(r"$\theta$ (rad)", fontsize=11.5, color=c.INK2)
-ax1.set_title("Scenario 1 - recover from a 0.15 rad lean",
-              fontsize=12.5, color=c.INK, pad=8)
-ax1.set_xlim(-0.15, 10.15)
-ax1.set_ylim(-0.008, 0.166)
-c.style_axis(ax1)
-leg = ax1.legend(loc="upper right", fontsize=10, frameon=True,
-                 facecolor=c.SURFACE, edgecolor=c.GRID)
-leg.get_texts()[0].set_color(c.INK2)
-ax1.text(0.02, 0.975, "gate: 2 % settle of θ (band ±0.003 rad) ≤ 5 s",
-         transform=ax1.transAxes, fontsize=9.5, color=c.GOOD, va="top")
+t_settle = g["s1_theta_settle_s"]["value"]
+rep, info = r3.make("good", 1, camera="hero34")
+hero = rep.frame(t_settle, info, label="good")
+rep.close()
 
-ax2 = fig.add_subplot(gs[0, 1])
-t2, x2, _, th2, _, F2, tau2 = c.trace("good", 2)
-ax2.plot(t2, x2, color=c.BLUE, lw=2.0, zorder=3, label="$x$ (cart position)")
-ax2.axhline(c.S2_X_BAND, color=c.GOOD, lw=1.2, zorder=2)
-ax2.axhline(-c.S2_X_BAND, color=c.GOOD, lw=1.2, zorder=2)
-ax2.fill_between([-0.3, 10.3], -c.S2_X_BAND, c.S2_X_BAND,
-                 color=c.GOOD, alpha=0.08, zorder=1)
-xs = g["s2_x_settle_s"]["value"]
-ax2.plot([xs], [-c.S2_X_BAND], "o", ms=9, color=c.BLUE,
-         markeredgecolor=c.SURFACE, markeredgewidth=2, zorder=4)
-ax2.annotate(f"settles {xs:.2f} s into the ±0.02 m band\n"
-             f"(gate: settle ≤ {c.S2_SETTLE_MAX:.0f} s)",
-             xy=(xs, -c.S2_X_BAND), xytext=(3.3, 0.40),
-             fontsize=10.5, color=c.INK2,
-             arrowprops=dict(arrowstyle="-", color=c.AXIS, lw=1))
-ax2.set_xlabel("time (s)", fontsize=11.5, color=c.INK2)
-ax2.set_ylabel("$x$ (m)", fontsize=11.5, color=c.INK2)
-ax2.set_title("Scenario 2 - return from a 1 m cart displacement",
-              fontsize=12.5, color=c.INK, pad=8)
-ax2.set_xlim(-0.3, 10.3)
-ax2.set_ylim(-0.12, 1.14)
-c.style_axis(ax2)
-leg = ax2.legend(loc="upper right", fontsize=10, frameon=True,
-                 facecolor=c.SURFACE, edgecolor=c.GRID)
-leg.get_texts()[0].set_color(c.INK2)
-ax2.text(0.02, 0.975, "gate: 2 % settle of x (band ±0.02 m) ≤ 7 s",
-         transform=ax2.transAxes, fontsize=9.5, color=c.GOOD, va="top")
+axh = fig.add_subplot(gs[0, :])
+axh.imshow(hero)
+axh.set_xticks([])
+axh.set_yticks([])
+for s in axh.spines.values():
+    s.set_color(c.AXIS)
+    s.set_linewidth(1.0)
+axh.set_title(
+    "hero frame - MuJoCo render of the judged S1 trace, frozen at the "
+    f"measured settle time ({t_settle:.2f} s)",
+    fontsize=12.5, color=c.INK, pad=8)
 
 # ---------------------------------------------------------- bottom-left: table
 axt = fig.add_subplot(gs[1, 0])
@@ -173,15 +136,15 @@ axm.text(0.02, 0.87, "dots must sit left of / below the red limits",
          transform=axm.transAxes, fontsize=9.5, color=c.CRIT, va="top")
 
 fig.suptitle("LQR cart-pole under the judge's spec envelope - all gates pass",
-             fontsize=15, color=c.INK, x=0.065, ha="left", y=0.962)
-c.caption(fig, "Every curve and number is measured by judge/grade.sh on "
-          "examples/good/controller.json (seed 20260101): traces from the "
-          "--trace CSVs, gate values from the verdict JSON. Gain margins "
-          "are unlimited (99 dB = judge sentinel for \"no -180° crossing in "
-          "the 0.01-1000 rad/s sweep\"). The green band is the settling "
-          "band: settling time is the last exit from it (so S2 x = 6.05 s "
-          "passes the 7 s gate), and the S1 curve's small dip below zero is "
-          "a normal overshoot - the overshoot gate allows 10 %.")
+             fontsize=15, color=c.INK, x=0.065, ha="left", y=0.978)
+c.caption(fig, "The hero frame is the simulator's own 3-D render (MuJoCo "
+          "mujoco.Renderer, kinematic replay of media/data/good/"
+          "s1_trace.csv written by judge/grade.sh, seed 20260101) frozen "
+          "at the measured θ settle time; the overlay numbers come from "
+          "the same CSV row, and the settle band strip on the rail marks "
+          "±0.01 m around x = 0. Gate values are read from the verdict "
+          "JSON; gain margins are unlimited (99 dB = judge sentinel for "
+          "\"no -180° crossing in the 0.01-1000 rad/s sweep\").")
 c.check_layout(fig)
 fig.savefig(os.path.join(c.MEDIA, "result.png"), dpi=200)
 print("result.png written")
