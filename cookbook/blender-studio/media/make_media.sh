@@ -7,7 +7,7 @@ python3 - <<'PY'
 import subprocess
 for tool in ("ffmpeg", "ffprobe"):
     version = subprocess.check_output([tool, "-version"], text=True).splitlines()[0]
-    assert version.startswith(tool + " version 6.1.1-3ubuntu5 "), version
+    assert version.startswith(tool + " version 5.1.9-0+deb12u1 "), version
     print(version)
 PY
 if [ "${STUDIO_REUSE_SOURCE:-0}" != 1 ]; then

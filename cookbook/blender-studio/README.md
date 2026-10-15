@@ -94,15 +94,17 @@ sh media/make_media.sh
 
 This creates another fresh sandbox with a 180-minute media-only timeout (a lifetime: status polls do not extend it), runs self-test, renders the actual scene
 and 48 turntable poses at 1920×1080, downloads only render evidence, deletes the sandbox,
-then builds figures and a lossless master plus the H.264 web clip using local
-FFmpeg 6.1.1-3ubuntu5 and Pillow 10.2.0. The large source frames, blend file and lossless master
+then builds figures and a lossless master plus the H.264 web clip with
+FFmpeg 5.1.9-0+deb12u1 and Pillow 10.2.0. These are the versions in an
+`agent-full` sandbox (Debian 12) plus `pip install Pillow==10.2.0`, so the
+whole media build can run in the cloud rather than on your machine. The large source frames, blend file and lossless master
 are ignored by Git. Command, seed, render time and hashes live in
 `media/MANIFEST.json` and `RECEIPT.md`.
-Install those exact local media tools before running this optional command.
+Run it where those exact media tools exist, for example an `agent-full` sandbox.
 The template's judge tools need no installation or downloads.
 Media also needs DejaVu Sans (`DejaVuSans.ttf`, supplied by the standard
 `fonts-dejavu-core` package). The composer verifies its exact SHA-256
-`ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280`
+`abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322`
 and records it in the manifest.
 
 Regeneration renders **all** poses together in one sandbox and records their

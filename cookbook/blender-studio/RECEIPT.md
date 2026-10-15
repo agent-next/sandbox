@@ -21,7 +21,7 @@ setup PASS (pinned image tools; no downloads)
 ```
 
 The local launcher uses Python 3.12.3 and sbx 0.0.1. Media composition uses
-Pillow 10.2.0 and ffmpeg/ffprobe 6.1.1-3ubuntu5. Both launch and media transfer
+Pillow 10.2.0 and ffmpeg/ffprobe 5.1.9-0+deb12u1 in an `agent-full` sandbox. Both launch and media transfer
 use stdlib and `sbx`. An e2b 2.40.0 streaming transfer was tried during media
 development and removed after slow progress. No key is uploaded, printed or
 written to a file.
@@ -215,7 +215,7 @@ sh media/make_media.sh
 ```
 
 Font DejaVuSans.ttf is SHA-256 pinned:
-`ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280`.
+`abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322`.
 Result and loop figures are 1920×1080 at 200 dpi. The ignored lossless master
 uses CRF 0; the web encode uses CRF 18, preset slow, yuv420p and faststart.
 
