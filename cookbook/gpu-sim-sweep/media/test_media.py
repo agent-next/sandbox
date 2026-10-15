@@ -2,6 +2,7 @@
 
 import ast
 import copy
+import hashlib
 import inspect
 import json
 from pathlib import Path
@@ -178,6 +179,108 @@ class MediaTests(unittest.TestCase):
             self.assertNotIn("_", plain)
             self.assertNotEqual(name, plain)
 
+    def test_sweep_is_the_early_hook_and_task_is_three_seconds(self):
+        self.assertTrue(hasattr(render, "SHOT_CUTS"),
+                        "World sweep must immediately follow the two-second result")
+        self.assertEqual(render.SHOT_CUTS[:6], (2, 4, 6, 8, 10, 12))
+        self.assertEqual(render.SHOT_CUTS[6], 15,
+                         "Reach/drop/settle must take only three seconds")
+        self.assertEqual(render.SWEEP_SIDES, (1, 2, 4, 8, 16))
+
+    def test_visual_variants_are_real_seeded_cpu_physics_not_measurements(self):
+        self.assertTrue(hasattr(render, "visual_replay"),
+                        "Labelled visual worlds need real perturbed-start simulations")
+        xml = (HERE / "data/model.xml").read_text().strip()
+        states = render.visual_replay(xml, 800)
+        self.assertEqual(states.shape, (256, 801, 63))
+        self.assertFalse(states.flags.writeable)
+        self.assertEqual(len(np.unique(states[:, 0], axis=0)), 256)
+        model = render.mujoco.MjModel.from_xml_string(xml)
+        self.assertLessEqual(np.abs(states[:, 0, :7] - model.qpos0[:7]).max(), .12)
+        for box in range(8):
+            start = 7 + 7 * box
+            delta = states[:, 0, start:start + 3] - model.qpos0[start:start + 3]
+            self.assertTrue((np.abs(delta) <= [.025, .025, .08]).all())
+            np.testing.assert_allclose(
+                np.linalg.norm(states[:, 0, start + 3:start + 7], axis=1), 1)
+        data = render.mujoco.MjData(model)
+        data.ctrl[:] = render.scene.ARM_TARGET
+        data.qpos[:] = states[37, 0]
+        for index in range(801):
+            np.testing.assert_array_equal(data.qpos, states[37, index])
+            if index < 800:
+                render.mujoco.mj_step(model, data)
+        # Recompute a small prefix with a fresh RNG, not merely a cache hit.
+        prefix = render.visual_replay(xml, 800, count=2)
+        np.testing.assert_array_equal(prefix, states[:2])
+        metadata = json.loads((HERE / "data/visual-replay.json").read_text())
+        self.assertFalse(metadata["measured"])
+        self.assertEqual(metadata["on_screen_label"], "visual replay, perturbed starts")
+        self.assertEqual(metadata["qpos_sha256"], hashlib.sha256(states.tobytes()).hexdigest())
+
+    def test_perturbed_grid_renders_each_worlds_own_pose(self):
+        self.assertIn("perturbed", inspect.signature(render.Replay.frame).parameters,
+                      "Scale grid must render distinct simulated starts")
+        replay = render.Replay()
+        try:
+            image = replay.frame(200, side=4, azimuth=115, perturbed=True)
+            xml = (HERE / "data/model.xml").read_text().strip()
+            states = render.visual_replay(xml, 800)
+            view = replay.renderer.scene
+            # All copies retain their source geom id. Remove only the display translation.
+            originals = [i for i in range(replay.model.ngeom)
+                         if replay.model.geom_type[i] != render.mujoco.mjtGeom.mjGEOM_PLANE]
+            copies = [g for g in view.geoms[:view.ngeom]
+                      if g.type != render.mujoco.mjtGeom.mjGEOM_PLANE]
+            self.assertEqual(len(copies), 16 * len(originals))
+            data = render.mujoco.MjData(replay.original)
+            for world in range(16):
+                data.qpos[:] = states[world, 200]
+                render.mujoco.mj_forward(replay.original, data)
+                row, col = divmod(world, 4)
+                offset = np.array([col * 1.85 - 2.775, row * 1.85 - 2.775, 0])
+                for geom in copies[world * len(originals):(world + 1) * len(originals)]:
+                    np.testing.assert_allclose(geom.pos, data.geom_xpos[geom.objid] + offset,
+                                               atol=1e-6)
+                    np.testing.assert_allclose(geom.mat.ravel(), data.geom_xmat[geom.objid],
+                                               atol=1e-6)
+            self.assertLess((np.asarray(image).min(axis=2) > 245).mean(), .01,
+                            "Scale floor must not blow out to white")
+            with self.assertRaisesRegex(AssertionError, "not GPU recordings"):
+                replay.frame(200, gpu=True, perturbed=True)
+        finally:
+            replay.close()
+
+    def test_video_provenance_is_large_plain_and_proof_has_status_marks(self):
+        replay = render.Replay()
+        try:
+            with mock.patch.object(render, "label", wraps=render.label) as labels:
+                render.hud(Image.new("RGB", (1920, 1080)), "Title", "Detail",
+                           "Result", "Source")
+                render.comparison(replay, 200, 1)
+                image = render.proof(replay, 200, 0, 1)
+                render.proof(replay, 400, 1, 1)
+            for call in labels.call_args_list:
+                text, size = call.args[2:4]
+                self.assertGreaterEqual(size, 60, f"Phone-unreadable video text: {text}")
+                self.assertNotIn("_", text)
+                self.assertNotIn("judge", text.lower())
+            pixels = np.asarray(image)
+            for row in range(4):
+                np.testing.assert_array_equal(pixels[293 + row * 144, 87], [255, 133, 133])
+            np.testing.assert_array_equal(pixels[969, 76], [166, 237, 176])
+        finally:
+            replay.close()
+
+    def test_hud_animates_without_inventing_live_measurements(self):
+        self.assertTrue(hasattr(render, "animate_hud"),
+                        "Moving simulator frames must also have an animated HUD")
+        first = Image.new("RGB", (1920, 1080))
+        second = first.copy()
+        render.animate_hud(first, .1)
+        render.animate_hud(second, .8)
+        self.assertNotEqual(first.tobytes(), second.tobytes())
+
     def test_primary_caption_cap_height_and_bright_scene_contrast(self):
         box = render.font(60, True).getbbox("H")
         self.assertGreaterEqual(box[3] - box[1], render.H * .04)
@@ -194,6 +297,8 @@ class MediaTests(unittest.TestCase):
         checked = subprocess.run([sys.executable, str(gate), str(HERE / "demo.mp4")],
                                  capture_output=True, text=True)
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        self.assertEqual(json.loads(checked.stdout),
+                         json.loads((HERE / "video-gate.json").read_text()))
 
     def test_report_cannot_hide_a_surviving_mutant(self):
         report = evidence.load_report()

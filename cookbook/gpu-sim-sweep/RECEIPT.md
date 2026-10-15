@@ -205,7 +205,7 @@ box z [0.31499750273463084, 0.3149975027350041] m, and box speed
 2.8909458160697454e-11 m/s. These are the values checked against the fresh
 CPU replay before rendering, not the GPU's later read-back arm error
 (0.0361 rad). The renderer reuses the judge's exact CPU reference function;
-every frame matches its retained qpos data within 1e-9. The acceptance
+every reference frame matches its retained qpos data within 1e-9. The acceptance
 report retains only the downsampled GPU trajectory, so CPU/GPU samples
 are checked at the judge's 0.05 tolerance, not claimed identical.
 
@@ -253,6 +253,16 @@ throughput measurement.
 
 ## Deviations
 
+- Second media recut: the measured GPU worlds all start identically.
+  The owner permitted a separate, real CPU visual replay with small seeded
+  start perturbations. Only the scale shots use it, prominently labelled
+  “visual replay, perturbed starts” and “CPU render · not measured worlds”.
+  They show up to 256 worlds, not a recording of the 8,192 measured worlds.
+  Parameters and trajectory hash are in `media/data/visual-replay.json`.
+  All performance numbers still come from the unchanged acceptance report;
+  no GPU lease, new benchmark or new measured trajectory was used.
+- The second recut's blind panel has not been rerun here. Mechanical video
+  gate and frame inspection do not establish the panel's visual/wow scores.
 - The builder sandbox has no GPU, so `judge/selftest.sh` ran in cpu-check
   mode: the two gpu-tagged mutants (`low_capacity`, `over_ladder`) were
   skipped there and killed for real on the GPU leases (8/8 both runs).

@@ -1,48 +1,58 @@
-# MuJoCo replay storyboard, panel recut
+# Second panel recut, planned before rendering
 
-Every shot uses `mujoco.Renderer`, the good config's CPU reference states,
-retained GPU states where labelled, and Pillow captions. No interpolated
-poses, randomized worlds, or altered physics. Planned before rendering.
-Throughput and mutant outcomes are from the 2026-10-15 acceptance run,
-seed 0 (`data/report.json`, command `python3 run.py --ref sbx/sweep-r4 --gpu`).
+All pre-end-card frames are native, moving MuJoCo 3D output. A cyan HUD
+progress line animates through each shot. All video text is at least
+60 px (44 px cap height), including provenance. No technical mutant
+identifiers or unexplained “judge” appear in the video.
 
 | Time | Real rendered content | Caption / evidence |
 |---|---|---|
-| 0–2 s | Close native 3D orbit of finished arm and landed boxes, studio lighting | 25.8× CPU; 686,725 steps/s; physics PASS |
-| 2–6 s | Arm reaches while eight coloured boxes fall; smooth wider orbit | Reach. Drop. Settle.; one physics step = 0.001 s; 5× slow |
-| 6–9 s | Elevated opposite-angle contact close-up, real falling and landing | All eight boxes land; 0.315 m measured box centre, > 0.255 m required; 3.75× slow |
-| 9–14 s | Side-by-side real CPU reference and retained GPU world-0 poses, matched camera motion | Same physics. 25.8× the throughput.; 26,574 vs 686,725 steps/s; common-scale measured bars; both 6.25× slow |
-| 14–16 s | One real reference world, native orbit | 1 world; 134 steps/s |
-| 16–18 s | Four spatially instanced reference worlds, lit in one 3D scene | 64 worlds measured; 4 shown; same config, same start |
-| 18–20 s | Sixteen instanced worlds with perspective, shadows and depth | 512 worlds measured; 16 shown; same config, same start |
-| 20–22 s | Sixty-four instanced worlds, sweeping overhead camera | 2,048 worlds measured; 64 shown; same config, same start |
-| 22–24 s | Low diagonal fly-over of the same 64-world grid | 8,192 worlds measured; 686,725 steps/s; 64 shown |
-| 24–26 s | Moving real replay beside four plain-English rejected-config labels | 8 broken configs. All rejected.; fake results, flipped gravity, missing contact limit, too-small timestep |
-| 26–28 s | Opposite-angle moving replay beside remaining four rejection labels | Stops too soon, weak solver, contact overflow, out of memory; all six checks PASS; measured CPU/GPU agreement |
-| 28–30 s | Static finished real render, no motion | `python3 run.py --gpu`; 25.8× CPU; 4 GiB RTX 5090 slice |
+| 0–2 s | Native 3D orbit of the finished verified CPU reference | 25.8× CPU; 686,725 steps/s; 8,192 worlds; CPU replay of GPU run |
+| 2–4 s | One CPU visual-replay world, arm reaching and boxes falling | 1 world measured; 134 steps/s |
+| 4–6 s | Four differently started worlds, camera orbit | 64 worlds measured; 10,785 steps/s |
+| 6–8 s | Sixteen differently started worlds, diagonal orbit | 512 worlds measured; 77,008 steps/s |
+| 8–10 s | Sixty-four differently started worlds, dark matte floor, overhead orbit | 2,048 worlds measured; 248,064 steps/s |
+| 10–12 s | 256 differently started worlds in one lit perspective scene | 8,192 worlds measured; 686,725 steps/s |
+| 12–15 s | Exact CPU reference task, restrained slate studio floor | Reach. Drop. Settle.; all eight boxes land; 3.75× slow |
+| 15–20 s | CPU reference vs retained GPU world-0 states, identical replay clock | 26,574 vs 686,725 steps/s, common-scale bars; CPU-rendered replays; GPU poses from 1-world recording; 6.25× slow |
+| 20–24 s | Moving exact reference beside first four rejected configs | Red X: Fake results, Flipped gravity, No contact limit, Tiny time step; green check: 6/6 checks pass |
+| 24–28 s | Opposite-angle moving reference beside remaining rejected configs | Red X: Stops too soon, Weak solver, Contact overflow, Out of memory; measured CPU/GPU error 0.00811 < 0.05 rad |
+| 28–30 s | The only static end card, finished real 3D render | `python3 run.py --gpu`; From cookbook/gpu-sim-sweep |
 
-The GPU worlds are initialized identically in `judge/_sweep.py`. Grid
-instances use the exact verified CPU pose, translated only for display,
-in one native 3D render with perspective and shadows. They represent scale,
-not varied trajectories or separately retained recordings. No state is
-randomized. Ladder values are fixed measured endpoints, not live meters.
-The infinite collision plane's drawing extent is enlarged for the grid;
-its location, orientation and collision physics do not change. Render-only
-shadow coverage expands to encompass the instances. Matte floor materials
-avoid distracting reflections. Light studio task/contact/overhead views
-contrast with the dark hero, comparison and final grid.
-The comparison uses the 201 actual retained GPU samples from the first
-ladder point (one world), explicitly labelled “GPU 1-world recording”.
-The GPU bar separately shows the measured 8,192-world aggregate rate,
-not a claim that the retained poses came from that ladder point.
-Nearest GPU samples (no interpolation) and the CPU reference share one
-replay clock, not throughput-scaled motion. GPU sample i is one physics step after CPU i,
-as in the judge. Bars compare aggregate world-steps/s, not single-world speed.
-Camera movement is native 3D, not a pan/zoom over a still.
-Slow-motion factors describe the
-replayed 0.800 s trajectory; camera time is independent of simulation time.
-`data/cpu-qpos.npy` is regenerated by the judge's own `cpu_reference`.
-`render.py` verifies every retained CPU state against a fresh reference,
-each CPU frame against that data at 1e-9, each GPU frame against the exact
-retained GPU sample at 1e-9, and the reference against retained
-GPU samples at the judge's 0.05 parity tolerance.
+## Measured versus visual replay
+
+`run.py` invokes `judge/_sweep.py:gpu_point`, which copies one `MjData`
+into all GPU worlds, with **identical initial states**. No retained varied
+GPU footage exists. The scale shots therefore use the owner's permitted
+alternative, not a claim about the measured trajectories:
+
+- Every frame from 2–12 s explicitly says **“visual replay, perturbed
+  starts”** and **“CPU render · not measured worlds”**.
+- `render.py:visual_replay` runs new, deterministic CPU simulations of the
+  same scene, timestep, solver and controls. Seed 0 adds small initial
+  arm-angle and box-position/orientation perturbations. No poses are
+  interpolated, drawn, or synthesized without physics.
+- Up to 256 real simulated worlds are rendered, not 8,192. World-count
+  headlines and fixed throughput values say **measured** and cite the
+  original acceptance run. They are not a live performance meter.
+- Instances translate native MuJoCo geometry only for display; arm
+  colours vary for visual separation. The floor and lights remain dark
+  in every scale shot, including 2,048 worlds, avoiding the old whiteout.
+- `data/visual-replay.json` records the seed, perturbation bounds,
+  trajectory hash and explicit `measured: false` provenance.
+
+Everything outside that labelled scale visualization uses the unchanged
+reference trajectory or actual retained GPU samples. `evidence.py`
+reconstructs all 801 CPU states through the judge's `cpu_reference`,
+checking the graded CPU oracle at 1e-9. GPU samples from the first ladder
+point are rendered without interpolation, at the same clock as CPU,
+with the judge's original CPU-i/GPU-i+1 convention and 0.05 tolerance.
+The comparison shows the measured top aggregate rate, not single-world
+speed or rendering speed. Each rendered pose is checked at 1e-9 against
+its own source trajectory. Native 3D camera motion is not a pan over a
+still. Proof replays are 5× slow; sweep replays are 2.5× slow.
+
+All measured values and rejection outcomes still trace to the 2026-10-15
+acceptance command, seed 0:
+`python3 run.py --ref sbx/sweep-r4 --gpu --report-json media/data/report.json`.
+No measured config, judge, receipt number or throughput is changed.

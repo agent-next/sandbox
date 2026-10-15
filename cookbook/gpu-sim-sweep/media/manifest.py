@@ -29,6 +29,7 @@ def main():
     sources = ("examples/good/sweep.json", "judge/_grade.py", "judge/_sweep.py",
                "judge/scene.py", "media/data/report.json", "media/data/gpu-run.log",
                "media/data/cpu-qpos.npy", "media/data/model.xml", "media/data/replay.json",
+               "media/data/visual-replay.json", "media/video-gate.json",
                "media/data/loop.json", "media/evidence.py", "media/render.py",
                "media/make_media.sh", "media/requirements.txt",
                "media/manifest.py", "media/test_media.py")
@@ -41,9 +42,11 @@ def main():
                     "gates and the 8/8 self-test kill rate.",
         "demo.mp4": "30 s native MuJoCo renders of CPU reference and retained GPU "
                     "world-0 states; matched-clock CPU/GPU comparison with measured "
-                    "common-scale throughput bars; spatial 1/4/16/64-instance grids "
-                    "with honest identical-start captions, depth and moving cameras; "
-                    "plain-English rejection HUD over real moving simulation; "
+                    "common-scale throughput bars; early 1-to-8192 measured sweep "
+                    "illustrated with 1/4/16/64/256 CPU-simulated worlds explicitly "
+                    "labelled visual replay, perturbed starts, not measured worlds; "
+                    "phone-readable provenance, animated HUD and green check / red X "
+                    "plain-English rejections over real moving simulation; "
                     "static launch frame only in the last 2 s.",
     }
     manifest = {
@@ -55,13 +58,15 @@ def main():
         "render_backend": "mujoco.Renderer; EGL preferred, OSMesa fallback",
         "state_checks": "All CPU states re-run with judge cpu_reference; graded CPU "
                         "oracle within 1e-9; every rendered qpos within 1e-9 of the "
-                        "CPU data or exact retained GPU samples; translated grid "
-                        "instances preserve every pose; retained float32 GPU samples "
+                        "CPU data or exact retained GPU samples; separately labelled "
+                        "visual variants use seeded real CPU simulations with bounded "
+                        "start perturbations, never measured data; translated grid "
+                        "instances preserve each variant's pose; retained float32 GPU samples "
                         "within judge tolerance 0.05.",
         "video": {"width": 1920, "height": 1080, "fps": 30, "seconds": 30,
                   "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p "
                                 "-maxrate 1900k -bufsize 1900k -movflags +faststart",
-                  "simulator_clips": "media/clips/shot-00.mp4 through shot-11.mp4 "
+                  "simulator_clips": "media/clips/shot-00.mp4 through shot-10.mp4 "
                                      "(lossless, git-ignored; concatenated into master)",
                   "lossless_master": "media/master/demo.mp4 (-crf 0, git-ignored)"},
         "outputs": {},

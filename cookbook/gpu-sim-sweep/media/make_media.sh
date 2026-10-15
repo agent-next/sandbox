@@ -31,6 +31,8 @@ ffmpeg -y -v error -i "$MEDIA/master/demo.mp4" -an \
     -c:v libx264 -threads 2 -crf 18 -preset slow -pix_fmt yuv420p \
     -maxrate 1900k -bufsize 1900k \
     -movflags +faststart -map_metadata -1 "$MEDIA/demo.mp4"
+"$PY" "$MEDIA/../../tools/video_gate.py" "$MEDIA/demo.mp4" \
+    --json "$MEDIA/video-gate.json"
 "$PY" "$MEDIA/manifest.py"
 "$PY" -m unittest discover -s "$MEDIA" -p test_media.py -v
 ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate,pix_fmt,nb_frames \

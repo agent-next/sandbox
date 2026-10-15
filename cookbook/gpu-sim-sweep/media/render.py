@@ -1,6 +1,7 @@
 """Simulator-native 3D frames, Pillow evidence overlays, and a lossless master."""
 
 from functools import lru_cache
+import hashlib
 import json
 import subprocess
 import tempfile
@@ -18,7 +19,10 @@ FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 W, H, FPS = 1920, 1080, 30
 NAVY, CYAN, LIME, AMBER = "#101c2b", "#65d8ec", "#a6edb0", "#ffc17b"
+RED = "#ff8585"
 DURATION = 30
+SHOT_CUTS = (2, 4, 6, 8, 10, 12, 15, 20, 24, 28)
+SWEEP_SIDES = (1, 2, 4, 8, 16)
 BROKEN = (
     ("smuggled_results", "Fake results"),
     ("gravity_flipped", "Flipped gravity"),
@@ -29,6 +33,9 @@ BROKEN = (
     ("low_capacity", "Contact overflow"),
     ("over_ladder", "Out of memory"),
 )
+WORLD_COLOURS = ((.16, .72, .85, 1), (.35, .60, .95, 1),
+                 (.65, .45, .88, 1), (.95, .61, .22, 1),
+                 (.21, .78, .57, 1))
 
 
 @lru_cache(maxsize=64)
@@ -61,7 +68,7 @@ def visual_model(source):
     ET.SubElement(asset, "material", name="ground", texture="tiles",
                   texrepeat="1 1", texuniform="true")
     ET.SubElement(asset, "texture", name="studio-tiles", type="2d", builtin="checker",
-                  rgb1=".65 .72 .78", rgb2=".94 .96 .98", width="256", height="256")
+                  rgb1=".30 .38 .46", rgb2=".47 .55 .62", width="256", height="256")
     ET.SubElement(asset, "material", name="studio-floor", texture="studio-tiles",
                   texrepeat="1 1", texuniform="true")
     ET.SubElement(asset, "material", name="ceramic",
@@ -95,6 +102,54 @@ def visual_model(source):
             geom.set("rgba", ".16 .72 .85 1" if name != "hand" else ".97 .56 .16 1")
             geom.set("material", "ceramic")
     return mujoco.MjModel.from_xml_string(ET.tostring(root, encoding="unicode"))
+
+
+@lru_cache(maxsize=2)
+def visual_replay(xml, settle, count=256, seed=0):
+    """Unmeasured CPU simulations, not retained GPU worlds or performance data."""
+    model = mujoco.MjModel.from_xml_string(xml)
+    rng = np.random.default_rng(seed)
+    states = np.empty((count, settle + 1, model.nq))
+    for world in range(count):
+        data = mujoco.MjData(model)
+        data.ctrl[:] = scene.ARM_TARGET
+        data.qpos[:7] += rng.uniform(-.12, .12, 7)
+        for box in range(8):
+            start = 7 + 7 * box
+            data.qpos[start:start + 3] += rng.uniform(
+                [-.025, -.025, -.08], [.025, .025, .08])
+            axis = rng.normal(size=3)
+            axis /= np.linalg.norm(axis)
+            angle = rng.uniform(-.35, .35)
+            data.qpos[start + 3:start + 7] = np.r_[
+                np.cos(angle / 2), axis * np.sin(angle / 2)]
+        states[world, 0] = data.qpos
+        for step in range(settle):
+            mujoco.mj_step(model, data)
+            states[world, step + 1] = data.qpos
+    assert np.isfinite(states).all(), "Non-finite visual replay"
+    states.setflags(write=False)
+    return states
+
+
+def visual_provenance(replay):
+    states = visual_replay((HERE / "data/model.xml").read_text().strip(),
+                           replay.config["settle_steps"])
+    metadata = {
+        "measured": False,
+        "on_screen_label": "visual replay, perturbed starts",
+        "source": "same good config and controls; new CPU simulations only",
+        "measured_gpu_starts": "identical; these are NOT the measured worlds",
+        "seed": 0, "worlds_rendered_at_most": len(states),
+        "arm_start_perturbation_rad": [-.12, .12],
+        "box_position_perturbation_m": [[-.025, .025], [-.025, .025], [-.08, .08]],
+        "box_rotation_perturbation_rad": [-.35, .35],
+        "initial_velocity": 0,
+        "display_only": "translated world instances; arm colour varies by world",
+        "qpos_sha256": hashlib.sha256(states.tobytes()).hexdigest(),
+    }
+    (HERE / "data/visual-replay.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n")
 
 
 def assert_physics(original, rendered):
@@ -139,20 +194,37 @@ class Replay:
             self.model, mujoco.mjtObj.mjOBJ_MATERIAL, "studio-floor")
         self.data = mujoco.MjData(self.model)
         self.data.ctrl[:] = scene.ARM_TARGET
+        self.variant_data = mujoco.MjData(self.model)
         self.renderer = mujoco.Renderer(self.model, H, W)
         self.checked = 0
 
     def frame(self, index, close=False, *, azimuth=115, elevation=-23,
-              gpu=False, side=1, distance=None, studio=False):
+              gpu=False, side=1, distance=None, studio=False, perturbed=False):
+        assert not (gpu and perturbed), "Visual variants are not GPU recordings"
         sample = min(len(self.gpu_states) - 1, round(index / self.gpu_stride)) if gpu else index
         states, expected = (self.gpu_states, self.gpu_expected) if gpu else \
             (self.states, self.expected)
         assert_state(states[sample], expected[sample], f"{'GPU' if gpu else 'CPU'} frame {sample}")
         self.data.qpos[:] = states[sample]
+        poses = None
+        if perturbed:
+            variants = visual_replay((HERE / "data/model.xml").read_text().strip(),
+                                     self.config["settle_steps"])
+            assert side * side <= len(variants)
+            positions, matrices = [], []
+            for state in variants[:side * side, index]:
+                self.variant_data.qpos[:] = state
+                mujoco.mj_forward(self.model, self.variant_data)
+                assert_state(self.variant_data.qpos, state, "visual replay pose")
+                positions.append(self.variant_data.geom_xpos.copy())
+                matrices.append(self.variant_data.geom_xmat.copy())
+            poses = (positions, matrices)
+            self.data.qpos[:] = variants[0, index]
         self.data.time = ((sample * self.gpu_stride + 1) if gpu else index) * self.model.opt.timestep
         self.model.geom_matid[self.floor_id] = self.studio_floor if studio else self.dark_floor
         mujoco.mj_forward(self.model, self.data)
-        assert_state(self.data.qpos, expected[sample], f"rendered frame {sample}")
+        assert_state(self.data.qpos, variants[0, index] if perturbed else expected[sample],
+                     f"rendered frame {sample}")
         camera = mujoco.MjvCamera()
         camera.type = mujoco.mjtCamera.mjCAMERA_FREE
         camera.lookat[:] = [.85, 0, .53] if close else [.52, 0, .56]
@@ -162,8 +234,8 @@ class Replay:
             camera.distance = distance or side * 2.65
         camera.azimuth, camera.elevation = azimuth, elevation
         self.renderer.update_scene(self.data, camera=camera)
-        if side > 1:
-            instance_grid(self.renderer.scene, side)
+        if side > 1 or perturbed:
+            instance_grid(self.renderer.scene, side, poses=poses)
         # MuJoCo's compiled shadow bounds otherwise only cover the source
         # world. Expand render coverage for display-only grid instances.
         self.renderer._mjr_context.shadowClip = max(self.model.stat.extent, 3 * side)
@@ -175,8 +247,8 @@ class Replay:
         self.renderer.close()
 
 
-def instance_grid(view, side):
-    """Display-only translations of one verified pose, never new trajectories."""
+def instance_grid(view, side, poses=None):
+    """Native 3D geoms from verified poses, translated only for display."""
     original = view.ngeom
     fields = ("type", "dataid", "objtype", "objid", "category", "matid",
               "emission", "specular", "shininess", "reflectance",
@@ -202,13 +274,19 @@ def instance_grid(view, side):
                     setattr(dest, key, getattr(source, key))
                 for key in arrays:
                     getattr(dest, key)[:] = getattr(source, key)
+                if poses is not None:
+                    world = row * side + col
+                    dest.pos[:] = poses[0][world][source.objid] + origin + offset
+                    dest.mat[:] = poses[1][world][source.objid].reshape(3, 3)
+                    if source.type == mujoco.mjtGeom.mjGEOM_CAPSULE:
+                        dest.rgba[:] = WORLD_COLOURS[world % len(WORLD_COLOURS)]
                 view.ngeom += 1
     for i in geoms:
         view.geoms[i].pos[:] += origin
 
 
 def hud(image, title, detail, footer, source):
-    """Two primary lines, with smaller provenance outside the physical action."""
+    """Phone-readable captions; provenance is never a tiny footnote."""
     overlay = Image.new("RGBA", image.size)
     draw = ImageDraw.Draw(overlay)
     for y in range(280):
@@ -220,10 +298,27 @@ def hud(image, title, detail, footer, source):
                   fill=(10, 20, 33, alpha))
     image.paste(Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB"))
     label(image, (56, 30), title, 68, WHITE, True)
-    label(image, (58, 124), detail, 30, CYAN)
-    label(image, (56, 912), footer, 60, LIME, True)
-    label(image, (58, 1005), source, 27, WHITE)
+    label(image, (58, 124), detail, 60, CYAN)
+    label(image, (56, 900), footer, 64, LIME, True)
+    label(image, (58, 995), source, 60, WHITE)
     return image
+
+
+def animate_hud(image, progress):
+    """Editorial shot progress, not an invented performance meter."""
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((58, 0, W - 58, 5), fill="#33475b")
+    draw.rectangle((58, 0, 58 + (W - 116) * progress, 5), fill=CYAN)
+
+
+def status_mark(draw, xy, passed):
+    x, y = xy
+    if passed:
+        draw.line([(x, y + 24), (x + 17, y + 42), (x + 50, y + 2)],
+                  fill=LIME, width=10)
+    else:
+        draw.line((x + 4, y + 4, x + 40, y + 40), fill=RED, width=9)
+        draw.line((x + 40, y + 4, x + 4, y + 40), fill=RED, width=9)
 
 
 def result(replay):
@@ -300,8 +395,8 @@ def loop(report):
 def comparison(replay, index, phase):
     image = Image.new("RGB", (W, H), NAVY)
     for gpu, x, colour, title, value in (
-        (False, 0, AMBER, "CPU baseline", replay.timing["cpu_steps_per_s"]),
-        (True, 960, CYAN, "GPU rollout", replay.timing["top_steps_per_s"]),
+        (False, 0, AMBER, "CPU · one world", replay.timing["cpu_steps_per_s"]),
+        (True, 960, CYAN, "GPU · 8,192 worlds", replay.timing["top_steps_per_s"]),
     ):
         view = replay.frame(index, gpu=gpu, azimuth=110 + phase * 8,
                             elevation=-28, distance=2.5)
@@ -309,8 +404,8 @@ def comparison(replay, index, phase):
         image.paste(view.crop((315, 40, 1515, 1080)).resize(
             (950, 830), Image.Resampling.LANCZOS), (x + 5, 180))
         label(image, (x + 48, 198), title, 60, colour, True)
-        label(image, (x + 50, 266), "Rate at 8,192 worlds" if gpu else "One world measured",
-              29, WHITE)
+        label(image, (x + 50, 274), "1-world recording" if gpu else "Reference poses",
+              60, WHITE)
         draw = ImageDraw.Draw(image)
         draw.rectangle((x + 48, 857, x + 910, 1028), fill=NAVY)
         label(image, (x + 66, 866), f"{value:,} steps/s", 60, colour, True)
@@ -318,12 +413,10 @@ def comparison(replay, index, phase):
         length = 814 * value / replay.timing["top_steps_per_s"]
         draw.rounded_rectangle((x + 66, 957, x + 66 + length, 980),
                                radius=min(10, length / 2), fill=colour)
+        label(image, (x + 50, 1005), "6.25× slow", 60, WHITE)
     label(image, (48, 24), f"Same physics. {replay.timing['speedup']:.1f}× the throughput.",
           68, WHITE, True)
-    label(image, (50, 124), "Measured aggregate steps/s · bars share one scale · replay clocks match",
-          29, CYAN)
-    label(image, (48, 1030), "CPU reference / GPU 1-world recording · both 6.25× slow · bars = aggregate throughput",
-          27, WHITE)
+    label(image, (50, 124), "CPU-rendered replays · same clock", 60, CYAN)
     return image
 
 
@@ -334,22 +427,23 @@ def proof(replay, index, page, phase):
     image.paste(view.crop((260, 0, 1660, 1080)).resize(
         (1167, 900), Image.Resampling.LANCZOS), (753, 126))
     hud(image, "8 broken configs. All rejected.",
-        "Real judge outcomes · technical config names below",
-        "6/6 checks PASS · GPU matches CPU",
-        f"CPU reference · 2.5× slow · measured joint error {replay.timing['parity_max_err']:.5f} < 0.05 rad")
+        "CPU reference replay · 5× slow",
+        "   6/6 checks pass",
+        f"CPU/GPU error: {replay.timing['parity_max_err']:.5f} < 0.05 rad")
     draw = ImageDraw.Draw(image)
-    draw.rectangle((36, 230, 735, 847), fill=NAVY)
+    draw.rectangle((36, 230, 825, 847), fill=NAVY)
+    status_mark(draw, (59, 927), True)
     for row, (name, plain) in enumerate(BROKEN[page * 4:page * 4 + 4]):
         assert replay.report["mutants"][name]["rc"] == 1
         y = 252 + row * 144
-        draw.rounded_rectangle((56, y + 10, 66, y + 104), radius=5, fill=LIME)
-        label(image, (89, y), plain, 60, WHITE, True)
-        label(image, (91, y + 75), f"REJECTED / {name}", 25, LIME)
+        status_mark(draw, (65, y + 19), False)
+        label(image, (132, y), plain, 60, WHITE, True)
+        label(image, (134, y + 69), "REJECTED", 60, RED)
     return image
 
 
 def video(replay):
-    cuts = (2, 6, 9, 14, 16, 18, 20, 22, 24, 26, 28)
+    cuts = SHOT_CUTS
     cut_times = ",".join(map(str, cuts))
     command = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
                "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-an", "-c:v", "libx264",
@@ -366,57 +460,53 @@ def video(replay):
                 if seconds < 2:
                     image = replay.frame(end, azimuth=100 + 14 * seconds, elevation=-28)
                     hud(image, f"{t['speedup']:.1f}× CPU. Physics checks out.",
-                        "One arm. Eight boxes. Thousands of worlds in parallel.",
-                        f"{t['top_steps_per_s']:,} steps/s · physics PASS",
-                        "MuJoCo CPU reference · finished state · measured on a 4 GiB RTX 5090 slice")
-                elif seconds < 6:
-                    index = round((seconds - 2) / (4 - 1 / FPS) * end)
-                    image = replay.frame(index, azimuth=125 + 12 * (seconds - 2),
-                                         elevation=-32, studio=True)
-                    hud(image, "The task: reach. Drop. Settle.",
-                        "Config only. The judge runs the physics itself.",
-                        "A stable arm. Eight boxes on the table.",
-                        f"CPU reference · 5× slow · t = {index * .001:.3f} s · one physics step = 0.001 s")
-                elif seconds < 9:
-                    index = round((seconds - 6) / (3 - 1 / FPS) * end)
-                    image = replay.frame(index, close=True,
-                                         azimuth=250 - 14 * (seconds - 6), elevation=-42,
-                                         studio=True)
-                    hud(image, "All eight boxes land. None fall through.",
-                        "The contact check catches broken physics.",
-                        f"Box centres: {t['cpu']['box_z_min']:.3f} m · required > 0.255 m",
-                        "CPU reference · 3.75× slow · final measured check at t = 0.800 s")
-                elif seconds < 14:
-                    phase = seconds - 9
-                    index = round(phase / (5 - 1 / FPS) * end)
-                    image = comparison(replay, index, phase)
-                elif seconds < 24:
-                    phase = seconds - 14
+                        "8,192 worlds on a GPU slice",
+                        f"{t['top_steps_per_s']:,} steps/s · GPU run",
+                        "CPU replay of GPU run · finished state")
+                elif seconds < 12:
+                    phase = seconds - 2
                     point_index = min(4, int(phase / 2))
                     p = t["points"][point_index]
                     index = round((phase % 2) / (2 - 1 / FPS) * end)
-                    side = (1, 2, 4, 8, 8)[point_index]
+                    side = SWEEP_SIDES[point_index]
                     azimuth = (100, 205, 115, 240, 110)[point_index]
                     direction = (1, -1, 1, -1, 1)[point_index]
                     image = replay.frame(
                         index, side=side,
                         azimuth=azimuth + direction * 15 * (phase % 2),
-                        elevation=(-28, -35, -40, -48, -32)[point_index],
-                        studio=point_index == 3)
-                    hud(image, f"{p['nworld']:,} {'world' if p['nworld'] == 1 else 'worlds'} in parallel",
-                        f"{side * side} shown · same config, same start · no randomized motion",
-                        f"{p['steps_per_s']:,} steps/s",
-                        "CPU reference instances · 2.5× slow · measured endpoint, not a live meter")
+                        elevation=(-28, -35, -40, -48, -38)[point_index],
+                        perturbed=True)
+                    hud(image, f"{p['nworld']:,} {'world' if p['nworld'] == 1 else 'worlds'} measured",
+                        "visual replay, perturbed starts",
+                        f"{p['steps_per_s']:,} steps/s · 2.5× slow",
+                        "CPU render · not measured worlds")
+                elif seconds < 15:
+                    phase = seconds - 12
+                    index = round(phase / (3 - 1 / FPS) * end)
+                    image = replay.frame(index, azimuth=125 + 12 * phase,
+                                         elevation=-32, studio=True)
+                    hud(image, "Reach. Drop. Settle.",
+                        "Config in. Verified physics out.",
+                        "All eight boxes land.",
+                        "CPU reference replay · 3.75× slow")
+                elif seconds < 20:
+                    phase = seconds - 15
+                    index = round(phase / (5 - 1 / FPS) * end)
+                    image = comparison(replay, index, phase)
                 elif seconds < 28:
-                    phase = (seconds - 24) % 2
-                    index = round(phase / (2 - 1 / FPS) * end)
-                    image = proof(replay, index, int((seconds - 24) / 2), phase)
+                    phase = (seconds - 20) % 4
+                    index = round(phase / (4 - 1 / FPS) * end)
+                    image = proof(replay, index, int((seconds - 20) / 4), phase)
                 else:
                     image = replay.frame(end, azimuth=118, elevation=-28)
-                    hud(image, "Run the real judge in a sandbox.",
-                        "GPU simulation · 4 GiB RTX 5090 slice",
+                    hud(image, "Run the real checks in a sandbox.",
+                        "GPU run · 4 GiB RTX 5090 slice",
                         "python3 run.py --gpu",
-                        f"From cookbook/gpu-sim-sweep · {t['speedup']:.1f}× CPU · floor {t['speedup_floor']:g}× · CPU reference render")
+                        "From cookbook/gpu-sim-sweep")
+                if seconds < 28:
+                    start = max((0,) + tuple(c for c in cuts if c <= seconds))
+                    stop = next(c for c in cuts if c > seconds)
+                    animate_hud(image, (seconds - start) / (stop - start))
                 encoder.stdin.write(image.tobytes())
         finally:
             encoder.stdin.close()
@@ -429,8 +519,8 @@ def video(replay):
         subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
                         "-i", str(playlist), "-c", "copy", "-map_metadata", "-1",
                         str(HERE / "master/demo.mp4")], check=True)
-    print(f"MuJoCo Renderer: {replay.checked} frames verified against "
-          "CPU reference / retained GPU qpos data within 1e-9")
+    print(f"MuJoCo Renderer: {replay.checked} frames; poses checked within 1e-9 "
+          "against CPU reference / retained GPU / labelled visual-replay data")
 
 
 def main():
@@ -438,6 +528,7 @@ def main():
     try:
         result(replay)
         loop(replay.report)
+        visual_provenance(replay)
         video(replay)
     finally:
         replay.close()
