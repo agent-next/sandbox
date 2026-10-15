@@ -24,6 +24,8 @@ wrote); nothing is invented.  Captions are drawn with Pillow, >= 44 px.
 """
 import json
 import os
+import re
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -72,7 +74,17 @@ def judge_numbers():
     for line in open(need(os.path.join(DATA, "selftest.txt"))):
         if "summary:" in line:
             summary = line.strip()
-    return gates_ok, n_gates, killed, len(mutants), summary
+    # "[selftest] summary: good 3/3 pass, determinism 3/3, mutants killed
+    #  8/8 (kill rate 100%)" -> the compact form the end card prints
+    m = re.search(r"good (\d+/\d+) pass, determinism (\d+/\d+), "
+                  r"mutants killed (\d+)/(\d+) \(kill rate (\d+)%\)", summary
+                  or "")
+    if not m:
+        raise SystemExit(f"unparsable selftest summary: {summary!r}")
+    compact = (f"good {m.group(1)} · determinism {m.group(2)} · "
+               f"mutants killed {m.group(3)}/{m.group(4)} "
+               f"({m.group(5)}%)")
+    return gates_ok, n_gates, killed, len(mutants), compact
 
 
 # ---------------------------------------------------------------- captions
@@ -130,17 +142,28 @@ def emit(img, n=1):
 
 
 # ------------------------------------------------------------------ scenes
+def _render_one(job):
+    """Worker: one turntable frame (raster3d.render is ~7 s single-threaded)."""
+    faces, normals, az, elev = job
+    return raster3d.render(faces, normals, W, H, azim=az, elev=elev,
+                           smooth=True)
+
+
 def scene_turntable(faces, normals, k0, k1, az0, az1, elev, caption):
     ov = caption_img(caption)
-    for k in range(k0, k1):
-        az = az0 + (az1 - az0) * k / (k1 - k0 - 1)
-        img = raster3d.render(faces, normals, W, H, azim=az, elev=elev,
-                              smooth=True)
-        emit(compose(img, ov))
+    azs = [az0 + (az1 - az0) * k / (k1 - k0 - 1) for k in range(k0, k1)]
+    jobs = [(faces, normals, az, elev) for az in azs]
+    with ProcessPoolExecutor(max_workers=2) as ex:   # both vCPUs
+        for img in ex.map(_render_one, jobs, chunksize=4):
+            emit(compose(img, ov))
 
 
 def scene_card(src, seconds, y0, y1, caption, x_center=0.5):
-    """Pan a full-width 16:9 window down src (result.png / loop.png)."""
+    """Pan a full-width 16:9 window down src (result.png / loop.png).
+
+    y0/y1 are fractions of the scrollable range (0 = top, 1 = bottom);
+    at ~4 px/frame the pan measures YDIF ~3 in the video gate's motion
+    check, so the cards carry real motion, not a still."""
     src = Image.open(need(src)).convert("RGB")
     sw, sh = src.size
     win_h = int(round(sw * 9 / 16))
@@ -148,25 +171,26 @@ def scene_card(src, seconds, y0, y1, caption, x_center=0.5):
         win_h = sh
     ov = caption_img(caption)
     n = int(seconds * FPS)
+    span = max(sh - win_h, 1)
     for k in range(n):
-        top = y0 + (y1 - y0) * k / (n - 1)
-        top = min(max(top, 0), sh - win_h)
+        top = (y0 + (y1 - y0) * k / (n - 1)) * span
+        top = min(max(top, 0.0), sh - win_h)
         crop = src.crop((0, int(round(top)), sw, int(round(top)) + win_h))
         emit(compose(crop.resize((W, H), Image.LANCZOS), ov))
 
 
-def scene_endcard(gates_ok, n_gates, summary):
+def scene_endcard(gates_ok, n_gates, compact):
     img = Image.new("RGB", (W, H), (252, 253, 251))
     d = ImageDraw.Draw(img)
     f_big = ImageFont.truetype(FONT_MONO, 58)
-    f_sub = ImageFont.truetype(FONT_BOLD, 30)
-    f_met = ImageFont.truetype(FONT_BOLD, 25)
+    f_sub = ImageFont.truetype(FONT_BOLD, 44)
     d.text((W // 2, 470), "python3 cookbook/aicad-text-to-cad/run.py",
            font=f_big, fill=INK, anchor="mm")
-    d.text((W // 2, 566), "three text specs in -- judged STEP + STL out",
+    d.text((W // 2, 572), "three text specs in -- judged STEP + STL out",
            font=f_sub, fill=MUTED, anchor="mm")
-    d.text((W // 2, 642), f"{gates_ok}/{n_gates} gates pass on every part"
-           f"   |   {summary}", font=f_met, fill=PASS, anchor="mm")
+    d.text((W // 2, 668), f"{gates_ok}/{n_gates} gates pass on every part",
+           font=f_sub, fill=PASS, anchor="mm")
+    d.text((W // 2, 764), compact, font=f_sub, fill=PASS, anchor="mm")
     emit(img, int(5.5 * FPS))
 
 

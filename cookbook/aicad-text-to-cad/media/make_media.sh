@@ -133,4 +133,4 @@ print(f"   MANIFEST.json: {len(files)} files recorded")
 PYEOF
 
 echo "== done =="
-ls -la result.png loop.png demo.mp4 MANIFEST.json master/demo_master.mp4
+ls -la result.png loop.png demo.mp4 MANIFEST.json
