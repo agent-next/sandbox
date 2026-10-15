@@ -18,7 +18,7 @@ motion planner to prove it runs on real firmware within kinematic limits.
 ## One-command run
 
 ```bash
-python3 run.py            # needs the sbx CLI + SBX_API_KEY; ~10 min total
+python3 run.py            # needs the sbx CLI + SBX_API_KEY; ~12 min total
 ```
 
 Steps and measured wall time (fresh sandbox, 2 vCPU / ~3 GB RAM):
