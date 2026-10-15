@@ -11,6 +11,11 @@ Before the planted commit the suite passes; from the planted commit on it
 fails.  The corpus uses clean column-0 keys so the ONLY defect is the indented
 terminator -- the planted commit is the sole cause of the failure.
 
+Every commit carries pinned author/committer dates (BASE_DATE + i minutes),
+a fixed author and fixed tree content, so any two builds at the same seed
+produce byte-identical commit SHAs -- the judge, the sweep sandboxes and the
+known-good example can therefore agree on a SHA without sharing state.
+
 Usage: make_fixture.py <outdir> [--revert-planted]
        --revert-planted writes the repo with the planted commit reverted
        (the negative-control fixture: no regression in range).
@@ -19,6 +24,7 @@ Usage: make_fixture.py <outdir> [--revert-planted]
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -26,7 +32,14 @@ from pathlib import Path
 SEED = 20261015
 NUM_COMMITS = 31          # commits 0..30; version.txt holds the number
 PLANTED_INDEX = 25        # commit "bump version to 25" is the planted regression
+SWEEP_FIRST, SWEEP_LAST = 20, 30   # the suspect range (11 commits, 11 sandboxes)
 NUM_CASES = 400
+# The suite's settle delay, standing in for real-suite I/O: per-commit cost is
+# latency-dominated, as it is for real test suites and sandbox lifecycles.
+# This is the latency the parallel sweep overlaps (SPEC.md, "speedup").
+SOAK_S = 2.0
+# Fixed history clock: base + i minutes, so SHAs are reproducible.
+BASE_DATE = "2026-01-01T00:00:00+00:00"
 
 # Good parser: ENDCASE must sit at column 0 (exact match, no strip).
 PARSER = '''\
@@ -82,7 +95,14 @@ PARSER_BAD = PARSER.replace(
 SUITE = '''\
 """Fixture test suite: parse the corpus, expect a clean rejection."""
 import sys
+import time
 from caseparser import parse
+
+SOAK_S = {soak}
+
+# Settle delay standing in for real-suite I/O (fixture docstring): per-commit
+# cost is latency-dominated, which is what a parallel sweep overlaps.
+time.sleep(SOAK_S)
 
 corpus = open("corpus.txt").read()
 try:
@@ -122,9 +142,19 @@ def write_corpus(path: Path) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
-def sh(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=repo, check=True,
+def sh(repo: Path, *args: str, env: dict | None = None) -> None:
+    run_env = None
+    if env:
+        run_env = dict(os.environ, **env)
+    subprocess.run(["git", *args], cwd=repo, check=True, env=run_env,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def commit_date(i: int) -> str:
+    """Pinned clock: base + i minutes, so commit SHAs are reproducible."""
+    import datetime
+    base = datetime.datetime.fromisoformat(BASE_DATE)
+    return (base + datetime.timedelta(minutes=i)).isoformat()
 
 
 def build(outdir: Path, revert_planted: bool) -> str:
@@ -135,6 +165,7 @@ def build(outdir: Path, revert_planted: bool) -> str:
     sh(repo, "config", "user.name", "fixture")
     sh(repo, "config", "commit.gpgsign", "false")
 
+    suite = SUITE.format(soak=SOAK_S)
     planted_sha = ""
     for i in range(NUM_COMMITS):
         # version.txt always holds the commit number
@@ -148,13 +179,15 @@ def build(outdir: Path, revert_planted: bool) -> str:
         else:
             parser = PARSER
         (repo / "caseparser.py").write_text(parser)
-        (repo / "test_suite.py").write_text(SUITE)
+        (repo / "test_suite.py").write_text(suite)
         (repo / "README.md").write_text(README)
         if i == 0:
             write_corpus(repo / "corpus.txt")
         sh(repo, "add", "-A")
-        sh(repo, "commit", "-q", "-m", f"chore: bump version to {i}")
-        if is_planted:
+        sh(repo, "commit", "-q", "-m", f"chore: bump version to {i}",
+           env={"GIT_AUTHOR_DATE": commit_date(i),
+                "GIT_COMMITTER_DATE": commit_date(i)})
+        if is_planted and not revert_planted:
             planted_sha = subprocess.run(
                 ["git", "rev-parse", "HEAD"], cwd=repo, check=True,
                 capture_output=True, text=True).stdout.strip()
@@ -170,8 +203,10 @@ def main() -> int:
     args = ap.parse_args()
     planted = build(args.outdir, args.revert_planted)
     mode = "reverted" if args.revert_planted else "planted"
-    print(f"{mode} bad: {planted}")
-    print(f"fixture written to {args.outdir} (seed {SEED})")
+    print(f"{mode} bad: {planted or '(none — regression reverted)'}")
+    print(f"fixture written to {args.outdir} "
+          f"(seed {SEED}, {NUM_COMMITS} commits, sweep range "
+          f"{SWEEP_FIRST}..{SWEEP_LAST}, planted at {PLANTED_INDEX})")
     return 0
 
 
