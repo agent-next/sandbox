@@ -136,7 +136,7 @@ verdict JSON lists each gate with its measured numbers.
   with a tiny decoy element can keep it quiet while every hold is
   visually static — this gate measures *meaningful* change. Measured on
   the good example: 39/39 pairs move; the `static-composition` mutant
-  (a 60 px teleporting square) moves ~5/39 and is killed here only.
+  (a 50 px teleporting square) moves ~5/39 and is killed here only.
   Reported as `moved_pct` quantised to 10 % (verdict determinism).
 
 ### Gate 7 — no text overflow (DOM audit in headless Chrome)

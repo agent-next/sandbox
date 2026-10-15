@@ -5,19 +5,24 @@ A disposable agent-next sandbox installs a pinned, sha256-checked copy of
 (Apache-2.0, ~63.6k GitHub stars) — the open-source tool that renders an
 HTML/CSS/JS composition to MP4 headless — plus its own Node.js, Chrome
 Headless Shell, FFmpeg and tesseract. The scenario: an agent reads
-`brief.md` (a 24 s product teaser: title, three feature beats, end card,
-brand colours) and writes `composition/index.html` — a paused, seekable
-GSAP timeline on `window.__timelines` — then renders `output.mp4` in the
-sandbox.
+`brief.md` (a 20 s 1920×1080@30 product teaser: title, three feature
+beats, end card, brand colours) and writes `composition/index.html` — a
+paused, seekable GSAP timeline on `window.__timelines` — then renders
+`output.mp4` in the sandbox. See [media/demo.mp4](media/demo.mp4) for
+what the known-good artifact produces: kinetic typography, a notes window
+that types itself, a counting sync chart and a live search filter.
 
 The judge it cannot fool renders the composition **twice itself** and
 checks: the MP4's duration/resolution/fps/codec against the brief
 (ffprobe), every beat's text on screen at its timestamp (ffmpeg frame
 grabs + tesseract OCR on three contrast variants), no black gaps > 0.5 s
 and no frozen holds > 2 s (blackdetect/freezedetect), the brand colours
-present in sampled frames (CIE76 ΔE), and that the two renders agree
-(SSIM ≥ 0.995, PSNR ≥ 40 dB — HyperFrames is not byte-deterministic,
-documented in [SPEC.md](SPEC.md)). Gates and numeric thresholds are in
+present in sampled frames (CIE76 ΔE), real frame-to-frame motion on a
+0.5 s sample grid (a teleporting decoy won't do), zero text boxes
+overflowing their container (a DOM audit run inside the pinned
+chrome-headless-shell), and that the two renders agree (SSIM ≥ 0.995,
+PSNR ≥ 40 dB — HyperFrames is not byte-deterministic, documented in
+[SPEC.md](SPEC.md)). Gates and numeric thresholds are in
 [SPEC.md](SPEC.md); real command output is in [RECEIPT.md](RECEIPT.md).
 
 The artifact under test is a plain directory:
@@ -66,7 +71,7 @@ unless `--keep` is given.
 # 1. Install the pinned toolchain (needs passwordless sudo for apt)
 bash judge/setup.sh
 
-# 2. Self-test: proves the judge can fail (good + 8 mutants, ~25 min)
+# 2. Self-test: proves the judge can fail (good + 10 mutants, ~30 min)
 bash judge/selftest.sh
 
 # 3. Grade the known-good artifact (seed 42 for reproducibility)
@@ -91,8 +96,17 @@ of equivalent renders produce byte-identical verdict JSON outside the
 | step | wall time |
 |---|---|
 | `judge/setup.sh` (cold) | ~3 min |
-| `judge/grade.sh examples/good` (2 renders + all gates) | ~8 min |
-| `judge/selftest.sh` (good + determinism + 8 mutants) | ~25 min |
+| `judge/grade.sh examples/good` (2 renders + all gates) | ~4 min |
+| `judge/selftest.sh` (good + determinism + 10 mutants) | ~30 min |
+
+## Media
+
+[media/make_media.sh](media/make_media.sh) regenerates everything in
+`media/` from the composition source: `demo.mp4` (the actual HyperFrames
+render, h264 crf 18 + faststart), `result.png` (poster frame),
+`strip.png` (six frames across the beats) and `MANIFEST.json` (sha256 +
+provenance per file). Nothing in `media/` is post-edited — the mp4 is a
+straight transcode of the render.
 
 ## Upstream credit
 

@@ -35,7 +35,7 @@ STATIC_BODY = '''<script>
   tl.seek(0);
 </script>'''
 
-# A 60x60 square teleporting between four fixed corners every 0.5 s:
+# A 50x50 square teleporting between four fixed corners every 0.5 s:
 # enough per-frame pixel change that freezedetect never sees a >2 s run,
 # but under gate 6's meaningful-diff floor (~0.4% of the frame), so only
 # the frame-motion gate kills it.
@@ -98,7 +98,7 @@ def main():
         for pat in (r'[ \t]*beatIO\("#beat2"[^;]*;\n?',
                     r'[ \t]*wordsIn\("#beat2[^;]*;\n?',
                     r'[ \t]*tl\.fromTo\("#b2wrap"[\s\S]*?8\.1\);\n?',
-                    r'[ \t]*const counter = \{ n: 0 \};[\s\S]*?8\.3\);\n?',
+                    r'[ \t]*const cnode[\s\S]*?CDUR\);\n  \}\n?',
                     r'[ \t]*tl\.fromTo\("#b2wrap \.bar"[\s\S]*?8\.45\);\n?',
                     r'[ \t]*tl\.fromTo\("#beat2 \.dev"[\s\S]*?9\.2\);\n?',
                     r'[ \t]*tl\.fromTo\("#syncdot"[\s\S]*?8\.9\);\n?'):
@@ -164,8 +164,8 @@ def main():
     #    judge renders visibly diverge; SSIM drops below the gate.
     d = clone(os.path.join(BAD, 'nondeterministic'))
     def jitter(s):
-        s = sub1(s, r'\{ x: 150, y: 85, duration: DUR',
-                 '{ x: 200 + Math.random() * 600, y: Math.random() * 300, duration: DUR',
+        s = sub1(s, r'\{ x: 420, y: 170, scale: 1\.18',
+                 '{ x: 200 + Math.random() * 600, y: Math.random() * 300, scale: 1.18',
                  'random drift')
         return s
     edit_html(d, jitter)
@@ -178,7 +178,7 @@ def main():
     def decoy(s):
         s = sub1(s, r'(<div id="track">)',
                  '<div id="shim" style="position:absolute;left:0;top:0;'
-                 'width:60px;height:60px;background:#F59E0B;opacity:0.5;'
+                 'width:50px;height:50px;background:#F59E0B;opacity:0.5;'
                  'border-radius:12px;"></div>\n  \\1', 'shim element')
         s = sub1(s, SCRIPT_RE, STATIC_BODY.replace('EXTRA', DECOY),
                  'static script')
