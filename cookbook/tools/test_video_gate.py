@@ -287,7 +287,8 @@ KNOWN_FAIL = {"cfd-openfoam", "fea-calculix", "firmware-qemu", "gpu-kernel", "pl
 
 
 def test_committed_demo_baseline():
-    demos = sorted(REPO_ROOT.glob("cookbook/*/media/demo.mp4"))
+    demos = sorted(d for d in REPO_ROOT.glob("cookbook/*/media/demo.mp4")
+                   if not d.parent.parent.name.startswith("_"))  # _template holds a placeholder
     assert demos, "no committed cookbook/*/media/demo.mp4 found"
     header = f"{'demo':<20} {'gate':<6} failed checks"
     print("\n" + header + "\n" + "-" * len(header))
