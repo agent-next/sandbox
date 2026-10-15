@@ -1,0 +1,8 @@
+# Judge dependency pins — installed by setup.sh into ~/.venvs/aicad-judge
+# Versions verified to exist on PyPI and to work together on CPython 3.10+.
+trimesh==4.6.6
+manifold3d==3.1.1
+cadquery==2.5.2
+ezdxf==1.4.0
+numpy==2.2.6
+rtree==1.4.0
