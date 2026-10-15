@@ -59,7 +59,7 @@ def sbx(*args: str, timeout: float = 180.0) -> subprocess.CompletedProcess:
     return proc
 
 
-def step(name: str, fn, timeout: float = 300.0) -> subprocess.CompletedProcess:
+def step(name: str, fn) -> subprocess.CompletedProcess:
     start = time.monotonic()
     proc = fn()
     dt = time.monotonic() - start
@@ -103,8 +103,7 @@ def main() -> int:
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
                          "git", "clone", "--depth", "1", "-b", args.ref,
-                         REPO, CLONE_DIR),
-             timeout=300 + LOCAL_MARGIN_S)
+                         REPO, CLONE_DIR, timeout=300 + LOCAL_MARGIN_S))
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
@@ -112,8 +111,8 @@ def main() -> int:
             # --timeout, or a long step is killed while it still works
             proc = step(name, lambda: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"),
-                timeout=timeout + LOCAL_MARGIN_S)
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}",
+                timeout=timeout + LOCAL_MARGIN_S))
             if echo:
                 show(proc)
             return proc
