@@ -1,0 +1,222 @@
+{
+  "tasks": [
+    {
+      "answer": "4500",
+      "difficulty": 1,
+      "input": "timeout_ms = 4500\n",
+      "kind": "kv",
+      "naive_answer": "4500",
+      "note": "naive lookup finds the only occurrence",
+      "params": {
+        "key": "timeout_ms"
+      },
+      "prompt": "What is the value of `timeout_ms` for service alpha?",
+      "task_id": "kv01"
+    },
+    {
+      "answer": "3",
+      "difficulty": 0,
+      "input": "[client]\nretry_count = 7\n\n[service alpha]\nretry_count = 3\n",
+      "kind": "kv",
+      "naive_answer": "7",
+      "note": "naive lookup scans the whole file and hits [client] first",
+      "params": {
+        "key": "retry_count",
+        "section": "service alpha"
+      },
+      "prompt": "What is the value of `retry_count` for service alpha?",
+      "task_id": "kv02"
+    },
+    {
+      "answer": "90",
+      "difficulty": 0,
+      "input": "; the rest of the file\n[[block]]\nmax_queue = 12\n\n# the tail block\n[tail]\nmax_queue = 90\n",
+      "kind": "kv",
+      "naive_answer": "12",
+      "note": "naive lookup takes the first occurrence, inside a comment block",
+      "params": {
+        "active_only": true,
+        "key": "max_queue",
+        "last": true
+      },
+      "prompt": "What is the value of `max_queue` in the last block?",
+      "task_id": "kv03"
+    },
+    {
+      "answer": "TLSv1.3",
+      "difficulty": 0,
+      "input": "tls_min_version = TLSv1.2\nTLS_MIN_VERSION = TLSv1.3\n",
+      "kind": "kv",
+      "naive_answer": "TLSv1.2",
+      "note": "naive lookup is case-insensitive and returns the decoy lowercase key",
+      "params": {
+        "case_sensitive": true,
+        "key": "TLS_MIN_VERSION"
+      },
+      "prompt": "What is the value of `TLS_MIN_VERSION` (case-sensitive key)?",
+      "task_id": "kv04"
+    },
+    {
+      "answer": "on",
+      "difficulty": 0,
+      "input": "# feature_flag = off\nfeature_flag = on\n",
+      "kind": "kv",
+      "naive_answer": "off",
+      "note": "naive lookup keeps the commented-out line and never sees the active one",
+      "params": {
+        "active_only": true,
+        "key": "feature_flag"
+      },
+      "prompt": "What is the effective (uncommented) `feature_flag` value?",
+      "task_id": "kv05"
+    },
+    {
+      "answer": "ap-south-1",
+      "difficulty": 1,
+      "input": "worker,region\n1,eu-west-1\n2,ap-south-1\n3,us-east-2\n",
+      "kind": "kv",
+      "naive_answer": "ap-south-1",
+      "note": "naive CSV split handles it",
+      "params": {
+        "csv_col": "region",
+        "csv_row": "2"
+      },
+      "prompt": "What is the value of `region` for worker 2?",
+      "task_id": "kv06"
+    },
+    {
+      "answer": "16",
+      "difficulty": 0,
+      "input": "[pool]\nworkers = 4\ncpu = 2\n\n[pool production]\n[pool]\nworkers = 16\ncpu = 8\n",
+      "kind": "kv",
+      "naive_answer": "4",
+      "note": "naive lookup takes the first [pool] block's value",
+      "params": {
+        "key": "workers",
+        "last": true,
+        "section": "pool"
+      },
+      "prompt": "What is the value of `workers` in the last [pool] block?",
+      "task_id": "kv07"
+    },
+    {
+      "answer": "\"release/2.0\"",
+      "difficulty": 0,
+      "input": "checkout_branch =   \"release/2.0\"   # keep\n",
+      "kind": "kv",
+      "naive_answer": "\"release/2.0\"   # keep",
+      "note": "naive lookup keeps the trailing comment inside the value",
+      "params": {
+        "key": "checkout_branch",
+        "strip_comment": true
+      },
+      "prompt": "What is the value of `checkout_branch` (comments trimmed)?",
+      "task_id": "kv08"
+    },
+    {
+      "answer": "10|22|30",
+      "difficulty": 1,
+      "input": "sensors = 10, 22, 30\n",
+      "kind": "re",
+      "naive_answer": "10|22|30",
+      "note": "naive digit scan handles it",
+      "params": {
+        "how": "digits_join"
+      },
+      "prompt": "List the numbers in `sensors = 10, 22, 30` separated by '|'.",
+      "task_id": "re01"
+    },
+    {
+      "answer": "8000",
+      "difficulty": 0,
+      "input": "server = host=web1 port=8000,8001;\n",
+      "kind": "re",
+      "naive_answer": "8000,8001",
+      "note": "naive greedy 'port=.*' swallows 8000,8001 and reports both",
+      "params": {
+        "how": "first_port"
+      },
+      "prompt": "Which port is followed by another port (grabbed greedily by a naive pattern)?",
+      "task_id": "re02"
+    },
+    {
+      "answer": "\"ab\\\"cd\"",
+      "difficulty": 0,
+      "input": "label = \"ab\\\"cd\" end\n",
+      "kind": "re",
+      "naive_answer": "\"ab\\\"",
+      "note": "naive '\".*\"' stops at the escaped quote",
+      "params": {
+        "how": "quoted"
+      },
+      "prompt": "Report the whole quoted string in `label = \"ab\\\"cd\" end`.",
+      "task_id": "re03"
+    },
+    {
+      "answer": "10.0.0.1",
+      "difficulty": 0,
+      "input": "v6 host is ::1 and v4 host is 10.0.0.1\n",
+      "kind": "re",
+      "naive_answer": "::1",
+      "note": "naive '.*' match on 'host is' starts at ::1 and takes that",
+      "params": {
+        "how": "dotted_quad"
+      },
+      "prompt": "Report the v4 address in `v6 host is ::1 and v4 host is 10.0.0.1`.",
+      "task_id": "re04"
+    },
+    {
+      "answer": "2.10",
+      "difficulty": 0,
+      "input": "version = 2.10.\n",
+      "kind": "re",
+      "naive_answer": "2.10.",
+      "note": "a naive '[0-9.]+' swallow counts the sentence-ending dot as part of the version",
+      "params": {
+        "how": "version"
+      },
+      "prompt": "Report the version in `version = 2.10` (digits and dots only).",
+      "task_id": "re05"
+    },
+    {
+      "answer": "2",
+      "difficulty": 0,
+      "input": "red redder red\n",
+      "kind": "re",
+      "naive_answer": "3",
+      "note": "naive substring count says 3 ('red' occurs inside 'redder'); word boundaries say 2",
+      "params": {
+        "how": "word_count",
+        "word": "red"
+      },
+      "prompt": "Count the whole word `red` in `red redder red` (any case).",
+      "task_id": "re06"
+    },
+    {
+      "answer": "Ada+L",
+      "difficulty": 0,
+      "input": "Contact: Ada+L@example.com now\n",
+      "kind": "re",
+      "naive_answer": "L",
+      "note": "naive '\\w+@' stops at the '+' in the local part",
+      "params": {
+        "how": "email_local"
+      },
+      "prompt": "Report the email local part of `Contact: Ada+L@example.com`.",
+      "task_id": "re07"
+    },
+    {
+      "answer": "42",
+      "difficulty": 1,
+      "input": "id = 007-42\n",
+      "kind": "re",
+      "naive_answer": "42",
+      "note": "naive trailing-digit scan handles it",
+      "params": {
+        "how": "trailing_int"
+      },
+      "prompt": "Report the last integer in `id = 007-42`.",
+      "task_id": "re08"
+    }
+  ]
+}

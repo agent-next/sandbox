@@ -1,0 +1,16 @@
+outputs-*/
+# Renders, buffers and downloaded tools never belong in git.
+*.png
+*.npy
+*.f32
+*.hdr
+*.tgz
+*.log
+verdict*.json
+serve/
+work/
+__pycache__/
+# Published media are committed; the lossless master stays local.
+!media/result.png
+!media/loop.png
+media/master/

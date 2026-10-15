@@ -1,0 +1,118 @@
+{
+  "demo": "firmware-qemu",
+  "headline": "The agent's bare-metal Cortex-M3 firmware boots in QEMU and answers all 46 scripted UART shell commands byte-exact: 8/8 gates, 14/14 mutants killed.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "build_clean",
+      "pass": true,
+      "measured": "make exit 0, no diagnostics",
+      "threshold": "gcc -Wall -Werror exit 0 and stderr empty"
+    },
+    {
+      "name": "elf_ok",
+      "pass": true,
+      "measured": "entry 0x205 is inside .text",
+      "threshold": "e_machine ARM; ET_EXEC; entry within .text"
+    },
+    {
+      "name": "maps_ok",
+      "pass": true,
+      "measured": ".text+.rodata = 2224 B",
+      "threshold": "<= 8192 B"
+    },
+    {
+      "name": "boot",
+      "pass": true,
+      "measured": "banner within 10 s",
+      "threshold": "banner <= BOOT_S (10 s)"
+    },
+    {
+      "name": "shell",
+      "pass": true,
+      "measured": "46/46 exact responses",
+      "threshold": "every response byte-exact within SHELL_S (30 s)"
+    },
+    {
+      "name": "crc_oracle",
+      "pass": true,
+      "measured": "15/15 match zlib.crc32",
+      "threshold": "all 15 buffers match exactly"
+    },
+    {
+      "name": "no_hardfault",
+      "pass": true,
+      "measured": "no fault strings in UART output",
+      "threshold": "0 fault-string occurrences"
+    },
+    {
+      "name": "judge_intact",
+      "pass": true,
+      "measured": "judge checksum unchanged",
+      "threshold": "judge/ sha256 identical before and after"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "gates passed",
+      "value": "8/8",
+      "unit": "",
+      "source": "RECEIPT.md:13"
+    },
+    {
+      "label": "shell responses byte-exact",
+      "value": "46/46",
+      "unit": "",
+      "source": "README.md:43"
+    },
+    {
+      "label": "CRC-32 buffers matching zlib.crc32",
+      "value": "15/15",
+      "unit": "",
+      "source": "README.md:44"
+    },
+    {
+      "label": ".text+.rodata",
+      "value": 2224,
+      "unit": "B",
+      "source": "README.md:47"
+    },
+    {
+      "label": "mutants killed",
+      "value": "14/14",
+      "unit": "",
+      "source": "RECEIPT.md:14"
+    },
+    {
+      "label": "behavioural kill rate",
+      "value": 100,
+      "unit": "%",
+      "source": "RECEIPT.md:83"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "The judged session: the real UART transcript of the good firmware in QEMU beside the 8-gate table with measured values."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "mutant x gate matrix: known-good plus 14 mutants against all 8 gates"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "the real captured UART session, then the crc-poly mutant diverging from the oracle"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/firmware-qemu/run.py",
+    "ask_agent": "Write bare-metal firmware for a QEMU `lm3s6965evb`\nboard (Cortex-M3, UART0) that boots and serves the command shell in\n`cookbook/firmware-qemu/SPEC.md`. The judge will build it with\n`-Wall -Werror` and interrogate it over the emulated UART."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "a07e93887d21973e22a5aa204e82ce0bff4d8821",
+  "schema": "agent-next/result@1"
+}

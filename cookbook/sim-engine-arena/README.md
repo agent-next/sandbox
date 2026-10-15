@@ -41,11 +41,15 @@ total 63–69 s; `--gpu` adds ~2 min of GPU lane (warp kernels cold-compile
 ~25 s on a fresh lease — setup time, not sim time). Locally with a warm
 venv the same judge steps take ~3 s / ~17 s / ~2 s.
 
-![CPU trajectories and analytic judge limits](media/result.png)
+![Real MuJoCo 3D frames and analytic judge limits](media/result.png)
 
-[Watch the physics and PASS table](media/demo.mp4) · [Agent loop](media/loop.png).
+[Watch the MuJoCo 3D render and PASS card](media/demo.mp4) · [Agent loop](media/loop.png).
 Regenerate with `bash cookbook/sim-engine-arena/media/make_media.sh`
-(Python 3.10–3.13, ffmpeg; installs pinned local toolchains).
+(Python 3.10–3.13, ffmpeg, DejaVu Sans fonts, EGL or OSMesa; installs pinned
+local toolchains). The offscreen video replays the actual judge-scored
+states, with the 35° sliding and 20° sticking boxes side by side.
+Only visual assets are added to render-only copies of the artifact's
+models; every frame is checked against the graded trajectory.
 
 To try the judge locally on a CPU-only Linux box instead (run all three
 from this repository's root — grade.sh resolves the artifact path
