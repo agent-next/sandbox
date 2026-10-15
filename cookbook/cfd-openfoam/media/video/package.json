@@ -1,0 +1,21 @@
+{
+  "name": "cfd-openfoam-media",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Animated demo video for the cfd-openfoam cookbook demo: real OpenFOAM flow clips composed by Remotion with a HUD of the judge's measured numbers.",
+  "scripts": {
+    "render": "remotion render Compositions out/demo.mp4 --gl=angle",
+    "still": "remotion still"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.533",
+    "@remotion/bundler": "4.0.533",
+    "@remotion/renderer": "4.0.533",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.8",
+    "typescript": "5.8.3"
+  }
+}
