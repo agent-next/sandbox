@@ -33,8 +33,13 @@ killed=0
 for m in "$work"/mutants/*/; do
     name="$(basename "$m")"
     total=$((total + 1))
-    if bash "$JDIR/grade.sh" "$m/delivery.patch" --pr "$m/PR.md" \
-            --json "$work/$name.json" > /dev/null 2>&1; then
+    # Detached, output to a file: one grade can take minutes on a slow
+    # sandbox, longer than any single sbx exec --timeout.  This script
+    # runs the loop; the file is read back before the next case.
+    rm -f "$work/$name.log"
+    if sbx_exec grade.sh "$m/delivery.patch" --pr "$m/PR.md" \
+            --json "$work/$name.json" \
+            > "$work/$name.log" 2>&1 && [ -s "$work/$name.json" ]; then
         echo "selftest: SURVIVED  $name (judge let it pass!)"
     else
         gate="$(python3 -I -c "import json,sys;print(json.load(open(sys.argv[1])).get('failed_gate','?'))" "$work/$name.json" 2>/dev/null || echo '?')"

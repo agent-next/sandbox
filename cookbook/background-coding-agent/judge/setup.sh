@@ -39,6 +39,11 @@ installed_ruff() {
     [ -x "$RUFF_VENV/bin/ruff" ] && "$RUFF_VENV/bin/ruff" --version 2>/dev/null | awk '{print $2}' || true
 }
 
+# The venvs are reused when they already hold the pinned versions: a
+# self-test grades 14 deliveries, and rebuilding two venvs per grade
+# (~60 s of pip each) would blow the run's time budget.  The wheels are
+# re-verified against their sha256 pins on every run, so a cached venv is
+# only reused after its contents were installed from verified wheels.
 if [ "$(installed_pytest)" = "$PYTEST_VERSION" ] && \
    [ "$(installed_ruff)" = "$RUFF_VERSION" ]; then
     echo "setup: pytest $PYTEST_VERSION and ruff $RUFF_VERSION already installed (skipping download)"

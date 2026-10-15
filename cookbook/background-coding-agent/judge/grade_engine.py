@@ -62,6 +62,7 @@ CLI_TIMEOUT = 20
 FORBIDDEN_BASENAMES = {
     "pyproject.toml", "setup.py", "setup.cfg", "tox.ini", "pytest.ini",
     "conftest.py", "ruff.toml", ".ruff.toml",
+    "version.py", "__init__.py",
 }
 FORBIDDEN_PREFIXES = ("tests/",)
 # Interpreter startup hooks: the checkout root is on PYTHONPATH for the
@@ -433,6 +434,11 @@ def compare_document(got: dict, want: dict, label: str) -> list[str]:
         problems.append(f"{label}: metrics order {got_names} != "
                         f"{want_names}")
         return problems
+    # The reference orders by name in Unicode code point order; the
+    # artifact must emit the same order (sorted() on str).
+    if got_names != sorted(got_names):
+        problems.append(f"{label}: metrics are not sorted by name "
+                        f"({got_names} != {sorted(got_names)})")
     for entry, expect in zip(got["metrics"], want["metrics"]):
         name = expect["name"]
         if not isinstance(entry, dict) or set(entry) != METRIC_KEYS:
