@@ -421,6 +421,7 @@ def grade(artifact_dir: Path, seed: int = DEFAULT_SEED) -> dict:
         if not (artifact_src / needed).is_file():
             return {"artifact": str(artifact_dir), "seed": seed,
                     "passed": False, "failed_gate": "artifact",
+                    "failed_gates": ["artifact"],
                     "reason": f"missing {needed} in {artifact_src}"}
 
     verdict = {"artifact": str(artifact_dir), "seed": seed,
@@ -455,12 +456,13 @@ def grade(artifact_dir: Path, seed: int = DEFAULT_SEED) -> dict:
         gates["integrity"] = gate_integrity(artifact, work)
 
         verdict["gates"] = {name: gates[name].as_json() for name in GATES}
-        for name in GATES:
-            if not gates[name].passed:
-                verdict["passed"] = False
-                verdict["failed_gate"] = name
-                verdict["reason"] = gates[name].reason
-                break
+        # report every gate that failed, and name the first as the headline
+        failed = [name for name in GATES if not gates[name].passed]
+        verdict["failed_gates"] = failed
+        if failed:
+            verdict["passed"] = False
+            verdict["failed_gate"] = failed[0]
+            verdict["reason"] = gates[failed[0]].reason
 
     verdict["timing"]["wall_seconds"] = round(time.monotonic() - t0, 3)
     return verdict

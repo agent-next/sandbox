@@ -202,7 +202,7 @@ The judge never trusts the artifact's arithmetic:
   - `no-events-as-zero` — an empty log answered with `status: "ok"` and
     fabricated zeros (must fail G6);
   - `all-rows-counted` — totals over the whole file instead of the selected
-    date (must fail G2);
+    date (fails G1 and G2; the verdict lists both);
   and at least:
   - `mean-unrounded` / `p95-off-by-one` (G1),
   - `paused-skipped` — the schedule drops the pause step (G4/G5),

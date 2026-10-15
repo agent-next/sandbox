@@ -37,14 +37,14 @@ for m in "$MUTDIR"/*/; do
         cat "$LOGDIR/${name}.log" >&2
     else
         gate="$(python3 -c "
-import json,sys
+import json
 try:
     v=json.load(open('$LOGDIR/${name}.json'))
-    print(v.get('failed_gate') or '?')
+    print(','.join(v.get('failed_gates') or [v.get('failed_gate') or '?']))
 except Exception:
     print('?')
 ")"
-        echo "selftest: mutant KILLED: $name (failed gate: $gate)"
+        echo "selftest: mutant KILLED: $name (failed gates: $gate)"
         killed=$((killed + 1))
     fi
 done
