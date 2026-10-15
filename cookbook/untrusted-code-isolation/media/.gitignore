@@ -1,0 +1,3 @@
+# The lossless master frames are a generation artefact (see
+# cookbook/DEMO-STANDARD.md: make_media.sh writes them, git ignores them).
+master/
