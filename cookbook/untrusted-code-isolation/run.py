@@ -89,8 +89,11 @@ def run(step, *args, timeout=None, capture=False):
     return last, dt
 
 
-def shq(cmd):
-    return " ".join("'%s'" % part.replace("'", "'\\''") for part in cmd)
+def shq(text):
+    """Single-quote one shell word (list joined with spaces for a command)."""
+    if not isinstance(text, str):
+        text = " ".join(text)
+    return "'%s'" % text.replace("'", "'\\''")
 
 
 def sbx_exec(sbx_id, timeout, cmd):
@@ -123,8 +126,9 @@ def detached_step(sbx_id, name, cmd, log_path, status_path, timeout):
     costs one retried poll, not the step.
     """
     t0 = time.monotonic()
-    start = "setsid sh -c %s >%s 2>&1 < /dev/null & echo $! >%s.pid" \
-            % (shq(cmd), shq([log_path]), shq([log_path]))
+    inner = "%s >%s 2>&1; echo $? >%s" % (
+        " ".join(shq(part) for part in cmd), shq(log_path), shq(status_path))
+    start = "setsid sh -c %s </dev/null >/dev/null 2>&1 &" % shq(inner)
     proc, attempts = sbx_exec(sbx_id, 120, ["sh", "-c", start])
     if proc.returncode != 0:
         die("could not start %s in sandbox %s (exit %d)%s\n%s"
@@ -139,13 +143,15 @@ def detached_step(sbx_id, name, cmd, log_path, status_path, timeout):
         proc, _ = sbx_exec(sbx_id, 60,
                            ["sh", "-c",
                             "cat %s 2>/dev/null || echo running"
-                            % shq([status_path])])
+                            % shq(status_path)])
         out = (proc.stdout or "").strip()
         if out and out != "running":
             dt = time.monotonic() - t0
             print("  [%s] finished: exit %s (%.0f s)" % (name, out, dt),
                   flush=True)
             return int(out), dt
+        print("  [%s] still running (%.0f s elapsed)"
+              % (name, time.monotonic() - t0), flush=True)
         if time.monotonic() - t0 > timeout:
             die("%s exceeded %d s in sandbox %s; it may still be running — "
                 "read %s" % (name, timeout, sbx_id, log_path))
@@ -226,7 +232,7 @@ def main():
         )
         for name, cmd, prefix in steps:
             status_path = prefix + ".status"
-            sbx_exec(sbx_id, 60, ["sh", "-c", "rm -f %s" % shq([status_path])])
+            sbx_exec(sbx_id, 60, ["sh", "-c", "rm -f %s" % shq(status_path)])
             rc, _ = detached_step(sbx_id, name, cmd, prefix + ".log",
                                   status_path, STEP_TIMEOUTS[name])
             if rc != 0:
