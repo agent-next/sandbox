@@ -1,28 +1,38 @@
 #!/usr/bin/env python3
 """bisect-breaking-commit judge engine (stdlib only), called by judge/grade.sh.
 
-Independent oracle: re-runs the fixture suite at every commit in the range
-itself, then checks the artifact against the measured ground truth.
+Independent oracle (SPEC.md): the judge never trusts the artifact's claims.
+It rebuilds the fixture at the pinned seed (byte-identical SHAs by
+construction), re-runs the suite at every commit in the sweep range in fresh
+clones, and derives the culprit itself.  The same sweep code path is run on
+the reverted fixture as the negative control: it must report
+"no regression in range" rather than naming a random commit.
 
-Gates per SPEC.md:
-  G1 artifact      valid JSON, required fields present, correct types
-  G2 identified    artifact.commit == the commit where the suite first fails
-                   (measured by re-running the suite at every commit)
-  G3 neighbors     suite passes at commit-1 and fails at commit (measured)
-  G4 speedup       parallel_wall <= serial_wall / 3.0 (both measured)
-  G5 diff          artifact.diff matches the measured diff at the identified
-                   commit (the planted whitespace change)
-  G6 negative      on the reverted fixture the sweep reports "no regression"
-                   instead of naming a random commit
+Gates (checked in order, first failure wins):
+  G1 structure          valid JSON, required fields, correct types
+  G2 timing_arithmetic  speedup == serial_seconds / parallel_seconds (1 %)
+  G3 identified         identified_commit == planted SHA, index == PLANTED_INDEX
+  G4 neighbours         suite passes at N-1, fails at N (measured); the
+                        artifact's evidence booleans must match
+  G5 diff               artifact.diff == git show at the planted commit
+                        (whitespace-normalised both sides)
+  G6 negative_control   the judge's own sweep on the reverted fixture reports
+                        "no regression in range"
+  G7 speedup            artifact speedup >= 3.0 AND the judge's own measured
+                        serial/parallel sweep ratio >= 3.0
+  G8 sandboxes          sandboxes_used == one sandbox per suspect commit (11)
 
-The judge never trusts the artifact's claims about which commit is bad —
-it re-runs the suite at every commit and derives the answer itself.
+Measured walls are reported only under the verdict's "timing" key, so two
+grades of the same artifact are byte-identical apart from that key (the one
+timing-derived verdict bit is the G7 pass flag; the fixture's settle delay
+gives >= 2x margin over the 3.0 threshold on 2 vCPU).
 """
 
 from __future__ import annotations
 
+import argparse
+import concurrent.futures
 import json
-import math
 import re
 import subprocess
 import sys
@@ -31,14 +41,17 @@ import time
 from pathlib import Path
 
 # --- fixture constants (must match fixture/make_fixture.py) ----------------
-FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixture"
-MAKE_FIXTURE = FIXTURE_DIR / "make_fixture.py"
+DEMO_DIR = Path(__file__).resolve().parent.parent
+MAKE_FIXTURE = DEMO_DIR / "fixture" / "make_fixture.py"
 SEED = 20261015
 NUM_COMMITS = 31
 PLANTED_INDEX = 25
+SWEEP_FIRST, SWEEP_LAST = 20, 30          # 11 suspect commits
+N_SANDBOXES = SWEEP_LAST - SWEEP_FIRST + 1
 SPEEDUP_MIN = 3.0
-REQUIRED_FIELDS = {"commit", "subject", "author", "date", "diff",
-                   "serial_wall_s", "parallel_wall_s", "speedup"}
+REQUIRED_FIELDS = ("identified_commit", "identified_index", "evidence", "diff",
+                   "serial_seconds", "parallel_seconds", "speedup",
+                   "sandboxes_used")
 
 
 class GateFail(Exception):
@@ -47,256 +60,274 @@ class GateFail(Exception):
         self.gate, self.message = gate, message
 
 
-def sh(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=repo, check=check,
+def sh(repo: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=repo, check=True,
                           capture_output=True, text=True)
 
 
 def build_fixture(workdir: Path, revert: bool) -> Path:
-    """Build the fixture repo into workdir, return its path."""
+    """Build the fixture repo into workdir at the pinned seed; return path."""
     outdir = workdir / ("fixture_reverted" if revert else "fixture_planted")
     if outdir.exists():
         subprocess.run(["rm", "-rf", str(outdir)], check=True)
     cmd = [sys.executable, "-I", str(MAKE_FIXTURE), str(outdir)]
     if revert:
         cmd.append("--revert-planted")
-    subprocess.run(cmd, check=True, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"make_fixture.py failed: {proc.stderr.strip()}")
     return outdir
 
 
 def run_suite(repo: Path) -> tuple[bool, str]:
-    """Run test_suite.py in repo; return (passed, output)."""
+    """Run test_suite.py in repo; return (passed, output).
+
+    No -I here: the suite imports caseparser from its own directory, and
+    the fixture is code this demo generates itself, not downloaded data.
+    """
     try:
         proc = subprocess.run(
             [sys.executable, "test_suite.py"], cwd=repo,
-            capture_output=True, text=True, timeout=60)
-        passed = proc.returncode == 0
-        return passed, (proc.stdout + proc.stderr).strip()
+            capture_output=True, text=True, timeout=120)
+        return proc.returncode == 0, (proc.stdout + proc.stderr).strip()
     except subprocess.TimeoutExpired:
         return False, "timeout"
-    except Exception as exc:
+    except OSError as exc:
         return False, str(exc)
 
 
-def measure_range(repo: Path) -> list[dict]:
-    """Run the suite at every commit 0..NUM_COMMITS-1; return per-commit results."""
-    results = []
-    for i in range(NUM_COMMITS):
-        # checkout commit i (HEAD~{NUM_COMMITS-1-i})
-        depth = NUM_COMMITS - 1 - i
-        sh(repo, "checkout", "-q", f"HEAD~{depth}" if depth else "HEAD")
-        passed, output = run_suite(repo)
-        results.append({"index": i, "passed": passed, "output": output})
-    return results
+def _rev_at_head_depth(index: int) -> str:
+    """Rev of `index` counted from the oldest commit, relative to a fresh
+    clone whose HEAD is the newest commit (NUM_COMMITS-1)."""
+    depth = (NUM_COMMITS - 1) - index
+    return f"HEAD~{depth}" if depth else "HEAD"
 
 
-def find_first_failure(results: list[dict]) -> int | None:
-    """Index of the first commit where the suite fails, or None."""
-    for r in results:
-        if not r["passed"]:
-            return r["index"]
-    return None
+def sweep(workdir: Path, fixture: Path, serial: bool) -> dict:
+    """Test every commit in the sweep range in a fresh clone each — the same
+    thing one sandbox per commit does — and return
+    {"results": {index: passed}, "wall_s": float}.
 
-
-def get_commit_info(repo: Path, index: int) -> dict:
-    """Get commit metadata at the given index (0 = oldest)."""
-    depth = NUM_COMMITS - 1 - index
-    rev = f"HEAD~{depth}" if depth else "HEAD"
-    fmt = "%H%n%an%n%ae%n%aI%n%s"
-    out = sh(repo, "log", "-1", f"--format={fmt}", rev).stdout.strip()
-    lines = out.splitlines()
-    return {
-        "sha": lines[0],
-        "author": lines[1],
-        "email": lines[2],
-        "date": lines[3],
-        "subject": lines[4],
-    }
-
-
-def get_commit_diff(repo: Path, index: int) -> str:
-    """Get the diff introduced by the commit at the given index."""
-    depth = NUM_COMMITS - 1 - index
-    rev = f"HEAD~{depth}" if depth else "HEAD"
-    return sh(repo, "show", "--format=", rev).stdout
-
-
-def measure_serial_wall(repo: Path) -> float:
-    """Run the suite serially NUM_COMMITS times; return wall time in seconds."""
-    start = time.monotonic()
-    for i in range(NUM_COMMITS):
-        depth = NUM_COMMITS - 1 - i
-        sh(repo, "checkout", "-q", f"HEAD~{depth}" if depth else "HEAD")
-        run_suite(repo)
-    return time.monotonic() - start
-
-
-def measure_parallel_wall(repo: Path) -> float:
-    """Run the suite at all commits in parallel (one process each); return wall."""
-    import concurrent.futures
+    The negative-control property lives here: if no commit fails, the sweep
+    reports "no regression in range" and never names a commit.
+    """
+    results: dict[int, bool] = {}
     start = time.monotonic()
 
-    def run_one(i: int) -> None:
-        depth = NUM_COMMITS - 1 - i
-        # each thread checks out its own commit in a temp clone
-        with tempfile.TemporaryDirectory() as td:
+    def one(index: int) -> None:
+        with tempfile.TemporaryDirectory(prefix=f"commit{index}-") as td:
             clone = Path(td) / "clone"
-            subprocess.run(["git", "clone", "-q", str(repo), str(clone)],
+            subprocess.run(["git", "clone", "-q", str(fixture), str(clone)],
                            check=True, capture_output=True)
-            sh(clone, "checkout", "-q", f"HEAD~{depth}" if depth else "HEAD")
-            run_suite(clone)
+            sh(clone, "checkout", "-q", _rev_at_head_depth(index))
+            passed, _ = run_suite(clone)
+            results[index] = passed
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_COMMITS) as ex:
-        list(ex.map(run_one, range(NUM_COMMITS)))
-    return time.monotonic() - start
+    if serial:
+        for i in range(SWEEP_FIRST, SWEEP_LAST + 1):
+            one(i)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=N_SANDBOXES) as ex:
+            list(ex.map(one, range(SWEEP_FIRST, SWEEP_LAST + 1)))
+
+    wall = time.monotonic() - start
+    first_fail = next((i for i in sorted(results) if not results[i]), None)
+    return {"results": results, "wall_s": wall, "first_fail": first_fail,
+            "report": "no regression in range" if first_fail is None
+            else f"first failing commit: index {first_fail}"}
 
 
 def grade(artifact: Path, seed: int) -> dict:
-    """Run every gate; return the verdict dict."""
     gates: dict = {}
+    timing: dict = {}
     try:
-        _grade(artifact, seed, gates)
+        _grade(artifact, seed, gates, timing)
     except GateFail as exc:
-        return {"artifact": str(artifact), "passed": False,
+        return {"artifact": str(artifact), "seed": seed, "passed": False,
                 "failed_gate": exc.gate, "reason": exc.message,
-                "gates": gates}
+                "gates": gates, "timing": timing}
     return {"artifact": str(artifact), "seed": seed, "passed": True,
-            "gates": gates}
+            "gates": gates, "timing": timing}
 
 
-def _grade(artifact: Path, seed: int, gates: dict) -> None:
-    # -- G1 artifact structure --------------------------------------------
+def _grade(artifact: Path, seed: int, gates: dict, timing: dict) -> None:
+    # -- G1 structure -------------------------------------------------------
     try:
         data = json.loads(artifact.read_text())
-    except Exception as exc:
-        raise GateFail("artifact", f"not valid JSON: {exc}")
+    except (OSError, ValueError) as exc:
+        raise GateFail("structure", f"not valid JSON: {exc}")
     if not isinstance(data, dict):
-        raise GateFail("artifact", "top-level must be a JSON object")
-    missing = REQUIRED_FIELDS - set(data)
+        raise GateFail("structure", "top-level must be a JSON object")
+    missing = [f for f in REQUIRED_FIELDS if f not in data]
     if missing:
-        raise GateFail("artifact", f"missing fields: {sorted(missing)}")
-    if not isinstance(data["commit"], str) or len(data["commit"]) != 40:
-        raise GateFail("artifact", "commit must be a 40-char hex SHA")
-    if not isinstance(data["diff"], str) or not data["diff"].strip():
-        raise GateFail("artifact", "diff must be a non-empty string")
-    for f in ("serial_wall_s", "parallel_wall_s", "speedup"):
-        if not isinstance(data[f], (int, float)) or data[f] <= 0:
-            raise GateFail("artifact", f"{f} must be a positive number")
-    gates["artifact"] = {"passed": True, "fields": sorted(REQUIRED_FIELDS)}
+        raise GateFail("structure", f"missing fields: {missing}")
+    if not (isinstance(data["identified_commit"], str)
+            and re.fullmatch(r"[0-9a-f]{40}", data["identified_commit"])):
+        raise GateFail("structure",
+                       "identified_commit must be a 40-char hex SHA string")
+    if not isinstance(data["identified_index"], int) or \
+            isinstance(data["identified_index"], bool):
+        raise GateFail("structure", "identified_index must be an int")
+    ev = data["evidence"]
+    if not (isinstance(ev, dict)
+            and isinstance(ev.get("n_minus_1_passes"), bool)
+            and isinstance(ev.get("n_fails"), bool)):
+        raise GateFail("structure",
+                       "evidence must be {n_minus_1_passes: bool, n_fails: bool}")
+    if not (isinstance(data["diff"], str) and data["diff"].strip()):
+        raise GateFail("structure", "diff must be a non-empty string")
+    for f in ("serial_seconds", "parallel_seconds", "speedup"):
+        if not isinstance(data[f], (int, float)) or isinstance(data[f], bool) \
+                or data[f] <= 0:
+            raise GateFail("structure", f"{f} must be a positive number")
+    if not (isinstance(data["sandboxes_used"], int)
+            and not isinstance(data["sandboxes_used"], bool)):
+        raise GateFail("structure", "sandboxes_used must be an int")
+    gates["structure"] = {"passed": True, "fields": sorted(REQUIRED_FIELDS)}
 
-    # -- build fixture and measure ground truth ----------------------------
+    # -- G2 timing arithmetic (no invented numbers) --------------------------
+    ratio = data["serial_seconds"] / data["parallel_seconds"]
+    err = abs(data["speedup"] - ratio) / ratio
+    gates["timing_arithmetic"] = {
+        "passed": err <= 0.01,
+        "recomputed": round(ratio, 3),
+        "claimed": data["speedup"],
+        "rel_err": round(err, 5),
+    }
+    if err > 0.01:
+        raise GateFail("timing_arithmetic",
+                       f"speedup {data['speedup']:.3f} != serial/parallel "
+                       f"{ratio:.3f} (rel err {err:.2%} > 1%)")
+
+    # -- G3 identified: rebuild the fixture, derive the planted SHA ----------
     with tempfile.TemporaryDirectory(prefix="bisect-judge-") as td:
-        workdir = Path(td)
-        repo = build_fixture(workdir, revert=False)
-
-        # G2/G3: measure every commit
-        results = measure_range(repo)
-        first_fail = find_first_failure(results)
-
-        if first_fail is None:
-            # negative control: no regression in range
-            gates["identified"] = {"passed": True, "no_regression": True,
-                                   "note": "suite passes at every commit in range"}
-            gates["neighbors"] = {"passed": True, "no_regression": True}
-            # still check the artifact doesn't name a random commit
-            if data["commit"] != "0" * 40:
-                raise GateFail("identified",
-                               "no regression in range but artifact names a commit")
-            gates["negative"] = {"passed": True}
-            return
-
-        info = get_commit_info(repo, first_fail)
-        diff = get_commit_diff(repo, first_fail)
-
-        # G2: identified commit
+        fixture = build_fixture(Path(td), revert=False)
+        planted_sha = sh(fixture, "rev-parse",
+                         _rev_at_head_depth(PLANTED_INDEX)).stdout.strip()
         gates["identified"] = {
-            "passed": data["commit"] == info["sha"],
-            "expected": info["sha"],
-            "got": data["commit"],
-            "index": first_fail,
+            "passed": data["identified_commit"] == planted_sha
+            and data["identified_index"] == PLANTED_INDEX,
+            "planted_sha": planted_sha,
+            "claimed_sha": data["identified_commit"],
+            "planted_index": PLANTED_INDEX,
+            "claimed_index": data["identified_index"],
         }
-        if data["commit"] != info["sha"]:
+        if data["identified_commit"] != planted_sha:
             raise GateFail("identified",
-                           f"artifact names {data['commit'][:12]} but the suite "
-                           f"first fails at {info['sha'][:12]} (index {first_fail})")
+                           f"artifact names {data['identified_commit'][:12]} "
+                           f"but the planted regression is {planted_sha[:12]} "
+                           f"(index {PLANTED_INDEX})")
+        if data["identified_index"] != PLANTED_INDEX:
+            raise GateFail("identified",
+                           f"identified_index {data['identified_index']} != "
+                           f"{PLANTED_INDEX}")
 
-        # G3: neighbors (N-1 passes, N fails)
-        prev_ok = results[first_fail - 1]["passed"] if first_fail > 0 else True
-        this_ok = results[first_fail]["passed"]
-        gates["neighbors"] = {
-            "passed": prev_ok and not this_ok,
-            "prev_index": first_fail - 1,
-            "prev_passed": prev_ok,
-            "this_index": first_fail,
-            "this_passed": this_ok,
+        # -- G4 neighbours: the judge sweeps the range itself ----------------
+        par = sweep(Path(td), fixture, serial=False)
+        timing["parallel_sweep_s"] = round(par["wall_s"], 3)
+        res = par["results"]
+        prev_ok, this_bad = res[PLANTED_INDEX - 1], not res[PLANTED_INDEX]
+        gates["neighbours"] = {
+            "passed": prev_ok and this_bad
+            and data["evidence"]["n_minus_1_passes"] == res[PLANTED_INDEX - 1]
+            and data["evidence"]["n_fails"] == (not res[PLANTED_INDEX]),
+            "n_minus_1_passed_measured": prev_ok,
+            "n_fails_measured": this_bad,
+            "claimed": data["evidence"],
+            "sweep_first_fail": par["first_fail"],
         }
         if not prev_ok:
-            raise GateFail("neighbors",
-                           f"suite also fails at index {first_fail - 1} "
-                           f"(not a clean boundary)")
-        if this_ok:
-            raise GateFail("neighbors",
-                           f"suite passes at index {first_fail} "
-                           f"(not a failure boundary)")
+            raise GateFail("neighbours",
+                           f"suite also fails at index {PLANTED_INDEX - 1}: "
+                           "not a clean regression boundary")
+        if not this_bad:
+            raise GateFail("neighbours",
+                           f"suite passes at index {PLANTED_INDEX}: the "
+                           "planted commit does not fail here")
+        if data["evidence"]["n_minus_1_passes"] != res[PLANTED_INDEX - 1] or \
+                data["evidence"]["n_fails"] != (not res[PLANTED_INDEX]):
+            raise GateFail("neighbours",
+                           f"artifact evidence {data['evidence']} contradicts "
+                           "the judge's measurements "
+                           f"(n-1 passed={res[PLANTED_INDEX - 1]}, "
+                           f"n failed={not res[PLANTED_INDEX]})")
 
-        # G4: speedup
-        speedup = data["serial_wall_s"] / data["parallel_wall_s"]
-        gates["speedup"] = {
-            "passed": speedup >= SPEEDUP_MIN,
-            "speedup": round(speedup, 2),
-            "required": SPEEDUP_MIN,
-            "serial_wall_s": round(data["serial_wall_s"], 2),
-            "parallel_wall_s": round(data["parallel_wall_s"], 2),
-        }
-        if speedup < SPEEDUP_MIN:
-            raise GateFail("speedup",
-                           f"speedup {speedup:.2f}x < required {SPEEDUP_MIN}x")
-
-        # G5: diff matches the planted change
-        # normalize whitespace for comparison
+        # -- G5 diff: compare with git show at the planted commit ------------
+        expected_diff = sh(fixture, "show", "--format=", planted_sha).stdout
         norm = lambda s: re.sub(r"\s+", " ", s).strip()
         gates["diff"] = {
-            "passed": norm(data["diff"]) == norm(diff),
-            "expected_len": len(diff),
-            "got_len": len(data["diff"]),
+            "passed": norm(data["diff"]) == norm(expected_diff),
+            "expected_sha": planted_sha,
+            "expected_len": len(expected_diff),
+            "claimed_len": len(data["diff"]),
         }
-        if norm(data["diff"]) != norm(diff):
+        if norm(data["diff"]) != norm(expected_diff):
             raise GateFail("diff",
-                           "artifact diff does not match the measured diff "
-                           "at the identified commit")
+                           "artifact diff does not match `git show` at the "
+                           "planted commit")
 
-        # G6: negative control — reverted fixture has no regression
-        repo_rev = build_fixture(workdir, revert=True)
-        results_rev = measure_range(repo_rev)
-        rev_fail = find_first_failure(results_rev)
-        gates["negative"] = {
-            "passed": rev_fail is None,
-            "first_failure_index": rev_fail,
+        # -- G6 negative control: same sweep on the reverted fixture ---------
+        fixture_rev = build_fixture(Path(td), revert=True)
+        neg = sweep(Path(td), fixture_rev, serial=False)
+        timing["negative_control_sweep_s"] = round(neg["wall_s"], 3)
+        gates["negative_control"] = {
+            "passed": neg["first_fail"] is None,
+            "sweep_report": neg["report"],
+            "commits_tested": len(neg["results"]),
         }
-        if rev_fail is not None:
-            raise GateFail("negative",
-                           f"reverted fixture still fails at index {rev_fail}")
+        if neg["first_fail"] is not None:
+            raise GateFail("negative_control",
+                           f"sweep on the reverted fixture still names index "
+                           f"{neg['first_fail']} — the oracle must report "
+                           "'no regression in range' when none exists")
+
+        # -- G7 speedup: artifact receipts AND the judge's own measurement ---
+        ser = sweep(Path(td), fixture, serial=True)
+        timing["serial_sweep_s"] = round(ser["wall_s"], 3)
+        judge_speedup = ser["wall_s"] / par["wall_s"]
+        timing["judge_measured_speedup"] = round(judge_speedup, 2)
+        gates["speedup"] = {
+            "passed": data["speedup"] >= SPEEDUP_MIN
+            and judge_speedup >= SPEEDUP_MIN,
+            "required_min": SPEEDUP_MIN,
+            "artifact_speedup": data["speedup"],
+            "artifact_serial_s": data["serial_seconds"],
+            "artifact_parallel_s": data["parallel_seconds"],
+        }
+        if data["speedup"] < SPEEDUP_MIN:
+            raise GateFail("speedup",
+                           f"artifact speedup {data['speedup']:.2f}x < "
+                           f"{SPEEDUP_MIN}x (the sweep's own receipts)")
+        if judge_speedup < SPEEDUP_MIN:
+            raise GateFail("speedup",
+                           f"judge-measured speedup {judge_speedup:.2f}x < "
+                           f"{SPEEDUP_MIN}x (serial {ser['wall_s']:.1f}s vs "
+                           f"parallel {par['wall_s']:.1f}s)")
+
+    # -- G8 sandboxes: one sandbox per suspect commit ------------------------
+    gates["sandboxes"] = {
+        "passed": data["sandboxes_used"] == N_SANDBOXES,
+        "expected": N_SANDBOXES,
+        "claimed": data["sandboxes_used"],
+    }
+    if data["sandboxes_used"] != N_SANDBOXES:
+        raise GateFail("sandboxes",
+                       f"sandboxes_used {data['sandboxes_used']} != "
+                       f"{N_SANDBOXES} (one sandbox per suspect commit)")
 
 
 def main() -> int:
-    import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("artifact", type=Path)
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--json", type=Path, default=None)
     args = ap.parse_args()
-    try:
-        verdict = grade(args.artifact, args.seed)
-        rc = 0 if verdict["passed"] else 1
-    except OSError as exc:
-        verdict = {"artifact": str(args.artifact), "passed": False,
-                   "failed_gate": "io", "reason": str(exc)}
-        rc = 1
-    text = json.dumps(verdict, indent=2)
+    verdict = grade(args.artifact, args.seed)
+    text = json.dumps(verdict, indent=2) + "\n"
     if args.json:
         args.json.write_text(text)
     print(text)
-    return rc
+    return 0 if verdict["passed"] else 1
 
 
 if __name__ == "__main__":
