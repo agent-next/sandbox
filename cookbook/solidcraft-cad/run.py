@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import subprocess
 import sys
 import time
@@ -54,6 +55,42 @@ def show(proc: subprocess.CompletedProcess) -> None:
         print(proc.stdout.rstrip(), flush=True)
 
 
+def detached(sid: str, name: str, cmd: str, timeout: float) -> subprocess.CompletedProcess:
+    """Run a long step in the background inside the sandbox and poll for its
+    exit code with short sbx calls.  A dropped stream or a gateway restart
+    during a 10-minute step is then retried instead of being mistaken for the
+    step's exit (the step keeps running in the sandbox either way)."""
+    tag = "/tmp/run-" + "".join(ch if ch.isalnum() else "-" for ch in name)
+    launch = (f"rm -f {tag}.rc; (bash -c {shlex.quote(cmd)} > {tag}.out 2>&1 < /dev/null; "
+              f"echo $? > {tag}.rc) > /dev/null 2>&1 < /dev/null &")
+    poll = f"if [ -f {tag}.rc ]; then cat {tag}.rc; else echo PENDING; fi"
+    if sbx("exec", sid, "--timeout", "60", "--", launch, timeout=120).returncode != 0:
+        return subprocess.CompletedProcess(name, 1, "", f"could not start {name} in the sandbox")
+    deadline, errors = time.monotonic() + timeout, 0
+    while time.monotonic() < deadline:
+        time.sleep(10)
+        try:
+            p = sbx("exec", sid, "--timeout", "30", "--", poll, timeout=90)
+        except subprocess.TimeoutExpired:
+            p = subprocess.CompletedProcess(name, 1, "", "poll timed out")
+        if p.returncode != 0:  # transport error: the step itself is unaffected
+            errors += 1
+            if "not found" in (p.stderr or "") or errors > 30:
+                return subprocess.CompletedProcess(name, 1, "", f"lost the sandbox while polling {name}: {p.stderr}")
+            continue
+        errors = 0
+        status = p.stdout.strip()
+        if status != "PENDING":
+            for _ in range(5):
+                out = sbx("exec", sid, "--timeout", "60", "--", f"cat {tag}.out", timeout=120)
+                if out.returncode == 0:
+                    break
+                time.sleep(5)
+            rc = int(status) if status.isdigit() else 1
+            return subprocess.CompletedProcess(name, rc, out.stdout, out.stderr)
+    return subprocess.CompletedProcess(name, 1, "", f"{name} did not finish within {timeout:.0f} s")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", default="main",
@@ -83,11 +120,7 @@ def main() -> int:
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
-            proc = step(name, lambda: sbx(
-                "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}",
-                # the local wait outlives the in-sandbox --timeout
-                timeout=timeout + 60))
+            proc = step(name, lambda: detached(sid, name, f"cd {CLONE_DIR}/{DEMO} && {cmd}", timeout))
             if echo:
                 show(proc)
             return proc
