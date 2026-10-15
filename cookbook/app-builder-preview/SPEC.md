@@ -72,18 +72,28 @@ ids, and behaviours, and **no implementation**.
 2. `app/vite.config.js` with the React plugin.
 3. `app/index.html` with `<div id="root">` and a module script.
 4. `app/src/main.jsx` mounting the app into `#root`.
-5. `app/src/App.jsx` implementing every element id and behaviour in
+5. `app/src/App.jsx` implementing every element and behaviour in
    `spec.json`.
 6. `app/src/app.css` for styling (including the `.done` and `.active`
    classes).
 
-Rules the judge enforces structurally: the app must use React (the text
-must import `react`), must read `spec.json` at runtime (not hardcode the
-element ids), and must build with `npm run build` producing
-`dist/index.html`. Hardcoding expected counts is caught by gate 4: the 6
-flows use different expected counts (3, 2, 4, 5 items), so a hardcoded
-count fails at least one flow. The judge runs the artifact from a copy;
-sha256 checksums of `judge/` before and after must match.
+Rules the judge enforces:
+
+- The element names in `spec.json` (`todo-input`, `stats-total`, …) are the
+  DOM ids; the values are descriptions. The judge drives exactly those
+  names, and the app must derive its ids from the spec it fetches at
+  runtime (`fetch('/spec.json')`) — not hardcode them.
+- The judge owns `spec.json`: it drops `judge/spec.json` into the
+  artifact copy's `public/` before building, so the app always reads the
+  judge's copy. An artifact that ships a `public/` directory is rejected
+  (gate 1) rather than silently merged.
+- The app must import `react`, build with `npm run build` into
+  `dist/index.html`, and stay within the size/console budgets of gate 5.
+- Hardcoding expected counts is caught by gate 4: the 6 flows expect
+  different counts (3, 2, 2, 2, 2, 4 items), so a hardcoded count fails
+  at least one flow.
+- The judge runs the artifact from a copy; sha256 checksums of `judge/`
+  before and after must match.
 
 ## Judge gates (numeric pass rules)
 
@@ -103,7 +113,10 @@ re-run every grade so the comparison stays live).
    localhost within 30 s, and `GET /` returns 200 with the root div. A
    crash or a non-200 fails this gate.
 4. **flows** — the judge drives headless Chromium through 6 scripted
-   flows, asserting DOM state after each step. Each flow must pass every
+   flows, **each starting from a fresh browser context** (clean
+   `localStorage`, so the expected numbers below hold per flow), asserting
+   DOM state after each step and capturing one screenshot per flow
+   (`grade.sh --shots DIR` saves them). Each flow must pass every
    assertion:
 
    | flow | steps | assertions |
