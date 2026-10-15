@@ -1,0 +1,27 @@
+{
+  "app": "todo-stats",
+  "routes": ["/"],
+  "elements": {
+    "todo-input": "text input for a new todo",
+    "todo-add": "button that adds the typed todo",
+    "todo-list": "ul containing one li per todo",
+    "todo-item": "li for one todo; data-id attribute is the todo id",
+    "todo-text": "span holding the todo text",
+    "todo-toggle": "button that toggles done/not-done",
+    "todo-delete": "button that removes the todo",
+    "filter-all": "button: show all todos",
+    "filter-active": "button: show only not-done todos",
+    "filter-done": "button: show only done todos",
+    "stats-total": "span: total todo count",
+    "stats-active": "span: not-done count",
+    "stats-done": "span: done count"
+  },
+  "behaviours": {
+    "add": "typing text and clicking todo-add appends an li to todo-list with that text; the input clears",
+    "toggle": "clicking todo-toggle on an item flips its done state; the item gets class 'done'",
+    "delete": "clicking todo-delete removes exactly that li from todo-list",
+    "filter": "filter-all/active/done show only matching items; the active filter button gets class 'active'",
+    "stats": "stats-total/active/done always show the integer counts of all/not-done/done items",
+    "persist": "the todo list survives a page reload (localStorage)"
+  }
+}

@@ -1,0 +1,55 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+#app {
+  max-width: 32rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+#todo-input {
+  width: 60%;
+  padding: 0.4rem;
+}
+
+#todo-list {
+  list-style: none;
+  padding: 0;
+}
+
+#todo-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #8884;
+}
+
+#todo-item.done #todo-text {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+#filters button.active {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+#stats {
+  display: flex;
+  gap: 1.5rem;
+}
+
+#stats dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+#stats dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
