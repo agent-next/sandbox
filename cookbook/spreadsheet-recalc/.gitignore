@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 judge/mutants/
 judge/__pycache__/
+media/work/
+media/.venv/
+media/.tools/
+media/data/
+media/master/

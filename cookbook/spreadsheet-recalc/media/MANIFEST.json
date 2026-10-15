@@ -1,0 +1,44 @@
+{
+  "demo": "spreadsheet-recalc",
+  "files": {
+    "demo.mp4": {
+      "codec": "h264",
+      "command": "media/make_media.sh -> media/render.py frames + ffmpeg -crf 18 (web encode of the crf 0 master)",
+      "duration_sec": 30.0,
+      "height": 1080,
+      "pix_fmt": "yuv420p",
+      "sha256": "e02cd18e7367e2b369c5256e3336e52ee224cae71f49408309eadfcfd03099fc",
+      "size_bytes": 642956,
+      "source": "media/data/*.json",
+      "what": "30 s step-through: artifact structure, judge recalc vs oracle, self-test kills, verdict.",
+      "width": 1920
+    },
+    "loop.png": {
+      "command": "media/make_media.sh -> media/render.py",
+      "sha256": "dff56af71f7058841f77d8b250e125fd7ae938c3088e2b5ce28d9cdbd20703ed",
+      "size_bytes": 135332,
+      "source": "media/data/selftest.json, media/data/grade.json",
+      "what": "The judge loop: self-test kill-rate bars (known-good vs every known-bad mutant) and the error-vs-limit panel."
+    },
+    "master/demo_master.mp4": {
+      "codec": "h264",
+      "command": "media/make_media.sh -> ffmpeg -crf 0",
+      "duration_sec": 30.0,
+      "height": 1080,
+      "pix_fmt": "yuv420p",
+      "sha256": "f57abeb128b5527ede6984fc0e47a1e8ac5f0af876c01bcc6170ee921185d9d7",
+      "size_bytes": 989461,
+      "source": "media/data/*.json",
+      "what": "Lossless H.264 master (crf 0) the web encode is made from.",
+      "width": 1920
+    },
+    "result.png": {
+      "command": "media/make_media.sh -> media/render.py (data: grade.json, selftest.json, model.json)",
+      "sha256": "17f2a12be634783322a63b90aad48b90f25b42b89f7c0d86783283b57b1b32fa",
+      "size_bytes": 189677,
+      "source": "media/data/grade.json",
+      "what": "Recalculated NPV at 8/10/12% against the closed-form oracle with the judge's \u00b10.5% pass band, plus each oracle error against its SPEC limit."
+    }
+  },
+  "generated_by": "media/make_media.sh"
+}
