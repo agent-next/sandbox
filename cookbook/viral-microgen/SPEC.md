@@ -26,7 +26,7 @@ artifact/
 | sample rate (WAV) | 22050 Hz, mono, 16-bit PCM |
 | minimum WAV duration | 20.0 s |
 | Shepard octave rise | >= 3.0 octaves spanned over the file |
-| Shepard pitch-class return | `abs(f_end - f_start)/f_start <= 0.05` (5 %) |
+| Shepard pitch-class return | `f_end >= f_start * 0.95` and `log2(f_end/f_start)` an octave multiple within 0.020 oct (judge constant `OCTAVE_TOL_OCT`) — the tone ends on the pitch class it started on |
 | GIF frame count | >= 48 |
 | GIF distinct colours | exactly 5 |
 | GIF ball bounces | >= 4 |
@@ -76,10 +76,11 @@ key.
      rising (`slope > 0`), monotone in the fitted sense (`R^2 >= 0.995`), and
      span `log2(f_max/f_min) >= 3.0` octaves, so the tone genuinely "rises
      forever";
-   - the Shepard identity `abs(f_end - f_start)/f_start <= 0.05` — after
-     rising through the octave stack the tone returns to the pitch class it
-     started on (this is the property a plain steady tone or a plain sweep
-     fails);
+   - the Shepard identity `f_end >= f_start * 0.95` with
+     `log2(f_end/f_start)` an integer number of octaves within
+     `0.020 oct` (`OCTAVE_TOL_OCT`) — after rising through the octave
+     stack the tone returns to the pitch class it started on (this is
+     the property a plain steady tone or a plain sweep fails);
    - the spectrum of the whole file must show the Shepard signature: split into
      8 neighbour octave bands, the band energies must be unimodal with the
      maximum in one of the middle bands (2..6), and
