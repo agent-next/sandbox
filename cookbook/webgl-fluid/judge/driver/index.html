@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<!-- judge/driver/index.html — the judge's harness page.
+
+     It loads the pinned upstream WebGL-Fluid-Simulation (script.js +
+     dat.gui.min.js, fetched at the pinned commit by judge/setup.sh and
+     sha256-verified by judge/grade.sh) inside headless Chromium with CPU
+     WebGL (SwiftShader), then exposes a deterministic API (engine.js) that
+     the artifact under test (scene/drive.js) drives.
+
+     Determinism measures taken here, before upstream code runs:
+       - requestAnimationFrame is stubbed to never fire, so upstream's own
+         update() loop runs exactly once with dt = 0 and never again;
+       - a console/error recorder captures every console.error, error event
+         and unhandled rejection (gate 1);
+       - the canvas has a fixed CSS size (960x540, devicePixelRatio 1).
+     The DOM stubs (promo, apple_link, google_link) exist because upstream
+     script.js looks them up at load time and would throw otherwise.
+-->
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>WebGL fluid judge harness</title>
+        <style>
+            html, body { margin: 0; background-color: #000; }
+            canvas {
+                position: fixed;
+                top: 0; left: -20000px;
+                width: 960px; height: 540px;
+            }
+            .stub { display: none; }
+        </style>
+        <script>
+            (function () {
+                window.__WFS_CONSOLE__ = { errors: [] };
+                function record (msg) {
+                    try {
+                        window.__WFS_CONSOLE__.errors.push(
+                            String(msg).slice(0, 500));
+                    } catch (e) { /* keep recording no matter what */ }
+                }
+                var origError = console.error.bind(console);
+                console.error = function () {
+                    record(Array.prototype.map.call(
+                        arguments, String).join(' '));
+                    origError.apply(null, arguments);
+                };
+                window.addEventListener('error', function (e) {
+                    record('window.onerror: ' +
+                           (e.message || e.type || 'unknown error'));
+                    window.__WFS_ABORTED__ = true;
+                });
+                window.addEventListener('unhandledrejection', function (e) {
+                    record('unhandledrejection: ' + String(e.reason));
+                    window.__WFS_ABORTED__ = true;
+                });
+                // Upstream's update() loop must never run on wall-clock
+                // time: schedule nothing, ever.
+                window.requestAnimationFrame = function () { return 0; };
+                window.cancelAnimationFrame = function () {};
+            })();
+        </script>
+        <script src="up/dat.gui.min.js"></script>
+    </head>
+    <body>
+        <canvas></canvas>
+        <div class="stub promo"></div>
+        <div class="stub promo-close"></div>
+        <a class="stub" id="apple_link"></a>
+        <a class="stub" id="google_link"></a>
+        <script src="up/script.js"></script>
+        <script src="driver/engine.js"></script>
+        <script src="scene/drive.js"></script>
+    </body>
+</html>
