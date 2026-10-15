@@ -1,6 +1,6 @@
 {
   "demo": "cnc-gcode",
-  "artifact": "examples/good/cam.py",
+  "artifact": "/tmp/muts_replay/swapped_arcs.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -73,10 +73,10 @@
       "worst_move_line": null
     },
     "residual": {
-      "pass": true,
-      "residual_cells": 0,
-      "residual_area_mm2": 0.0,
-      "worst_residual_mm": 0.0,
+      "pass": false,
+      "residual_cells": 27038,
+      "residual_area_mm2": 67.595,
+      "worst_residual_mm": 6.0,
       "tolerance_mm": 0.05,
       "unreachable_allowance_cells": 0
     },
@@ -131,21 +131,21 @@
   "summary": {
     "nc_lines": 258,
     "moves": 250,
-    "cutting_moves": 174,
-    "cells_cleared": 713592,
-    "area_cleared_mm2": 1783.98,
-    "stock_removed_mm3": 10703.9,
+    "cutting_moves": 171,
+    "cells_cleared": 686554,
+    "area_cleared_mm2": 1716.39,
+    "stock_removed_mm3": 10298.3,
     "max_axial_engagement_mm": 2.0,
     "max_pass_spacing_mm": 2.5,
-    "worst_residual_mm": 0.0,
+    "worst_residual_mm": 6.0,
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.07,
-    "simulate_s": 0.68,
-    "selfcheck_s": 0.27,
-    "reference_s": 0.36,
-    "total_s": 6.49
+    "cam_s": 0.27,
+    "simulate_s": 3.66,
+    "selfcheck_s": 0.23,
+    "reference_s": 0.63,
+    "total_s": 10.62
   },
-  "pass": true
+  "pass": false
 }

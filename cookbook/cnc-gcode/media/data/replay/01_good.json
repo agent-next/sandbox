@@ -1,7 +1,6 @@
-grade: FAIL (gates: residual)
 {
   "demo": "cnc-gcode",
-  "artifact": "media/data/mutants/swapped_arcs.py",
+  "artifact": "examples/good/cam.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -74,10 +73,10 @@ grade: FAIL (gates: residual)
       "worst_move_line": null
     },
     "residual": {
-      "pass": false,
-      "residual_cells": 27038,
-      "residual_area_mm2": 67.595,
-      "worst_residual_mm": 6.0,
+      "pass": true,
+      "residual_cells": 0,
+      "residual_area_mm2": 0.0,
+      "worst_residual_mm": 0.0,
       "tolerance_mm": 0.05,
       "unreachable_allowance_cells": 0
     },
@@ -132,21 +131,21 @@ grade: FAIL (gates: residual)
   "summary": {
     "nc_lines": 258,
     "moves": 250,
-    "cutting_moves": 171,
-    "cells_cleared": 686554,
-    "area_cleared_mm2": 1716.39,
-    "stock_removed_mm3": 10298.3,
+    "cutting_moves": 174,
+    "cells_cleared": 713592,
+    "area_cleared_mm2": 1783.98,
+    "stock_removed_mm3": 10703.9,
     "max_axial_engagement_mm": 2.0,
     "max_pass_spacing_mm": 2.5,
-    "worst_residual_mm": 6.0,
+    "worst_residual_mm": 0.0,
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.05,
-    "simulate_s": 0.67,
-    "selfcheck_s": 0.1,
-    "reference_s": 0.06,
-    "total_s": 1.82
+    "cam_s": 0.09,
+    "simulate_s": 2.0,
+    "selfcheck_s": 0.82,
+    "reference_s": 0.85,
+    "total_s": 9.03
   },
-  "pass": false
+  "pass": true
 }

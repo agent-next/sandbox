@@ -1,6 +1,6 @@
 {
   "demo": "cnc-gcode",
-  "artifact": "media/data/mutants/no_tool_offset.py",
+  "artifact": "/tmp/muts_replay/rapid_into_stock.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -14,7 +14,7 @@
       ],
       "cam_exit": 0,
       "cam_stderr_tail": "",
-      "nc_bytes": 5172
+      "nc_bytes": 5718
     },
     "units": {
       "pass": true,
@@ -27,34 +27,34 @@
       "has_g90": true,
       "has_g17": true,
       "m3_line": 4,
-      "first_feed_line": 7,
-      "m5_line": 222,
-      "last_feed_line": 219,
-      "feed_moves": 171
+      "first_feed_line": 8,
+      "m5_line": 258,
+      "last_feed_line": 255,
+      "feed_moves": 150
     },
     "envelope": {
       "pass": true,
       "first_violation": null,
-      "moves": 214
+      "moves": 250
     },
     "stepdown": {
       "pass": true,
       "max_axial_mm": 2.0,
       "limit_mm": 2.0,
-      "worst_move_line": 7
+      "worst_move_line": 8
     },
     "stepover": {
       "pass": true,
       "max_spacing_mm": 2.5,
       "limit_mm": 3.0,
       "tolerance_mm": 0.05,
-      "worst_move_line": 22,
-      "exempt_first_pass_moves": 24
+      "worst_move_line": 18,
+      "exempt_first_pass_moves": 3
     },
     "process": {
       "pass": true,
       "chip_load_mm_per_tooth": [
-        0.025,
+        0.1,
         0.1
       ],
       "limits": [
@@ -66,11 +66,11 @@
       "spindle_rpm": 8000
     },
     "rapid_safety": {
-      "pass": true,
-      "rapids_below_safe_z": 0,
-      "max_rapid_hit_mm": 0.0,
+      "pass": false,
+      "rapids_below_safe_z": 33,
+      "max_rapid_hit_mm": 2.0,
       "tolerance_mm": 0.01,
-      "worst_move_line": null
+      "worst_move_line": 7
     },
     "residual": {
       "pass": true,
@@ -81,10 +81,10 @@
       "unreachable_allowance_cells": 0
     },
     "gouge": {
-      "pass": false,
-      "gouge_cells": 216252,
-      "gouged_area_mm2": 540.63,
-      "worst_gouge_mm": 6.0,
+      "pass": true,
+      "gouge_cells": 0,
+      "gouged_area_mm2": 0.0,
+      "worst_gouge_mm": 0.0,
       "tolerance_mm": 0.01
     },
     "simulator_selfcheck": {
@@ -129,23 +129,23 @@
     }
   },
   "summary": {
-    "nc_lines": 222,
-    "moves": 214,
-    "cutting_moves": 162,
-    "cells_cleared": 982352,
-    "area_cleared_mm2": 2455.88,
-    "stock_removed_mm3": 14735.3,
+    "nc_lines": 258,
+    "moves": 250,
+    "cutting_moves": 141,
+    "cells_cleared": 713592,
+    "area_cleared_mm2": 1783.98,
+    "stock_removed_mm3": 10703.9,
     "max_axial_engagement_mm": 2.0,
     "max_pass_spacing_mm": 2.5,
     "worst_residual_mm": 0.0,
-    "worst_gouge_mm": 6.0
+    "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.06,
-    "simulate_s": 1.03,
-    "selfcheck_s": 0.09,
-    "reference_s": 0.08,
-    "total_s": 2.18
+    "cam_s": 0.61,
+    "simulate_s": 4.85,
+    "selfcheck_s": 0.15,
+    "reference_s": 0.11,
+    "total_s": 7.47
   },
   "pass": false
 }

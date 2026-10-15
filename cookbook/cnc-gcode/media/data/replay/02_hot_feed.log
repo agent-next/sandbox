@@ -1,7 +1,7 @@
-grade: PASS (all gates)
+grade: FAIL (gates: process)
 {
   "demo": "cnc-gcode",
-  "artifact": "examples/good/cam.py",
+  "artifact": "/tmp/muts_replay/hot_feed.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -15,7 +15,7 @@ grade: PASS (all gates)
       ],
       "cam_exit": 0,
       "cam_stderr_tail": "",
-      "nc_bytes": 5718
+      "nc_bytes": 5751
     },
     "units": {
       "pass": true,
@@ -53,17 +53,17 @@ grade: PASS (all gates)
       "exempt_first_pass_moves": 36
     },
     "process": {
-      "pass": true,
+      "pass": false,
       "chip_load_mm_per_tooth": [
-        0.025,
-        0.1
+        0.125,
+        0.5
       ],
       "limits": [
         0.02,
         0.2
       ],
       "spindle_moves_out_of_band": 0,
-      "feed_moves_out_of_band": 0,
+      "feed_moves_out_of_band": 141,
       "spindle_rpm": 8000
     },
     "rapid_safety": {
@@ -142,11 +142,11 @@ grade: PASS (all gates)
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.07,
-    "simulate_s": 0.68,
-    "selfcheck_s": 0.27,
-    "reference_s": 0.36,
-    "total_s": 6.49
+    "cam_s": 0.25,
+    "simulate_s": 1.02,
+    "selfcheck_s": 0.29,
+    "reference_s": 0.2,
+    "total_s": 3.72
   },
-  "pass": true
+  "pass": false
 }

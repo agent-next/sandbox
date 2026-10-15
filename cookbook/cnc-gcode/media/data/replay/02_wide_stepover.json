@@ -1,7 +1,6 @@
-grade: FAIL (gates: stepdown)
 {
   "demo": "cnc-gcode",
-  "artifact": "media/data/mutants/deep_pass.py",
+  "artifact": "/tmp/muts_replay/wide_stepover.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -15,7 +14,7 @@ grade: FAIL (gates: stepdown)
       ],
       "cam_exit": 0,
       "cam_stderr_tail": "",
-      "nc_bytes": 2018
+      "nc_bytes": 3198
     },
     "units": {
       "pass": true,
@@ -29,28 +28,28 @@ grade: FAIL (gates: stepdown)
       "has_g17": true,
       "m3_line": 4,
       "first_feed_line": 7,
-      "m5_line": 90,
-      "last_feed_line": 87,
-      "feed_moves": 61
+      "m5_line": 132,
+      "last_feed_line": 129,
+      "feed_moves": 99
     },
     "envelope": {
       "pass": true,
       "first_violation": null,
-      "moves": 84
+      "moves": 124
     },
     "stepdown": {
-      "pass": false,
-      "max_axial_mm": 6.0,
+      "pass": true,
+      "max_axial_mm": 2.0,
       "limit_mm": 2.0,
       "worst_move_line": 7
     },
     "stepover": {
-      "pass": true,
-      "max_spacing_mm": 2.5,
+      "pass": false,
+      "max_spacing_mm": 7.2001,
       "limit_mm": 3.0,
       "tolerance_mm": 0.05,
-      "worst_move_line": 18,
-      "exempt_first_pass_moves": 12
+      "worst_move_line": 14,
+      "exempt_first_pass_moves": 15
     },
     "process": {
       "pass": true,
@@ -74,10 +73,10 @@ grade: FAIL (gates: stepdown)
       "worst_move_line": null
     },
     "residual": {
-      "pass": true,
-      "residual_cells": 0,
-      "residual_area_mm2": 0.0,
-      "worst_residual_mm": 0.0,
+      "pass": false,
+      "residual_cells": 35313,
+      "residual_area_mm2": 88.2825,
+      "worst_residual_mm": 6.0,
       "tolerance_mm": 0.05,
       "unreachable_allowance_cells": 0
     },
@@ -130,23 +129,23 @@ grade: FAIL (gates: stepdown)
     }
   },
   "summary": {
-    "nc_lines": 90,
-    "moves": 84,
-    "cutting_moves": 58,
-    "cells_cleared": 713592,
-    "area_cleared_mm2": 1783.98,
-    "stock_removed_mm3": 10703.9,
-    "max_axial_engagement_mm": 6.0,
-    "max_pass_spacing_mm": 2.5,
-    "worst_residual_mm": 0.0,
+    "nc_lines": 132,
+    "moves": 124,
+    "cutting_moves": 93,
+    "cells_cleared": 678279,
+    "area_cleared_mm2": 1695.7,
+    "stock_removed_mm3": 10174.2,
+    "max_axial_engagement_mm": 2.0,
+    "max_pass_spacing_mm": 7.2001,
+    "worst_residual_mm": 6.0,
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.06,
-    "simulate_s": 0.26,
-    "selfcheck_s": 0.1,
-    "reference_s": 0.11,
-    "total_s": 1.47
+    "cam_s": 0.23,
+    "simulate_s": 1.74,
+    "selfcheck_s": 1.11,
+    "reference_s": 0.41,
+    "total_s": 9.27
   },
   "pass": false
 }
