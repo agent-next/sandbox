@@ -34,11 +34,9 @@ def mutate(root, name):
         entries[2].set("producer", "clip_c")
         entries[3].set("producer", "clip_b")
     elif name in {"hard_cut", "short_dissolve"}:
-        # Shape only: both source in/out points and duration are untouched.
-        # The transition's end property is a frame-normalized target weight.
+        # Both source in/out points and the overall duration are untouched.
         if name == "hard_cut":
-            prop(root, "xfade_luma", "start").text = "1"
-            prop(root, "xfade_luma", "end").text = "1"
+            node(root, "xfade").remove(node(root, "xfade_luma"))
         else:
             node(root, "xfade_luma").set("out", "11")
             prop(root, "xfade_luma", "out").text = "11"
