@@ -232,7 +232,7 @@ def render_video(d: dict, out_dir: Path) -> None:
         color = {None: "#d8d7d0", True: GOOD_C, False: CRITICAL_C}[state]
         ax.add_patch(Circle((x, y), r, facecolor=color,
                             edgecolor=SURF if state is not None else BASE,
-                            linewidths=4))
+                            linewidth=4))
         mark = {None: str(idx), True: "✓", False: "✗"}[state]
         ax.text(x, y, mark, ha="center", va="center", fontsize=fs,
                 color=SURF if state is not None else MUTED, weight="bold")
