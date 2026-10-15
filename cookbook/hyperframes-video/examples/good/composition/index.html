@@ -1,87 +1,389 @@
 <!doctype html>
-<!-- Aurora Notes 24 s teaser — HyperFrames composition for cookbook demo.
+<!-- Aurora Notes 20 s teaser — HyperFrames composition for cookbook demo.
      Format: HyperFrames 0.8.61. Stage carries data-* timing; a GSAP
      timeline is registered paused as window.__timelines.main so the
      renderer can seek any frame deterministically. gsap.min.js is placed
      next to this file by the judge (vendored, sha256-pinned in setup).
-     The brief demands continuous motion: the amber progress bar and the
-     drifting brand blobs change every frame, so no hold is ever frozen. -->
+
+     Note on technique: the renderer seeks the paused timeline, and GSAP
+     suppresses callbacks (onUpdate/onComplete) on seek — so text changes
+     are driven by zero-duration tl.set(el, {textContent}) tweens, which
+     DO apply under seek.  The amber progress fill, drifting brand blobs,
+     blinking carets, the travelling sync dot and the end-card pulse keep
+     every frame changing (the brief demands continuous motion). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=1280, height=720" />
+<meta name="viewport" content="width=1920, height=1080" />
 <script src="gsap.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 1280px; height: 720px; overflow: hidden; background: #0F172A; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #0F172A; }
   #stage {
-    position: relative; width: 100%; height: 100%;
+    position: relative; width: 1920px; height: 1080px; overflow: hidden;
     font-family: ui-sans-serif, system-ui, "DejaVu Sans", sans-serif;
     background: #0F172A;
   }
-  /* persistent brand-colour geometry so no frame is ever plain black */
+  /* persistent brand geometry so no frame is ever plain black */
   .blob { position: absolute; border-radius: 50%; }
-  #blob-a { width: 900px; height: 900px; left: -320px; top: -420px; background: #4F46E5; opacity: 0.35; }
-  #blob-b { width: 700px; height: 700px; right: -260px; bottom: -380px; background: #F59E0B; opacity: 0.25; }
-  .beat {
-    position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; opacity: 0; text-align: center;
+  #blob-a { width: 1250px; height: 1250px; left: -460px; top: -620px; background: #4F46E5; opacity: 0.32; }
+  #blob-b { width: 1000px; height: 1000px; right: -380px; bottom: -560px; background: #F59E0B; opacity: 0.22; }
+
+  .beat { position: absolute; inset: 0; opacity: 0; }
+  .headline {
+    position: absolute; left: 0; right: 0; top: 84px; text-align: center;
+    color: #FFFFFF; font-size: 62px; font-weight: 700; letter-spacing: -0.02em;
+    white-space: nowrap;
   }
-  h1 { color: #F59E0B; font-size: 120px; font-weight: 700; letter-spacing: -0.03em; }
-  .tag { color: #F4F4F5; font-size: 40px; margin-top: 24px; }
-  .feat {
-    color: #FFFFFF; font-size: 64px; font-weight: 600;
-    background: #4F46E5; border: 10px solid #F59E0B;
-    padding: 24px 56px; border-radius: 16px;
+  .wd, .ch { display: inline-block; }
+
+  /* ---------- title beat ---------- */
+  #title { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .badge {
+    display: flex; align-items: center; gap: 14px;
+    background: #4F46E5; color: #FFFFFF; border-radius: 999px;
+    font-size: 26px; font-weight: 700; letter-spacing: 0.35em;
+    padding: 16px 34px 16px 26px; margin-bottom: 54px;
   }
-  .num { color: #F59E0B; font-size: 44px; font-weight: 700; margin-bottom: 28px; }
+  .badge .bdot { width: 18px; height: 18px; border-radius: 50%; background: #F59E0B; }
+  h1 { font-size: 156px; font-weight: 800; letter-spacing: -0.035em; white-space: nowrap; }
+  h1 .tw[data-c="amber"] { color: #F59E0B; }
+  h1 .tw { color: #FFFFFF; }
+  .tag { color: #CBD5E1; font-size: 46px; margin-top: 44px; white-space: nowrap; }
+
+  /* ---------- shared app-window mockup ---------- */
+  .win {
+    position: absolute; left: 360px; top: 250px; width: 1200px;
+    background: #1E293B; border-radius: 20px; overflow: hidden;
+    box-shadow: 0 40px 90px rgba(2, 6, 23, 0.65);
+    border: 2px solid #334155;
+  }
+  .winbar {
+    height: 68px; background: #4F46E5; display: flex; align-items: center;
+    padding: 0 26px; gap: 12px;
+    border-bottom: 8px solid #F59E0B;
+  }
+  .wdot { width: 18px; height: 18px; border-radius: 50%; }
+  .wdot.r { background: #F87171; } .wdot.y { background: #FBBF24; } .wdot.g { background: #34D399; }
+  .wtitle { color: #E0E7FF; font-size: 25px; font-weight: 600; margin-left: 14px; }
+  .keycap { margin-left: auto; display: flex; gap: 10px; }
+  .keycap b {
+    background: #F59E0B; color: #0F172A; font-size: 26px; font-weight: 800;
+    padding: 9px 22px; border-radius: 10px;
+  }
+  .statusbar {
+    height: 56px; background: #F59E0B; color: #0F172A; font-size: 27px;
+    font-weight: 700; display: flex; align-items: center; padding: 0 40px;
+    position: relative; white-space: nowrap;
+  }
+  .statusbar .sb { position: absolute; left: 40px; }
+  #sbb, #sbb3 { opacity: 0; }
+
+  /* beat1 editor */
+  .wbody { display: flex; height: 430px; }
+  .side { width: 320px; background: #0F172A; border-right: 2px solid #334155; padding: 24px 0; }
+  .sitem {
+    color: #94A3B8; font-size: 26px; padding: 16px 30px; white-space: nowrap;
+    border-left: 6px solid transparent;
+  }
+  .sitem.on { color: #F8FAFC; border-left-color: #F59E0B; background: rgba(79, 70, 229, 0.22); }
+  .editor { flex: 1; padding: 42px 48px; }
+  .eline { color: #F8FAFC; font-size: 34px; line-height: 1.6; white-space: nowrap; }
+  .caret {
+    display: inline-block; width: 5px; height: 40px; background: #F59E0B;
+    margin-left: 6px; vertical-align: -6px;
+  }
+  #b1toast {
+    position: absolute; left: 1150px; top: 846px;
+    background: #F59E0B; color: #0F172A; font-size: 30px; font-weight: 700;
+    padding: 26px 44px; border-radius: 14px; white-space: nowrap;
+    box-shadow: 0 18px 50px rgba(245, 158, 11, 0.35);
+  }
+
+  /* ---------- beat2: counter + chart + devices ---------- */
+  #b2wrap { position: absolute; left: 200px; right: 200px; top: 280px; display: flex; gap: 80px; align-items: flex-end; }
+  .cnum { color: #F59E0B; font-size: 150px; font-weight: 800; letter-spacing: -0.03em; white-space: nowrap; height: 190px; }
+  .clabel { color: #CBD5E1; font-size: 36px; margin-top: 14px; white-space: nowrap; }
+  .chart { display: flex; align-items: flex-end; gap: 34px; height: 430px; }
+  .bar { width: 118px; border-radius: 12px 12px 0 0; background: #4F46E5; transform-origin: bottom center; }
+  .bar.amber { background: #F59E0B; }
+  .devices { position: absolute; left: 0; right: 0; top: 800px; display: flex; justify-content: center; gap: 56px; }
+  .dev {
+    border: 3px solid #4F46E5; color: #E0E7FF; border-radius: 16px;
+    font-size: 30px; font-weight: 600; padding: 22px 52px; background: rgba(79, 70, 229, 0.14);
+    white-space: nowrap;
+  }
+  #syncdot {
+    position: absolute; top: 788px; left: 655px; width: 26px; height: 26px;
+    border-radius: 50%; background: #F59E0B;
+    box-shadow: 0 0 24px 6px rgba(245, 158, 11, 0.55);
+  }
+
+  /* ---------- beat3: search ---------- */
+  .searchrow {
+    display: flex; align-items: center; gap: 20px;
+    padding: 28px 40px; border-bottom: 2px solid #334155; position: relative;
+  }
+  .sicon { position: relative; width: 30px; height: 30px; border: 4px solid #94A3B8; border-radius: 50%; }
+  .sicon::after {
+    content: ""; position: absolute; width: 16px; height: 4px; background: #94A3B8;
+    left: 24px; top: 26px; transform: rotate(45deg); border-radius: 2px;
+  }
+  #qtext { color: #F8FAFC; font-size: 38px; white-space: nowrap; }
+  .rc { position: absolute; right: 40px; color: #94A3B8; font-size: 28px; }
+  #rcb { position: absolute; right: 0; top: 0; opacity: 0; color: #F59E0B; font-weight: 700; white-space: nowrap; }
+  .results { height: 390px; padding: 18px 40px; }
+  .rowwrap { overflow: hidden; height: 84px; }
+  .row {
+    height: 64px; display: flex; align-items: center; justify-content: space-between;
+    background: #273449; border-left: 8px solid transparent; border-radius: 12px;
+    padding: 0 28px; color: #CBD5E1; font-size: 28px; white-space: nowrap;
+  }
+  .row b { color: #F8FAFC; font-weight: 600; }
+  .row span { color: #64748B; font-size: 24px; }
+
+  /* ---------- end card ---------- */
+  #endcard { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ecwrap { background: #4F46E5; padding: 34px 72px; border-radius: 28px; }
+  .ecwrap h1 { font-size: 130px; }
   .cta {
-    color: #0F172A; font-size: 72px; font-weight: 700;
-    background: #F59E0B; padding: 28px 64px; border-radius: 16px;
+    color: #0F172A; font-size: 66px; font-weight: 800; background: #F59E0B;
+    padding: 34px 84px; border-radius: 20px; margin-top: 58px; white-space: nowrap;
+    box-shadow: 0 24px 70px rgba(245, 158, 11, 0.4);
   }
-  /* progress bar: indigo track with an amber fill that advances across
-     the whole 24 s — the continuous motion the brief asks for */
-  #track { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; background: #4F46E5; }
-  #fill  { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #F59E0B;
-           transform-origin: left center; transform: scaleX(0); }
+  .sub { color: #CBD5E1; font-size: 34px; margin-top: 38px; white-space: nowrap; }
+
+  /* progress bar: indigo track, amber fill advancing across all 20 s */
+  #track { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; background: #4F46E5; }
+  #fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #F59E0B;
+    transform-origin: left center; transform: scaleX(0);
+  }
 </style>
 </head>
 <body>
-<div id="stage" data-composition-id="main" data-start="0" data-duration="24"
-     data-width="1280" data-height="720" data-fps="30">
+<div id="stage" data-composition-id="main" data-start="0" data-duration="20"
+     data-width="1920" data-height="1080" data-fps="30">
   <div id="blob-a" class="blob"></div>
   <div id="blob-b" class="blob"></div>
 
   <div id="title" class="beat">
-    <h1>Aurora Notes</h1>
-    <div class="tag">Notes that keep up with you</div>
+    <div class="badge"><span class="bdot"></span>AURORA</div>
+    <h1><span class="tw" data-c="amber">Aurora</span> <span class="tw">Notes</span></h1>
+    <div class="tag" id="tagline">Notes that keep up with you</div>
   </div>
-  <div id="beat1" class="beat"><div class="num">01</div><div class="feat">Capture ideas in one keystroke</div></div>
-  <div id="beat2" class="beat"><div class="num">02</div><div class="feat">Sync across every device</div></div>
-  <div id="beat3" class="beat"><div class="num">03</div><div class="feat">Search everything instantly</div></div>
-  <div id="endcard" class="beat"><h1 style="font-size:64px; color:#FFFFFF; background:#4F46E5; padding:20px 48px; border-radius:16px;">Aurora Notes</h1><div class="cta" style="margin-top:36px;">Try it free today</div></div>
+
+  <div id="beat1" class="beat">
+    <div class="headline">Capture ideas in one keystroke</div>
+    <div class="win" id="b1win">
+      <div class="winbar">
+        <span class="wdot r"></span><span class="wdot y"></span><span class="wdot g"></span>
+        <span class="wtitle">Aurora Notes — Quick Capture</span>
+        <span class="keycap" id="keycap"><b>Ctrl</b><b>K</b></span>
+      </div>
+      <div class="wbody">
+        <div class="side">
+          <div class="sitem on">Meeting notes</div>
+          <div class="sitem">Reading list</div>
+          <div class="sitem">Project ideas</div>
+          <div class="sitem">Journal</div>
+        </div>
+        <div class="editor">
+          <div class="eline"><span id="typed1"></span><span class="caret" id="caret1"></span></div>
+        </div>
+      </div>
+      <div class="statusbar"><span class="sb" id="sba">Ctrl+K — quick capture</span><span class="sb" id="sbb">Saved to Inbox</span></div>
+    </div>
+    <div id="b1toast">Idea captured</div>
+  </div>
+
+  <div id="beat2" class="beat">
+    <div class="headline">Sync across every device</div>
+    <div id="b2wrap">
+      <div class="counterbox">
+        <div class="cnum"><span id="counter">0</span></div>
+        <div class="clabel">notes synced this month</div>
+      </div>
+      <div class="chart">
+        <div class="bar" style="height:150px"></div>
+        <div class="bar" style="height:235px"></div>
+        <div class="bar" style="height:190px"></div>
+        <div class="bar" style="height:310px"></div>
+        <div class="bar amber" style="height:400px"></div>
+      </div>
+    </div>
+    <div class="devices">
+      <div class="dev">Laptop</div>
+      <div class="dev">Phone</div>
+      <div class="dev">Tablet</div>
+    </div>
+    <div id="syncdot"></div>
+  </div>
+
+  <div id="beat3" class="beat">
+    <div class="headline">Search everything instantly</div>
+    <div class="win" id="b3win">
+      <div class="winbar">
+        <span class="wdot r"></span><span class="wdot y"></span><span class="wdot g"></span>
+        <span class="wtitle">Aurora Notes — Search</span>
+      </div>
+      <div class="searchrow">
+        <span class="sicon"></span>
+        <span id="qtext"></span><span class="caret" id="caret3"></span>
+        <span class="rc"><span id="rca">5 notes</span><span id="rcb">2 notes</span></span>
+      </div>
+      <div class="results">
+        <div class="rowwrap"><div class="row rhit"><b>Launch plan v3</b><span>edited 2h ago</span></div></div>
+        <div class="rowwrap"><div class="row"><b>Grocery list</b><span>edited yesterday</span></div></div>
+        <div class="rowwrap"><div class="row rhit"><b>Plant care schedule</b><span>edited Mon</span></div></div>
+        <div class="rowwrap"><div class="row"><b>Meeting notes</b><span>edited Tue</span></div></div>
+        <div class="rowwrap"><div class="row"><b>Book quotes</b><span>edited Oct 2</span></div></div>
+      </div>
+      <div class="statusbar"><span class="sb" id="sba3">5 notes — all indexed</span><span class="sb" id="sbb3">2 results in 0.004 s</span></div>
+    </div>
+  </div>
+
+  <div id="endcard" class="beat">
+    <div class="ecwrap">
+      <h1><span class="tw" data-c="amber">Aurora</span> <span class="tw">Notes</span></h1>
+    </div>
+    <div class="cta" id="cta">Try it free today</div>
+    <div class="sub">Free forever. Sync included.</div>
+  </div>
 
   <div id="track"><div id="fill"></div></div>
 </div>
 <script>
   window.__timelines = window.__timelines || {};
-  const beats = [
-    { id: "#title",   start: 0.5,  hold: 3.0 },
-    { id: "#beat1",   start: 4.0,  hold: 4.0 },
-    { id: "#beat2",   start: 9.0,  hold: 4.0 },
-    { id: "#beat3",   start: 14.0, hold: 4.0 },
-    { id: "#endcard", start: 19.0, hold: 4.0 }
-  ];
-  const FADE = 0.3;
   const tl = gsap.timeline({ paused: true });
-  for (const b of beats) {
-    tl.fromTo(b.id, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: FADE, ease: "power2.out" }, b.start)
-      .to(b.id, { opacity: 0, duration: FADE, ease: "power2.in" }, b.start + b.hold - FADE);
+  const DUR = 20;
+  const IN = 0.45, OUT = 0.35;
+
+  /* split text into animatable spans: .tw -> .ch per char, others -> .wd per word */
+  document.querySelectorAll(".tw").forEach(function (w) {
+    const txt = w.textContent;
+    w.textContent = "";
+    for (const c of txt) {
+      const s = document.createElement("span");
+      s.className = "ch";
+      s.textContent = c;
+      w.appendChild(s);
+    }
+  });
+  document.querySelectorAll(".tag, .headline").forEach(function (el) {
+    const txt = el.textContent.trim();
+    el.textContent = "";
+    txt.split(/\s+/).forEach(function (word, i, arr) {
+      const s = document.createElement("span");
+      s.className = "wd";
+      s.textContent = word;
+      el.appendChild(s);
+      if (i < arr.length - 1) el.appendChild(document.createTextNode(" "));
+    });
+  });
+
+  /* helpers — all seek-safe: zero-duration tl.set() property writes are
+     applied under tl.seek(); event callbacks like onUpdate are not. */
+  function beatIO(sel, start, hold) {
+    tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: IN, ease: "power2.out" }, start)
+      .to(sel, { opacity: 0, duration: OUT, ease: "power2.in" }, start + hold - OUT);
   }
-  /* continuous motion for every frame of the full 24 s */
-  tl.fromTo("#fill", { scaleX: 0 }, { scaleX: 1, duration: 24, ease: "none" }, 0);
-  tl.fromTo("#blob-a", { x: 0, y: 0 }, { x: 160, y: 90, duration: 24, ease: "none" }, 0);
-  tl.fromTo("#blob-b", { x: 0, y: 0 }, { x: -140, y: -80, duration: 24, ease: "none" }, 0);
+  function wordsIn(sel, at) {
+    tl.fromTo(sel + " .wd", { y: 36, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.5, ease: "power3.out", stagger: 0.07 }, at);
+  }
+  function type(el, text, at, cps) {
+    const node = document.querySelector(el);
+    for (let i = 1; i <= text.length; i++)
+      tl.set(node, { textContent: text.slice(0, i) }, at + i / cps);
+  }
+  function blink(el, at, dur) {
+    tl.fromTo(el, { opacity: 1 }, { opacity: 0.15, duration: 0.42,
+      ease: "sine.inOut", yoyo: true, repeat: Math.ceil(dur / 0.84) }, at);
+  }
+  function fmt(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  /* continuous motion across the whole 20 s */
+  tl.fromTo("#fill", { scaleX: 0 }, { scaleX: 1, duration: DUR, ease: "none" }, 0);
+  tl.fromTo("#blob-a", { x: 0, y: 0 }, { x: 150, y: 85, duration: DUR, ease: "none" }, 0);
+  tl.fromTo("#blob-b", { x: 0, y: 0 }, { x: -120, y: -75, duration: DUR, ease: "none" }, 0);
+
+  /* ---- title: 0.4 - 3.0 ---- */
+  beatIO("#title", 0.4, 2.6);
+  tl.fromTo("#title .badge", { scale: 0, opacity: 0 },
+    { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" }, 0.45);
+  tl.fromTo("#title .ch", { y: 110, opacity: 0, rotation: 9 },
+    { y: 0, opacity: 1, rotation: 0, duration: 0.6,
+      ease: "back.out(1.6)", stagger: 0.045 }, 0.5);
+  wordsIn("#tagline", 1.3);
+
+  /* ---- beat1 capture: 3.4 - 7.4 ---- */
+  beatIO("#beat1", 3.4, 4.0);
+  wordsIn("#beat1 .headline", 3.55);
+  tl.fromTo("#b1win", { y: 70, opacity: 0 },
+    { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 3.7);
+  tl.to("#keycap", { scale: 0.82, duration: 0.12, ease: "power2.in" }, 4.02)
+    .to("#keycap", { scale: 1, duration: 0.25, ease: "back.out(3)" }, 4.15);
+  type("#typed1", "Ideas arrive fast. Catch them.", 4.2, 22);
+  blink("#caret1", 4.2, 3.1);
+  tl.fromTo("#b1toast", { y: 46, opacity: 0, scale: 0.85 },
+    { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, 6.15);
+  tl.to("#sba", { opacity: 0, duration: 0.15 }, 6.3)
+    .to("#sbb", { opacity: 1, duration: 0.2 }, 6.4);
+
+  /* ---- beat2 sync: 7.8 - 11.6 ---- */
+  beatIO("#beat2", 7.8, 3.8);
+  wordsIn("#beat2 .headline", 7.95);
+  tl.fromTo("#b2wrap", { y: 60, opacity: 0 },
+    { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 8.1);
+  const cnode = document.querySelector("#counter");
+  const CN = 128400, CSTEPS = 50, CDUR = 2.3;
+  for (let i = 1; i <= CSTEPS; i++) {
+    const p = i / CSTEPS;
+    tl.set(cnode, { textContent: fmt(Math.round(CN * (1 - (1 - p) * (1 - p)))) },
+      8.3 + p * CDUR);
+  }
+  tl.fromTo("#b2wrap .bar", { scaleY: 0 },
+    { scaleY: 1, duration: 0.7, ease: "back.out(1.3)", stagger: 0.12 }, 8.45);
+  tl.fromTo("#beat2 .dev", { y: 34, opacity: 0 },
+    { y: 0, opacity: 1, duration: 0.45, ease: "power2.out", stagger: 0.15 }, 9.2);
+  tl.fromTo("#syncdot", { x: 0 }, { x: 615, duration: 2.4, ease: "sine.inOut" }, 8.9);
+
+  /* ---- beat3 search: 12.0 - 16.0 ---- */
+  beatIO("#beat3", 12.0, 4.0);
+  wordsIn("#beat3 .headline", 12.15);
+  tl.fromTo("#b3win", { y: 70, opacity: 0 },
+    { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 12.3);
+  type("#qtext", "plan", 12.75, 7);
+  blink("#caret3", 12.75, 3.0);
+  document.querySelectorAll("#beat3 .row:not(.rhit)").forEach(function (row, i) {
+    tl.to(row.parentNode, { height: 0, opacity: 0,
+      duration: 0.4, ease: "power2.inOut" }, 13.65 + i * 0.14);
+  });
+  document.querySelectorAll("#beat3 .rhit").forEach(function (row, i) {
+    tl.to(row, { borderLeftColor: "#F59E0B",
+      backgroundColor: "rgba(245, 158, 11, 0.14)",
+      duration: 0.3, ease: "power1.out" }, 14.0 + i * 0.12);
+  });
+  tl.to("#rca", { opacity: 0, duration: 0.2 }, 14.15)
+    .to("#rcb", { opacity: 1, duration: 0.25 }, 14.25)
+    .to("#sba3", { opacity: 0, duration: 0.15 }, 14.15)
+    .to("#sbb3", { opacity: 1, duration: 0.2 }, 14.3);
+
+  /* ---- end card: 16.4 - 19.8 ---- */
+  beatIO("#endcard", 16.4, 3.4);
+  tl.fromTo("#endcard .ch", { scale: 0.3, y: 90, opacity: 0 },
+    { scale: 1, y: 0, opacity: 1, duration: 0.8, ease: "back.out(1.8)",
+      stagger: { each: 0.05, from: "center" } }, 16.55);
+  tl.fromTo("#cta", { y: 64, opacity: 0, scale: 0.9 },
+    { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power3.out" }, 17.35);
+  tl.fromTo("#endcard .sub", { y: 30, opacity: 0 },
+    { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 17.75);
+  tl.to("#cta", { scale: 1.045, duration: 0.5, ease: "sine.inOut",
+    yoyo: true, repeat: 3 }, 18.1);
+
   window.__timelines["main"] = tl;
   tl.seek(0);
 </script>

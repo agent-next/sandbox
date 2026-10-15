@@ -1,16 +1,16 @@
 {
   "title": "Aurora Notes",
-  "duration_s": 24,
-  "width": 1280,
-  "height": 720,
+  "duration_s": 20,
+  "width": 1920,
+  "height": 1080,
   "fps": 30,
   "background": "#0F172A",
   "brand_colors": ["#4F46E5", "#F59E0B"],
   "beats": [
-    {"label": "title",   "text": "Aurora Notes",                    "start_s": 0.5,  "hold_s": 3.0},
-    {"label": "beat1",   "text": "Capture ideas in one keystroke",  "start_s": 4.0,  "hold_s": 4.0},
-    {"label": "beat2",   "text": "Sync across every device",        "start_s": 9.0,  "hold_s": 4.0},
-    {"label": "beat3",   "text": "Search everything instantly",      "start_s": 14.0, "hold_s": 4.0},
-    {"label": "endcard", "text": "Try it free today",                "start_s": 19.0, "hold_s": 4.0}
+    {"label": "title",   "text": "Aurora Notes",                    "start_s": 0.4,  "hold_s": 2.6},
+    {"label": "beat1",   "text": "Capture ideas in one keystroke",  "start_s": 3.4,  "hold_s": 4.0},
+    {"label": "beat2",   "text": "Sync across every device",        "start_s": 7.8,  "hold_s": 3.8},
+    {"label": "beat3",   "text": "Search everything instantly",     "start_s": 12.0, "hold_s": 4.0},
+    {"label": "endcard", "text": "Try it free today",               "start_s": 16.4, "hold_s": 3.4}
   ]
 }

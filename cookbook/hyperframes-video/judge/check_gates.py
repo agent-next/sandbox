@@ -16,6 +16,8 @@ far smaller than the pass threshold, so a verdict is byte-identical across
 grades of equivalent renders while still reporting what was measured.
 """
 
+import glob
+import html as html_mod
 import json
 import math
 import os
@@ -33,8 +35,13 @@ BLACK_MAX_S = 0.5             # gate 4
 FREEZE_MAX_S = 2.0            # gate 4
 DE_MAX = 25.0                 # gate 5: CIE76 delta-E
 BRAND_MIN_PCT = 1.0           # gate 5: % of frame pixels within DE_MAX
-SSIM_MIN = 0.995              # gate 6
-PSNR_MIN = 40.0               # gate 6
+MOTION_STEP_S = 0.5           # gate 6: sample grid spacing
+MOTION_DIFF_GRAY = 24         # gate 6: per-pixel gray diff that counts
+MOTION_MIN_PCT = 0.4          # gate 6: % pixels changed => pair "moved"
+MOTION_MIN_FRAC = 0.6         # gate 6: fraction of pairs that must move
+OVERFLOW_STEP_S = 0.2         # gate 7: timeline seek spacing for DOM audit
+SSIM_MIN = 0.995              # gate 8
+PSNR_MIN = 40.0               # gate 8
 
 
 def log(msg):
@@ -199,6 +206,153 @@ def grab_frame_rgb(mp4, t, w, h):
     return p.stdout
 
 
+def grab_frame_gray(mp4, t, gw, gh):
+    """Raw gray8 bytes of the frame nearest to t, downscaled to gw x gh."""
+    p = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", "%.3f" % t, "-i", mp4,
+         "-frames:v", "1", "-vf", "scale=%d:%d" % (gw, gh),
+         "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True)
+    if p.returncode != 0 or len(p.stdout) != gw * gh:
+        return None
+    return p.stdout
+
+
+def frame_diff_pct(a, b, thresh=MOTION_DIFF_GRAY):
+    """% of pixels differing by more than `thresh` gray levels."""
+    if a is None or b is None or len(a) != len(b):
+        return None
+    n = len(a)
+    diff = sum(1 for i in range(n) if abs(a[i] - b[i]) > thresh)
+    return 100.0 * diff / n
+
+
+# ---------------------------------------------------------------------------
+# gate 7: DOM text-overflow audit (runs in the pinned chrome-headless-shell)
+# ---------------------------------------------------------------------------
+
+def chrome_headless_shell():
+    cands = []
+    for var in ("HF_CHROME", "CHROME_HEADLESS_SHELL"):
+        v = os.environ.get(var)
+        if v:
+            cands.append(v)
+    cands += sorted(glob.glob(os.path.expanduser(
+        "~/.cache/hyperframes/chrome/chrome-headless-shell/*/"
+        "chrome-headless-shell-linux64/chrome-headless-shell")))
+    for c in cands:
+        if os.path.isfile(c) and os.access(c, os.X_OK):
+            return c
+    return None
+
+
+# Injected into a scratch copy of the composition: seeks window.__timelines
+# .main across the whole duration and reports every text-bearing element
+# (direct non-whitespace text node) whose box leaves the stage while
+# effectively visible (opacity >= 0.5), or whose own hidden-overflow box
+# clips its content.  Report is written into <div id="__hf_audit"> as JSON.
+AUDIT_JS = r"""<script>
+(function () {
+  var report = { checks: 0, violations: [] };
+  try {
+    var stage = document.querySelector("[data-composition-id]");
+    var tl = (window.__timelines || {})["main"];
+    if (!stage || !tl) {
+      report.violations.push({ error: "no stage or timeline" });
+    } else {
+      var sr = stage.getBoundingClientRect();
+      var dur = parseFloat(stage.getAttribute("data-duration")) ||
+                tl.duration();
+      function effOp(el) {
+        var o = 1;
+        while (el && el !== document.body) {
+          var v = parseFloat(getComputedStyle(el).opacity);
+          if (!isNaN(v)) o *= v;
+          el = el.parentElement;
+        }
+        return o;
+      }
+      for (var t = 0.1; t < dur; t += STEP) {
+        tl.seek(t);
+        var els = stage.querySelectorAll("*");
+        for (var i = 0; i < els.length; i++) {
+          var el = els[i], txt = false;
+          for (var j = 0; j < el.childNodes.length; j++) {
+            var n = el.childNodes[j];
+            if (n.nodeType === 3 && n.textContent.trim()) { txt = true; break; }
+          }
+          if (!txt) continue;
+          var cs = getComputedStyle(el);
+          if (cs.display === "none" || cs.visibility === "hidden") continue;
+          var r = el.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) continue;
+          if (effOp(el) < 0.5) continue;
+          report.checks++;
+          var prob = {};
+          if (r.left < sr.left - 2 || r.top < sr.top - 2 ||
+              r.right > sr.right + 2 || r.bottom > sr.bottom + 2)
+            prob.stage = [Math.round(r.left - sr.left),
+                          Math.round(r.top - sr.top),
+                          Math.round(r.right - sr.right),
+                          Math.round(r.bottom - sr.bottom)];
+          if ((cs.overflow === "hidden" || cs.overflow === "clip" ||
+               cs.overflowX === "hidden" || cs.overflowY === "hidden") &&
+              (el.scrollWidth > el.clientWidth + 2 ||
+               el.scrollHeight > el.clientHeight + 2))
+            prob.scroll = [el.scrollWidth - el.clientWidth,
+                           el.scrollHeight - el.clientHeight];
+          if (prob.stage || prob.scroll)
+            report.violations.push({
+              t: +t.toFixed(2), tag: el.tagName,
+              cls: String(el.className).slice(0, 40),
+              txt: el.textContent.trim().replace(/[<>&]/g, "").slice(0, 30),
+              prob: prob });
+        }
+      }
+    }
+  } catch (e) {
+    report.violations.push({ error: String(e) });
+  }
+  var d = document.createElement("div");
+  d.id = "__hf_audit"; d.style.display = "none";
+  d.textContent = JSON.stringify(report);
+  document.body.appendChild(d);
+})();
+</script>""".replace("STEP", str(OVERFLOW_STEP_S))
+
+
+def overflow_audit(comp_dir, work_dir, w, h):
+    """Returns (violations_list_or_None, error_string)."""
+    chs = chrome_headless_shell()
+    if not chs:
+        return None, "chrome-headless-shell not found (run judge/setup.sh)"
+    ovr = os.path.join(work_dir, "ovr_comp")
+    shutil.copytree(comp_dir, ovr)
+    idx = os.path.join(ovr, "index.html")
+    src = open(idx, encoding="utf-8", errors="replace").read()
+    pos = src.rfind("</body>")
+    if pos < 0:
+        return None, "index.html has no </body>"
+    with open(idx, "w", encoding="utf-8") as f:
+        f.write(src[:pos] + AUDIT_JS + src[pos:])
+    try:
+        p = run([chs, "--no-sandbox", "--disable-gpu",
+                 "--window-size=%d,%d" % (w, h),
+                 "--virtual-time-budget=15000", "--dump-dom",
+                 "file://" + idx], timeout=180)
+    except subprocess.TimeoutExpired:
+        return None, "chrome-headless-shell audit timed out"
+    m = re.search(r'<div id="__hf_audit"[^>]*>(.*?)</div>',
+                  p.stdout, re.S)
+    if not m:
+        return None, "audit produced no report (js error?)"
+    try:
+        report = json.loads(html_mod.unescape(m.group(1)))
+    except json.JSONDecodeError as e:
+        return None, "audit report is not JSON: %s" % e
+    return report, None
+
+
 def write_pgm(path, w, h, gray):
     with open(path, "wb") as f:
         f.write(b"P5\n%d %d\n255\n" % (w, h))
@@ -302,7 +456,7 @@ def main():
 
     def finish():
         verdict["all_gates_passed"] = all(g["passed"] for g in gates) \
-            and len(gates) >= 6
+            and len(gates) >= 9
         if json_out:
             with open(json_out, "w") as f:
                 json.dump(verdict, f, indent=2)
@@ -336,7 +490,8 @@ def main():
         gate(0, "input-validation", False, {"problems": problems})
         for n, nm in ((1, "render"), (2, "container-format"),
                       (3, "beat-text-ocr"), (4, "no-black-no-freeze"),
-                      (5, "brand-colors"), (6, "determinism")):
+                      (5, "brand-colors"), (6, "frame-motion"),
+                      (7, "no-text-overflow"), (8, "determinism")):
             gate(n, nm, False, {"skipped": "input invalid"})
         rlog.close()
         shutil.rmtree(work, ignore_errors=True)
@@ -358,7 +513,8 @@ def main():
     if not ok:
         for n, nm in ((2, "container-format"), (3, "beat-text-ocr"),
                       (4, "no-black-no-freeze"), (5, "brand-colors"),
-                      (6, "determinism")):
+                      (6, "frame-motion"), (7, "no-text-overflow"),
+                      (8, "determinism")):
             gate(n, nm, False, {"skipped": "render failed"})
         rlog.close()
         shutil.rmtree(work, ignore_errors=True)
@@ -494,14 +650,52 @@ def main():
          {"min_pct_required": BRAND_MIN_PCT, "delta_e_max": DE_MAX,
           "beats": col_detail})
 
-    # -- gate 6: determinism — second render, SSIM/PSNR vs first -----------------
+    # -- gate 6: frame-motion — sampled frames must differ meaningfully --------
+    # Sample render 1 on a MOTION_STEP_S grid, downscaled to gray.  A pair of
+    # consecutive samples "moves" when >= MOTION_MIN_PCT of pixels differ by
+    # more than MOTION_DIFF_GRAY gray levels — real motion (typing, counters,
+    # drifting geometry), not encoder noise or a sub-visible shimmer that
+    # merely keeps freezedetect quiet.  Pass requires >= MOTION_MIN_FRAC of
+    # consecutive pairs to move.
+    times = []
+    t = MOTION_STEP_S / 2.0
+    while t < dur - MOTION_STEP_S / 4.0:
+        times.append(t)
+        t += MOTION_STEP_S
+    gframes = [grab_frame_gray(out1, tt, 320, 180) for tt in times]
+    diffs = [frame_diff_pct(gframes[i - 1], gframes[i])
+             for i in range(1, len(gframes))]
+    moved = sum(1 for d in diffs if d is not None and d >= MOTION_MIN_PCT)
+    npairs = len(diffs)
+    gate(6, "frame-motion",
+         npairs > 0 and all(d is not None for d in diffs)
+         and moved >= math.ceil(MOTION_MIN_FRAC * npairs),
+         {"moved_pct": q_step(100.0 * moved / npairs, 10) if npairs else 0,
+          "pairs": npairs,
+          "min_frac": MOTION_MIN_FRAC,
+          "sample_step_s": MOTION_STEP_S,
+          "diff_thresh_gray": MOTION_DIFF_GRAY,
+          "min_changed_pct": MOTION_MIN_PCT})
+
+    # -- gate 7: no text overflow (DOM audit in headless Chrome) ----------------
+    audit, audit_err = overflow_audit(comp_dir, work, w, h)
+    if audit is None:
+        gate(7, "no-text-overflow", False, {"error": audit_err})
+    else:
+        viols = audit.get("violations", [])
+        gate(7, "no-text-overflow", len(viols) == 0,
+             {"elements_checked": audit.get("checks", 0),
+              "violations": len(viols),
+              "first_violations": viols[:3]})
+
+    # -- gate 8: determinism — second render, SSIM/PSNR vs first -----------------
     # A second render is only meaningful when the first one is a clean pass;
     # skip it when an earlier gate already killed the artifact (saves ~2 min).
-    if all(g["passed"] for g in gates if g["gate"] in (1, 2, 3, 4, 5)):
+    if all(g["passed"] for g in gates if g["gate"] in (1, 2, 3, 4, 5, 6, 7)):
         out2 = os.path.join(work, "render2.mp4")
         ok2, why2 = render(comp_dir, out2, fps, rlog)
         if not ok2:
-            gate(6, "determinism", False,
+            gate(8, "determinism", False,
                  {"error": "second render failed: %s" % why2})
         else:
             p = run(["ffmpeg", "-i", out1, "-i", out2, "-lavfi",
@@ -514,13 +708,13 @@ def main():
             psnr = float(m.group(1)) if m else 0.0
             if math.isinf(psnr):
                 psnr = 99.0          # identical streams; cap for reporting
-            gate(6, "determinism",
+            gate(8, "determinism",
                  ssim >= SSIM_MIN and psnr >= PSNR_MIN,
                  {"ssim_all": round(ssim, 4),
                   "psnr_db": q_step(psnr, 5.0),
                   "min": {"ssim": SSIM_MIN, "psnr_db": PSNR_MIN}})
     else:
-        gate(6, "determinism", False,
+        gate(8, "determinism", False,
              {"skipped": "an earlier gate already failed"})
 
     rlog.close()

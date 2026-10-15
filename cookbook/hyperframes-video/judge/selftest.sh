@@ -83,7 +83,8 @@ echo ""
 echo "[selftest] Known-bad mutants (must FAIL):"
 
 MUTANTS=(wrong-duration missing-beat black-gap wrong-resolution
-         off-brand-colors broken-js frozen-video nondeterministic)
+         off-brand-colors broken-js frozen-video nondeterministic
+         static-composition text-overflow)
 
 KILLED=0
 TOTAL=0

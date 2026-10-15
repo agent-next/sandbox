@@ -46,17 +46,17 @@ never hard-codes content that the artifact can rewrite.
 ```json
 {
   "title": "Aurora Notes",
-  "duration_s": 24,
-  "width": 1280,
-  "height": 720,
+  "duration_s": 20,
+  "width": 1920,
+  "height": 1080,
   "fps": 30,
   "brand_colors": ["#4F46E5", "#F59E0B"],
   "beats": [
-    {"label": "title", "text": "Aurora Notes", "start_s": 0.5, "hold_s": 3.0},
-    {"label": "beat1", "text": "Capture ideas in one keystroke", "start_s": 4.0, "hold_s": 4.0},
-    {"label": "beat2", "text": "Sync across every device",      "start_s": 9.0, "hold_s": 4.0},
-    {"label": "beat3", "text": "Search everything instantly",    "start_s": 14.0, "hold_s": 4.0},
-    {"label": "endcard", "text": "Try it free today",            "start_s": 19.0, "hold_s": 4.0}
+    {"label": "title", "text": "Aurora Notes", "start_s": 0.4, "hold_s": 2.6},
+    {"label": "beat1", "text": "Capture ideas in one keystroke", "start_s": 3.4, "hold_s": 4.0},
+    {"label": "beat2", "text": "Sync across every device",      "start_s": 7.8, "hold_s": 3.8},
+    {"label": "beat3", "text": "Search everything instantly",    "start_s": 12.0, "hold_s": 4.0},
+    {"label": "endcard", "text": "Try it free today",            "start_s": 16.4, "hold_s": 3.4}
   ]
 }
 ```
@@ -87,12 +87,12 @@ verdict JSON lists each gate with its measured numbers.
 
 ### Gate 1 — render
 - `hyperframes render` exits 0 within 15 min and produces `output.mp4`
-  (726–7200 frames; the good example takes ~1–2 min on 2 vCPU).
+  (the good example takes ~4 min on 2 vCPU at 1920×1080/30 fps).
 
 ### Gate 2 — container format (ffprobe)
 - Duration within ±0.11 s of `spec.duration_s` (frame quantisation:
   HyperFrames emits exactly `round(duration*fps)` frames — measured
-  24 s in → 24.000000 s / 720 frames out at 30 fps).
+  20 s in → 20.000000 s / 600 frames out at 30 fps).
 - Resolution exactly `width`×`height`; fps exactly `spec.fps`.
 - Video codec `h264`, pixel format `yuv420p`.
 
@@ -127,7 +127,32 @@ verdict JSON lists each gate with its measured numbers.
   frame — the gate threshold has ≥ 1.5× headroom against the weakest
   frame and a rotated-palette mutant measures ~0 %.
 
-### Gate 6 — determinism (two renders, self-compared)
+### Gate 6 — frame motion (sampled frame diffs)
+- The judge samples render 1 on a 0.5 s grid, downscaled to 320×180 gray.
+  A consecutive pair "moves" when ≥ 0.4 % of pixels differ by more than
+  24 gray levels — real motion (typing, counters, transitions, drifting
+  geometry), not encoder noise. Pass requires ≥ 60 % of pairs to move.
+  Rationale: `freezedetect` counts *any* pixel change, so a composition
+  with a tiny decoy element can keep it quiet while every hold is
+  visually static — this gate measures *meaningful* change. Measured on
+  the good example: 39/39 pairs move; the `static-composition` mutant
+  (a 60 px teleporting square) moves ~5/39 and is killed here only.
+  Reported as `moved_pct` quantised to 10 % (verdict determinism).
+
+### Gate 7 — no text overflow (DOM audit in headless Chrome)
+- The judge injects an audit script into a scratch copy of the
+  composition, loads it in the pinned chrome-headless-shell
+  (`--dump-dom`, virtual-time), seeks `window.__timelines.main` every
+  0.2 s across the whole duration, and inspects every text-bearing
+  element (a direct non-whitespace text node) that is effectively visible
+  (combined opacity ≥ 0.5, not `display:none`). A violation is a box
+  leaving the stage by > 2 px, or an element with `overflow:hidden/clip`
+  whose scroll size exceeds its client size by > 2 px. Pass requires
+  **zero violations**. Measured: the good example reports 991 element
+  checks, 0 violations; the `text-overflow` mutant (170 px headline +
+  clipped typed line) reports 52.
+
+### Gate 8 — determinism (two renders, self-compared)
 - HyperFrames is **not** byte-deterministic on this stack (measured: two
   renders of the same composition, sha256 `9d7665d3…` vs `87d45642…`).
   The gate is the documented fallback: the judge's two renders must reach
@@ -136,6 +161,8 @@ verdict JSON lists each gate with its measured numbers.
   composition that reads wall-clock time, `Math.random()` or network
   state renders visibly different passes and fails here; so do two renders
   of different duration, which make the ssim filter itself error out.
+  Gate 8 runs only when gates 1–7 all pass (the second render is skipped
+  once the artifact is already dead, saving ~4 min).
 
 ## Acceptance oracle
 
@@ -147,7 +174,11 @@ verdict JSON lists each gate with its measured numbers.
   noise while failing a missing or wrong beat.
 - Gate 5's oracle is perceptual distance to the declared brand colours in
   frames the harness itself decodes.
-- Gate 6's oracle is a second render the judge makes itself.
+- Gate 6's oracle is frame-to-frame pixel change in frames the harness
+  itself decodes.
+- Gate 7's oracle is the DOM audit the harness itself runs inside the
+  pinned chrome-headless-shell on a scratch copy of the composition.
+- Gate 8's oracle is a second render the judge makes itself.
 
 Nothing passes because "it rendered" — a black screen renders fine and
 fails gates 3–5.
@@ -157,15 +188,23 @@ fails gates 3–5.
 Single-edit mutants of `examples/good/`, generated into `examples/bad/`
 (gitignored):
 
-1. `wrong-duration` — stage `data-duration` and `spec.duration_s` −4 s.
+1. `wrong-duration` — stage `data-duration` 16 s, spec keeps 20 s.
 2. `missing-beat` — beat 2 element removed from the DOM (spec keeps it).
 3. `black-gap` — 1.5 s all-black interval inserted via an opaque overlay.
-4. `wrong-resolution` — stage rendered at 640×360, spec keeps 1280×720.
+4. `wrong-resolution` — stage rendered at 640×360, spec keeps 1920×1080.
 5. `off-brand-colors` — brand colours rotated to non-brand values.
 6. `broken-js` — `window.__timelines` never registered; render fails.
-7. `frozen-video` — progress bar and blob drift removed; freezedetect
-   fires on the static holds.
+7. `frozen-video` — the motion script is swapped for instant opacity
+   toggles; static holds freeze past the gate 4 limit (gate 6 also kills
+   it).
 8. `nondeterministic` — a `Math.random()`-driven jitter on the timeline;
    two renders diverge, SSIM drops below the gate.
+9. `static-composition` — same static timeline as `frozen-video` plus a
+   60 px square teleporting every 0.5 s: enough per-frame change to keep
+   `freezedetect` quiet, but under gate 6's meaningful-diff floor — gate
+   6 is its only killer.
+10. `text-overflow` — headline font tripled so words leave the stage, and
+    the typed line clipped by a fixed-width `overflow:hidden` box — gate
+    7 reports dozens of violations.
 
-Selftest requires the good example to pass and kill rate ≥ 7/8 (≥ 90 %).
+Selftest requires the good example to pass and kill rate ≥ 9/10 (≥ 90 %).

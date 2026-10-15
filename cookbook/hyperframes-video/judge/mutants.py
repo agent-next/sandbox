@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate known-bad mutant artifacts for self-testing the judge.
 
-Each mutant is a single-edit copy of examples/good/ and must fail at least
-one gate.  Output goes to examples/bad/ (gitignored, regenerated).
+Each mutant is a single-region edit of examples/good/ and must fail at
+least one gate.  Output goes to examples/bad/ (gitignored, regenerated).
 """
 
 import json
@@ -14,6 +14,34 @@ import sys
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GOOD = os.path.join(BASE, 'examples', 'good')
 BAD = os.path.join(BASE, 'examples', 'bad')
+
+# The good composition's <script> body is replaced wholesale by the two
+# "static" mutants — one region swapped for a minimal timeline.
+SCRIPT_RE = r'<script>\s*\n  window\.__timelines[\s\S]*?</script>'
+
+STATIC_BODY = '''<script>
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+  document.querySelector("#typed1").textContent =
+      "Ideas arrive fast. Catch them.";
+  document.querySelector("#counter").textContent = "128,400";
+  document.querySelector("#qtext").textContent = "plan";
+  [["#title", 0.4, 2.6], ["#beat1", 3.4, 4.0], ["#beat2", 7.8, 3.8],
+   ["#beat3", 12.0, 4.0], ["#endcard", 16.4, 3.4]].forEach(function (b) {
+    tl.set(b[0], { opacity: 1 }, b[1]).set(b[0], { opacity: 0 }, b[1] + b[2]);
+  });
+  EXTRA
+  window.__timelines["main"] = tl;
+  tl.seek(0);
+</script>'''
+
+# A 60x60 square teleporting between four fixed corners every 0.5 s:
+# enough per-frame pixel change that freezedetect never sees a >2 s run,
+# but under gate 6's meaningful-diff floor (~0.4% of the frame), so only
+# the frame-motion gate kills it.
+DECOY = '''var pos = [[620, 300], [1420, 700], [760, 760], [1380, 300]];
+  for (var i = 0; i < 40; i++)
+    tl.set("#shim", { x: pos[i % 4][0], y: pos[i % 4][1] }, i * 0.5);'''
 
 
 def clone(dst):
@@ -55,18 +83,26 @@ def main():
     os.makedirs(BAD, exist_ok=True)
     made = []
 
-    # 1. wrong-duration — stage claims 20 s while spec.json still says 24 s:
+    # 1. wrong-duration — stage claims 16 s while spec.json still says 20 s:
     #    caught by input validation (data-duration must equal duration_s).
     d = clone(os.path.join(BAD, 'wrong-duration'))
     edit_html(d, lambda s: sub1(
-        s, r'data-duration="24"', 'data-duration="20"', 'data-duration'))
+        s, r'data-duration="20"', 'data-duration="16"', 'data-duration'))
     made.append('wrong-duration')
 
     # 2. missing-beat — beat 2 removed from DOM and timeline; spec keeps it.
     d = clone(os.path.join(BAD, 'missing-beat'))
     def drop_beat(s):
-        s = sub1(s, r'\s*<div id="beat2".*?</div></div>', '', 'beat2 element')
-        s = sub1(s, r'\s*\{ id: "#beat2"[^}]*\},?', '', 'beat2 timeline')
+        s = sub1(s, r'\n  <div id="beat2" class="beat">[\s\S]*?\n  <div id="beat3"',
+                 '\n  <div id="beat3"', 'beat2 element')
+        for pat in (r'[ \t]*beatIO\("#beat2"[^;]*;\n?',
+                    r'[ \t]*wordsIn\("#beat2[^;]*;\n?',
+                    r'[ \t]*tl\.fromTo\("#b2wrap"[\s\S]*?8\.1\);\n?',
+                    r'[ \t]*const counter = \{ n: 0 \};[\s\S]*?8\.3\);\n?',
+                    r'[ \t]*tl\.fromTo\("#b2wrap \.bar"[\s\S]*?8\.45\);\n?',
+                    r'[ \t]*tl\.fromTo\("#beat2 \.dev"[\s\S]*?9\.2\);\n?',
+                    r'[ \t]*tl\.fromTo\("#syncdot"[\s\S]*?8\.9\);\n?'):
+            s = sub1(s, pat, '', 'beat2 timeline')
         return s
     edit_html(d, drop_beat)
     made.append('missing-beat')
@@ -86,14 +122,14 @@ def main():
     edit_html(d, add_gap)
     made.append('black-gap')
 
-    # 4. wrong-resolution — stage renders 640x360; spec keeps 1280x720.
+    # 4. wrong-resolution — stage renders 640x360; spec keeps 1920x1080.
     d = clone(os.path.join(BAD, 'wrong-resolution'))
     def shrink(s):
-        for a, b in (('width=1280, height=720', 'width=640, height=360'),
-                     ('width: 1280px; height: 720px', 'width: 640px; height: 360px'),
-                     ('data-width="1280" data-height="720"',
-                      'data-width="640" data-height="360"')):
-            s = sub1(s, re.escape(a), b, a)
+        s = s.replace('width=1920, height=1080', 'width=640, height=360')
+        s = s.replace('width: 1920px; height: 1080px',
+                      'width: 640px; height: 360px')
+        s = sub1(s, r'data-width="1920" data-height="1080"',
+                 'data-width="640" data-height="360"', 'data-width')
         return s
     edit_html(d, shrink)
     made.append('wrong-resolution')
@@ -116,27 +152,52 @@ def main():
         s, r'\s*<script src="gsap\.min\.js"></script>', '', 'gsap script'))
     made.append('broken-js')
 
-    # 7. frozen-video — continuous-motion tweens removed; static holds
-    #    freeze longer than the 2 s gate.
+    # 7. frozen-video — the whole motion script is swapped for instant
+    #    opacity toggles; static holds freeze longer than the 2 s gate 4
+    #    limit (and gate 6 counts almost no moving pairs).
     d = clone(os.path.join(BAD, 'frozen-video'))
-    def freeze(s):
-        for pat in (r'\s*tl\.fromTo\("#fill"[^;]*;', r'\s*tl\.fromTo\("#blob-a"[^;]*;',
-                    r'\s*tl\.fromTo\("#blob-b"[^;]*;'):
-            s = sub1(s, pat, '', 'motion tween')
-        return s
-    edit_html(d, freeze)
+    edit_html(d, lambda s: sub1(
+        s, SCRIPT_RE, STATIC_BODY.replace('EXTRA', ''), 'static script'))
     made.append('frozen-video')
 
     # 8. nondeterministic — a Math.random()-driven tween makes the two
     #    judge renders visibly diverge; SSIM drops below the gate.
     d = clone(os.path.join(BAD, 'nondeterministic'))
     def jitter(s):
-        s = sub1(s, r'\{ x: 160, y: 90, duration: 24',
-                 '{ x: 200 + Math.random() * 600, y: Math.random() * 300, duration: 24',
+        s = sub1(s, r'\{ x: 150, y: 85, duration: DUR',
+                 '{ x: 200 + Math.random() * 600, y: Math.random() * 300, duration: DUR',
                  'random drift')
         return s
     edit_html(d, jitter)
     made.append('nondeterministic')
+
+    # 9. static-composition — like frozen-video but with a decoy square
+    #    teleporting every 0.5 s: freezedetect never sees a 2 s run, so
+    #    only gate 6 (frame-motion) can kill it.
+    d = clone(os.path.join(BAD, 'static-composition'))
+    def decoy(s):
+        s = sub1(s, r'(<div id="track">)',
+                 '<div id="shim" style="position:absolute;left:0;top:0;'
+                 'width:60px;height:60px;background:#F59E0B;opacity:0.5;'
+                 'border-radius:12px;"></div>\n  \\1', 'shim element')
+        s = sub1(s, SCRIPT_RE, STATIC_BODY.replace('EXTRA', DECOY),
+                 'static script')
+        return s
+    edit_html(d, decoy)
+    made.append('static-composition')
+
+    # 10. text-overflow — headline font triples so words leave the stage,
+    #     and the typed line is clipped by a fixed-width hidden-overflow box.
+    d = clone(os.path.join(BAD, 'text-overflow'))
+    def overflow(s):
+        s = sub1(s, r'font-size: 62px;', 'font-size: 170px;', 'headline size')
+        s = sub1(s, r'(\.caret \{)',
+                 '#typed1 { display: inline-block; max-width: 120px; '
+                 'overflow: hidden; vertical-align: bottom; }\n  \\1',
+                 'typed clip')
+        return s
+    edit_html(d, overflow)
+    made.append('text-overflow')
 
     print('Created %d mutants in %s: %s' % (len(made), BAD, ', '.join(made)))
 
