@@ -117,7 +117,7 @@ def main() -> int:
         # ------------------------------------------------ clone the repo
         with Step(f"clone --depth 1 --branch {args.ref}") as s:
             ok, out = exec_in(
-                f"set -e; rm -rf sandbox && "
+                f"set -eo pipefail; rm -rf sandbox && "
                 f"git clone --depth 1 -b {args.ref} {REPO_URL} sandbox "
                 f"2>&1 | tail -2", "clone")
             if not ok:
@@ -128,7 +128,8 @@ def main() -> int:
         # ------------------------------------------------------- setup
         with Step("judge/setup.sh (pinned toolchain build)") as s:
             ok, out = exec_in(
-                f"cd ~/sandbox/{DEMO} && bash judge/setup.sh 2>&1 | tail -25",
+                f"set -o pipefail; cd ~/sandbox/{DEMO} && "
+                f"bash judge/setup.sh 2>&1 | tail -25",
                 "setup")
             log(out.strip()[-1500:])
             if not ok:
@@ -138,7 +139,8 @@ def main() -> int:
         # ----------------------------------------------------- selftest
         with Step("judge/selftest.sh") as s:
             ok, out = exec_in(
-                f"cd ~/sandbox/{DEMO} && bash judge/selftest.sh --json /tmp/selftest.json "
+                f"set -o pipefail; cd ~/sandbox/{DEMO} && "
+                f"bash judge/selftest.sh --json /tmp/selftest.json "
                 f"2>&1 | tail -25", "selftest")
             log(out.strip()[-2500:])
             if not ok:
@@ -149,8 +151,8 @@ def main() -> int:
         # -------------------------------------------------------- grade
         with Step("judge/grade.sh examples/good/scene.usda") as s:
             ok, out = exec_in(
-                f"cd ~/sandbox/{DEMO} && bash judge/grade.sh "
-                f"examples/good/scene.usda "
+                f"set -o pipefail; cd ~/sandbox/{DEMO} && "
+                f"bash judge/grade.sh examples/good/scene.usda "
                 f"--seed 0 --json /tmp/verdict.json 2>&1 | tail -40", "grade")
             verdict_text = out
             log(out.strip()[-3000:])
