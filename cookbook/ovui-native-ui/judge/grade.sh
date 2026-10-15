@@ -41,7 +41,10 @@ export OMNIUI_HEADLESS=1
 export OMNIUI_LAVAPIPE=1
 export OMNIUI_BACKEND=vulkan
 export LD_LIBRARY_PATH="${STUB}:${LD_LIBRARY_PATH:-}"
-export OVUI_SEED="$SEED"
+# --seed is accepted for the standard's interface and recorded in the
+# verdict's seed field. The render takes no random input: it is a fixed
+# layout rasterised on a CPU device, so it is byte-identical for any seed.
+export OVUI_SEED="$SEED"  # informational; ovui does not read it
 
 t0=$(date +%s)
 "$VENV/bin/python" -I "$HERE/render.py" "$SCRATCH/panel.py" \
@@ -76,8 +79,9 @@ if [ -n "$JSON_OUT" ] && [ -f "$JSON_OUT" ]; then
   "$VENV/bin/python" -I -c "
 import json, sys
 v = json.load(open(sys.argv[1]))
+v['seed'] = int(sys.argv[3])
 v['timing'] = {'render_wall_s': int(sys.argv[2])}
-json.dump(v, open(sys.argv[1], 'w'), indent=2, sort_keys=True)" "$JSON_OUT" "$((t1 - t0))"
+json.dump(v, open(sys.argv[1], 'w'), indent=2, sort_keys=True)" "$JSON_OUT" "$((t1 - t0))" "$SEED"
 fi
 
 exit "$RC"

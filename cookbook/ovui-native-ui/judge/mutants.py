@@ -16,10 +16,11 @@ import sys
 # name -> (old, new); applied as a single str.replace on the good source
 MUTANTS = {
     # -- the classes named in the brief ------------------------------------
-    # missing slider: only two FloatSliders are built
+    # missing slider: the third row's widget is not a FloatSlider, so the
+    # panel still builds and renders and the widget-tree gate must catch it
     "missing_slider": (
-        "for label, (lo, hi) in zip(SLIDER_LABELS, SLIDER_RANGES):",
-        "for label, (lo, hi) in zip(SLIDER_LABELS, SLIDER_RANGES[:2]):"),
+        "sliders.append(ui.FloatSlider(min=lo, max=hi))",
+        "sliders.append(ui.FloatSlider(min=lo, max=hi)\n                              if hi != 50.0 else ui.Label(\"S3\"))"),
     # wrong slider range: slider 3 is 0..99 instead of 0..50
     "wrong_range": (
         "SLIDER_RANGES = [(0.0, 10.0), (0.0, 20.0), (0.0, 50.0)]",
