@@ -190,11 +190,11 @@ save):
 | mutant | edit | gate that kills it |
 |---|---|---|
 | `static_npv` | `Valuation!B2` formula replaced with literal number | structure (no formula) + negative control (no movement) |
-| `wrong_cashflow` | `Projections!G3` FCF changed from 4000 to 5000 | oracle (NPV off by ~10 %) |
+| `wrong_cashflow` | `Projections!G4` FCF changed from `=F4` (5000) to 5500 | oracle (NPV off by ~10 %) |
 | `wrong_exponent` | `Projections!H3` formula uses `A3-1` instead of `A3` | oracle (year-1 discount factor wrong) |
 | `missing_year` | `Projections!G5` (year 3) set to 0 | oracle (NPV too low) |
-| `npv_literal_override` | `Valuation!B2` = `=2753.39` (hardcoded literal formula) | structure + negative control |
-| `discount_rate_literal` | `Assumptions!B3` = 0.08 replaced with formula `=0.08+0.02` (self-referencing) | recalc (circular ref) or oracle |
+| `npv_literal_override` | `Valuation!B2` = `=2753.39` (hardcoded literal formula) | structure (hardcode literal) + negative control (no movement) |
+| `discount_rate_literal` | `Assumptions!B3` = 0.08 replaced with formula `=B3+0.02` (self-referencing, circular) | structure (rate no longer numeric) |
 
 `judge/selftest.sh` grades the known-good (must pass) and every mutant
 (each must fail ≥ 1 gate), prints the kill rate, and checks determinism
@@ -207,14 +207,17 @@ LibreOffice recalc is deterministic for a given input file and version.
 Two grades of the same artifact give byte-identical verdict JSON except
 `timing` — enforced by `selftest.sh`.
 
-## Toolchain (pinned, sha256-checked)
+## Toolchain (pinned)
 
-`judge/setup.sh` installs:
+`judge/setup.sh` installs into `$HOME/.venvs/spreadsheet-recalc`:
 
-- `libreoffice-calc` 7.4.7 (Debian bookworm) via sha256-checked `.deb`
-  from the Debian pool.
-- `python3-openpyxl` 3.0.9 (Debian bookworm) via apt.
-- The judge engine itself is stdlib-only (openpyxl + subprocess +
-  json + hashlib); no pip venv needed.
+- `openpyxl` 3.1.5 + `et_xmlfile` 2.0.0 from `judge/requirements.lock`,
+  sha256-checked via pip `--require-hashes` (both pure-Python wheels).
+- `libreoffice-calc` `4:7.4.7-1+deb12u14` (Debian bookworm) via apt with
+  a version pin; if the exact pin is unavailable the newest available
+  bookworm build is installed and recorded.
+- `pip` 25.0.1 (pinned upgrade inside the venv).
 
-`judge/VERSIONS.txt` records what setup actually installed.
+The judge engine itself is stdlib-only apart from openpyxl (subprocess +
+json + hashlib). `judge/VERSIONS.txt` records what setup actually
+installed.
