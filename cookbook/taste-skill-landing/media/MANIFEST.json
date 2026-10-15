@@ -6,21 +6,21 @@
       "shows": "~30 s step-through of the scroll frames with the seed-42 verdict captions (lossless master in gitignored media/master/)",
       "command": "bash media/make_media.sh",
       "source": "media/scroll-*.png + fresh judge/grade.sh verdict JSONs",
-      "sha256": "dc5267889623d37601e42c1fe5d7eafe4ab0899a6559283f22003021f6bbef50"
+      "sha256": "a13b8aba1a1f15c58493067a9b385a598d210f73213eccf9b97ceae4f71218f1"
     },
     {
       "file": "scroll-00.png",
       "shows": "scroll-capture frame 00/09 at 1440x900",
       "command": "~/.taste-judge/venv/bin/python media/make_frames.py",
       "source": "examples/good/site (fixed wind math), Chromium 153 headless",
-      "sha256": "dbe4d55ae7cd2a2d057eae7681c0927c649edcf48ede8040c6b112afc4af94a6"
+      "sha256": "3e7035b0ae4ccc4852f6b8e075fcb06b3ec3c3951c09642be2649e1ac69983f7"
     },
     {
       "file": "scroll-01.png",
       "shows": "scroll-capture frame 01/09 at 1440x900",
       "command": "~/.taste-judge/venv/bin/python media/make_frames.py",
       "source": "examples/good/site (fixed wind math), Chromium 153 headless",
-      "sha256": "22d0a841cdec1ae6ea56f72fc4a83924ea57224a2a45e0b7e3ba2d83ae108355"
+      "sha256": "69745af417360f736011d9c13fb1c0337009f35466931b6882fec13afda031e1"
     },
     {
       "file": "scroll-02.png",
@@ -83,21 +83,21 @@
       "shows": "full-page screenshot of examples/good/site at 1440 px",
       "command": "~/.taste-judge/venv/bin/python media/make_frames.py",
       "source": "examples/good/site (fixed wind math), Chromium 153 headless",
-      "sha256": "78940787b10b8724e3c519dd1e150f1c84560e8f62e581fd700f1e00de383fa0"
+      "sha256": "5cf158a91462768b3bf372652f41e6bb8487f5cf804d8a6cc44101903e8aee98"
     },
     {
       "file": "site-375.png",
       "shows": "full-page screenshot of examples/good/site at 375 px",
       "command": "~/.taste-judge/venv/bin/python media/make_frames.py",
       "source": "examples/good/site (fixed wind math), Chromium 153 headless",
-      "sha256": "0109180c473fb18f23e6c92f67d47b550c4d30d8d0a96c06c2b3df5c3b2b4b56"
+      "sha256": "b89b6cbdb6427c344d60d6893af30591a6f09a9b5204d877d8b62ef8a24d3fb0"
     },
     {
       "file": "site-768.png",
       "shows": "full-page screenshot of examples/good/site at 768 px",
       "command": "~/.taste-judge/venv/bin/python media/make_frames.py",
       "source": "examples/good/site (fixed wind math), Chromium 153 headless",
-      "sha256": "ffb1e329ae86060d687957324b9822615a42d6ccf90cf4c2de152f186ec9a463"
+      "sha256": "d80fb2ea364e430f20739f3d09ad4a41668ed2f2c0d14125061ee5038b10622b"
     }
   ]
 }

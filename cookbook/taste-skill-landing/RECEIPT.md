@@ -133,7 +133,9 @@ merely out of taste.
 Chromium 153), committed 2026-10-14 in commit `0956bd0` ("real browser
 frames of the taste-skill good site"). Sizes 44–280 KB each, all real
 browser output (nothing synthesized). `demo.mp4` and `MANIFEST.json`
-arrived with the Hardening pass below.
+arrived with the Hardening pass below; every file was regenerated again
+in the Visual polish pass after the select fix (current sizes: site
+shots 283–505 KB, scroll frames 43–118 KB).
 
 ## Hardening — 2026-10-15 (this sandbox, toolchain from the run above)
 
@@ -236,6 +238,65 @@ gitignored `media/master/`) now builds via
 [`media/make_media.sh`](media/make_media.sh), which re-grades both sites
 for the verdict captions; per-file sha256 in
 [`media/MANIFEST.json`](media/MANIFEST.json).
+
+## Visual polish — 2026-10-15 (this sandbox, same toolchain)
+
+The lead's acceptance pass found one visible defect in
+`media/site-1440.png`/`scroll-00.png`: in the hero "Try the wind math"
+card the "Wind from" `<select>` showed its value clipped at the bottom —
+`height: 48px` with `padding: 16px` left a 16 px content box for a ~22 px
+text line box. Two changes:
+
+1. **Site fix.** `.live-thing select` is now `padding: 12px 16px;
+   line-height: 24px`, so the text box fills the 48 − 24 px content box
+   and the option label sits vertically centred at 375/768/1440 px
+   (verified in the regenerated frames; `media/site-1440.png`). The other
+   controls were audited for the same clipping: the `input[type=range]`
+   renders no text and the `.button` anchors have no fixed height, so
+   neither can clip.
+2. **Judge check.** New taste sub-check **5.15 `control_text_fits`**
+   (cite: SKILL.md step 6.7 "Real links and buttons" — a control whose
+   own text does not fit the box its padding leaves is clipped): every
+   visible `input`/`select`/`button` that can display text (non-text
+   input types skipped) must have a text line box <= `clientHeight`
+   minus vertical padding. `line-height: normal` — which Chromium
+   reports on `select` regardless of the declared value — is measured
+   with an offscreen probe of the same font. New mutant
+   `clipped_control` reintroduces the defect (`padding: 16px` under the
+   48 px height) and is killed by exactly this check:
+   `SELECT#wind-dir` line_box 20–22 px > content_box 16 px at every
+   width.
+
+`bash judge/selftest.sh` — exit 0, 3 m 9 s, kill rate 100 % (10/10):
+
+```
+$ time bash judge/selftest.sh
+[selftest] Regenerating mutants...
+Created 10 mutants in .../examples/bad
+
+[selftest] Known-good site (must PASS):
+[selftest]   good/site  PASS
+[selftest] Determinism: identical
+[selftest]   baseline/site  exit != 0, fails: no_overflow,contrast_aa,...
+[selftest]   clipped_control  killed (failed: control_text_fits)
+[selftest] mutants killed  : 10/10 (100%)
+[selftest] SUCCESS
+
+real    3m9.038s
+EXIT=0
+```
+
+`judge/grade.sh` — good exit **0** (20.9 s), baseline exit **1** (13.9 s):
+good passes 7/7 gates and 15/15 taste sub-checks (min contrast ratio
+5.19:1); baseline still fails `no_overflow`, `contrast_aa`,
+`taste_rules` (11/15), `axe_a11y` — the same 4/7 failed-gate profile.
+
+`bash media/make_media.sh` — exit 0, 6 m 40 s: all frames regenerated
+from the fixed site (`site-375/768/1440.png` at 283/390/505 KB — the two
+over 300 KB stayed unquantised because Pillow is not in the judge venv;
+`make_frames.py` prints a note and continues), `scroll-00..09.png`,
+`demo.mp4` (30.4 s, 1920×1080, H.264 crf 18 +faststart, 789 KiB; the
+verdict card now reads 10/10 mutants), and a refreshed `MANIFEST.json`.
 
 ## Deviations
 
