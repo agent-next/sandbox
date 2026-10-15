@@ -51,6 +51,28 @@ def font(spec):
     return ImageFont.truetype(os.path.join(FONTS, name), size)
 
 
+_MEASURE = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+
+
+def fitted(text, maxw, name="DejaVuSans.ttf", size=44, minsize=26):
+    """Largest font at or below size at which text fits maxw (never spills)."""
+    while size > minsize:
+        f = ImageFont.truetype(os.path.join(FONTS, name), size)
+        if _MEASURE.textlength(text, font=f) <= maxw:
+            return f
+        size -= 2
+    return ImageFont.truetype(os.path.join(FONTS, name), minsize)
+
+
+def trunc_to(text, fnt, maxw):
+    """text clipped to maxw at fnt, ellipsised (last resort against overflow)."""
+    if _MEASURE.textlength(text, font=fnt) <= maxw:
+        return text
+    while text and _MEASURE.textlength(text + "…", font=fnt) > maxw:
+        text = text[:-1]
+    return text + "…"
+
+
 TURN = [None]           # one shared renderer (OSMesa buffers leak per context)
 
 
@@ -111,14 +133,16 @@ def caption(img, text, fnt=None, top=None):
     """Burn a caption band in (>= 44 px) across the bottom of a frame.
 
     Long captions are wrapped and sized to fit the frame instead of
-    running off the right edge.
+    running off the right edge.  Returns the band's top y so callers can
+    keep slot content clear of it.
     """
     fnt = fnt or font(F_BIG)
     d = ImageDraw.Draw(img, "RGBA")
+    maxw = W - 140
     lines, cur = [], ""
     for word in text.split():
         trial = f"{cur} {word}".strip()
-        if d.textlength(trial, font=fnt) > W - 140:
+        if d.textlength(trial, font=fnt) > maxw:
             lines.append(cur)
             cur = word
         else:
@@ -128,9 +152,10 @@ def caption(img, text, fnt=None, top=None):
     lh = int((fnt.size if hasattr(fnt, "size") else 48) * 1.3)
     band = lh * len(lines) + 44
     y0 = H - band if top is None else top
-    d.rectangle([0, y0, W, H], fill=(0, 0, 0, 190))
+    d.rectangle([0, y0, W, H], fill=(0, 0, 0, 200))
     for i, line in enumerate(lines):
         d.text((70, y0 + 22 + i * lh), line, font=fnt, fill=INK)
+    return y0
 
 
 def save(img, n):
@@ -169,10 +194,15 @@ def slot_hook(n0, n1):
         d = ImageDraw.Draw(img)
         d.text((70, 44), "three parts from three text specs",
                font=font(("DejaVuSans-Bold.ttf", 46)), fill=INK)
+        band_y = caption(
+            img, "text → OpenSCAD → STL / STEP / DXF, judged to 0.05 mm")
         for i, (case, _tm, _p, _tc) in enumerate(parts):
-            d.text((int(W * (i + 0.5) / 3), 980), labels[case],
-                   font=font(("DejaVuSans.ttf", 40)), fill=INK2, anchor="ma")
-        caption(img, "text → OpenSCAD → STL / STEP / DXF, judged to 0.05 mm")
+            lf = font(("DejaVuSans.ttf", 40))
+            lx, ly = int(W * (i + 0.5) / 3), band_y - 62
+            bb = d.textbbox((lx, ly), labels[case], font=lf, anchor="ma")
+            d.rectangle([bb[0] - 16, bb[1] - 8, bb[2] + 16, bb[3] + 8],
+                        fill=(0, 0, 0, 170))
+            d.text((lx, ly), labels[case], font=lf, fill=INK2, anchor="ma")
         save(img, n)
 
 
@@ -197,17 +227,21 @@ def slot_scad(n0, n1, case):
         img = render_spin(tm, SLOT_COLORS[case], c, r * 1.9, 18.0,
                           -20.0 + 44.0 * t, shift_px=-300)
         d = ImageDraw.Draw(img, "RGBA")
-        d.rectangle([60, 90, 880, 940], fill=(17, 17, 16, 255),
+        band_y = caption(
+            img, "the agent writes OpenSCAD; the pinned engine compiles it")
+        d.rectangle([60, 90, 880, 720], fill=(17, 17, 16, 255),
                     outline=(58, 58, 55, 255), width=2)
         d.text((90, 118), f"examples/good/{case}/part.scad", font=f_code,
                fill=INK2)
-        for i, line in enumerate(src[:21]):
-            d.text((90, 172 + i * 35), line[:46], font=f_code, fill=INK)
-        d.rectangle([920, 750, W - 40, 940], fill=(0, 0, 0, 160))
+        for i, line in enumerate(src[:18]):
+            d.text((90, 152 + i * 30), line[:46], font=f_code, fill=INK)
+        gy0, gy1 = 740, band_y - 24
+        d.rectangle([60, gy0, 1000, gy1], fill=(0, 0, 0, 170))
+        gw = 1000 - 60 - 60
         for i, line in enumerate(lines):
-            d.text((950, 768 + i * 56), line, font=font(F_MED), fill=INK)
-        caption(img, "the agent writes the source — the pinned engine compiles "
-                     "it; the judge re-exports and measures")
+            d.text((90, gy0 + 22 + i * 50),
+                   trunc_to(line, fitted(line, gw, size=40), gw),
+                   font=fitted(line, gw, size=40), fill=INK)
         save(img, n)
 
 
@@ -227,10 +261,13 @@ def slot_part(n0, n1, case, extra):
         img = render_spin(tm, SLOT_COLORS[case], c, r * 1.45, 20.0,
                           -25.0 + 55.0 * t, shift_px=300)
         d = ImageDraw.Draw(img)
-        d.text((1060, 260), case.upper(),
+        d.text((1020, 260), case.upper(),
                font=font(("DejaVuSans-Bold.ttf", 64)), fill=INK)
+        gw = W - 1020 - 70
         for i, line in enumerate(lines):
-            d.text((1060, 380 + i * 64), line, font=font(F_MED), fill=INK)
+            fnt = fitted(line, gw, size=44)
+            d.text((1020, 380 + i * 64), trunc_to(line, fnt, gw),
+                   font=fnt, fill=INK)
         caption(img, f"{case}: every gate measured — "
                      f"{len(_v['gates'])}/{len(_v['gates'])} pass")
         save(img, n)
@@ -242,54 +279,63 @@ def slot_matrix(n0, n1):
     rows = verdict_rows()
     img = Image.new("RGB", (W, H), DARK)
     d = ImageDraw.Draw(img, "RGBA")
-    d.text((70, 40), "the judge the agent cannot fool",
+    d.text((70, 34), "the judge the agent cannot fool",
            font=font(("DejaVuSans-Bold.ttf", 52)), fill=INK)
-    pill(d, "kill rate  11/11 (100 %)", 36, GREEN, "#0b0b0b", W - 70, 44)
-    pill(d, "known-good  3/3", 36, None, GREEN, W - 70 - 470 - 14, 44)
+    pill(d, "kill rate  11/11 (100 %)", 36, GREEN, "#0b0b0b", W - 70, 40)
+    pill(d, "known-good  3/3", 36, None, GREEN, W - 70 - 470 - 14, 40)
 
-    label_w = 480
-    x_mat, cw, rh = 70 + label_w, 86, 54
-    x_ev = x_mat + len(GATES) * cw + 20
-    y0 = 190
+    MARGIN = 60
+    label_w, ev_w = 470, 640
+    x_mat = MARGIN + label_w
+    cw = (W - 2 * MARGIN - label_w - ev_w - 24) // len(GATES)
+    x_ev = x_mat + len(GATES) * cw + 24
+    rh = 45
+    y0 = 140
     for j in range(len(GATES)):
-        d.text((x_mat + j * cw + cw // 2, y0 - 40), str(j + 1),
-               font=font(("DejaVuSans.ttf", 30)), fill=INK2, anchor="ma")
-    d.text((x_ev, y0 - 40), "failed gates (measured vs limit)",
-           font=font(("DejaVuSans.ttf", 30)), fill=INK2)
+        d.text((x_mat + j * cw + cw // 2, y0 - 34), str(j + 1),
+               font=font(("DejaVuSans.ttf", 26)), fill=INK2, anchor="ma")
+    d.text((x_ev, y0 - 34), "failed gates (measured vs limit)",
+           font=font(("DejaVuSans.ttf", 26)), fill=INK2)
     for i, (label, v, _is_good) in enumerate(rows):
         y = y0 + i * rh
         if i % 2 == 0:
-            d.rectangle([70, y, W - 70, y + rh - 4], fill=(32, 32, 31, 255))
-        d.text((80, y + 10), label, font=font(("DejaVuSans.ttf", 30)), fill=INK)
+            d.rectangle([MARGIN, y, W - MARGIN, y + rh - 4],
+                        fill=(32, 32, 31, 255))
+        lf = fitted(label, label_w - 20, size=28, minsize=20)
+        d.text((MARGIN + 10, y + 9), label, font=lf, fill=INK)
         gmap = {g["gate"]: g for g in v["gates"]}
         for j, gname in enumerate(GATES):
             x = x_mat + j * cw
             cx, cy = x + cw // 2, y + rh // 2 - 2
             if gname not in gmap:
-                d.text((cx, cy), "–", font=font(("DejaVuSans-Bold.ttf", 28)),
+                d.text((cx, cy), "–", font=font(("DejaVuSans-Bold.ttf", 26)),
                        fill="#77766f", anchor="mm")
                 continue
             ok = gmap[gname]["passed"]
-            d.rounded_rectangle([x + 3, y + 4, x + cw - 3, y + rh - 6],
-                                radius=8, fill=GREEN if ok else RED)
+            d.rounded_rectangle([x + 2, y + 4, x + cw - 2, y + rh - 6],
+                                radius=7, fill=GREEN if ok else RED)
             d.text((cx, cy), "✓" if ok else "✗",
-                   font=font(("DejaVuSans-Bold.ttf", 30)), fill="#0b0b0b",
+                   font=font(("DejaVuSans-Bold.ttf", 28)), fill="#0b0b0b",
                    anchor="mm")
-        d.text((x_ev, y + 13), fail_evidence(v),
-               font=font(("DejaVuSans.ttf", 25)),
-               fill=GREEN if v["passed"] else RED)
-    y_end = y0 + len(rows) * rh + 8
-    d.rectangle([70, y0 - 48, W - 70, y_end], outline=(70, 70, 66), width=2)
-    d.text((70, y_end + 20), "gates: 1 scad_export · 2 stl_matches_scad · "
-           "3 stl_watertight · 4 stl_winding · 5 bbox · 6 volume_stl · "
-           "7 xor_reference · 8 step_reimport · 9 volume_step · 10 cyl_faces · "
-           "11 planar_min_wall · 12 case_features · 13 dxf_valid · "
-           "14 dxf_features",
-           font=font(("DejaVuSans.ttf", 27)), fill=INK2)
+        ev = fail_evidence(v)
+        ef = fitted(ev, ev_w, size=25, minsize=18)
+        d.text((x_ev, y + 12), trunc_to(ev, ef, ev_w),
+               font=ef, fill=GREEN if v["passed"] else RED)
+    y_end = y0 + len(rows) * rh - 4
+    d.rectangle([MARGIN, y0 - 42, W - MARGIN, y_end],
+                outline=(70, 70, 66), width=2)
+    legend = [
+        "gates 1–7: scad_export · stl_matches_scad · stl_watertight · "
+        "stl_winding · bbox · volume_stl · xor_reference",
+        "gates 8–14: step_reimport · volume_step · cyl_faces · "
+        "planar_min_wall · case_features · dxf_valid · dxf_features",
+    ]
+    for i, line in enumerate(legend):
+        d.text((MARGIN, y_end + 16 + i * 26),
+               line, font=font(("DejaVuSans.ttf", 22)), fill=INK2)
     for n in range(n0, n1):
         frame = img.copy()
-        caption(frame, "verdicts: media/data/*.json — mutants are single "
-                       "edits of the good parts (judge/mutants.py)")
+        caption(frame, "verdicts: media/data/*.json — mutants are single edits")
         save(frame, n)
 
 
@@ -323,27 +369,29 @@ def slot_result(n0, n1):
                        len(_v["gates"])))
     img = Image.new("RGB", (W, H), DARK)
     d = ImageDraw.Draw(img, "RGBA")
-    d.text((70, 40), "the result: measured, not claimed",
-           font=font(("DejaVuSans-Bold.ttf", 52)), fill=INK)
+    d.text((60, 34), "the result: measured, not claimed",
+           font=font(("DejaVuSans-Bold.ttf", 50)), fill=INK)
     pill(d, f"3/3 parts PASS · {sum(p[3] for p in panels)}/"
             f"{sum(p[3] for p in panels)} gates", 36, GREEN, "#0b0b0b",
-         W - 70, 44)
+         W - 60, 40)
+    d.text((60, 100), "meshes: examples/good/*/part.stl · numbers: "
+           "media/data/good_*.json (judge/grade.sh)",
+           font=font(("DejaVuSans.ttf", 26)), fill=INK2)
+    PITCH, TILE = 620, 560
     for i, (case, panel, lines, ngates) in enumerate(panels):
-        x = 70 + i * 620
-        img.paste(panel, (x, 150))
-        d.rectangle([x - 2, 148, x + 521, 672], outline=(70, 70, 66), width=2)
-        d.text((x, 740), f"{case} — {ngates}/{ngates} gates",
+        x = 40 + i * PITCH
+        img.paste(panel, (x, 148))
+        d.rectangle([x - 2, 146, x + 521, 672], outline=(70, 70, 66), width=2)
+        d.text((x, 712), f"{case} — {ngates}/{ngates} gates",
                font=font(("DejaVuSans-Bold.ttf", 40)), fill=INK)
         for k, line in enumerate(lines):
-            d.text((x, 800 + k * 54), line, font=font(("DejaVuSans.ttf", 34)),
-                   fill=INK2)
-    d.text((70, 960), "meshes: examples/good/*/part.stl · numbers: "
-           "media/data/good_*.json (judge/grade.sh)",
-           font=font(("DejaVuSans.ttf", 30)), fill=INK2)
+            fnt = fitted(line, TILE, size=34, minsize=24)
+            d.text((x, 778 + k * 54), trunc_to(line, fnt, TILE),
+                   font=fnt, fill=INK2)
     for n in range(n0, n1):
         frame = img.copy()
-        caption(frame, "STL / STEP / DXF graded against analytic volumes, an "
-                       "OCCT reference solid and feature readback")
+        caption(frame, "graded against analytic volumes and an OCCT "
+                       "reference solid")
         save(frame, n)
 
 
