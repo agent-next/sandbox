@@ -21,6 +21,9 @@ part.py or by post-processing the good exports:
                        with crossed vertex order (self-crossing)
   dxf_outline_bulge  - good solid, outline redrawn as an LWPOLYLINE whose
                        straight edges are replaced by bulged arcs
+  stl_box_same_volume - good STEP/DXF, but the STL is a plain box with the
+                       same volume: watertight, outward, within 1 % by
+                       volume — only a geometry comparison can catch it
 
 PASS_CASES (written to <pass_out> when given; must PASS every gate):
   dxf_outline_lines  - the spec rectangle drawn as 4 LINE entities
@@ -44,7 +47,7 @@ MUTANTS = [
     "wrong_bolt_count", "wrong_pcd", "bore_off", "boss_missing",
     "scale_inch_mm", "stl_flipped_facet", "stl_not_watertight",
     "dxf_missing_hole", "edge_violation", "tangential_hole_drift",
-    "dxf_outline_bowtie", "dxf_outline_bulge",
+    "dxf_outline_bowtie", "dxf_outline_bulge", "stl_box_same_volume",
 ]
 
 PASS_CASES = [
@@ -300,6 +303,14 @@ def main():
     s, d = sp("dxf_outline_bulge")
     build_part(s, d)
     rewrite_dxf_outline(os.path.join(d, "part.dxf"), "bulge")
+
+    # --- STL mutants: good STEP/DXF, unrelated but plausible mesh ---------
+    s, d = sp("stl_box_same_volume")
+    build_part(s, d)
+    import trimesh
+    side = trimesh.load_mesh(os.path.join(d, "part.stl")).volume ** (1.0 / 3.0)
+    trimesh.creation.box(extents=(side, side, side)) \
+        .export(os.path.join(d, "part.stl"), file_type="stl")
 
     # --- pass-cases: must survive every gate ------------------------------
     if pass_dir is not None:
