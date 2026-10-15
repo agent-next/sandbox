@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import math
 from pathlib import Path
 import subprocess
 import unittest
@@ -27,8 +28,17 @@ class MediaTests(unittest.TestCase):
         for name, digest in manifest["source_sha256"].items():
             self.assertEqual(hashlib.sha256((HERE / name).read_bytes()).hexdigest(), digest)
         self.assertEqual(manifest["render"]["resolution"], [1920, 1080])
-        self.assertEqual([r["frame"] for r in manifest["render_frames"][:12]],
-                         list(range(1, 13)))
+        poses = manifest["render_frames"][:-1]
+        self.assertEqual(len(poses), 48)
+        self.assertEqual([r["frame"] for r in poses], [1 + i / 4 for i in range(48)])
+        self.assertEqual([r["pose"] for r in poses], list(range(1, 49)))
+        self.assertEqual([r["file"] for r in poses],
+                         [f"frame-{i:02}.png" for i in range(1, 49)])
+        for i, row in enumerate(poses):
+            self.assertAlmostEqual(row["angle_radians"], 2 * math.pi * i / 48, places=5)
+        self.assertEqual(manifest["render_frames"][-1]["file"], "unlinked.png")
+        self.assertEqual(manifest["turntable"]["judge_frames"], 12)
+        self.assertEqual(manifest["turntable"]["poses_per_second"], 24)
         self.assertTrue(all(r["seconds"] > 0 for r in manifest["render_frames"]))
         transfers = {Path(r["name"]).name: r for r in json.loads(
             (MEDIA / "data/transfers.json").read_text())
@@ -48,6 +58,23 @@ class MediaTests(unittest.TestCase):
         compose.text(draw, (20, 20), "PASS")
         with self.assertRaisesRegex(ValueError, "caption outside frame"):
             compose.text(draw, (1800, 20), "THIS CAPTION MUST NOT BE CLIPPED")
+
+    def test_real_pose_playback_cadence(self):
+        indices = [compose.pose_index(i) for i in range(180)]
+        self.assertEqual(len(set(indices[:60])), 48)
+        self.assertEqual(indices[:60], indices[60:120])
+        self.assertEqual(indices[:60], indices[120:])
+        self.assertTrue(all((b-a) % 48 in (0, 1)
+                            for a, b in zip(indices, indices[1:])))
+
+    def test_phone_proof_pages_cover_every_measured_case(self):
+        data = json.loads((MEDIA / "data/selftest.json").read_text())
+        self.assertEqual(set(compose.FAILURE_LABELS), set(data["mutants"]))
+        for start in (0, 5):
+            self.assertEqual(compose.kill_matrix(data, start).size, (1920, 1080))
+        for size in (76, 96):
+            _, top, _, bottom = compose.font(size).getbbox("H")
+            self.assertGreaterEqual(bottom - top, 0.05 * 1080)
 
     def test_measured_proof(self):
         data = json.loads((MEDIA / "data/selftest.json").read_text())
@@ -82,7 +109,7 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(video["r_frame_rate"], "30/1")
         self.assertEqual(video["codec_name"], "h264")
         self.assertEqual(video["pix_fmt"], "yuv420p")
-        self.assertEqual(float(probe["format"]["duration"]), 30)
+        self.assertEqual(float(probe["format"]["duration"]), 32)
         self.assertLessEqual((MEDIA / "demo.mp4").stat().st_size, 8_000_000)
 
 

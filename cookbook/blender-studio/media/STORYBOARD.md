@@ -1,6 +1,6 @@
 # Storyboard (written before cutting the revised video)
 
-Master: 1920×1080, 30 fps, 30 seconds. All scene imagery is real Cycles CPU
+Master: 1920×1080, 30 fps, 32 seconds. All scene imagery is real Cycles CPU
 output from one fresh sandbox, seed 17. Headline type is at least 64 px;
 the proof grid uses 76 px row labels and 96 px gate headers.
 Panels and close-up crops change presentation, never the geometry.
@@ -15,9 +15,9 @@ Panels and close-up crops change presentation, never the geometry.
 | 17–19 | direct-only rim probe makes the difference obvious | selftest good and unlinked_rim rim-on.png | “The judge isolates the rim light” / “Backdrop stays dark: PASS” / “Backdrop lights up: FAIL”; measured deltas as supporting text |
 | 19–22 | off-center failure beside centered repair; measured self-test rows revealed at labelled speed | off_center/hero.png, frame-01.png, data/selftest.json | “Broken → repaired” / “Off-center: 3/5” / “Centered: 5/5” / “Sandbox self-test replay / Nx speed” |
 | 22–25 | large PASS moment over the real result | good verdict and selftest.json | “PASS 5/5” / “All five checks passed” / “10/10 deliberately broken versions caught” |
-| 25–27 | first five rows of phone-readable proof grid | data/selftest.json | “JUDGE PROOF · 10/10 caught” / “Deliberately broken versions” / “G1 G2 G3 G4 G5”; plain failure labels |
-| 27–28 | last five rows, same large labels and headers | data/selftest.json | same headers, remaining measured rows; blue = pass, orange = fail |
-| 28–30 | one static launch card over the hero | frame-01.png | “Build it. Check it. Run it.” / `python3 run.py` |
+| 25–27.5 | first five rows of phone-readable proof grid | data/selftest.json | “JUDGE PROOF · 10/10 caught” / “Deliberately broken versions” / “G1 G2 G3 G4 G5”; plain failure labels |
+| 27.5–30 | last five rows, same large labels and headers | data/selftest.json | same headers, remaining measured rows; blue = pass, orange = fail |
+| 30–32 | one static launch card over the hero | frame-01.png | “Build it. Check it. Run it.” / `python3 run.py` |
 
 Every turntable pose is independently rendered in Cycles. Playback repeats
 actual poses at 24 poses/s inside a 30 fps master, without optical flow or
