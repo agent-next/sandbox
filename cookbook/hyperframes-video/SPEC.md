@@ -14,7 +14,7 @@ Pinned upstream: `hyperframes` npm package **0.8.61** (published
 registry integrity hash); the tarball sha256 is recorded in
 `judge/npm-sha256.txt` and checked by `judge/setup.sh`.
 
-The scenario: an agent reads `brief.md` (a 24 s teaser: title beat,
+The scenario: an agent reads `brief.md` (a 20 s teaser: title beat,
 3 feature beats, end card, brand colours), writes `composition/index.html`,
 and renders `output.mp4`. Every fact the judge checks (duration,
 resolution, fps, beat texts, beat timestamps, brand colours) comes from a

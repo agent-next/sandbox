@@ -2,7 +2,7 @@
 # judge/selftest.sh — prove the judge can fail.
 # The known-good example must pass; every scripted mutant must fail at
 # least one gate.  Prints the kill rate; exits non-zero unless it is
-# >= 90 % (8 mutants -> all 8 must die).
+# >= 90 % (10 mutants -> at least 9 must die).
 
 set -euo pipefail
 
