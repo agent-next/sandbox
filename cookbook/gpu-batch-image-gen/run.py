@@ -50,14 +50,27 @@ API = "https://api.sbx.agent-next.com"
 UPLOAD_CHUNK = 400 * 1024 * 1024
 WEIGHTS_URL = "https://huggingface.co/stabilityai/sd-turbo/resolve/main"
 
+GPU_LANE_RENDER_RC = 104          # render lane died (see sandbox stderr)
+GPU_LANE_ARTIFACT_RC = 105        # no artifact downloaded (see sandbox stderr)
+
+# Capacity (429) and host-side (503) replies are transient, not demo failures.
+# Run.py waits and retries; if the pool never recovers it says so and exits
+# non-zero instead of claiming success.
+CREATE_RETRIES = 8
+CREATE_WAIT = 10
+POLL = 10                         # seconds between detached-job polls
+GPU_LEASE_RETRIES = 8
+GPU_LEASE_WAIT = 20
+
 # Generous per-step budgets. sbx exec's own default is 60 s, which no step
 # below fits in: setup.sh downloads a CPU torch wheel and the 578 MiB CLIP
 # checkpoint, and the self-test grades the good batch plus 8 mutants.
 STEP_TIMEOUTS = {
     "clone": 300,
-    "setup": 2400,
-    "selftest": 3600,
-    "grade": 1200,
+    "setup": 3600,
+    "selftest": 5400,
+    "grade": 2400,
+    "toolchain": 900,
 }
 
 
@@ -103,9 +116,50 @@ def sbx(step, *args, timeout=120, capture=False):
 
 
 def sbx_sh(step, sid, line, timeout, capture=False):
-    """Run a shell line inside a sandbox."""
+    """Run a short shell line inside a sandbox."""
     return sbx(step, "exec", sid, "--timeout", timeout, "--",
                "bash", "-lc", line, timeout=timeout, capture=capture)
+
+
+def sbx_bg(step, sid, line, budget):
+    """Run a long shell line detached, then poll for its exit code.
+
+    A long ``sbx exec`` is not safe here: the CLI gives up on the command
+    stream once --timeout elapses while the command keeps running in the
+    sandbox, and a gateway restart drops the stream the same way. So the line
+    runs in the background inside the sandbox, writing its exit code and
+    output to files, and this function polls those files. A dropped poll is
+    retried; the sandbox is never killed because a reply was lost.
+
+    Returns (exit_code, log). Exits non-zero (naming the sandbox) if the job
+    is still running when ``budget`` seconds are up.
+    """
+    job = (f"rm -f /tmp/job.rc /tmp/job.log; "
+           f"( {line} ) >/tmp/job.log 2>&1; echo $? >/tmp/job.rc")
+    rc, out, _ = sbx_sh(step, sid, f"( {job} ) >/dev/null 2>&1 & echo started",
+                        60, capture=True)
+    if rc != 0 or "started" not in out:
+        die(f"{step}: could not start the job in sandbox {sid}: {out.strip()}")
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < budget:
+        time.sleep(POLL)
+        rc, out, _ = sbx_sh(step, sid,
+                            "cat /tmp/job.rc 2>/dev/null || echo running",
+                            60, capture=True)
+        code = out.strip().splitlines()[-1].strip() if out.strip() else ""
+        if code.isdigit():
+            _, log, _ = sbx_sh(step, sid, "cat /tmp/job.log 2>/dev/null",
+                               120, capture=True)
+            return int(code), log
+        if rc != 0:
+            print(f"[run] {step}: poll reply lost (sandbox {sid} is alive); "
+                  f"retrying", flush=True)
+    die(f"{step}: sandbox {sid} still running after {budget}s; the job did "
+        f"not finish (it was not killed)")
+
+
+def tail(text, lines):
+    return "\n".join((text or "").strip().splitlines()[-lines:])
 
 
 def kill_sandbox(sid, keep):
@@ -124,54 +178,75 @@ def kill_sandbox(sid, keep):
 
 # ------------------------------------------------------------- judge lane
 
+def create_sandbox():
+    """Create a sandbox, retrying pool capacity errors (429/503).
+
+    Returns the sandbox id. A capacity error is never reported as a demo
+    failure: run.py retries with backoff and names the sandbox once it has
+    one. Any other create failure exits non-zero at once.
+    """
+    for n in range(1, CREATE_RETRIES + 1):
+        rc, out, _ = sbx("sbx create", "create", "--timeout-min", "30",
+                         timeout=300, capture=True)
+        if rc == 0 and out.strip():
+            sid = out.strip().splitlines()[-1].strip()
+            if sid:
+                print(f"[run] sandbox id: {sid}", flush=True)
+                return sid
+        text = out.strip()
+        if any(tag in text for tag in ("429", "503")):
+            wait = CREATE_WAIT * n
+            print(f"[run] sandbox create: pool busy (attempt {n}/{CREATE_RETRIES}); "
+                  f"retrying in {wait}s", flush=True)
+            time.sleep(wait)
+            continue
+        die(f"sandbox create failed: {text}")
+    die(f"sandbox create failed after {CREATE_RETRIES} attempts: "
+        "pool capacity did not recover")
+
+
 def judge_lane(args):
     """Create a CPU sandbox, clone the repo, run setup + selftest + grade."""
     need_sbx()
-    rc, out, _ = sbx("sbx create", "create", "--timeout-min", "30",
-                     timeout=180, capture=True)
-    if rc != 0 or not out.strip():
-        die(f"sandbox create failed: {out.strip()}")
-    sid = out.strip().splitlines()[-1].strip()
-    if not sid:
-        die("sandbox create printed no id")
-    print(f"[run] sandbox id: {sid}", flush=True)
+    sid = create_sandbox()
 
     failed = None
     verdict = None
     target = args.grade or "examples/good/batch"
     try:
-        rc, _, _ = sbx_sh("git clone", sid,
-                          f"git clone --depth 1 -b {args.ref} {REPO_URL} repo",
-                          STEP_TIMEOUTS["clone"])
+        rc, log = sbx_bg("git clone", sid,
+                         f"git clone --depth 1 -b {args.ref} {REPO_URL} repo",
+                         STEP_TIMEOUTS["clone"])
         if rc != 0:
             failed = "git clone"
+            print(tail(log, 15), file=sys.stderr, flush=True)
         else:
-            rc, _, _ = sbx_sh("judge/setup.sh", sid,
-                              f"cd repo/{DEMO_DIR} && bash judge/setup.sh",
-                              STEP_TIMEOUTS["setup"])
+            rc, log = sbx_bg("judge/setup.sh", sid,
+                             f"cd repo/{DEMO_DIR} && bash judge/setup.sh",
+                             STEP_TIMEOUTS["setup"])
             if rc != 0:
                 failed = "judge/setup.sh"
+                print(tail(log, 25), file=sys.stderr, flush=True)
 
         if not failed:
-            rc, out, _ = sbx_sh("judge/selftest.sh", sid,
-                                f"cd repo/{DEMO_DIR} && bash judge/selftest.sh",
-                                STEP_TIMEOUTS["selftest"], capture=True)
-            print("\n".join(out.strip().splitlines()[-12:]), flush=True)
+            rc, log = sbx_bg("judge/selftest.sh", sid,
+                             f"cd repo/{DEMO_DIR} && bash judge/selftest.sh",
+                             STEP_TIMEOUTS["selftest"])
+            print(tail(log, 12), flush=True)
             if rc != 0:
                 failed = "judge/selftest.sh"
 
         if not failed:
-            rc, out, _ = sbx_sh(
+            rc, log = sbx_bg(
                 f"judge/grade.sh {os.path.basename(target)}", sid,
                 f"cd repo/{DEMO_DIR} && bash judge/grade.sh {target} "
-                f"--seed 0 --json /tmp/verdict.json >/tmp/grade.log 2>&1; "
-                f"rc=$?; cat /tmp/verdict.json 2>/dev/null || cat /tmp/grade.log",
-                STEP_TIMEOUTS["grade"], capture=True)
-            verdict = parse_verdict(out)
+                f"--seed 0 --json /tmp/verdict.json",
+                STEP_TIMEOUTS["grade"])
+            verdict = parse_verdict(log)
             if rc != 0 or verdict is None or not all_pass(verdict):
                 failed = f"judge/grade.sh {target}"
                 if verdict is None:
-                    print(out[-2000:], file=sys.stderr, flush=True)
+                    print(tail(log, 25), file=sys.stderr, flush=True)
 
         if verdict is not None:
             print_verdict(verdict)
@@ -370,9 +445,21 @@ def render_lane(args):
 
     print("[run] creating GPU lease (6 GiB VRAM slice)...", flush=True)
     t0 = time.monotonic()
-    st, created = request(key, "POST", "/sandboxes",
-                          {"accel": {"vram_gb": 6, "reserve": "exec"}})
-    if st != 201 or not isinstance(created, dict) or "sandboxID" not in created:
+    created = None
+    for n in range(1, GPU_LEASE_RETRIES + 1):
+        st, created = request(key, "POST", "/sandboxes",
+                              {"accel": {"vram_gb": 6, "reserve": "exec"}},
+                              timeout=120)
+        if st == 201 and isinstance(created, dict) and "sandboxID" in created:
+            break
+        msg = (created or {}).get("message", "") if isinstance(created, dict) else ""
+        if st in (429, 503) and n < GPU_LEASE_RETRIES:
+            wait = GPU_LEASE_WAIT * n
+            print(f"[run] GPU lease create: HTTP {st} {msg} "
+                  f"(attempt {n}/{GPU_LEASE_RETRIES}); retrying in {wait}s",
+                  flush=True)
+            time.sleep(wait)
+            continue
         die(f"GPU lease create: HTTP {st} {created}; check GPU access, "
             "credit and capacity")
     sid = created["sandboxID"]
@@ -398,6 +485,11 @@ def render_lane(args):
         if st != 200:
             die(f"gen.py upload: HTTP {st} {body}")
 
+        # The lease's own exec endpoint carries the same timeout contract the
+        # CLI enforces: 30 s connect / s shell, --timeout 900 code. It returns
+        # the code's exit status instead of the gateway's own rc, so a failed
+        # render dies here (with its stderr) rather than surfacing as a clean
+        # exit from a timed-out `sbx exec`.
         job = (
             "import json, os, subprocess, sys, time\n"
             "wd = sys.argv[1]\n"
@@ -410,21 +502,33 @@ def render_lane(args):
             "report['stdout'] = r.stdout[-4000:]\n"
             "report['stderr'] = r.stderr[-4000:]\n"
             "if r.returncode != 0:\n"
-            "    raise RuntimeError('gen.py exited %d' % r.returncode)\n"
+            "    sys.stderr.write('gen.py exited %d\\n' % r.returncode)\n"
+            "    sys.exit(104)\n"
         )
         t0 = time.monotonic()
         st, body = request(key, "POST", f"/sandboxes/{sid}/exec",
-                           {"code": job, "timeout_s": 1800})
+                           {"code": job, "timeout_s": 900}, timeout=1200)
         if st != 200:
             die(f"GPU render exec: HTTP {st} {body}")
         rep = (body.get("result") or {}).get("report") or {}
         report["steps"]["render_s"] = round(time.monotonic() - t0, 1)
-        print(rep.get("stdout", "").strip(), flush=True)
+        if rep.get("stdout"):
+            print(rep["stdout"].strip(), flush=True)
         if rep.get("stderr"):
             print(scrub(rep["stderr"][-1500:]), file=sys.stderr, flush=True)
+        if rep.get("render_rc") not in (None, 0):
+            # The render's own traceback (if any) was printed above.
+            die(f"gen.py failed on the GPU lease (exit {rep.get('render_rc')}); "
+                f"artifact is incomplete: {rep.get('stderr', '').strip()[-500:]}")
 
         t0 = time.monotonic()
-        download_artifact(key, sid, out_dir)
+        try:
+            download_artifact(key, sid, out_dir)
+        except RuntimeError as exc:
+            print(f"[run] {exc}", file=sys.stderr, flush=True)
+            die(f"render lane produced no usable artifact under out/ on lease "
+                f"{sid}; the lease's own render log follows: "
+                f"{scrub(json.dumps(rep, indent=2))[-2000:]}")
         report["steps"]["download_s"] = round(time.monotonic() - t0, 1)
         report["artifact"] = out_dir
     finally:
@@ -455,15 +559,15 @@ def download_artifact(key, sid, out_dir):
     """GET every file under the lease's OUTPUT_DIR (out/) into out_dir."""
     st, listing = request(key, "GET", f"/sandboxes/{sid}/files")
     if st != 200 or not isinstance(listing, dict) or "files" not in listing:
-        die(f"artifact listing: HTTP {st} {listing}")
+        raise RuntimeError(f"artifact listing: HTTP {st} {listing}")
     names = [f["name"] for f in listing["files"]]
     if not names:
-        die("the lease produced no files under out/")
+        raise RuntimeError("the lease produced no files under out/")
     for name in sorted(names):
         st, payload = request(key, "GET", f"/sandboxes/{sid}/files/{name}",
                               timeout=1800)
         if st != 200 or not isinstance(payload, bytes):
-            die(f"artifact download failed for {name}: HTTP {st}")
+            raise RuntimeError(f"artifact download failed for {name}: HTTP {st}")
         dst = os.path.join(out_dir, name)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         with open(dst, "wb") as fh:

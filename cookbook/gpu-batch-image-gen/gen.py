@@ -89,8 +89,9 @@ def main():
 
     t0 = time.monotonic()
     pipe = StableDiffusionPipeline.from_pretrained(
-        args.weights, torch_dtype=torch.float16, local_files_only=True,
-        safety_checker=None, requires_safety_checker=False)
+        args.weights, torch_dtype=torch.float16, variant="fp16",
+        local_files_only=True, safety_checker=None,
+        requires_safety_checker=False)
     pipe = pipe.to(device)
     pipe.set_progress_bar_config(disable=True)
     # 1 step, guidance 0.0: the scheduler must not add noise the seed table
