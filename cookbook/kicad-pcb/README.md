@@ -47,11 +47,21 @@ times, then always kills the sandbox and verifies it is gone.
 
 ## Measured wall time (this sandbox, 2 vCPU / 4 GB)
 
+Two cold runs on different days; network speed dominates `setup.sh`.
+
 | step | time |
 |---|---|
-| `judge/setup.sh` (cold, downloads 208 MB) | ~18 s |
-| `judge/selftest.sh` (good x2 + 8 mutants) | ~26 s |
-| `judge/grade.sh` on the good example | ~3 s |
+| `judge/setup.sh` (cold, downloads 208 MB) | 18-34 s |
+| `judge/selftest.sh` (good x2 + 8 mutants) | 26-46 s |
+| `judge/grade.sh` on the good example | 3-6 s |
+
+## Rebuilding the media
+
+`media/make_media.sh` needs `judge/setup.sh` run first (kicad-cli renders
+the board), the judge outputs from `bash media/make_data.sh`, and `ffmpeg`
+plus `ffprobe` on PATH. Python deps install hash-pinned into
+`media/.venv`. Then `bash media/make_media.sh` rewrites `result.png`,
+`loop.png`, `demo.mp4` and `MANIFEST.json`.
 
 See `RECEIPT.md` for pasted output and `REPRODUCE.md` for independent
 reproduction.
