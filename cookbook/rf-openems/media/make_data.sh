@@ -74,10 +74,13 @@ run bad_oracle_tamper   examples/bad/bad_oracle_tamper.py   fail
 run bad_fine_geometry   examples/bad/bad_fine_geometry.py   fail
 run bad_fine_fabricated examples/bad/bad_fine_fabricated.py fail
 run bad_plant_pyc       examples/bad/bad_plant_pyc.py       fail
+run bad_shuffled_grid   examples/bad/bad_shuffled_grid.py   fail
+run bad_late_ports_swap examples/bad/bad_late_ports_swap.py fail
+run bad_forge_journal   examples/bad/bad_forge_journal.py   fail
 run good                examples/good/antenna.py            pass
 
 if [ "${FORCE:-0}" = 1 ] || [ ! -s "$MEDIA/data/selftest.txt" ]; then
-    echo "== selftest (good + 15 mutants + determinism, ~50 min on 2 vCPU) =="
+    echo "== selftest (good + 18 mutants + determinism, ~55 min on 2 vCPU) =="
     bash judge/selftest.sh 2>&1 | tee "$MEDIA/data/selftest.txt"
 else
     echo "== selftest: log exists, skipping =="

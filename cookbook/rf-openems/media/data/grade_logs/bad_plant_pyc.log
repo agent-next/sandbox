@@ -1,10 +1,10 @@
 [PASS] G1_syntax_and_params: missing=[] simulate=found
 [PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 1.2}
 [PASS] G3_sim_runs: rc=0 raw=yes result_line=True
-[PASS] G4_S11_at_target: S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)
-[PASS] G5_resonance: f_res=2.44 GHz (judge-derived, +/-2 %)
-[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)
-/tmp/rfjudge-y4_6z5xb/rfjudge-mods-n4a23bwt/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
+[PASS] G4_S11_at_target: S11=-17.0 dB at 2.45 GHz (judge-derived on the judge grid, need <= -10.0)
+[PASS] G5_resonance: f_res=2.44 GHz (judge grid, +/-2 %)
+[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB on the judge grid (<= 1.5)
+/tmp/rfjudge-_m8l6jvm/rfjudge-mods-jw3oap85/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
   if not hasattr(np, _a):
  ---------------------------------------------------------------------- 
  | openEMS 64bit -- version v0.0.35
@@ -27,98 +27,8 @@ Excitation signal length is: 6140 timesteps (2.33889e-09s)
 Max. number of timesteps: 60000 ( --> 9.77199 * Excitation signal length)
 Create FDTD engine (compressed SSE + multi-threading)
 Running FDTD engine... this may take a while... grab a cup of coffee?!?
-[@        4s] Timestep:         6052 || Speed:   52.5 MC/s (6.715e-04 s/TS) || Energy: ~6.03e-15 (-23.20dB)
-[@        8s] Timestep:        12104 || Speed:   53.0 MC/s (6.646e-04 s/TS) || Energy: ~3.58e-20 (-75.46dB)
-Time for 12104 iterations with 35256.00 cells : 8.09 sec
-Speed: 52.77 MCells/s 
+[@        4s] Timestep:         4717 || Speed:   41.5 MC/s (8.494e-04 s/TS) || Energy: ~6.54e-13 (- 2.84dB)
+[@        8s] Timestep:         9790 || Speed:   44.0 MC/s (8.018e-04 s/TS) || Energy: ~3.59e-20 (-75.45dB)
+Time for 9790 iterations with 35256.00 cells : 8.08 sec
+Speed: 42.73 MCells/s 
 [PASS] G7_oracle_msline: eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)
-[PASS] G8_convergence: fine mesh: S11=-10.0 dB f_res=2.45 GHz (G4 ok, G5 band ok, shift 0.4 % <= 1.5 % ok)
-[FAIL] G9_judge_integrity
-{
- "all_pass": false,
- "artifact": "/home/user/w/cookbook/rf-openems/examples/bad/bad_plant_pyc.py",
- "convergence": {
-  "S11_at_target_fine_dB": -10.0,
-  "f_res_fine_GHz": 2.45,
-  "f_res_fine_in_band": true,
-  "f_res_shift_pct": 0.4,
-  "mesh_res_fine_mm": 0.9
- },
- "gates": [
-  {
-   "detail": "missing=[] simulate=found",
-   "gate": "G1_syntax_and_params",
-   "pass": true
-  },
-  {
-   "detail": "{\"f_target_ghz\": 2.45, \"er\": 4.4, \"tanD\": 0.02, \"sub_h\": 1.6, \"patch_L\": 27.6, \"patch_W\": 37.0, \"feed_inset\": 8.0, \"mesh_res\": 1.2}",
-   "gate": "G2_physical_sanity",
-   "pass": true
-  },
-  {
-   "detail": "rc=0 raw=yes result_line=True",
-   "gate": "G3_sim_runs",
-   "pass": true
-  },
-  {
-   "detail": "S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
-   "gate": "G4_S11_at_target",
-   "pass": true
-  },
-  {
-   "detail": "f_res=2.44 GHz (judge-derived, +/-2 %)",
-   "gate": "G5_resonance",
-   "pass": true
-  },
-  {
-   "detail": "max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)",
-   "gate": "G6_raw_crosscheck",
-   "pass": true
-  },
-  {
-   "detail": "eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)",
-   "gate": "G7_oracle_msline",
-   "pass": true
-  },
-  {
-   "detail": "fine mesh: S11=-10.0 dB f_res=2.45 GHz (G4 ok, G5 band ok, shift 0.4 % <= 1.5 % ok)",
-   "gate": "G8_convergence",
-   "pass": true
-  },
-  {
-   "detail": "judge/ tree changed!",
-   "gate": "G9_judge_integrity",
-   "pass": false
-  }
- ],
- "oracle": {
-  "delta_pct": 2.8,
-  "eeff_HJ": 3.33,
-  "eeff_sim": 3.24,
-  "freq_GHz": 2.44,
-  "mesh_res_mm": 1.0,
-  "phases_deg": [
-   117.0,
-   38.0,
-   -42.0,
-   -121.0,
-   -200.0
-  ],
-  "probes_mm": [
-   30.0,
-   45.0,
-   60.0,
-   75.0,
-   90.0
-  ]
- },
- "patch_quasistatic_GHz": 2.619,
- "raw_crosscheck_maxdiff_db": 0.0,
- "seed": 42,
- "timing": {
-  "artifact_sim_s": 91.8,
-  "convergence_s": 264.3,
-  "oracle_s": 9.3,
-  "wall_s": 365.4
- }
-}

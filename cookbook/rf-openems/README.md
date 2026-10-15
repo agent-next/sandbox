@@ -4,12 +4,16 @@ An agent works on a real RF design problem inside a disposable agent-next
 sandbox: design (or debug) a 2.45 GHz microstrip patch antenna on FR-4, and a
 judge the agent cannot modify runs a full-wave 3-D FDTD simulation (openEMS)
 and decides. The judge never trusts the artifact's self-report — it runs the
-artifact under a wrapper that journals every solver invocation, re-derives
-S11 itself from the raw port time series and applies the spec to *that*
-curve (|S11| ≤ −10 dB at 2.45 GHz, resonance within ±2 %), verifies the
-whole toolchain against an analytic ~50 Ω microstrip line
-(Hammerstad-Jensen closed form within 4 %), and requires a
-provenance-checked mesh-convergence repeat that rechecks the spec.
+artifact under a wrapper that journals every solver invocation to a journal
+the artifact cannot see or forge and pins the sha256 of the raw port files
+at each solver run's end, re-derives S11 itself from those raw time series
+on its own 51-point frequency grid (the artifact's reported sweep must be
+strictly increasing and cover the band, and is only ever resampled onto the
+judge grid), and applies the spec to *that* curve (|S11| ≤ −10 dB at
+2.45 GHz, resonance within ±2 %), verifies the whole toolchain against an
+analytic ~50 Ω microstrip line (Hammerstad-Jensen closed form within 4 %),
+and requires a provenance-checked mesh-convergence repeat that rechecks the
+spec.
 
 ## Results
 
@@ -36,7 +40,7 @@ Numbers below are from `media/data/verdicts/good.json`
 - fine-mesh re-run (0.9 mm): S11 −10.0 dB at 2.45 GHz, f_res 2.45 GHz
   (still in the ±2 % band), resonance shift 0.4 % — the dip depth is
   mesh-sensitive, so G8 re-checks the spec on the finer mesh
-- self-test: 15/15 mutants killed (100 %), each at its targeted gate —
+- self-test: 18/18 mutants killed (100 %), each at its targeted gate —
   two same-seed grades identical
 
 Media are rebuilt from the committed judge outputs with
@@ -73,10 +77,11 @@ python3 cookbook/rf-openems/run.py --ref some-branch --keep
    .deb sha256-verified against `judge/packages.txt` and the signed apt
    metadata) and a pinned PyPI wheel set (`judge/requirements.txt`,
    `--hash=sha256:` per package, re-verified after download).
-4. `judge/selftest.sh` — grades the known-good example (must pass) and
-   fifteen single-edit mutants (each must fail at its *targeted* gate —
-   one negative power test per gate G1–G9; a crash or unparseable verdict
-   is a self-test failure, not a kill); checks verdict determinism.
+4. `judge/selftest.sh` — runs the sweep-grid unit tests, grades the
+   known-good example (must pass) and eighteen single-edit mutants (each
+   must fail at its *targeted* gate — one negative power test per gate
+   G1–G9; a crash, unparseable verdict, or skipped targeted gate is a
+   self-test failure, not a kill); checks verdict determinism.
 5. `judge/grade.sh examples/good/antenna.py --json …` — full verdict JSON.
 6. Always kills and verifies the sandbox is gone.
 
@@ -85,7 +90,7 @@ python3 cookbook/rf-openems/run.py --ref some-branch --keep
 - setup: ~45 s
 - one grade of the good example: ~5–7 min (artifact sim ~2 min, oracle line
   sim ~10 s, fine-mesh convergence sim ~3 min)
-- selftest (good + 15 mutants + determinism check): ~25–35 min
+- selftest (unit tests + good + 18 mutants + determinism check): ~50–55 min
 
 `grade.sh` exit codes: 0 = all gates pass; 1 = a gate failed; 2 = partial
 grade (`--skip-convergence` — G8 is left unrun and `all_pass` is false).

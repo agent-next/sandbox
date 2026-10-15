@@ -50,7 +50,8 @@ KILL_ORDER = [
     "bad_nan_er", "bad_substrate_er", "bad_thick_substrate",
     "bad_coarse_mesh", "bad_patch_length", "bad_no_ground",
     "bad_feed_center", "bad_no_result", "bad_lie_scalars",
-    "bad_replay_cached", "bad_fake_curve", "bad_oracle_tamper",
+    "bad_replay_cached", "bad_shuffled_grid", "bad_late_ports_swap",
+    "bad_forge_journal", "bad_fake_curve", "bad_oracle_tamper",
     "bad_fine_geometry", "bad_fine_fabricated", "bad_plant_pyc",
 ]
 
@@ -118,6 +119,18 @@ def kill_row(case):
     if case == "bad_replay_cached":
         return ("G3 provenance",
                 "fabricated port files — no recorded solver run")
+    if case == "bad_shuffled_grid":
+        return ("G3 sweep-grid check",
+                "resonance sample moved to the sweep end — sweep not "
+                "strictly increasing")
+    if case == "bad_late_ports_swap":
+        return ("G3 provenance (sha256)",
+                "port files rewritten 10 s after Run — no longer the bytes "
+                "hashed at Run end")
+    if case == "bad_forge_journal":
+        return ("G3 provenance (journal)",
+                "forged ok:true journal in the workdir — judge journals to "
+                "an fd the artifact never sees")
     if gate == "G5_resonance":
         f = num(r"f_res=([\d.]+) GHz", d)
         return (f"G5 f_res = {f} GHz",
@@ -185,10 +198,10 @@ def main():
     vs = {c: verdict(c) for c in dict.fromkeys(
         [n for n, _ in REPLAY] + KILL_ORDER)}
 
-    fig = plt.figure(figsize=(15.5, 10.6), dpi=200)
+    fig = plt.figure(figsize=(15.5, 11.8), dpi=200)
     gs = fig.add_gridspec(
-        2, 1, height_ratios=[0.55, 1.55], left=0.055, right=0.985,
-        top=0.945, bottom=0.05, hspace=0.12)
+        2, 1, height_ratios=[0.5, 1.8], left=0.055, right=0.985,
+        top=0.945, bottom=0.045, hspace=0.12)
     texts = []
 
     def reg(art, ax, tag):

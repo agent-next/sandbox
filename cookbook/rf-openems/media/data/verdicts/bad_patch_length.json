@@ -18,17 +18,17 @@
    "pass": true
   },
   {
-   "detail": "S11=-1.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
+   "detail": "S11=-1.0 dB at 2.45 GHz (judge-derived on the judge grid, need <= -10.0)",
    "gate": "G4_S11_at_target",
    "pass": false
   },
   {
-   "detail": "f_res=2.7 GHz (judge-derived, +/-2 %)",
+   "detail": "f_res=2.7 GHz (judge grid, +/-2 %)",
    "gate": "G5_resonance",
    "pass": false
   },
   {
-   "detail": "max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)",
+   "detail": "max|S11_judge - S11_artifact| = 0.0 dB on the judge grid (<= 1.5)",
    "gate": "G6_raw_crosscheck",
    "pass": true
   },
@@ -73,8 +73,8 @@
  "raw_crosscheck_maxdiff_db": 0.0,
  "seed": 42,
  "timing": {
-  "artifact_sim_s": 120.6,
-  "oracle_s": 14.0,
-  "wall_s": 134.7
+  "artifact_sim_s": 58.6,
+  "oracle_s": 4.9,
+  "wall_s": 63.5
  }
 }

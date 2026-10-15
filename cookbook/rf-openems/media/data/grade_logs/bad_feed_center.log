@@ -1,10 +1,10 @@
 [PASS] G1_syntax_and_params: missing=[] simulate=found
 [PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 12.0, "mesh_res": 1.2}
 [PASS] G3_sim_runs: rc=0 raw=yes result_line=True
-[FAIL] G4_S11_at_target: S11=-2.0 dB at 2.45 GHz (judge-derived, need <= -10.0)
-[PASS] G5_resonance: f_res=2.43 GHz (judge-derived, +/-2 %)
-[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)
-/tmp/rfjudge-dtwxwz9d/rfjudge-mods-zymuywy6/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
+[FAIL] G4_S11_at_target: S11=-2.0 dB at 2.45 GHz (judge-derived on the judge grid, need <= -10.0)
+[PASS] G5_resonance: f_res=2.43 GHz (judge grid, +/-2 %)
+[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB on the judge grid (<= 1.5)
+/tmp/rfjudge-3kgxos97/rfjudge-mods-ffcvodl8/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
   if not hasattr(np, _a):
  ---------------------------------------------------------------------- 
  | openEMS 64bit -- version v0.0.35
@@ -27,10 +27,9 @@ Excitation signal length is: 6140 timesteps (2.33889e-09s)
 Max. number of timesteps: 60000 ( --> 9.77199 * Excitation signal length)
 Create FDTD engine (compressed SSE + multi-threading)
 Running FDTD engine... this may take a while... grab a cup of coffee?!?
-[@        4s] Timestep:         3382 || Speed:   29.2 MC/s (1.206e-03 s/TS) || Energy: ~1.33e-12 (- 0.00dB)
-[@        8s] Timestep:         6764 || Speed:   29.7 MC/s (1.189e-03 s/TS) || Energy: ~3.54e-17 (-45.74dB)
-Time for 6764 iterations with 35256.00 cells : 8.10 sec
-Speed: 29.44 MCells/s 
+[@        4s] Timestep:         6853 || Speed:   60.3 MC/s (5.849e-04 s/TS) || Energy: ~1.04e-17 (-50.84dB)
+Time for 6853 iterations with 35256.00 cells : 4.01 sec
+Speed: 60.27 MCells/s 
 [PASS] G7_oracle_msline: eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)
 [FAIL] G8_convergence: not run (earlier gates failed)
 [PASS] G9_judge_integrity
@@ -54,17 +53,17 @@ Speed: 29.44 MCells/s
    "pass": true
   },
   {
-   "detail": "S11=-2.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
+   "detail": "S11=-2.0 dB at 2.45 GHz (judge-derived on the judge grid, need <= -10.0)",
    "gate": "G4_S11_at_target",
    "pass": false
   },
   {
-   "detail": "f_res=2.43 GHz (judge-derived, +/-2 %)",
+   "detail": "f_res=2.43 GHz (judge grid, +/-2 %)",
    "gate": "G5_resonance",
    "pass": true
   },
   {
-   "detail": "max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)",
+   "detail": "max|S11_judge - S11_artifact| = 0.0 dB on the judge grid (<= 1.5)",
    "gate": "G6_raw_crosscheck",
    "pass": true
   },
@@ -109,8 +108,8 @@ Speed: 29.44 MCells/s
  "raw_crosscheck_maxdiff_db": 0.0,
  "seed": 42,
  "timing": {
-  "artifact_sim_s": 150.3,
-  "oracle_s": 11.0,
-  "wall_s": 161.3
+  "artifact_sim_s": 66.8,
+  "oracle_s": 4.9,
+  "wall_s": 71.7
  }
 }

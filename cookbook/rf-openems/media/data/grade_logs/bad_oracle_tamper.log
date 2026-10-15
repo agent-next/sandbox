@@ -1,9 +1,9 @@
 [PASS] G1_syntax_and_params: missing=[] simulate=found
 [PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 1.2}
 [PASS] G3_sim_runs: rc=0 raw=yes result_line=True
-[PASS] G4_S11_at_target: S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)
-[PASS] G5_resonance: f_res=2.44 GHz (judge-derived, +/-2 %)
-[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)
+[PASS] G4_S11_at_target: S11=-17.0 dB at 2.45 GHz (judge-derived on the judge grid, need <= -10.0)
+[PASS] G5_resonance: f_res=2.44 GHz (judge grid, +/-2 %)
+[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB on the judge grid (<= 1.5)
 [FAIL] G7_oracle_msline: RuntimeError('judge helper modules changed mid-run (tamper attempt)')
 [FAIL] G8_convergence: not run (earlier gates failed)
 [FAIL] G9_judge_integrity
@@ -27,17 +27,17 @@
    "pass": true
   },
   {
-   "detail": "S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
+   "detail": "S11=-17.0 dB at 2.45 GHz (judge-derived on the judge grid, need <= -10.0)",
    "gate": "G4_S11_at_target",
    "pass": true
   },
   {
-   "detail": "f_res=2.44 GHz (judge-derived, +/-2 %)",
+   "detail": "f_res=2.44 GHz (judge grid, +/-2 %)",
    "gate": "G5_resonance",
    "pass": true
   },
   {
-   "detail": "max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)",
+   "detail": "max|S11_judge - S11_artifact| = 0.0 dB on the judge grid (<= 1.5)",
    "gate": "G6_raw_crosscheck",
    "pass": true
   },
@@ -61,7 +61,7 @@
  "raw_crosscheck_maxdiff_db": 0.0,
  "seed": 42,
  "timing": {
-  "artifact_sim_s": 150.6,
-  "wall_s": 150.6
+  "artifact_sim_s": 75.1,
+  "wall_s": 75.1
  }
 }

@@ -1,10 +1,10 @@
 [PASS] G1_syntax_and_params: missing=[] simulate=found
 [PASS] G2_physical_sanity: {"f_target_ghz": 2.45, "er": 4.4, "tanD": 0.02, "sub_h": 1.6, "patch_L": 27.6, "patch_W": 37.0, "feed_inset": 8.0, "mesh_res": 1.2}
 [PASS] G3_sim_runs: rc=0 raw=yes result_line=True
-[PASS] G4_S11_at_target: S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)
-[PASS] G5_resonance: f_res=2.44 GHz (judge-derived, +/-2 %)
-[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)
-/tmp/rfjudge-1bvonwru/rfjudge-mods-bzjza8kx/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
+[PASS] G4_S11_at_target: S11=-17.0 dB at 2.45 GHz (judge-derived on the judge grid, need <= -10.0)
+[PASS] G5_resonance: f_res=2.44 GHz (judge grid, +/-2 %)
+[PASS] G6_raw_crosscheck: max|S11_judge - S11_artifact| = 0.0 dB on the judge grid (<= 1.5)
+/tmp/rfjudge-yevd4bzw/rfjudge-mods-nune90s4/verify_line.py:20: FutureWarning: In the future `np.bool` will be defined as the corresponding NumPy scalar.
   if not hasattr(np, _a):
  ---------------------------------------------------------------------- 
  | openEMS 64bit -- version v0.0.35
@@ -27,12 +27,12 @@ Excitation signal length is: 6140 timesteps (2.33889e-09s)
 Max. number of timesteps: 60000 ( --> 9.77199 * Excitation signal length)
 Create FDTD engine (compressed SSE + multi-threading)
 Running FDTD engine... this may take a while... grab a cup of coffee?!?
-[@        4s] Timestep:         6230 || Speed:   54.6 MC/s (6.462e-04 s/TS) || Energy: ~1.74e-15 (-28.59dB)
-[@        8s] Timestep:        13172 || Speed:   60.2 MC/s (5.858e-04 s/TS) || Energy: ~3.63e-20 (-75.40dB)
-Time for 13172 iterations with 35256.00 cells : 8.10 sec
-Speed: 57.36 MCells/s 
+[@        4s] Timestep:         4984 || Speed:   43.9 MC/s (8.031e-04 s/TS) || Energy: ~4.98e-13 (- 4.03dB)
+[@        8s] Timestep:        11303 || Speed:   54.9 MC/s (6.426e-04 s/TS) || Energy: ~3.57e-20 (-75.48dB)
+Time for 11303 iterations with 35256.00 cells : 8.06 sec
+Speed: 49.42 MCells/s 
 [PASS] G7_oracle_msline: eeff sim=3.24 HJ=3.33 delta=2.8 % (<= 4 %)
-[FAIL] G8_convergence: RuntimeError('fine-mesh result not produced by a recorded solver run (port_ut_1/port_it_1 missing; cpu 0.8 s) — a fabricated return value cannot stand in for the refined sim')
+[FAIL] G8_convergence: RuntimeError('fine-mesh result not produced by a recorded solver run (port_ut_1/port_it_1 missing; cpu 0.9 s) — a fabricated return value cannot stand in for the refined sim')
 [PASS] G9_judge_integrity
 {
  "all_pass": false,
@@ -54,17 +54,17 @@ Speed: 57.36 MCells/s
    "pass": true
   },
   {
-   "detail": "S11=-17.0 dB at 2.45 GHz (judge-derived, need <= -10.0)",
+   "detail": "S11=-17.0 dB at 2.45 GHz (judge-derived on the judge grid, need <= -10.0)",
    "gate": "G4_S11_at_target",
    "pass": true
   },
   {
-   "detail": "f_res=2.44 GHz (judge-derived, +/-2 %)",
+   "detail": "f_res=2.44 GHz (judge grid, +/-2 %)",
    "gate": "G5_resonance",
    "pass": true
   },
   {
-   "detail": "max|S11_judge - S11_artifact| = 0.0 dB (<= 1.5)",
+   "detail": "max|S11_judge - S11_artifact| = 0.0 dB on the judge grid (<= 1.5)",
    "gate": "G6_raw_crosscheck",
    "pass": true
   },
@@ -74,7 +74,7 @@ Speed: 57.36 MCells/s
    "pass": true
   },
   {
-   "detail": "RuntimeError('fine-mesh result not produced by a recorded solver run (port_ut_1/port_it_1 missing; cpu 0.8 s) \u2014 a fabricated return value cannot stand in for the refined sim')",
+   "detail": "RuntimeError('fine-mesh result not produced by a recorded solver run (port_ut_1/port_it_1 missing; cpu 0.9 s) \u2014 a fabricated return value cannot stand in for the refined sim')",
    "gate": "G8_convergence",
    "pass": false
   },
@@ -109,8 +109,8 @@ Speed: 57.36 MCells/s
  "raw_crosscheck_maxdiff_db": 0.0,
  "seed": 42,
  "timing": {
-  "artifact_sim_s": 79.7,
-  "oracle_s": 9.3,
-  "wall_s": 90.2
+  "artifact_sim_s": 190.9,
+  "oracle_s": 10.1,
+  "wall_s": 202.3
  }
 }

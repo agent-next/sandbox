@@ -50,7 +50,7 @@
  ],
  "seed": 42,
  "timing": {
-  "artifact_sim_s": 29.2,
-  "wall_s": 29.2
+  "artifact_sim_s": 13.6,
+  "wall_s": 13.6
  }
 }
