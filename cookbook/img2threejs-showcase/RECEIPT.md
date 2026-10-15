@@ -63,7 +63,11 @@ Media (`media/`): built by `media/make_media.sh` from rounds 1, 2, 3 and 5, cut 
 `media/STORYBOARD.md`; 54 s, 5.8 MiB; `cookbook/tools/video_gate.py` passes (first frame luma mean
 115, 1.48 scene cuts per 10 s, static end card). Frame-by-frame caption check by
 gemini-3.1-pro-preview on an earlier 30-segment cut: round 1 REJECT (greenvale captioned like a 3D
-model; fixed with `notes.json`), round 2 ACCEPT. Blind review panel: see `media/REVIEW.json`.
+model; fixed with `notes.json`), round 2 ACCEPT. Blind review panel (`media/REVIEW.json`): NOT PASSED. gemini-3.1-pro-preview 7/7/9 and
+gpt-6.1-sol 7/6/6 (visual/wow/clarity; the bar is 8/7/7); a second gemini pass on contact sheets is
+recorded but refuted (it reports a terminal opening; frame 0 is a render). Six recut rounds raised
+GPT from 5/4/4; what the judges still ask for is an input image beside each scene, which the
+showcase repository does not contain.
 
 ## Build wall time
 

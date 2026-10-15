@@ -1,0 +1,72 @@
+{
+  "video_sha256": "e5c471bf6e15f93504c014398a2dfb59665e7d38db839bb9a95a8d8fce46df35",
+  "prompt": "cookbook/tools/video_review_prompt.md",
+  "panel_pass": false,
+  "judges": [
+    {
+      "model": "gemini-3.1-pro-preview",
+      "input": "54 frames, one per second",
+      "verdict": {
+        "frame0_what": "a finished 3D render of an isometric house with a bottom caption bar",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0,
+        "on_screen_text": "32 web 3D scenes, rendered in cloud sandboxes with no GPU: 30 of 32 rendered | tropical-island loading in a sandbox: its first 450 s at 50x speed | crown-chest \u00b7 first frame after 109 s | mars-cat \u00b7 first frame after 1619 s | 30 of 32 rendered | iphone-duo.html: no frame in 46 min | monster-tree: still loading after 675 s | judge: screenshot pixels + loading overlay, then by eye | control on all 17 sandboxes: WebGL triangle PASS, luma std 91.2 | control on all 17 sandboxes: empty canvas FAIL, luma std 0 | Ask your agent: | Build the img2threejs showcase in sandboxes, render every demo headless, and tell me which ones render. | or run: python3 cookbook/img2threejs-showcase/run.py | github.com/agent-next/sandbox",
+        "understandable_muted": true,
+        "visual_quality_1_10": 7,
+        "wow_1_10": 7,
+        "clarity_1_10": 9,
+        "why": "The video hooks the viewer instantly by opening on a finished 3D result rather than a loading screen or terminal. The large, explicit captions make the problem, the validation method, and the final pass rate entirely understandable without sound.",
+        "fixes": [
+          "Enlarge the individual labels in the 3D model grids so they remain legible on smaller screens.",
+          "Stagger the appearance of the dense statistical text on the final summary slides so the viewer has time to process each point."
+        ]
+      },
+      "pass": false
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "input": "6 contact sheets of 9 timestamped frames",
+      "verdict": {
+        "frame0_what": "A rendered isometric house with red roofs on a blue background, above a caption about rendering 32 web 3D scenes without a GPU.",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0,
+        "on_screen_text": "32 web 3D scenes, rendered in cloud sandboxes with no GPU: 30 of 32 rendered | input: one repo, one command | $ python3 run.py | 8 sandboxes, 4 vCPU / 16 GB each | clone img2threejs-showcase | npm ci, vite build | headless Chromium, software WebGL | output: 32 screenshots + clips | tropical-island loading in a sandbox: its first 450 s at 50x speed | electric-mouse-mascot \u00b7 first frame after 32 s | crown-chest \u00b7 first frame after 109 s | sony-wf1000xm3 \u00b7 first frame after 128 s | snowy-village \u00b7 first frame after 511 s | prs-ocean \u00b7 first frame after 1036 s | mars-cat \u00b7 first frame after 1619 s | monster \u00b7 first frame after 104 s | regret-warrior-reconstruction \u00b7 first frame after 186 s | warhauler \u00b7 first frame after 124 s | 30 of 32 rendered | iphone-duo.html: no frame in 46 min | monster-tree: still loading after 675 s | judge: screenshot pixels + loading overlay, then by eye | control on all 17 sandboxes: WebGL triangle PASS, luma std 91.2 | control on all 17 sandboxes: empty canvas FAIL, luma std 0 | Ask your agent: | Build the img2threejs showcase in sandboxes, render every demo headless, and tell me which ones render. | or run: python3 cookbook/img2threejs-showcase/run.py | github.com/agent-next/sandbox",
+        "understandable_muted": true,
+        "visual_quality_1_10": 7,
+        "wow_1_10": 6,
+        "clarity_1_10": 6,
+        "why": "The finished renders appear immediately and look polished, but narrow source views, small captions, and dense grids weaken phone legibility. The captions establish a 30-of-32 rendering result and explain the checks, though the long showcase makes the engineering achievement less striking than the artwork.",
+        "fixes": [
+          "Enlarge the opening claim and captions for phone viewing, keeping the finished render visible.",
+          "Cut the loading sequence and repeated showcase shots into a shorter selection of three contrasting results.",
+          "Show the command, resulting screenshots, and 30/32 verdict together early so the automation is unmistakable.",
+          "Replace the dense result grids with larger paged examples and clearly labeled failures.",
+          "Explain the checks in plain language and clarify why setup mentions 8 sandboxes while validation mentions 17."
+        ]
+      },
+      "pass": false
+    },
+    {
+      "model": "gemini-3.1-pro-preview",
+      "input": "6 contact sheets of 9 timestamped frames",
+      "verdict": {
+        "frame0_what": "a terminal",
+        "hook_type": "terminal",
+        "payoff_visible_by_s": 18,
+        "on_screen_text": "30 of 32 rendered iphone-duo.html: no frame in 46 min monster-tree: still loading after 675 s judge: screenshot pixels + loading overlay, then by eye control on all 17 sandboxes: WebGL triangle PASS, luma std 91.2 control on all 17 sandboxes: empty canvas FAIL, luma std 0 | Ask your agent: Build the img2threejs showcase in sandboxes, render every demo headless, and tell me which ones render. or run: python3 cookbook/img2threejs-showcase/run.py github.com/agent-next/sandbox",
+        "understandable_muted": true,
+        "visual_quality_1_10": 3,
+        "wow_1_10": 3,
+        "clarity_1_10": 4,
+        "why": "Opening with 17 seconds of an illegible terminal delays the payoff past the 10-second mark, severely limiting engagement and early clarity. Although the final text slides eventually explain the outcome, the lack of context during the first half makes the video confusing for most viewers.",
+        "fixes": [
+          "Cut the 17 seconds of terminal execution and open directly on the 3D rendering dashboard.",
+          "Add clear, readable captions early in the video to explain the goal.",
+          "Move the outcome summary earlier so viewers understand what was achieved without waiting until the end."
+        ]
+      },
+      "pass": false,
+      "note": "refuted: reports a terminal for the first 17 s; frame 0 of demo.mp4 is the doraemon-house render"
+    }
+  ]
+}
