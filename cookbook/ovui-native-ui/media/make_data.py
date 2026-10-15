@@ -20,6 +20,8 @@ Produces, under media/data/:
                     grade.sh uses (same env vars, same 9-frame settle, same
                     scratch-dir cwd)
   facts.json        the widget facts dump from that same render
+  timings.json      measured wall seconds of the selftest and grade runs
+                    (the video's sandbox segment states its real speed-up)
 
 Nothing here invents a number: every value comes from a judge command, and
 the render is byte-checked against the sha256 the grade verdict records.
@@ -31,6 +33,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 DEMO = Path(sys.argv[1]).resolve()
@@ -86,18 +89,27 @@ def main():
     work = Path(tempfile.mkdtemp(prefix="ovui-media."))
     try:
         # -- 1. the known-good verdict (real grade.sh) ----------------------
+        t0 = time.monotonic()
         grade = json.loads(sh(["bash", str(DEMO / "judge/grade.sh"),
                                str(DEMO / "examples/good/panel.py"),
                                "--json", str(work / "grade_good.json")]))
+        grade_wall = time.monotonic() - t0
         (DATA / "grade_good.json").write_text(
             stable_verdict(work / "grade_good.json"))
         print(f"grade.sh examples/good/panel.py: pass={grade['pass']}")
 
         # -- 2. the self-test output (kill rate) ----------------------------
+        t0 = time.monotonic()
         selftest = sh(["bash", str(DEMO / "judge/selftest.sh")])
+        selftest_wall = time.monotonic() - t0
         (DATA / "selftest.txt").write_text(normalize(selftest))
         rate = [l for l in selftest.splitlines() if "kill rate" in l]
         print(f"selftest.sh: {rate[-1].strip() if rate else 'NO KILL RATE'}")
+        (DATA / "timings.json").write_text(json.dumps({
+            # rounded so the file is byte-stable across runs on the same box
+            "selftest_wall_s": round(selftest_wall, 1),
+            "grade_wall_s": round(grade_wall, 1),
+        }, indent=2, sort_keys=True) + "\n")
 
         # -- 3. per-mutant verdicts (real grade.sh on each mutant) ----------
         mut_dir = work / "mutants"
