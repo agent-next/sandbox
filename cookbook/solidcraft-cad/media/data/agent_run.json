@@ -1,0 +1,290 @@
+[
+ {
+  "attempt": "01",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "02",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "03",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "04",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "05",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "06",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "07",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "08",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "09",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "10",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ },
+ {
+  "attempt": "11",
+  "recorded_gates": {
+   "build": false,
+   "occt_shape": null,
+   "volume": null,
+   "features": null,
+   "mass": null,
+   "cross_check": null,
+   "parametric": null,
+   "stl": null
+  },
+  "gates": {
+   "build": false,
+   "occt_shape": null,
+   "volume": null,
+   "features": null,
+   "mass": null,
+   "cross_check": null,
+   "parametric": null,
+   "stl": null
+  },
+  "failed_gate": "build"
+ },
+ {
+  "attempt": "12",
+  "recorded_gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  },
+  "failed_gate": null
+ }
+]

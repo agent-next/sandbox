@@ -1,0 +1,185 @@
+{
+ "about": "Recorded grades of the independent agent's own designs (GPT-6.1 Sol in Factory Droid), judge at a53bfad, from its verdict JSONs; see REPRODUCE.md",
+ "attempts": [
+  {
+   "attempt": "01",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "02",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "03",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "04",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "05",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "06",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "07",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "08",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "09",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "10",
+   "passed": false,
+   "failed_gate": "features",
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": false,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  },
+  {
+   "attempt": "11",
+   "passed": false,
+   "failed_gate": "build",
+   "gates": {
+    "build": false,
+    "occt_shape": null,
+    "volume": null,
+    "features": null,
+    "mass": null,
+    "cross_check": null,
+    "parametric": null,
+    "stl": null
+   }
+  },
+  {
+   "attempt": "12",
+   "passed": true,
+   "failed_gate": null,
+   "gates": {
+    "build": true,
+    "occt_shape": true,
+    "volume": true,
+    "features": true,
+    "mass": true,
+    "cross_check": true,
+    "parametric": true,
+    "stl": true
+   }
+  }
+ ]
+}

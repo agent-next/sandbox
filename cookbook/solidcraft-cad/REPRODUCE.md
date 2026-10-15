@@ -82,6 +82,12 @@ Every one of the reproducer's 12 attempts was re-graded with the fixed judge
 The agent's first design was already correct. Only attempt 11, the agent's
 own unit error, still fails, and it fails at build, as it should.
 
+Two code-review rounds later made the judge stricter (wall checks, the
+pattern's 45° phase, a full re-grade of the rebuilt part; see RECEIPT.md).
+`media/make_media.sh` re-grades the same 12 designs with that final judge
+(`media/data/agent_run.json`): the result is unchanged, with 11 passing all
+8 gates and attempt 11 failing at build.
+
 ## Friction the reproducer reported, and what changed
 
 | friction | change |
@@ -96,9 +102,10 @@ own unit error, still fails, and it fails at build, as it should.
 ## Deviations
 
 - The reproduction ran at `a53bfad`. The later commits change the judge's
-  features gate (to accept more valid designs), the self-test (two known-good
-  designs, 14 mutants), run.py's transport handling and docs. The good
-  design's verdict numbers are unchanged by them: same values in both RECEIPT
-  runs.
+  features gate (to accept more valid designs and reject the review's false
+  passes), the self-test (three known-good designs, 19 mutants, unit tests),
+  run.py's transport and cleanup handling, and docs. The good design's
+  verdict numbers in Part A are unchanged by them: same values in both
+  RECEIPT runs.
 - The reproducer could not save a snapshot of its final design, because its
   60-minute sandbox expired first. It did not substitute any image.

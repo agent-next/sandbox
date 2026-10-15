@@ -28,10 +28,13 @@
     "min_edge_distance_mm": 7.8,
     "pass": false,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 8.88178e-15,
     "problems": [
      "bore does not run through plate and boss"
     ],
-    "spacing_max_dev_deg": 2.84217e-14
+    "spacing_max_dev_deg": 2.84217e-14,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -58,19 +61,28 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [
+     "rebuilt part: bore does not run through plate and boss"
+    ],
     "rel_dev": 0.148368,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5884.45
+    "valid": true,
+    "volume_delta_mm3": 5884.45,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 1.86057e-05,
     "stl_volume_mm3": 18926.0,
@@ -121,10 +133,13 @@
     "min_edge_distance_mm": 7.8,
     "pass": false,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 8.88178e-15,
     "problems": [
      "boss spans z 6.000..10.000, expected 6.0..9.0"
     ],
-    "spacing_max_dev_deg": 2.84217e-14
+    "spacing_max_dev_deg": 2.84217e-14,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -151,19 +166,28 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1.0,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [
+     "rebuilt part: boss spans z 8.000..12.000, expected 8.0..11.0"
+    ],
     "rel_dev": 5.13942e-12,
     "solids": 1,
     "top_z_mm": 12.0,
-    "volume_delta_mm3": 5124.18
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000118734,
     "stl_volume_mm3": 17071.0,
@@ -202,6 +226,111 @@
    "solidcraft": "0.10.1"
   }
  },
+ "csg_blocked_holes": {
+  "demo": "solidcraft-cad",
+  "failed_gate": "features",
+  "gates": {
+   "build": {
+    "pass": true,
+    "reason": "STEP and STL written"
+   },
+   "cross_check": {
+    "area_rel_dev": 1.66456e-06,
+    "bodies": 1,
+    "com_max_dev_mm": 9.90007e-06,
+    "limit_com_mm": 0.01,
+    "limit_rel": 0.001,
+    "occt_area_mm2": 7623.93,
+    "pass": true,
+    "solidcraft_area_mm2": 7623.92,
+    "solidcraft_volume_mm3": 16663.1,
+    "volume_rel_dev": 1.34479e-06
+   },
+   "features": {
+    "bolt_diameter_max_dev_mm": 2.66454e-14,
+    "bolt_holes": 4,
+    "bore_diameter_mm": 22.0,
+    "boss_height_mm": 3.0,
+    "corner_fillets": 4,
+    "min_edge_distance_mm": 7.8,
+    "pass": false,
+    "pcd_max_dev_mm": 2.4869e-14,
+    "position_max_dev_mm": 2.64074e-14,
+    "problems": [
+     "4/20 wall checks failed, first: pin through bolt hole 0: 6.2500% material, expected 0%"
+    ],
+    "spacing_max_dev_deg": 5.68434e-14,
+    "wall_checks": 20,
+    "wall_checks_failed": 4
+   },
+   "mass": {
+    "density_g_cm3": 2.7,
+    "limit_g": 52.0,
+    "mass_g": 44.9902,
+    "pass": true
+   },
+   "occt_shape": {
+    "bbox_max": [
+     30.0,
+     25.0,
+     9.0
+    ],
+    "bbox_max_dev_mm": 1e-07,
+    "bbox_min": [
+     -30.0,
+     -25.0,
+     -1e-07
+    ],
+    "limit_mm": 0.01,
+    "pass": true,
+    "solids": 1,
+    "valid": true
+   },
+   "parametric": {
+    "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
+    "expected_top_z_mm": 11.0,
+    "features_ok": false,
+    "limit_rel": 0.002,
+    "new_value_mm": 8.0,
+    "parameter": "thickness",
+    "pass": false,
+    "problems": [
+     "rebuilt part: 4/20 wall checks failed, first: pin through bolt hole 0: 5.0000% material, expected 0%"
+    ],
+    "rel_dev": 1.91716e-10,
+    "solids": 1,
+    "top_z_mm": 11.0,
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 20
+   },
+   "stl": {
+    "degenerate_triangles": 0,
+    "limit_rel": 0.005,
+    "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
+    "pass": true,
+    "rel_dev_vs_step": 0.000127708,
+    "stl_volume_mm3": 16665.2,
+    "triangles": 3756
+   },
+   "volume": {
+    "analytic_mm3": 16644.9,
+    "limit_rel": 0.002,
+    "occt_mm3": 16663.0,
+    "pass": true,
+    "rel_dev": 0.00109093
+   }
+  },
+  "passed": false,
+  "reason": "4/20 wall checks failed, first: pin through bolt hole 0: 6.2500% material, expected 0%",
+  "seed": 20261014,
+  "versions": {
+   "python": "3.12.15",
+   "solidcraft": "0.10.1"
+  }
+ },
  "csg_bore_shifted": {
   "demo": "solidcraft-cad",
   "failed_gate": "features",
@@ -231,6 +360,7 @@
     "min_edge_distance_mm": 7.8,
     "pass": false,
     "pcd_max_dev_mm": 21.6203,
+    "position_max_dev_mm": 1.51772e-14,
     "problems": [
      "expected 1 centre bore, found 0",
      "expected 4 bolt holes, found 5",
@@ -238,7 +368,9 @@
      "bolt hole off the pitch circle by 21.6203 mm",
      "bolt hole spacing off by 72.000 deg"
     ],
-    "spacing_max_dev_deg": 72.0
+    "spacing_max_dev_deg": 72.0,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -265,19 +397,32 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
-    "pass": true,
+    "pass": false,
+    "problems": [
+     "rebuilt part: expected 1 centre bore, found 0",
+     "rebuilt part: expected 4 bolt holes, found 5",
+     "rebuilt part: bolt hole diameter off by 18.6000 mm",
+     "rebuilt part: bolt hole off the pitch circle by 21.6203 mm",
+     "rebuilt part: bolt hole spacing off by 72.000 deg"
+    ],
     "rel_dev": 1.2053e-07,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5124.18
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000135529,
     "stl_volume_mm3": 16647.1,
@@ -328,10 +473,13 @@
     "min_edge_distance_mm": 7.8,
     "pass": false,
     "pcd_max_dev_mm": 2.4869e-14,
+    "position_max_dev_mm": 2.64074e-14,
     "problems": [
      "expected 4 corner fillets of R5.0, found 3"
     ],
-    "spacing_max_dev_deg": 5.68434e-14
+    "spacing_max_dev_deg": 5.68434e-14,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -358,19 +506,28 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [
+     "rebuilt part: expected 4 corner fillets of R5.0, found 3"
+    ],
     "rel_dev": 0.00766353,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5084.91
+    "valid": true,
+    "volume_delta_mm3": 5084.91,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000145572,
     "stl_volume_mm3": 16529.5,
@@ -392,6 +549,222 @@
    "solidcraft": "0.10.1"
   }
  },
+ "csg_shift_on_rebuild": {
+  "demo": "solidcraft-cad",
+  "failed_gate": "parametric",
+  "gates": {
+   "build": {
+    "pass": true,
+    "reason": "STEP and STL written"
+   },
+   "cross_check": {
+    "area_rel_dev": 2.00056e-07,
+    "bodies": 1,
+    "com_max_dev_mm": 1.00841e-05,
+    "limit_com_mm": 0.01,
+    "limit_rel": 0.001,
+    "occt_area_mm2": 7572.66,
+    "pass": true,
+    "solidcraft_area_mm2": 7572.66,
+    "solidcraft_volume_mm3": 16644.9,
+    "volume_rel_dev": 1.36042e-06
+   },
+   "features": {
+    "bolt_diameter_max_dev_mm": 2.66454e-14,
+    "bolt_holes": 4,
+    "bore_diameter_mm": 22.0,
+    "boss_height_mm": 3.0,
+    "corner_fillets": 4,
+    "min_edge_distance_mm": 7.8,
+    "pass": true,
+    "pcd_max_dev_mm": 2.4869e-14,
+    "position_max_dev_mm": 2.64074e-14,
+    "problems": [],
+    "spacing_max_dev_deg": 5.68434e-14,
+    "wall_checks": 20,
+    "wall_checks_failed": 0
+   },
+   "mass": {
+    "density_g_cm3": 2.7,
+    "limit_g": 52.0,
+    "mass_g": 44.9412,
+    "pass": true
+   },
+   "occt_shape": {
+    "bbox_max": [
+     30.0,
+     25.0,
+     9.0
+    ],
+    "bbox_max_dev_mm": 1e-07,
+    "bbox_min": [
+     -30.0,
+     -25.0,
+     -1e-07
+    ],
+    "limit_mm": 0.01,
+    "pass": true,
+    "solids": 1,
+    "valid": true
+   },
+   "parametric": {
+    "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 20.0,
+    "expected_top_z_mm": 11.0,
+    "features_ok": false,
+    "limit_rel": 0.002,
+    "new_value_mm": 8.0,
+    "parameter": "thickness",
+    "pass": false,
+    "problems": [
+     "rebuilt part: expected 1 centre bore, found 0",
+     "rebuilt part: expected 4 bolt holes, found 5",
+     "rebuilt part: bolt hole diameter off by 18.6000 mm",
+     "rebuilt part: bolt hole off the pitch circle by 16.8160 mm",
+     "rebuilt part: bolt hole spacing off by 140.378 deg",
+     "rebuilt part: edge distance -7.200 < 5.0",
+     "rebuilt part: bolt pattern off its nominal positions by 20.000 mm",
+     "rebuilt part: boss outer cylinder missing or wrong diameter",
+     "rebuilt part: corner fillets are not at the plate's corners"
+    ],
+    "rel_dev": 1.2053e-07,
+    "solids": 1,
+    "top_z_mm": 11.0,
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 0
+   },
+   "stl": {
+    "degenerate_triangles": 0,
+    "limit_rel": 0.005,
+    "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
+    "pass": true,
+    "rel_dev_vs_step": 0.000135528,
+    "stl_volume_mm3": 16647.1,
+    "triangles": 3692
+   },
+   "volume": {
+    "analytic_mm3": 16644.9,
+    "limit_rel": 0.002,
+    "occt_mm3": 16644.9,
+    "pass": true,
+    "rel_dev": 1.66979e-07
+   }
+  },
+  "passed": false,
+  "reason": "rebuilt part: expected 1 centre bore, found 0; rebuilt part: expected 4 bolt holes, found 5; rebuilt part: bolt hole diameter off by 18.6000 mm; rebuilt part: bolt hole off the pitch circle by 16.8160 mm; rebuilt part: bolt hole spacing off by 140.378 deg; rebuilt part: edge distance -7.200 < 5.0; rebuilt part: bolt pattern off its nominal positions by 20.000 mm; rebuilt part: boss outer cylinder missing or wrong diameter; rebuilt part: corner fillets are not at the plate's corners",
+  "seed": 20261014,
+  "versions": {
+   "python": "3.12.15",
+   "solidcraft": "0.10.1"
+  }
+ },
+ "csg_thin_web": {
+  "demo": "solidcraft-cad",
+  "failed_gate": "features",
+  "gates": {
+   "build": {
+    "pass": true,
+    "reason": "STEP and STL written"
+   },
+   "cross_check": {
+    "area_rel_dev": 1.75383e-06,
+    "bodies": 1,
+    "com_max_dev_mm": 9.91872e-06,
+    "limit_com_mm": 0.01,
+    "limit_rel": 0.001,
+    "occt_area_mm2": 7641.02,
+    "pass": true,
+    "solidcraft_area_mm2": 7641.01,
+    "solidcraft_volume_mm3": 16648.5,
+    "volume_rel_dev": 1.4911e-06
+   },
+   "features": {
+    "bolt_diameter_max_dev_mm": 2.66454e-14,
+    "bolt_holes": 4,
+    "bore_diameter_mm": 22.0,
+    "boss_height_mm": 3.0,
+    "corner_fillets": 4,
+    "min_edge_distance_mm": 7.8,
+    "pass": false,
+    "pcd_max_dev_mm": 2.4869e-14,
+    "position_max_dev_mm": 2.64074e-14,
+    "problems": [
+     "4/20 wall checks failed, first: pin through bolt hole 0: 1.2500% material, expected 0%"
+    ],
+    "spacing_max_dev_deg": 5.68434e-14,
+    "wall_checks": 20,
+    "wall_checks_failed": 4
+   },
+   "mass": {
+    "density_g_cm3": 2.7,
+    "limit_g": 52.0,
+    "mass_g": 44.951,
+    "pass": true
+   },
+   "occt_shape": {
+    "bbox_max": [
+     30.0,
+     25.0,
+     9.0
+    ],
+    "bbox_max_dev_mm": 1e-07,
+    "bbox_min": [
+     -30.0,
+     -25.0,
+     -1e-07
+    ],
+    "limit_mm": 0.01,
+    "pass": true,
+    "solids": 1,
+    "valid": true
+   },
+   "parametric": {
+    "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
+    "expected_top_z_mm": 11.0,
+    "features_ok": false,
+    "limit_rel": 0.002,
+    "new_value_mm": 8.0,
+    "parameter": "thickness",
+    "pass": false,
+    "problems": [
+     "rebuilt part: 4/20 wall checks failed, first: pin through bolt hole 0: 1.0000% material, expected 0%"
+    ],
+    "rel_dev": 7.00024e-12,
+    "solids": 1,
+    "top_z_mm": 11.0,
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 20
+   },
+   "stl": {
+    "degenerate_triangles": 0,
+    "limit_rel": 0.005,
+    "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
+    "pass": true,
+    "rel_dev_vs_step": 0.000134097,
+    "stl_volume_mm3": 16650.8,
+    "triangles": 3756
+   },
+   "volume": {
+    "analytic_mm3": 16644.9,
+    "limit_rel": 0.002,
+    "occt_mm3": 16648.5,
+    "pass": true,
+    "rel_dev": 0.000218186
+   }
+  },
+  "passed": false,
+  "reason": "4/20 wall checks failed, first: pin through bolt hole 0: 1.2500% material, expected 0%",
+  "seed": 20261014,
+  "versions": {
+   "python": "3.12.15",
+   "solidcraft": "0.10.1"
+  }
+ },
  "file_export": {
   "demo": "solidcraft-cad",
   "failed_gate": "build",
@@ -403,6 +776,23 @@
   },
   "passed": false,
   "reason": "command 16 'file.export' is not allowed in a graded design (see SPEC.md)",
+  "seed": 20261014,
+  "versions": {
+   "python": "3.12.15",
+   "solidcraft": "0.10.1"
+  }
+ },
+ "font_outside": {
+  "demo": "solidcraft-cad",
+  "failed_gate": "build",
+  "gates": {
+   "build": {
+    "pass": false,
+    "reason": "command 9 'sketch.text': font '/home/user/.local/solidcraft-judge-venv/lib/python3.12/site-packages/matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf' is a file path; name an installed font family instead"
+   }
+  },
+  "passed": false,
+  "reason": "command 9 'sketch.text': font '/home/user/.local/solidcraft-judge-venv/lib/python3.12/site-packages/matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf' is a file path; name an installed font family instead",
   "seed": 20261014,
   "versions": {
    "python": "3.12.15",
@@ -438,8 +828,11 @@
     "min_edge_distance_mm": 7.8,
     "pass": true,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 8.88178e-15,
     "problems": [],
-    "spacing_max_dev_deg": 2.84217e-14
+    "spacing_max_dev_deg": 2.84217e-14,
+    "wall_checks": 20,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -466,19 +859,26 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": true,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": true,
+    "problems": [],
     "rel_dev": 5.13871e-12,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5124.18
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 20
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.00013085,
     "stl_volume_mm3": 16647.1,
@@ -529,13 +929,16 @@
     "min_edge_distance_mm": 5.8,
     "pass": false,
     "pcd_max_dev_mm": 4.42031,
+    "position_max_dev_mm": 8.88178e-15,
     "problems": [
      "expected 4 bolt holes, found 5",
      "bolt hole off the pitch circle by 4.4203 mm",
      "bolt hole spacing off by 27.000 deg",
      "boss spans z 5.217..9.000, expected 6.0..9.0"
     ],
-    "spacing_max_dev_deg": 27.0
+    "spacing_max_dev_deg": 27.0,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -562,19 +965,31 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [
+     "rebuilt part: expected 4 bolt holes, found 5",
+     "rebuilt part: bolt hole off the pitch circle by 4.4203 mm",
+     "rebuilt part: bolt hole spacing off by 27.000 deg",
+     "rebuilt part: boss spans z 7.215..11.000, expected 8.0..11.0"
+    ],
     "rel_dev": 0.0035436,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5106.02
+    "valid": true,
+    "volume_delta_mm3": 5106.02,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000163953,
     "stl_volume_mm3": 16593.3,
@@ -625,11 +1040,15 @@
     "min_edge_distance_mm": 7.8,
     "pass": false,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 31.0,
     "problems": [
      "expected 4 bolt holes, found 3",
-     "bolt hole spacing off by 60.000 deg"
+     "bolt hole spacing off by 60.000 deg",
+     "bolt pattern off its nominal positions by 31.000 mm"
     ],
-    "spacing_max_dev_deg": 60.0
+    "spacing_max_dev_deg": 60.0,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -656,19 +1075,30 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [
+     "rebuilt part: expected 4 bolt holes, found 3",
+     "rebuilt part: bolt hole spacing off by 60.000 deg",
+     "rebuilt part: bolt pattern off its nominal positions by 31.000 mm"
+    ],
     "rel_dev": 0.00354367,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5142.34
+    "valid": true,
+    "volume_delta_mm3": 5142.34,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000106943,
     "stl_volume_mm3": 16701.1,
@@ -719,10 +1149,14 @@
     "min_edge_distance_mm": 7.6,
     "pass": false,
     "pcd_max_dev_mm": 0.282843,
+    "position_max_dev_mm": 0.282843,
     "problems": [
-     "bolt hole off the pitch circle by 0.2828 mm"
+     "bolt hole off the pitch circle by 0.2828 mm",
+     "bolt pattern off its nominal positions by 0.283 mm"
     ],
-    "spacing_max_dev_deg": 2.84217e-14
+    "spacing_max_dev_deg": 2.84217e-14,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -749,19 +1183,29 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
-    "pass": true,
+    "pass": false,
+    "problems": [
+     "rebuilt part: bolt hole off the pitch circle by 0.2828 mm",
+     "rebuilt part: bolt pattern off its nominal positions by 0.283 mm"
+    ],
     "rel_dev": 6.21928e-12,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5124.18
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000130849,
     "stl_volume_mm3": 16647.1,
@@ -776,7 +1220,7 @@
    }
   },
   "passed": false,
-  "reason": "bolt hole off the pitch circle by 0.2828 mm",
+  "reason": "bolt hole off the pitch circle by 0.2828 mm; bolt pattern off its nominal positions by 0.283 mm",
   "seed": 20261014,
   "versions": {
    "python": "3.12.15",
@@ -812,10 +1256,14 @@
     "min_edge_distance_mm": 7.01003,
     "pass": false,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 1.14761,
     "problems": [
-     "bolt hole spacing off by 3.000 deg"
+     "bolt hole spacing off by 3.000 deg",
+     "bolt pattern off its nominal positions by 1.148 mm"
     ],
-    "spacing_max_dev_deg": 3.0
+    "spacing_max_dev_deg": 3.0,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -842,19 +1290,29 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
-    "pass": true,
+    "pass": false,
+    "problems": [
+     "rebuilt part: bolt hole spacing off by 3.000 deg",
+     "rebuilt part: bolt pattern off its nominal positions by 1.148 mm"
+    ],
     "rel_dev": 9.41411e-12,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5124.18
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000130849,
     "stl_volume_mm3": 16647.1,
@@ -869,7 +1327,7 @@
    }
   },
   "passed": false,
-  "reason": "bolt hole spacing off by 3.000 deg",
+  "reason": "bolt hole spacing off by 3.000 deg; bolt pattern off its nominal positions by 1.148 mm",
   "seed": 20261014,
   "versions": {
    "python": "3.12.15",
@@ -905,10 +1363,13 @@
     "min_edge_distance_mm": 7.95,
     "pass": false,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 1.06581e-14,
     "problems": [
      "bolt hole diameter off by 0.3000 mm"
     ],
-    "spacing_max_dev_deg": 0.0
+    "spacing_max_dev_deg": 0.0,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -935,19 +1396,28 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [
+     "rebuilt part: bolt hole diameter off by 0.3000 mm"
+    ],
     "rel_dev": 0.00239106,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5136.43
+    "valid": true,
+    "volume_delta_mm3": 5136.43,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000114708,
     "stl_volume_mm3": 16683.6,
@@ -963,6 +1433,111 @@
   },
   "passed": false,
   "reason": "{\"occt_mm3\": 16681.6, \"analytic_mm3\": 16644.9, \"rel_dev\": 0.00220828, \"limit_rel\": 0.002}",
+  "seed": 20261014,
+  "versions": {
+   "python": "3.12.15",
+   "solidcraft": "0.10.1"
+  }
+ },
+ "holes_all_rotated": {
+  "demo": "solidcraft-cad",
+  "failed_gate": "features",
+  "gates": {
+   "build": {
+    "pass": true,
+    "reason": "STEP and STL written"
+   },
+   "cross_check": {
+    "area_rel_dev": 4.89179e-07,
+    "bodies": 1,
+    "com_max_dev_mm": 9.82488e-06,
+    "limit_com_mm": 0.01,
+    "limit_rel": 0.001,
+    "occt_area_mm2": 7572.66,
+    "pass": true,
+    "solidcraft_area_mm2": 7572.65,
+    "solidcraft_volume_mm3": 16644.9,
+    "volume_rel_dev": 1.2234e-06
+   },
+   "features": {
+    "bolt_diameter_max_dev_mm": 2.22045e-15,
+    "bolt_holes": 4,
+    "bore_diameter_mm": 22.0,
+    "boss_height_mm": 3.0,
+    "corner_fillets": 4,
+    "min_edge_distance_mm": 5.34393,
+    "pass": false,
+    "pcd_max_dev_mm": 3.55271e-15,
+    "position_max_dev_mm": 3.82096,
+    "problems": [
+     "bolt pattern off its nominal positions by 3.821 mm"
+    ],
+    "spacing_max_dev_deg": 1.42109e-14,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
+   },
+   "mass": {
+    "density_g_cm3": 2.7,
+    "limit_g": 52.0,
+    "mass_g": 44.9412,
+    "pass": true
+   },
+   "occt_shape": {
+    "bbox_max": [
+     30.0,
+     25.0,
+     9.0
+    ],
+    "bbox_max_dev_mm": 1e-07,
+    "bbox_min": [
+     -30.0,
+     -25.0,
+     -1e-07
+    ],
+    "limit_mm": 0.01,
+    "pass": true,
+    "solids": 1,
+    "valid": true
+   },
+   "parametric": {
+    "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
+    "expected_top_z_mm": 11.0,
+    "features_ok": false,
+    "limit_rel": 0.002,
+    "new_value_mm": 8.0,
+    "parameter": "thickness",
+    "pass": false,
+    "problems": [
+     "rebuilt part: bolt pattern off its nominal positions by 3.821 mm"
+    ],
+    "rel_dev": 5.13942e-12,
+    "solids": 1,
+    "top_z_mm": 11.0,
+    "valid": true,
+    "volume_delta_mm3": 5124.18,
+    "wall_checks": 0
+   },
+   "stl": {
+    "degenerate_triangles": 0,
+    "limit_rel": 0.005,
+    "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
+    "pass": true,
+    "rel_dev_vs_step": 0.000130849,
+    "stl_volume_mm3": 16647.1,
+    "triangles": 3772
+   },
+   "volume": {
+    "analytic_mm3": 16644.9,
+    "limit_rel": 0.002,
+    "occt_mm3": 16644.9,
+    "pass": true,
+    "rel_dev": 6.94266e-10
+   }
+  },
+  "passed": false,
+  "reason": "bolt pattern off its nominal positions by 3.821 mm",
   "seed": 20261014,
   "versions": {
    "python": "3.12.15",
@@ -998,8 +1573,11 @@
     "min_edge_distance_mm": 7.8,
     "pass": true,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 8.88178e-15,
     "problems": [],
-    "spacing_max_dev_deg": 2.84217e-14
+    "spacing_max_dev_deg": 2.84217e-14,
+    "wall_checks": 20,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -1026,19 +1604,30 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 2.0,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [
+     "rebuilt part: bore does not run through plate and boss",
+     "rebuilt part: a bolt hole does not go through the plate",
+     "rebuilt part: boss spans z 6.000..9.000, expected 8.0..11.0"
+    ],
     "rel_dev": 1.0,
     "solids": 1,
     "top_z_mm": 9.0,
-    "volume_delta_mm3": 0.0
+    "valid": true,
+    "volume_delta_mm3": 0.0,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.00013085,
     "stl_volume_mm3": 16647.1,
@@ -1053,7 +1642,7 @@
    }
   },
   "passed": false,
-  "reason": "{\"parameter\": \"thickness\", \"new_value_mm\": 8.0, \"solids\": 1, \"volume_delta_mm3\": 0.0, \"analytic_delta_mm3\": 5124.18, \"rel_dev\": 1.0, \"top_z_mm\": 9.0, \"expected_top_z_mm\": 11.0, \"limit_rel\": 0.002}",
+  "reason": "rebuilt part: bore does not run through plate and boss; rebuilt part: a bolt hole does not go through the plate; rebuilt part: boss spans z 6.000..9.000, expected 8.0..11.0",
   "seed": 20261014,
   "versions": {
    "python": "3.12.15",
@@ -1089,10 +1678,13 @@
     "min_edge_distance_mm": 7.8,
     "pass": false,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 8.88178e-15,
     "problems": [
      "expected 4 corner fillets of R5.0, found 0"
     ],
-    "spacing_max_dev_deg": 2.84217e-14
+    "spacing_max_dev_deg": 2.84217e-14,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -1119,19 +1711,28 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": false,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [
+     "rebuilt part: expected 4 corner fillets of R5.0, found 0"
+    ],
     "rel_dev": 0.00837605,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 5167.1
+    "valid": true,
+    "volume_delta_mm3": 5167.1,
+    "wall_checks": 0
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.000175244,
     "stl_volume_mm3": 16776.6,
@@ -1182,10 +1783,13 @@
     "min_edge_distance_mm": 7.8,
     "pass": false,
     "pcd_max_dev_mm": 7.10543e-15,
+    "position_max_dev_mm": 8.88178e-15,
     "problems": [
      "boss spans z 7.500..10.500, expected 6.0..9.0"
     ],
-    "spacing_max_dev_deg": 2.84217e-14
+    "spacing_max_dev_deg": 2.84217e-14,
+    "wall_checks": 0,
+    "wall_checks_failed": 0
    },
    "mass": {
     "density_g_cm3": 2.7,
@@ -1212,19 +1816,26 @@
    },
    "parametric": {
     "analytic_delta_mm3": 5124.18,
+    "bbox_max_dev_mm": 1e-07,
     "expected_top_z_mm": 11.0,
+    "features_ok": true,
     "limit_rel": 0.002,
     "new_value_mm": 8.0,
     "parameter": "thickness",
     "pass": false,
+    "problems": [],
     "rel_dev": 0.75,
     "solids": 1,
     "top_z_mm": 11.0,
-    "volume_delta_mm3": 1281.05
+    "valid": true,
+    "volume_delta_mm3": 1281.05,
+    "wall_checks": 20
    },
    "stl": {
+    "degenerate_triangles": 0,
     "limit_rel": 0.005,
     "non_manifold_edges": 0,
+    "non_manifold_vertices": 0,
     "pass": true,
     "rel_dev_vs_step": 0.00013842,
     "stl_volume_mm3": 20490.9,

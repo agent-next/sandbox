@@ -19,9 +19,9 @@ Your machine stays clean, and the graded artifact is one small JSON file.
 
 ![Delivered part and judge gates](media/result.png)
 
-![Repair replay and self-test kill rate](media/loop.png)
+![Independent agent run and self-test kill rate](media/loop.png)
 
-[▶ demo.mp4](media/demo.mp4): 40 s. The video steps through the spec, then
+[▶ demo.mp4](media/demo.mp4): 50 s. The video steps through the spec, then
 SolidCraft building the part step by step, the delivered views, a live
 `thickness` sweep (each frame a real SolidCraft rebuild), the judge verdict and
 the agent loop (1920×1080, H.264).
@@ -34,7 +34,7 @@ Key numbers from the judge verdict on `examples/good/design.json`:
 - **Two kernels agree**: SolidCraft vs OpenCascade volume 1.2e-6 and area 4.9e-7 relative, centre of mass within 1e-5 mm
 - **Parametric**: `thickness` 6 → 8 mm adds 5124.18 mm³; the analytic value is 5124.18 mm³ (deviation 5e-12)
 - **STL**: 3772 triangles, closed and consistently oriented, volume 0.0131 % from the STEP (limit 0.5 %)
-- **Self-test**: both known-good designs pass; 14/14 mutants killed = 100 % (requirement ≥ 90 %)
+- **Self-test**: 16 unit tests pass; all three known-good designs pass; 19/19 mutants killed = 100 % (requirement ≥ 90 %)
 - **Independent agent**: a different model family (GPT-6.1 Sol in Factory Droid) followed only this README, matched every number above, then modelled the part itself and passed on attempt 12. See REPRODUCE.md
 
 ## Ask your agent
@@ -78,8 +78,9 @@ JSON. It then kills the sandbox and confirms it is gone. It uses the standard
 library only, exits non-zero on any failure, and names the sandbox id if it
 cannot confirm cleanup.
 
-Measured wall time (2 vCPU sandbox, see RECEIPT.md): setup about 2.5 min
-(downloads), self-test about 8 min (14 grades), one grade about 40 s.
+Measured wall time (2 vCPU sandbox, two runs in RECEIPT.md): setup about 2 min
+(downloads), self-test about 13.5 min (unit tests, 3 known-good designs, 19
+mutants, a determinism pair), one grade about 1 min; the whole run about 16.5 min.
 
 ## What the judge checks
 
@@ -88,15 +89,16 @@ Eight gates, all numeric (full rules in `SPEC.md`):
 1. **build**: the script uses only modelling commands and SolidCraft builds it with no failing feature.
 2. **occt_shape**: OpenCascade reads the STEP: one valid solid, bounding box within 0.01 mm.
 3. **volume**: within 0.2 % of the closed-form volume.
-4. **features**: bore, boss, corner fillets and bolt holes found as cylindrical faces in the STEP. Diameters are checked to 0.02 mm, the pitch circle to 0.05 mm, spacing to 0.1°, plus the edge distance.
+4. **features**: bore, boss, corner fillets and bolt holes found as cylindrical faces in the STEP. Diameters are checked to 0.02 mm, the pitch circle and each hole's nominal position to 0.05 mm, spacing to 0.1°, plus the edge distance. Wall checks then prove each wall exists all the way round and all the way through: OpenCascade intersects the part with thin tubes 0.01 mm either side of it (a pin through every hole must meet no material).
 5. **mass**: at most 52 g.
 6. **cross_check**: SolidCraft's `eval` and OpenCascade agree to 0.1 %.
-7. **parametric**: the judge bumps `thickness` by 2 mm, rebuilds, and the volume change must match the analytic value.
-8. **stl**: the mesh is watertight, oriented, and matches the STEP volume to 0.5 %.
+7. **parametric**: the judge sets `thickness` 2 mm higher, rebuilds, and grades the new part against the spec at that thickness: bounding box, every feature with its wall checks, and the volume change against the analytic value.
+8. **stl**: the mesh is watertight, oriented and manifold at every vertex, and matches the STEP volume to 0.5 %.
 
-Any modelling style is accepted. `examples/good/` has two known-good designs:
-`design.json` (sketch, then extrude) and `design-csg.json` (boxes and cylinders
-combined; it was written by the independent agent). SolidCraft exports some of
+Any modelling style is accepted. `examples/good/` has three known-good designs:
+`design.json` (sketch, then extrude), `design-csg.json` (boxes and cylinders
+combined; it was written by the independent agent) and `design-renamed.json`
+(the parameter is created under another name, then renamed). SolidCraft exports some of
 that design's cylinders as B-spline faces. The features gate recognises those
 by fitting circles to them, and the self-test proves it: it moves the bore
 0.3 mm, which leaves the volume unchanged, and the judge still rejects it.
@@ -111,8 +113,8 @@ by fitting circles to them, and the self-test proves it: it moves the bore
   it; see RECEIPT.md, Deviations.
 - The judge checks one part family: plates with Z-axis holes. It is not a
   general CAD-equivalence checker.
-- Grades take about 40 s, mostly OpenCascade start-up (vtk import) and two
-  SolidCraft builds.
+- Grades take 20–70 s: OpenCascade start-up (vtk import), two SolidCraft
+  builds, and the wall-check booleans on both parts.
 
 ## Credits
 

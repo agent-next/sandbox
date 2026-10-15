@@ -37,12 +37,6 @@ STAGES = [  # (prefix length of the good script, caption)
     (16, "4  solid.extrude boss_height, join"),
 ]
 SWEEP = [6.0, 6.5, 7.0, 7.5, 8.0]
-REPLAY = [  # scripted repair replay: draft with three mistakes, fixed one per step
-    ("draft", ["boss_height", "hole_off_pcd", "literal_thickness"]),
-    ("fix boss height", ["hole_off_pcd", "literal_thickness"]),
-    ("move hole onto PCD", ["literal_thickness"]),
-    ("use the thickness\nparameter", []),
-]
 FLOOR = 1e-12  # ratios below this are drawn at the floor (exact to float precision)
 GATES = ["build", "occt_shape", "volume", "features", "mass", "cross_check", "parametric", "stl"]
 
@@ -108,21 +102,20 @@ def cmd_data(work: Path):
         verdicts[fn.__name__] = grade(s, work / f"v_{fn.__name__}.json")
     print(f"media: good + {len(verdicts) - 1} mutants graded")
 
-    replay = []
-    for label, bugs in REPLAY:
-        d = copy.deepcopy(good)
-        for b in bugs:
-            getattr(mut, b)(d["commands"])
-        s = work / f"replay{len(replay)}.json"
-        s.write_text(json.dumps(d))
-        v = grade(s, work / f"r{len(replay)}.json")
-        replay.append({"step": label, "mistakes_left": bugs, "passed": v["passed"],
-                       "gates": {g: v["gates"].get(g, {}).get("pass") for g in GATES}})
-    print("media: repair replay graded")
+    # The independent agent's own 12 designs (REPRODUCE.md), re-graded with this judge,
+    # next to the grades it recorded with the judge it had at the time.
+    recorded = json.loads((DATA / "agent_run_recorded.json").read_text())["attempts"]
+    agent = []
+    for r in recorded:
+        v = grade(DATA / "agent_attempts" / f"{r['attempt']}.json", work / f"a{r['attempt']}.json")
+        agent.append({"attempt": r["attempt"], "recorded_gates": r["gates"],
+                      "gates": {g: v["gates"].get(g, {}).get("pass") for g in GATES},
+                      "failed_gate": v["failed_gate"]})
+    print("media: independent agent's 12 designs re-graded")
 
     (DATA / "verdicts.json").write_text(json.dumps(verdicts, indent=1, sort_keys=True) + "\n")
     (DATA / "sweep.json").write_text(json.dumps(sweep, indent=1) + "\n")
-    (DATA / "replay.json").write_text(json.dumps(replay, indent=1) + "\n")
+    (DATA / "agent_run.json").write_text(json.dumps(agent, indent=1) + "\n")
 
 
 # ------------------------------------------------------------------ figures --
@@ -131,18 +124,19 @@ def checks(g: dict) -> list[tuple[str, float, float]]:
     """(label, measured deviation, limit) for every numeric pass rule."""
     G = g["gates"]
     f = G["features"]
-    return [
-        ("volume vs analytic", G["volume"]["rel_dev"], G["volume"]["limit_rel"]),
-        ("bounding box (mm)", G["occt_shape"]["bbox_max_dev_mm"], G["occt_shape"]["limit_mm"]),
-        ("bolt hole Ø (mm)", f["bolt_diameter_max_dev_mm"], 0.02),
-        ("on pitch circle (mm)", f["pcd_max_dev_mm"], 0.05),
-        ("hole spacing (deg)", f["spacing_max_dev_deg"], 0.1),
-        ("mass (g)", G["mass"]["mass_g"], G["mass"]["limit_g"]),
-        ("kernels: volume", G["cross_check"]["volume_rel_dev"], G["cross_check"]["limit_rel"]),
-        ("kernels: area", G["cross_check"]["area_rel_dev"], G["cross_check"]["limit_rel"]),
-        ("kernels: centre of mass (mm)", G["cross_check"]["com_max_dev_mm"], G["cross_check"]["limit_com_mm"]),
-        ("parametric ΔV (+2 mm)", G["parametric"]["rel_dev"], G["parametric"]["limit_rel"]),
-        ("STL vs STEP volume", G["stl"]["rel_dev_vs_step"], G["stl"]["limit_rel"]),
+    return [  # label = "<gate>: <check>"; 8 gates, 12 numeric checks
+        ("volume: vs analytic", G["volume"]["rel_dev"], G["volume"]["limit_rel"]),
+        ("occt_shape: bounding box (mm)", G["occt_shape"]["bbox_max_dev_mm"], G["occt_shape"]["limit_mm"]),
+        ("features: bolt hole Ø (mm)", f["bolt_diameter_max_dev_mm"], 0.02),
+        ("features: on pitch circle (mm)", f["pcd_max_dev_mm"], 0.05),
+        ("features: hole spacing (deg)", f["spacing_max_dev_deg"], 0.1),
+        ("features: pattern at 45° (mm)", f["position_max_dev_mm"], 0.05),
+        ("mass: 44.9 g of 52 g", G["mass"]["mass_g"], G["mass"]["limit_g"]),
+        ("cross_check: volume", G["cross_check"]["volume_rel_dev"], G["cross_check"]["limit_rel"]),
+        ("cross_check: area", G["cross_check"]["area_rel_dev"], G["cross_check"]["limit_rel"]),
+        ("cross_check: centre of mass (mm)", G["cross_check"]["com_max_dev_mm"], G["cross_check"]["limit_com_mm"]),
+        ("parametric: ΔV (+2 mm)", G["parametric"]["rel_dev"], G["parametric"]["limit_rel"]),
+        ("stl: volume vs STEP", G["stl"]["rel_dev_vs_step"], G["stl"]["limit_rel"]),
     ]
 
 
@@ -161,11 +155,11 @@ def draw_result(fig, v: dict):
     ax.axvline(1.0, color=BAD, lw=2, ls="--")
     ax.text(0.7, len(rows) - 0.4, "pass line", color=BAD, fontsize=10, va="top", ha="right")
     ax.set_xscale("log")
-    ax.set_xlim(FLOOR / 10, 30)
+    ax.set_xlim(FLOOR / 10, 300)
     ax.set_yticks(list(y))
     ax.set_yticklabels([r[0] for r in rows], fontsize=10)
     ax.set_xlabel("measured deviation / pass limit (log scale; < 1 passes)", fontsize=10)
-    ax.set_title("Judge gates on the delivered STEP/STL (OpenCascade 8.0.1)", fontsize=12)
+    ax.set_title("8 gates, 12 checks on the delivered STEP/STL (OCCT 8.0.1)", fontsize=12)
     for yi, r in zip(y, ratios):
         ax.text(min(r * 1.6, 3), yi, "≤ 1e-12 (exact)" if r <= FLOOR else f"{r:.1e}",
                 va="center", fontsize=8, color=INK)
@@ -176,24 +170,26 @@ def draw_result(fig, v: dict):
                  fontsize=14, color=OK if ok else BAD)
 
 
-def draw_loop(fig, verdicts: dict, replay: list):
-    ax = fig.add_axes([0.07, 0.15, 0.38, 0.68])
-    n = [sum(1 for g in GATES if r["gates"].get(g)) for r in replay]
-    ax.plot(range(len(n)), n, "-o", color=ACCENT, lw=2, ms=9)
-    ax.axhline(len(GATES), color=OK, ls="--", lw=2)
-    ax.text(0, len(GATES) + 0.15, f"pass: all {len(GATES)} gates", color=OK, fontsize=10)
-    for i, r in enumerate(replay):
-        failed = [g for g in GATES if r["gates"].get(g) is False]
-        ax.annotate("fails:\n" + "\n".join(failed) if failed else "PASS", (i, n[i]),
-                    textcoords="offset points", xytext=(0, -14), ha="center", va="top",
-                    fontsize=9, color=BAD if failed else OK)
-    ax.set_xticks(range(len(replay)))
-    ax.set_xticklabels([r["step"] for r in replay], fontsize=9)
-    ax.set_xlim(-0.5, len(replay) - 0.5)
-    ax.set_ylim(0, len(GATES) + 1)
-    ax.set_ylabel("judge gates passed (of 8)")
-    ax.set_title("Repair replay: a draft with 3 mistakes, fixed one per grade\n"
-                 "(scripted replay graded by the real judge, not a recorded agent run)", fontsize=11)
+def draw_loop(fig, verdicts: dict, agent: list):
+    ax = fig.add_axes([0.07, 0.15, 0.40, 0.66])
+    x = [int(a["attempt"]) for a in agent]
+    then = [sum(1 for g in GATES if a["recorded_gates"].get(g)) for a in agent]
+    now = [sum(1 for g in GATES if a["gates"].get(g)) for a in agent]
+    ax.plot(x, then, "-o", color=BAD, lw=2, ms=8, label="graded by the judge it had (features gate too narrow)")
+    ax.plot(x, now, "--s", color=ACCENT, lw=2, ms=7, label="same designs, fixed judge (this commit)")
+    ax.axhline(len(GATES), color=OK, ls=":", lw=2)
+    ax.text(1, len(GATES) + 0.2, f"pass = all {len(GATES)} gates", color=OK, fontsize=10)
+    bad = [a for a in agent if a["failed_gate"] == "build"]
+    for a in bad:
+        ax.annotate("its own unit error\n(fails build)", (int(a["attempt"]), 0), textcoords="offset points",
+                    xytext=(-150, 60), fontsize=10, color=INK, arrowprops={"arrowstyle": "->", "color": MUTED})
+    ax.set_xticks(x)
+    ax.set_ylim(-0.5, len(GATES) + 1.2)
+    ax.set_xlabel("attempt (each a design.json the agent wrote and graded)")
+    ax.set_ylabel(f"judge gates passed (of {len(GATES)})")
+    ax.legend(loc="lower left", fontsize=9, frameon=False)
+    ax.set_title("A real agent loop: an independent agent (GPT-6.1 Sol) modelled the part itself, 12 designs.\n"
+                 "Its designs exposed a judge gap (B-spline cylinders), now fixed: see REPRODUCE.md", fontsize=11)
 
     ax2 = fig.add_axes([0.60, 0.15, 0.37, 0.68])
     names = ["good"] + [k for k in verdicts if k != "good"]
@@ -207,8 +203,10 @@ def draw_loop(fig, verdicts: dict, replay: list):
     killed = sum(1 for k in names[1:] if not verdicts[k]["passed"])
     ax2.set_yticks([])
     ax2.set_xticks([])
-    ax2.set_title(f"Self-test: {killed}/{len(names) - 1} single-edit mutants killed "
-                  f"({killed / (len(names) - 1):.0%}, need ≥ 90 %)\nfirst failing gate shown", fontsize=11)
+    ax2.set_title(f"Self-test: {killed}/{len(names) - 1} broken designs rejected "
+                  f"({killed / (len(names) - 1):.0%}, need ≥ 90 %)\n"
+                  "green = known-good passes; orange = broken, rejected (first failing gate)",
+                  fontsize=11)
     fig.suptitle("solidcraft-cad — agent loop and judge power", fontsize=14)
 
 
@@ -217,13 +215,13 @@ def cmd_figures():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     verdicts = json.loads((DATA / "verdicts.json").read_text())
-    replay = json.loads((DATA / "replay.json").read_text())
+    agent = json.loads((DATA / "agent_run.json").read_text())
     fig = plt.figure(figsize=(14, 6.5))
     draw_result(fig, verdicts["good"])
     fig.savefig(MEDIA / "result.png", dpi=200)
     plt.close(fig)
     fig = plt.figure(figsize=(14, 6.5))
-    draw_loop(fig, verdicts, replay)
+    draw_loop(fig, verdicts, agent)
     fig.savefig(MEDIA / "loop.png", dpi=200)
     plt.close(fig)
     print("media: result.png, loop.png")
@@ -238,7 +236,7 @@ def cmd_frames():
     import matplotlib.pyplot as plt
     out = Path(os.environ["FRAMES_DIR"])
     verdicts = json.loads((DATA / "verdicts.json").read_text())
-    replay = json.loads((DATA / "replay.json").read_text())
+    agent = json.loads((DATA / "agent_run.json").read_text())
     sweep = json.loads((DATA / "sweep.json").read_text())
     spec = json.loads((DEMO / "spec.json").read_text())
     good = verdicts["good"]
@@ -269,7 +267,7 @@ def cmd_frames():
         ax.imshow(img)
         ax.axis("off")
 
-    fig = canvas("Agent-built CAD part: PASS, 8/8 gates",
+    fig = canvas("Agent-built CAD part: PASS, 8/8 gates (12 checks)",
                  "SolidCraft built it in a sandbox; OpenCascade re-measured the delivered STEP")
     image(fig, RENDERS / "final_iso.png", [0.18, 0.0, 0.64, 0.86])
     emit(fig, 2.5)
@@ -284,7 +282,7 @@ def cmd_frames():
              f"6061 aluminium, mass ≤ {p['mass_limit_g']:g} g; must rebuild when thickness changes",
              "", "Artifact: design.json (SolidCraft commands)   Judge: 8 numeric gates"]
     for i, ln in enumerate(lines):
-        fig.text(0.06, 0.72 - i * 0.065, ln, fontsize=24, color=INK)
+        fig.text(0.06, 0.74 - i * 0.08, ln, fontsize=30, color=INK)
     emit(fig, 4)
 
     for n, cap in STAGES:
@@ -292,39 +290,42 @@ def cmd_frames():
         image(fig, RENDERS / f"stage{n}.png", [0.2, 0.02, 0.6, 0.84])
         emit(fig, 2)
 
-    fig = canvas("Delivered part", "solidcraft-cli snapshot: iso, top and front views")
+    fig = canvas("Delivered part", "solidcraft-cli snapshot: iso, top, front. Holes sit at 45° on the pitch circle; "
+                 "the iso view turns them to the screen axes")
     for i, v in enumerate(("iso", "top", "front")):
-        image(fig, RENDERS / f"final_{v}.png", [0.01 + i * 0.33, 0.12, 0.32, 0.7])
+        image(fig, RENDERS / f"final_{v}.png", [0.0 + i * 0.335, 0.02, 0.33, 0.84], crop=(0.15, 0.85, 0.1, 0.9))
     emit(fig, 4)
 
     vol0 = sweep[0]["solidcraft_volume_mm3"]
     for s in sweep:
         fig = canvas("Parametric: change thickness, the whole part rebuilds",
-                     "front view; volume reported by solidcraft-cli eval for each value")
+                     "front views, same scale: 6 mm (top) vs the rebuilt part (bottom); volume from solidcraft-cli eval")
         # the front view leaves the part small in the middle; crop to it (same crop every frame)
-        image(fig, RENDERS / f"sweep_{s['thickness_mm']}.png", [0.02, 0.1, 0.62, 0.7], crop=(0.38, 0.62, 0.12, 0.88))
+        image(fig, RENDERS / f"sweep_{sweep[0]['thickness_mm']}.png", [0.02, 0.47, 0.62, 0.38], crop=(0.4, 0.6, 0.12, 0.88))
+        image(fig, RENDERS / f"sweep_{s['thickness_mm']}.png", [0.02, 0.05, 0.62, 0.38], crop=(0.4, 0.6, 0.12, 0.88))
         fig.text(0.67, 0.6, f"thickness = {s['thickness_mm']:.1f} mm", fontsize=34, color=ACCENT, weight="bold")
         fig.text(0.67, 0.5, f"V = {s['solidcraft_volume_mm3']:.1f} mm³", fontsize=28, color=INK)
         fig.text(0.67, 0.43, f"ΔV = {s['solidcraft_volume_mm3'] - vol0:+.1f} mm³", fontsize=28, color=INK)
         emit(fig, 1.6)
     pg = good["gates"]["parametric"]
-    fig = canvas("Judge's parametric gate", "thickness 6 → 8 mm, re-measured in OpenCascade")
+    fig = canvas("Judge's parametric gate", "the judge sets thickness 6 → 8 mm, rebuilds, and re-grades the new part")
     for i, ln in enumerate([f"OCCT ΔV = {pg['volume_delta_mm3']} mm³",
                             f"analytic ΔV = A_net × 2 mm = {pg['analytic_delta_mm3']} mm³",
                             f"relative deviation {pg['rel_dev']:.1e}  (limit {pg['limit_rel']})",
-                            f"top face z = {pg['top_z_mm']} mm (expected {pg['expected_top_z_mm']})"]):
-        fig.text(0.08, 0.68 - i * 0.1, ln, fontsize=30, color=INK)
+                            f"bounding box within {pg['bbox_max_dev_mm']:.1e} mm, top z = {pg['top_z_mm']} mm",
+                            f"all features + {pg['wall_checks']} wall checks pass on the rebuilt part"]):
+        fig.text(0.06, 0.74 - i * 0.12, ln, fontsize=36, color=INK)
     emit(fig, 4)
 
     rows = checks(good)
     for upto in (4, 8, len(rows)):
-        fig = canvas("Judge verdict on the delivered STEP / STL",
-                     "OpenCascade 8.0.1 measurements vs analytic values from spec.json")
+        fig = canvas("Judge verdict: 8 gates, 12 numeric checks",
+                     "gate: check — OpenCascade 8.0.1 measurement vs analytic values from spec.json")
         for i, (lab, m, lim) in enumerate(rows[:upto]):
             okr = m <= lim
-            fig.text(0.07, 0.8 - i * 0.065, ("PASS  " if okr else "FAIL  ") + lab, fontsize=24,
+            fig.text(0.05, 0.81 - i * 0.07, ("PASS  " if okr else "FAIL  ") + lab, fontsize=26,
                      color=OK if okr else BAD, weight="bold")
-            fig.text(0.55, 0.8 - i * 0.065, f"{m:.3g}  (limit {lim:g})", fontsize=24, color=INK)
+            fig.text(0.62, 0.81 - i * 0.07, f"{m:.3g}  (limit {lim:g})", fontsize=26, color=INK)
         emit(fig, 2.2)
 
     for name, secs in (("loop.png", 6), ("result.png", 4)):  # the published figures, full frame
@@ -332,8 +333,9 @@ def cmd_frames():
         image(fig, MEDIA / name, [0.0, 0.05, 1.0, 0.9])
         emit(fig, secs)
     fig = canvas("Run it yourself", "one command: creates a sandbox, installs the tools, grades, kills the sandbox")
-    fig.text(0.06, 0.6, "python3 cookbook/solidcraft-cad/run.py", fontsize=40, family="monospace", color=ACCENT)
-    fig.text(0.06, 0.45, "github.com/agent-next/sandbox", fontsize=30, color=INK)
+    fig.text(0.06, 0.62, "python3 cookbook/solidcraft-cad/run.py", fontsize=44, family="monospace", color=ACCENT)
+    fig.text(0.06, 0.48, "github.com/agent-next/sandbox", fontsize=34, color=INK)
+    fig.text(0.06, 0.34, "SolidCraft: github.com/bherbruck/solidcraft (MIT OR Apache-2.0)", fontsize=24, color=MUTED)
     emit(fig, 3)
     (out / "tmp.png").unlink()
     print(f"media: {k} frames ({k / 30:.1f} s)")
@@ -345,8 +347,9 @@ def cmd_manifest():
     files = {
         "result.png": ("Delivered part (SolidCraft render) + every judge pass rule as measured/limit, pass line at 1",
                        "bash media/make_media.sh (make_media.py figures)", "data/verdicts.json"),
-        "loop.png": ("Scripted repair replay (3 mistakes fixed one per grade) + self-test kill rate over 12 mutants",
-                     "bash media/make_media.sh (make_media.py figures)", "data/replay.json, data/verdicts.json"),
+        "loop.png": ("Independent agent's 12 designs: gates passed as recorded vs re-graded by this judge + self-test kills",
+                     "bash media/make_media.sh (make_media.py figures)",
+                     "data/agent_run.json, data/agent_run_recorded.json, data/agent_attempts/, data/verdicts.json"),
         "demo.mp4": ("Spec -> SolidCraft build stages -> delivered views -> parametric sweep -> judge verdict -> loop",
                      "bash media/make_media.sh (make_media.py frames + ffmpeg crf 0 master -> crf 18 web)",
                      "data/*.json, data/renders/*.png"),

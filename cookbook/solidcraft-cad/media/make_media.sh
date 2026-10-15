@@ -2,7 +2,7 @@
 # Regenerate every media file for the solidcraft-cad demo from real tool output.
 #   media/data/          SolidCraft renders (git-ignored) + judge verdicts (JSON)
 #   media/result.png     delivered part + every judge pass rule vs its limit
-#   media/loop.png       repair replay (gates passed per grade) + self-test kills
+#   media/loop.png       the independent agent's 12 designs re-graded + self-test kills
 #   media/demo.mp4       the story as 1080p30 video, from a lossless crf-0
 #                        master in media/master/ (git-ignored)
 #   media/MANIFEST.json  what each file shows, its command and sha256
