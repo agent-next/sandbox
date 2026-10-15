@@ -1,0 +1,10 @@
+import Exercises.Ex01
+import Exercises.Ex02
+import Exercises.Ex03
+import Exercises.Ex04
+import Exercises.Ex05
+import Exercises.Ex06
+import Exercises.Ex07
+import Exercises.Ex08
+import Exercises.Ex09
+import Exercises.Ex10
