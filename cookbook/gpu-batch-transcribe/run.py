@@ -46,7 +46,11 @@ DEMO_DIR = "cookbook/gpu-batch-transcribe"
 STEP_TIMEOUTS = {
     "clone": 300,
     "setup": 1800,
-    "selftest": 2400,
+    # The self-test grades 13 artifacts (~26 full corpus runs) plus a
+    # determinism pair; a loaded 2 vCPU sandbox needs well over sbx
+    # exec's 2400 s ceiling for it, so run.py launches it detached and
+    # polls instead of holding one long exec (see run_detached).
+    "selftest": 3600,
     "grade": 1200,
 }
 
@@ -80,6 +84,68 @@ def is_transient(text):
 def die(msg, code=1):
     print(f"run.py: {msg}", file=sys.stderr)
     raise SystemExit(code)
+
+
+def parse_kv_stream(text):
+    """Parse 'key=value' lines (run.log's self-test tail) into a dict."""
+    out = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("[selftest]"):
+            continue
+        if "=" in line:
+            key, _, value = line.partition("=")
+            out[key.strip()] = value.strip()
+    return out
+
+
+def run_detached(step, sid, remote_cmd, log_path, rc_path, deadline_s):
+    """Run a long sbx command detached, then poll for its exit code.
+
+    A single sbx exec holding a multi-minute job can lose its result to
+    the CLI's own command timeout or a gateway blip (the sandbox keeps
+    working; the reply never comes back). So: launch with output
+    redirected and `nohup ... & echo $!`, then poll `cat <rc>` over
+    short execs. A poll that fails with a transport error is not a
+    verdict on the job — only rc_path appearing with a 0/1 ends it.
+    """
+    print(f"  [{step}] launching detached: {remote_cmd[0]} ... "
+          f"(log {log_path}, rc {rc_path})", flush=True)
+    proc, _ = run("launch", "sbx", "exec", sid, "--timeout", "60", "--",
+                  f"nohup {remote_cmd} > {log_path} 2>&1 "
+                  f"echo started $!", timeout=90, capture=True)
+    if proc.returncode != 0:
+        die(f"step {step} could not launch in sandbox {sid} "
+            f"(exit {proc.returncode}): {(proc.stderr or '')[-300:]}")
+    # When the launch succeeds, `sbx exec` prints the job's pid as its
+    # last stdout line; echo the log tail too, so the operator sees the
+    # step actually started (and a launch that produced nothing shows
+    # up as an empty log on the next poll).
+    print(f"  [{step}] launched; polling every 30 s (deadline "
+          f"{deadline_s} s)", flush=True)
+
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < deadline_s:
+        time.sleep(30)
+        proc, _ = run("poll", "sbx", "exec", sid, "--timeout", "60",
+                      "--", "cat", rc_path, timeout=90, capture=True)
+        text = (proc.stdout or "") + (proc.stderr or "")
+        if proc.returncode == 0:
+            rc = parse_kv_stream(text).get("rc")
+            if rc in ("0", "1"):
+                elapsed = time.monotonic() - t0
+                print(f"  [{step}] finished rc={rc} after "
+                      f"{elapsed:.0f} s of polling", flush=True)
+                return rc
+        elif not is_transient(text):
+            # A non-transient poll failure (sandbox gone, ...) is real.
+            die(f"step {step} poll failed in sandbox {sid}: {text[-300:]}")
+        tail, _ = run("tail", "sbx", "exec", sid, "--timeout", "60", "--",
+                      "tail", "-2", log_path, timeout=90, capture=True)
+        print(f"  [{step}] still running: "
+              f"{(tail.stdout or '').strip()[-160:]}", flush=True)
+    die(f"step {step} exceeded its {deadline_s} s deadline in sandbox "
+        f"{sid}; see {log_path} in the sandbox (it may still be running)")
 
 
 def need_sbx():
@@ -342,14 +408,35 @@ def main():
 
         exec_step("clone", [
             "git", "clone", "--depth", "1", "-b", args.ref, REPO, "sandbox"])
-        exec_step("setup", [
-            "bash", f"sandbox/{DEMO_DIR}/judge/setup.sh"])
-        exec_step("selftest", [
-            "bash", f"sandbox/{DEMO_DIR}/judge/selftest.sh"])
-        exec_step("grade", [
-            "bash", f"sandbox/{DEMO_DIR}/judge/grade.sh",
-            f"sandbox/{DEMO_DIR}/examples/good/transcriber.py",
-            "--json", "/tmp/verdict.json"])
+        # The three long steps run detached + polled: a lost reply or a
+        # slow host then costs one 30 s poll, not the whole step.
+        def detached_step(name, cmd_str):
+            log = f"/tmp/gbt-{name}.log"
+            rc = f"/tmp/gbt-{name}.rc"
+            # rm any stale rc from a previous run; the launcher writes
+            # the new rc only when the command completes.
+            run(f"reset-{name}", "sbx", "exec", sbx_id, "--timeout", "60",
+                "--", "rm", "-f", rc, log, timeout=90)
+            remote = (f"bash -c {shlex.quote(cmd_str)} "
+                      f"> {log} 2>&1; echo $? > {rc}")
+            exit_code = run_detached(name, sbx_id, remote, log, rc,
+                                     STEP_TIMEOUTS[name])
+            if exit_code != "0":
+                tail, _ = run(f"tail-{name}", "sbx", "exec", sbx_id,
+                              "--timeout", "60", "--", "tail", "-25",
+                              log, timeout=90, capture=True)
+                die(f"step {name} failed in sandbox {sbx_id} "
+                    f"(exit {exit_code}):\n{(tail.stdout or '')[-2000:]}")
+
+        detached_step("setup",
+                      f"bash sandbox/{DEMO_DIR}/judge/setup.sh")
+        detached_step("selftest",
+                      f"bash sandbox/{DEMO_DIR}/judge/selftest.sh")
+        detached_step(
+            "grade",
+            f"bash sandbox/{DEMO_DIR}/judge/grade.sh "
+            f"sandbox/{DEMO_DIR}/examples/good/transcriber.py "
+            f"--json /tmp/verdict.json")
 
         # Pull the verdict back for the local summary.
         proc, _ = run("cat", "sbx", "exec", sbx_id, "--timeout", "60",
