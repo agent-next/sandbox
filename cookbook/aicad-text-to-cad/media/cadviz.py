@@ -271,19 +271,32 @@ def defect_highlight(mutant_name):
 # layout police: no overlapping text, nothing clipped (script-enforced)
 # ---------------------------------------------------------------------------
 def _visible_texts(fig):
+    """Text artists matplotlib will actually draw.
+
+    A 3D axes with set_axis_off() keeps its tick labels "visible" in the
+    object model but draws nothing: ax.axison is False, so skip its
+    ticks/gridline labels (they are not on the canvas and would only
+    produce false overlaps).  The title and ax.text artists are always
+    drawn, so they stay.
+    """
     out = []
     for ax in fig.axes:
         if not ax.get_visible():
             continue
-        for t in list(ax.texts) + [ax.title] + \
-                list(ax.get_xticklabels()) + list(ax.get_yticklabels()) + \
-                list(ax.get_xgridlines())[:0] + list(ax.texts)[:0]:
-            if t is not None and t.get_visible() and t.get_text().strip():
-                out.append(t)
+        out.extend(list(ax.texts))
+        if ax.title is not None:
+            out.append(ax.title)
+        if getattr(ax, "axison", True):
+            out.extend(ax.get_xticklabels())
+            out.extend(ax.get_yticklabels())
+            if ax.xaxis.get_label().get_text().strip():
+                out.append(ax.xaxis.get_label())
+            if ax.yaxis.get_label().get_text().strip():
+                out.append(ax.yaxis.get_label())
     for t in fig.texts:
-        if t.get_visible() and t.get_text().strip():
-            out.append(t)
-    return out
+        out.append(t)
+    return [t for t in out
+            if t is not None and t.get_visible() and t.get_text().strip()]
 
 
 def check_no_overlap(fig, name, pad=1.5):
