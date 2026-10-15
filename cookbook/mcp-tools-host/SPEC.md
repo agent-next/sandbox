@@ -93,6 +93,10 @@ launches it as a subprocess and speaks MCP to it.
   `sqlite_query` with a `db_path` pointing outside a caller-provided base
   directory must be **refused** with a tool error (`isError == true` or an
   MCP error response) — and must **not** succeed with data from outside.
+  The base directory is the working directory the host launches the
+  server with (the judge copies the artifact to a temp dir, builds its
+  own `ws/` and `data/` fixtures inside it, and launches it there); the
+  judge's probe material lives outside that directory.
 - **G8 robustness**: after all of the above, a call with a missing required
   argument or a wrong-typed argument produces a tool/protocol error rather
   than a crash, and the server process is still alive and still answering
