@@ -1,0 +1,27 @@
+# Python dependencies for the aicad-cadam judge (check_gates.py, mutants.py).
+#
+# Install with hash checking enforced (judge/setup.sh does exactly this):
+#   python3 -m venv "$HOME/.venvs/aicad" && \
+#   "$HOME/.venvs/aicad/bin/pip" install --require-hashes -r judge/requirements.txt
+#
+# The cp312 manylinux wheels are the ones published on PyPI and validated
+# on Debian bookworm amd64 (python 3.12).  OpenSCAD comes from the distro
+# (Debian bookworm, openscad 2021.01-6, sha256 in judge/package-sha256.txt);
+# its digest table also pins this demo's kernel.
+
+cadquery-ocp==7.7.2 \
+    --hash=sha256:7ac2d83b4f4b3d7c35421a1d9f8fec2adc73b6ed6cac50c1ffcede5552e38e9b
+ezdxf==1.3.0 \
+    --hash=sha256:a91bbbdf9aa1e5a3debe226748661cf2367441c3fdee0c57cdb240e7061f8688
+fonttools==4.67.0 \
+    --hash=sha256:eb3c98cac93aac4b9f6e3ce2008325340b234cc9b0338ca6b513f31962a1e278
+manifold3d==3.0.1 \
+    --hash=sha256:ec2ddef6c9fd1b31d348beb499a5771e733abf962d5cd52264aa80f82faf0544
+numpy==1.26.4 \
+    --hash=sha256:675d61ffbfa78604709862923189bad94014bef562cc35cf61d3a07bba02a7ed
+pyparsing==3.3.3 \
+    --hash=sha256:ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4
+trimesh==4.3.2 \
+    --hash=sha256:7563182a9379485b88a44e87156fe54b41fb6f8f030001b9b6de39abdef05c22
+typing_extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

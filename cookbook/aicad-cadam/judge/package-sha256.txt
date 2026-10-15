@@ -1,0 +1,4 @@
+# sha256 of the Debian bookworm .deb that carries this demo's CAD kernel
+# (OpenSCAD 2021.01, the engine generation CADAM vendors as openscad-wasm).
+# Dependencies of the deb resolve through apt's own signed-hash checks.
+openscad_2021.01-6_amd64.deb d3f24936ddeb7b6a5f1008ea6baf8845d5f8c1e7c48cb2dc346f994c470e3c01

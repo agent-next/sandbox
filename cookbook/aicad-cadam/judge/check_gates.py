@@ -156,7 +156,13 @@ def step_reimport(path):
         from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
 
         reader = STEPControl_Reader()
-        reader.ReadFile(str(path))
+        read_status = reader.ReadFile(str(path))
+        from OCP.IFSelect import IFSelect_ReturnStatus
+
+        if read_status != IFSelect_ReturnStatus.IFSelect_RetDone:
+            return dict(shape=None, valid=False, volume=0.0,
+                        cylinders=[], planes=[],
+                        read_error=f"STEP reader status {read_status}")
         reader.TransferRoots()
         shape = reader.OneShape()
         # mesh so planar faces get vertex bboxes for the min-wall gate
@@ -349,7 +355,18 @@ def grade(artifact: Path, seed: int):
               measured_mm3=xref, limit_mm3=0.01 * v_ref, ref_volume_mm3=v_ref)
 
         # 8-11: the delivered STEP B-rep
-        info = step_reimport(work / "part.step")
+        try:
+            info = step_reimport(work / "part.step")
+        except Exception as exc:  # unreadable STEP must fail loudly, not crash
+            info = dict(shape=None, valid=False, volume=0.0,
+                        cylinders=[], planes=[],
+                        read_error=f"{type(exc).__name__}: {exc}")
+        if info.get("read_error"):
+            g.add("step_reimport", False, detail=info["read_error"])
+            for nm in ("volume_step", "cyl_faces", "planar_min_wall"):
+                g.add(nm, False, detail="STEP unreadable")
+            case_feature_gates(g, spec, dict(cylinders=[]))
+            return verdict(g, t0)
         g.add("step_reimport", bool(info["valid"]),
               detail="BRepCheck_Analyzer on re-imported STEP")
         v_step = float(info["volume"])
@@ -437,17 +454,22 @@ def case_feature_gates(g, spec, info):
         ok_radius = all(
             abs(x - spec["bolt"]["circle_r"]) <= 0.05 for x in d
         )
-        angs = sorted(
-            math.degrees(math.atan2(c["at"][1] - cy, c["at"][0] - cx)) % 360
-            for c in bolts
-        )
-        gaps = [(b - a) % 360 for a, b in zip(angs, angs[1:] + [angs[0] + 360])]
-        ok_spacing = all(
-            abs(gp - spec["bolt"]["spacing_deg"]) <= 0.05 for gp in gaps
-        ) if ok_count else False
+        if ok_count:
+            angs = sorted(
+                math.degrees(
+                    math.atan2(c["at"][1] - cy, c["at"][0] - cx)) % 360
+                for c in bolts
+            )
+            gaps = [(b - a) % 360
+                    for a, b in zip(angs, angs[1:] + [angs[0] + 360])]
+            ok_spacing = all(
+                abs(gp - spec["bolt"]["spacing_deg"]) <= 0.05 for gp in gaps
+            )
+        else:
+            angs, gaps, ok_spacing = [], [], False
         # ligament rules: bore-to-hole, hole-to-nearest-edge
-        lig_bore = min(d) - 3.0 - 10.0
-        lig_edge = 30.0 - max(d) - 3.0  # half of the 60 mm side
+        lig_bore = min(d) - 3.0 - 10.0 if d else -1.0
+        lig_edge = 30.0 - max(d) - 3.0 if d else -1.0  # half of the 60 side
         g.add("case_features",
               ok_count and ok_radius and ok_spacing
               and lig_bore >= spec["min_wall"] and lig_edge >= spec["min_wall"],
@@ -470,12 +492,16 @@ def dxf_feature_gates(g, spec, reg):
                for c in holes)
     ok_radius = all(abs(x - 24.0) <= 0.05 for x in d)
     ok_radii = all(abs(c["radius"] - 3.0) <= 0.05 for c in holes)
-    angs = sorted(
-        math.degrees(math.atan2(c["center"][1] - cy, c["center"][0] - cx)) % 360
-        for c in holes
-    )
-    gaps = [(b - a) % 360 for a, b in zip(angs, angs[1:] + [angs[0] + 360])]
-    ok_spacing = (len(gaps) == 6 and all(abs(gp - 60.0) <= 0.05 for gp in gaps))
+    if len(holes) == 6:
+        angs = sorted(
+            math.degrees(
+                math.atan2(c["center"][1] - cy, c["center"][0] - cx)) % 360
+            for c in holes
+        )
+        gaps = [(b - a) % 360 for a, b in zip(angs, angs[1:] + [angs[0] + 360])]
+        ok_spacing = all(abs(gp - 60.0) <= 0.05 for gp in gaps)
+    else:
+        gaps, ok_spacing = [], False
     ok_outline = False
     if polys:
         lo, hi = polys[0]["bbox"]
