@@ -148,6 +148,44 @@ stdout is now the verdict JSON itself (parses cleanly).
 `run.py: export SBX_API_KEY (or E2B_API_KEY) first` — no sandbox API key
 is present here, so Record 1 is the real end-to-end run.
 
+## Record 3 — second review agent, head `63ab8ea` (post-review wip), 2026-10-15
+
+Same box, toolchain removed (`~/.taste-judge`, `~/.cache/ms-playwright`)
+and rebuilt from the network. `bash judge/setup.sh` — exit 0, installed
+playwright 1.63.0 (hash-verified), Chromium 153.0.8010.12, axe-core
+4.10.3 (`judge/VERSIONS.txt` re-recorded 2026-10-15T05:38Z).
+
+`bash judge/selftest.sh` — exit 0, ~9 min, **22/22 mutants killed, 0
+survivors** (full per-mutant list identical in shape to Record 2; the
+tail):
+
+```
+[selftest]   boxed_shadow  killed (no_shadows_at_rest; failed: no_shadows_at_rest)
+[selftest]   clipped_control  killed (control_text_fits; failed: control_text_fits)
+...
+[selftest]   remote_asset  killed (clean_load; failed: clean_load) (3 external request(s) route-aborted, 0 escaped; nothing left the box)
+...
+[selftest]   wind_sign_bug  killed (wind_widget_sane; failed: wind_widget_sane)
+
+[selftest] ============================================
+[selftest] good passed     : 1
+[selftest] determinism     : 1
+[selftest] baseline fails  : 1 (contract: rc != 0 + verdict JSON)
+[selftest] mutants killed  : 22/22 (100%)
+[selftest] ============================================
+[selftest] SUCCESS
+```
+
+`bash media/make_media.sh` — exit 0, ~10 min: verdicts + fresh
+selftest, the verdict card in `media/demo.mp4` then read the parsed
+kill count ("22/22 mutants killed", verified by frame extraction), and
+`media/MANIFEST.json` lists 14 hashed entries.
+
+`python3 run.py` here again stops at the key guard
+(`run.py: export SBX_API_KEY (or E2B_API_KEY) first`) — this box has
+none. `python3 -m py_compile run.py` and `python3 -m sbx.cli --help`
+(sbx CLI importable) both pass.
+
 ## Match against RECEIPT.md / SPEC.md tolerances
 
 | measure | RECEIPT (pre-fix head) | this reproduction (post-fix) |

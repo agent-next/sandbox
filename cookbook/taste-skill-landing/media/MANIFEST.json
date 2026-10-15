@@ -6,7 +6,7 @@
       "shows": "~30 s step-through of the scroll frames with the seed-42 verdict captions (lossless master in gitignored media/master/)",
       "command": "bash media/make_media.sh",
       "source": "media/scroll-*.png + fresh judge/grade.sh verdict JSONs",
-      "sha256": "a13b8aba1a1f15c58493067a9b385a598d210f73213eccf9b97ceae4f71218f1"
+      "sha256": "eb751611e569639b849a5f2c111dc28a2db51a60906e3efc4a9f673c64e07beb"
     },
     {
       "file": "scroll-00.png",

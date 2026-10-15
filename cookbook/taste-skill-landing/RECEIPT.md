@@ -431,16 +431,38 @@ killed, 0 survivors**:
    244.6 s / grades ~16 s, `RUN_RC=0`) — full log in the new
    [REPRODUCE.md](REPRODUCE.md), which also records this sandbox's
    independent re-verification of every in-sandbox step after the fixes.
-   `run.py` itself could not be re-run end-to-end from this box (no
+   A second agent then re-ran everything again from a fresh toolchain
+   (head `63ab8ea`): `judge/setup.sh` from nothing, `selftest.sh`
+   exit 0, 22/22 (0 survivors), both grades — full log in
+   REPRODUCE.md Record 3. `run.py` itself could not be re-run
+   end-to-end from either review box (no
    `SBX_API_KEY`/`E2B_API_KEY` — it exits at the documented guard); a
    keyed re-run of `python3 cookbook/taste-skill-landing/run.py --ref
-   sbx/demo-taste-skill-landing-hm3` is the remaining external step.
+   sbx/demo-taste-skill-landing-hm3` remains a one-command check for
+   the reviewer with a key (Record 1 is that run's proof at the
+   pre-fix head).
 
 6. **[P2] make_media.sh hardcoded "10/10 mutants killed".** The verdict
    card now runs `judge/selftest.sh` and parses the real
    `mutants killed  : N/N` line (fails hard if selftest fails or the
-   count is missing); `--skip-grade` reads a cache written by the last
-   full run. Regenerated media shows `22/22`.
+   count is missing); `--skip-grade` reads a gitignored cache
+   (`media/selftest-kills.txt`) written by the last full run. Full
+   regeneration ran for real here (head `63ab8ea`):
+
+   ```
+   $ bash media/make_media.sh            # exit 0, ~10 min
+   [media] verdicts: grade.sh examples/{good,baseline}/site --seed 42
+   [media] selftest: judge/selftest.sh (real kill count for the card)
+   [media] demo.mp4: 788 KiB (30.400000 s)
+   [media] MANIFEST.json: 14 entries
+   ```
+
+   The regenerated `demo.mp4` verdict card reads "judge self-test -
+   22/22 mutants killed, a failing site exits non-zero" (verified by
+   frame extraction), and `MANIFEST.json` was refreshed. Note: the
+   in-flight commit `63ab8ea` ("wip") shipped the script change but
+   the old 10/10 video — the media regeneration above is what the wip
+   run timed out before finishing.
 
 7. **[P2] Unpinned pip upgrade.** `judge/setup.sh` installs
    `pip==25.1.1` (well past the two-week rule); the real install prints
