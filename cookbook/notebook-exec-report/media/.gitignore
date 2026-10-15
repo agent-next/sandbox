@@ -1,0 +1,13 @@
+# notebook-exec-report media
+
+# make_media.sh regenerates everything in this directory itself:
+#   judge_runs/ — raw verdict JSONs from grade.sh runs (disposable input
+#   master/ — lossless crf-0 video master, input to the web encode
+# demo.mp4 is committed; the master and the raw verdicts are not
+# (DEMO-STANDARD.md, Media: keep no result dumps in git)
+
+judge_runs/
+master/
+
+__pycache__/
+*.pyc
