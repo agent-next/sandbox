@@ -76,13 +76,14 @@ cleanup cannot be confirmed.
 | step | wall time |
 |---|---|
 | `git clone --depth 1` | ~1 s |
-| `judge/setup.sh` (fresh install) | 71 s (network-bound; idempotent re-run: 5 s) |
-| `judge/grade.sh examples/good/delivery.patch` | 25 s |
-| `judge/selftest.sh` (good + 10 mutants + determinism) | 2 min 41 s |
+| `judge/setup.sh` (fresh install) | 65–70 s (network-bound; idempotent re-run: ~5 s) |
+| `judge/grade.sh examples/good/delivery.patch` | 17–23 s |
+| `judge/selftest.sh` (good + 11 mutants + determinism) | ~3 min 40 s |
 
-Grading one delivery is ~25 s: three pytest runs, one ruff run and three
-CLI invocations. The self-test is twelve of those, so budget ~3 minutes.
-`run.py` prints a per-step timing line.
+Grading one delivery is ~20 s: three pytest runs, one ruff run and three
+CLI invocations. The self-test grades 14 deliveries (good + 11 mutants +
+two determinism re-runs), so budget ~4 minutes. `run.py` prints a
+per-step timing line.
 
 ## The fixture
 
