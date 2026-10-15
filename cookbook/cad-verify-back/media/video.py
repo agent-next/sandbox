@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """demo.mp4 frames for the v0 media set (cookbook/DEMO-STANDARD.md, Media).
 
-34.7 s at 30 fps, 1920x1080.  Five shots, a cut at least every 9 s:
+34.7 s at 30 fps, 1920x1080.  Six shots, a cut at least every 8.5 s:
 
-  0.0- 9.0  turntable A  - the delivered part.stl (examples/good) rendered
+  0.0- 8.5  turntable A  - the delivered part.stl (examples/good) rendered
                            by VTK offscreen, a slow full-frame orbit.
-  9.0-16.0  turntable B  - a closer orbit onto the bolt circle from a
+  8.5-15.5  turntable B  - a closer orbit onto the bolt circle from a
                            clearly different angle.
- 16.0-24.0  result card  - media/result.png full-frame (the real figure).
- 24.0-32.0  loop card    - media/loop.png full-frame (the real figure).
+ 15.5-23.0  result card  - media/result.png full-frame (the real figure).
+ 23.0-24.5  interstitial - dark card, so both figure cuts read as hard cuts.
+ 24.5-32.0  loop card    - media/loop.png full-frame (the real figure).
  32.0-34.7  end card     - static: `python3 cookbook/cad-verify-back/run.py`.
 
 Owner rule honoured: every 3-D frame is a real render of the real delivered
@@ -96,9 +97,14 @@ def caption_texts():
 
 
 def caption_overlay(primary, secondary=""):
-    """One RGBA strip per shot, composited onto every frame of the shot."""
+    """One RGBA strip per shot, composited onto every frame of the shot.
+
+    A translucent surface band sits behind the text so the captions stay
+    legible when the orbit pushes the (blue) part up under them.
+    """
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(ov)
+    d.rectangle((0, 0, W, 176), fill=(*SURFACE, 216))
     d.text((56, 38), primary, font=font("DejaVuSans-Bold.ttf", CAP_PX), fill=INK)
     if secondary:
         d.text((58, 112), secondary, font=font("DejaVuSans.ttf", SUB_PX), fill=INK2)
@@ -122,13 +128,25 @@ def fit_card(png_path, primary, secondary, footer):
     return card
 
 
+def chapter_card(title, sub=""):
+    """Dark interstitial between the two figures: a hard cut both ways."""
+    card = Image.new("RGB", (W, H), INK)
+    d = ImageDraw.Draw(card)
+    d.text((W // 2, H // 2 - 30), title,
+           font=font("DejaVuSans-Bold.ttf", 72), fill=SURFACE, anchor="mm")
+    if sub:
+        d.text((W // 2, H // 2 + 70), sub,
+               font=font("DejaVuSans.ttf", SUB_PX), fill=MUTED, anchor="mm")
+    return card
+
+
 def end_card():
-    card = Image.new("RGB", (W, H), SURFACE)
+    card = Image.new("RGB", (W, H), INK)
     d = ImageDraw.Draw(card)
     d.text((W // 2, 430), "one command — sandbox, judge, verdict",
-           font=font("DejaVuSans.ttf", SUB_PX), fill=INK2, anchor="mm")
+           font=font("DejaVuSans.ttf", SUB_PX), fill=MUTED, anchor="mm")
     d.text((W // 2, 560), "python3 cookbook/cad-verify-back/run.py",
-           font=font("DejaVuSansMono-Bold.ttf", 68), fill=INK, anchor="mm")
+           font=font("DejaVuSansMono-Bold.ttf", 68), fill=SURFACE, anchor="mm")
     d.text((W // 2, 700), "cad-verify-back · judged from the delivered files",
            font=font("DejaVuSans.ttf", SUB_PX), fill=MUTED, anchor="mm")
     return card
@@ -185,7 +203,18 @@ class Turntable:
         return l
 
     def frame(self, az_deg, el_deg, dist, path):
-        """Place the camera and write one rendered PNG."""
+        """Place the camera and write one rendered PNG.
+
+        Renders are cached on disk by pose (data/rawcache/, git-ignored):
+        re-cutting the video is seconds, not minutes, and the cache never
+        changes a pixel — a miss just re-renders the identical frame.
+        """
+        key = os.path.join(rd.DATA, "rawcache",
+                           f"a{az_deg:.3f}_e{el_deg:.3f}_d{dist:.5f}.png")
+        if os.path.exists(key):
+            with open(key, "rb") as src, open(path, "wb") as dst:
+                dst.write(src.read())
+            return
         az, el = math.radians(az_deg), math.radians(el_deg)
         cx, cy, cz = self.center
         cam = self.ren.GetActiveCamera()
@@ -201,6 +230,9 @@ class Turntable:
         self.writer.SetFileName(path)
         self.writer.SetInputConnection(self.grabber.GetOutputPort())
         self.writer.Write()
+        os.makedirs(os.path.dirname(key), exist_ok=True)
+        with open(path, "rb") as src, open(key, "wb") as dst:
+            dst.write(src.read())
 
 
 def ease(t):
@@ -227,15 +259,15 @@ def main():
             img.save(os.path.join(FRAMES, f"f{n:05d}.png"))
             n += 1
 
-    # ---- shot 1 (9.0 s): full-part orbit ------------------------------------
+    # ---- shot 1 (8.5 s): full-part orbit ------------------------------------
     ov1 = caption_overlay(*caps["turn1"])
-    for k in range(9 * FPS):
-        t = ease(k / (9 * FPS))
+    for k in range(round(8.5 * FPS)):
+        t = ease(k / (8.5 * FPS))
         turn.frame(az_deg=lerp(30.0, 100.0, t), el_deg=26.0,
                    dist=2.9 * turn.radius,
                    path=os.path.join(FRAMES, "raw.png"))
         with Image.open(os.path.join(FRAMES, "raw.png")) as fr:
-            emit(fr.convert("RGBA").alpha_composite(ov1).convert("RGB"), 1)
+            emit(Image.alpha_composite(fr.convert("RGBA"), ov1).convert("RGB"), 1)
 
     # ---- shot 2 (7.0 s): push in on the bolt circle --------------------------
     ov2 = caption_overlay(*caps["turn2"])
@@ -245,21 +277,25 @@ def main():
                    dist=lerp(1.75, 1.02, t) * turn.radius,
                    path=os.path.join(FRAMES, "raw.png"))
         with Image.open(os.path.join(FRAMES, "raw.png")) as fr:
-            emit(fr.convert("RGBA").alpha_composite(ov2).convert("RGB"), 1)
+            emit(Image.alpha_composite(fr.convert("RGBA"), ov2).convert("RGB"), 1)
 
-    # ---- shot 3 (8.0 s): the result figure, full-frame ------------------------
+    # ---- shot 3 (7.5 s): the result figure, full-frame ------------------------
     emit(fit_card(os.path.join(HERE, "result.png"), *caps["card1"],
                   footer="figure regenerated by media/fig_result.py from the "
                          "verdict JSONs of judge/grade.sh"),
-         8 * FPS)
+          round(7.5 * FPS))
 
-    # ---- shot 4 (8.0 s): the loop / kill-matrix figure ------------------------
+    # ---- shot 4 (1.5 s): dark interstitial, so both figure cuts are hard ------
+    emit(chapter_card("now stress the judge", caps["card2"][0]),
+         round(1.5 * FPS))
+
+    # ---- shot 5 (7.5 s): the loop / kill-matrix figure ------------------------
     emit(fit_card(os.path.join(HERE, "loop.png"), *caps["card2"],
                   footer="figure regenerated by media/fig_loop.py from the "
                          "verdict JSONs of judge/grade.sh + judge/selftest.sh"),
-         8 * FPS)
+          round(7.5 * FPS))
 
-    # ---- shot 5 (2.7 s): static end card ---------------------------------------
+    # ---- shot 6 (2.7 s): static end card ---------------------------------------
     emit(end_card(), round(2.7 * FPS))
 
     os.remove(os.path.join(FRAMES, "raw.png"))
