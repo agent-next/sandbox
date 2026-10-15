@@ -96,7 +96,6 @@ python3 --version
     echo "ruff $("$RUFF_VENV/bin/ruff" --version | awk '{print $2}')"
     echo "pytest $("$PYTEST_VENV/bin/pytest" --version | awk '{print $2}')"
     echo "python3 $(python3 --version | awk '{print $2}')"
-    echo "MEASURECTL_JUDGE_HOME=$ROOT"
 } > "$JDIR/VERSIONS.txt"
 echo "setup: wrote $JDIR/VERSIONS.txt"
 echo "setup: done"
