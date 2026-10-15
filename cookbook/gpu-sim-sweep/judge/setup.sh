@@ -3,7 +3,8 @@
 #
 # Installs mujoco 3.8.1, mujoco-warp 3.8.1, warp-lang 1.13.0, numpy 1.26.4
 # and the full transitive closure, every package pinned and sha256-verified
-# through pip's --require-hashes mode. Idempotent: an existing venv that
+# through pip's --require-hashes mode (CPython 3.12, x86-64 Linux only).
+# Idempotent: an existing venv that
 # already provides the pinned versions is left untouched.
 
 set -eu
@@ -14,13 +15,13 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 case "$(uname -s):$(uname -m)" in
     Linux:x86_64) ;;
     *) echo "setup.sh: unsupported platform $(uname -s) $(uname -m) \
-(supported: x86-64 Linux, CPython 3.10-3.13)" >&2; exit 2 ;;
+(supported: x86-64 Linux, CPython 3.12)" >&2; exit 2 ;;
 esac
 
 case "$(python3 -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')" in
-    3.10|3.11|3.12|3.13) ;;
+    3.12) ;;
     *) echo "setup.sh: unsupported Python \
-$(python3 -c 'import sys; print(sys.version.split()[0])') (supported: 3.10-3.13)" >&2
+$(python3 -c 'import sys; print(sys.version.split()[0])') (supported: CPython 3.12)" >&2
        exit 2 ;;
 esac
 

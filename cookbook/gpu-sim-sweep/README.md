@@ -38,7 +38,9 @@ config and every mutant — runs real simulations (good ~145–163 s; mutants
 ≤ ~1 s when the structure/cost gates reject them, up to ~90 s for the three
 sim-running mutants). See RECEIPT.md for the two measured runs.
 
-To try the judge locally on a CPU-only Linux box instead:
+To try the judge locally instead, use x86-64 Linux with CPython 3.12 as
+`python3` (the setup lock contains only cp312 wheel hashes; the GPU lease
+uses its separate preinstalled toolchain):
 
 ```bash
 bash cookbook/gpu-sim-sweep/judge/setup.sh      # pinned venv in ~/.venvs/gpu-sim-sweep

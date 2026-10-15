@@ -1,6 +1,6 @@
 ## pinned toolchain for gpu-sim-sweep judge — pip install --require-hashes
 ## mujoco 3.8.1, mujoco-warp 3.8.1, warp-lang 1.13.0, numpy 1.26.4
-## CPython 3.10-3.13, x86-64 Linux
+## CPython 3.12 only, x86-64 Linux (cp312 wheel hashes)
 mujoco==3.8.1 \
     --hash=sha256:2970c90913a52b31eade56f27e5439905f08f1479e7991e257144ca829fa1267
 mujoco-warp==3.8.1 \

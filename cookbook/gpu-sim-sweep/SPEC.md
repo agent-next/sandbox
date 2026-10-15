@@ -151,7 +151,7 @@ shrinks dt instead — the settle window can no longer land the boxes.)
 `judge/setup.sh` installs into `$HOME/.venvs/gpu-sim-sweep/` exactly what the
 judge needs: mujoco 3.8.1, mujoco-warp 3.8.1, warp-lang 1.13.0, numpy 1.26.4
 and the transitive closure, every wheel pinned and sha256-verified through
-pip's `--require-hashes` mode (`judge/requirements.lock`, CPython 3.10–3.13
+pip's `--require-hashes` mode (`judge/requirements.lock`, CPython 3.12 only,
 x86-64 Linux; every pinned release predates 2026-09-30). `setup.sh` is
 idempotent and writes `judge/VERSIONS.txt` with what it actually installed.
 
