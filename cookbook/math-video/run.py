@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 import time
 
@@ -23,7 +24,6 @@ from e2b import CommandExitException, Sandbox
 
 TEMPLATE = "agent-full:standard"  # CPU: 4 vCPU, 8 GiB — no GPU needed
 SCENE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scene.py")
-REMOTE = "/root/scene.py"
 VIDEO = "completing_the_square.mp4"
 SUBS = "completing_the_square.srt"
 CREATE_TIMEOUT_S = 2400  # the sandbox self-kills if the client is lost
@@ -74,7 +74,13 @@ def main() -> None:
         else:
             log("math-video: no FAL_KEY — rendering silent with subtitles "
                 "(the film keeps its subtitles and pacing)")
-        sb.files.write(REMOTE, scene_py)
+        proc = sb.commands.run("printf %s \"$HOME\"", timeout=30)
+        home = proc.stdout.strip()
+        if proc.exit_code != 0 or not home.startswith("/"):
+            raise RuntimeError(f"could not resolve the sandbox home: "
+                               f"{proc.stdout!r} {proc.stderr!r}")
+        remote = f"{home}/scene.py"
+        sb.files.write(remote, scene_py)
 
         t1 = time.monotonic()
         log("math-video: installing manimgx (uv, python 3.14)")
@@ -84,14 +90,15 @@ def main() -> None:
 
         t2 = time.monotonic()
         log("math-video: rendering 1920x1080 60 fps")
-        run(sb, f"cd /root && ~/.local/bin/manimgx render {REMOTE} "
-                f"-r 1920x1080 --fps 60 -o /root/{VIDEO}",
+        run(sb, f"cd {shlex.quote(home)} && ~/.local/bin/manimgx render "
+                f"{shlex.quote(remote)} -r 1920x1080 --fps 60 "
+                f"-o {shlex.quote(f'{home}/{VIDEO}')}",
             timeout=RUN_TIMEOUT_S)
         t_render = time.monotonic() - t2
 
         log("math-video: downloading the MP4 and subtitles")
         for name in (VIDEO, SUBS):
-            data = sb.files.read(f"/root/{name}", format="bytes")
+            data = sb.files.read(f"{home}/{name}", format="bytes")
             with open(name, "wb") as fh:
                 fh.write(data)
             log(f"math-video: wrote {os.path.abspath(name)} "
