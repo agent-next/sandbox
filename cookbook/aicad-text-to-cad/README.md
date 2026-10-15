@@ -20,6 +20,14 @@ and disposable: every run gets the exact tool versions, and nothing a
 model script does can touch the judge (it is checksummed before and
 after, and every artifact is graded in a scratch copy).
 
+## Results
+
+![The three delivered parts beside the reference rebuilt from spec.json — every gate's measured number, all ten green on each part](media/result.png)
+
+![The agent's fixing loop replayed, the mutant × gate matrix, and the self-test kill rate — 8/8 single-edit mutants killed, floor 90%](media/loop.png)
+
+[Watch the 31 s demo video](media/demo.mp4): the delivered bushing turns, the judge's gate numbers scroll by, the mutant matrix closes it. Every number in every frame comes from the judge's own output (`media/make_media.sh` regenerates all of it).
+
 ## One-command run
 
 ```bash
@@ -84,8 +92,7 @@ killed, ≥ 90 % required — measured: 8/8.
 ## Numbers
 
 All figures in RECEIPT.md come from the commands shown there; media/
-regenerates from the same outputs via `media/make_media.sh` (not built
-in this branch's initial commit).
+regenerates from the same outputs via `media/make_media.sh`.
 
 ## Licence / provenance
 
