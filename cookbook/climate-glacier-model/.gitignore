@@ -5,3 +5,5 @@ examples/*/volumes.csv
 examples/*/crossings.json
 examples/*/run.json
 examples/*/retreat.png
+__pycache__/
+*.pyc
