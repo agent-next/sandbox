@@ -1,0 +1,363 @@
+{
+  "arms": {
+    "noskill": "noskill:first-attempt",
+    "placebo": "placebo:readme-only",
+    "skill": "skill:regex-cookbook"
+  },
+  "schema": "skill-ab-bench/1",
+  "seed": 20261014,
+  "tasks": [
+    {
+      "noskill": {
+        "answer": "4500",
+        "ms": 0.086,
+        "passed": true,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "4500",
+        "ms": 0.267,
+        "passed": true,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "4500",
+        "ms": 0.375,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "kv01"
+    },
+    {
+      "noskill": {
+        "answer": "7",
+        "ms": 0.051,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "7",
+        "ms": 0.266,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "3",
+        "ms": 0.287,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "kv02"
+    },
+    {
+      "noskill": {
+        "answer": "12",
+        "ms": 0.072,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "12",
+        "ms": 0.428,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "90",
+        "ms": 0.256,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "kv03"
+    },
+    {
+      "noskill": {
+        "answer": "TLSv1.2",
+        "ms": 0.094,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "TLSv1.2",
+        "ms": 0.369,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "TLSv1.3",
+        "ms": 0.328,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "kv04"
+    },
+    {
+      "noskill": {
+        "answer": "off",
+        "ms": 0.073,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "on",
+        "ms": 0.44,
+        "passed": true,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "on",
+        "ms": 0.309,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "kv05"
+    },
+    {
+      "noskill": {
+        "answer": "ap-south-1",
+        "ms": 0.096,
+        "passed": true,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "ap-south-1",
+        "ms": 0.299,
+        "passed": true,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "ap-south-1",
+        "ms": 0.305,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "kv06"
+    },
+    {
+      "noskill": {
+        "answer": "4",
+        "ms": 0.054,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "4",
+        "ms": 0.32,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "16",
+        "ms": 0.289,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "kv07"
+    },
+    {
+      "noskill": {
+        "answer": "\"release/2.0\"   # keep",
+        "ms": 0.078,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "\"release/2.0\"   # keep",
+        "ms": 0.294,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "\"release/2.0\"",
+        "ms": 0.294,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "kv08"
+    },
+    {
+      "noskill": {
+        "answer": "10|22|30",
+        "ms": 0.174,
+        "passed": true,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "10|22|30",
+        "ms": 0.399,
+        "passed": true,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "10|22|30",
+        "ms": 0.452,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "re01"
+    },
+    {
+      "noskill": {
+        "answer": "8000,8001",
+        "ms": 0.278,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "8000,8001",
+        "ms": 0.439,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "8000",
+        "ms": 0.43,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "re02"
+    },
+    {
+      "noskill": {
+        "answer": "\"ab\\\"",
+        "ms": 0.24,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "\"ab\\\"",
+        "ms": 0.308,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "\"ab\\\"cd\"",
+        "ms": 0.583,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "re03"
+    },
+    {
+      "noskill": {
+        "answer": "::1",
+        "ms": 0.232,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "::1",
+        "ms": 0.464,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "10.0.0.1",
+        "ms": 0.562,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "re04"
+    },
+    {
+      "noskill": {
+        "answer": "2.10.",
+        "ms": 0.197,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "2.10.",
+        "ms": 0.353,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "2.10",
+        "ms": 0.48,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "re05"
+    },
+    {
+      "noskill": {
+        "answer": "3",
+        "ms": 0.078,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "3",
+        "ms": 0.356,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "2",
+        "ms": 0.297,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "re06"
+    },
+    {
+      "noskill": {
+        "answer": "L",
+        "ms": 0.194,
+        "passed": false,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "L",
+        "ms": 0.937,
+        "passed": false,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "Ada+L",
+        "ms": 0.292,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "re07"
+    },
+    {
+      "noskill": {
+        "answer": "42",
+        "ms": 0.24,
+        "passed": true,
+        "policy": "noskill:first-attempt"
+      },
+      "placebo": {
+        "answer": "42",
+        "ms": 0.294,
+        "passed": true,
+        "policy": "placebo:readme-only"
+      },
+      "placebo_flag": true,
+      "skill": {
+        "answer": "42",
+        "ms": 1.783,
+        "passed": true,
+        "policy": "skill:regex-cookbook"
+      },
+      "task_id": "re08"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+selftest: statistics engine
+test_stats: Fisher's exact test (two-sided)
+  ok   tea-tasting [[3,1],[1,3]]: 0.4857142857142857
+  ok   worked example [[1,9],[11,3]]: 0.002759456185220083
+  ok   symmetric under arm swap: 0.002759456185220083
+  ok   perfect separation [[16,0],[0,16]]: 3.3273419550419868e-09
+  ok   balanced [[8,8],[8,8]]: 0.9999999999999999
+  ok   bench table [[16,0],[4,12]] < 0.05: True
+       (bench table p = 1.6121e-05)
+  ok   marginal [[16,0],[12,4]] >= 0.05: True
+       (marginal table p = 0.101224)
+test_stats: bootstrap CI on the pass-rate delta
+  ok   point estimate is the measured delta: 0.75
+  ok   lower bound > 0 for a 75 pt gap: True
+  ok   upper bound <= 1: True
+  ok   resamples recorded: 10000
+  ok   lower bound is exactly 0.5: 0.5
+  ok   same seed -> identical bounds: {'point': 0.75, 'lo': 0.5, 'hi': 0.9375, 'resamples': 10000, 'seed': 20261014}
+  ok   different seed -> different bounds: True
+  ok   seed 5 lower bound is 0.5625: 0.5625
+  ok   placebo CI contains 0: True
+  ok   placebo |delta| < 10 pts: True
+  ok   identical arms -> point estimate 0: 0.0
+  ok   identical arms -> CI contains 0: True
+test_stats: input validation
+  ok   negative cell rejected
+  ok   empty table rejected
+  ok   empty arm rejected
+  ok   resamples=0 rejected
+test_stats: all checks passed
+selftest: corpus vs arm policies
+test_corpus: the skill policy reproduces the oracle
+  ok   skill policy == oracle on all 16 tasks
+test_corpus: the no-skill policy reproduces the pinned answers
+  ok   no-skill policy == pinned naive_answer on all 16 tasks
+test_corpus: the difficulty flag matches the verdicts
+  ok   easy tasks are exactly ['kv01', 'kv06', 're01', 're08']
+  ok   12 hard tasks; the skill-no-skill delta is 75.0 pts
+test_corpus: the placebo is a real control
+  ok   placebo differs from no-skill on exactly ['kv05']
+  ok   the placebo never does worse than the no-skill arm
+test_corpus: no arm disagrees with itself across a shared answer
+  ok   every shared answer across arms has matching verdicts
+test_corpus: all checks passed
+selftest: grading known-good /home/user/w/cookbook/skill-ab-bench/examples/good
+selftest: known-good PASSED all gates
+mutants: records/fabricated-verdict/results.json  [G3_verifier_replay]  kv02.noskill.passed False -> True (answer left wrong)
+mutants: records/shared-answer-arms/results.json  [G2_arm_isolation]  kv03.noskill.answer <- kv03.skill.answer (verdict left False)
+mutants: records/dropped-task/results.json  [G1_record_shape]  tasks: 16 -> 15 (kv04 dropped)
+mutants: records/arms-swapped/results.json  [G6_effect_size]  skill <-> noskill answers/verdicts (delta becomes -75 pts)
+mutants: records/marginal-win/results.json  [G5_power]  noskill adopts 8 skill answers (16/16 vs 12/16, p=0.101)
+mutants: records/significant-placebo/results.json  [G7_placebo_control]  placebo adopts 4 skill answers (noskill-placebo = -31.25 pts)
+mutants: records/policy-relabelled/results.json  [G1_record_shape]  kv05.placebo.policy <- arms.skill (label mismatch)
+mutants: records/fabricated-arm-answers/results.json  [G9_arm_fidelity]  noskill answers replaced with 12 fabricated strings (verdicts honest, G2/G3 blind)
+mutants: judge/reference-drift/  [G4_task_identifiability]  reference.json: re04.expected -> '::1' (oracle drift)
+mutants: judge/no-bad-answers/  [G4_task_identifiability]  reference.json: kv07.bad -> [] (no known-bad answers)
+mutants: judge/unverifiable-task/  [G3_verifier_replay]  tasks.json: re05.params.how -> 'no_such_technique' (oracle raises)
+mutants: wrote 8 record mutants and 3 judge mutants to /tmp/tmp.JERsLe9Qj3/mutants
+selftest: killed    records/arms-swapped (gate: G6_effect_size)
+selftest: killed    records/dropped-task (gate: G1_record_shape)
+selftest: killed    records/fabricated-arm-answers (gate: G9_arm_fidelity)
+selftest: killed    records/fabricated-verdict (gate: G3_verifier_replay)
+selftest: killed    records/marginal-win (gate: G5_power)
+selftest: killed    records/policy-relabelled (gate: G1_record_shape)
+selftest: killed    records/shared-answer-arms (gate: G2_arm_isolation)
+selftest: killed    records/significant-placebo (gate: G7_placebo_control)
+selftest: killed    judge/no-bad-answers (gate: G4_task_identifiability)
+selftest: killed    judge/reference-drift (gate: G4_task_identifiability)
+selftest: killed    judge/unverifiable-task (gate: G3_verifier_replay)
+selftest: kill rate 11/11 = 100%
+selftest: determinism OK (two --seed 1 runs byte-identical)
+selftest: --seed changes the bootstrap CI as expected
+selftest: OK

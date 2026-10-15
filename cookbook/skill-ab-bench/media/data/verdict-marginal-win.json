@@ -1,0 +1,73 @@
+{
+  "arms": [
+    "skill",
+    "noskill",
+    "placebo"
+  ],
+  "artifact_error": null,
+  "bootstrap_resamples": 10000,
+  "failed_gate": "G5_power",
+  "gates": {
+    "G1_record_shape": {
+      "pass": true,
+      "problems": [],
+      "task_ids": [
+        "kv01",
+        "kv02",
+        "kv03",
+        "kv04",
+        "kv05",
+        "kv06",
+        "kv07",
+        "kv08",
+        "re01",
+        "re02",
+        "re03",
+        "re04",
+        "re05",
+        "re06",
+        "re07",
+        "re08"
+      ],
+      "tasks": 16
+    },
+    "G2_arm_isolation": {
+      "pass": true,
+      "problems": [],
+      "tasks_with_shared_answers": 0
+    },
+    "G3_verifier_replay": {
+      "pass": true,
+      "problems": [],
+      "replayed": 48
+    },
+    "G4_task_identifiability": {
+      "pass": true,
+      "problems": [],
+      "tasks_checked": 16
+    },
+    "G5_power": {
+      "fisher_p": 0.10122358175750834,
+      "n": 16,
+      "noskill_passes": 12,
+      "pass": false,
+      "problems": [
+        "Fisher's exact p = 0.101224 is not < 0.05 (16/16 vs 12/16): the difference is not significant"
+      ],
+      "skill_passes": 16,
+      "threshold_p": 0.05
+    },
+    "G8_judge_integrity": {
+      "graded_from_copy": true,
+      "judge_sha256": "a988d26a1f134359f4c66b846446a8abdc9401a8cdb63cb65b4cd1fd5fdb1a6d",
+      "pass": true,
+      "problems": []
+    }
+  },
+  "schema": "skill-ab-bench/1",
+  "seed": 20261014,
+  "timing": {
+    "wall_s": 0.016
+  },
+  "verdict": "fail"
+}

@@ -1,0 +1,64 @@
+{
+  "arms": [
+    "skill",
+    "noskill",
+    "placebo"
+  ],
+  "artifact_error": null,
+  "bootstrap_resamples": 10000,
+  "failed_gate": "G4_task_identifiability",
+  "gates": {
+    "G1_record_shape": {
+      "pass": true,
+      "problems": [],
+      "task_ids": [
+        "kv01",
+        "kv02",
+        "kv03",
+        "kv04",
+        "kv05",
+        "kv06",
+        "kv07",
+        "kv08",
+        "re01",
+        "re02",
+        "re03",
+        "re04",
+        "re05",
+        "re06",
+        "re07",
+        "re08"
+      ],
+      "tasks": 16
+    },
+    "G2_arm_isolation": {
+      "pass": true,
+      "problems": [],
+      "tasks_with_shared_answers": 0
+    },
+    "G3_verifier_replay": {
+      "pass": true,
+      "problems": [],
+      "replayed": 48
+    },
+    "G4_task_identifiability": {
+      "pass": false,
+      "problems": [
+        "kv07: only 0 single-edit bad answers in reference.json, want >= 3"
+      ],
+      "tasks_checked": 15
+    },
+    "G8_judge_integrity": {
+      "graded_from_copy": true,
+      "judge_sha256": "8fd55f00b1a603d66b89ed060d580ee4b2119e2190a9a747fec615cbde0947fe",
+      "pass": true,
+      "problems": []
+    }
+  },
+  "schema": "skill-ab-bench/1",
+  "seed": 20261014,
+  "timing": {
+    "wall_s": 0.021
+  },
+  "verdict": "fail"
+}

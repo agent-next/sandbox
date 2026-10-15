@@ -1,0 +1,49 @@
+{
+  "arms": [
+    "skill",
+    "noskill",
+    "placebo"
+  ],
+  "artifact_error": null,
+  "bootstrap_resamples": 10000,
+  "failed_gate": "G1_record_shape",
+  "gates": {
+    "G1_record_shape": {
+      "pass": false,
+      "problems": [
+        "tasks has 15 entries, want 16",
+        "tasks missing: kv04"
+      ],
+      "task_ids": [
+        "kv01",
+        "kv02",
+        "kv03",
+        "kv05",
+        "kv06",
+        "kv07",
+        "kv08",
+        "re01",
+        "re02",
+        "re03",
+        "re04",
+        "re05",
+        "re06",
+        "re07",
+        "re08"
+      ],
+      "tasks": 15
+    },
+    "G8_judge_integrity": {
+      "graded_from_copy": true,
+      "judge_sha256": "a988d26a1f134359f4c66b846446a8abdc9401a8cdb63cb65b4cd1fd5fdb1a6d",
+      "pass": true,
+      "problems": []
+    }
+  },
+  "schema": "skill-ab-bench/1",
+  "seed": 20261014,
+  "timing": {
+    "wall_s": 0.01
+  },
+  "verdict": "fail"
+}

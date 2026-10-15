@@ -1,0 +1,121 @@
+{
+  "arms": [
+    "skill",
+    "noskill",
+    "placebo"
+  ],
+  "artifact_error": null,
+  "bootstrap_resamples": 10000,
+  "failed_gate": "G9_arm_fidelity",
+  "gates": {
+    "G1_record_shape": {
+      "pass": true,
+      "problems": [],
+      "task_ids": [
+        "kv01",
+        "kv02",
+        "kv03",
+        "kv04",
+        "kv05",
+        "kv06",
+        "kv07",
+        "kv08",
+        "re01",
+        "re02",
+        "re03",
+        "re04",
+        "re05",
+        "re06",
+        "re07",
+        "re08"
+      ],
+      "tasks": 16
+    },
+    "G2_arm_isolation": {
+      "pass": true,
+      "problems": [],
+      "tasks_with_shared_answers": 0
+    },
+    "G3_verifier_replay": {
+      "pass": true,
+      "problems": [],
+      "replayed": 48
+    },
+    "G4_task_identifiability": {
+      "pass": true,
+      "problems": [],
+      "tasks_checked": 16
+    },
+    "G5_power": {
+      "fisher_p": 1.6120971772178427e-05,
+      "n": 16,
+      "noskill_passes": 4,
+      "pass": true,
+      "problems": [],
+      "skill_passes": 16,
+      "threshold_p": 0.05
+    },
+    "G6_effect_size": {
+      "ci": {
+        "hi": 0.9375,
+        "lo": 0.5,
+        "point": 0.75,
+        "resamples": 10000,
+        "seed": 20261014
+      },
+      "delta_pts": 75.0,
+      "min_delta_pts": 25.0,
+      "n": 16,
+      "noskill_passes": 4,
+      "pass": true,
+      "problems": [],
+      "skill_passes": 16
+    },
+    "G7_placebo_control": {
+      "ci": {
+        "hi": 0.25,
+        "lo": -0.375,
+        "point": -0.0625,
+        "resamples": 10000,
+        "seed": 20261014
+      },
+      "delta_pts": -6.25,
+      "max_abs_delta_pts": 10.0,
+      "n": 16,
+      "noskill_passes": 4,
+      "pass": true,
+      "placebo_passes": 5,
+      "problems": []
+    },
+    "G8_judge_integrity": {
+      "graded_from_copy": true,
+      "judge_sha256": "a988d26a1f134359f4c66b846446a8abdc9401a8cdb63cb65b4cd1fd5fdb1a6d",
+      "pass": true,
+      "problems": []
+    },
+    "G9_arm_fidelity": {
+      "answers_checked": 48,
+      "pass": false,
+      "problems": [
+        "kv02/noskill: recorded 'WRONG-1' but the corpus defines that arm's answer as '7'",
+        "kv03/noskill: recorded 'WRONG-2' but the corpus defines that arm's answer as '12'",
+        "kv04/noskill: recorded 'WRONG-3' but the corpus defines that arm's answer as 'TLSv1.2'",
+        "kv05/noskill: recorded 'WRONG-4' but the corpus defines that arm's answer as 'off'",
+        "kv07/noskill: recorded 'WRONG-6' but the corpus defines that arm's answer as '4'",
+        "kv08/noskill: recorded 'WRONG-7' but the corpus defines that arm's answer as '\"release/2.0\"   # keep'",
+        "re02/noskill: recorded 'WRONG-9' but the corpus defines that arm's answer as '8000,8001'",
+        "re03/noskill: recorded 'WRONG-10' but the corpus defines that arm's answer as '\"ab\\\\\"'",
+        "re04/noskill: recorded 'WRONG-11' but the corpus defines that arm's answer as '::1'",
+        "re05/noskill: recorded 'WRONG-12' but the corpus defines that arm's answer as '2.10.'",
+        "re06/noskill: recorded 'WRONG-13' but the corpus defines that arm's answer as '3'",
+        "re07/noskill: recorded 'WRONG-14' but the corpus defines that arm's answer as 'L'"
+      ]
+    }
+  },
+  "schema": "skill-ab-bench/1",
+  "seed": 20261014,
+  "timing": {
+    "wall_s": 0.567
+  },
+  "verdict": "fail"
+}

@@ -1,0 +1,54 @@
+{
+  "arms": [
+    "skill",
+    "noskill",
+    "placebo"
+  ],
+  "artifact_error": null,
+  "bootstrap_resamples": 10000,
+  "failed_gate": "G2_arm_isolation",
+  "gates": {
+    "G1_record_shape": {
+      "pass": true,
+      "problems": [],
+      "task_ids": [
+        "kv01",
+        "kv02",
+        "kv03",
+        "kv04",
+        "kv05",
+        "kv06",
+        "kv07",
+        "kv08",
+        "re01",
+        "re02",
+        "re03",
+        "re04",
+        "re05",
+        "re06",
+        "re07",
+        "re08"
+      ],
+      "tasks": 16
+    },
+    "G2_arm_isolation": {
+      "pass": false,
+      "problems": [
+        "kv03: the two arms recorded the same answer '90' with different verdicts (True vs False)"
+      ],
+      "tasks_with_shared_answers": 1
+    },
+    "G8_judge_integrity": {
+      "graded_from_copy": true,
+      "judge_sha256": "a988d26a1f134359f4c66b846446a8abdc9401a8cdb63cb65b4cd1fd5fdb1a6d",
+      "pass": true,
+      "problems": []
+    }
+  },
+  "schema": "skill-ab-bench/1",
+  "seed": 20261014,
+  "timing": {
+    "wall_s": 0.012
+  },
+  "verdict": "fail"
+}

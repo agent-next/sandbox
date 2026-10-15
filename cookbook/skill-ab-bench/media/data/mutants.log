@@ -1,0 +1,12 @@
+mutants: records/fabricated-verdict/results.json  [G3_verifier_replay]  kv02.noskill.passed False -> True (answer left wrong)
+mutants: records/shared-answer-arms/results.json  [G2_arm_isolation]  kv03.noskill.answer <- kv03.skill.answer (verdict left False)
+mutants: records/dropped-task/results.json  [G1_record_shape]  tasks: 16 -> 15 (kv04 dropped)
+mutants: records/arms-swapped/results.json  [G6_effect_size]  skill <-> noskill answers/verdicts (delta becomes -75 pts)
+mutants: records/marginal-win/results.json  [G5_power]  noskill adopts 8 skill answers (16/16 vs 12/16, p=0.101)
+mutants: records/significant-placebo/results.json  [G7_placebo_control]  placebo adopts 4 skill answers (noskill-placebo = -31.25 pts)
+mutants: records/policy-relabelled/results.json  [G1_record_shape]  kv05.placebo.policy <- arms.skill (label mismatch)
+mutants: records/fabricated-arm-answers/results.json  [G9_arm_fidelity]  noskill answers replaced with 12 fabricated strings (verdicts honest, G2/G3 blind)
+mutants: judge/reference-drift/  [G4_task_identifiability]  reference.json: re04.expected -> '::1' (oracle drift)
+mutants: judge/no-bad-answers/  [G4_task_identifiability]  reference.json: kv07.bad -> [] (no known-bad answers)
+mutants: judge/unverifiable-task/  [G3_verifier_replay]  tasks.json: re05.params.how -> 'no_such_technique' (oracle raises)
+mutants: wrote 8 record mutants and 3 judge mutants to /tmp/bench-replay/mutants2

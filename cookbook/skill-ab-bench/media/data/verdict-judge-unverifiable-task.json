@@ -1,0 +1,61 @@
+{
+  "arms": [
+    "skill",
+    "noskill",
+    "placebo"
+  ],
+  "artifact_error": null,
+  "bootstrap_resamples": 10000,
+  "failed_gate": "G3_verifier_replay",
+  "gates": {
+    "G1_record_shape": {
+      "pass": true,
+      "problems": [],
+      "task_ids": [
+        "kv01",
+        "kv02",
+        "kv03",
+        "kv04",
+        "kv05",
+        "kv06",
+        "kv07",
+        "kv08",
+        "re01",
+        "re02",
+        "re03",
+        "re04",
+        "re05",
+        "re06",
+        "re07",
+        "re08"
+      ],
+      "tasks": 16
+    },
+    "G2_arm_isolation": {
+      "pass": true,
+      "problems": [],
+      "tasks_with_shared_answers": 0
+    },
+    "G3_verifier_replay": {
+      "pass": false,
+      "problems": [
+        "re05/skill: oracle raised KeyError: 'no oracle for task re05'",
+        "re05/noskill: oracle raised KeyError: 'no oracle for task re05'",
+        "re05/placebo: oracle raised KeyError: 'no oracle for task re05'"
+      ],
+      "replayed": 45
+    },
+    "G8_judge_integrity": {
+      "graded_from_copy": true,
+      "judge_sha256": "1e717781bd138283f5a22c46f2e31c189dee1de6865af571c78e9317b59b295a",
+      "pass": true,
+      "problems": []
+    }
+  },
+  "schema": "skill-ab-bench/1",
+  "seed": 20261014,
+  "timing": {
+    "wall_s": 0.02
+  },
+  "verdict": "fail"
+}

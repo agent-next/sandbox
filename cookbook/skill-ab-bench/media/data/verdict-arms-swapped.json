@@ -1,0 +1,90 @@
+{
+  "arms": [
+    "skill",
+    "noskill",
+    "placebo"
+  ],
+  "artifact_error": null,
+  "bootstrap_resamples": 10000,
+  "failed_gate": "G6_effect_size",
+  "gates": {
+    "G1_record_shape": {
+      "pass": true,
+      "problems": [],
+      "task_ids": [
+        "kv01",
+        "kv02",
+        "kv03",
+        "kv04",
+        "kv05",
+        "kv06",
+        "kv07",
+        "kv08",
+        "re01",
+        "re02",
+        "re03",
+        "re04",
+        "re05",
+        "re06",
+        "re07",
+        "re08"
+      ],
+      "tasks": 16
+    },
+    "G2_arm_isolation": {
+      "pass": true,
+      "problems": [],
+      "tasks_with_shared_answers": 0
+    },
+    "G3_verifier_replay": {
+      "pass": true,
+      "problems": [],
+      "replayed": 48
+    },
+    "G4_task_identifiability": {
+      "pass": true,
+      "problems": [],
+      "tasks_checked": 16
+    },
+    "G5_power": {
+      "fisher_p": 1.6120971772178427e-05,
+      "n": 16,
+      "noskill_passes": 16,
+      "pass": true,
+      "problems": [],
+      "skill_passes": 4,
+      "threshold_p": 0.05
+    },
+    "G6_effect_size": {
+      "ci": {
+        "hi": -0.5625,
+        "lo": -0.9375,
+        "point": -0.75,
+        "resamples": 10000,
+        "seed": 20261014
+      },
+      "delta_pts": -75.0,
+      "min_delta_pts": 25.0,
+      "n": 16,
+      "noskill_passes": 16,
+      "pass": false,
+      "problems": [
+        "delta -75.0 pts is below the 25.0 pts bar",
+        "the bootstrap CI lower bound -0.9375 is not > 0: the delta could be zero"
+      ],
+      "skill_passes": 4
+    },
+    "G8_judge_integrity": {
+      "graded_from_copy": true,
+      "judge_sha256": "a988d26a1f134359f4c66b846446a8abdc9401a8cdb63cb65b4cd1fd5fdb1a6d",
+      "pass": true,
+      "problems": []
+    }
+  },
+  "schema": "skill-ab-bench/1",
+  "seed": 20261014,
+  "timing": {
+    "wall_s": 0.218
+  },
+  "verdict": "fail"
+}
