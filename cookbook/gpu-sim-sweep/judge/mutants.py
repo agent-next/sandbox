@@ -53,15 +53,16 @@ def main():
     mutants.append(("missing_nconmax", "cpu", m))
 
     # dt=1e-4: the settle window is 0.08 s of sim time — the boxes are still
-    # in the air and the arm has not converged at read-back. Observed on CPU
-    # and GPU (dt=0.01 was measured stable under implicitfast, so the
-    # timestep mutant goes the other way).
+    # in the air and the arm has not converged at read-back. The cost gate
+    # rejects it before any sim runs (settle simulated time < 0.4 s).
+    # (dt=0.01 was measured stable under implicitfast, so the timestep
+    # mutant goes the other way.)
     m = copy.deepcopy(good)
     m["timestep"] = 0.0001
     mutants.append(("tiny_timestep", "cpu", m))
 
-    # settle_steps=20: the oracle reads live state after 0.02 s — arm error
-    # ~1.4 rad, boxes mid-air. Observed on CPU and GPU.
+    # settle_steps=20: the oracle would read live state after 0.02 s — arm
+    # error ~1.4 rad, boxes mid-air. The cost gate rejects it first.
     m = copy.deepcopy(good)
     m["settle_steps"] = 20
     mutants.append(("short_settle", "cpu", m))

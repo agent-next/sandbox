@@ -34,7 +34,7 @@ import subprocess
 import sys
 import tarfile
 import time
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 REPO = "https://github.com/agent-next/sandbox"
@@ -74,17 +74,32 @@ def run(step, *args, timeout=None, capture=False):
     return proc, dt
 
 
-def request(key, method, path, body=None):
-    """Make an HTTP request to the agent-next sandbox API."""
+def request(key, method, path, body=None, timeout=570):
+    """One call to the agent-next sandbox API. Returns (status, parsed).
+
+    On a non-2xx reply the response body is printed verbatim to stderr —
+    a bare 'HTTP 502' must tell you why — and returned as
+    {"error_body": ...} when it is not JSON. Transport errors
+    (URLError, RemoteDisconnected, timeouts) are raised for the caller.
+    """
     data = None if body is None else json.dumps(body).encode()
     req = Request(API + path, data=data, method=method,
                   headers={"X-API-Key": key, "Content-Type": "application/json"})
     try:
-        with urlopen(req, timeout=900) as r:
-            raw = r.read()
-            return r.status, json.loads(raw) if raw else None
+        with urlopen(req, timeout=timeout) as r:
+            status, raw = r.status, r.read()
     except HTTPError as exc:
-        return exc.code, None
+        status, raw = exc.code, exc.read()
+    if status >= 300 and not (method == "GET" and status == 404):
+        # GET 404 is the cleanup-confirmation success path, not an error.
+        detail = raw.decode("utf-8", "replace").strip()[:2000]
+        print(f"run.py: {method} {path}: HTTP {status}"
+              + (f": {detail}" if detail else " (empty error body)"),
+              file=sys.stderr, flush=True)
+    try:
+        return status, json.loads(raw) if raw else None
+    except ValueError:
+        return status, {"error_body": raw.decode("utf-8", "replace")[:2000]}
 
 
 def pack_judge_and_examples(demo_path):
@@ -123,7 +138,18 @@ report.update(root=root, python=sys.version.split()[0],
 """
 
 
-def gpu_grade_job(artifact_rel):
+# Exec timeouts, all well under the 600 s at which the platform drops an
+# exec HTTP reply. The cost gate bounds every grade's sim work (SPEC.md):
+# the good grade pays the ~90 s Warp cold-compile plus ~60 s of sims, and a
+# cost-passing mutant is at most ~90 s of bounded sims. Each grade's
+# subprocess timeout sits just below its exec timeout so a hung grade comes
+# back as a job error, not a dropped reply.
+UNPACK_TIMEOUT_S = 120
+GRADE_GOOD_TIMEOUT_S = 360
+GRADE_MUTANT_TIMEOUT_S = 240
+
+
+def gpu_grade_job(artifact_rel, sub_timeout_s, want_traj=False):
     """Exec code grading one artifact under JOB_ROOT (real sim, minutes)."""
     return f"""
 import json, os, subprocess, sys, time
@@ -133,20 +159,44 @@ art = os.path.join(root, {artifact_rel!r})
 out = art + '.verdict.json'
 t0 = time.perf_counter()
 r = subprocess.run([sys.executable, os.path.join(j, '_grade.py'), art,
-                    '--seed', '0', '--json', out, '--judge-dir', j],
-                   capture_output=True, text=True, timeout=600)
+                    '--seed', '0', '--json', out, '--judge-dir', j]
+                   + (['--traj-json', art + '.traj.json']
+                      if {want_traj!r} else []),
+                   capture_output=True, text=True, timeout={sub_timeout_s})
 report.update(rc=r.returncode,
               verdict=json.load(open(out)) if os.path.exists(out) else None,
               grade_wall_s=round(time.perf_counter() - t0, 1),
               stderr=r.stderr[-400:])
+tp = art + '.traj.json'
+if os.path.exists(tp):
+    report['world0_traj'] = json.load(open(tp))
 """
 
 
 def gpu_exec(key, sid, code, timeout_s, label):
-    """One exec call on the lease; returns the report dict."""
-    t0 = time.monotonic()
-    st, executed = request(key, "POST", f"/sandboxes/{sid}/exec",
-                           {"code": code, "timeout_s": timeout_s})
+    """One exec call on the lease; returns the report dict.
+
+    A transport error (dropped reply, connection reset, socket timeout)
+    aborts the run naming this exec — it is retried once first, since a
+    grade job is idempotent and a blip should not sink a minutes-long run.
+    """
+    for attempt in (1, 2):
+        t0 = time.monotonic()
+        try:
+            st, executed = request(key, "POST", f"/sandboxes/{sid}/exec",
+                                   {"code": code, "timeout_s": timeout_s},
+                                   timeout=min(timeout_s + 60, 570))
+        except (OSError, URLError, TimeoutError) as exc:
+            dt = time.monotonic() - t0
+            if attempt == 1:
+                print(f"  [{label}] exec transport error after {dt:.0f} s: "
+                      f"{type(exc).__name__}: {exc}; retrying once",
+                      file=sys.stderr, flush=True)
+                time.sleep(3)
+                continue
+            die(f"GPU exec ({label}) failed: transport error after retry: "
+                f"{type(exc).__name__}: {exc}")
+        break
     dt = time.monotonic() - t0
     if st != 200 or not isinstance(executed, dict):
         die(f"GPU exec ({label}): HTTP {st}")
@@ -160,7 +210,12 @@ def gpu_exec(key, sid, code, timeout_s, label):
 def run_gpu_path(key, demo_path, report_json=None):
     """Run the GPU path using the REST API (4 GiB VRAM slice lease)."""
     print("create GPU lease (4 GiB VRAM slice)...", flush=True)
-    st, created = request(key, "POST", "/sandboxes", {"accel": {"vram_gb": 4, "reserve": "exec"}})
+    try:
+        st, created = request(key, "POST", "/sandboxes",
+                              {"accel": {"vram_gb": 4, "reserve": "exec"}})
+    except (OSError, URLError, TimeoutError) as exc:
+        die(f"GPU create failed: transport error: "
+            f"{type(exc).__name__}: {exc}")
     if st != 201:
         die(f"GPU create: HTTP {st}; check GPU access, credit and capacity")
     sid = created["sandboxID"]
@@ -175,22 +230,27 @@ def run_gpu_path(key, demo_path, report_json=None):
         print("exec unpack + mutant generation on GPU lease...", flush=True)
         rep = gpu_exec(key, sid,
                        gpu_unpack_job(pack_judge_and_examples(demo_path)),
-                       180, "unpack")
+                       UNPACK_TIMEOUT_S, "unpack")
         mutant_list = rep.get("mutants") or []
         print(f"lease python {rep.get('python')}; "
               f"{len(mutant_list)} mutants generated", flush=True)
 
         print("grade known-good (full mode: CPU baseline + real GPU sweep; "
               "first grade pays the Warp cold-compile)...", flush=True)
-        good = gpu_exec(key, sid, gpu_grade_job("examples/good/sweep.json"),
-                        720, "grade good")
+        good = gpu_exec(key, sid,
+                        gpu_grade_job("examples/good/sweep.json",
+                                      GRADE_GOOD_TIMEOUT_S - 30,
+                                      want_traj=True),
+                        GRADE_GOOD_TIMEOUT_S, "grade good")
         verdict = good.get("verdict") or {}
 
         kills = {}
         for m in mutant_list:
             name, mode = m["name"], m["mode"]
-            r = gpu_exec(key, sid, gpu_grade_job(f"mutants/{name}.json"),
-                         720, f"grade {name}")
+            r = gpu_exec(key, sid,
+                         gpu_grade_job(f"mutants/{name}.json",
+                                       GRADE_MUTANT_TIMEOUT_S - 30),
+                         GRADE_MUTANT_TIMEOUT_S, f"grade {name}")
             v = r.get("verdict") or {}
             gs = {g: x for g, x in (v.get("gates") or {}).items()
                   if isinstance(x, dict)}
@@ -262,18 +322,40 @@ def run_gpu_path(key, demo_path, report_json=None):
 
     finally:
         print(f"destroying {sid}...", flush=True)
-        try:
-            request(key, "DELETE", f"/sandboxes/{sid}")
-        except Exception:
-            pass
-        try:
-            st, remaining = request(key, "GET", f"/sandboxes/{sid}")
-        except Exception as exc:
-            raise RuntimeError(f"cleanup unconfirmed for {sid}; run sandbox_kill for this id") from exc
-        if st != 404 and not (
-            st == 200 and isinstance(remaining, dict) and remaining.get("phase") == "dead"
-        ):
-            die(f"cleanup unconfirmed for {sid}: HTTP {st}; run sandbox_kill for this id")
+        # Transient control-plane errors (a 503 while a node is
+        # unreachable, a dropped reply) must not fail an otherwise-clean
+        # run: retry the delete, then retry the confirmation. A lease that
+        # still will not confirm is reported by id and fails the run.
+        for attempt in range(3):
+            try:
+                st, _ = request(key, "DELETE", f"/sandboxes/{sid}")
+                if st in (200, 202, 204, 404):
+                    break
+            except (OSError, URLError, TimeoutError) as exc:
+                print(f"run.py: DELETE {sid}: transport error: "
+                      f"{type(exc).__name__}: {exc}",
+                      file=sys.stderr, flush=True)
+            if attempt < 2:
+                time.sleep(3)
+        gone = False
+        for attempt in range(4):
+            try:
+                st, remaining = request(key, "GET", f"/sandboxes/{sid}")
+            except (OSError, URLError, TimeoutError) as exc:
+                print(f"run.py: GET {sid}: transport error: "
+                      f"{type(exc).__name__}: {exc}",
+                      file=sys.stderr, flush=True)
+                st, remaining = -1, None
+            if st == 404 or (
+                st == 200 and isinstance(remaining, dict)
+                and remaining.get("phase") == "dead"
+            ):
+                gone = True
+                break
+            if attempt < 3:
+                time.sleep(3)
+        if not gone:
+            die(f"cleanup unconfirmed for {sid}: run sandbox_kill for this id")
         print(f"destroyed {sid}; verified absent or dead", flush=True)
 
 

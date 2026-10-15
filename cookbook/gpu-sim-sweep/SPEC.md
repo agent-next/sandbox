@@ -51,6 +51,13 @@ The judge builds the effective XML by patching the canonical scene's
 passes `nconmax`/`njmax` to `mujoco_warp.put_data`. `settle_steps`,
 `timed_steps` and `batches` drive the measured runs.
 
+The config also bounds how much work a grade can ask for — the **cost
+gate** below — so a single grade is a bounded job, not an open-ended one:
+with these limits every simulated part of a grade finishes in ~90 s of GPU
+stepping on the 4 GiB slice (plus the one-time ~90 s cold Warp compile on
+the first grade of a fresh lease), so no grade exec needs anywhere near the
+600 s at which the platform drops an exec reply.
+
 ## Judge gates (numeric pass rules)
 
 `judge/grade.sh <artifact> [--seed N] [--json out.json] [--cpu-check]
@@ -65,24 +72,40 @@ rc=1 "graded and failed".
 
 1. **structure** — valid JSON, ≤ 256 KiB, exactly the contract keys with
    correct types, no result keys, scene XML equals canonical.
-2. **engine-parity** — the mujoco version measured on the GPU sweep equals
+2. **cost** — the work the config asks for is bounded, checked before any
+   simulation runs (so every grade is cheap, and an over-asking config
+   fails fast instead of being found by a multi-minute exec):
+   - settle simulated time `settle_steps × timestep` in [0.4, 4.0] s
+     (0.4 s is about the minimum for every box to land from 0.5–1.1 m);
+   - timed simulated time `timed_steps × batches × timestep` in
+     [0.1, 4.0] s;
+   - steps per ladder point `settle_steps + batches × timed_steps`
+     ≤ 4000 (bounds the slowest point — nworld=1 runs ~240 steps/s — at
+     ~17 s);
+   - `solver_iterations` ≤ 500, `batches` ≤ 20;
+   - `nworld_ladder` length ≤ 32, each entry ≤ 65536 (past that the
+     4 GiB slice cannot allocate anyway);
+   - aggregate work `(settle + batches × timed) × sum(ladder)`
+     ≤ 100 000 000 world-steps.
+   The good config sits at 0.8 s / 0.4 s / 1200 steps / 13.0M world-steps.
+3. **engine-parity** — the mujoco version measured on the GPU sweep equals
    the version measured by the CPU baseline.
-3. **physics-oracle** — every nworld in the ladder must run and its live
+4. **physics-oracle** — every nworld in the ladder must run and its live
    read-back must satisfy: qpos/qvel finite; arm tracking error < 0.15 rad;
    box min z > table_top − 0.02 (no tunnelling); box max z <
    table_top + 0.25 (landed); box speed max < 5.0 m/s (energy bounded);
    confirmed world count == nworld. A point that fails to allocate counts
    as an observed failure, not a crash.
-4. **cpu-parity** — measured GPU world-0 qpos trajectory vs the measured
+5. **cpu-parity** — measured GPU world-0 qpos trajectory vs the measured
    CPU trajectory, max abs error ≤ 0.05 rad over the settle window. (The
    two engines diverge 0.008 rad over 800 steps — float32 accumulation;
    mutants measured at 0.067–131 rad or explode.)
-5. **throughput** — measured top-nworld aggregate steps/s ≥ floor ×
+6. **throughput** — measured top-nworld aggregate steps/s ≥ floor ×
    measured CPU steps/s (default floor 4×; measured ×22.4–29.9 on the 4 GiB
    lease, see RECEIPT.md). Reported in the verdict as `top_steps_per_s`,
    `cpu_steps_per_s`, `speedup`.
 
-**cpu-check mode** (no GPU): gate 1 plus **cpu-physics** — the same live
+**cpu-check mode** (no GPU): gates 1–2 plus **cpu-physics** — the same live
 oracle (finite, landed, bounded, arm converged) applied to the judge's CPU
 reference run of the artifact's config. GPU-only failures (contact
 capacity, slice OOM) are not observable here.
@@ -106,8 +129,8 @@ its failure:
 | smuggled_results | adds `points`/`cpu_steps_per_s`/`cpu_mujoco_version` | structure (result keys) — cpu |
 | gravity_flipped | `gravity="0 0 -9.81"` → `+9.81` in scene | structure (scene != canonical) — cpu |
 | missing_nconmax | deletes `nconmax` | structure — cpu |
-| tiny_timestep | `timestep` 0.001 → 0.0001 | boxes still falling at read-back — cpu |
-| short_settle | `settle_steps` 800 → 20 | arm unconverged, boxes mid-air — cpu |
+| tiny_timestep | `timestep` 0.001 → 0.0001 | cost gate: settle window is 0.08 s of sim time — also leaves boxes mid-air at read-back, but the cost gate rejects it before any sim runs — cpu |
+| short_settle | `settle_steps` 800 → 20 | cost gate: 0.02 s settle — cpu |
 | solver_iter_1 | `solver_iterations` 100 → 1 | CPU contact solver explodes (box speed > 17000 m/s); GPU trajectory diverges (world-0 parity err 131 rad) — cpu-physics / cpu-parity |
 | low_capacity | `nconmax`/`njmax` → 8/32 | observed tunnelling once boxes land (box min z −5.7 at nworld=64; world-0 parity err 0.067 rad) — gpu |
 | over_ladder | ladder + 65536 | observed clean OOM at put_data (MemoryError, counted as an observed point failure) — gpu |
@@ -148,7 +171,12 @@ POST /sandboxes {"accel":{"vram_gb":4,"reserve":"exec"}}
 POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": S}
 → exec 1 unpacks judge/ + examples/ under ~/ and generates the mutants;
   then one exec per grade (good + each mutant): each grade runs the CPU
-  baseline + the mujoco_warp sweep itself as a subprocess
+  baseline + the mujoco_warp sweep itself as a subprocess. timeout_s is
+  per-exec and well under 600 (unpack 120, good grade 360, mutant grade
+  240): the platform drops an exec reply at 600 s, and the cost gate keeps
+  every grade far below that. A transport error on an exec is retried once,
+  then reported with the step's name — the lease is still deleted and its
+  absence confirmed, and run.py exits non-zero.
 DELETE /sandboxes/{id}
 GET /sandboxes/{id} → 404 (or phase=dead)
 ```

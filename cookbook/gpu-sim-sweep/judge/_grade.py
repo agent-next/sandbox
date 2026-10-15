@@ -8,16 +8,19 @@ simulation itself:
 
   gate 1 structure      — valid JSON, config keys only (result keys are
                           rejected), scene matches canonical
-  gate 2 engine-parity  — mujoco version measured on GPU == measured on CPU
-  gate 3 physics-oracle — live GPU state: finite, landed, bounded at every
+  gate 2 cost           — the work the config asks for is bounded (SPEC.md
+                          "cost gate"), checked before any simulation runs
+  gate 3 engine-parity  — mujoco version measured on GPU == measured on CPU
+  gate 4 physics-oracle — live GPU state: finite, landed, bounded at every
                           nworld in the ladder
-  gate 4 cpu-parity     — measured GPU world-0 trajectory vs the measured
+  gate 5 cpu-parity     — measured GPU world-0 trajectory vs the measured
                           CPU trajectory within tolerance
-  gate 5 throughput     — measured top-nworld steps/s >= floor * measured
+  gate 6 throughput     — measured top-nworld steps/s >= floor * measured
                           CPU steps/s
 
-cpu-check mode (CPU-only machines) runs gate 1 plus a cpu-physics gate: the
-same live oracle applied to the CPU reference run of the artifact's config.
+cpu-check mode (CPU-only machines) runs gates 1-2 plus a cpu-physics gate:
+the same live oracle applied to the CPU reference run of the artifact's
+config.
 
 Measured numbers and wall-clock values live under the `timing` key so the
 determinism check can compare verdicts on everything else.
@@ -48,6 +51,24 @@ BOX_SPEED_MAX = 5.0
 DEFAULT_SPEEDUP_FLOOR = 4.0  # measured x22-30 on the 4 GiB lease (see RECEIPT)
 CPU_TIMED_STEPS = 20000      # CPU steps/s benchmark length
 CPU_WARMUP_STEPS = 1000
+
+# Cost bounds (SPEC.md "cost gate"), checked before any simulation runs so
+# a single grade stays bounded no matter what the config asks for. All of
+# them are derived from the config alone; nothing is measured. The good
+# config sits at: settle 0.8 s, timed 0.4 s, 1200 steps/point, 100 solver
+# iterations, ladder sum 10817, 13.0M aggregate world-steps.
+SETTLE_S_RANGE = (0.4, 4.0)   # settle_steps * timestep; 0.4 s is about the
+                            # minimum for every box to land from 0.5-1.1 m
+TIMED_S_RANGE = (0.1, 4.0)    # timed_steps * batches * timestep
+MAX_POINT_STEPS = 4000        # settle + batches*timed per ladder point:
+                            # bounds the slowest point (nworld=1 ~ 240
+                            # steps/s) at ~17 s of wall time
+MAX_SOLVER_ITERS = 500        # solver cost per step is ~linear in iterations
+MAX_BATCHES = 20
+MAX_LADDER_LEN = 32
+MAX_NWORLD = 65536            # beyond this the 4 GiB slice cannot allocate
+MAX_WORLD_STEPS = 100_000_000  # point_steps * sum(ladder); worst legal
+                            # config is ~90 s of GPU stepping
 
 REQUIRED_KEYS = ("scene", "timestep", "solver_iterations", "nconmax", "njmax",
                  "nworld_ladder", "settle_steps", "timed_steps", "batches")
@@ -145,6 +166,51 @@ def gate_structure(data):
         if art_norm != canon_norm:
             problems.append("scene XML does not match canonical scene "
                             "(whitespace-normalised comparison)")
+    return problems
+
+
+def gate_cost(data):
+    """Bounded-work check, run after structure and before any simulation
+    (SPEC.md "cost gate"). A config that asks for more simulated work than
+    these bounds is rejected here — in both modes — instead of being
+    discovered by a grade exec that runs for minutes.
+    """
+    problems = []
+    dt = data["timestep"]
+    settle_s = data["settle_steps"] * dt
+    timed_s = data["timed_steps"] * data["batches"] * dt
+    point_steps = data["settle_steps"] + data["batches"] * data["timed_steps"]
+    ladder = data["nworld_ladder"]
+    world_steps = point_steps * sum(ladder)
+    if not SETTLE_S_RANGE[0] <= settle_s <= SETTLE_S_RANGE[1]:
+        problems.append(
+            f"settle simulated time {settle_s:g} s (settle_steps "
+            f"{data['settle_steps']} x timestep {dt:g}) outside "
+            f"[{SETTLE_S_RANGE[0]}, {SETTLE_S_RANGE[1]}] s")
+    if not TIMED_S_RANGE[0] <= timed_s <= TIMED_S_RANGE[1]:
+        problems.append(
+            f"timed simulated time {timed_s:g} s (timed_steps "
+            f"{data['timed_steps']} x batches {data['batches']} x timestep "
+            f"{dt:g}) outside [{TIMED_S_RANGE[0]}, {TIMED_S_RANGE[1]}] s")
+    if point_steps > MAX_POINT_STEPS:
+        problems.append(
+            f"steps per ladder point {point_steps} (settle + batches*timed) "
+            f"> {MAX_POINT_STEPS}")
+    if data["solver_iterations"] > MAX_SOLVER_ITERS:
+        problems.append(
+            f"solver_iterations {data['solver_iterations']} > "
+            f"{MAX_SOLVER_ITERS}")
+    if data["batches"] > MAX_BATCHES:
+        problems.append(f"batches {data['batches']} > {MAX_BATCHES}")
+    if len(ladder) > MAX_LADDER_LEN:
+        problems.append(f"nworld_ladder length {len(ladder)} > "
+                        f"{MAX_LADDER_LEN}")
+    if max(ladder) > MAX_NWORLD:
+        problems.append(f"nworld_ladder max {max(ladder)} > {MAX_NWORLD}")
+    if world_steps > MAX_WORLD_STEPS:
+        problems.append(
+            f"aggregate world-steps {world_steps} (steps/point "
+            f"{point_steps} x ladder sum {sum(ladder)}) > {MAX_WORLD_STEPS}")
     return problems
 
 
@@ -323,6 +389,9 @@ def main():
     ap.add_argument("--speedup-floor", type=float,
                     default=DEFAULT_SPEEDUP_FLOOR)
     ap.add_argument("--judge-dir")
+    ap.add_argument("--traj-json",
+                    help="full mode only: also write the measured world-0 "
+                         "settle trajectory (downsampled) to this path")
     args = ap.parse_args()
 
     judge_dir = os.path.abspath(args.judge_dir or HERE)
@@ -348,72 +417,98 @@ def main():
         if problems:
             rc = 1
         else:
-            full = gpu_available() and not args.cpu_check
-            verdict["mode"] = "full" if full else "cpu-check"
-            try:
-                cpu, points = run_sims(data, verdict["mode"])
-                sim_err = None
-            except Exception as e:
-                cpu, points = None, []
-                sim_err = f"{type(e).__name__}: {e}"[:300]
-
-            if not full:
-                # CPU-only: structure + a live CPU physics oracle. GPU gates
-                # need the lease (see SPEC).
-                problems = ([f"cpu reference crashed: {sim_err}"] if sim_err
-                            else oracle_problems("cpu", cpu or {}))
-                verdict["gates"]["cpu-physics"] = {"pass": not problems,
-                                                   "problems": problems}
-                if problems:
-                    rc = 1
-                if cpu:
-                    verdict["timing"]["cpu"] = public_point(cpu)
+            problems = gate_cost(data)
+            verdict["gates"]["cost"] = {"pass": not problems,
+                                        "problems": problems}
+            if problems:
+                rc = 1
             else:
-                if sim_err:
-                    for g in ("engine-parity", "physics-oracle", "cpu-parity",
-                              "throughput"):
-                        verdict["gates"][g] = {
-                            "pass": False,
-                            "problems": [f"grade sim crashed: {sim_err}"]}
-                    rc = 1
+                full = gpu_available() and not args.cpu_check
+                verdict["mode"] = "full" if full else "cpu-check"
+                try:
+                    cpu, points = run_sims(data, verdict["mode"])
+                    sim_err = None
+                except Exception as e:
+                    cpu, points = None, []
+                    sim_err = f"{type(e).__name__}: {e}"[:300]
+
+                if not full:
+                    # CPU-only: structure + a live CPU physics oracle. GPU
+                    # gates need the lease (see SPEC).
+                    problems = ([f"cpu reference crashed: {sim_err}"]
+                                if sim_err
+                                else oracle_problems("cpu", cpu or {}))
+                    verdict["gates"]["cpu-physics"] = {
+                        "pass": not problems, "problems": problems}
+                    if problems:
+                        rc = 1
+                    if cpu:
+                        verdict["timing"]["cpu"] = public_point(cpu)
                 else:
-                    for name, problems in (
-                            ("engine-parity",
-                             gate_engine_parity(cpu, points)),
-                            ("physics-oracle",
-                             gate_physics_oracle(points))):
-                        verdict["gates"][name] = {"pass": not problems,
-                                                  "problems": problems}
+                    if sim_err:
+                        for g in ("engine-parity", "physics-oracle",
+                                  "cpu-parity", "throughput"):
+                            verdict["gates"][g] = {
+                                "pass": False,
+                                "problems": [f"grade sim crashed: {sim_err}"]}
+                        rc = 1
+                    else:
+                        for name, problems in (
+                                ("engine-parity",
+                                 gate_engine_parity(cpu, points)),
+                                ("physics-oracle",
+                                 gate_physics_oracle(points))):
+                            verdict["gates"][name] = {
+                                "pass": not problems, "problems": problems}
+                            if problems:
+                                rc = 1
+                        problems, parity_err = gate_cpu_parity(cpu, points)
+                        verdict["gates"]["cpu-parity"] = {
+                            "pass": not problems, "problems": problems}
                         if problems:
                             rc = 1
-                    problems, parity_err = gate_cpu_parity(cpu, points)
-                    verdict["gates"]["cpu-parity"] = {
-                        "pass": not problems, "problems": problems}
-                    if problems:
-                        rc = 1
-                    problems, top_sps = gate_throughput(
-                        cpu, points, args.speedup_floor)
-                    verdict["gates"]["throughput"] = {
-                        "pass": not problems, "problems": problems}
-                    if problems:
-                        rc = 1
+                        problems, top_sps = gate_throughput(
+                            cpu, points, args.speedup_floor)
+                        verdict["gates"]["throughput"] = {
+                            "pass": not problems, "problems": problems}
+                        if problems:
+                            rc = 1
 
-                    # everything measured lives under `timing` so the
-                    # determinism check can diff the verdict without it
-                    verdict["timing"] = {
-                        "cpu": public_point(cpu),
-                        "points": [public_point(p) for p in points],
-                        "cold_compile_s": (points[0].get("first_step_s")
-                                           if points and points[0].get("ok")
-                                           else None),
-                        "parity_max_err": parity_err,
-                        "cpu_steps_per_s": (cpu or {}).get("steps_per_s"),
-                        "top_steps_per_s": top_sps,
-                        "speedup": (top_sps / cpu["steps_per_s"]
-                                    if top_sps and cpu.get("steps_per_s")
-                                    else None),
-                        "speedup_floor": args.speedup_floor,
-                    }
+                        # everything measured lives under `timing` so the
+                        # determinism check can diff the verdict without it
+                        verdict["timing"] = {
+                            "cpu": public_point(cpu),
+                            "points": [public_point(p) for p in points],
+                            "cold_compile_s": (points[0].get("first_step_s")
+                                               if points
+                                               and points[0].get("ok")
+                                               else None),
+                            "parity_max_err": parity_err,
+                            "cpu_steps_per_s":
+                                (cpu or {}).get("steps_per_s"),
+                            "top_steps_per_s": top_sps,
+                            "speedup": (top_sps / cpu["steps_per_s"]
+                                        if top_sps
+                                        and cpu.get("steps_per_s")
+                                        else None),
+                            "speedup_floor": args.speedup_floor,
+                        }
+
+                        # optional: the measured world-0 settle trajectory,
+                        # for media. Not part of the verdict (size), so the
+                        # determinism check never sees it.
+                        if args.traj_json and points \
+                                and points[0].get("ok") \
+                                and points[0].get("traj"):
+                            traj = points[0]["traj"]
+                            stride = max(1, -(-len(traj) // 240))
+                            with open(args.traj_json, "w") as fh:
+                                json.dump(
+                                    {"timestep": data["timestep"],
+                                     "settle_steps": data["settle_steps"],
+                                     "nq": cpu["nq"],
+                                     "stride": stride,
+                                     "traj": traj[::stride]}, fh)
 
         sha_after = check_shas(judge_dir)
         verdict["judge_intact"] = sha_before == sha_after

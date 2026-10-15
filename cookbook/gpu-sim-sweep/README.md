@@ -55,9 +55,11 @@ See `SPEC.md` for the exact gates, `RECEIPT.md` for real measured output.
 
 The `--gpu` flag creates a 4 GiB VRAM slice lease via the agent-next REST API:
 - `POST /sandboxes {"accel":{"vram_gb":4,"reserve":"exec"}}` — creates the lease
-- `POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": 2400}` — unpacks
-  `judge/` + `examples/` and grades the good config plus every mutant; each
-  grade runs the sim itself
+- `POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": N}` — one exec
+  unpacks `judge/` + `examples/`, then one exec per grade (good + every
+  mutant); each grade runs the sim itself. Every exec timeout is well under
+  600 s (the platform drops replies at 600 s): the judge's cost gate bounds
+  each grade's work before it simulates, so no grade comes close.
 - `DELETE /sandboxes/{id}` + `GET /sandboxes/{id}` → 404/dead — confirms cleanup
 
 The lease image already has Python 3.13, mujoco 3.8.1, mujoco-warp 3.8.1,
@@ -93,6 +95,7 @@ it passes — that loop is the demo:
 | gate | rule |
 |---|---|
 | structure | valid JSON, config keys only (result keys rejected), scene = canonical |
+| cost | the work the config asks for is bounded (simulated-time windows, step counts, aggregate world-steps) — checked before any sim runs |
 | engine-parity | measured GPU mujoco version == measured CPU version |
 | physics-oracle | every nworld ran; live state: finite, arm err < 0.15 rad, boxes landed, speed < 5 m/s |
 | cpu-parity | measured GPU world-0 trajectory vs CPU within 0.05 rad |
