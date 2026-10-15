@@ -17,7 +17,7 @@ media/data/replay/ at render time -- nothing is hand-typed.
 
 Output: media/demo.mp4 (1920x1080, 30 fps, H.264 crf 18 / preset slow /
 yuv420p / +faststart, under 8 MB) plus a lossless master under
-media/master/ (git-ignored).  Regenerate with bash media/make_demo.sh.
+media/master/ (git-ignored).  Regenerate with bash media/make_media.sh demo.
 """
 import json
 import os
@@ -133,12 +133,20 @@ def burn(img, title, sub, labels=None):
         drawn.append((text, d.textbbox(xy, text, font=f, anchor=anchor)))
 
     if title:
-        put((70, 40), title, font(T_BOLD, 54), INK)
+        # shrink before wrapping, then wrap, then shrink further: a header
+        # must never leave the frame (the card titles carry real gate text)
+        size = 54
+        while size >= 34 and font(T_BOLD, size).getlength(title) > W - 140:
+            size -= 2
+        put((70, 40), title, font(T_BOLD, size), INK)
     if sub:
-        lines = wrap(sub, font(T_TEXT, 42), W - 140)[:2]
+        f = font(T_TEXT, 42)
+        lines = wrap(sub, f, W - 140)[:2]
+        while lines and f.getlength(max(lines, key=len)) > W - 140:
+            f = font(T_TEXT, f.size - 2)
+            lines = wrap(sub, f, W - 140)[:2]
         for i, line in enumerate(lines):
-            put((70, H - 70 - (len(lines) - 1 - i) * 56), line,
-                font(T_TEXT, 42), INK2)
+            put((70, H - 70 - (len(lines) - 1 - i) * 56), line, f, INK2)
     for cx, text in (labels or []):
         f = font(T_BOLD, 40)
         for i, line in enumerate(text.split("\n")):
@@ -285,8 +293,7 @@ def main():
             None),
         "card_result.png": ("result.png · the graded run, panel by panel",
                             None),
-        "card_loop.png": (f"loop.png · the self-test matrix · "
-                         f"known-good passes every gate · {kill_line()}",
+        "card_loop.png": (f"loop.png · the self-test matrix · {kill_line()}",
                          None),
     }
 
@@ -350,12 +357,15 @@ def card_frame(path, title, sub):
     img = Image.open(path).convert("RGB")
     # the figure carries its own titles and source line, so the card adds
     # only a one-line header and gives the rest of the frame to the figure
-    box_w, box_h = 1864, 936
+    # the header owns the top 125 px; the figure is fitted into what is
+    # left and pasted below it, so the figure's own title is never covered
+    head, box_w, box_h = 125, W - 80, H - 145
     scale = min(box_w / img.width, box_h / img.height)
     img = img.resize((round(img.width * scale), round(img.height * scale)),
                      Image.LANCZOS)
     frame = Image.new("RGB", (W, H), SURFACE)
-    frame.paste(img, ((W - img.width) // 2, (H - img.height) // 2))
+    frame.paste(img, ((W - img.width) // 2,
+                     head + max(0, (H - head - img.height) // 2)))
     burn(frame, title, None)
     return frame
 

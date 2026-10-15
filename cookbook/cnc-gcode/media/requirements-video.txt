@@ -1,0 +1,47 @@
+# Render tools for media/demo.mp4 only (media/make_demo.py, media/partmesh.py).
+#
+#   bash media/make_media.sh     # installs both this file and
+#                                # media/requirements.txt into
+#                                # $HOME/.cnc-gcode/mediavenv, with
+#                                # pip install --no-cache-dir --require-hashes
+#
+# The demo itself never imports any of this: run.py and judge/ need only
+# numpy.  numpy and pillow are not repeated here because
+# media/requirements.txt already pins them for both figures and the video.
+#
+# Exact environment the committed media/demo.mp4 was rendered in (2026-10-15,
+# Debian bookworm, Python 3.12): pyrender 0.1.45 headless on EGL + Mesa
+# llvmpipe (libegl1 22.3.6, PYOPENGL_PLATFORM=egl; the OSMesa platform of
+# PyOpenGL 3.1.0 lacks OSMesaCreateContextAttribs), trimesh 5.1.1 with
+# manifold3d 3.5.4 for the stock-minus-pocket boolean, scikit-image 0.26.0
+# marching squares on the judge's 0.05 mm heightmap, and ffmpeg
+# 5.1.9-0+deb12u1 for the encode.
+
+pyrender==0.1.45 \
+    --hash=sha256:5cf751d1f21fba4640e830cef3a0b5a95ed0f05677bf92c6b8330056b4023aeb
+PyOpenGL==3.1.0 \
+    --hash=sha256:efa4e39a49b906ccbe66758812ca81ced13a6f26931ab2ba2dba2750c016c0d0
+pyglet==2.1.19 \
+    --hash=sha256:5ba6e8cb0b5ac56a284e43ab411e2bbd504191c32a765abdbd6a6c4b7f1ca317
+imageio==2.38.1 \
+    --hash=sha256:36d23eb7423d2fb63f637098758edb3d2df3687f7125e0a5ce8596572022dcf9
+freetype-py==2.5.1 \
+    --hash=sha256:289b443547e03a4f85302e3ac91376838e0d11636050166662a4f75e3087ed0b
+trimesh==5.1.1 \
+    --hash=sha256:c5be85a3e31e9ff749f9b0aecc204e37a2cf7cca4e92cd066bb5f3d3c1127765
+scikit-image==0.26.0 \
+    --hash=sha256:7df650e79031634ac90b11e64a9eedaf5a5e06fcd09bcd03a34be01745744466
+tifffile==2026.9.20 \
+    --hash=sha256:9b913167b8f66a57f2e7c0454486c4c4607196d494797461226166bd0755c0e6
+lazy-loader==0.6 \
+    --hash=sha256:77253be3391b06124a0e16105bd663b6c54470af1a9ca8e1cf026f38d58ed056
+networkx==3.7 \
+    --hash=sha256:e3fd2c13a7814cee3746340d8d7f8598a67f16a58bf47fb7f8793fab6efca1b0
+shapely==2.2.0 \
+    --hash=sha256:650a5f4d8a8e3c96982079d8c99b6ddbe6602bbd1e34c75c2b95dbc0d28ac997
+manifold3d==3.5.4 \
+    --hash=sha256:4a985892699268bbf07192b78b5e5569034c41ce74bf8183495123e8095af4fe
+scipy==1.18.1 \
+    --hash=sha256:f55fa87b6c612ecd6b058f167c53231b1d14e412efe361d3d6e38b3631c73218
+six==1.17.0 \
+    --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274

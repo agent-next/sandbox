@@ -21,7 +21,7 @@ already-cut block is in shot, never where the cuts are.
 Used by make_demo.py.  Meshes are written under media/master/ (git-ignored).
 
 Requires: numpy, trimesh, scikit-image, shapely.  Not needed to run the
-demo -- only to rebuild media/demo.mp4 (see media/make_demo.sh).
+demo -- only to rebuild media/demo.mp4 (see media/make_media.sh).
 """
 import json
 import os
