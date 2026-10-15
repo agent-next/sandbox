@@ -35,7 +35,7 @@ def render_step(sid, command, budget=7200):
         try:
             state = json.loads(runner.sbx("exec", sid, "--timeout", "120",
                                          "python3 -c " + shlex.quote(probe)))
-        except RuntimeError as exc:
+        except (RuntimeError, ValueError) as exc:
             # This command only reads a completion marker, never starts work.
             if recoveries == 3 or "not found" in str(exc).lower():
                 raise
@@ -44,6 +44,7 @@ def render_step(sid, command, budget=7200):
                   "in 5s (same job, no launch retry)", flush=True)
             time.sleep(5)
             continue
+        recoveries = 0
         if state["done"]:
             print(state["log"], flush=True)
             print(f"media-render: exit={state['code']} "
