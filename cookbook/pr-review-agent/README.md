@@ -66,9 +66,9 @@ not be confirmed.
 | step | wall time |
 |---|---|
 | `git clone --depth 1` | ~1 s |
-| `judge/setup.sh` (fresh venv + wheels) | 41 s (idempotent re-run: 0.6 s) |
-| `judge/grade.sh examples/good/review` | 26 s |
-| `judge/selftest.sh` (good + 10 mutants + determinism) | see `RECEIPT.md` |
+| `judge/setup.sh` (fresh venv + wheels) | ~40 s (idempotent re-run: ~6 s) |
+| `judge/grade.sh examples/good/review` | ~28 s |
+| `judge/selftest.sh` (good + 10 mutants + determinism) | ~7 min |
 
 Grading is dominated by the reviewer's own tests: 12 pytest processes (6 PRs
 × buggy/fixed) at ~2 s each, single-threaded. `run.py` prints a per-step
