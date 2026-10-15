@@ -1,0 +1,38 @@
+{
+  "demo": "cookbook/rea-reverse-engineer",
+  "note": "every frame shows real run output: PNG screenshots of the actual REA evidence JSON, the actual judge verdict listing, and an actual table of real binary vs reimpl.py outputs (seed 20261014). nothing was synthesized; the task's final media/video step comes later, so the TUI screenshots and the data table are reproduced by the run itself rather than by a rendering script.",
+  "files": [
+    {
+      "file": "rea-analyze-checksum.png",
+      "what": "Terminal screenshot of the REA evidence JSON from `rea analyze` on the stripped `checksum` target: segments, procedure_count 27, string_count 42, Ghidra 12.1.2 provider profile, subject sha256 8f827dae... binding the analysis to this exact binary.",
+      "command": "source env.sh; rea analyze targets/checksum --detail detailed > examples/good/checksum/rea/overview.json   (evidence_id ev_39bff3ea...)",
+      "source_data": "examples/good/checksum/rea/overview.json",
+      "sha256": "9e3ff2dcbac430be6a7f47c769156d7802221aa96ddd08b59b2cd85ccc300170",
+      "bytes": 77795
+    },
+    {
+      "file": "rea-function-keycheck.png",
+      "what": "Terminal screenshot of the REA evidence JSON from `rea function` + `rea decompile` on `keycheck` procedure 0x1011f0 (FUN_001011f0): the Ghidra-pseudocode of the hidden key rule (3 modular constraints over the 32-symbol alphabet) the agent recovered.",
+      "command": "source env.sh; rea function targets/keycheck 0x1011f0 > examples/good/keycheck/rea/core-function.json; rea decompile targets/keycheck 0x1011f0",
+      "source_data": "examples/good/keycheck/rea/core-function.json, examples/good/keycheck/rea/core-decompile.json",
+      "sha256": "4c96d55f73aed2892286ceb4ae91cadaa84aae0083c4bdc7a0d6c9708d043bdb",
+      "bytes": 81525
+    },
+    {
+      "file": "binary-vs-reimpl.png",
+      "what": "Side-by-side table, from real runs (seed 20261014): sample inputs, the stripped binary's stdout, and the recovered reimpl.py's stdout — proto frames, a DENIED/OK key line, checksum of 'hello' — byte-identical; footer names the differential_* gates that run 500 such inputs per target.",
+      "command": "bash judge/grade.sh examples/good --seed 20261014  (differential_checksum/proto/keycheck gates)",
+      "source_data": "judge/gen_inputs.py (seed 20261014), targets/{proto,keycheck,checksum}, examples/good/*/reimpl.py",
+      "sha256": "7469358ecb2ceb3ebd5451e05088afe7a194a682b7f6ac5995d8daa1308eb451",
+      "bytes": 29698
+    },
+    {
+      "file": "judge-verdict.png",
+      "what": "Terminal screenshot of `judge/grade.sh examples/good` listing all 21 gates: verdict PASS, every gate line visible — targets_present, per-target rea_evidence / report_schema / reimpl_static / differential (500 inputs byte-identical) / core_addr / no_phantom, key_accepted, judge_intact.",
+      "command": "bash judge/grade.sh examples/good --seed 20261014",
+      "source_data": "the grade.sh terminal output for the good artifact (RECEIPT.md)",
+      "sha256": "e7aebf6002e81baab226a8c96bd165cbbe3069bceedc52b2c52382a1b5a4642f",
+      "bytes": 40037
+    }
+  ]
+}
