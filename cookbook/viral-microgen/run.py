@@ -181,7 +181,8 @@ def main() -> int:
                 show(proc)
             return proc
 
-        in_sandbox("judge/setup.sh", "bash judge/setup.sh", 1800)
+        in_sandbox("judge/setup.sh", "bash judge/setup.sh", 1800,
+                   echo=True)
         in_sandbox("judge/selftest.sh", "bash judge/selftest.sh", 1800,
                    echo=True)
         graded = in_sandbox(
