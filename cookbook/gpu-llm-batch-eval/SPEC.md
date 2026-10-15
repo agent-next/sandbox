@@ -120,18 +120,30 @@ because the floor is a property of the model, not of the bundle.
 
 ### Gate 3 — `generations` (not truncated, not tampered)
 
-For every problem: the generation ends at an end-of-turn token or the
-model's stop condition, and its length is < `max_new_tokens` for at least
-**90 %** of problems — a bundle where the answer was cut off mid-sentence
-by a tiny `max_new_tokens` fails. Complains loudly about truncation rather
-than silently scoring a short answer as wrong.
+For at least **90 %** of problems the generation must (a) declare a length
+strictly below the bundle's `max_new_tokens` — i.e. it ended at the model's
+stop condition, not at the cap — and (b) yield an answer under the judge's
+extractor. A bundle where the answer was cut off mid-sentence by a tiny
+`max_new_tokens` fails, and the gate complains loudly about truncation
+rather than silently scoring a short answer as wrong.
 
 ### Gate 4 — `token_accounting`
 
 The judge recomputes throughput from the bundle's own numbers:
 `generated_tokens / wall_time_s` must equal `throughput_tok_s` within
-**1 %** and must be **> 50 tok/s** (a CPU-rate number on a GPU run means the
-artifact did not use the accelerator, or the timing is invented).
+**1 %**, and the rate must be plausible for the device the bundle claims.
+The check is two-sided so both directions of a fabricated timing fail:
+
+- `device` starting with `cuda`/`gpu`: the rate must be **> 50 tok/s**. A
+  CPU-rate number on a GPU run means the artifact did not use the
+  accelerator, or the timing is invented.
+- `device` starting with `cpu`: the rate must be **> 0.2 tok/s** and
+  **≤ 1000 tok/s**. A CPU run cannot reach GPU rates, so a rate above the
+  ceiling is an invented timing wearing a `"cpu"` label.
+
+This is the one gate whose rule depends on the artifact's own claim, which
+is why it is two-sided: a bundle can lie about the device in either
+direction, and only one of the two lies is caught by a floor alone.
 
 ### Gate 5 — `judge_intact`
 
