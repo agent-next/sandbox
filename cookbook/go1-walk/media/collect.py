@@ -37,6 +37,11 @@ def main():
                                    if name == "untrained" else None))
                 v = checked_verdict(rep)
                 assert v["ok"] == (name == "trained"), f"unexpected {name} verdict"
+                if name == "untrained":
+                    contents = lease.fetch_file(
+                        "~/go1mutants/mutants/random-init/policy.npz")
+                    assert hashlib.sha256(contents).hexdigest() == v["policy_sha256"]
+                    (data / "untrained-policy.npz").write_bytes(contents)
                 (data / f"{name}.json").write_text(json.dumps(v, indent=2, sort_keys=True) + "\n")
                 for seed in (101, 202, 303):
                     contents = lease.fetch_file(f"~/go1judge/traces/seed-{seed}.npz")

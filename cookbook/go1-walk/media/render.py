@@ -55,7 +55,7 @@ def visual_model():
     ET.SubElement(asset, "texture", name="tiles", type="2d", builtin="checker",
                   rgb1=".48 .57 .61", rgb2=".65 .71 .73", width="256", height="256")
     ET.SubElement(asset, "material", name="ground", texture="tiles",
-                  texrepeat="2 2", texuniform="true", reflectance=".08")
+                  texrepeat="2 2", texuniform="true", reflectance="0")
     world = root.find("worldbody")
     ET.SubElement(world, "light", pos="-2 -3 5", dir=".3 .4 -1",
                   diffuse=".9 .85 .75", specular=".5 .5 .5",
@@ -91,6 +91,15 @@ class Replay:
     def __init__(self, model, name, seed):
         self.name, self.seed, self.model = name, seed, model
         self.verdict = json.loads((DATA / f"{name}.json").read_text())
+        checkpoint = DEMO / "examples/good/policy.npz" if name == "trained" \
+            else DATA / "untrained-policy.npz"
+        assert sha(checkpoint) == self.verdict["policy_sha256"], \
+            "checkpoint differs from the graded media source"
+        assert self.verdict["judge_intact"] and self.verdict["backend"] == "mujoco-cpu-float64"
+        assert self.verdict["ok"] == (name == "trained"), "incorrect PASS/FAIL caption"
+        evaluation = self.verdict["eval"]
+        assert evaluation["episodes_per_seed"] == 64 and evaluation["steps"] == 500
+        assert evaluation["cmd"] == [1.0, 0.0, 0.0] and evaluation["mass_scale"] == 1.0
         path = DATA / f"{name}-{seed}.npz"
         assert sha(path) == self.verdict["traces"][str(seed)], "trace hash mismatch"
         with np.load(path, allow_pickle=False) as z:
@@ -101,10 +110,14 @@ class Replay:
             self.metrics = json.loads(str(z["metrics"]))
             initial_qpos, final_qpos, final_alive = z["initial_qpos"], z["final_qpos"], z["final_alive"]
             assert int(z["episode"]) == 0
+        graded = next(r for r in self.verdict["runs"]
+                      if r["seed"] == seed and r["policy"] == "under_test")
+        assert self.metrics == {k: v for k, v in graded.items() if k not in ("seed", "policy")}
         assert self.qpos.shape == (501, 1, 19)
         # Episode 0 is fixed a priori, never selected for a flattering gait.
         self.episode = 0
         self.data = mujoco.MjData(model)
+        self.light_positions = model.light_pos.copy()
         self.option = mujoco.MjvOption()
         self.option.geomgroup[:] = 1  # The shipped robot uses collision group 3.
         self.camera = mujoco.MjvCamera()
@@ -131,6 +144,10 @@ class Replay:
         self.data.qpos[:] = state
         self.data.qvel[:] = self.qvel[index, self.episode]
         self.data.time = index * .02
+        # Directional shadow maps are centred on the light, not the camera.
+        # Follow the robot so its shadow remains visible after metres of travel.
+        self.model.light_pos[:] = self.light_positions
+        self.model.light_pos[:, :2] += state[:2]
         mujoco.mj_forward(self.model, self.data)
         assert_state(self.data.qpos, state, f"{self.name} seed {self.seed} frame {index}")
         assert_state(self.data.qvel, self.qvel[index, self.episode], "qvel replay")
@@ -182,7 +199,7 @@ def loop():
     curve = json.loads((DEMO / "examples/good/curve.json").read_text())["curve"]
     history = json.loads((DEMO / "examples/good/loop.json").read_text())["iterations"]
     test = json.loads((DATA / "selftest.json").read_text())
-    image = Image.new("RGB", (2400, 1600), WHITE)
+    image = Image.new("RGB", (2400, max(1600, 1030 + 140 * len(history))), WHITE)
     draw = ImageDraw.Draw(image)
     text(image, (60, 30), "PPO training, independent judge, real mutation test", 46, bold=True)
     text(image, (60, 105), "Training reward is not acceptance. Only fresh held-out simulation decides PASS.", 30, MUTED)
@@ -204,15 +221,15 @@ def loop():
     text(image, (930, 740), str(curve[-1]["it"]), 25)
     text(image, (60, 845), "Judge result per agent-loop iteration", 32, bold=True)
     for i, entry in enumerate(history):
-        y = 920 + i * 180
+        y = 920 + i * 140
         v = entry["verdict"]
         m = v["measured"]
         count = sum(g["pass"] for g in v["gates"].values())
         text(image, (60, y), f"Iteration {entry['iteration']}  /  {entry['change']}", 27, bold=True)
-        draw.rectangle((60, y+53, 60+count*155, y+78),
+        draw.rectangle((60, y+43, 60+count*155, y+63),
                        fill=GREEN if v["ok"] else ORANGE)
-        text(image, (860, y+43), f"{count}/5 gates", 26)
-        text(image, (60, y+98),
+        text(image, (860, y+35), f"{count}/5 gates", 26)
+        text(image, (60, y+78),
              f"{m['mean_forward_mps']:.3f} m/s • falls {m['fall_rate']:.1%} • "
              f"{'PASS' if v['ok'] else 'FAIL'}", 26)
     rate = test["kill_rate"]
@@ -227,48 +244,141 @@ def loop():
         text(image, (1190, y), name, 28, bold=True)
         gates = ", ".join(g.split("_")[0].upper() for g in row["failed_gates"])
         text(image, (1740, y), "KILLED: " + gates, 25, GREEN)
-    text(image, (60, 1515), "Same checkpoint + same seeds: byte-identical verdicts outside timing.", 30, MUTED)
+    text(image, (60, image.height - 85),
+         "Same checkpoint + same seeds: byte-identical verdicts outside timing.", 30, MUTED)
     image.save(HERE / "loop.png", dpi=(200, 200))
 
 
 def video(replays):
-    command = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
-               "-s", "1920x1080", "-r", "30", "-i", "-", "-an", "-c:v", "libx264",
-               "-threads", "2", "-crf", "0", "-preset", "ultrafast", "-pix_fmt", "yuv444p",
-               "-map_metadata", "-1", str(HERE / "master/demo.mp4")]
-    with subprocess.Popen(command, stdin=subprocess.PIPE) as encoder:
-        try:
-            for seed in (101, 202, 303):
-                for frame in range(300):
-                    index = round((frame / 30) / .02)
-                    image = Image.new("RGB", (1920, 1080), WHITE)
-                    text(image, (36, 20), "Go1 / from random weights to walking", 46, bold=True)
-                    text(image, (36, 85), f"Seed {seed} • episode 0 • t={index*.02:.2f} s • readouts: 64-episode judge averages",
-                         29, MUTED)
-                    for x, name in ((0, "trained"), (960, "untrained")):
-                        replay = replays[name, seed]
-                        image.paste(replay.frame(index), (x, 170))
-                        text(image, (x+28, 128), "TRAINED / PASS" if name == "trained" else "RANDOM INIT / FAIL",
-                             31, GREEN if name == "trained" else ORANGE, True)
-                        text(image, (x+28, 960), readout(replay)[0], 28)
-                        text(image, (x+28, 1007), readout(replay)[1], 28,
-                             GREEN if name == "trained" else ORANGE)
-                        if replay.first_fall is not None and index >= replay.first_fall:
-                            text(image, (x+590, 128), "FALL / terminated", 25, ORANGE)
+    """Cut lossless simulator clips, then concatenate without re-encoding."""
+    clips = HERE / "clips"
+    clips.mkdir(exist_ok=True)
+    curve = json.loads((DEMO / "examples/good/curve.json").read_text())
+    test = json.loads((DATA / "selftest.json").read_text())
+    measured = replays["trained", 101].verdict["measured"]
+    scenes = (("hook", 60), ("spec", 180), ("compare-202", 180),
+              ("compare-303", 180), ("proof", 210), ("end", 90))
+    end_background = None
+    global_frame = 0
+
+    def view(name, seed, index, width, height, azimuth=120, distance=1.45):
+        replay = replays[name, seed]
+        if replay.renderer is not None and (
+                replay.renderer.width != width or replay.renderer.height != height):
+            replay.close()
+        replay.camera.azimuth, replay.camera.distance = azimuth, distance
+        return replay.frame(index, width, height)
+
+    def panel(image, box):
+        layer = Image.new("RGBA", image.size)
+        ImageDraw.Draw(layer).rounded_rectangle(box, radius=20, fill=(244, 248, 251, 235))
+        image.paste(layer, (0, 0), layer)
+
+    for scene, count in scenes:
+        command = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                   "-s", "1920x1080", "-r", "30", "-i", "-", "-an", "-c:v", "libx264",
+                   "-threads", "2", "-crf", "0", "-preset", "ultrafast", "-pix_fmt", "yuv444p",
+                   "-map_metadata", "-1", str(clips / f"{scene}.mp4")]
+        with subprocess.Popen(command, stdin=subprocess.PIPE) as encoder:
+            try:
+                for frame in range(count):
+                    index = round(frame / 30 / .02)
+                    if scene in ("hook", "proof"):
+                        image = view("trained", 101, index, 1920, 1080,
+                                     120 + 12 * frame / count, 1.7 if scene == "proof" else 1.45)
+                        if scene == "hook":
+                            panel(image, (24, 18, 1350, 190))
+                            text(image, (50, 32), "4 GiB → Go1 learns to walk", 64, bold=True)
+                            text(image, (50, 112),
+                                 f"{measured['mean_forward_mps']:.3f} m/s • {measured['fall_rate']:.1%} falls • held-out judge", 58, GREEN)
+                        else:
+                            end_background = image.copy()
+                            panel(image, (20, 15, 1900, 120))
+                            text(image, (45, 28), f"Judge PASS • all {test['total']} mutants rejected", 64, GREEN, True)
+                            panel(image, (20, 145, 635, 1055))
+                            panel(image, (1320, 145, 1900, 1055))
+                            text(image, (45, 166), "Five policy gates", 60, bold=True)
+                            rows = (("Speed ≥ 0.500", f"{measured['mean_forward_mps']:.3f} m/s"),
+                                    ("Falls ≤ 5%", f"{measured['fall_rate']:.1%}"),
+                                    ("Torque sat ≤ 15%", f"{measured['max_sat_frac']:.2%}"),
+                                    ("Margin ≥ 0.30", f"{measured['mean_forward_mps'] - measured['best_baseline_forward_mps']:.3f} m/s"),
+                                    ("Same seed", "Identical"))
+                            for i, (rule, value) in enumerate(rows):
+                                y = 265 + 150*i
+                                text(image, (45, y), rule, 60)
+                                text(image, (45, y+64), value, 64, GREEN, True)
+                            text(image, (1345, 162), f"{test['killed']}/{test['total']} killed", 64, GREEN, True)
+                            labels = {"short-training": "short training", "reward-flipped": "reward −vx",
+                                      "random-init": "random init", "zero-output": "zero",
+                                      "negated-output": "negated", "shuffled-output": "shuffled",
+                                      "noisy-weights": "noisy", "weak-output": "weak", "mass2x": "mass ×2"}
+                            for i, (name, row) in enumerate(test["mutants"].items()):
+                                assert row["failed_gates"], "a crash is not a mutation kill"
+                                text(image, (1345, 250+i*70), "× " + labels.get(name, name),
+                                     60, ORANGE, True)
+                    elif scene == "spec":
+                        image = Image.new("RGB", (1920, 1080), WHITE)
+                        image.paste(view("trained", 101, index+100, 1240, 1080,
+                                         132 + 15*frame/count), (680, 0))
+                        for y, value in ((35, "PPO → WALK"), (140, "4 GiB GPU slice"),
+                                         (235, "vx = 1.0 m/s"), (330, "Held-out seeds"),
+                                         (410, "101 / 202 / 303")):
+                            text(image, (35, y), value, 60, bold=y == 35)
+                        panel(image, (705, 20, 1400, 115))
+                        text(image, (730, 30), "Final policy / seed 101", 52, GREEN, True)
+                        speed = curve["train_wall_s"] / (count/30)
+                        text(image, (35, 560), "PPO telemetry", 60, bold=True)
+                        text(image, (35, 640), f"{speed:.0f}× overview", 60, MUTED)
+                        values = curve["curve"]
+                        visible = [r for r in values if
+                                   r["wall_s"] <= curve["train_wall_s"]*(frame+1)/count]
+                        lo = min(r["mean_reward"] for r in values)
+                        hi = max(r["mean_reward"] for r in values)
+                        points = [(45+580*r["it"]/values[-1]["it"],
+                                   900-150*(r["mean_reward"]-lo)/(hi-lo)) for r in visible]
+                        ImageDraw.Draw(image).line(points, fill="#0072b2", width=6)
+                        text(image, (35, 950), f"{values[-1]['it']} recorded iterations", 48, MUTED)
+                    elif scene.startswith("compare-"):
+                        seed = int(scene.split("-")[1])
+                        index = round(frame / 30 * (10/6) / .02)
+                        image = Image.new("RGB", (1920, 1080), WHITE)
+                        text(image, (30, 18), f"Seed {seed} • 1.67× speed • exact scored states", 60, bold=True)
+                        for x, name in ((0, "trained"), (960, "untrained")):
+                            replay = replays[name, seed]
+                            image.paste(view(name, seed, index, 960, 740,
+                                             120 if seed == 202 else 55), (x, 170))
+                            color = GREEN if name == "trained" else ORANGE
+                            text(image, (x+25, 100), "TRAINED / PASS" if name == "trained" else "RANDOM INIT / FAIL",
+                                 58, color, True)
+                            text(image, (x+25, 920), f"{replay.metrics['forward_mps']:.3f} m/s  |  ≥ 0.500", 60)
+                            text(image, (x+25, 1000), f"Falls {replay.metrics['fall_rate']:.0%}  |  ≤ 5%", 60, color)
+                            if replay.first_fall is not None and index >= replay.first_fall:
+                                panel(image, (x+12, 185, x+730, 280))
+                                text(image, (x+30, 195), "FALL / state frozen", 56, ORANGE, True)
+                    else:
+                        assert end_background is not None
+                        image = end_background.copy()
+                        panel(image, (20, 740, 1900, 1060))
+                        text(image, (50, 765), "Train it. Grade it. Destroy the lease.", 64, bold=True)
+                        text(image, (50, 870), "python3 cookbook/go1-walk/run.py", 72, GREEN, True)
+                        text(image, (50, 980), "MuJoCo-Warp PPO / independent CPU MuJoCo judge", 48, MUTED)
                     assert image.size == (1920, 1080)
                     encoder.stdin.write(image.tobytes())
-                    # Full-size PNGs are actual video frames for the human review.
-                    global_frame = (0 if seed == 101 else 300 if seed == 202 else 600) + frame
-                    if global_frame in (0, 30, 120, 330, 750):
+                    if global_frame in (0, 30, 120, 330, 750, 840):
                         image.save(HERE / "work" / f"frame-{global_frame:04}.png")
-                for name in ("trained", "untrained"):
-                    replays[name, seed].close()
-            encoder.stdin.close()
-            if encoder.wait() != 0:
-                raise RuntimeError("lossless master encode failed")
-        except BaseException:
-            encoder.kill()
-            raise
+                    global_frame += 1
+                encoder.stdin.close()
+                if encoder.wait() != 0:
+                    raise RuntimeError(f"lossless clip encode failed: {scene}")
+            except BaseException:
+                encoder.kill()
+                raise
+        for replay in replays.values():
+            replay.close()
+    listing = clips / "concat.txt"
+    listing.write_text("".join(f"file '{name}.mp4'\n" for name, _ in scenes))
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
+                    "-i", str(listing), "-c", "copy", str(HERE / "master/demo.mp4")], check=True)
 
 
 def main():
@@ -288,6 +398,7 @@ def main():
     report = {"frames": 900, "duration_s": 30, "width": 1920, "height": 1080,
               "fps": 30, "backend": os_backend(),
               "graphics": GRAPHICS,
+              "lighting": "render-only world lights follow robot xy for shadow-map coverage",
               "state_checks": {f"{n}-{s}": r.checked for (n, s), r in replays.items()},
               "episode_selection": "episode 0, fixed before grading",
               "model_sha256": sha(DEMO / "model/go1_meshless.xml"),

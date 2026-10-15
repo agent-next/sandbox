@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 import mujoco
 import numpy as np
@@ -56,13 +57,21 @@ class MediaTests(unittest.TestCase):
                 render.assert_state(replay.data.qpos, replay.qpos[0, 0], "initial state")
                 replay.close()
 
+    def test_replay_rejects_a_changed_checkpoint(self):
+        model = render.visual_model()
+        original = render.sha
+        with patch.object(render, "sha", side_effect=lambda path:
+                          "changed" if path.name == "policy.npz" else original(path)):
+            with self.assertRaisesRegex(AssertionError, "checkpoint differs"):
+                render.Replay(model, "trained", 101)
+
     def test_media_contract_and_checks(self):
         manifest = json.loads((HERE / "MANIFEST.json").read_text())
         video = manifest["video"]
         self.assertEqual((video["width"], video["height"], video["fps"]), (1920, 1080, 30))
         self.assertEqual(video["duration_s"], 30)
         self.assertLess(video["bytes"], 8_000_000)
-        self.assertGreaterEqual(sum(manifest["render"]["state_checks"].values()), 1806)
+        self.assertGreaterEqual(sum(manifest["render"]["state_checks"].values()), 1176)
         self.assertTrue(manifest["render"]["graphics"]["renderer"])
         for name, digest in manifest["source_sha256"].items():
             self.assertEqual(hashlib.sha256((HERE.parent / name).read_bytes()).hexdigest(),

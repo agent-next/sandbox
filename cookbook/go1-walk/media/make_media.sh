@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 MEDIA="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODE="${1:-}"
+if [ "$#" -gt 1 ] || { [ -n "$MODE" ] && [ "$MODE" != "--render-only" ]; }; then
+    echo "usage: make_media.sh [--render-only]" >&2
+    exit 2
+fi
 mkdir -p "$MEDIA/.tools" "$MEDIA/work" "$MEDIA/data" "$MEDIA/master"
 for tool in python3 ffmpeg ffprobe; do
     command -v "$tool" >/dev/null || { echo "Missing $tool" >&2; exit 1; }
@@ -11,8 +16,13 @@ if [ ! -x "$PY" ]; then python3 -m venv "$MEDIA/.tools/venv"; fi
 "$PY" -m pip install --quiet --require-hashes -r "$MEDIA/requirements.lock"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 export PYTHONHASHSEED=0
-echo "== independent grade, real self-test, exact trajectories =="
-python3 "$MEDIA/collect.py"
+if [ "$MODE" != "--render-only" ]; then
+    echo "== independent grade, real self-test, exact trajectories =="
+    python3 "$MEDIA/collect.py"
+else
+    echo "== reuse hash-verified judge states (no new grade) =="
+fi
+export GO1_MEDIA_COMMAND="bash cookbook/go1-walk/media/make_media.sh${MODE:+ $MODE}"
 export MUJOCO_GL=egl
 PROBE='import mujoco; m=mujoco.MjModel.from_xml_string("<mujoco/>"); r=mujoco.Renderer(m,64,64); r.close()'
 if ! "$PY" -c "$PROBE" > "$MEDIA/work/egl.log" 2>&1; then
@@ -26,7 +36,7 @@ ffmpeg -y -v error -threads 2 -i "$MEDIA/master/demo.mp4" \
     -c:v libx264 -threads 2 -crf 18 -preset slow -pix_fmt yuv420p \
     -movflags +faststart -map_metadata -1 -an "$MEDIA/demo.mp4"
 # Inspect decoded web frames, not only the uncompressed render inputs.
-for moment in 0 1 4 11 25; do
+for moment in 0 1 4 11 25 28; do
     ffmpeg -y -v error -threads 2 -ss "$moment" -i "$MEDIA/demo.mp4" \
         -frames:v 1 -threads 2 "$MEDIA/work/review-${moment}s.png"
 done
