@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 JDIR = Path(__file__).resolve().parent
@@ -345,7 +346,7 @@ def gate_integrity(artifact: Path, work: Path) -> Gate:
             gate.fail(f"digest.py imports {name} — the artifact cannot use "
                       "the judge's code", imports=name)
             return gate
-    gate.note(copied_to=str(artifact), judge_untouched=True)
+    gate.note(copied_to="<temp>/artifact", judge_untouched=True)
     return gate
 
 
@@ -413,28 +414,6 @@ class _ShimTransport:
         return self._state
 
 
-class _ShimTransport:
-    """Minimal state tracker so the sbx shims can be driven inside the judge."""
-
-    def __init__(self, client, *, pause_seconds: float):
-        self.client = client
-        self._state = PAUSED
-
-    def wait_for_fire(self, when: str) -> None:
-        return None
-
-    def resume(self) -> None:
-        sbx_resume(self.client, "fake-sbx")
-        self._state = RUNNING
-
-    def pause_via(self, fn, client) -> None:
-        fn(client, "fake-sbx")
-        self._state = PAUSED
-
-    def state(self) -> str:
-        return self._state
-
-
 def grade(artifact_dir: Path, seed: int = DEFAULT_SEED) -> dict:
     """Grade one artifact directory; returns the verdict dict."""
     artifact_src = Path(artifact_dir).resolve()
@@ -445,7 +424,9 @@ def grade(artifact_dir: Path, seed: int = DEFAULT_SEED) -> dict:
                     "reason": f"missing {needed} in {artifact_src}"}
 
     verdict = {"artifact": str(artifact_dir), "seed": seed,
-               "gates": {}, "passed": True, "failed_gate": None, "reason": ""}
+               "gates": {}, "passed": True, "failed_gate": None, "reason": "",
+               "timing": {}}
+    t0 = time.monotonic()
 
     with tempfile.TemporaryDirectory(prefix="digest-judge-") as tmp:
         work = Path(tmp)
@@ -481,6 +462,7 @@ def grade(artifact_dir: Path, seed: int = DEFAULT_SEED) -> dict:
                 verdict["reason"] = gates[name].reason
                 break
 
+    verdict["timing"]["wall_seconds"] = round(time.monotonic() - t0, 3)
     return verdict
 
 
