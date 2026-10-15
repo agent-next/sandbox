@@ -1,35 +1,35 @@
 # RECEIPT — `cookbook/ci-test-matrix/`
 
-Real command output from three fresh-sandbox acceptance runs, pasted as
-produced. All runs are the committed head of this branch, run the exact way
-the lead does:
+Real command output from four fresh-sandbox acceptance runs, pasted as
+produced. Run 4 is the exact committed head of this branch (`36eea06`); runs
+1–3 predate only doc-only commits (measured interpreter patches, RECEIPT +
+REPRODUCE) that do not change any judged behaviour. All runs use the exact
+way the lead does:
 
 ```bash
 python3 cookbook/ci-test-matrix/run.py --ref <this-branch>
 ```
 
-from outside, in a disposable agent-next sandbox. Runs 1–2 predate only the
-doc-only commit that records the measured interpreter patches; run 3 is the
-exact committed head (`3d532e0`). Every run printed the same verdict JSON
-byte-for-byte except the `timing.wall_s` field.
+from outside, in a disposable agent-next sandbox. Every run printed the same
+verdict JSON byte-for-byte except the `timing.wall_s` field.
 
-| | RUN 1 | RUN 2 | RUN 3 |
-|---|---|---|---|
-| `sbx create --timeout-min 30` | exit 0, 4.4 s | exit 0, 5.0 s | exit 0, 4.0 s |
-| `git clone --depth 1` | exit 0, 7.1 s | exit 0, 9.5 s | exit 0, 6.0 s |
-| `judge/setup.sh` | exit 0, 10.2 s | exit 0, 11.7 s | exit 0, 6.0 s |
-| `judge/selftest.sh` | exit 0, 328.5 s | exit 0, 267.7 s | exit 0, 299.5 s |
-| `judge/grade.sh examples/good` | exit 0, 31.5 s | exit 0, 24.5 s | exit 0, 35.8 s |
-| verdict | **PASS** | **PASS** | **PASS** |
-| kill rate | 9/9 = 100 % | 9/9 = 100 % | 9/9 = 100 % |
-| mask on | `[fail, pass, pass, pass, pass]` | same | same |
-| mask off | `[pass, pass, pass, pass, pass]` | same | same |
-| tests per cell | 7 (6 executed + 1 toggle-skipped) | 7 | 7 |
-| exit codes (on/off) | 1 / 0 | 1 / 0 | 1 / 0 |
-| interpreter stamps | 3.9.25, 3.10.21, 3.11.2, 3.12.14, 3.13.15 | same | same |
-| cleanup | killed + confirmed gone | killed + confirmed gone | killed + confirmed gone |
+| | RUN 1 | RUN 2 | RUN 3 | RUN 4 |
+|---|---|---|---|---|
+| `sbx create --timeout-min 30` | exit 0, 4.4 s | exit 0, 5.0 s | exit 0, 4.0 s | exit 0, 3.9 s |
+| `git clone --depth 1` | exit 0, 7.1 s | exit 0, 9.5 s | exit 0, 6.0 s | exit 0, 7.6 s |
+| `judge/setup.sh` | exit 0, 10.2 s | exit 0, 11.7 s | exit 0, 6.0 s | exit 0, 7.4 s |
+| `judge/selftest.sh` | exit 0, 328.5 s | exit 0, 267.7 s | exit 0, 299.5 s | exit 0, 261.2 s |
+| `judge/grade.sh examples/good` | exit 0, 31.5 s | exit 0, 24.5 s | exit 0, 35.8 s | exit 0, 25.3 s |
+| verdict | **PASS** | **PASS** | **PASS** | **PASS** |
+| kill rate | 9/9 = 100 % | 9/9 = 100 % | 9/9 = 100 % | 9/9 = 100 % |
+| mask on | `[fail, pass, pass, pass, pass]` | same | same | same |
+| mask off | `[pass, pass, pass, pass, pass]` | same | same | same |
+| tests per cell | 7 (6 executed + 1 toggle-skipped) | 7 | 7 | 7 |
+| exit codes (on/off) | 1 / 0 | 1 / 0 | 1 / 0 | 1 / 0 |
+| interpreter stamps | 3.9.25, 3.10.21, 3.11.2, 3.12.14, 3.13.15 | same | same | same |
+| cleanup | killed + confirmed gone | killed + confirmed gone | killed + confirmed gone | killed + confirmed gone |
 
-`diff` of the three verdicts (excluding `timing`): **no differences**.
+`diff` of all four verdicts (excluding `timing`): **no differences**.
 
 ## Tool versions (from `judge/VERSIONS.txt`)
 
@@ -40,14 +40,14 @@ byte-for-byte except the `timing.wall_s` field.
 - pytest 8.4.2 + pinned wheels from `judge/requirements.txt` (all
   `--require-hashes`).
 
-## Full run-3 transcript (the committed head `3d532e0`)
+## Full run-4 transcript (the committed head `36eea06`)
 
 ```text
-run: [   4.0s] sbx create --timeout-min 30 -> exit 0
-run: sandbox 01a1405c-7608-79f3-afd5-db7bd8c592a7
-run: [   6.0s] git clone -> exit 0
-run: [   6.0s] judge/setup.sh -> exit 0
-run: [ 299.5s] judge/selftest.sh -> exit 0
+run: [   3.9s] sbx create --timeout-min 30 -> exit 0
+run: sandbox 01a1406f-b4af-7b40-8309-582fb328e0fb
+run: [   7.6s] git clone -> exit 0
+run: [   7.4s] judge/setup.sh -> exit 0
+run: [ 261.2s] judge/selftest.sh -> exit 0
 == selftest: known-good artifact ==
 known-good: PASS (expected)
 == selftest: generating known-bad mutants ==
@@ -67,11 +67,11 @@ kill rate: 9/9 (100%)
 == selftest: determinism (grade the good artifact twice with --seed 42) ==
 determinism: PASS (two --seed 42 runs identical excluding "timing")
 selftest: PASS
-run: [  35.8s] judge/grade.sh examples/good -> exit 0
+run: [  25.3s] judge/grade.sh examples/good -> exit 0
 {
   "verdict": "PASS",
   "timing": {
-    "wall_s": 29.0
+    "wall_s": 20.5
   },
   "gates": {
     "parse": {
@@ -144,26 +144,26 @@ run: [  35.8s] judge/grade.sh examples/good -> exit 0
 }
 run: SUMMARY verdict=PASS mask_on=['fail', 'pass', 'pass', 'pass', 'pass'] mask_off=['pass', 'pass', 'pass', 'pass', 'pass'] tests_per_cell=7 exit_codes={'on': 1, 'off': 0}
 run: failing cell(s): 3.9 (expected: exactly 3.9, the match-syntax SyntaxError)
-run: killed and confirmed gone: 01a1405c-7608-79f3-afd5-db7bd8c592a7
+run: killed and confirmed gone: 01a1406f-b4af-7b40-8309-582fb328e0fb
 ```
 
 ## Cleanup confirmation
 
 Every run killed its sandbox and confirmed it was gone (`sbx list` no longer
-contained the id) before `run.py` exited 0. Runs 1–3 created and destroyed
+contained the id) before `run.py` exited 0. Runs 1–4 created and destroyed
 sandboxes `01a1404b-0ffe-7dd0-a5a0-261997592c96`,
-`01a14054-61a6-7bc1-a3f9-9d26e21c9785`, `01a1405c-7608-79f3-afd5-db7bd8c592a7`
-respectively; none remain in `sbx list`. The fail-closed cleanup path was
-additionally proven with a mock `sbx` shim: when `sbx kill` and `sbx list`
-exit non-zero (the reviewer's 503-blip repro), `run.py` exits 1 and prints
+`01a14054-61a6-7bc1-a3f9-9d26e21c9785`, `01a1405c-7608-79f3-afd5-db7bd8c592a7`,
+`01a1406f-b4af-7b40-8309-582fb328e0fb` respectively; none remain in `sbx
+list`. The fail-closed cleanup path was additionally proven with a mock `sbx`
+shim: when `sbx kill` and `sbx list` exit non-zero (the reviewer's 503-blip
+repro), `run.py` exits 1 and prints
 `run: FAILED cleanup: sbx kill exit 1, sbx list exit 2; run sbx kill <id>`
 instead of claiming success.
 
 ## Deviations
 
-- `judge/setup.sh` may be near-instant (`~0 s`) because some base images
-  already carry the pinned uv; a cold cache downloads and sha256-checks the
-  tarball. This is expected per `README.md`.
+- `judge/setup.sh` measures 6.0–11.7 s across the four runs (the `sbx exec`
+  round-trip plus the sha256-pinned uv download when the cache is cold).
 - Interpreter patches are what uv fetched on 2026-10-15 (`3.11.2`, not the
   `3.11.16` an earlier draft claimed); `judge/VERSIONS.txt` records the
   measured set. The judge grades major.minor identity, per SPEC.md.
