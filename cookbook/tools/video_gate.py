@@ -25,6 +25,13 @@ test_video_gate.py):
   signalstats YAVG on the same frame).
 * scene cuts: ffmpeg select='gt(scene,0.3)' + showinfo; one pts_time line per
   selected frame. A solid colour yields zero lines, so the rate is 0/min.
+* motion: per-frame signalstats YDIF on a 640-px-wide downscale, outside the
+  end window; a frame "moves" when YDIF >= 1.0. The check is the moving
+  fraction. Calibration (2026-10-15, same measurement): 34 viral X demo
+  videos median 0.49, 28/34 >= 0.20; the 10 committed demos (slides and
+  stills between cuts) 0.00-0.05; a slow Ken-Burns zoom on a still 0.00
+  (YDIF ~0.4 per frame); testsrc2 1.00. The floor 0.20 passes 82 % of the
+  viral set and none of the slide-style videos.
 * end card: mean signalstats YDIF (frame-to-frame luma difference) over the
   final 2 s. Calibration: static tail 0.000-0.0002, committed demo tails
   0.000-0.0002, continuously moving tail ~1.9, a cut inside the window ~1.7;
@@ -60,6 +67,9 @@ FIRST_FRAME_MIN_LUMA_STD = 12.0
 FIRST_FRAME_MIN_SPREAD = 8.0  # luma max-min; a solid colour has spread 0
 SCENE_CUT_MIN_PER_10S = 0.8
 END_WINDOW_S = 2.0
+MOTION_SCALE_WIDTH = 640
+MOTION_YDIF = 1.0
+MOTION_MIN_FRACTION = 0.20
 ENDCARD_MAX_MEAN_YDIF = 0.5
 
 
@@ -242,6 +252,40 @@ def endcard_mean_ydif(path: str, duration: float) -> float:
     return statistics.mean(values)
 
 
+def motion_fraction(path: str, duration: float) -> float:
+    """Share of frames before the end window whose YDIF >= MOTION_YDIF."""
+    proc = _run(
+        [
+            "ffmpeg", "-v", "info", "-i", path,
+            "-vf", f"scale={MOTION_SCALE_WIDTH}:-2,signalstats,metadata=print:file=-",
+            "-an", "-f", "null", "-",
+        ]
+    )
+    if proc.returncode != 0:
+        raise GateError(
+            f"motion measurement failed: {_text(proc.stderr).strip()[:400]}"
+        )
+    frames, pts = [], None
+    for line in (_text(proc.stdout) + _text(proc.stderr)).splitlines():
+        if line.startswith("frame:") and "pts_time:" in line:
+            try:
+                pts = float(line.split("pts_time:")[1].split()[0])
+            except ValueError:  # NOPTS
+                pts = None
+        elif "lavfi.signalstats.YDIF=" in line and pts is not None:
+            frames.append((pts, float(line.rsplit("=", 1)[1])))
+    if not frames:
+        raise GateError("no YDIF frames measured")
+    # Timestamps are taken relative to the first video frame (a stream can
+    # start after 0, e.g. video delayed behind audio); the first frame has no
+    # predecessor, so its YDIF is skipped.
+    start, end = frames[0][0], duration - END_WINDOW_S
+    values = [v for t, v in frames[1:] if t - start < end]
+    if not values:
+        return 0.0
+    return sum(v >= MOTION_YDIF for v in values) / len(values)
+
+
 # --- verdict ------------------------------------------------------------------
 
 
@@ -372,6 +416,17 @@ def judge(path: str) -> dict:
             cut_rate,
             f">= {SCENE_CUT_MIN_PER_10S:g}",
             cut_rate >= SCENE_CUT_MIN_PER_10S,
+        )
+    )
+
+    moving = motion_fraction(path, duration)
+    checks.append(
+        _check(
+            "motion_fraction",
+            moving,
+            f">= {MOTION_MIN_FRACTION:g} (frames with YDIF >= {MOTION_YDIF:g}, "
+            f"before the last {END_WINDOW_S:g} s)",
+            moving >= MOTION_MIN_FRACTION,
         )
     )
 

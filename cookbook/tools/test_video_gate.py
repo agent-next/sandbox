@@ -6,8 +6,11 @@ no binary is ever committed. The recipes:
 * bars/colour segments are static; `testsrc2` moves continuously
   (frame-to-frame YDIF ~1.9); hard cuts between segments score ~0.7 in
   select='gt(scene,0.3)' and are counted; solid colours score 0 cuts.
-* the passing recipe is hard cuts every few seconds ending on a static
-  SMPTE-bars end card; each defect below changes exactly one property of it.
+  `testsrc2` with negate or hue+vflip is a different-looking moving shot, so
+  cuts between the three variants count too.
+* the passing recipe is moving shots cut every few seconds, ending on a
+  static SMPTE-bars end card; each defect below changes exactly one property
+  of it. The slideshow defect is the same cut rhythm built from still frames.
 
 Run:  pytest -q -s cookbook/tools     (from the repo root; -s shows the
 baseline table for the committed demo.mp4 files)
@@ -35,7 +38,7 @@ def _encode(
     out: Path,
     segments: list[tuple[str, str | None]],
     size: str = HD,
-    crf: int = 28,
+    crf: int = 34,  # moving testsrc2 shots need it to stay under 8 MiB
     faststart: bool = True,
     audio: bool = False,
 ):
@@ -79,21 +82,32 @@ def _color(hexcolor: str, seconds: float, size: str = HD) -> str:
     return f"color=c={hexcolor}:duration={seconds}:size={size}:rate={RATE}"
 
 
+MOVING_LOOKS = [None, "negate", "hue=h=120,vflip"]
+
+
 def passing_segments(size: str = HD, first=None, tail=None):
-    """The baseline recipe: cuts every few seconds, static end card."""
+    """The baseline recipe: moving shots cut every few seconds, static end card."""
     if first is None:
         first = (_bars("smptehdbars", 4, size), None)
     if tail is None:
         tail = (_bars("smptebars", 5, size), None)
+    moving = [
+        (_bars("testsrc2", 4, size), MOVING_LOOKS[i % 3]) for i in range(6)
+    ]
+    return [first, *moving, tail]
+
+
+def slideshow_segments(size: str = HD):
+    """Same cut rhythm as the passing recipe, but every shot is a still."""
     return [
-        first,
+        (_bars("smptehdbars", 4, size), None),
         (_color("0x1E6FD9", 4, size), None),
         (_bars("smptebars", 4, size), None),
-        (_bars("testsrc2", 4, size), None),  # continuously moving
         (_color("0xD94A1E", 4, size), None),
         (_bars("smptehdbars", 4, size), None),
-        (_color("0x7A1E1E", 3, size), None),
-        tail,
+        (_color("0x7A1E1E", 4, size), None),
+        (_bars("smptebars", 4, size), None),
+        (_bars("smptebars", 5, size), None),
     ]
 
 
@@ -134,8 +148,9 @@ def defect_too_short(tmp_path_factory):
     out = tmp_path_factory.mktemp("short") / "too_short.mp4"
     segments = [
         (_bars("smptehdbars", 3), None),
-        (_color("0x1E6FD9", 3), None),
-        (_bars("smptebars", 4), None),
+        (_bars("testsrc2", 3), None),
+        (_bars("testsrc2", 4), "negate"),
+        (_bars("smptebars", 3), None),
     ]
     return _encode(out, segments)
 
@@ -146,7 +161,7 @@ def defect_no_cuts(tmp_path_factory):
     # One continuous moving scene, frozen for the last 4 s: no hard cut, so
     # the cut rate is 0 while the end card stays static.
     segments = [(_bars("testsrc2", 28), "tpad=stop_mode=clone:stop_duration=4")]
-    return _encode(out, segments, crf=34)  # testsrc2 needs a higher crf to fit 8 MiB
+    return _encode(out, segments)
 
 
 @pytest.fixture(scope="session")
@@ -154,6 +169,22 @@ def defect_moving_end(tmp_path_factory):
     out = tmp_path_factory.mktemp("movingend") / "moving_end.mp4"
     tail = (_bars("testsrc2", 5), None)  # moving tail instead of an end card
     return _encode(out, passing_segments(tail=tail))
+
+
+@pytest.fixture(scope="session")
+def defect_slideshow(tmp_path_factory):
+    out = tmp_path_factory.mktemp("slides") / "slideshow.mp4"
+    return _encode(out, slideshow_segments())
+
+
+@pytest.fixture(scope="session")
+def defect_ken_burns(tmp_path_factory):
+    out = tmp_path_factory.mktemp("kenburns") / "ken_burns.mp4"
+    # Slow zoom on stills between cuts: every frame changes a little
+    # (YDIF ~0.4), which is still a slide, not a moving result.
+    zoom = "zoompan=z='min(zoom+0.0008,1.3)':d=1:s=1920x1080:fps=30"
+    segments = [(src, zoom) for src, _ in slideshow_segments()[:-1]]
+    return _encode(out, [*segments, slideshow_segments()[-1]])
 
 
 @pytest.fixture(scope="session")
@@ -181,6 +212,8 @@ DEFECTS = {
     "defect_too_short": {"duration_s"},
     "defect_no_cuts": {"scene_cuts_per_10s"},
     "defect_moving_end": {"endcard_static"},
+    "defect_slideshow": {"motion_fraction"},
+    "defect_ken_burns": {"motion_fraction"},
     "defect_720p": {"width", "height"},
     "defect_no_faststart": {"faststart"},
     "defect_blank_first": {
@@ -207,7 +240,7 @@ def test_good_passes_every_check(good):
         "width", "height", "aspect_ratio", "duration_s", "fps", "codec",
         "pix_fmt", "size_mib", "faststart", "first_frame_luma_mean",
         "first_frame_luma_std", "first_frame_not_solid", "scene_cuts_per_10s",
-        "endcard_static", "audio",
+        "motion_fraction", "endcard_static", "audio",
     } == names
     audio = next(c for c in verdict["checks"] if c["name"] == "audio")
     assert audio["measured"] == "absent"  # audio optional: silence passes
@@ -282,8 +315,9 @@ def test_cli_exit_2_on_non_video(tmp_path):
 # --- committed demos: the known-fail baseline ----------------------------------
 # These videos predate the gate and are expected to fail while they are re-cut
 # to the standard. Every other committed demo must pass. Remove a name from
-# KNOWN_FAIL once its re-cut passes; never add one.
-KNOWN_FAIL = {"cfd-openfoam", "fea-calculix", "firmware-qemu", "gpu-kernel", "plc-st", "render-pathtrace", "sim-engine-arena", "spice-filter"}
+# KNOWN_FAIL once its re-cut passes; add one only in the change that adds a
+# new check (solidcraft-cad and taste-skill-landing: motion_fraction).
+KNOWN_FAIL = {"cfd-openfoam", "fea-calculix", "firmware-qemu", "gpu-kernel", "plc-st", "render-pathtrace", "sim-engine-arena", "solidcraft-cad", "spice-filter", "taste-skill-landing"}
 
 
 def test_committed_demo_baseline():
@@ -304,6 +338,21 @@ def test_committed_demo_baseline():
             must_pass.append(f"{name}: {', '.join(verdict['failed'])}")
     print("-" * len(header))
     assert not must_pass, "demos outside the known-fail baseline must pass: " + "; ".join(must_pass)
+
+
+def test_motion_window_ignores_a_video_start_offset(good, tmp_path):
+    # Video delayed 5 s behind audio: pts start at 5 s, the duration is
+    # unchanged, so the motion window must be measured from the first frame.
+    shifted = tmp_path / "shifted.mp4"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-itsoffset", "5", "-i", str(good),
+                    "-f", "lavfi", "-t", "5", "-i", "anullsrc=r=48000:cl=stereo",
+                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac",
+                    "-movflags", "+faststart", str(shifted)], check=True)
+    base = video_gate.judge(str(good))
+    moved = video_gate.judge(str(shifted))
+    fraction = {c["name"]: c["measured"] for c in base["checks"]}["motion_fraction"]
+    shifted_fraction = {c["name"]: c["measured"] for c in moved["checks"]}["motion_fraction"]
+    assert shifted_fraction == pytest.approx(fraction, abs=0.02)
 
 
 def test_non_square_pixels_judged_by_display_aspect(good, tmp_path):

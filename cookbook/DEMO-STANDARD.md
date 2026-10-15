@@ -54,10 +54,10 @@ Each demo ships what a visitor needs to *see* the result without running anythin
   - **0–2 s — hook:** the finished real result fills the frame. No title card, logo, terminal, or blank chart.
   - **2–10 s — input -> output:** the prompt, spec or photo beside the result it produced.
   - **10–35 s — escalate:** camera moves, close-ups, the result stressed — plus a sped-up process run of the agent in the sandbox, labelled "Nx speed".
-  - **then — proof:** the judge PASS verdict and the mutant kill matrix, in text large enough to read on a phone.
+  - **then — proof:** the judge PASS verdict and the mutant kill matrix as a HUD overlay on the still-moving result, large enough to read on a phone — never a text slide.
   - **last 2–3 s — end card:** the one-line launch (`python3 run.py` / the "Ask your agent" prompt) on a static frame.
 
-  Craft rules: at least 0.8 scene cuts per 10 s. Burned-in captions readable on a phone — cap height >= 4 % of frame height; terminal captures are cropped/zoomed to the active region. Engineering demos animate the physical thing (tank level, deforming part, waveform, flow particles) — not only plots of it. Every frame is real output from the pinned run; speed-ups are labelled; every number on screen traces to a RECEIPT command.
+  Craft rules: real animation, not slides. Every shot before the end card is moving real output — a simulation playing, a camera orbiting the model, a render converging, a waveform sweeping, the agent's screen recording; numbers and captions ride on top of it as a HUD. No text-only frames, slide decks, static screenshots or Ken-Burns pans over stills; only the end card is static. Make the clips first (`media/clips/*.mp4`, from the simulator, renderer or browser at 30 fps), then cut them. At least 0.8 scene cuts per 10 s. Burned-in captions readable on a phone — cap height >= 4 % of frame height; terminal captures are cropped/zoomed to the active region. Engineering demos animate the physical thing (tank level, deforming part, waveform, flow particles) — not only plots of it. Every frame is real output from the pinned run; speed-ups are labelled; every number on screen traces to a RECEIPT command.
 - Robot, physics and 3D-simulation demos: `demo.mp4` and the hero still in `result.png` are the simulator's own 3D render (e.g. MuJoCo `mujoco.Renderer` offscreen) of the exact trajectory the judge graded, with numbers and the pass line overlaid on the real frames. A matplotlib plot, stick figure or 2D drawing of the motion is not acceptable for these demos.
 - `media/REVIEW.json` — the two blind judge verdicts on `demo.mp4` (see Review panel).
 - `media/MANIFEST.json` — for each file: what it shows, the command that produced it, the source data file, sha256.
@@ -65,7 +65,7 @@ Each demo ships what a visitor needs to *see* the result without running anythin
 
 Figures show measured numbers only — never illustrative or invented data.
 
-`cookbook/tools/video_gate.py <demo.mp4>` mechanically checks the file-level rules above: >= 1920×1080 at 16:9, 25–60 s, 30 fps, H.264 yuv420p with faststart, <= 8 MB, a first frame that is not dark or a solid colour, >= 0.8 scene cuts per 10 s, and a static end card in the last 2 s. Caption size, hook content and the storyboard slots are judged by the review panel. A demo whose video fails the gate or the review panel is not done.
+`cookbook/tools/video_gate.py <demo.mp4>` mechanically checks the file-level rules above: >= 1920×1080 at 16:9, 25–60 s, 30 fps, H.264 yuv420p with faststart, <= 8 MB, a first frame that is not dark or a solid colour, >= 0.8 scene cuts per 10 s, at least 20 % of the frames before the end card moving (frame-to-frame luma difference >= 1.0 at 640 px wide; slide decks and Ken-Burns stills score ~0 %, viral X demo videos median 49 %), and a static end card in the last 2 s. Caption size, hook content and the storyboard slots are judged by the review panel. A demo whose video fails the gate or the review panel is not done.
 
 ## Launch
 

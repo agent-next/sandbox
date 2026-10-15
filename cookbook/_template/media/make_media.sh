@@ -8,11 +8,12 @@
 #   2-10 s      input -> output: the prompt/spec/photo beside the result
 #   10-35 s     escalate: camera moves, close-ups, the result stressed,
 #               plus a sped-up agent run in the sandbox labelled "Nx speed"
-#   then        proof: judge PASS + mutant kill matrix, in large text
+#   then        proof: judge PASS + mutant kill matrix as a HUD on moving footage
 #   last 2-3 s  end card: the one-line launch ("python3 run.py"), static
 #
 # Format: 16:9 master >= 1920x1080 (4K hero renders encouraged), 25-60 s,
-# 30 fps, >= 0.8 scene cuts per 10 s, caption cap height >= 4 % of frame
+# 30 fps, >= 0.8 scene cuts per 10 s, >= 20 % moving frames (real animation
+# from media/clips/*.mp4, no slides or stills), caption cap height >= 4 % of frame
 # height. Every frame is real output from the pinned run; every number
 # traces to RECEIPT.md. Check the encode with cookbook/tools/video_gate.py
 # and judge it blind via media/REVIEW.json (Review panel rule).
