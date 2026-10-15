@@ -64,9 +64,7 @@ echo "[selftest] Known-bad mutants (must FAIL):"
 KILLED=0; TOTAL=0
 declare -a SURVIVED=()
 for dir in "$BASE_DIR"/examples/bad/*/; do
-    m="$(basename "$dir")
-"
-    m="${m%$'\n'}"
+    m="$(basename "$dir")"
     [[ -f "$dir/scenario.py" ]] || continue
     TOTAL=$((TOTAL + 1))
     if "$GRADE_SH" "$dir/scenario.py" --json "$OUT/$m.json" >"$OUT/$m.log" 2>&1; then

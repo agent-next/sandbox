@@ -79,12 +79,15 @@ def main():
     # ---------------- Gate 3: free-fall ballistics ------------------------
     obs_top = opos[2] + osz[2] / 2
     z_bottom0 = cpos[2]
-    t_fall = float(np.sqrt(2 * (z_bottom0 - obs_top) / abs(g)))
+    if abs(g) > 1e-12:
+        t_fall = float(np.sqrt(2 * (z_bottom0 - obs_top) / abs(g)))
+    else:
+        t_fall = float("inf")
     t1, t2 = 2 * dt, 0.5 * t_fall
     ts = fr * dt
     mask = (ts >= t1) & (ts <= t2)
     n_fit = int(mask.sum())
-    if n_fit >= 20:
+    if n_fit >= 20 and np.isfinite(t_fall):
         zc = pos[mask].mean(axis=1)[:, 2]
         A = np.stack([np.ones_like(ts[mask]), ts[mask], 0.5 * ts[mask] ** 2], 1)
         coef, *_ = np.linalg.lstsq(A, zc, rcond=None)

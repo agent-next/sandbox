@@ -74,7 +74,7 @@ if [[ ! -f "$REQ_FILE" ]]; then
     log "ERROR: no pinned requirements file for python $PYVER ($REQ_FILE)"
     log "       this demo supports the python shipped with the agent-next"
     log "       sandbox image (currently 3.12); regenerate the lock with"
-    log "       judge/lock_requirements.sh on the matching version"
+    log "       pip freeze --all + hashes on the matching python version"
     exit 1
 fi
 # Default index (pypi.org) is used for everything; torch's cpu wheel is

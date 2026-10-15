@@ -31,6 +31,15 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ABS_ARTIFACT="$(cd "$(dirname "$ARTIFACT")" && pwd)/$(basename "$ARTIFACT")"
 
+# The toolchain lives in the venv created by judge/setup.sh; fall back to
+# PATH python3 so the script is still usable in an activated venv.
+VENV_PY="$HOME/.genesis-demo-venv/bin/python"
+if [[ -x "$VENV_PY" ]]; then
+    PY="$VENV_PY"
+else
+    PY="$(command -v python3)"
+fi
+
 echo "[grade] scenario   : $ABS_ARTIFACT"
 
 # Judge-integrity checksum (before)
@@ -50,10 +59,10 @@ fi
 T_START="$(date +%s.%N)"
 
 set +e
-python3 -I "$SCRIPT_DIR/run_scenario.py" "$ABS_ARTIFACT" "${SEED_ARG[@]}" \
+"$PY" -I "$SCRIPT_DIR/run_scenario.py" "$ABS_ARTIFACT" "${SEED_ARG[@]}" \
     --out "$WORK/run1.npz" "${FRAMES_ARG[@]}" >"$WORK/run1.log" 2>&1
 RC1=$?
-python3 -I "$SCRIPT_DIR/run_scenario.py" "$ABS_ARTIFACT" "${SEED_ARG[@]}" \
+"$PY" -I "$SCRIPT_DIR/run_scenario.py" "$ABS_ARTIFACT" "${SEED_ARG[@]}" \
     --out "$WORK/run2.npz" >"$WORK/run2.log" 2>&1
 RC2=$?
 set -e
@@ -77,7 +86,7 @@ if [[ $RC1 -eq 0 && $RC2 -eq 0 ]]; then
         JSON_ARG=(--json "$ABS_JSON")
     fi
     set +e
-    python3 -I "$SCRIPT_DIR/check_gates.py" "$ABS_ARTIFACT" \
+    "$PY" -I "$SCRIPT_DIR/check_gates.py" "$ABS_ARTIFACT" \
         --run1 "$WORK/run1.npz" --run2 "$WORK/run2.npz" "${JSON_ARG[@]}"
     RC=$?
     set -e
