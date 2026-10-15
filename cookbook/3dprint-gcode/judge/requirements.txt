@@ -1,0 +1,22 @@
+# Pinned Python dependencies for the Klipper host code (klippy batch mode).
+# klippy imports cffi, greenlet, pyserial, jinja2/markupsafe (gcode_macro),
+# python-can and msgspec.  klippy's own scripts/klippy-requirements.txt pins
+# Python-2-era versions that do not build on Python 3.12; these are the
+# versions of the same packages that run on Debian 12 / Python 3.12.
+# Every entry is hash-checked (pip --require-hashes).
+cffi==2.1.1 \
+    --hash=sha256:c1453022f490d2459a11819d83ad1d586e9ff65a12ac3e705ffebd46d3685dcf
+greenlet==3.3.2 \
+    --hash=sha256:43e99d1749147ac21dde49b99c9abffcbc1e2d55c67501465ef0930d6e78e070
+Jinja2==3.1.4 \
+    --hash=sha256:bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d
+MarkupSafe==3.0.2 \
+    --hash=sha256:e17c96c14e19278594aa4841ec148115f9c7615a47382ecb6b82bd8fea3ab0c8
+msgspec==0.19.0 \
+    --hash=sha256:d911c442571605e17658ca2b416fd8579c5050ac9adc5e00c2cb3126c97f73bc
+pyserial==3.4 \
+    --hash=sha256:e0770fadba80c31013896c7e6ef703f72e7834965954a78e71a3049488d4d7d8
+python-can==3.3.4 \
+    --hash=sha256:2d3c223b7adc4dd46ce258d4a33b7e0dbb6c339e002faa40ee4a69d5fdce9449
+setuptools==78.1.1 \
+    --hash=sha256:c3a9c4211ff4c309edb8b8c4f1cbfa7ae324c4ba9f91ff254e3d305b9fd54561
