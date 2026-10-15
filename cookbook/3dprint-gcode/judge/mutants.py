@@ -67,14 +67,15 @@ def edit_gcode(name, text):
         for i, ln in enumerate(lines):
             if re.match(r"^G[01]\s", ln) and "X" in ln and "E" in ln:
                 out[i] = re.sub(r"X([-\d.]+)",
-                                lambda m: "X%.3f" % (float(m.group(1)) + 150.0),
+                                lambda m: "X%.3f" % (float(m.group(1)) + 200.0),
                                 ln)
     elif name == "first-layer-z-zero":
         # The first layer's Z is set by a bare move (G1 Z.2) right before
         # extrusion starts; force THAT move to Z0 so the nozzle is buried
-        # in the bed on layer 1.
+        # in the bed on layer 1.  (Skip E-negatives: those are retracts.)
         for i, ln in enumerate(lines):
-            if re.match(r"^G[01]\s.*E[+\-\d.]", ln):
+            if re.match(r"^G[01]\s", ln) and re.search(r"\bE[\d.]", ln) \
+                    and not re.search(r"\bE-", ln):
                 for j in range(i - 1, -1, -1):
                     if re.match(r"^G[01]\s", lines[j]) and \
                             re.search(r"\bZ[-\d.]", lines[j]):
