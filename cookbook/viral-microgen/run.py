@@ -57,18 +57,30 @@ def is_transport_error(proc: subprocess.CompletedProcess) -> bool:
     return any(m in text for m in TRANSPORT_MARKERS)
 
 
-def step(name: str, fn) -> subprocess.CompletedProcess:
+def step(name: str, fn, retries: int = RETRIES) -> subprocess.CompletedProcess:
     """Run a step, retrying the whole command when the stream drops.
 
     A transport error is not a process exit: the step is re-run from the
     start, and the retry is only accepted when it returns a real exit code.
+    A local subprocess timeout is treated the same way -- the sandbox may
+    still be running the step -- but the retry is bounded, and the final
+    attempt's timeout is reported as a failure rather than swallowed.
     """
     start = time.monotonic()
-    for attempt in range(1, RETRIES + 1):
-        proc = fn()
+    for attempt in range(1, retries + 1):
+        try:
+            proc = fn()
+        except subprocess.TimeoutExpired as exc:
+            if attempt == retries:
+                raise
+            print(f"run: {name}: no reply within {exc.timeout:.0f}s "
+                  f"(attempt {attempt}); reattaching in {RETRY_SLEEP_S:.0f}s",
+                  flush=True)
+            time.sleep(RETRY_SLEEP_S)
+            continue
         if proc.returncode == 0 or not is_transport_error(proc):
             break
-        if attempt == RETRIES:
+        if attempt == retries:
             break
         print(f"run: {name}: command stream dropped (attempt {attempt}); "
               f"reattaching in {RETRY_SLEEP_S:.0f}s", flush=True)
@@ -165,10 +177,15 @@ def main() -> int:
         sid = created.stdout.strip().splitlines()[-1].strip()
         print(f"run: sandbox {sid}", flush=True)
 
+        # the clone is retry-safe: the partial directory (ours, inside the
+        # sandbox we just created) is removed first, so a retry after a
+        # dropped stream starts from scratch instead of failing on "exists"
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
-                         "git", "clone", "--depth", "1", "-b", args.ref,
-                         REPO, CLONE_DIR))
+                         "sh", "-c",
+                         f"rm -rf {CLONE_DIR} && git clone --depth 1 "
+                         f"-b {args.ref} {REPO} {CLONE_DIR}",
+                         timeout=600.0))
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
@@ -211,14 +228,31 @@ def main() -> int:
                       "(remember: sbx kill when done)", flush=True)
             else:
                 try:
-                    killed = sbx("kill", sid, timeout=180)
-                    if killed.returncode != 0:
-                        print(f"run: WARNING kill exit {killed.returncode}: "
-                              f"{(killed.stderr or '').strip()}",
+                    # a lost kill reply is not a kill: retry with backoff
+                    # before deciding cleanup failed (the id may still hold
+                    # a quota slot)
+                    for attempt in range(1, RETRIES + 1):
+                        killed = sbx("kill", sid, timeout=180)
+                        if killed.returncode == 0:
+                            break
+                        print(f"run: WARNING kill exit "
+                              f"{killed.returncode} (attempt {attempt}): "
+                              f"{((killed.stderr or '') + (killed.stdout or '')).strip()}",
                               file=sys.stderr)
+                        if attempt < RETRIES:
+                            time.sleep(RETRY_SLEEP_S)
                     listing = sbx("list", timeout=120)
                 except subprocess.TimeoutExpired:
                     print(f"run: FAILED cleanup: sbx kill/list timed out; "
+                          f"run sbx kill {sid}", file=sys.stderr)
+                    sys.exit(1)
+                # a failed sbx list proves nothing: only a clean listing
+                # that no longer names the id confirms the kill
+                if listing.returncode != 0:
+                    print(f"run: FAILED cleanup: sbx list exit "
+                          f"{listing.returncode}: "
+                          f"{((listing.stderr or '') + (listing.stdout or '')).strip()} "
+                          f"-- cannot confirm {sid} is gone; "
                           f"run sbx kill {sid}", file=sys.stderr)
                     sys.exit(1)
                 if sid in (listing.stdout or ""):
