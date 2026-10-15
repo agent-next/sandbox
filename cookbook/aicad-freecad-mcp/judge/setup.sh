@@ -85,24 +85,35 @@ fi
 
 # Install the addon into FreeCAD's user Mod dir and enable RPC auto-start on
 # loopback only (this is how run.py gets the RPC server up without a GUI click).
-MOD_DIR="$($FREECAD_DIR/usr/bin/freecadcmd -c 'import FreeCAD; print(FreeCAD.getUserAppDataDir())' 2>/dev/null | tail -1)Mod"
+APP_DATA_DIR="$($FREECAD_DIR/usr/bin/freecadcmd -c 'import FreeCAD; print(FreeCAD.getUserAppDataDir())' 2>/dev/null | tail -1)"
+case "$APP_DATA_DIR" in
+    */FreeCAD/) ;;  # freecadcmd prints the app-data dir with a trailing slash
+    *) echo "FATAL: could not resolve FreeCAD user app data dir (got: '$APP_DATA_DIR')" >&2
+       exit 1 ;;
+esac
+MOD_DIR="${APP_DATA_DIR}Mod"
 mkdir -p "$MOD_DIR"
 rm -rf "$MOD_DIR/FreeCADMCP"
 cp -r "$FCMCP_DIR/addon/FreeCADMCP" "$MOD_DIR/FreeCADMCP"
+[ -f "$MOD_DIR/FreeCADMCP/InitGui.py" ] || { echo "FATAL: addon not present at $MOD_DIR/FreeCADMCP" >&2; exit 1; }
 printf '{\n  "remote_enabled": false,\n  "allowed_ips": "127.0.0.1",\n  "auto_start_rpc": true,\n  "auth_token": ""\n}\n' \
-    > "$HOME/.local/share/FreeCAD/freecad_mcp_settings.json"
+    > "${APP_DATA_DIR}freecad_mcp_settings.json"
 LOG "freecad-mcp addon installed with loopback-only RPC auto-start"
 
 # ---------------------------------------------------------------------------
 # 4. X11 headless support for the FreeCAD GUI + addon (Debian packages)
 # ---------------------------------------------------------------------------
-if ! command -v xvfb-run >/dev/null 2>&1; then
+# xauth too: xvfb-run refuses to start without it ("xauth command not
+# found", exit 3) even when xvfb-run itself is present.
+if ! command -v xvfb-run >/dev/null 2>&1 || ! command -v xauth >/dev/null 2>&1; then
     LOG "apt lists may be empty in this image; refreshing"
     sudo apt-get update -q || true
     LOG "installing xvfb + xauth (FreeCAD GUI needs an X server for the RPC addon)"
     sudo apt-get install -y -q xvfb xauth
+    command -v xvfb-run >/dev/null 2>&1 || { echo "FATAL: xvfb-run missing after apt install" >&2; exit 1; }
+    command -v xauth >/dev/null 2>&1 || { echo "FATAL: xauth missing after apt install" >&2; exit 1; }
 else
-    LOG "xvfb-run already present"
+    LOG "xvfb-run + xauth already present"
 fi
 
 # ---------------------------------------------------------------------------
