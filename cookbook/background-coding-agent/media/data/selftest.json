@@ -1,0 +1,432 @@
+{
+ "kills": [
+  {
+   "label": "breaks-old-test",
+   "passed": false,
+   "failed_gate": "regression",
+   "reason": "the fixture's own suite fails on the patched checkout: 3 failed, 23 passed in 0.79s",
+   "gates_passed": 3,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 3,
+     "added_lines": 48,
+     "removed_lines": 1,
+     "hunks": 5,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    },
+    "integrity": {
+     "passed": true,
+     "unsafe_paths": [],
+     "protected": "tests/ + tool config",
+     "rule": "tests/ and tool config are judge-owned"
+    },
+    "regression": {
+     "passed": false,
+     "tests_collected": 26,
+     "failed": 3,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 12 tests collected"
+    }
+   }
+  },
+  {
+   "label": "empty-patch",
+   "passed": false,
+   "failed_gate": "patch",
+   "reason": "the patch contains no file changes",
+   "gates_passed": 0,
+   "gates": {}
+  },
+  {
+   "label": "json-count-as-float",
+   "passed": false,
+   "failed_gate": "acceptance",
+   "reason": "the hidden acceptance suite fails: 1 failed, 22 passed in 7.29s",
+   "gates_passed": 4,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 2,
+     "added_lines": 47,
+     "removed_lines": 0,
+     "hunks": 4,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    },
+    "integrity": {
+     "passed": true,
+     "unsafe_paths": [],
+     "protected": "tests/ + tool config",
+     "rule": "tests/ and tool config are judge-owned"
+    },
+    "regression": {
+     "passed": true,
+     "tests_collected": 26,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 12 tests collected"
+    },
+    "acceptance": {
+     "passed": false,
+     "tests_collected": 23,
+     "failed": 1,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 18 tests collected"
+    }
+   }
+  },
+  {
+   "label": "json-missing-field",
+   "passed": false,
+   "failed_gate": "acceptance",
+   "reason": "the hidden acceptance suite fails: 6 failed, 17 passed in 7.30s",
+   "gates_passed": 4,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 2,
+     "added_lines": 46,
+     "removed_lines": 0,
+     "hunks": 4,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    },
+    "integrity": {
+     "passed": true,
+     "unsafe_paths": [],
+     "protected": "tests/ + tool config",
+     "rule": "tests/ and tool config are judge-owned"
+    },
+    "regression": {
+     "passed": true,
+     "tests_collected": 26,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 12 tests collected"
+    },
+    "acceptance": {
+     "passed": false,
+     "tests_collected": 23,
+     "failed": 6,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 18 tests collected"
+    }
+   }
+  },
+  {
+   "label": "lint-unused-import",
+   "passed": false,
+   "failed_gate": "lint",
+   "reason": "ruff reported 1 diagnostic(s); first: measurectl/jsonout.py:6:8: F401 [*] `math` imported but unused",
+   "gates_passed": 5,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 2,
+     "added_lines": 48,
+     "removed_lines": 0,
+     "hunks": 4,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    },
+    "integrity": {
+     "passed": true,
+     "unsafe_paths": [],
+     "protected": "tests/ + tool config",
+     "rule": "tests/ and tool config are judge-owned"
+    },
+    "regression": {
+     "passed": true,
+     "tests_collected": 26,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 12 tests collected"
+    },
+    "acceptance": {
+     "passed": true,
+     "tests_collected": 23,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 18 tests collected"
+    },
+    "lint": {
+     "passed": false,
+     "findings": 1,
+     "ruff": "0.16.9",
+     "config": "judge/ruff.toml",
+     "rule": "0 ruff diagnostics"
+    }
+   }
+  },
+  {
+   "label": "mean-not-sum-over-count",
+   "passed": false,
+   "failed_gate": "oracle",
+   "reason": "12 mismatch(es) against the independent reference; first: synthetic-a.csv: metric 'Alpha' sum -0.012 != -0.011883463336819857 (rel 1.17e-04)",
+   "gates_passed": 5,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 2,
+     "added_lines": 47,
+     "removed_lines": 0,
+     "hunks": 4,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    },
+    "integrity": {
+     "passed": true,
+     "unsafe_paths": [],
+     "protected": "tests/ + tool config",
+     "rule": "tests/ and tool config are judge-owned"
+    },
+    "regression": {
+     "passed": true,
+     "tests_collected": 26,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 12 tests collected"
+    },
+    "acceptance": {
+     "passed": true,
+     "tests_collected": 23,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 18 tests collected"
+    },
+    "lint": {
+     "passed": true,
+     "findings": 0,
+     "ruff": "0.16.9",
+     "config": "judge/ruff.toml",
+     "rule": "0 ruff diagnostics"
+    }
+   }
+  },
+  {
+   "label": "mean-sign-dropped",
+   "passed": false,
+   "failed_gate": "oracle",
+   "reason": "11 mismatch(es) against the independent reference; first: sample.csv: metric 'gamma' mean 1.0 != -1.0 (rel 2.00e+00)",
+   "gates_passed": 5,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 2,
+     "added_lines": 47,
+     "removed_lines": 0,
+     "hunks": 4,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    },
+    "integrity": {
+     "passed": true,
+     "unsafe_paths": [],
+     "protected": "tests/ + tool config",
+     "rule": "tests/ and tool config are judge-owned"
+    },
+    "regression": {
+     "passed": true,
+     "tests_collected": 26,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 12 tests collected"
+    },
+    "acceptance": {
+     "passed": true,
+     "tests_collected": 23,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 18 tests collected"
+    },
+    "lint": {
+     "passed": true,
+     "findings": 0,
+     "ruff": "0.16.9",
+     "config": "judge/ruff.toml",
+     "rule": "0 ruff diagnostics"
+    }
+   }
+  },
+  {
+   "label": "pr-no-test-plan",
+   "passed": false,
+   "failed_gate": "pr",
+   "reason": "PR.md has no test-plan heading (looked for one of ('test plan', 'testing', 'tests', 'how tested', 'verification'))",
+   "gates_passed": 6,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 2,
+     "added_lines": 47,
+     "removed_lines": 0,
+     "hunks": 4,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    },
+    "integrity": {
+     "passed": true,
+     "unsafe_paths": [],
+     "protected": "tests/ + tool config",
+     "rule": "tests/ and tool config are judge-owned"
+    },
+    "regression": {
+     "passed": true,
+     "tests_collected": 26,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 12 tests collected"
+    },
+    "acceptance": {
+     "passed": true,
+     "tests_collected": 23,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 18 tests collected"
+    },
+    "lint": {
+     "passed": true,
+     "findings": 0,
+     "ruff": "0.16.9",
+     "config": "judge/ruff.toml",
+     "rule": "0 ruff diagnostics"
+    },
+    "oracle": {
+     "passed": true,
+     "reference": "judge/reference.py (statistics.fsum)",
+     "tolerance": "1e-09 relative",
+     "cases": [
+      {
+       "input": "sample.csv",
+       "metrics": 4,
+       "total_count": 9,
+       "agreed": true
+      },
+      {
+       "input": "synthetic-a.csv",
+       "metrics": 3,
+       "total_count": 8,
+       "agreed": true
+      },
+      {
+       "input": "synthetic-b.csv",
+       "metrics": 3,
+       "total_count": 8,
+       "agreed": true
+      }
+     ]
+    }
+   }
+  },
+  {
+   "label": "pr-omits-file",
+   "passed": false,
+   "failed_gate": "pr",
+   "reason": "PR.md does not mention 1 changed file(s)",
+   "gates_passed": 6,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 2,
+     "added_lines": 47,
+     "removed_lines": 0,
+     "hunks": 4,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    },
+    "integrity": {
+     "passed": true,
+     "unsafe_paths": [],
+     "protected": "tests/ + tool config",
+     "rule": "tests/ and tool config are judge-owned"
+    },
+    "regression": {
+     "passed": true,
+     "tests_collected": 26,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 12 tests collected"
+    },
+    "acceptance": {
+     "passed": true,
+     "tests_collected": 23,
+     "failed": 0,
+     "pytest": "9.1.1",
+     "rule": "0 failed, >= 18 tests collected"
+    },
+    "lint": {
+     "passed": true,
+     "findings": 0,
+     "ruff": "0.16.9",
+     "config": "judge/ruff.toml",
+     "rule": "0 ruff diagnostics"
+    },
+    "oracle": {
+     "passed": true,
+     "reference": "judge/reference.py (statistics.fsum)",
+     "tolerance": "1e-09 relative",
+     "cases": [
+      {
+       "input": "sample.csv",
+       "metrics": 4,
+       "total_count": 9,
+       "agreed": true
+      },
+      {
+       "input": "synthetic-a.csv",
+       "metrics": 3,
+       "total_count": 8,
+       "agreed": true
+      },
+      {
+       "input": "synthetic-b.csv",
+       "metrics": 3,
+       "total_count": 8,
+       "agreed": true
+      }
+     ]
+    }
+   }
+  },
+  {
+   "label": "startup-hook",
+   "passed": false,
+   "failed_gate": "integrity",
+   "reason": "the patch modifies test or tool-configuration file(s), which are judge-owned: sitecustomize.py",
+   "gates_passed": 1,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 3,
+     "added_lines": 50,
+     "removed_lines": 0,
+     "hunks": 5,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    }
+   }
+  },
+  {
+   "label": "touches-tests",
+   "passed": false,
+   "failed_gate": "integrity",
+   "reason": "the patch modifies test or tool-configuration file(s), which are judge-owned: tests/test_stats.py",
+   "gates_passed": 1,
+   "gates": {
+    "patch": {
+     "passed": true,
+     "files": 3,
+     "added_lines": 48,
+     "removed_lines": 0,
+     "hunks": 5,
+     "repo_rooted": false,
+     "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+    }
+   }
+  }
+ ],
+ "kill_rate": 1.0,
+ "mutants": 11
+}

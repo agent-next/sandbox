@@ -1,0 +1,170 @@
+{
+ "tolerance_rel": 1e-09,
+ "seed": 20261015,
+ "inputs": [
+  {
+   "input": "sample.csv",
+   "metrics": 4,
+   "total_count": 9,
+   "fields": [
+    {
+     "metric": "alpha",
+     "count": 3,
+     "min": 1.0,
+     "mean": 2.1666666666666665,
+     "max": 3.0,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    },
+    {
+     "metric": "beta",
+     "count": 1,
+     "min": 42.0,
+     "mean": 42.0,
+     "max": 42.0,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    },
+    {
+     "metric": "delta",
+     "count": 2,
+     "min": 250.0,
+     "mean": 875.0,
+     "max": 1500.0,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    },
+    {
+     "metric": "gamma",
+     "count": 3,
+     "min": -2.5,
+     "mean": -1.0,
+     "max": 0.5,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    }
+   ],
+   "max_rel_error": 0.0
+  },
+  {
+   "input": "synthetic-a.csv",
+   "metrics": 3,
+   "total_count": 8,
+   "fields": [
+    {
+     "metric": "Alpha",
+     "count": 2,
+     "min": -0.011947455285519305,
+     "mean": -0.0059417316684099285,
+     "max": 6.399194869944887e-05,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    },
+    {
+     "metric": "Mid_2",
+     "count": 5,
+     "min": -6400.603791863373,
+     "mean": -1176.7347485116798,
+     "max": 373.2650109010749,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    },
+    {
+     "metric": "zeta",
+     "count": 1,
+     "min": 2.2008107891824727e-05,
+     "mean": 2.2008107891824727e-05,
+     "max": 2.2008107891824727e-05,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    }
+   ],
+   "max_rel_error": 0.0
+  },
+  {
+   "input": "synthetic-b.csv",
+   "metrics": 3,
+   "total_count": 8,
+   "fields": [
+    {
+     "metric": "alpha",
+     "count": 3,
+     "min": -4.545378410249753,
+     "mean": 0.6929345590448491,
+     "max": 3.4769552218511617,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    },
+    {
+     "metric": "beta",
+     "count": 4,
+     "min": -4.3318106717402145,
+     "mean": -0.9980209927576145,
+     "max": 1.773980627219225,
+     "rel_error": {
+      "sum": 1.1124245208084437e-16,
+      "mean": 1.1102230246251565e-16,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 1.1124245208084437e-16
+    },
+    {
+     "metric": "solo",
+     "count": 1,
+     "min": 981.5744110701046,
+     "mean": 981.5744110701046,
+     "max": 981.5744110701046,
+     "rel_error": {
+      "sum": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "max": 0.0
+     },
+     "max_rel_error": 0.0
+    }
+   ],
+   "max_rel_error": 1.1124245208084437e-16
+  }
+ ]
+}

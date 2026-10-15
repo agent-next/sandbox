@@ -1,0 +1,5 @@
+# Generated media state (large or regenerable, made by make_media.sh)
+.frames/
+master/
+.venv/
+*.tmp

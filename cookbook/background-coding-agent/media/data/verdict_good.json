@@ -1,0 +1,76 @@
+{
+ "patch": "examples/good/delivery.patch",
+ "pr": "examples/good/PR.md",
+ "seed": 20261015,
+ "passed": true,
+ "gates": {
+  "patch": {
+   "passed": true,
+   "files": 2,
+   "added_lines": 47,
+   "removed_lines": 0,
+   "hunks": 4,
+   "repo_rooted": false,
+   "rule": "1..20 files, >=1 under measurectl/, <= 2000 changed lines"
+  },
+  "integrity": {
+   "passed": true,
+   "unsafe_paths": [],
+   "protected": "tests/ + tool config",
+   "rule": "tests/ and tool config are judge-owned"
+  },
+  "regression": {
+   "passed": true,
+   "tests_collected": 26,
+   "failed": 0,
+   "pytest": "9.1.1",
+   "rule": "0 failed, >= 12 tests collected"
+  },
+  "acceptance": {
+   "passed": true,
+   "tests_collected": 23,
+   "failed": 0,
+   "pytest": "9.1.1",
+   "rule": "0 failed, >= 18 tests collected"
+  },
+  "lint": {
+   "passed": true,
+   "findings": 0,
+   "ruff": "0.16.9",
+   "config": "judge/ruff.toml",
+   "rule": "0 ruff diagnostics"
+  },
+  "oracle": {
+   "passed": true,
+   "reference": "judge/reference.py (statistics.fsum)",
+   "tolerance": "1e-09 relative",
+   "cases": [
+    {
+     "input": "sample.csv",
+     "metrics": 4,
+     "total_count": 9,
+     "agreed": true
+    },
+    {
+     "input": "synthetic-a.csv",
+     "metrics": 3,
+     "total_count": 8,
+     "agreed": true
+    },
+    {
+     "input": "synthetic-b.csv",
+     "metrics": 3,
+     "total_count": 8,
+     "agreed": true
+    }
+   ]
+  },
+  "pr": {
+   "passed": true,
+   "chars": 1253,
+   "summary_heading": true,
+   "test_plan_heading": true,
+   "files_mentioned": 2
+  }
+ }
+}
