@@ -13,7 +13,7 @@ sqlite3 oracle** and compared field by field, and the sandbox state *between*
 fires is read from the lifecycle the judge drives — it must read `paused`
 between every pair of fires and `running` during each. An empty event log must
 produce a digest that says `"no events"`, not zeros fabricated from a stale
-run. Eight single-edit mutants of the good artifact prove the judge can fail.
+run. Ten single-edit mutants of the good artifact prove the judge can fail.
 
 Why a sandbox: the point of the job is that it runs unattended on a schedule
 and costs nothing while paused. The demo grades that whole lifecycle —
@@ -25,7 +25,7 @@ bill; the same five steps wire to the real `sbx` CLI in `run.py`.
 
 | | |
 |---|---|
-| **Verdict** | ✅ **PASS** — all 8 gates passed, 8/8 mutants killed (100 % kill rate) |
+| **Verdict** | ✅ **PASS** — all 8 gates passed, 10/10 mutants killed (100 % kill rate) |
 | **Night 1** (2026-10-12) | 128 events, 16 errors, error_rate 0.125, p50 281 ms, p95 16447 ms, busiest `api` |
 | **Night 2** (2026-10-13) | 141 events, 18 errors, error_rate 0.12766, p50 281 ms, p95 16098 ms, busiest `api` |
 | **Night 3** (2026-10-14) | 96 events, 15 errors, error_rate 0.15625, p50 292 ms, p95 14552 ms, busiest `batch` |
@@ -71,7 +71,7 @@ Without a key, run the same steps in any Debian 12 box, from
 
 ```bash
 bash judge/setup.sh                                   # pinned sqlite3 (Debian 3.40.1-2+deb12u2), sha256-checked
-bash judge/selftest.sh                                # good artifact + 8 mutants + determinism
+bash judge/selftest.sh                                # good artifact + 10 mutants + determinism
 bash judge/grade.sh examples/good --json verdict.json # default seed 20261015
 ```
 
@@ -81,7 +81,7 @@ Measured wall times (2 vCPU, ~4 GB, Debian bookworm, the sandbox's own shell):
 | --- | --- |
 | `judge/setup.sh` (sqlite3 already present) | ~0.4 s |
 | `judge/setup.sh` (fresh, downloads both pinned debs) | ~1.8 s |
-| `judge/selftest.sh` (good + 8 mutants + determinism) | ~25 s |
+| `judge/selftest.sh` (good + 10 mutants + determinism) | ~47 s |
 | `judge/grade.sh examples/good` | ~2.2 s |
 
 ## Ask your agent
@@ -94,7 +94,7 @@ Paste this into a session with the sandbox plugin enabled:
 > job wakes a paused sandbox at 02:00, digests yesterday's event log, collects
 > the digest, and pauses again. Iterate with `bash judge/selftest.sh` and
 > `bash judge/grade.sh <your-artifact-dir> --json /tmp/v.json` until the judge
-> passes every gate and your artifact is not one of the eight known-bad
+> passes every gate and your artifact is not one of the ten known-bad
 > single-edit mutants. Show me the three nights' digests (the key numbers per
 > night), the sandbox state between fires, and the final verdict JSON. Do not
 > modify anything under `judge/`.

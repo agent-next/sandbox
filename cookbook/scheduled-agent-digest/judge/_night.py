@@ -121,12 +121,16 @@ def run_oracle(date: str, csv_path: Path, sqlite3: str | None = None) -> dict:
         """SUM() over zero rows is NULL in sqlite — read it as 0."""
         return 0 if text in ("", "NULL") else int(text)
 
+    errors = num(head[2])
     return {
         "date": date,
         "status": "ok" if events else "no events",
         "events": events,
-        "errors": num(head[2]),
+        "errors": errors,
         "server_errors": num(head[3]),
+        # error_rate = errors / events, computed here rather than in SQL so
+        # the artifact's rounded value is compared to a rounded ratio
+        "error_rate": round(errors / events, 6) if events else 0.0,
         "mean_ms": float(head[4]) if events else 0.0,
         "p50_ms": num(head[5]),
         "p95_ms": num(head[6]),

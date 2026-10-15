@@ -1,12 +1,11 @@
 # RECEIPT — `cookbook/scheduled-agent-digest/`
 
 Real command output from two fresh sandbox-like runs (Debian 12, Python
-3.12.15, 2 vCPU / ~4 GB), on 2026-10-15. The demo cannot create cloud
-sandboxes from inside a build sandbox, so "fresh sandbox" here is a fresh
-`git clone` of this repo into an empty directory with `$HOME` cleared of the
-pinned tools — the same sequence `run.py` sends to `sbx exec` (see
-"Deviations"). Every command was run from
-`cookbook/scheduled-agent-digest/`.
+3.12.15, 2 vCPU / ~4 GB), on 2026-10-15. The build environment cannot create
+agent-next cloud sandboxes, so "fresh sandbox" here is a fresh `git clone` of
+this repo into an empty directory with `$HOME` cleared of the pinned tools —
+the same sequence `run.py` sends to `sbx exec` (see "Deviations"). Every
+command was run from `cookbook/scheduled-agent-digest/`.
 
 ## Run 1 — fresh clone, system sqlite3 3.40.1 already present
 
@@ -19,28 +18,30 @@ $ bash judge/setup.sh
   python3 -> /usr/local/bin/python3
   versions -> .../cookbook/scheduled-agent-digest/judge/VERSIONS.txt
 exit=0
+real  0m0.439s
 ```
 
 ```
-$ time bash judge/selftest.sh
+$ bash judge/selftest.sh
 selftest: known-good PASS
-selftest: mutant KILLED: all-rows-counted (failed gate: digest)
-selftest: mutant KILLED: busiest-tie-wrong (failed gate: digest)
-selftest: mutant KILLED: cron-hour-3 (failed gate: schedule)
-selftest: mutant KILLED: extra-key (failed gate: shape)
-selftest: mutant KILLED: mean-unrounded (failed gate: digest)
-selftest: mutant KILLED: no-events-as-zero (failed gate: negative)
-selftest: mutant KILLED: p95-off-by-one (failed gate: digest)
-selftest: mutant KILLED: paused-skipped (failed gate: schedule)
-selftest: kill rate 8/8 (100%)
+selftest: mutant KILLED: all-rows-counted (failed gates: digest,dates)
+selftest: mutant KILLED: busiest-tie-wrong (failed gates: digest)
+selftest: mutant KILLED: cron-hour-3 (failed gates: schedule)
+selftest: mutant KILLED: extra-key (failed gates: shape)
+selftest: mutant KILLED: malformed-swallowed (failed gates: failure)
+selftest: mutant KILLED: mean-unrounded (failed gates: digest)
+selftest: mutant KILLED: no-events-as-zero (failed gates: negative)
+selftest: mutant KILLED: p95-off-by-one (failed gates: digest)
+selftest: mutant KILLED: paused-skipped (failed gates: schedule)
+selftest: kill rate 9/9 (100%)
 selftest: determinism PASS (same seed -> identical verdict)
 selftest: PASS
 exit=0
-real  0m36.468s
+real  0m47.155s
 ```
 
 ```
-$ time bash judge/grade.sh examples/good --json /tmp/v.json
+$ bash judge/grade.sh examples/good --json /tmp/g1/v.json
 {
   "artifact": "examples/good",
   "seed": 20261015,
@@ -81,17 +82,18 @@ $ time bash judge/grade.sh examples/good --json /tmp/v.json
     "lifecycle": {"passed": true, "fires": ["2026-10-12", "2026-10-13", "2026-10-14"],
       "states_between_runs": ["paused", "paused", "paused"], "pause_seconds": 0.05, "sandbox": null},
     "negative": {"passed": true, "status": "no events", "events": 0},
-    "failure": {"passed": true, "exit_code": 1, "names_log": true},
+    "failure": {"passed": true, "exit_code": 1, "names_log": true, "names_row": true},
     "integrity": {"passed": true, "copied_to": "<temp>/artifact", "judge_untouched": true}
   },
   "passed": true,
   "failed_gate": null,
   "reason": "",
-  "timing": {"wall_seconds": 3.487}
+  "timing": {"wall_seconds": 2.122},
+  "failed_gates": []
 }
 grade: PASS (all gates; judge integrity verified)
 exit=0
-real  0m3.935s
+real  0m2.845s
 ```
 
 ## Run 2 — fresh clone, `$HOME` cleared, pinned debs downloaded and sha256-checked
@@ -100,63 +102,67 @@ real  0m3.935s
 takes its download branch; `$HOME` was an empty directory.
 
 ```
-$ PATH="/tmp/shadow:$PATH" HOME=/tmp/fh2 bash judge/setup.sh
+$ PATH="/tmp/shadow:$PATH" HOME=/tmp/fh3 bash judge/setup.sh
 [setup] python3 3.12.15 present
 [setup] downloading sqlite3_3.40.1-2+deb12u2_amd64.deb
 [setup] downloading libsqlite3-0_3.40.1-2+deb12u2_amd64.deb
-[setup] installed /tmp/fh2/.scheduled-agent-digest/bin/sqlite3 (3.40.1-2+deb12u2)
+[setup] installed /tmp/fh3/.scheduled-agent-digest/bin/sqlite3 (3.40.1-2+deb12u2)
 [setup] done.
-  sqlite3 -> /tmp/fh2/.scheduled-agent-digest/bin/sqlite3 (3.40.1)
+  sqlite3 -> /tmp/fh3/.scheduled-agent-digest/bin/sqlite3 (3.40.1)
   python3 -> /usr/local/bin/python3
   versions -> .../judge/VERSIONS.txt
 
-  add the pinned tools to PATH: export PATH="/tmp/fh2/.scheduled-agent-digest/bin:$PATH"
+  add the pinned tools to PATH: export PATH="/tmp/fh3/.scheduled-agent-digest/bin:$PATH"
 exit=0
-real  0m3.346s
+real  0m2.173s
 ```
 
 ```
-$ PATH="/tmp/fh2/.scheduled-agent-digest/bin:$PATH" bash judge/selftest.sh
+$ PATH="/tmp/fh3/.scheduled-agent-digest/bin:$PATH" bash judge/selftest.sh
 selftest: known-good PASS
-selftest: mutant KILLED: all-rows-counted (failed gate: digest)
-selftest: mutant KILLED: busiest-tie-wrong (failed gate: digest)
-selftest: mutant KILLED: cron-hour-3 (failed gate: schedule)
-selftest: mutant KILLED: extra-key (failed gate: shape)
-selftest: mutant KILLED: mean-unrounded (failed gate: digest)
-selftest: mutant KILLED: no-events-as-zero (failed gate: negative)
-selftest: mutant KILLED: p95-off-by-one (failed gate: digest)
-selftest: mutant KILLED: paused-skipped (failed gate: schedule)
-selftest: kill rate 8/8 (100%)
+selftest: mutant KILLED: all-rows-counted (failed gates: digest,dates)
+selftest: mutant KILLED: busiest-tie-wrong (failed gates: digest)
+selftest: mutant KILLED: cron-hour-3 (failed gates: schedule)
+selftest: mutant KILLED: extra-key (failed gates: shape)
+selftest: mutant KILLED: malformed-swallowed (failed gates: failure)
+selftest: mutant KILLED: mean-unrounded (failed gates: digest)
+selftest: mutant KILLED: no-events-as-zero (failed gates: negative)
+selftest: mutant KILLED: p95-off-by-one (failed gates: digest)
+selftest: mutant KILLED: paused-skipped (failed gates: schedule)
+selftest: kill rate 9/9 (100%)
 selftest: determinism PASS (same seed -> identical verdict)
 selftest: PASS
 exit=0
-real  0m45.236s
+real  0m47.035s
 ```
 
 ```
-$ PATH="/tmp/fh2/.scheduled-agent-digest/bin:$PATH" bash judge/grade.sh examples/good --json /tmp/v2.json
+$ PATH="/tmp/fh3/.scheduled-agent-digest/bin:$PATH" bash judge/grade.sh examples/good --json /tmp/g2/v.json
+... (verdict JSON identical to Run 1 except timing) ...
+"timing": {"wall_seconds": 2.413},
+"failed_gates": []
 grade: PASS (all gates; judge integrity verified)
 exit=0
-real  0m4.756s
+real  0m3.078s
 ```
 
 ## Two fresh runs side by side
 
 | | Run 1 (system sqlite3) | Run 2 (pinned sqlite3 from `$HOME`) |
 |---|---|---|
-| `setup.sh` exit | 0 | 0 |
-| `selftest.sh` exit | 0 | 0 |
-| kill rate | 8/8 (100 %) | 8/8 (100 %) |
-| `grade.sh` exit | 0 | 0 |
+| `setup.sh` exit / wall | 0 / 0.439 s | 0 / 2.173 s |
+| `selftest.sh` exit / wall | 0 / 47.155 s | 0 / 47.035 s |
+| kill rate | 9/9 (100 %) | 9/9 (100 %) |
+| `grade.sh` exit / wall | 0 / 2.845 s | 0 / 3.078 s |
 | night 1 events / errors / p50 / p95 | 128 / 16 / 281 / 16447 | 128 / 16 / 281 / 16447 |
 | night 2 events / errors / p50 / p95 | 141 / 18 / 281 / 16098 | 141 / 18 / 281 / 16098 |
 | night 3 events / errors / p50 / p95 | 96 / 15 / 292 / 14552 | 96 / 15 / 292 / 14552 |
 | states between fires | paused, paused, paused | paused, paused, paused |
-| `grade.sh` wall | 3.935 s | 4.756 s |
-| verdict JSON, timing removed | byte-identical | byte-identical |
+| `failed_gates` | `[]` | `[]` |
+| verdict JSON, `timing` removed | byte-identical | byte-identical |
 
-The two verdict JSONs are equal after removing the `timing` key
-(`a == b` → `True`); only `timing.wall_seconds` differs (3.487 vs 4.150),
+The two verdict JSONs compare equal after removing the `timing` key
+(`a == b` → `True`); only `timing.wall_seconds` differs (2.122 vs 2.413),
 which SPEC.md excludes from the determinism check.
 
 ## Tool versions actually installed
@@ -168,11 +174,12 @@ sqlite3 3.40.1-2+deb12u2 (upstream 3.40.1)
 python3 3.12.15
 ```
 
-Pinned download: `sqlite3_3.40.1-2+deb12u2_amd64.deb`
-sha256 `58e59f7db8a88f87333c3f9896b98146fdf4dc33eda75a1f79d9100d1b819909`;
-`libsqlite3-0_3.40.1-2+deb12u2_amd64.deb`
-sha256 `a8d78b40e9b4e422224aeebfe0e4dfc243f6acf3532490b0c05480d4283d41e2`,
-both from `deb.debian.org`.
+Pinned downloads (both from `deb.debian.org`):
+
+| file | sha256 |
+|---|---|
+| `sqlite3_3.40.1-2+deb12u2_amd64.deb` | `58e59f7db8a88f87333c3f9896b98146fdf4dc33eda75a1f79d9100d1b819909` |
+| `libsqlite3-0_3.40.1-2+deb12u2_amd64.deb` | `a8d78b40e9b4e422224aeebfe0e4dfc243f6acf3532490b0c05480d4283d41e2` |
 
 ## Deviations
 
@@ -199,3 +206,7 @@ both from `deb.debian.org`.
   `export PATH=...` line; `judge/grade.sh` prepends that directory to `PATH`
   itself, so the pinned binary is used automatically when present and the
   system `sqlite3` otherwise (both paths exercised above).
+- The two runs above are from the same build sandbox on the same day; the
+  standard asks for two runs from two *fresh* sandboxes. Both here start from
+  an empty `$HOME` for the pinned tools and a fresh clone, which is the part
+  of "fresh sandbox" that can change the numbers; the numbers matched exactly.

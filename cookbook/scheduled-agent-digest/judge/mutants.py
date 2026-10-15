@@ -39,6 +39,13 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '        "mean_ms": sum(latencies) / events if events else 0.0,',
     ),
     (
+        # a plausible-looking but wrong rate: 5xx-only over events
+        "error-rate-wrong",
+        "digest.py",
+        '        "error_rate": round(errors / events, 6) if events else 0.0,',
+        '        "error_rate": round(server_errors / events, 6) if events else 0.0,',
+    ),
+    (
         "p95-off-by-one",
         "digest.py",
         "    return sorted_values[max(1, math.ceil(q * n)) - 1]",
