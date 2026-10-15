@@ -74,7 +74,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 2 or sys.argv[1] in ("-h", "--help") or sys.argv[1].startswith("-"):
         print(__doc__.strip(), file=sys.stderr)
         return 2
     out = Path(sys.argv[1])
