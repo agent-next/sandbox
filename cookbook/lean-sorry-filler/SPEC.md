@@ -71,9 +71,9 @@ the seed has nothing to perturb (stated here so the flag is honest).
    present; no extra files); all 10 statements found verbatim on their
    own line in the matching file (count must equal 10); forbidden-token
    regex over submitted sources matches 0 times; every file ≤ 64 KiB.
-2. **build** — `lake build -j 2` exits 0 within 600 s on the fresh copy,
-   and the captured log contains 0 lines matching
-   `declaration uses 'sorry'` (the no-sorry regex; a re-submitted
+2. **build** — `lake build --no-cache` exits 0 within 600 s on the fresh
+   copy, and the captured log contains 0 lines matching
+   ``declaration uses `sorry` `` (the no-sorry regex; a re-submitted
    `sorry` or `admit` compiles with exit 0 but dies here).
 3. **axioms** — the judge's `JudgeCheck.lean` (never part of the
    artifact) is elaborated with `lake env lean`; for each of the 10
@@ -133,7 +133,7 @@ dies, and the kill rate is ≥ 90 %.
 ## Determinism
 
 Nothing in the judge is random: the toolchain is pinned, `lake build`
-runs with `-j 2` on a fresh copy, gate results are counts and sets, and
+runs on a fresh copy, gate results are counts and sets, and
 the verdict JSON is written with sorted keys. The `--seed` flag exists
 for interface uniformity across demos and is recorded, unused.
 
