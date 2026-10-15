@@ -54,6 +54,47 @@ def show(proc: subprocess.CompletedProcess) -> None:
         print(proc.stdout.rstrip(), flush=True)
 
 
+def confirm_killed(sid: str) -> bool:
+    """`sbx kill`, then PROVE the sandbox is gone; never assume it.
+
+    Fails closed (returns False) whenever the outcome cannot be confirmed:
+    a kill or list command that errors or times out, or a listing whose
+    output is missing. A failed kill is not retried here — a blip may hide
+    a kill that already landed (LESSONS.md 616b07c / d877345 / e08022b) —
+    instead the follow-up `sbx list` decides: only a list that exited 0 and
+    no longer names the id (whole first column, not a substring) counts as
+    confirmed, and an exit-0 list that proves the sandbox dead makes even a
+    503'd kill a success.
+    """
+    try:
+        killed = sbx("kill", sid, timeout=180)
+        if killed.returncode != 0:
+            print(f"run: WARNING kill exit {killed.returncode}",
+                  file=sys.stderr)
+        listing = sbx("list", timeout=120)
+    except subprocess.TimeoutExpired:
+        print(f"run: FAILED cleanup: sbx kill/list timed out; "
+              f"run sbx kill {sid}", file=sys.stderr)
+        return False
+    if listing.returncode != 0 or listing.stdout is None:
+        print(f"run: FAILED cleanup: cannot confirm kill of {sid} "
+              f"(sbx list exit {listing.returncode}) — the sandbox may still "
+              "be running and billable; run sbx kill for this id",
+              file=sys.stderr)
+        return False
+    ids = [line.split()[0] for line in listing.stdout.splitlines()
+           if line.strip()]
+    if sid in ids:
+        print(f"run: FAILED cleanup: sandbox {sid} still live; "
+              "run sbx kill for this id", file=sys.stderr)
+        return False
+    if killed.returncode != 0:
+        print(f"run: WARNING: kill exited {killed.returncode} but the "
+              "sandbox is confirmed gone", file=sys.stderr)
+    print(f"run: killed and confirmed gone: {sid}", flush=True)
+    return True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", default="main",
@@ -128,22 +169,8 @@ def main() -> int:
             if args.keep:
                 print(f"run: --keep: sandbox {sid} left running "
                       "(remember: sbx kill when done)", flush=True)
-            else:
-                try:
-                    killed = sbx("kill", sid, timeout=180)
-                    if killed.returncode != 0:
-                        print(f"run: WARNING kill exit {killed.returncode}",
-                              file=sys.stderr)
-                    listing = sbx("list", timeout=120)
-                except subprocess.TimeoutExpired:
-                    print(f"run: FAILED cleanup: sbx kill/list timed out; "
-                          f"run sbx kill {sid}", file=sys.stderr)
-                    sys.exit(1)
-                if sid in (listing.stdout or ""):
-                    print(f"run: FAILED cleanup: sandbox {sid} still live; "
-                          "run sbx kill for this id", file=sys.stderr)
-                    sys.exit(1)
-                print(f"run: killed and confirmed gone: {sid}", flush=True)
+            elif not confirm_killed(sid):
+                sys.exit(1)
     return 1 if fail else 0
 
 
