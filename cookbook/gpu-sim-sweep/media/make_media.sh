@@ -1,85 +1,37 @@
 #!/usr/bin/env bash
-# Regenerate all gpu-sim-sweep demo media from media/data/.
-#
-#   bash cookbook/gpu-sim-sweep/media/make_media.sh
-#
-# Requires: python3 (for a local venv), ffmpeg + ffprobe on PATH, and the
-# source data committed under media/data/. Writes media/result.png,
-# media/loop.png, media/demo.mp4 and media/MANIFEST.json (sha256 of every
-# output plus the sha256 of its source data). The lossless intermediate
-# media/master/demo-master.mp4 is regenerated too but stays git-ignored.
+# All generated scratch stays under git-ignored media/work/ and media/master/.
 set -euo pipefail
-cd "$(dirname "$0")"
-
-if [ ! -s data/report.json ]; then
-    echo "make_media.sh: missing data/report.json" >&2
-    echo "  generate it on a GPU key:" >&2
-    echo "    python3 cookbook/gpu-sim-sweep/run.py --gpu \\" >&2
-    echo "        --report-json cookbook/gpu-sim-sweep/media/data/report.json" >&2
-    echo "  then commit it before re-running this script." >&2
-    exit 1
-fi
-
-for tool in ffmpeg ffprobe; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        echo "make_media.sh: $tool not found on PATH" >&2
-        exit 1
-    fi
+MEDIA="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for tool in python3 ffmpeg ffprobe; do
+    command -v "$tool" >/dev/null || { echo "Missing $tool" >&2; exit 1; }
 done
-
-VENV=.venv
-if [ ! -x "$VENV/bin/python" ]; then
-    echo "make_media.sh: creating venv at media/$VENV"
-    python3 -m venv "$VENV"
-    "$VENV/bin/pip" install --quiet "matplotlib==3.10.8" "numpy==2.4.3"
+mkdir -p "$MEDIA/work" "$MEDIA/master"
+WORK="$(mktemp -d "$MEDIA/work/run.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+export TMPDIR="$WORK"
+export PYTHONHASHSEED=0 SOURCE_DATE_EPOCH=1792022400
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+PY="$MEDIA/.venv/bin/python"
+if [ ! -x "$PY" ]; then
+    python3 -m venv "$MEDIA/.venv"
 fi
-
-"$VENV/bin/python" make_figures.py
-"$VENV/bin/python" make_video.py
-
-"$VENV/bin/python" - <<'PY'
-import hashlib, json, os
-
-def sha(path):
-    with open(path, "rb") as fh:
-        return hashlib.sha256(fh.read()).hexdigest()
-
-outputs = {
-    "result.png": {
-        "what": "Measured GPU steps/s vs nworld on the 4 GiB slice (log-log) "
-                "with the measured CPU baseline and the throughput pass "
-                "floor drawn on it; plus the physics oracle per nworld "
-                "(landed box z band, arm error vs tolerance).",
-        "command": "media/make_figures.py",
-    },
-    "loop.png": {
-        "what": "Gate x artifact verdict matrix (good config + every "
-                "mutant) from the real grade runs, plus the self-test "
-                "kill-rate bar.",
-        "command": "media/make_figures.py",
-    },
-    "demo.mp4": {
-        "what": "The 8 boxes falling onto the table in world 0, rendered "
-                "from the judge-measured settle trajectory, then the "
-                "nworld ladder filling in with measured steps/s.",
-        "command": "media/make_video.py + ffmpeg "
-                   "(lossless crf-0 master in git-ignored media/master/)",
-    },
-}
-manifest = {"generated_by": "media/make_media.sh",
-            "note": "every number plotted comes from the judge's own "
-                    "measurements in data/report.json (a real "
-                    "run.py --gpu exec report)",
-            "data": {p: {"sha256": sha(p)} for p in ("data/report.json",)},
-            "outputs": {}}
-for out, meta in outputs.items():
-    manifest["outputs"][out] = {
-        **meta,
-        "sha256": sha(out),
-        "bytes": os.path.getsize(out),
-        "source_data": {"data/report.json": sha("data/report.json")}}
-with open("MANIFEST.json", "w") as fh:
-    json.dump(manifest, fh, indent=2, sort_keys=True)
-    fh.write("\n")
-print("wrote MANIFEST.json")
-PY
+"$PY" -m pip install --quiet --disable-pip-version-check -r "$MEDIA/requirements.txt"
+export MUJOCO_GL=egl
+PROBE='import mujoco; m=mujoco.MjModel.from_xml_string("<mujoco/>"); r=mujoco.Renderer(m, 64, 64); r.close()'
+if ! "$PY" -c "$PROBE" > "$WORK/gl.log" 2>&1; then
+    export MUJOCO_GL=osmesa
+    "$PY" -c "$PROBE"
+fi
+echo "== exact judge CPU reference + retained GPU parity =="
+"$PY" "$MEDIA/evidence.py"
+echo "== MuJoCo 3D frames ($MUJOCO_GL), Pillow overlays, lossless master =="
+"$PY" "$MEDIA/render.py"
+echo "== H.264 web encode from crf 0 master =="
+ffmpeg -y -v error -i "$MEDIA/master/demo.mp4" -an \
+    -c:v libx264 -threads 2 -crf 18 -preset slow -pix_fmt yuv420p \
+    -movflags +faststart -map_metadata -1 "$MEDIA/demo.mp4"
+"$PY" "$MEDIA/manifest.py"
+"$PY" -m unittest discover -s "$MEDIA" -p test_media.py -v
+ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate,pix_fmt,nb_frames \
+    -show_entries format=duration,size -of default=noprint_wrappers=1 "$MEDIA/demo.mp4"
+echo "make_media: done"

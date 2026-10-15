@@ -165,10 +165,55 @@ total: 390 s
 exit=0
 ```
 
-The full output of run 2 is also committed at
-[`media/data/gpu-run.log`](media/data/gpu-run.log), and its exec report at
-[`media/data/report.json`](media/data/report.json) — that file is the source
-data for every figure and frame under `media/`.
+The media now uses the separate acceptance run below rather than run 2.
+Its sanitized console output is committed at
+[`media/data/gpu-run.log`](media/data/gpu-run.log), and its measured exec
+report at [`media/data/report.json`](media/data/report.json). Runtime
+diagnostic paths are excluded; measured verdicts and trajectories are unchanged.
+
+## Acceptance run used for the 3D media (2026-10-15)
+
+Command: `python3 run.py --ref sbx/sweep-r4 --gpu --report-json media/data/report.json`,
+seed 0. `--gpu` packs the local judge and examples; `--ref` only selects
+the cloned branch on the CPU path.
+
+```
+gpu-sim-sweep demo: PASS (mode full)
+  gate cost: pass
+  gate cpu-parity: pass
+  gate engine-parity: pass
+  gate physics-oracle: pass
+  gate structure: pass
+  gate throughput: pass
+   nworld | steps/s
+        1 | 134
+       64 | 10,785
+      512 | 77,008
+     2048 | 248,064
+     8192 | 686,725
+  CPU 26,574 steps/s, top GPU 686,725 steps/s
+  speedup x25.8, floor x4.0
+  cold Warp compile: 104.945 s
+  parity max err: 0.008110745441113454 rad
+mutants: 8/8 killed
+total: 383 s
+```
+
+Cleanup was verified after DELETE. All mutant gate outcomes match run 2.
+The CPU oracle at step 800 reports arm error 0.06069678799920897 rad,
+box z [0.31499750273463084, 0.3149975027350041] m, and box speed
+2.8909458160697454e-11 m/s. These are the values checked against the fresh
+CPU replay before rendering, not the GPU's later read-back arm error
+(0.0361 rad). The renderer reuses the judge's exact CPU reference function;
+every frame matches its retained qpos data within 1e-9. The acceptance
+report retains only the downsampled GPU trajectory, so CPU/GPU samples
+are checked at the judge's 0.05 tolerance, not claimed identical.
+
+Media regeneration and full-size inspection are recorded in
+[`media/REVIEW.md`](media/REVIEW.md). Rendering uses the local EGL GPU
+without creating a lease. The fixing-loop image is an explicitly labelled
+replay of actual mutant verdicts followed by the good verdict, not a
+chronological live agent session.
 
 ## Key numbers, side by side
 

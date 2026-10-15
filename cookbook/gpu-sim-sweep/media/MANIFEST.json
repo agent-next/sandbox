@@ -1,38 +1,72 @@
 {
-  "data": {
-    "data/report.json": {
-      "sha256": "a0107802df2a957cf53b69c1f1dc4258f07e41c2e8fd7299b6479c814e2a9183"
-    }
-  },
-  "generated_by": "media/make_media.sh",
-  "note": "every number plotted comes from the judge's own measurements in data/report.json (a real run.py --gpu exec report)",
+  "generated_by": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
+  "measurement_command": "python3 cookbook/gpu-sim-sweep/run.py --ref sbx/sweep-r4 --gpu",
+  "measurement_date": "2026-10-15",
   "outputs": {
     "demo.mp4": {
-      "bytes": 381231,
-      "command": "media/make_video.py + ffmpeg (lossless crf-0 master in git-ignored media/master/)",
-      "sha256": "f11ac6334b0898e300783a2b15ee13603321914cc458a8ba6fa00e8fc8c7dcf7",
-      "source_data": {
-        "data/report.json": "a0107802df2a957cf53b69c1f1dc4258f07e41c2e8fd7299b6479c814e2a9183"
-      },
-      "what": "The 8 boxes falling onto the table in world 0, rendered from the judge-measured settle trajectory, then the nworld ladder filling in with measured steps/s."
+      "bytes": 5070585,
+      "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
+      "sha256": "7c68858d353af5bbd26afd0055ec3608969a8bd718bd41576798b7a0f226260a",
+      "source_data": [
+        "media/data/report.json",
+        "media/data/cpu-qpos.npy",
+        "media/data/model.xml",
+        "media/data/loop.json"
+      ],
+      "what": "26 s simulator-native MuJoCo CPU reference replay of world 0; arm reaching and eight boxes falling/settling; 4x4 repeated identical-world tiles; measured ladder reveal; PASS proof card."
     },
     "loop.png": {
-      "bytes": 126324,
-      "command": "media/make_figures.py",
-      "sha256": "01da60acda937eb53e9211f1aa003a0c9479ed39d29f547b2c8f3499d97d914d",
-      "source_data": {
-        "data/report.json": "a0107802df2a957cf53b69c1f1dc4258f07e41c2e8fd7299b6479c814e2a9183"
-      },
-      "what": "Gate x artifact verdict matrix (good config + every mutant) from the real grade runs, plus the self-test kill-rate bar."
+      "bytes": 203144,
+      "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
+      "sha256": "32bd45cbe367fcaf6716dc60f72d70c7c27a4cb7815aa7d0d8e0bb2bf3c91e44",
+      "source_data": [
+        "media/data/report.json",
+        "media/data/cpu-qpos.npy",
+        "media/data/model.xml",
+        "media/data/loop.json"
+      ],
+      "what": "Pillow config-fixing replay of two measured bad grades and the good grade (explicitly not a live agent trace), all six final gates and the 8/8 self-test kill rate."
     },
     "result.png": {
-      "bytes": 204314,
-      "command": "media/make_figures.py",
-      "sha256": "4ba64536b72789def60a52066c60a5d3f6c26acc9bce87bf7e000954e398c38e",
-      "source_data": {
-        "data/report.json": "a0107802df2a957cf53b69c1f1dc4258f07e41c2e8fd7299b6479c814e2a9183"
-      },
-      "what": "Measured GPU steps/s vs nworld on the 4 GiB slice (log-log) with the measured CPU baseline and the throughput pass floor drawn on it; plus the physics oracle per nworld (landed box z band, arm error vs tolerance)."
+      "bytes": 932867,
+      "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
+      "sha256": "f7af1df44a84eea658dab3ffe7523a2a4991ff28c5bf6c96066f553a4fe4048f",
+      "source_data": [
+        "media/data/report.json",
+        "media/data/cpu-qpos.npy",
+        "media/data/model.xml",
+        "media/data/loop.json"
+      ],
+      "what": "Four real MuJoCo 3D key moments of the arm and eight boxes; graded CPU oracle vs pass bounds per tile; measured GPU ladder and throughput pass line drawn with Pillow."
     }
+  },
+  "render_backend": "mujoco.Renderer; EGL preferred, OSMesa fallback",
+  "seed": 0,
+  "source_sha256": {
+    "examples/good/sweep.json": "7fe65e25418a3635ea1b4e0248a1740eb64854af39fc0f29a655a6d0764ae29e",
+    "judge/_grade.py": "12b25f63d4d5b2d68bb55456c29a70f98f0f8a379febc463fa4c40c8d8a84b01",
+    "judge/_sweep.py": "122f815441917dda9851cd16bad97c69dec2aacda7b4100bbb14e4d95597646a",
+    "judge/scene.py": "fa70d188d684b82e72efe47627f4138754430644ccf382f65fcbfe0f1222aeb0",
+    "media/data/cpu-qpos.npy": "1ffda39e2d8819da2ae6305ad21bf71948a2068f9e872e0d98357ebd7202d51e",
+    "media/data/gpu-run.log": "9b6ab3620e7c76ccba182ffdb11edcbd6d072b7f9dca0dfe95786ae438937b34",
+    "media/data/loop.json": "ed3b735d2e6c1c9ee107282550a56d3cdbe5589853e35bed4461b72782fe6ddd",
+    "media/data/model.xml": "b223d3c11761e8abe2d13b65a0ad800172e4fa2c3d471366d5b1c4df64002d0b",
+    "media/data/replay.json": "44021fdb82e4991c562316d70998e850c175749e1198923cf5e268bfac7bbe57",
+    "media/data/report.json": "e5e9c9b39371c809e6aa91fc2bcbf5b53ab1df0a3b063953fe59846d5357bd26",
+    "media/evidence.py": "4686295f7bd2349109116d6ea3d19d8c3422e35499bd30b30f997bc23c139e2f",
+    "media/make_media.sh": "6b69208f17d45fd7019a1d8d09ca394a5c9e60c36083bcd6850c52a423c4da90",
+    "media/manifest.py": "fb72fc4f3d2ba8e79bc0f2b8cf22d86215ac4b47eb81196d9c53d343c2d04071",
+    "media/render.py": "b3581fcc7edf21983ab4aeccb7a05f8a0f839a47970df5e905324d4a5958a7c6",
+    "media/requirements.txt": "76a8e7ab75315d6fdb5ddfefb6bed31c5e02408dc7aa68fe5972131969b69c66",
+    "media/test_media.py": "468b5211a5e62d364899cdbc5130c652cdf13def47f696e114b8fdbee10da6eb"
+  },
+  "state_checks": "All CPU states re-run with judge cpu_reference; graded CPU oracle within 1e-9; every rendered qpos within 1e-9 of the CPU data; retained float32 GPU samples within judge tolerance 0.05.",
+  "video": {
+    "fps": 30,
+    "height": 1080,
+    "lossless_master": "media/master/demo.mp4 (-crf 0, git-ignored)",
+    "seconds": 26,
+    "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart",
+    "width": 1920
   }
 }

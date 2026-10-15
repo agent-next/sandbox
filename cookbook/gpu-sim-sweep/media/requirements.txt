@@ -1,0 +1,10 @@
+mujoco==3.8.1
+numpy==2.3.1
+Pillow==11.3.0
+absl-py==2.5.1
+etils[epath]==1.14.0
+glfw==2.10.2
+pyopengl==3.1.10
+fsspec==2026.9.0
+typing-extensions==4.16.0
+zipp==4.1.1

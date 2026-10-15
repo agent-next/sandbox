@@ -1,0 +1,14 @@
+{
+  "command": "media/.venv/bin/python media/evidence.py",
+  "gpu_sample_convention": "CPU i versus GPU i+1, as in the judge parity gate",
+  "initial_state": "MjData(model).qpos = model.qpos0; qvel = 0; ctrl = ARM_TARGET",
+  "recorded_gpu_sample_max_error": 0.008110552405898308,
+  "recorded_gpu_samples": 201,
+  "recorded_gpu_tolerance": 0.05,
+  "replay": "MuJoCo CPU reference replay of world 0",
+  "samples": 801,
+  "seed": 0,
+  "source": "judge/_sweep.py:cpu_reference; examples/good/sweep.json",
+  "timestep_s": 0.001,
+  "worlds": "identical initial states; no randomization"
+}
