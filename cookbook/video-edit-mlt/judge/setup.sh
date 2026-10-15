@@ -17,7 +17,7 @@ if ! (cd "$PREFIX" && sha256sum -c tool.sha256 >/dev/null 2>&1); then
     (cd "$PREFIX"; find Shotcut.app -type f -print0 | sort -z | xargs -0 sha256sum > tool.sha256)
 fi
 echo "$SHA  $PREFIX/shotcut.txz" | sha256sum -c -
-if ! ldconfig -p | grep libEGL.so.1 >/dev/null || ! ldconfig -p | grep libOpenGL.so.0 >/dev/null; then
+if ! /sbin/ldconfig -p | grep libEGL.so.1 >/dev/null || ! /sbin/ldconfig -p | grep libOpenGL.so.0 >/dev/null; then
     sudo apt-get update
     find /var/lib/apt/lists -maxdepth 1 -name '*Packages*' | grep -q . || {
         echo 'setup: apt update fetched no package lists' >&2; exit 1;
@@ -52,7 +52,7 @@ else
     python3 "$JDIR/gen_sources.py" --verify
 fi
 {
-    "$PREFIX/Shotcut.app/melt" -query 2>&1 | grep -m1 -E 'melt|MLT' || true
+    "$PREFIX/Shotcut.app/melt" --version 2>&1 | sed -n '1p'
     "$VIDEO_EDIT_FFMPEG" -version | sed -n '1p'
     "$PREFIX/Shotcut.app/ffprobe" -version | sed -n '1p'
     "$VENV/bin/python" -c 'import sys,numpy,PIL; print("Python",sys.version.split()[0]); print("numpy",numpy.__version__); print("Pillow",PIL.__version__)'
