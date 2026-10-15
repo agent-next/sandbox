@@ -11,7 +11,8 @@ declared in cookbook/tools/result.schema.json:
   receipt line;
 - the ask_agent prompt is lifted verbatim from the README's "Ask your
   agent" blockquote (or inline "**Ask your agent:** \"...\"" form);
-- sandbox_commit is the last commit that touched the demo directory;
+- sandbox_commit is the last commit that touched the demo's RECEIPT.md (the
+  numbers' source), so regenerating is stable;
 - hero is the committed media/result.png; the gallery adds media/loop.png
   and media/demo.mp4.
 
@@ -77,7 +78,7 @@ def number(demo_dir, label, value, unit, fname, needle):
 
 def demo_commit(demo_dir):
     out = subprocess.run(
-        ["git", "log", "-1", "--format=%H", "--", str(demo_dir)],
+        ["git", "log", "-1", "--format=%H", "--", str(demo_dir / "RECEIPT.md")],
         capture_output=True, text=True, cwd=ROOT)
     if out.returncode != 0 or not out.stdout.strip():
         raise ValueError(f"{demo_dir.name}: no commit found")
