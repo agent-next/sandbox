@@ -77,7 +77,11 @@ if [[ -n "$JSON_OUT" ]]; then
     ABS_JSON="$(cd "$(dirname "$JSON_OUT")" && pwd)/$(basename "$JSON_OUT")"
     JSON_ARG=(--json "$ABS_JSON")
 fi
-"$PY" -I "$SCRIPT_DIR/check_gates.py" "$WORK/sim" "${JSON_ARG[@]}"
+# The oracle re-derives every judged quantity from the simulator's own
+# output files (traj.npz/meta.json) plus the same scratch copy of the
+# scene the simulator stepped — never from anything the artifact can reach.
+"$PY" -I "$SCRIPT_DIR/check_gates.py" "$WORK/sim" "$WORK/artifact/scene.usda" \
+    "${JSON_ARG[@]}"
 RC=$?
 set -e
 

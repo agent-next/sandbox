@@ -3,7 +3,9 @@
 #
 # 1. the known-good scene passes every gate;
 # 2. every single-edit mutant fails at least one gate;
-# 3. the kill rate is printed and must be >= 90 %;
+# 3. the kill rate counts a mutant as killed ONLY when the verdict JSON
+#    shows a failed gate — a scene that crashes the simulator before the
+#    gates run is an error (and a broken mutant), not a kill;
 # 4. determinism: grading the good scene twice with the same seed gives
 #    byte-identical verdict JSON (ignoring 'timing').
 #
@@ -25,42 +27,61 @@ if ! bash "$SCRIPT_DIR/grade.sh" "$GOOD" --json "$WORK/good.json" >"$WORK/good.l
 fi
 echo "[selftest]   ok (all gates passed)"
 
-echo "[selftest] 2/4 known-bad mutants must each fail"
+echo "[selftest] 2/4 known-bad mutants must each be killed by a gate"
 python3 "$SCRIPT_DIR/mutants.py" "$GOOD" "$WORK/mutants"
 
-declare -a KILLED=() SURVIVED=()
+declare -a KILLED=() SURVIVED=() ERRORED=()
 for d in "$WORK"/mutants/*/; do
     name="$(basename "$d")"
-    if bash "$SCRIPT_DIR/grade.sh" "$d/scene.usda" --json "$WORK/$name.json" \
-         >"$WORK/$name.log" 2>&1; then
-        SURVIVED+=("$name")
-        echo "[selftest]   SURVIVED: $name"
-    else
-        KILLED+=("$name")
-        failed_gates="$(python3 - "$WORK/$name.json" <<'PY'
+    bash "$SCRIPT_DIR/grade.sh" "$d/scene.usda" --json "$WORK/$name.json" \
+         >"$WORK/$name.log" 2>&1 || true
+    read -r verdict failed_gates <<<"$(python3 - "$WORK/$name.json" <<'PY'
 import json, sys
 try:
     v = json.load(open(sys.argv[1]))
-    gates = v.get("gates", {})
-    failed = [g for g, r in gates.items() if not r.get("passed", False)]
-    print(", ".join(failed) if failed else "simulation error")
 except Exception:
-    print("simulation error")
+    print("error", "no verdict JSON produced")
+    raise SystemExit
+gates = v.get("gates", {})
+failed = sorted(g for g, r in gates.items() if not r.get("passed", False))
+if v.get("error") or not gates:
+    print("error", v.get("error") or "no gates in verdict")
+elif failed:
+    print("killed", ", ".join(failed))
+else:
+    print("survived", "all gates passed")
 PY
 )"
-        echo "[selftest]   killed:   $name  (failed: $failed_gates)"
-    fi
+    case "$verdict" in
+        killed)
+            KILLED+=("$name")
+            echo "[selftest]   killed:   $name  (failed: $failed_gates)"
+            ;;
+        survived)
+            SURVIVED+=("$name")
+            echo "[selftest]   SURVIVED: $name  ($failed_gates)"
+            ;;
+        *)
+            ERRORED+=("$name")
+            echo "[selftest]   ERROR:    $name  never reached the gates " \
+                 "($failed_gates) — a mutant must fail a gate, not crash" >&2
+            ;;
+    esac
 done
 
-total=$(( ${#KILLED[@]} + ${#SURVIVED[@]} ))
+total=$(( ${#KILLED[@]} + ${#SURVIVED[@]} + ${#ERRORED[@]} ))
 kill_rate=$(( 100 * ${#KILLED[@]} / total ))
-echo "[selftest] 3/4 kill rate: ${#KILLED[@]}/$total = ${kill_rate}%"
-if (( kill_rate < 90 )); then
-    echo "[selftest] FAIL: kill rate below 90 %" >&2
-    exit 1
-fi
+echo "[selftest] 3/4 kill rate (killed by a gate / total): ${#KILLED[@]}/$total = ${kill_rate}%"
 if (( ${#SURVIVED[@]} > 0 )); then
     echo "[selftest] FAIL: surviving mutants: ${SURVIVED[*]}" >&2
+    exit 1
+fi
+if (( ${#ERRORED[@]} > 0 )); then
+    echo "[selftest] FAIL: mutants that never reached the gates: ${ERRORED[*]}" >&2
+    exit 1
+fi
+if (( kill_rate < 90 )); then
+    echo "[selftest] FAIL: kill rate below 90 %" >&2
     exit 1
 fi
 
@@ -78,4 +99,4 @@ if json.dumps(a, sort_keys=True) != json.dumps(b, sort_keys=True):
 print("  identical")
 PY
 
-echo "[selftest] PASS: judge kills ${#KILLED[@]}/$total mutants, good passes, deterministic"
+echo "[selftest] PASS: judge kills ${#KILLED[@]}/$total mutants by a gate, good passes, deterministic"

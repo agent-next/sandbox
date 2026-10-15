@@ -2,9 +2,16 @@
 """mutants.py — generate the known-bad scenes for the self-test.
 
 Each mutant is a SINGLE-EDIT copy of examples/good/scene.usda: exactly one
-line differs.  Every edit is a realistic authoring mistake (the silent
-failure modes listed in the ovphysx authoring docs) that loads without any
-error.  A judge that cannot kill these is not a judge.
+contiguous block differs.  Every edit is a realistic authoring mistake (the
+silent failure modes listed in the ovphysx authoring docs) or a deliberate
+cheat attempt; every one loads without error, so each is killed by a judge
+gate, never by a crash before grading.
+
+  physics mutants (1-7)  — wrong physics, killed by the analytic gates
+  cheat mutants (8-10)   — scenes that try to fool the judge itself:
+                           kinematic animation, a joint scaffold, and a
+                           hidden external reference; killed by G7_contract,
+                           the gate that re-reads the artifact itself
 
 Usage: mutants.py <good_scene.usda> <out_dir>
 Writes <out_dir>/<name>/scene.usda plus <out_dir>/mutants.json.
@@ -14,8 +21,9 @@ import json
 import sys
 from pathlib import Path
 
-# name -> (description, old, new); `old` must match exactly one line.
+# name -> (description, old, new); `old` must match exactly one place.
 MUTANTS = {
+    # --- physics mutants: the silent authoring failure modes ---------------
     "gravity-flip": (
         "gravity direction points up instead of down",
         "        vector3f physics:gravityDirection = (0, -1, 0)",
@@ -27,18 +35,11 @@ MUTANTS = {
         "        float physics:mass = 0.0",
     ),
     "no-rigidbody": (
-        "PhysicsRigidBodyAPI dropped from the box (never moves)",
-        '        double3 xformOp:translate = (-0.5, 0.8, 0)\n'
-        '        quatd xformOp:orient = (1, 0, 0, 0)\n'
-        '        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]\n'
-        '\n'
-        '        float physics:mass = 4.0',
-        '        double3 xformOp:translate = (-0.5, 0.8, 0)\n'
-        '        quatd xformOp:orient = (1, 0, 0, 0)\n'
-        '        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]\n'
-        '\n'
-        '        float physics:mass = 4.0\n'
-        '        bool physics:kinematicEnabled = 1',
+        "PhysicsRigidBodyAPI dropped from the box (a collider that never moves)",
+        '    def Xform "Box" (\n'
+        '        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]',
+        '    def Xform "Box" (\n'
+        '        prepend apiSchemas = ["PhysicsMassAPI"]',
     ),
     "no-ground-collision": (
         "ground has no PhysicsCollisionAPI (bodies fall through)",
@@ -64,6 +65,43 @@ MUTANTS = {
         "    metersPerUnit = 1",
         "    metersPerUnit = 0.01",
     ),
+    # --- cheat mutants: try to fool the judge, not to solve the task -------
+    # All three simulate without any error; the judge kills each by name via
+    # G7_contract (which parses the artifact itself) and/or the physics
+    # gates.  They exist so "the artifact ran and passed" can never be
+    # confused with "the artifact is what it claims to be".
+    "kinematic-cheat": (
+        "cheat: ball switched to kinematic (animation instead of dynamics); "
+        "G7_contract rejects kinematic flags",
+        "        float physics:mass = 1.0\n"
+        "        vector3f physics:velocity = (0, 0, 0)",
+        "        float physics:mass = 1.0\n"
+        "        bool physics:kinematicEnabled = 1\n"
+        "        vector3f physics:velocity = (0, 0, 0)",
+    ),
+    "joint-scaffold": (
+        "cheat: box welded to the ground with a PhysicsFixedJoint; "
+        "G7_contract rejects joints",
+        "    # --- dynamic box: 4 kg, half-extent 0.10 m, dropped from 0.80 m ---",
+        "    # --- dynamic box: 4 kg, half-extent 0.10 m, dropped from 0.80 m ---\n"
+        '    def PhysicsFixedJoint "CheatJoint"\n'
+        "    {\n"
+        "        rel physics:body0:bodyRel = </World/Box>\n"
+        "        rel physics:body1:bodyRel = </World/Ground>\n"
+        "    }",
+    ),
+    "hidden-reference": (
+        "cheat: scene pulls in an external file via a references arc — "
+        "physics is unchanged and passes, only G7_contract (self-contained "
+        "artifact rule) kills it",
+        'def Xform "World"\n'
+        "{",
+        'def Xform "World"\n'
+        "(\n"
+        "    prepend references = @./not-in-this-repo.usda@\n"
+        ")\n"
+        "{",
+    ),
 }
 
 
@@ -76,7 +114,6 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     lines = good.read_text().splitlines()
 
-    index = {}
     made = {}
     for name, (desc, old, new) in MUTANTS.items():
         old_lines = old.splitlines()
@@ -94,9 +131,8 @@ def main():
         d.mkdir(exist_ok=True)
         (d / "scene.usda").write_text("\n".join(mutated) + "\n")
         made[name] = desc
-        index[name] = desc
 
-    (out_dir / "mutants.json").write_text(json.dumps(index, indent=2) + "\n")
+    (out_dir / "mutants.json").write_text(json.dumps(made, indent=2) + "\n")
     print(f"[mutants] wrote {len(made)} single-edit mutants to {out_dir}")
     return 0
 

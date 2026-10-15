@@ -22,9 +22,12 @@ afterwards.
 The artifact under test is **one file**: a USD ASCII stage
 (`examples/good/scene.usda` is the known-good reference, written for this
 demo against SPEC.md). The judge copies it to scratch, populates it with
-`ovstage`, steps it with single-threaded PhysX, and never lets the
-artifact touch the judge (sha256 checksum of `judge/` before and after
-every grade).
+`ovstage`, steps it with single-threaded PhysX in its own `python -I`
+process, and never lets the artifact touch the judge: every judged number
+is re-derived from the simulator's output files and the scratch copy
+itself (gate G7 re-reads the scene text, so animated or scaffolded scenes
+fail by name), and `judge/` is sha256-checksummed before and after every
+grade.
 
 ## The test, in numbers
 
@@ -35,10 +38,15 @@ every grade).
 | G4 resting height | within 1 mm of 0.10 m | 0.000 mm (both) |
 | G5 bounce apex (ball) | within 10 % of 0.375 m | 0.3733 m (0.43 %) |
 | G6 energy | no step gain > 0.5 % E₀; E_final ≤ E₀ | max gain 0.07 % E₀ |
+| G7 contract | self-contained dynamic scene, no cheats | 0 violations |
 
-Self-test kills **7/7** single-edit mutant scenes (gravity flip, mass 0,
-missing RigidBodyAPI, missing ground collision, spawn inside ground,
-restitution > 1, centimetre units) — kill-rate rule: ≥ 90 %.
+Self-test kills **10/10** single-edit mutant scenes — 7 physics mistakes
+(gravity flip, mass 0, missing RigidBodyAPI, missing ground collision,
+spawn inside ground, restitution > 1, centimetre units) plus 3 cheat
+attempts that **pass every physics gate** and are caught only by the
+artifact-contract gate G7 (kinematic animation, a joint scaffold, a hidden
+external reference). A mutant killed by crashing the simulator does not
+count: the kill rate counts mutants a **gate** fails (rule: ≥ 90 %).
 
 ## Ask your agent
 
@@ -79,7 +87,7 @@ sandbox created by another tool — you can run the judge steps directly:
 #    (sha256-verified wheels; needs only python3 + venv — no sudo)
 bash judge/setup.sh
 
-# 2. Self-test: proves the judge can fail (good scene + 7 mutants)
+# 2. Self-test: proves the judge can fail (good scene + 10 mutants)
 bash judge/selftest.sh
 
 # 3. Grade the known-good scene
@@ -125,18 +133,53 @@ All times are measured and pasted in
 | `judge/setup.sh` (cold, ~390 MB download) | ~2 min |
 | `judge/setup.sh` (venv already installed) | ~1 s |
 | `judge/grade.sh` (one scene, grade.sh wall clock) | ~12–22 s |
-| `judge/selftest.sh` (good ×2 + 7 mutants + determinism check) | ~2–3 min |
+| `judge/selftest.sh` (good ×2 + 10 mutants + determinism check) | ~3–4 min |
+
+## Media (see the result without running anything)
+
+- [`media/result.png`](media/result.png) — 3D hero render of the exact
+  graded trajectory (both bodies at the measured first-contact moment)
+  with the judge's pass lines overlaid, above the three measured panels
+  (free fall vs y₀ − g t²/2, bounce apex vs analytic, energy vs E₀).
+- [`media/loop.png`](media/loop.png) — the agent loop: gates passed per
+  authoring iteration, and the mutant × gate kill matrix (10/10).
+- [`media/demo.mp4`](media/demo.mp4) — 42 s, 1920×1080: the drop, the
+  bounce, a sped-up real `selftest.sh` run, the verdict and the kill
+  matrix ([STORYBOARD.md](media/STORYBOARD.md); machine-gated with
+  `cookbook/tools/video_gate.py`, blind-judged in
+  [media/REVIEW.json](media/REVIEW.json)).
+- [`media/make_media.sh`](media/make_media.sh) regenerates every media
+  file from fresh judge runs; [`media/MANIFEST.json`](media/MANIFEST.json)
+  records what each file shows, its command, source data and sha256.
+
+The renderer is a deterministic software 3D renderer (perspective
+projection, Lambert shading) written for this demo: the pinned `ovphysx`
+wheel ships no renderer, so the video and hero render the simulator's own
+per-step samples (`traj.npz`, sha256-recorded in the MANIFEST) rather than
+a plot of them.
+
+## Reproducibility
+
+- [`REPRODUCE.md`](REPRODUCE.md) — an independent agent (different model
+  family from the builder) followed only this README in a fresh venv and
+  recorded its numbers; they match [RECEIPT.md](RECEIPT.md) within the
+  SPEC tolerances.
+- Time-to-result for a cold-start agent following this README: measured in
+  RECEIPT.md (~4.5 min to the hero verdict on 2 vCPU CPU).
 
 ## Limits
 
-- Headless CPU rigid bodies only: no rendering, GPU, articulations,
-  joints, deformables or CCD; positions and velocities only (no contact
-  forces).
+- Headless CPU rigid bodies only: no rendering inside the judge (the
+  pinned `ovphysx` wheel is simulation-only and exposes no renderer;
+  `media/demo.mp4` renders the judged trajectory headlessly instead),
+  no GPU, articulations, deformables or CCD; positions and velocities
+  only (no contact forces).
 - Gates pin the SPEC.md geometry and materials — a scene solving a
-  different drop fails even if physically self-consistent.
+  different drop fails even if physically self-consistent. The contract
+  gate (G7) additionally requires the artifact to be one self-contained
+  dynamic file: kinematic flags, joints, composition arcs and authored
+  velocities are rejected by name.
 - The bounce gate assumes a single dominant first rebound; scenes with
   chaotic multi-body contact are out of scope (G6 energy still applies).
 - The pinned wheel needs Linux x86_64 with AVX; `setup.sh` exits 2 with a
   clear message on anything else.
-- `media/` (figures + video) is a later task per the demo standard;
-  `REPRODUCE.md` is written by an independent agent after merge.

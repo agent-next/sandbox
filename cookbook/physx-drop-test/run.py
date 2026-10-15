@@ -3,7 +3,7 @@
 
 Creates a disposable agent-next sandbox, clones this repo inside it,
 installs the pinned PhysX toolchain (sha256-verified wheels), proves the
-judge can fail (self-test: 7 known-bad mutants of the good scene) and
+judge can fail (self-test: 10 known-bad mutants of the good scene) and
 grades the known-good USD scene. The sandbox is always killed afterwards
 (unless --keep is given).
 

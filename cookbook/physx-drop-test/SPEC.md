@@ -18,10 +18,11 @@ installed) that no one wants on a workstation; a disposable sandbox with
 
 ## Non-goals
 
-- Rendering or visualization (later task adds `media/`).
-- GPU simulation, articulations, joints, deformables, CCD.
+- Rendering inside the judge (the pinned `ovphysx` wheel is simulation-only:
+  it exposes no renderer; `media/` renders the judged trajectory
+  headlessly with matplotlib — see `media/STORYBOARD.md`).
+- GPU simulation, articulations, deformables, CCD.
 - Contact-force or impulse measurement (positions/velocities only).
-- `REPRODUCE.md` and `media/` (a later task adds both, per the standard).
 
 ## The artifact
 
@@ -46,6 +47,18 @@ The agent authors **one file**: `scene.usda`, a USD ASCII stage containing:
 
 The two bodies must not collide with each other during the test horizon
 (lateral separation ≥ 0.6 m is enough and required).
+
+### The dynamics contract (G7)
+
+The artifact must be **one self-contained ASCII file that solves the task by
+dynamics alone**: no `physics:kinematicEnabled`, no joint or other
+constraint prims, no composition arcs that pull in other files
+(`references` / `payload` / `subLayers` / `inherits` / `variants`), no
+non-zero authored velocities, no drives. The judge re-derives these rules
+from the artifact's own text (G7), so a scene that animates or scaffolds
+its way to a passing trajectory — or that simulates perfectly while
+secretly referencing outside content — is rejected by name even when every
+physics gate passes.
 
 ## The judge oracle
 
@@ -73,6 +86,17 @@ compares against **closed-form mechanics** — no reference simulation, no
   frame must never increase by more than **0.5 %** of the initial potential
   energy between consecutive local segments (numerical-solver tolerance);
   overall E must be non-increasing to within 0.5 % of E₀ across the run.
+- **Dynamics contract (G7):** the artifact itself must obey the contract
+  above. The judge re-reads the same scratch copy of the scene the
+  simulator stepped and rejects kinematic flags, constraint prims,
+  composition arcs, authored velocities and drives by name.
+
+Every judged quantity is re-derived by the judge from the simulator's own
+output files (traj.npz/meta.json) plus that scratch copy — nothing the
+artifact can influence. The artifact also never runs in the judge's
+process: the simulator is a separate `python -I` invocation over a scratch
+copy, and the `judge/` directory is sha256-checksummed before and after
+every grade so a scene that tried to modify the judge fails loudly.
 
 Numeric pass rules: every gate is a number or fails; `grade.sh` prints one
 JSON verdict and exits 0 only if all gates pass. Deterministic: fixed step
@@ -89,22 +113,32 @@ count, CPU, single-threaded PhysX (`num_threads = 1`), no randomness (a
 | G4 | resting height | within 1 mm of 0.10 m after settle | both |
 | G5 | bounce apex | within 10 % of 0.375 m | ball |
 | G6 | energy | no sample-to-sample increase > 0.5 % of E₀; total ≤ E₀ + 0.5 % E₀ | both |
+| G7 | contract | artifact text obeys the dynamics contract (no kinematic flags, joints, composition arcs, authored velocities/drives) | scene |
 
 ## Known-bad mutants (self-test)
 
-Single-edit mutants of the good scene, each must fail ≥ 1 gate:
+Single-edit mutants of the good scene. Each must be **killed by a judge
+gate** — a mutant that crashes the simulator before the gates run is a
+broken mutant and fails the self-test. The kill rate counts gate-kills
+only and must be ≥ 90 % (10/10 here → 100 %).
 
 1. `gravity-flip` — gravity direction `(0, 1, 0)` → fails G2 (rises) / G3.
 2. `mass-zero` — `physics:mass = 0` → PhysX substitutes a default-density
    mass instead of failing to load; fails G1 (mass read back ≠ authored 4.0).
-3. `no-rigidbody` — drop `PhysicsRigidBodyAPI` from Box → never moves, G2.
+3. `no-rigidbody` — `PhysicsRigidBodyAPI` removed from Box's apiSchemas →
+   collider never simulated → G1 (body not sampled).
 4. `no-ground-collision` — remove `PhysicsCollisionAPI` from ground → falls
    through, G3/G4.
 5. `spawn-inside-ground` — box spawn y = 0.05 < 0.10 → G3/G4.
 6. `restitution-over-unity` — e = 1.20 → energy gain, G5/G6.
 7. `cm-units` — `metersPerUnit = 0.01` (cm) with same numbers → G2/G4.
-
-Kill rate must be ≥ 90 % (all 7 here → 100 % required in practice).
+8. `kinematic-cheat` — ball switched to `kinematicEnabled` (animation
+   instead of dynamics) → G7 names it; the physics gates also fail.
+9. `joint-scaffold` — box welded to the ground with a `PhysicsFixedJoint`:
+   every physics gate still passes; only G7 kills it.
+10. `hidden-reference` — scene prepends
+    `references = @./not-in-this-repo.usda@`: physics is unchanged and
+    passes; only G7 (self-contained artifact rule) kills it.
 
 ## Acceptance oracle
 

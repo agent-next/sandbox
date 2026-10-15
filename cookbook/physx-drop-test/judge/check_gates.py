@@ -21,6 +21,16 @@ Gates (SPEC.md):
   G5 bounce apex   — ball's first rebound apex within 10% of the analytic
   G6 energy        — no sample-to-sample E increase > 0.5% of E0; E_final
                      <= E0 (+0.5% of E0)
+  G7 contract      — the artifact itself obeys the SPEC's dynamics contract:
+                     both bodies dynamic (no kinematic flags), no joints
+                     or other constraint prims, stage self-contained (no
+                     references/payload/sublayers), no velocity/drive
+                     authoring.  Re-derived by the judge from the artifact
+                     text; catches scenes that animate or scaffold their
+                     way to a passing trajectory.
+
+check_gates.py is handed the same scratch copy the simulator stepped, so
+the judged scene and the judged numbers cannot differ.
 
 Prints one JSON verdict and exits 0 only if every gate passes.
 Wall-time fields live only under 'timing' (added by grade.sh).
@@ -28,6 +38,7 @@ Wall-time fields live only under 'timing' (added by grade.sh).
 
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -163,6 +174,54 @@ def gate_bounce_apex(y, contact_idx, y0):
     }
 
 
+def gate_contract(usd_text):
+    """G7: the artifact obeys the SPEC's dynamics contract.
+
+    The analytic gates above judge the trajectory; this gate judges the
+    artifact itself, re-derived here straight from its text (the scene the
+    simulator stepped — grade.sh passes the same scratch copy).  A scene
+    that animates or scaffolds its way to a passing trajectory cannot pass:
+    """
+    problems = []
+
+    # 1. no kinematic anything: dynamics must produce the motion
+    for m in re.finditer(r"^\s*bool physics:(\w*[Kk]inematic\w*)\s*=\s*(\S+?);?\s*$",
+                         usd_text, re.MULTILINE):
+        if m.group(2) in ("1", "true", "True"):
+            problems.append(
+                f"physics:{m.group(1)} is set — bodies must be dynamic, "
+                "not kinematically animated")
+
+    # 2. no joints or other constraint prims
+    joint = re.findall(r'^\s*def (Physics\w*Joint\w*|"Physics\w*Joint\w*")',
+                       usd_text, re.MULTILINE)
+    if joint:
+        problems.append(f"{len(joint)} constraint prim(s) present "
+                         f"(e.g. {joint[0].strip('\"')}) — the SPEC allows "
+                         "no joints")
+
+    # 3. the stage must be self-contained: no composition arcs to files
+    for arc in ("references", "payload", "subLayers", "inherits", "variants"):
+        hits = re.findall(rf"^\s*(prepend |append |add )?{arc}\s*=\s*[@<\[]",
+                          usd_text, re.MULTILINE)
+        if hits:
+            problems.append(f"composition arc '{arc}' present ({len(hits)}) — "
+                            "the artifact must be a single self-contained "
+                            "file")
+
+    # 4. no authored motion: the SPEC drops both bodies at rest
+    if re.search(r"^\s*(vector3f|vector3d|float3)\s+physics:velocity\s*=\s*"
+                 r"\((?!\s*0(\.0*)?\s*,\s*0(\.0*)?\s*,\s*0(\.0*)?\s*\)\s*;?\s*$)",
+                 usd_text, re.MULTILINE):
+        problems.append("non-zero physics:velocity authored — bodies must be "
+                        "spawned at rest")
+    if re.search(r"^\s*physics:drive\w*\s*=", usd_text, re.MULTILINE):
+        problems.append("physics:drive* authored — motion must come from "
+                        "gravity alone")
+
+    return (not problems), {"violations": problems}
+
+
 def gate_energy(y, vy, mass):
     """G6: mechanical energy never increases (tolerance 0.5% of E0)."""
     n = len(y)
@@ -237,10 +296,11 @@ def expected_height(name):
 
 def main():
     if len(sys.argv) < 3:
-        print("usage: check_gates.py <sim_out_dir> [--json out.json]",
-              file=sys.stderr)
+        print("usage: check_gates.py <sim_out_dir> <scene.usda> "
+              "[--json out.json]", file=sys.stderr)
         return 2
     out_dir = Path(sys.argv[1])
+    scene_path = Path(sys.argv[2])
     json_out = None
     if "--json" in sys.argv:
         json_out = Path(sys.argv[sys.argv.index("--json") + 1])
@@ -250,6 +310,19 @@ def main():
 
     verdict = {"gates": {}, "all_gates_passed": False, "bodies": {}}
     all_ok = True
+
+    # G7 first: if the artifact violates the dynamics contract there is no
+    # point grading its trajectory, and the verdict must say why.
+    try:
+        usd_text = scene_path.read_text()
+    except (OSError, UnicodeDecodeError) as e:
+        ok7, d7 = False, {"violations": [
+            f"artifact is not a readable ASCII stage: {e}"]}
+    else:
+        ok7, d7 = gate_contract(usd_text)
+    verdict["gates"]["G7_contract"] = {"passed": bool(ok7), "detail": d7}
+    all_ok = all_ok and ok7
+
     for body, mass_exp, bounce in (("Box", M_BOX, False),
                                    ("Ball", M_BALL, True)):
         key = body.lower()
