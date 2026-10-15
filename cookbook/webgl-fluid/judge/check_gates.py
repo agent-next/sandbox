@@ -313,8 +313,8 @@ def main():
             'dye': [meta.get('dyeWidth'), meta.get('dyeHeight')],
             'sim': [meta.get('simWidth'), meta.get('simHeight')],
             'float_readback': meta.get('floatRead'),
-            'wall_ms': blob.get('wall_ms'),
         },
+        'timing': {'scene_wall_ms': blob.get('wall_ms')},
     }
 
     if frames_dir and blob.get('raw_frames'):

@@ -146,7 +146,7 @@ src, dst, seed, secs = sys.argv[1], sys.argv[2], int(sys.argv[3]), float(sys.arg
 with open(src) as f:
     v = json.load(f)
 v['seed'] = seed
-v['timing'] = {'wall_seconds': round(secs, 3)}
+v.setdefault('timing', {})['wall_seconds'] = round(secs, 3)
 with open(dst, 'w') as f:
     json.dump(v, f, indent=2)
     f.write('\n')
