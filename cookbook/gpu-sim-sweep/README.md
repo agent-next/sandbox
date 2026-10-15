@@ -33,10 +33,13 @@ summary, then kills the sandbox/lease and confirms it is gone. `--gpu` packs
 the local checkout's `judge/` + `examples/` onto the lease (the `--ref` flag
 applies to the CPU-sandbox clone path only). The GPU path takes minutes, not
 seconds — measured ~6.5 min end-to-end: a fresh lease cold-compiles the Warp
-kernels once (~86–97 s, reported as setup time) and each grade — the good
-config and every mutant — runs real simulations (good ~145–163 s; mutants
+kernels once (~86–105 s, reported as setup time) and each grade — the good
+config and every mutant — runs real simulations (good ~145–169 s; mutants
 ≤ ~1 s when the structure/cost gates reject them, up to ~90 s for the three
-sim-running mutants). See RECEIPT.md for the two measured runs.
+sim-running mutants). These ranges cover the two builder runs in
+[RECEIPT.md](RECEIPT.md#key-numbers-side-by-side) (86.3/96.5 s cold compile,
+145/163 s good grade) and the [acceptance log](media/data/gpu-run.log)
+(104.945 s cold compile, 169 s good grade).
 
 To try the judge locally instead, use x86-64 Linux with CPython 3.12 as
 `python3` (the setup lock contains only cp312 wheel hashes; the GPU lease
