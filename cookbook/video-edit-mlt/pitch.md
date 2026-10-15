@@ -1,18 +1,16 @@
-# Pitch — video-edit-mlt
+# Premiere, open source
 
-## Hero frame (0-2 s)
+An agent writes a timeline, not a video-shaped promise. Shotcut renders it.
+An independent judge reads every frame's barcode, measures the dissolve,
+checks the logo's exact window, and listens for music ducking.
 
-<what the viewer literally sees at t = 0: the finished, real result
-filling the frame — no title card, no terminal, no blank chart.>
+Hero frame: the real rendered edit fills the screen immediately. Synthetic
+kinetic shapes and the machine-readable barcode move together.
 
-## Claim
+Claim: one 225-frame edit, checked frame by frame; all eleven deliberately
+broken edits must die at their intended gates. Measured values and run
+output live in RECEIPT.md, not in this pitch.
 
-<one sentence with one measured number from RECEIPT.md — the line under
-the video, e.g. "An agent sizes a steel cantilever in a disposable
-sandbox and a judge it cannot fool proves 138 <= 167 MPa, killing
-9/9 mutants.">
-
-## Storyboard
-
-Slot table: `media/STORYBOARD.md`. Arc in one line: <hook -> input/output
--> escalation -> proof -> `python3 run.py` end card>.
+Arc: finished edit → numeric brief → dissolve and provenance close-ups →
+audio → actual sandbox log replay → gates → mutant matrix → launch.
+Shot plan: `media/STORYBOARD.md`.

@@ -1,22 +1,22 @@
-#!/bin/bash
-# Rebuild every media artifact from the real judge outputs — media is
-# reproducible, never hand-edited (cookbook/DEMO-STANDARD.md, Media).
-#
-# demo.mp4 storyboard slots, in order (fill in media/STORYBOARD.md first):
-#   0-2 s       hook: the finished real result fills the frame
-#               (no title card, logo, terminal, or blank chart)
-#   2-10 s      input -> output: the prompt/spec/photo beside the result
-#   10-35 s     escalate: camera moves, close-ups, the result stressed,
-#               plus a sped-up agent run in the sandbox labelled "Nx speed"
-#   then        proof: judge PASS + mutant kill matrix, in large text
-#   last 2-3 s  end card: the one-line launch ("python3 run.py"), static
-#
-# Format: 16:9 master >= 1920x1080 (4K hero renders encouraged), 25-60 s,
-# 30 fps, >= 0.8 scene cuts per 10 s, caption cap height >= 4 % of frame
-# height. Every frame is real output from the pinned run; every number
-# traces to RECEIPT.md. Check the encode with cookbook/tools/video_gate.py
-# and judge it blind via media/REVIEW.json (Review panel rule).
+#!/usr/bin/env bash
 set -euo pipefail
-MEDIA="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo "TODO: implement media/make_media.sh in $MEDIA" >&2
-exit 1
+MEDIA="$(cd "$(dirname "$0")" && pwd)"
+DEMO="$(dirname "$MEDIA")"
+export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+PY="$HOME/.local/video-edit-mlt/venv/bin/python"
+export PATH="$HOME/.local/video-edit-mlt/Shotcut.app:$PATH"
+cd "$DEMO"
+mkdir -p media/data media/work media/master
+if [ "${1:-}" != --reuse ]; then
+    bash judge/setup.sh
+    bash judge/grade.sh examples/good/edit.mlt --seed 1 --export media/data --json media/data/verdict.json
+    bash judge/selftest.sh --json media/work/selftest-full.json
+    "$PY" -B media/make_media.py summarize
+fi
+"$PY" -B media/make_media.py build
+ffmpeg -y -v error -i media/master/lossless.mp4 \
+    -c:v libx264 -crf 18 -preset slow -threads 2 -pix_fmt yuv420p \
+    -movflags +faststart media/demo.mp4
+python3 ../tools/video_gate.py media/demo.mp4 --json media/video_gate.json
+python3 ../tools/result.py check media/result.json
+"$PY" -B media/make_media.py manifest

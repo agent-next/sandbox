@@ -8,3 +8,5 @@ __pycache__/
 assets/
 out.mp4
 examples/good/out.mp4
+media/data/render.mp4
+judge/VERSIONS.txt

@@ -1,0 +1,25 @@
+run: [2.7s] sbx create --timeout-min 120 -> exit 0
+run: sandbox 01a1401d-45c9-71d1-b300-aa3ac696b6f6
+run: [26.6s] git clone -> exit 0
+run: [189.1s] setup -> exit 0
+run: [634.7s] selftest -> exit 0
+selftest: known-good PASSED all gates
+selftest: killed off_by_one_cut (gate: edl; intended: edl)
+selftest: killed wrong_in_point (gate: edl; intended: edl)
+selftest: killed clip_order_swapped (gate: edl; intended: edl)
+selftest: killed hard_cut (gate: dissolve; intended: dissolve)
+selftest: killed short_dissolve (gate: dissolve; intended: dissolve)
+selftest: killed logo_wrong_corner (gate: logo; intended: logo)
+selftest: killed logo_too_long (gate: logo; intended: logo)
+selftest: killed no_ducking (gate: ducking; intended: ducking)
+selftest: killed too_loud (gate: loudness; intended: loudness)
+selftest: killed wrong_fps (gate: format; intended: format)
+selftest: killed wrong_resolution (gate: format; intended: format)
+selftest: kill rate 11/11 = 100%
+selftest: determinism OK (two --seed 1 grades, excluding timing)
+selftest: judge integrity OK
+selftest: OK
+run: [30.7s] grade -> exit 0
+run: SUMMARY passed=True dissolve=0.041486 ducking=11.948775 edl=0 loudness={'integrated_lufs': -16.0, 'true_peak_dbtp': -8.5}
+run: killed and confirmed gone: 01a1401d-45c9-71d1-b300-aa3ac696b6f6
+run: total wall 890.4s
