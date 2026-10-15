@@ -40,9 +40,11 @@ python3 run.py [--ref main] [--keep]
 ```
 
 `run.py` creates 11 sandboxes (one per suspect commit) + runs the serial
-baseline on the orchestrating machine + the negative control in one more
-sandbox, writes `sweep_report.json`, grades it with the judge, and always
-kills every sandbox it created, confirming with `sbx list`.
+baseline and the negative control in one more utility sandbox, writes
+`sweep_report.json`, grades it with the judge, and always kills every
+sandbox it created, confirming with `sbx list`. The serial baseline issues
+the *same* per-commit command the sweep sends each sandbox, one commit after
+another on one machine — so the two walls differ only in machine count.
 
 ## Measured wall time per step
 
