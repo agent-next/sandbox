@@ -1,0 +1,9 @@
+# wheels and the built site are large and reproducible from judge/setup.sh
+*.whl
+rsssite/
+reference/
+*.npz
+*.mp4
+media/master/
+__pycache__/
+*.pyc
