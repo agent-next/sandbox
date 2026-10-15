@@ -52,9 +52,10 @@ for cand in "${CANDIDATES[@]}"; do
         [[ -f "${DATA}/${cand}/${f}" ]] || die "missing ${DATA}/${cand}/${f}"
     done
 done
-# also need degenerate-r-force, sign-flip, wrong-type verdict JSONs for loop.png
-for f in "degenerate-r-force_verdict.json" "sign-flip_verdict.json" "wrong-type_verdict.json"; do
-    [[ -f "${DATA}/${f}" ]] || die "missing ${DATA}/${f}"
+# also validation-error verdict JSONs + the captured selftest log (loop.png
+# parses its kill table and kill rate out of it; nothing is hard-coded)
+for f in "degenerate-r-force_verdict.json" "sign-flip_verdict.json" "wrong-type_verdict.json" "selftest.log"; do
+    [[ -f "${DATA}/${f}" ]] || die "missing ${DATA}/${f} - run media/regen_data.sh"
 done
 echo "  all trace files present"
 
@@ -147,6 +148,7 @@ cat >> "${OUT}/MANIFEST.json" <<EOF
       "data/too-sluggish/s1_trace.csv",
       "data/too-sluggish/s2_trace.csv"
     ],
+    "selftest_log": "data/selftest.log",
     "margin_csvs": [
       "data/good/margins_force.csv",
       "data/good/margins_torque.csv"
@@ -177,7 +179,13 @@ cat >> "${OUT}/MANIFEST.json" <<EOF
 }
 EOF
 
-# write REVIEW.md
+# write REVIEW.md (numbers read from the judge outputs, not typed in)
+TAU_BAD=$("${PY}" -c 'import json; print("%.2f" % json.load(open("'"${DATA}"'/too-aggressive/verdict.json"))["gates"]["s2_tau_demand_max_Nm"]["value"])')
+X_SLUG=$("${PY}" -c 'import json; print("%.2f" % json.load(open("'"${DATA}"'/too-sluggish/verdict.json"))["gates"]["s2_x_settle_s"]["value"])')
+TH_SET=$("${PY}" -c 'import json; print("%.2f" % json.load(open("'"${DATA}"'/good/verdict.json"))["gates"]["s1_theta_settle_s"]["value"])')
+MC_FRAC=$("${PY}" -c 'import json; v=json.load(open("'"${DATA}"'/good/verdict.json")); print("%d/%d = %.3f" % (v["mc_pass"], v["mc_n"], v["gates"]["mc_pass_fraction"]["value"]))')
+KILL=$("${PY}" -c 'import re,sys; s=open("'"${DATA}"'/selftest.log").read(); m=re.search(r"kill rate: (\d+/\d+ = \d+%)", s); print(m.group(1) if m else "NOT FOUND")')
+NGATES=$("${PY}" -c 'import json; print(len(json.load(open("'"${DATA}"'/good/verdict.json"))["gates"]))')
 cat > "${OUT}/REVIEW.md" <<EOF
 # Media Review — control-tuning
 
@@ -217,25 +225,26 @@ Generated $(date -u +"%Y-%m-%d %H:%M:%S UTC") by \`make_media.sh\`.
 ## PNG verification (opened at full size)
 - **result.png**: 13×12.6 in @ 200 dpi
   - Top: hero frame — the MuJoCo render of good/s1_trace.csv at
-    t = 0.70 s (the measured θ settle time) with HUD numbers, gate
+    t = ${TH_SET} s (the measured θ settle time) with HUD numbers, gate
     card and PASS tag overlaid; the translucent green strip on the
     rail is the ±0.01 m x-settle band.
-  - Bottom-left: gate table with 10 rows — all PASS, values match
+  - Bottom-left: gate table — all PASS, values match
     data/good/verdict.json exactly.
   - Bottom-right: MC scatter (200 dots) with red limits at x = 7 s,
-    θ = 8 s — 200/200 = 1.000 ≥ 0.95.
+    θ = 8 s — ${MC_FRAC} ≥ 0.95.
   - The two S1/S2 trace plots from the previous revision were
     superseded by the hero render (a sparkline of θ(t) is overlaid
     inside the hero frame itself).
 - **loop.png**: 13×9.6 in @ 200 dpi
-  - Left: 4×18 gate matrix (too-aggressive, too-sluggish, mc-marginal,
+  - Left: 4×${NGATES} gate matrix (too-aggressive, too-sluggish, mc-marginal,
     good) — ✓/✕ per gate from verdict JSONs
   - Middle-left: too-aggressive vs good torque demand (S2) — red
-    ±1 N·m lines, orange exceeds at 2.52 N·m
+    ±1 N·m lines, orange exceeds at ${TAU_BAD} N·m
   - Middle-right: too-sluggish vs good cart position (S2) — green
-    band, orange never settles (10 s)
+    band, orange never settles (${X_SLUG} s)
   - Right-top: first-failing gate per step with measured values
-  - Right-bottom: selftest bars — 9/9 mutants killed
+  - Right-bottom: selftest kill bars and kill rate parsed from
+    data/selftest.log — ${KILL}
 
 ## Layout gate
 \`make_result.py\` and \`make_loop.py\` call \`common.check_layout(fig)\`
@@ -255,7 +264,7 @@ Commands (run from \`cookbook/control-tuning/\`):
 |---|----------------------|
 | 2 s  | title card — "LQR cart-pole control tuning" |
 | 10 s | S2 replay start: MuJoCo cart at x = 1 m, pole upright; HUD shows t, θ, x, \|F\|, \|τ\|; green settle strip at x = 0 ahead on the rail; sparkline x(t) with playhead |
-| 20 s | side-by-side S2 — too-aggressive (left) vs good (right); the torque gate's FAIL tag "peak \|τ\| = 2.52 N·m > 1 N·m" pinned on the left half |
+| 20 s | side-by-side S2 — too-aggressive (left) vs good (right); the torque gate's FAIL tag "peak \|τ\| = ${TAU_BAD} N·m > 1 N·m" pinned on the left half |
 | 30 s | side-by-side S2 at 1.7× — too-sluggish (left) vs good (right); good's cart already inside the green band, sluggish still short of it |
 | 40 s | media/loop.png proof frame — mutant × gate matrix, killer traces, selftest bars |
 | 50 s | closing card — "every number is a judge measurement" |
@@ -270,7 +279,8 @@ Every plotted/overlaid number was spot-checked against its source file:
 - loop.png matrix cells ↔ each candidate's verdict.json gate pass flags
 - loop.png killer traces ↔ data/too-aggressive/s2_trace.csv (τ demand),
   data/too-sluggish/s2_trace.csv (x position)
-- loop.png selftest bars ↔ selftest.sh output (9/9 = 100%)
+- loop.png selftest bars & kill rate ↔ data/selftest.log (the captured
+  output of judge/selftest.sh)
 
 All match. No synthesised data.
 EOF
