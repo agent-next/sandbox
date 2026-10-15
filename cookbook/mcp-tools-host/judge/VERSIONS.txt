@@ -1,4 +1,4 @@
-# Recorded by judge/setup.sh 2026-10-15T22:02:36Z
+# Recorded by judge/setup.sh 2026-10-15T23:19:17Z
 # Toolchain the mcp-tools-host judge actually ran with.
 
 $ python3 --version
