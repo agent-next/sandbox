@@ -198,6 +198,19 @@ def wrap(draw, s, f, max_w):
     return lines
 
 
+def shrink_font(draw, s, path, base, max_w, floor=14):
+    """Largest font (<= base) at which s fits inside max_w."""
+    size = base
+    while size > floor and draw.textlength(s, font=font(path, size)) > max_w:
+        size -= 1
+    return font(path, size)
+
+
+def mm(v):
+    """A millimetre volume/measure; no exponent for magnitudes people write."""
+    return "%.0f" % v if abs(v) >= 1e5 else "%.5g" % v
+
+
 def draw_wrapped(canvas, blk, name, xy, s, f, fill, max_w, line_h=None):
     """Draw wrapped text; every line registered so overlap/overflow is caught."""
     d = ImageDraw.Draw(canvas)

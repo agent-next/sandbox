@@ -1,7 +1,11 @@
-# Media pipeline pins — installed by make_media.sh into media/.venv
-# (on top of judge/requirements.txt pins). Needs libosmesa6 (apt) for
-# pyrender's OSMesa backend: 22.3.6-1+deb12u2 on Debian 12.
+# Media pipeline pins — installed by make_media.sh into media/.venv.
+# These render the real meshes and draw the figures; the judge's own stack
+# (cadquery/OCP, manifold3d, ezdxf, rtree) is NOT needed here: the media
+# tools read the judge's verdict JSONs and its limit constants instead.
+# Needs libosmesa6 (apt) for pyrender's OSMesa backend: 22.3.6-1+deb12u2
+# on Debian 12.
 pyrender==0.1.45
 PyOpenGL==3.1.0
-matplotlib==3.10.7
+trimesh==4.6.6
+numpy==2.2.6
 Pillow==11.2.1
