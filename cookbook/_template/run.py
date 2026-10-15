@@ -90,10 +90,12 @@ def main():
             if args.keep:
                 print(f"kept sandbox {sid} (kill with: sbx kill {sid})")
             else:
-                sbx("kill", sid)
-                out, _ = sbx("list")
-                if sid in out:
-                    print(f"WARNING: sandbox {sid} still in sbx list",
+                _, kill_rc = sbx("kill", sid)
+                out, list_rc = sbx("list")
+                if list_rc != 0 or sid in out:
+                    why = "sbx list failed" if list_rc != 0 else "still in sbx list"
+                    print(f"WARNING: cleanup of sandbox {sid} not confirmed "
+                          f"({why}, kill rc={kill_rc}); kill it with: sbx kill {sid}",
                           file=sys.stderr)
                     sys.exit(2)
                 print(f"sandbox {sid} removed")
