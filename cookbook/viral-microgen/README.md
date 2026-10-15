@@ -42,17 +42,21 @@ failure, naming the sandbox id if cleanup could not be confirmed.
 
 ## Measured wall time
 
-From the two fresh-sandbox runs recorded in `RECEIPT.md` (4 vCPU, Python
-3.12, all times as reported by `run.py`):
+From the two fresh-sandbox runs recorded in `RECEIPT.md` (image
+`agent-full-tini-20261011`, 4 vCPU, Python 3.12.15, all times as reported by
+`run.py`):
 
 | step | run 1 | run 2 |
 |---|---|---|
-| `sbx create --timeout-min 30` | 1.6 s | 1.7 s |
-| `git clone --depth 1` | 3.1 s | 3.0 s |
-| `judge/setup.sh` | 21.6 s | 20.9 s |
-| `judge/selftest.sh` (15 mutants) | 176.4 s | 174.8 s |
-| `judge/grade.sh examples/good` | 28.2 s | 28.0 s |
-| `sbx kill` + confirm gone | 2.0 s | 2.1 s |
+| `sbx create --timeout-min 30` | 4.0 s | 3.7 s |
+| `git clone --depth 1` | 11.5 s | 8.7 s |
+| `judge/setup.sh` | 83.5 s | 88.4 s |
+| `judge/selftest.sh` (15 mutants) | 111.8 s | 109.6 s |
+| `judge/grade.sh examples/good` | 9.8 s | 11.3 s |
+| whole run, shell wall clock | 231 s | 230 s |
+
+The whole-run row includes the sandbox kill and the `sbx list` confirmation
+that the id is gone.
 
 ## The gates
 
