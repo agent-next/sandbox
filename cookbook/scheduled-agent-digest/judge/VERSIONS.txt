@@ -1,0 +1,3 @@
+# recorded by judge/setup.sh at 2026-10-15T03:51:50Z
+sqlite3 3.40.1-2+deb12u2 (upstream 3.40.1)
+python3 3.12.15

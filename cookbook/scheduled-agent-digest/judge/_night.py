@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -59,7 +60,16 @@ def _nearest_rank_offset(q: float, n: int) -> int:
     return max(0, math.ceil(q * n) - 1)
 
 
-def run_oracle(date: str, csv_path: Path, sqlite3: str = "sqlite3") -> dict:
+def sqlite3_binary() -> str:
+    """The sqlite3 CLI the oracle runs: the copy `judge/setup.sh` pinned into
+    `$HOME`, else whatever is on PATH."""
+    pinned = Path.home() / ".scheduled-agent-digest" / "bin" / "sqlite3"
+    if pinned.is_file() and os.access(pinned, os.X_OK):
+        return str(pinned)
+    return "sqlite3"
+
+
+def run_oracle(date: str, csv_path: Path, sqlite3: str | None = None) -> dict:
     """The judge's independent digest for one (date, log) pair.
 
     Computed by importing the CSV into an in-memory sqlite3 table with the
@@ -70,7 +80,9 @@ def run_oracle(date: str, csv_path: Path, sqlite3: str = "sqlite3") -> dict:
     csv_path = Path(csv_path)
     if not csv_path.is_file():
         raise OracleError(f"fixture log missing: {csv_path}")
-    n = _count_day_rows(date, csv_path)
+    if sqlite3 is None:
+        sqlite3 = sqlite3_binary()
+    n = _count_day_rows(date, csv_path, sqlite3)
     offsets = {"p50_ms": _nearest_rank_offset(0.50, n),
                "p95_ms": _nearest_rank_offset(0.95, n)}
     where = f"substr(ts,1,10) = '{date}'"
@@ -124,7 +136,7 @@ def run_oracle(date: str, csv_path: Path, sqlite3: str = "sqlite3") -> dict:
     }
 
 
-def _count_day_rows(date: str, csv_path: Path) -> int:
+def _count_day_rows(date: str, csv_path: Path, sqlite3: str = "sqlite3") -> int:
     """Row count for `date` — a separate, cheap SQL count."""
     script = "\n".join([
         "CREATE TABLE e(ts TEXT, project TEXT, ms INTEGER, code INTEGER);",
@@ -133,7 +145,7 @@ def _count_day_rows(date: str, csv_path: Path) -> int:
         "SELECT COUNT(*) FROM e WHERE substr(ts,1,10) = "
         f"'{date}';",
     ])
-    out = _sqlite3("sqlite3", script).strip()
+    out = _sqlite3(sqlite3, script).strip()
     try:
         return int(out)
     except ValueError as exc:

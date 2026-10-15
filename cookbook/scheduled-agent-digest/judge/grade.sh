@@ -33,6 +33,10 @@ fail() { echo "grade: $*" >&2; exit 1; }
 [ -f "$ARTIFACT/digest.py" ] || fail "artifact has no digest.py: $ARTIFACT"
 [ -f "$ARTIFACT/schedule.json" ] || fail "artifact has no schedule.json: $ARTIFACT"
 
+# prefer the tools judge/setup.sh pinned into $HOME
+PINNED_BIN="${HOME}/.scheduled-agent-digest/bin"
+[ -d "$PINNED_BIN" ] && export PATH="${PINNED_BIN}:${PATH}"
+
 command -v python3 >/dev/null 2>&1 || fail "python3 missing -- run 'bash judge/setup.sh' first"
 command -v sqlite3 >/dev/null 2>&1 || fail "sqlite3 missing -- run 'bash judge/setup.sh' first"
 
