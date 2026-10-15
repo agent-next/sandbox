@@ -75,6 +75,11 @@ def mutate(name, bundle):
     elif name == "invented_throughput":
         b["wall_time_s"] = round(b["wall_time_s"] / 1000.0, 6)
     elif name == "cpu_claimed_as_gpu":
+        # the artifact ran on CPU threads but reports device "cuda": the
+        # numbers stay self-consistent, they are just a CPU rate
+        scale = 50.0
+        b["wall_time_s"] = round(b["wall_time_s"] * scale, 6)
+        b["throughput_tok_s"] = round(b["generated_tokens"] / b["wall_time_s"], 6)
         b["device"] = "cuda"
     elif name == "empty_generation":
         b["generations"][7]["generation"] = ""

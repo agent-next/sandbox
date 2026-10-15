@@ -214,33 +214,35 @@ def check_accuracy(bundle, problems_doc, by_i, floor):
 
 
 def check_generations(bundle, by_i, problems_doc):
-    """Gate 3: generations must not be truncated mid-answer."""
+    """Gate 3: generations must not be truncated mid-answer.
+
+    SPEC: the generation ends at the model's stop condition and its length
+    is < max_new_tokens for at least 90 % of problems. A generation that
+    stopped only because it hit the cap carries no answer and is counted as
+    truncated; the judge complains loudly rather than scoring it as wrong.
+    """
     max_new = bundle["max_new_tokens"]
     n = len(problems_doc["problems"])
     untruncated = 0
-    short = []
+    truncated = []
     for row in problems_doc["problems"]:
         g = by_i.get(row["i"]) or {}
-        text = g.get("generation") or ""
-        # an answer that stops at the cap has no closing marker at all
-        natural = judge_extract.extract(text) is not None and \
-            ("final answer" in text.lower() or "####" in text
-             or text.rstrip().endswith((".", "!", "?", "`")))
         declared = g.get("max_new_tokens")
-        capped = isinstance(declared, int) and declared >= max_new
-        if natural and not capped:
+        capped = not isinstance(declared, int) or declared >= max_new
+        if not capped and judge_extract.extract(g.get("generation")) is not None:
             untruncated += 1
         else:
-            short.append(row["i"])
+            truncated.append(row["i"])
     frac = untruncated / n
     problems = []
     if frac < UNTRUNCATED_FRACTION:
-        problems.append(f"only {frac:.2%} of generations end naturally "
-                        f"(need >= {UNTRUNCATED_FRACTION:.0%}); "
-                        f"{len(short)} truncated")
+        problems.append(f"only {frac:.2%} of generations are complete and "
+                        f"below the {max_new}-token cap (need >= "
+                        f"{UNTRUNCATED_FRACTION:.0%}); {len(truncated)} "
+                        f"truncated at problems {truncated[:10]}")
     return (not problems), problems, {
         "untruncated_fraction": round(frac, 6),
-        "truncated": len(short),
+        "truncated": len(truncated),
         "max_new_tokens": max_new,
     }
 
