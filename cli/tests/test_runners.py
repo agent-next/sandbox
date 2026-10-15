@@ -1461,12 +1461,58 @@ def test_rest_errors_back_off_without_crashing_or_reusing_stale_demand(failure, 
     assert demand.next_poll == clock() + delay
     assert demand.poll(lambda *a: None) == 0 and len(calls) == 1
     with pytest.raises(runners.RunnerError, match="backing off"):
-        demand.gh.runners("sbx-")
+        demand.gh.get("/repos/acme/app/actions/runs")
     assert len(calls) == 1
     clock.now = demand.next_poll
     assert demand.poll(lambda *a: None) == 0 and len(calls) == 2
     assert demand.next_poll - clock() >= delay
     assert len([e for e in events(capsys) if e["event"] == "poll_error"]) == 2
+
+
+@pytest.mark.parametrize("failure", [403, 500, "network"])
+def test_demand_failures_do_not_block_warm_cleanup_or_drain(failure):
+    clock, calls, killed = Clock(), [], []
+    registered = []
+
+    def handler(req):
+        calls.append(req)
+        if req.url.path.endswith("/actions/runners"):
+            return httpx.Response(200, json={"runners": registered})
+        if req.method == "DELETE":
+            return httpx.Response(204)
+        if failure == "network":
+            raise httpx.ConnectError("workflow API unavailable")
+        return httpx.Response(failure)
+
+    demand = rest_demand(clock, handler)
+    pool = make_pool(demand.gh, clock, warm=1, maximum=1, demand=demand)
+
+    def tick():
+        try:
+            return pool.tick()
+        except runners.RunnerError as exc:
+            pytest.fail(f"demand errors must not disable healthy runner control: {exc}")
+
+    for _ in range(3):
+        assert tick()["spawned"] == 1, "warm pool must refill during demand failures"
+        (slot,) = live(pool)
+        slot.sandbox_id, slot.done = "sandbox-finished", True
+        clock.now = demand.next_poll
+    assert tick()["spawned"] == 1
+    (slot,) = live(pool)
+    slot.kill = lambda: killed.append(slot.name)
+    registered.append({"id": 1, "name": slot.name, "status": "online", "busy": False})
+    pool.drain()
+    assert slot.retiring and killed == [slot.name], "shutdown must work during demand backoff"
+    assert sum(req.url.path.endswith("/actions/runners") for req in calls) == 5
+
+
+def test_explicit_rate_limit_still_backs_off_runner_control():
+    clock = Clock()
+    demand = rest_demand(clock, lambda req: httpx.Response(429, headers={"Retry-After": "60"}))
+    demand.poll(lambda *a: None)
+    with pytest.raises(runners.RunnerError, match="backing off"):
+        demand.gh.runners("sbx-")
 
 
 def test_rate_limit_reset_is_respected(monkeypatch):
