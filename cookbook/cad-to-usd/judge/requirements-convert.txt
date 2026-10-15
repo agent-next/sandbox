@@ -1,0 +1,6 @@
+# judge/requirements-convert.txt — exact pin for the converter venv
+# ($HOME/.venvs/cad2usd-convert), installed by judge/setup.sh with
+# --require-hashes so the wheel is sha256-checked on download.
+# The 485 MB wheel bundles the whole converter stack (no dependencies).
+usd-convert-cad==0.3.0 \
+    --hash=sha256:55c7f961cb2138799e495dda92ccc7225eae27bc71bf01bf463e286990d88312

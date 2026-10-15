@@ -1,0 +1,7 @@
+# judge/sources.txt — pinned CAD sources, fetched at run time (never
+# committed). Format: <sha256>  <path in RC-Car-CAD at pinned commit>  <part key>
+# repo:   https://github.com/NVIDIA-Omniverse/RC-Car-CAD (MIT licence)
+# commit: 407bd553ee57668ceb58d81ffd7f4d617dee3dfa
+07d84a6041d29e7c57971ad486ce6913a6b683474c669fb7c5969301bdd2cb96  Servo Futaba S3003 v6.step  Servo_Futaba_S3003_v6_step
+984fac39eff5204c5ce5878f765b705b51e500538bdd04954321684ed58724d2  Servo Futaba S3003 v6.iges  Servo_Futaba_S3003_v6_iges
+2976ade8367276bb3b8bee84209c521ed458e18a65b309d1ca742170efeec699  ShockTowerFront/_ShockTowerFront.stp  ShockTowerFront_stp
