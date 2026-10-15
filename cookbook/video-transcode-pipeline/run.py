@@ -31,8 +31,13 @@ class Failure(RuntimeError):
 
 def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
     """Run one sbx CLI command; never raises, caller checks the exit code."""
-    return subprocess.run(["sbx", *args], capture_output=True, text=True,
-                          timeout=timeout)
+    try:
+        return subprocess.run(["sbx", *args], capture_output=True, text=True,
+                              timeout=timeout)
+    except FileNotFoundError:
+        # Missing CLI, not a failed command: report it the way a failure would.
+        return subprocess.CompletedProcess(["sbx", *args], 127, "",
+                                           "sbx: command not found")
 
 
 def step(name: str, fn, client_timeout: float | None = None) -> subprocess.CompletedProcess:
