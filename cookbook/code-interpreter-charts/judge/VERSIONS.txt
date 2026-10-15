@@ -1,0 +1,10 @@
+# code-interpreter-charts judge: versions installed by judge/setup.sh
+# (Linux x86_64)
+python3 3.12.15
+pandas 3.0.6
+matplotlib 3.11.2
+numpy 2.5.3
+pillow 12.3.0
+pip 25.0.1
+requirements.txt sha256 c6ba913008e7d3e2ecd4e19c47fe92a9a3ac5ffa5b23b1fcbaf5b95ddbae4be6
+venv /home/user/.cache/code-interpreter-charts/venv
