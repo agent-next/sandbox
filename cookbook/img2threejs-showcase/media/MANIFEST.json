@@ -1,0 +1,237 @@
+{
+  "result.png": {
+    "shows": "final screenshot of every target with its verdict",
+    "sha256": "fdc3fe1d44ae1a8ce2e0195fd8f8c912c21b1b0adb8e995ce24ed0c0a41922d7"
+  },
+  "demo.mp4": {
+    "shows": "last 2 s of each rendered target's recording (still frame where that run kept no clip)",
+    "sha256": "a6f9e75df2b0ab60932cc79015ca43963272171a32acd5858fb651645006d873"
+  },
+  "command": "python3 media/make_media.py run-20261014_1615 run-20261014_1720-r2 run-20261014_1830-r3 run-20261014_r5-patience3",
+  "targets": {
+    "awp-medusa-v2": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 88,
+      "clip": "recorded",
+      "note": ""
+    },
+    "bmx-endurance": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 160,
+      "clip": "recorded",
+      "note": ""
+    },
+    "boxing-man": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 78,
+      "clip": "recorded",
+      "note": ""
+    },
+    "classic-fade": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 95,
+      "clip": "recorded",
+      "note": ""
+    },
+    "crown-chest": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 109,
+      "clip": "recorded",
+      "note": ""
+    },
+    "doraemon-house": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 129,
+      "clip": "recorded",
+      "note": ""
+    },
+    "electric-mouse-mascot": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 32,
+      "clip": "recorded",
+      "note": ""
+    },
+    "gerber-knife": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 60,
+      "clip": "recorded",
+      "note": ""
+    },
+    "girl-character": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 1208,
+      "clip": "recorded",
+      "note": ""
+    },
+    "girl-character-3": {
+      "verdict": "LOADING_OVERLAY",
+      "visual": "RENDERED",
+      "seconds": 1317,
+      "clip": "recorded",
+      "note": ""
+    },
+    "glock-ghost-protocol": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 249,
+      "clip": "recorded",
+      "note": ""
+    },
+    "greenvale.html": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 42,
+      "clip": "recorded",
+      "note": "2D PixiJS page, not Three.js"
+    },
+    "iphone-duo.html": {
+      "verdict": "FAIL",
+      "visual": "NO_FRAME",
+      "seconds": 2751,
+      "clip": "still",
+      "note": ""
+    },
+    "issaca-shotgun": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 99,
+      "clip": "still",
+      "note": ""
+    },
+    "leesin": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 178,
+      "clip": "recorded",
+      "note": ""
+    },
+    "low-poly-humanoid": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 240,
+      "clip": "recorded",
+      "note": ""
+    },
+    "m9-doppler": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 70,
+      "clip": "recorded",
+      "note": ""
+    },
+    "man-robot-studio": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 164,
+      "clip": "recorded",
+      "note": ""
+    },
+    "mars-cat": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 1619,
+      "clip": "still",
+      "note": ""
+    },
+    "monster": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 104,
+      "clip": "recorded",
+      "note": ""
+    },
+    "monster-tree": {
+      "verdict": "PASS",
+      "visual": "LOADING",
+      "seconds": 675,
+      "clip": "recorded",
+      "note": ""
+    },
+    "prs-ocean": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 1036,
+      "clip": "still",
+      "note": ""
+    },
+    "raz": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 177,
+      "clip": "recorded",
+      "note": ""
+    },
+    "regret-warrior-reconstruction": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 186,
+      "clip": "recorded",
+      "note": ""
+    },
+    "snowy-village": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 511,
+      "clip": "still",
+      "note": ""
+    },
+    "sony-wf1000xm3": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 128,
+      "clip": "recorded",
+      "note": ""
+    },
+    "sora": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 158,
+      "clip": "recorded",
+      "note": ""
+    },
+    "starship-super-heavy": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 150,
+      "clip": "recorded",
+      "note": ""
+    },
+    "talon-doppler-ruby": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 86,
+      "clip": "recorded",
+      "note": ""
+    },
+    "tropical-island": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 925,
+      "clip": "recorded",
+      "note": ""
+    },
+    "warhauler": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 124,
+      "clip": "recorded",
+      "note": ""
+    },
+    "warrior": {
+      "verdict": "PASS",
+      "visual": "RENDERED",
+      "seconds": 517,
+      "clip": "recorded",
+      "note": ""
+    }
+  }
+}
