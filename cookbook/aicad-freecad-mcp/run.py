@@ -72,7 +72,8 @@ def main():
     if res.returncode != 0:
         print("FATAL: sbx create failed: %s" % res.stderr.strip(), file=sys.stderr)
         return 2
-    m = re.search(r"(sbx-[0-9a-zA-Z-]+)", res.stdout)
+    # `sbx create` prints the bare sandbox id as its last output line
+    m = re.search(r"([0-9a-zA-Z][0-9a-zA-Z-]+)\s*$", res.stdout)
     if not m:
         print("FATAL: could not parse sandbox id from: %r" % res.stdout,
               file=sys.stderr)
