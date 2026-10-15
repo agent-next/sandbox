@@ -5,12 +5,16 @@ Grades a copied artifact (the artifact under test never touches judge/):
 
   gate 1 structure     - size, byte-compile, decode_batch present, reads the
                          manifest at runtime, no oracle literals
-  gate 2 run           - runs on the whole manifest, writes transcripts.json
-  gate 3 shape         - every utterance exactly once, valid score/frames
+  gate 2 run           - runs on the whole corpus, writes transcripts.json
+  gate 3 shape         - every utterance exactly once, non-empty, tokens
+                         all in the ICAO grid vocabulary
   gate 4 accuracy      - >= 0.98 exact matches; oracle WER <= 0.02
   gate 5 determinism   - a second run gives byte-identical transcripts
 
-Prints one JSON verdict on stdout; exit 0 only if every gate passes.
+The artifact never sees the oracle: it runs in a scratch copy holding only
+the audio files and a redacted manifest (grid + signal parameters, no
+utterance list, no texts, no seed). Prints one JSON verdict on stdout;
+exit 0 only if every gate passes.
 """
 
 import argparse
@@ -26,27 +30,25 @@ import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-JUDGE_VENV_PY = os.path.join(os.path.expanduser("~"), ".venvs",
-                             "gpu-batch-transcribe", "bin", "python")
+# The interpreter that runs the artifact under test: the judge venv by
+# default; GBT_ARTIFACT_PY overrides it (the GPU-lease path points this
+# at the lease image's own torch python).
+JUDGE_VENV_PY = os.environ.get("GBT_ARTIFACT_PY") or os.path.join(
+    os.path.expanduser("~"), ".venvs", "gpu-batch-transcribe", "bin", "python")
+CORPUS = os.path.join(HERE, "corpus")
 
 MAX_BYTES = 128 * 1024
 RUN_TIMEOUT_S = 1800
 MIN_EXACT = 0.98
 MAX_WER = 0.02
-TWO_PASS_MIN_FIRST_PASS_CONF = 0.70
-TIME_TOKEN_HZ = 25.0
-# An exact transcript plus an invented frame count buys nothing: gate 3
-# requires per-utterance frames >= MIN_FRAMES_PER_UTTERANCE.
-MIN_FRAMES_PER_UTTERANCE = 2
-# Numeric literals the artifact must not paste in (oracle metadata).
+# Oracle token vocabulary: the artifact gets the grid at runtime (the
+# redacted manifest), so a *literal* oracle token in the artifact text is
+# a pasted answer, not a decoding.
 ORACLE_VOCAB = ("alpha", "bravo", "charlie", "delta", "echo", "foxtrot",
                 "golf", "hotel", "india", "juliet", "kilo", "lima", "mike",
                 "november", "oscar", "papa", "quebec", "romeo", "sierra",
                 "tango", "uniform", "victor", "whiskey", "xray", "yankee",
                 "zulu")
-# WER gate: minimum separation from the pass line. A mutant that garbles
-# only a couple of tokens must still land far enough away to kill it.
-WER_SEPARATION = 0.05
 
 
 # --------------------------------------------------------------- oracles
@@ -104,7 +106,7 @@ def _edit_distance(a, b):
 
 
 def first_pass_confidences(transcripts):
-    """First-pass confidence stats: mean, min and their separation."""
+    """Confidence stats: mean, min, max and their range (diagnostic)."""
     vals = [t["first_pass_conf"] for t in transcripts.values()
             if isinstance(t, dict)
             and isinstance(t.get("first_pass_conf"), (int, float))
@@ -159,17 +161,6 @@ def load_artifact(path):
     return text, problems
 
 
-def oracle_literals(manifest):
-    """Oracle-side constants the artifact must not paste in as results."""
-    vals = []
-    for u in manifest["utterances"]:
-        # the oracle texts themselves (as literal python strings are what a
-        # cheater would paste); gate checks are numeric so these are hints
-        pass
-    vals.append(float(manifest["seed"]))
-    return vals
-
-
 def hardcode_hits(text, manifest):
     """Oracle metadata literals in the artifact text.
 
@@ -185,21 +176,45 @@ def hardcode_hits(text, manifest):
         if re.search(rf"['\"]{tok}['\"]", text):
             hits.append({"literal": tok, "kind": "oracle token in quotes"})
     seed = manifest["seed"]
-    for lit in (str(seed), f'"{seed}"', f"'{seed}'"):
-        if lit in text:
-            hits.append({"literal": lit, "kind": "oracle seed"})
-            break
+    # the oracle RNG seed as a bare or quoted numeric literal
+    if re.search(rf"(?<![\d.]){re.escape(str(seed))}(?![\d.])", text):
+        hits.append({"literal": str(seed), "kind": "oracle seed"})
     return hits
 
 
+def redacted_manifest(manifest):
+    """The manifest the artifact is allowed to see: grid + signal
+    parameters only. No utterance ids, no oracle texts, no seed."""
+    return {
+        "sample_rate": manifest["sample_rate"],
+        "burst_s": manifest["burst_s"],
+        "row_hz": manifest["row_hz"],
+        "col_hz": manifest["col_hz"],
+        "letters": manifest["letters"],
+        "grid": manifest["grid"],
+    }
+
+
 def run_artifact(art_path, workdir, manifest_path, out_path):
-    """Run the artifact from a copy in `workdir` with the manifest beside it."""
+    """Run the artifact from a copy in `workdir` with the corpus beside it.
+
+    The scratch dir gets the redacted manifest + audio files only; the
+    oracle manifest never leaves judge/.
+    """
     shutil.copy(art_path, os.path.join(workdir, "transcriber.py"))
-    shutil.copy(manifest_path, os.path.join(workdir, "manifest.json"))
+    with open(manifest_path) as fh:
+        manifest = json.load(fh)
+    with open(os.path.join(workdir, "manifest.json"), "w") as fh:
+        json.dump(redacted_manifest(manifest), fh, indent=1, sort_keys=True)
+        fh.write("\n")
+    for name in sorted(os.listdir(CORPUS)):
+        if name.startswith("utt_") and name.endswith(".npy"):
+            shutil.copy(os.path.join(CORPUS, name),
+                        os.path.join(workdir, name))
     t0 = time.monotonic()
     env = {k: v for k, v in os.environ.items()
            if k not in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS",
-                        "MKL_NUM_THREADS")}
+                        "MKL_NUM_THREADS", "CUDA_VISIBLE_DEVICES")}
     env["OMP_NUM_THREADS"] = "1"
     env["OPENBLAS_NUM_THREADS"] = "1"
     env["MKL_NUM_THREADS"] = "1"
@@ -231,6 +246,7 @@ def load_transcripts(path):
 def score_transcripts(transcripts, manifest, workdir):
     """Gate 3 + gate 4 scoring; returns (shape, accuracy) result dicts."""
     ids = [u["id"] for u in manifest["utterances"]]
+    vocab = set(manifest["grid"])
     shape_problems = []
     texts = {}
     for uid in ids:
@@ -239,9 +255,14 @@ def score_transcripts(transcripts, manifest, workdir):
             shape_problems.append(f"{uid}: missing or non-string transcript")
             continue
         texts[uid] = got
-        # frames must be a plausible count for a 25 Hz encoder: at least
-        # one token and at least two frames, and all digits (cheap sanity)
-        # (we cannot verify frame counts directly; enforce the lower bound)
+        toks = got.split()
+        if not toks:
+            shape_problems.append(f"{uid}: empty transcript")
+            continue
+        bad = [t for t in toks if t not in vocab]
+        if bad:
+            shape_problems.append(
+                f"{uid}: tokens outside the ICAO grid: {bad[:3]}")
     if sorted(texts) != sorted(ids):
         missing = sorted(set(ids) - set(texts))
         shape_problems.append(f"missing utterances: {missing[:5]}")
@@ -303,8 +324,6 @@ def main():
         # ---- gates 3+4: shape + accuracy
         if rc == 0:
             try:
-                transcripts = load_transcripts(tpath)[  # noqa: F841
-                    "transcripts"]
                 raw = load_transcripts(tpath)["transcripts"]
             except Exception as exc:
                 verdict["gates"]["shape"] = {"pass": False,

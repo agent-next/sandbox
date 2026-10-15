@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Install the pinned judge toolchain into $HOME/.venvs/gpu-batch-transcribe
+# and regenerate the demo's audio corpus (judge/corpus/) from the
+# committed, deterministic synthesizer.
+#
+# Pinned: torch 2.14.0 (+cpu wheel index), numpy 2.4.3 via
+# requirements.lock with --require-hashes. The corpus is rebuilt with
+# judge/gen_manifest.py + judge/synth_corpus.py (both committed) and
+# sha256-checked against judge/corpus-sha256.txt, so a tampered
+# synthesizer or a changed manifest fails loudly here.
+#
+# Idempotent: an existing venv that already provides the pinned versions
+# is left untouched; the corpus is only rebuilt when a file is missing
+# or its digest does not match.
+#
+# Exit codes: 0 ok, 1 install/verification failure, 2 unsupported
+# platform or Python.
+
+set -eu
+
+VENV="$HOME/.venvs/gpu-batch-transcribe"
+HERE=$(cd "$(dirname "$0")" && pwd)
+SHA_FILE="$HERE/corpus-sha256.txt"
+
+log() { echo "[setup] $*"; }
+
+case "$(uname -s):$(uname -m)" in
+    Linux:x86_64) ;;
+    *) echo "setup.sh: unsupported platform $(uname -s) $(uname -m) \
+(supported: x86-64 Linux, CPython 3.10-3.13)" >&2; exit 2 ;;
+esac
+
+PYV=$(python3 -c "import sys; print(f\"{sys.version_info[0]}.{sys.version_info[1]}\")")
+case "$PYV" in
+    3.10|3.11|3.12|3.13) ;;
+    *) echo "setup.sh: unsupported Python \
+$(python3 -c 'import sys; print(sys.version.split()[0])') (supported: 3.10-3.13)" >&2
+       exit 2 ;;
+esac
+
+# --------------------------------------------------------------------------
+# 1. Judge venv with the pinned torch/numpy closure.
+# --------------------------------------------------------------------------
+if [ -x "$VENV/bin/python" ] && "$VENV/bin/python" - <<'EOF'
+import importlib
+import importlib.util as u
+
+
+def have(name, ver):
+    if u.find_spec(name) is None:
+        return False
+    m = importlib.import_module(name)
+    return getattr(m, "__version__", "").startswith(ver)
+
+
+raise SystemExit(0 if (have("torch", "2.14.0") and have("numpy", "2.4.3")) else 1)
+EOF
+then
+    log "venv already provides the pinned toolchain"
+else
+    log "creating venv at $VENV"
+    python3 -m venv "$VENV"
+    "$VENV/bin/pip" install --quiet --upgrade pip==25.0.1
+    "$VENV/bin/pip" install --require-hashes -r "$HERE/requirements.lock"
+fi
+
+# --------------------------------------------------------------------------
+# 2. Audio corpus: regenerate deterministically, then verify digests.
+# --------------------------------------------------------------------------
+PY="$VENV/bin/python"
+need_rebuild=0
+while read -r want relpath; do
+    case "$want" in \#*|"") continue ;; esac
+    [ -z "$want" ] && continue
+    f="$HERE/$relpath"
+    if [ ! -f "$f" ]; then
+        need_rebuild=1
+        break
+    fi
+    got=$(sha256sum "$f" | cut -d' ' -f1)
+    if [ "$got" != "$want" ]; then
+        log "digest mismatch for $relpath; rebuilding corpus"
+        need_rebuild=1
+        break
+    fi
+done < "$SHA_FILE"
+
+if [ "$need_rebuild" -eq 1 ]; then
+    log "regenerating corpus (deterministic synthesizer)"
+    rm -rf "$HERE/corpus"
+    "$PY" "$HERE/gen_manifest.py" "$HERE/manifest.json"
+    "$PY" "$HERE/synth_corpus.py" "$HERE/manifest.json" "$HERE/corpus"
+fi
+
+# Verify every pinned digest, even when nothing was rebuilt.
+while read -r want relpath; do
+    case "$want" in \#*|"") continue ;; esac
+    [ -z "$want" ] && continue
+    f="$HERE/$relpath"
+    if [ ! -f "$f" ]; then
+        log "ERROR: $relpath missing after rebuild" >&2
+        exit 1
+    fi
+    got=$(sha256sum "$f" | cut -d' ' -f1)
+    if [ "$got" != "$want" ]; then
+        log "ERROR: sha256 mismatch for $relpath" >&2
+        log "       expected $want" >&2
+        log "       got      $got" >&2
+        exit 1
+    fi
+done < "$SHA_FILE"
+log "sha256 OK: corpus matches judge/corpus-sha256.txt"
+
+# --------------------------------------------------------------------------
+# 3. Record what was actually installed.
+# --------------------------------------------------------------------------
+"$PY" - <<EOF > "$HERE/VERSIONS.txt"
+import sys
+import torch
+print(f"## python {sys.version.split()[0]}")
+print(f"## torch {torch.__version__}")
+import numpy
+print(f"## numpy {numpy.__version__}")
+print(f"## device cuda={torch.cuda.is_available()}")
+EOF
+"$VENV/bin/pip" list --format=freeze | grep -vi '^pip==' >> "$HERE/VERSIONS.txt"
+
+log "ok (torch $("$PY" -c 'import torch; print(torch.__version__)'))"

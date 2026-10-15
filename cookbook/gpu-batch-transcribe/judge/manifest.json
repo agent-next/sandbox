@@ -1,0 +1,412 @@
+{
+ "burst_s": 0.06,
+ "col_hz": [
+  1000,
+  1150,
+  1300,
+  1450,
+  1600
+ ],
+ "dc_hz": 120.0,
+ "frame_len": 512,
+ "frame_step": 160,
+ "grid": {
+  "alpha": [
+   300,
+   1000
+  ],
+  "bravo": [
+   300,
+   1150
+  ],
+  "charlie": [
+   300,
+   1300
+  ],
+  "delta": [
+   300,
+   1450
+  ],
+  "echo": [
+   300,
+   1600
+  ],
+  "foxtrot": [
+   400,
+   1000
+  ],
+  "golf": [
+   400,
+   1150
+  ],
+  "hotel": [
+   400,
+   1300
+  ],
+  "india": [
+   400,
+   1450
+  ],
+  "juliet": [
+   400,
+   1600
+  ],
+  "kilo": [
+   500,
+   1000
+  ],
+  "lima": [
+   500,
+   1150
+  ],
+  "mike": [
+   500,
+   1300
+  ],
+  "november": [
+   500,
+   1450
+  ],
+  "oscar": [
+   500,
+   1600
+  ],
+  "papa": [
+   600,
+   1000
+  ],
+  "quebec": [
+   600,
+   1150
+  ],
+  "romeo": [
+   600,
+   1300
+  ],
+  "sierra": [
+   600,
+   1450
+  ],
+  "tango": [
+   600,
+   1600
+  ],
+  "uniform": [
+   700,
+   1000
+  ],
+  "victor": [
+   700,
+   1150
+  ],
+  "whiskey": [
+   700,
+   1300
+  ],
+  "xray": [
+   700,
+   1450
+  ],
+  "yankee": [
+   700,
+   1600
+  ],
+  "zulu": [
+   800,
+   1000
+  ]
+ },
+ "letters": [
+  "alpha",
+  "bravo",
+  "charlie",
+  "delta",
+  "echo",
+  "foxtrot",
+  "golf",
+  "hotel",
+  "india",
+  "juliet",
+  "kilo",
+  "lima",
+  "mike",
+  "november",
+  "oscar",
+  "papa",
+  "quebec",
+  "romeo",
+  "sierra",
+  "tango",
+  "uniform",
+  "victor",
+  "whiskey",
+  "xray",
+  "yankee",
+  "zulu"
+ ],
+ "n_fft": 512,
+ "row_hz": [
+  300,
+  400,
+  500,
+  600,
+  700,
+  800
+ ],
+ "sample_rate": 16000,
+ "seed": 42,
+ "snr_db": 20.0,
+ "token_hz": 25.0,
+ "utterances": [
+  {
+   "flight": "VJ731",
+   "id": "vj731",
+   "letters": [
+    "uniform",
+    "delta",
+    "alpha",
+    "xray"
+   ],
+   "text": "uniform delta alpha xray"
+  },
+  {
+   "flight": "DL294",
+   "id": "dl294",
+   "letters": [
+    "india",
+    "hotel",
+    "hotel",
+    "echo",
+    "xray",
+    "delta"
+   ],
+   "text": "india hotel hotel echo xray delta"
+  },
+  {
+   "flight": "UA109",
+   "id": "ua109",
+   "letters": [
+    "victor",
+    "xray",
+    "romeo",
+    "charlie",
+    "sierra"
+   ],
+   "text": "victor xray romeo charlie sierra"
+  },
+  {
+   "flight": "AS618",
+   "id": "as618",
+   "letters": [
+    "november",
+    "bravo",
+    "alpha",
+    "charlie",
+    "golf",
+    "hotel",
+    "quebec"
+   ],
+   "text": "november bravo alpha charlie golf hotel quebec"
+  },
+  {
+   "flight": "F9250",
+   "id": "f9250",
+   "letters": [
+    "tango",
+    "alpha",
+    "romeo",
+    "golf",
+    "whiskey"
+   ],
+   "text": "tango alpha romeo golf whiskey"
+  },
+  {
+   "flight": "WN1742",
+   "id": "wn1742",
+   "letters": [
+    "uniform",
+    "whiskey",
+    "romeo",
+    "november",
+    "hotel",
+    "oscar"
+   ],
+   "text": "uniform whiskey romeo november hotel oscar"
+  },
+  {
+   "flight": "AC865",
+   "id": "ac865",
+   "letters": [
+    "sierra",
+    "india",
+    "zulu",
+    "alpha"
+   ],
+   "text": "sierra india zulu alpha"
+  },
+  {
+   "flight": "QF32",
+   "id": "qf32",
+   "letters": [
+    "yankee",
+    "zulu",
+    "foxtrot",
+    "whiskey",
+    "november",
+    "kilo",
+    "india",
+    "echo"
+   ],
+   "text": "yankee zulu foxtrot whiskey november kilo india echo"
+  },
+  {
+   "flight": "BA249",
+   "id": "ba249",
+   "letters": [
+    "golf",
+    "yankee",
+    "kilo",
+    "delta",
+    "charlie"
+   ],
+   "text": "golf yankee kilo delta charlie"
+  },
+  {
+   "flight": "NH021",
+   "id": "nh021",
+   "letters": [
+    "mike",
+    "delta",
+    "lima",
+    "lima",
+    "tango",
+    "india"
+   ],
+   "text": "mike delta lima lima tango india"
+  },
+  {
+   "flight": "EK203",
+   "id": "ek203",
+   "letters": [
+    "zulu",
+    "bravo",
+    "xray",
+    "oscar",
+    "romeo",
+    "delta",
+    "mike"
+   ],
+   "text": "zulu bravo xray oscar romeo delta mike"
+  },
+  {
+   "flight": "SQ226",
+   "id": "sq226",
+   "letters": [
+    "charlie",
+    "romeo",
+    "juliet",
+    "uniform",
+    "tango"
+   ],
+   "text": "charlie romeo juliet uniform tango"
+  },
+  {
+   "flight": "AF456",
+   "id": "af456",
+   "letters": [
+    "lima",
+    "sierra",
+    "golf",
+    "whiskey"
+   ],
+   "text": "lima sierra golf whiskey"
+  },
+  {
+   "flight": "LH403",
+   "id": "lh403",
+   "letters": [
+    "charlie",
+    "bravo",
+    "victor",
+    "hotel",
+    "yankee",
+    "juliet"
+   ],
+   "text": "charlie bravo victor hotel yankee juliet"
+  },
+  {
+   "flight": "KE907",
+   "id": "ke907",
+   "letters": [
+    "charlie",
+    "hotel",
+    "delta",
+    "mike",
+    "india"
+   ],
+   "text": "charlie hotel delta mike india"
+  },
+  {
+   "flight": "JL005",
+   "id": "jl005",
+   "letters": [
+    "oscar",
+    "uniform",
+    "lima",
+    "foxtrot",
+    "lima",
+    "lima",
+    "golf"
+   ],
+   "text": "oscar uniform lima foxtrot lima lima golf"
+  },
+  {
+   "flight": "CX840",
+   "id": "cx840",
+   "letters": [
+    "victor",
+    "india",
+    "whiskey",
+    "victor",
+    "uniform"
+   ],
+   "text": "victor india whiskey victor uniform"
+  },
+  {
+   "flight": "EY231",
+   "id": "ey231",
+   "letters": [
+    "charlie",
+    "tango",
+    "uniform",
+    "foxtrot",
+    "romeo",
+    "xray"
+   ],
+   "text": "charlie tango uniform foxtrot romeo xray"
+  },
+  {
+   "flight": "TK1988",
+   "id": "tk1988",
+   "letters": [
+    "hotel",
+    "foxtrot",
+    "oscar",
+    "mike"
+   ],
+   "text": "hotel foxtrot oscar mike"
+  },
+  {
+   "flight": "QR803",
+   "id": "qr803",
+   "letters": [
+    "india",
+    "uniform",
+    "whiskey",
+    "romeo",
+    "hotel"
+   ],
+   "text": "india uniform whiskey romeo hotel"
+  }
+ ]
+}
