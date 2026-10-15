@@ -254,7 +254,12 @@ def main():
             stress = ti.Matrix.zero(ti.f32, 2, 2)
             mi = mat[i]
             hard = hard_arr[mi]
-            e = ti.exp(hard * (1.0 - Jp[i]))
+            # Stomakhin hardening, clamped like the reference MLS-MPM
+            # demos: an unclamped exp(hard*(1-Jp)) multiplies stiffness
+            # by 12+ at Jp=0.5 and blows up the explicit integrator once
+            # the snow hits the wall at speed.
+            e = ti.min(ti.exp(hard * (1.0 - Jp[i])), ti.max(5.0, 1e-3))
+            e = ti.max(e, 0.1)
             mu = E_arr[mi] * e / (2.0 * (1.0 + nu_arr[mi]))
             lam = E_arr[mi] * e * nu_arr[mi] / \
                 ((1.0 + nu_arr[mi]) * (1.0 - 2.0 * nu_arr[mi]))
@@ -309,6 +314,33 @@ def main():
                     grid_v[i, j] = ti.Vector([0.0, 0.0])
                 if j > n_grid - 1 - bound and grid_v[i, j].y > 0:
                     grid_v[i, j] = ti.Vector([0.0, 0.0])
+
+    @ti.kernel
+    def clamp_state(cap: ti.f32, lo: ti.f32, hi: ti.f32):
+        # Hard speed cap so one explicit step cannot move a particle onto
+        # a grid cell whose p2g stencil would index out of bounds, plus a
+        # hard position clamp into the safe interior as a second layer.
+        # The cap is ~4.5x the initial throw speed and the position band
+        # lies well outside the boundary layer, so neither engages in a
+        # stable run; they exist so an unstable constitutive model dies
+        # as non-finite metrics (Gate 7 / Gate 1) instead of a SIGSEGV
+        # that loses the whole log.
+        for i in x:
+            s2 = v[i].dot(v[i])
+            if s2 > cap * cap:
+                v[i] *= cap / ti.sqrt(s2)
+            if x[i].x < lo:
+                x[i].x = lo
+                v[i].x = 0.0
+            if x[i].x > hi:
+                x[i].x = hi
+                v[i].x = 0.0
+            if x[i].y < lo:
+                x[i].y = lo
+                v[i].y = 0.0
+            if x[i].y > hi:
+                x[i].y = hi
+                v[i].y = 0.0
 
     @ti.kernel
     def g2p():
@@ -522,10 +554,19 @@ def main():
     p2g()
     emit(0, 0.0, metrics)
     write_frame(0)
+    # safety: the p2g stencil reads base+2, so a particle must stay at
+    # least 2 dx from each wall; cap speed to <(bound-1) cells/step and
+    # hard-clamp x into [2 dx, 1-2 dx] after g2p/update_F so the next
+    # p2g can never index out of bounds, however unstable the material.
+    v_cap = 0.45 * (bound - 1) * dx / dt
+    x_lo = 2.0 * dx * 1.0001
+    x_hi = float(p['domain'][0]) - x_lo
+
     for s in range(1, steps + 1):
         grid_op()
         g2p()
         update_F()
+        clamp_state(v_cap, x_lo, x_hi)
         clear_grid()
         p2g()
         if not emit(s, s * dt, metrics):
