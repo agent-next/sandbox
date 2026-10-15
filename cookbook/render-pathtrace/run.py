@@ -45,6 +45,12 @@ def dependencies():
     assert base64.b64encode(hashlib.sha512(archive).digest()).decode() == MUTRACER_SHA512, \
         "MuTracer npm integrity"
     cached_archive.write_bytes(archive)
+    return {"mutracer-0.1.1.tgz": archive}
+
+
+def numpy_wheel():
+    """Only for GPU images that predate the baked-in NumPy 2.2.6."""
+    cache = Path.home() / ".cache/render-pathtrace"
     print("fetching pinned NumPy 2.2.6 wheel", flush=True)
     cached_wheel = cache / WHEEL
     if cached_wheel.exists():
@@ -55,7 +61,7 @@ def dependencies():
         data = download(wheel["url"])
     assert hashlib.sha256(data).hexdigest() == NUMPY_SHA256, "NumPy SHA-256"
     cached_wheel.write_bytes(data)
-    return {"mutracer-0.1.1.tgz": archive, WHEEL: data}
+    return data
 
 
 def request(key, method, path, body=None):
@@ -98,6 +104,8 @@ def isolate(code):
 
 
 def job_source(seed, wheel, skip_selftest=False, chunks=None):
+    wheel_env = (f'os.environ["SBX_RENDER_NUMPY_WHEEL"] = str(out/{wheel!r})\n'
+                 if wheel else "")
     code = f"""
 import hashlib, json, os, pathlib, subprocess, tarfile, time
 out = pathlib.Path(OUTPUT_DIR)
@@ -117,10 +125,9 @@ report["input_sha256"] = {{
 }}
 os.environ.update(SBX_RENDER_BACKEND="gpu",
     SBX_RENDER_ARCHIVE=str(out/"mutracer-0.1.1.tgz"),
-    SBX_RENDER_NUMPY_WHEEL=str(out/{wheel!r}),
     PYTHONPATH="/tmp/.local/share/render-pathtrace/deps",
     PYTHONDONTWRITEBYTECODE="1", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
-steps = [
+{wheel_env}steps = [
     ("setup", ["sh", "judge/setup.sh"], 180),
     ("unit", ["/opt/browser/bin/python", "-m", "unittest", "discover", "-s", "judge", "-p", "test_contract.py"], 60),
     ("runner_unit", ["/opt/browser/bin/python", "-m", "unittest", "test_runner"], 60),
@@ -240,6 +247,15 @@ def gpu_run(args, key):
         receipt["upload_probe_status"] = status
         receipt["upload_method"] = "exec-base64" if via_exec else "PUT"
         print(f"upload method: {receipt['upload_method']} (PUT probe HTTP {status})", flush=True)
+        probe = execute(key, sid, isolate(
+            "try:\n    import numpy\n    report['image_numpy'] = numpy.__version__\n"
+            "except ImportError:\n    report['image_numpy'] = None"))
+        receipt["image_numpy"] = (probe.get("result") or {}).get("report", {}).get("image_numpy")
+        wheel = None
+        if receipt["image_numpy"] != "2.2.6":
+            wheel = WHEEL
+            uploads[WHEEL] = numpy_wheel()
+        print(f"image NumPy: {receipt['image_numpy']}; wheel upload: {bool(wheel)}", flush=True)
         chunks = {}
         chunk_bytes = 1024 * 1024 if via_exec else 128 * 1024
         for name, data in uploads.items():
@@ -257,7 +273,6 @@ def gpu_run(args, key):
                     future.result()
             print(f"uploaded {name}: {len(data)} bytes in {count} parts", flush=True)
         print(f"upload: wall={time.monotonic()-start:.1f}s since start", flush=True)
-        wheel = next(name for name in uploads if name.endswith(".whl"))
         executed = execute(key, sid, job_source(args.seed, wheel, args.skip_selftest, chunks))
         receipt["exec"] = executed
         result = executed.get("result") or {}

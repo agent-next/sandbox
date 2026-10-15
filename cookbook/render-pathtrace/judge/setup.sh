@@ -6,18 +6,22 @@ export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/ms-playwright}
 mkdir -p "$ROOT"
 if [ "${SBX_RENDER_BACKEND:-cpu}" = gpu ]; then
     export PYTHONPATH="$ROOT/deps${PYTHONPATH:+:$PYTHONPATH}"
-    /opt/browser/bin/python - "$ROOT" "$SBX_RENDER_NUMPY_WHEEL" "$SBX_RENDER_ARCHIVE" <<'PY'
+    /opt/browser/bin/python - "$ROOT" "$SBX_RENDER_ARCHIVE" "${SBX_RENDER_NUMPY_WHEEL:-}" <<'PY'
 import base64, hashlib, importlib.metadata, pathlib, subprocess, sys, tarfile
-root, wheel, archive = map(pathlib.Path, sys.argv[1:])
+root, archive = map(pathlib.Path, sys.argv[1:3])
 assert sys.version_info[:2] == (3, 12), "GPU template requires CPython 3.12"
 assert importlib.metadata.version("playwright") == "1.55.0"
-assert hashlib.sha256(wheel.read_bytes()).hexdigest() == "fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249", "NumPy wheel SHA-256 mismatch"
+if sys.argv[3]:
+    wheel = pathlib.Path(sys.argv[3])
+    assert hashlib.sha256(wheel.read_bytes()).hexdigest() == "fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249", "NumPy wheel SHA-256 mismatch"
+    subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
+                    "--no-index", "--no-deps", "--target", str(root / "deps"),
+                    "--upgrade", str(wheel)], check=True)
+else:
+    assert importlib.metadata.version("numpy") == "2.2.6", "GPU image NumPy must be 2.2.6"
 data = archive.read_bytes()
 assert base64.b64encode(hashlib.sha512(data).digest()).decode() == "iSqsI9GppKGPfDM7ntmZp5JZZjsIubh+aHVvyW516qTf2Hp64FPNzQwZIkF1LOA6aEk2JAisHBFAnpKUINyBBA==", "MuTracer npm integrity mismatch"
 assert hashlib.sha256(data).hexdigest() == "a84ec7913ae95e49b1172ea0cba45f20179f4a5d0cce08768d4812348e3e7b4a", "MuTracer SHA-256 mismatch"
-subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
-                "--no-index", "--no-deps", "--target", str(root / "deps"),
-                "--upgrade", str(wheel)], check=True)
 with tarfile.open(archive) as tar:
     tar.extractall(root, filter="data")
 (root / "venv/bin").mkdir(parents=True, exist_ok=True)
