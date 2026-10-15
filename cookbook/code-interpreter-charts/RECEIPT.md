@@ -233,6 +233,31 @@ runs; `selftest.sh` checks that.)
 `python -I` inside the judge's temp dir while the judge's own PNG decode
 competes for the 2 vCPUs; the same `analysis.py` run alone takes 3.6 s.
 
+## Final fresh-clone run (committed tree, 12 mutants)
+
+After the last four mutants and the executable-bit change, the whole
+sequence was run once more from a fresh `git clone --depth 1` with the venv
+deleted — the state a cold sandbox gets:
+
+```text
+$ git clone -q --depth 1 -b sbx/demo-code-interpreter-charts <repo> repo
+$ cd repo/cookbook/code-interpreter-charts && rm -rf ~/.cache/code-interpreter-charts
+=== setup (cold) ===
+exit=0 wall=179981ms
+setup: done
+=== selftest ===
+exit=0 wall=186954ms
+selftest: kill rate 12/12 = 100%
+selftest: determinism OK (two --seed 1 runs identical but timing)
+selftest: OK
+=== grade ===
+exit=0 wall=13020ms
+passed True timing {'artifact_run_s': 10.217, 'g1_s': 10.247, 'gates_s': 2.178}
+```
+
+Setup 3 m 00 s cold, self-test 3 m 07 s, grade 13.0 s — all exit 0, kill
+rate 12/12, on a 2 vCPU box that was also running the agent session itself.
+
 ## Adversarial checks on the judge (hand-run)
 
 Four artifacts that break the contract in ways the mutants do not, run
