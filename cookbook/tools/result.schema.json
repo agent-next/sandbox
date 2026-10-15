@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-next.com/schemas/result.schema.json",
+  "title": "agent-next demo result manifest",
+  "description": "One result.json per cookbook demo. Drives the in-chat result card, the demo gallery and the video storyboard with the same numbers.",
+  "type": "object",
+  "required": [
+    "schema",
+    "demo",
+    "headline",
+    "verdict",
+    "gates",
+    "numbers",
+    "hero",
+    "gallery",
+    "launch",
+    "receipt",
+    "sandbox_commit"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "agent-next/result@1"
+    },
+    "demo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Cookbook directory name, e.g. cfd-openfoam"
+    },
+    "headline": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One plain sentence stating the measured result"
+    },
+    "verdict": {
+      "enum": ["PASS", "FAIL"]
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "pass", "measured", "threshold"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "pass": {"type": "boolean"},
+          "measured": {"type": ["number", "string"]},
+          "threshold": {"type": ["number", "string"]}
+        }
+      }
+    },
+    "numbers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["label", "value", "unit", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "label": {"type": "string", "minLength": 1},
+          "value": {"type": ["number", "string"]},
+          "unit": {"type": "string"},
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The command or receipt line that produced the number, e.g. \"RECEIPT.md:225\" or \"judge/grade.sh examples/good --json v.json\""
+          }
+        }
+      }
+    },
+    "hero": {"$ref": "#/$defs/hero"},
+    "gallery": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/hero"}
+    },
+    "launch": {
+      "type": "object",
+      "required": ["command", "ask_agent"],
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The one-command run, e.g. python3 cookbook/<demo>/run.py"
+        },
+        "ask_agent": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The README \"Ask your agent\" prompt for plugin users"
+        }
+      }
+    },
+    "receipt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the receipt file relative to the demo root, e.g. RECEIPT.md"
+    },
+    "sandbox_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "git commit the numbers were produced/verified at"
+    }
+  },
+  "$defs": {
+    "hero": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["image", "video", "model3d", "compare", "app"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path relative to the demo root"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "poster": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Still image path for video/app entries"
+        },
+        "before": {
+          "type": "string",
+          "minLength": 1,
+          "description": "For kind=compare: the before image path"
+        },
+        "after": {
+          "type": "string",
+          "minLength": 1,
+          "description": "For kind=compare: the after image path"
+        },
+        "caption": {"type": "string"}
+      },
+      "anyOf": [
+        {"required": ["path"]},
+        {"required": ["url"]},
+        {"required": ["before", "after"]}
+      ]
+    }
+  }
+}
