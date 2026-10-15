@@ -1,0 +1,5 @@
+outputs*/
+media/master/
+media/source/
+media/*.log
+__pycache__/
