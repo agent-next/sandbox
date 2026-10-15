@@ -5,6 +5,6 @@
 # pinned by version; ffmpeg is taken from the distro (Debian bookworm:
 # ffmpeg 5.1.x) and libEGL_mesa from the distro (headless EGL rendering).
 mujoco==3.14.0
-numpy==2.2.6
+numpy==2.5.4
 matplotlib==3.10.7
 pillow==11.3.0

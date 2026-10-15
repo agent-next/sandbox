@@ -29,6 +29,8 @@ MODEL_DIR="${PREFIX}/rp1_description"
 mkdir -p "$MEDIA/data/verdicts" "$MEDIA/data/traces" "$MEDIA/work/mutants" "$MEDIA/work/scene"
 
 # --- the judged scene (same assembly grade.sh performs in its scratch) ----
+# wiped first: the media work dir is regenerated, never reused across runs
+rm -rf "$MEDIA/work/scene/mjcf" "$MEDIA/work/scene/meshes"
 cp -r "${MODEL_DIR}/mjcf" "$MEDIA/work/scene/mjcf"
 cp -r "${MODEL_DIR}/meshes" "$MEDIA/work/scene/meshes"
 sed -i 's|<include file="robot.xml"/>|<include file="robot_24dof.xml"/>|' \
