@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four-stroke engine — anatomy figure</title>
+<style>
+  :root {
+    --ink: #2b2d33; --gold: #c9a227;
+    --bg-a: #191b22; --bg-b: #23262f; --panel: #262932; --line: #383c47;
+    --text: #e8e4da; --faint: #9a9489;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: linear-gradient(180deg, var(--bg-a), var(--bg-b) 55%, #171921);
+         color: var(--text); font: 15px/1.45 Georgia, "DejaVu Serif", serif;
+         padding: 24px; min-height: 100vh; }
+  .card { background: var(--panel); border: 1px solid var(--line);
+          border-radius: 12px; padding: 20px 24px; max-width: 1360px;
+          margin: 0 auto; box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
+  header { display: flex; justify-content: space-between; align-items: baseline;
+           border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: .4px; color: var(--gold); }
+  .fig-no { color: var(--faint); font: 13px/1 ui-monospace, "DejaVu Sans Mono", monospace; }
+  .stage { display: flex; gap: 18px; margin-top: 16px; }
+  .stage-view { position: relative; }
+  canvas { background: transparent; border-radius: 8px;
+           touch-action: none; cursor: grab; display: block; }
+  canvas:active { cursor: grabbing; }
+  .hint { color: var(--faint); font-size: 12.5px; margin-top: 6px; }
+  aside { width: 300px; flex: none; display: flex; flex-direction: column; }
+  .parts { list-style: none; padding: 0; margin: 0 0 12px; overflow-y: auto;
+           max-height: 780px; border: 1px solid var(--line); border-radius: 8px;
+           background: #1f222b; }
+  .parts li { padding: 6px 12px; border-bottom: 1px solid var(--line);
+              cursor: pointer; user-select: none; font-size: 14px; }
+  .parts li:last-child { border-bottom: none; }
+  .parts li:hover { background: #2d313c; }
+  .parts li.selected { background: #4d422c; color: #ffd970; font-weight: 600; }
+  [data-part-info] { border: 1px solid var(--line); border-radius: 8px;
+                     background: transparent; padding: 14px 16px; min-height: 112px; }
+  [data-part-info] h2 { font-size: 16px; margin-bottom: 6px; color: var(--gold); }
+  [data-part-info] p { font-size: 13.5px; color: #c9c3b6; }
+  .tooltip { position: fixed; pointer-events: none; background: var(--ink);
+             color: #f6f3ec; font: 12px/1.3 ui-monospace, monospace;
+             padding: 3px 7px; border-radius: 4px; display: none; z-index: 5; }
+  html.capture .tooltip { display: none !important; }
+  .readout { margin-top: 10px; color: var(--faint);
+             font: 12px/1.4 ui-monospace, "DejaVu Sans Mono", monospace; }
+  /* label overlay: chips in the gutters + SVG leader lines */
+  #labels, #leaders { position: absolute; inset: 0; pointer-events: none;
+                      overflow: hidden; }
+  #leaders line { stroke: #c9a227; stroke-width: 1.2; opacity: .8; }
+  #leaders circle { fill: #ffd970; }
+  .lbl { position: absolute; transform: translateY(-50%);
+         background: rgba(24, 26, 33, .88); border: 1px solid #4a4636;
+         color: #e8dfc8; border-radius: 5px; padding: 3px 9px;
+         font: 12.5px/1.3 ui-monospace, "DejaVu Sans Mono", monospace;
+         white-space: nowrap; }
+  .lbl.left  { left: 10px;  text-align: left; }
+  .lbl.right { right: 10px; text-align: right; }
+  /* shot mode: the stage-view owns the whole viewport, page chrome hidden */
+  html.shot { overflow: hidden; }
+  html.shot body { padding: 0; background: #20242e; }
+  html.shot .card { border: none; box-shadow: none; background: none;
+                    max-width: none; padding: 0; border-radius: 0; }
+  html.shot header, html.shot aside, html.shot .hint, html.shot .readout {
+    display: none; }
+  html.shot .stage { margin: 0; display: block; }
+  html.shot .stage-view { position: fixed; inset: 30%; }
+  html.shot canvas { border-radius: 0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <header>
+    <h1 data-machine="four-stroke-engine">Four-stroke engine</h1>
+    <div class="fig-no">Fig 1 · single cylinder · Otto cycle · shaded solid</div>
+  </header>
+  <div class="stage">
+    <div>
+      <div class="stage-view" id="stageView">
+        <canvas id="fig" width="860" height="840" aria-label="Isometric shaded-solid figure of a four-stroke engine"></canvas>
+        <svg id="leaders"></svg>
+        <div id="labels"></div>
+      </div>
+      <div class="hint">Drag to orbit · ←/→ turn the camera · click a part in the list to inspect it</div>
+      <div class="readout" id="readout">azimuth 35° · elevation 22° · assembled · 17 parts</div>
+    </div>
+    <aside>
+      <ul class="parts" id="parts"></ul>
+      <div data-part-info><h2>Nothing selected</h2>
+        <p>Click a part to see what it does in the cycle.</p></div>
+    </aside>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Anatomy-style exploded solid figure of a single-cylinder four-stroke
+// engine. Raw WebGL 1, no dependencies: every part is a small triangle mesh
+// (revolve / ruled sweeps around the engine's own axes) in engine
+// coordinates (mm, Y up, crankshaft axis along Z), lit by a key + fill +
+// hemisphere rig over a gentle background gradient, with an optional thin
+// edge overlay. The camera is an orthographic orbit the user drags.
+// URL params for captures: ?shot (fullscreen canvas, no chrome), ?capture
+// (hide tooltips), ?explode=0..1, ?yaw=deg, ?turntable[=deg/s],
+// ?labels[=0|1], ?edge=0.
+// ---------------------------------------------------------------------------
+
+const PARTS = [
+  { id: "piston", name: "Piston", family: "alu", ex: [0, 145, 0], desc: "Slides in the cylinder; combustion pressure pushes it down the bore on the power stroke." },
+  { id: "piston-rings", name: "Piston rings", family: "brass", ex: [0, 165, 0], desc: "Seal the gap between piston and cylinder wall so the pressure stays above the piston." },
+  { id: "piston-pin", name: "Piston pin", family: "steel", ex: [0, 115, 0], desc: "Hinge between the piston and the connecting rod, letting the rod swing as the crank turns." },
+  { id: "connecting-rod", name: "Connecting rod", family: "steel", ex: [75, 40, 0], desc: "Converts the piston's straight stroke into rotation at the crank pin." },
+  { id: "crankshaft", name: "Crankshaft", family: "steelBlue", ex: [0, 0, -150], desc: "Turns the rod's push into shaft torque; its crank pin rides at a 40 mm radius." },
+  { id: "flywheel", name: "Flywheel", family: "graphite", ex: [0, 0, 190], desc: "Heavy disc that stores energy from the power stroke and keeps the crank turning between fires." },
+  { id: "crankcase", name: "Crankcase", family: "graphite", ex: [0, 0, 0], desc: "Encloses and supports the crankshaft, and carries the main bearings and the oil." },
+  { id: "cylinder", name: "Cylinder", family: "graphite", ex: [0, 0, 0], desc: "Cast-iron barrel with a precision bore that guides the piston through all four strokes of the cycle." },
+  { id: "cylinder-head", name: "Cylinder head", family: "castal", ex: [0, 145, 0], desc: "Caps the top of the cylinder; it carries the valves, the ports and the spark plug." },
+  { id: "combustion-chamber", name: "Combustion chamber", family: "accent", ex: [0, 30, 0], desc: "Volume between piston crown and head where the compressed charge is burned." },
+  { id: "intake-valve", name: "Intake valve", family: "steel", ex: [0, 195, 0], desc: "Opens on the intake stroke to let the fresh air-fuel mixture into the cylinder." },
+  { id: "exhaust-valve", name: "Exhaust valve", family: "steel", ex: [0, 195, 0], desc: "Opens on the exhaust stroke to release the burnt gases from the cylinder." },
+  { id: "valve-spring", name: "Valve spring", family: "steelBlue", ex: [0, 200, 0], desc: "Closes its valve the moment the cam lobe passes, keeping the valve on its cam." },
+  { id: "camshaft", name: "Camshaft", family: "steelBlue", ex: [0, 0, -170], desc: "Rotates at half crank speed and times each valve opening with its lobes." },
+  { id: "spark-plug", name: "Spark plug", family: "alu", ex: [0, 250, 0], desc: "Ignites the compressed charge with a spark near the end of the compression stroke." },
+  { id: "intake-manifold", name: "Intake manifold", family: "intake", ex: [-170, 70, 0], desc: "Duct that feeds the air-fuel mixture from the throttle to the intake port." },
+  { id: "exhaust-manifold", name: "Exhaust manifold", family: "manifold", ex: [170, 70, 0], desc: "Duct that collects the burnt gases from the exhaust port and leads them away." },
+];
+
+const MATERIALS = {
+  graphite:   { col: [0.42, 0.40, 0.38], spec: 0.16, shin: 14 }, // cast iron
+  castal:     { col: [0.60, 0.61, 0.65], spec: 0.24, shin: 18 }, // cast aluminium
+  alu:        { col: [0.78, 0.79, 0.82], spec: 0.50, shin: 42 }, // machined alloy
+  brass:      { col: [0.83, 0.66, 0.30], spec: 0.46, shin: 48 }, // brass / bronze
+  steel:      { col: [0.68, 0.71, 0.77], spec: 0.55, shin: 56 }, // polished steel
+  steelBlue:  { col: [0.46, 0.52, 0.61], spec: 0.42, shin: 36 }, // blued steel
+  manifold:   { col: [0.50, 0.38, 0.30], spec: 0.18, shin: 14 }, // cast exhaust
+  intake:     { col: [0.58, 0.60, 0.65], spec: 0.26, shin: 22 }, // cast intake
+  accent:     { col: [0.72, 0.28, 0.19], spec: 0.26, shin: 20 }, // red oxide
+};
+for (const p of PARTS) p.mat = MATERIALS[p.family];
+const HOVER_TINT = 0.30;      // lighten factor when hovered
+const SELECT_COLOR = [0.85, 0.66, 0.18];
+
+// -- mesh builders: append 6-float vertices (x,y,z,nx,ny,nz); culling off --
+function faceN(a, b, c) {
+  const ux = b[0]-a[0], uy = b[1]-a[1], uz = b[2]-a[2];
+  const vx = c[0]-a[0], vy = c[1]-a[1], vz = c[2]-a[2];
+  let nx = uy*vz-uz*vy, ny = uz*vx-ux*vz, nz = ux*vy-uy*vx;
+  const l = Math.hypot(nx, ny, nz) || 1;
+  return [nx/l, ny/l, nz/l];
+}
+function triN(out, a, b, c, n) {
+  n = n || faceN(a, b, c);
+  out.push(a[0],a[1],a[2],n[0],n[1],n[2], b[0],b[1],b[2],n[0],n[1],n[2],
+           c[0],c[1],c[2],n[0],n[1],n[2]);
+}
+function quadN(out, a, b, c, d, nA, nB, nC, nD) {
+  if (!nA) { triN(out, a, b, c); triN(out, a, c, d); return; }
+  const push = (p, n) => out.push(p[0],p[1],p[2],n[0],n[1],n[2]);
+  push(a,nA); push(b,nB); push(c,nC); push(a,nA); push(c,nC); push(d,nD);
+}
+// ring of `seg` points + outward unit normals around centre c in the plane
+// spanned by perpendicular unit vectors n1,n2
+function ringAt(c, n1, n2, r, seg) {
+  const pts = [], nrs = [];
+  for (let i = 0; i < seg; i++) {
+    const a = (i/seg)*2*Math.PI, co = Math.cos(a), si = Math.sin(a);
+    const nx = n1[0]*co + n2[0]*si, ny = n1[1]*co + n2[1]*si,
+          nz = n1[2]*co + n2[2]*si;
+    pts.push([c[0]+r*nx, c[1]+r*ny, c[2]+r*nz]);
+    nrs.push([nx, ny, nz]);
+  }
+  return { pts, nrs };
+}
+function tubeBetween(out, A, B, seg) {
+  for (let i = 0; i < seg; i++) {
+    const j = (i+1) % seg;
+    quadN(out, A.pts[i], A.pts[j], B.pts[j], B.pts[i],
+          A.nrs[i], A.nrs[j], B.nrs[j], B.nrs[i]);
+  }
+}
+function capFan(out, ring, center, n, seg) {
+  for (let i = 0; i < seg; i++) triN(out, center, ring.pts[i], ring.pts[(i+1)%seg], n);
+}
+// solid cylinder along Y (centreline x=cx,z=cz) or Z (x=cx,y=cy)
+function axisCyl(out, r, a0, a1, u, v, seg, ax) {
+  const n1 = [1,0,0], n2 = ax === "y" ? [0,0,1] : [0,1,0];
+  const c0 = ax === "y" ? [u,a0,v] : [u,v,a0];
+  const c1 = ax === "y" ? [u,a1,v] : [u,v,a1];
+  const A = ringAt(c0, n1, n2, r, seg), B = ringAt(c1, n1, n2, r, seg);
+  tubeBetween(out, A, B, seg);
+  const cap = ax === "y" ? [0,1,0] : [0,0,1];
+  capFan(out, A, c0, cap.map(x => -x), seg);
+  capFan(out, B, c1, cap, seg);
+}
+const ycyl = (out,r,y0,y1,cx,cz,s) => axisCyl(out,r,y0,y1,cx,cz,s,"y");
+const zcyl = (out,r,z0,z1,cx,cy,s) => axisCyl(out,r,z0,z1,cx,cy,s,"z");
+// hollow barrel along Y: outer wall, bore wall, annular top/bottom faces
+function yannulus(out, rO, rI, y0, y1, cx, cz, seg) {
+  const n1 = [1,0,0], n2 = [0,0,1];
+  const O0 = ringAt([cx,y0,cz], n1, n2, rO, seg), O1 = ringAt([cx,y1,cz], n1, n2, rO, seg);
+  const I0 = ringAt([cx,y0,cz], n1, n2, rI, seg), I1 = ringAt([cx,y1,cz], n1, n2, rI, seg);
+  tubeBetween(out, O0, O1, seg);
+  const inv = n => [-n[0], -n[1], -n[2]];
+  for (let i = 0; i < seg; i++) {
+    const j = (i+1) % seg;
+    quadN(out, I0.pts[j], I0.pts[i], I1.pts[i], I1.pts[j],
+          inv(I0.nrs[j]), inv(I0.nrs[i]), inv(I1.nrs[i]), inv(I1.nrs[j]));
+    quadN(out, O1.pts[i], O1.pts[j], I1.pts[j], I1.pts[i],
+          [0,1,0],[0,1,0],[0,1,0],[0,1,0]);
+    quadN(out, O0.pts[j], O0.pts[i], I0.pts[i], I0.pts[j],
+          [0,-1,0],[0,-1,0],[0,-1,0],[0,-1,0]);
+  }
+}
+function boxm(out, x0,x1, y0,y1, z0,z1) {
+  const q = (a,b,c,d) => quadN(out, a,b,c,d);
+  q([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]); // +z
+  q([x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0]); // -z
+  q([x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1]); // +x
+  q([x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0]); // -x
+  q([x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0]); // +y
+  q([x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]); // -y
+}
+// tube swept along a 3D polyline, radius lerped r0 -> r1
+function tubePath(out, pts, r0, r1, seg) {
+  const n = pts.length, rings = [];
+  let carry = [0,0,1];
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    const q = pts[Math.min(i+1, n-1)], r = pts[Math.max(i-1, 0)];
+    let t = [q[0]-r[0], q[1]-r[1], q[2]-r[2]];
+    const tl = Math.hypot(...t) || 1; t = t.map(x => x/tl);
+    let n1 = [t[1]*carry[2]-t[2]*carry[1], t[2]*carry[0]-t[0]*carry[2],
+              t[0]*carry[1]-t[1]*carry[0]];
+    let nl = Math.hypot(...n1);
+    if (nl < 1e-4) { n1 = [1,0,0]; nl = 1; }
+    n1 = n1.map(x => x/nl);
+    const n2 = [t[1]*n1[2]-t[2]*n1[1], t[2]*n1[0]-t[0]*n1[2], t[0]*n1[1]-t[1]*n1[0]];
+    carry = n1;
+    rings.push(ringAt(p, n1, n2, r0 + (r1-r0)*i/(n-1), seg));
+  }
+  for (let i = 0; i < n-1; i++) tubeBetween(out, rings[i], rings[i+1], seg);
+  const t0 = [pts[1][0]-pts[0][0], pts[1][1]-pts[0][1], pts[1][2]-pts[0][2]];
+  const tl0 = Math.hypot(...t0) || 1;
+  capFan(out, rings[0], pts[0], t0.map(x => -x/tl0), seg);
+  const t1 = [pts[n-1][0]-pts[n-2][0], pts[n-1][1]-pts[n-2][1], pts[n-1][2]-pts[n-2][2]];
+  const tl1 = Math.hypot(...t1) || 1;
+  capFan(out, rings[n-1], pts[n-1], t1.map(x => x/tl1), seg);
+}
+// extrude a closed 2D profile (XY) along Z from z0 to z1
+function extrudeZ(out, prof, z0, z1) {
+  const n = prof.length;
+  let cx = 0, cy = 0;
+  for (const [x,y] of prof) { cx += x; cy += y; }
+  cx /= n; cy /= n;
+  for (let i = 0; i < n; i++) {
+    const j = (i+1) % n;
+    const [ax,ay] = prof[i], [bx,by] = prof[j];
+    const ex = bx-ax, ey = by-ay, el = Math.hypot(ex,ey) || 1;
+    const nrm = [ey/el, -ex/el, 0];              // outward for CCW profile
+    quadN(out, [ax,ay,z0],[bx,by,z0],[bx,by,z1],[ax,ay,z1], nrm,nrm,nrm,nrm);
+    triN(out, [cx,cy,z1],[ax,ay,z1],[bx,by,z1], [0,0,1]);
+    triN(out, [cx,cy,z0],[bx,by,z0],[ax,ay,z0], [0,0,-1]);
+  }
+}
+// helical coil (valve spring): helix swept as a thin tube
+function coilMesh(out, r, y0, y1, cx, cz, turns, wireR) {
+  const pts = [];
+  const steps = Math.round(turns*14) + 1;
+  for (let i = 0; i < steps; i++) {
+    const t = i/(steps-1), a = t*turns*2*Math.PI;
+    pts.push([cx + r*Math.cos(a), y0 + t*(y1-y0), cz + r*Math.sin(a)]);
+  }
+  tubePath(out, pts, wireR, wireR, 8);
+}
+
+// -- edge helpers: flat arrays of line-segment endpoints -------------------
+function circleXZ(r, y, cx, cz, seg) {
+  const pts = [];
+  for (let i = 0; i < seg; i++) {
+    const a0 = (i/seg)*2*Math.PI, a1 = ((i+1)/seg)*2*Math.PI;
+    pts.push(cx+r*Math.cos(a0), y, cz+r*Math.sin(a0),
+             cx+r*Math.cos(a1), y, cz+r*Math.sin(a1));
+  }
+  return pts;
+}
+function circleZ(r, z, cx, cy, seg) {
+  const pts = [];
+  for (let i = 0; i < seg; i++) {
+    const a0 = (i/seg)*2*Math.PI, a1 = ((i+1)/seg)*2*Math.PI;
+    pts.push(cx+r*Math.cos(a0), cy+r*Math.sin(a0), z,
+             cx+r*Math.cos(a1), cy+r*Math.sin(a1), z);
+  }
+  return pts;
+}
+function circleYZ(r, x, cy, cz, seg) {
+  const pts = [];
+  for (let i = 0; i < seg; i++) {
+    const a0 = (i/seg)*2*Math.PI, a1 = ((i+1)/seg)*2*Math.PI;
+    pts.push(x, cy+r*Math.cos(a0), cz+r*Math.sin(a0),
+             x, cy+r*Math.cos(a1), cz+r*Math.sin(a1));
+  }
+  return pts;
+}
+function boxE(x0,x1,y0,y1,z0,z1) {
+  const c = [[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],
+             [x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1]];
+  const e = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  const pts = [];
+  for (const [a,b] of e) pts.push(...c[a], ...c[b]);
+  return pts;
+}
+function polylineE(p) {
+  const pts = [];
+  for (let i = 0; i+5 < p.length; i += 3)
+    pts.push(p[i],p[i+1],p[i+2], p[i+3],p[i+4],p[i+5]);
+  return pts;
+}
+function coilE(r, y0, y1, cx, cz, turns, seg) {
+  const pts = [], n = Math.round(turns*seg);
+  for (let i = 0; i < n; i++) {
+    const t0 = i/n, t1 = (i+1)/n;
+    pts.push(cx+r*Math.cos(t0*turns*2*Math.PI), y0+t0*(y1-y0), cz+r*Math.sin(t0*turns*2*Math.PI),
+             cx+r*Math.cos(t1*turns*2*Math.PI), y0+t1*(y1-y0), cz+r*Math.sin(t1*turns*2*Math.PI));
+  }
+  return pts;
+}
+
+// -- engine dimensions: crank radius 40, rod 105, crank frozen at 35 deg ---
+const CRANK_A = 35*Math.PI/180, CRANK_R = 40, ROD_L = 105;
+const pin = [CRANK_R*Math.cos(CRANK_A), CRANK_R*Math.sin(CRANK_A), 0];
+const SMALL_Y = pin[1] + Math.sqrt(ROD_L*ROD_L - pin[0]*pin[0]);   // ~122.8
+const HEAD_Y = 185;                       // deck / head bottom
+const CAM_Y = 248;                        // camshaft centreline
+
+const MESH = {}, EDGES = {}, ANCHOR = {};
+{
+  let m = [], e = [];
+  // crankcase + sump flange
+  boxm(m, -95,95, -75,15, -95,95); boxm(m, -102,102, -75,-63, -102,102);
+  e = boxE(-95,95,-75,15,-95,95).concat(boxE(-102,102,-75,-63,-102,102));
+  MESH["crankcase"] = m; EDGES["crankcase"] = e; ANCHOR["crankcase"] = [0,-30,95];
+
+  // cylinder barrel + cooling fins
+  m = []; yannulus(m, 50, 41, 15, HEAD_Y, 0, 0, 36);
+  yannulus(m, 60, 50, 12, 22, 0, 0, 36);                       // base flange
+  for (const fy of [60,82,104,126,148,170]) yannulus(m, 57, 50, fy, fy+5, 0, 0, 36);
+  e = circleXZ(50, 15, 0,0, 36).concat(circleXZ(50, HEAD_Y, 0,0, 36));
+  for (const fy of [60,82,104,126,148,170]) e = e.concat(circleXZ(57, fy, 0,0, 36));
+  e = e.concat(circleXZ(60, 22, 0,0, 36));
+  for (const a of [0, Math.PI/2])                            // two generators
+    e = e.concat(polylineE([50*Math.cos(a),15,50*Math.sin(a),
+                            50*Math.cos(a),HEAD_Y,50*Math.sin(a)]));
+  MESH["cylinder"] = m; EDGES["cylinder"] = e; ANCHOR["cylinder"] = [57,120,0];
+
+  // piston + rings + pin (piston at the frozen crank position)
+  m = []; ycyl(m, 38, SMALL_Y-20, SMALL_Y+25, 0, 0, 28);
+  e = circleXZ(38, SMALL_Y-20, 0,0, 28).concat(circleXZ(38, SMALL_Y+25, 0,0, 28));
+  MESH["piston"] = m; EDGES["piston"] = e; ANCHOR["piston"] = [38,SMALL_Y+8,0];
+  m = [];
+  for (const ry of [SMALL_Y+10, SMALL_Y+15, SMALL_Y+20]) ycyl(m, 39.5, ry, ry+3.4, 0, 0, 28);
+  e = circleXZ(39.5, SMALL_Y+10, 0,0, 28).concat(circleXZ(39.5, SMALL_Y+23.4, 0,0, 28));
+  MESH["piston-rings"] = m; EDGES["piston-rings"] = e; ANCHOR["piston-rings"] = [39.5,SMALL_Y+17,0];
+  m = []; zcyl(m, 9, -27, 27, 0, SMALL_Y-2, 16);
+  e = circleZ(9, -27, 0,SMALL_Y-2, 16).concat(circleZ(9, 27, 0,SMALL_Y-2, 16));
+  MESH["piston-pin"] = m; EDGES["piston-pin"] = e; ANCHOR["piston-pin"] = [0,SMALL_Y-2,27];
+
+  // connecting rod: big end around the crank pin, small end at the pin bore
+  m = []; zcyl(m, 21, -9, 9, pin[0], pin[1], 20);
+  zcyl(m, 12, -9, 9, 0, SMALL_Y-2, 16);
+  tubePath(m, [[pin[0],pin[1],0],[pin[0]*0.55,pin[1]*0.55+(SMALL_Y-2-pin[1])*0.55,0],[0,SMALL_Y-2,0]], 13, 8, 12);
+  e = circleZ(21, 9, pin[0],pin[1], 20).concat(circleZ(12, 9, 0,SMALL_Y-2, 16))
+      .concat(polylineE([pin[0]-12*Math.sin(CRANK_A), pin[1]+12*Math.cos(CRANK_A), 9,
+                         -8*Math.sin(CRANK_A), SMALL_Y-2+8*Math.cos(CRANK_A), 9]))
+      .concat(polylineE([pin[0]+12*Math.sin(CRANK_A), pin[1]-12*Math.cos(CRANK_A), 9,
+                         8*Math.sin(CRANK_A), SMALL_Y-2-8*Math.cos(CRANK_A), 9]));
+  MESH["connecting-rod"] = m; EDGES["connecting-rod"] = e;
+  ANCHOR["connecting-rod"] = [pin[0]/2+10, (pin[1]+SMALL_Y)/2, 9];
+
+  // crankshaft: mains, webs, pin
+  m = []; zcyl(m, 14, -82,-42, 0, 0, 16); zcyl(m, 14, 42, 104, 0, 0, 16);
+  zcyl(m, 12, -14, 14, pin[0], pin[1], 14);
+  const pw = 15, pc = Math.cos(CRANK_A), ps = Math.sin(CRANK_A);
+  const web = [[-ps*pw, pc*pw], [pin[0]-ps*pw, pin[1]+pc*pw],
+               [pin[0]+ps*pw, pin[1]-pc*pw], [ps*pw, -pc*pw]];
+  extrudeZ(m, web, -42, -14); extrudeZ(m, web, 14, 42);
+  e = circleZ(14, -82, 0,0, 16).concat(circleZ(14, -42, 0,0, 16))
+    .concat(circleZ(14, 42, 0,0, 16)).concat(circleZ(14, 104, 0,0, 16))
+    .concat(circleZ(12, -14, pin[0],pin[1], 14)).concat(circleZ(12, 14, pin[0],pin[1], 14))
+    .concat(polylineE([web[0][0],web[0][1],-42, web[1][0],web[1][1],-42]))
+    .concat(polylineE([web[2][0],web[2][1],-42, web[3][0],web[3][1],-42]))
+    .concat(polylineE([web[0][0],web[0][1],42, web[1][0],web[1][1],42]))
+    .concat(polylineE([web[2][0],web[2][1],42, web[3][0],web[3][1],42]));
+  MESH["crankshaft"] = m; EDGES["crankshaft"] = e; ANCHOR["crankshaft"] = [0,0,-82];
+
+  // flywheel: solid disc + hub on the +Z stub
+  m = []; zcyl(m, 80, 98, 116, 0, 0, 40); zcyl(m, 18, 94, 122, 0, 0, 16);
+  e = circleZ(80, 98, 0,0, 40).concat(circleZ(80, 116, 0,0, 40))
+    .concat(circleZ(18, 122, 0,0, 16));
+  for (let i = 0; i < 6; i++) {
+    const a = (i/6)*2*Math.PI;
+    e = e.concat(polylineE([20*Math.cos(a),20*Math.sin(a),116,
+                            76*Math.cos(a),76*Math.sin(a),116]));
+  }
+  MESH["flywheel"] = m; EDGES["flywheel"] = e; ANCHOR["flywheel"] = [50,50,116];
+
+  // head + valve cover
+  m = []; boxm(m, -58,58, HEAD_Y,215, -58,58); boxm(m, -46,46, 215,224, -46,46);
+  e = boxE(-58,58,HEAD_Y,215,-58,58).concat(boxE(-46,46,215,224,-46,46));
+  MESH["cylinder-head"] = m; EDGES["cylinder-head"] = e; ANCHOR["cylinder-head"] = [58,200,30];
+
+  // combustion chamber: shallow ring at the top of the bore
+  m = []; yannulus(m, 40, 30, 172, HEAD_Y, 0, 0, 28);
+  e = circleXZ(40, 172, 0,0, 28).concat(circleXZ(30, HEAD_Y, 0,0, 28));
+  MESH["combustion-chamber"] = m; EDGES["combustion-chamber"] = e;
+  ANCHOR["combustion-chamber"] = [40,178,0];
+
+  // valves: head disc + stem through the head
+  for (const [id, vx] of [["intake-valve",-17],["exhaust-valve",17]]) {
+    m = []; ycyl(m, 19, 178,183.5, vx,0, 20); ycyl(m, 4, 183,228, vx,0, 12);
+    e = circleXZ(19, 183.5, vx,0, 20).concat(circleXZ(4, 228, vx,0, 12))
+        .concat(polylineE([vx+4,183,0, vx+4,228,0]));
+    MESH[id] = m; EDGES[id] = e; ANCHOR[id] = [vx,228,0];
+  }
+
+  // valve springs: one coil over each valve
+  m = []; coilMesh(m, 12, 190, 226, -17,0, 4, 2.6); coilMesh(m, 12, 190, 226, 17,0, 4, 2.6);
+  e = coilE(12, 190, 226, -17,0, 4, 10).concat(coilE(12, 190, 226, 17,0, 4, 10));
+  MESH["valve-spring"] = m; EDGES["valve-spring"] = e; ANCHOR["valve-spring"] = [29,208,0];
+
+  // camshaft + two eccentric lobes
+  m = []; zcyl(m, 9, -46, 46, 0, CAM_Y, 14);
+  const lobe = [];
+  for (let i = 0; i < 20; i++) {
+    const a = (i/20)*2*Math.PI, r = 13 + 6*Math.cos(a);
+    lobe.push([r*Math.cos(a), CAM_Y + r*Math.sin(a)]);
+  }
+  extrudeZ(m, lobe, -30, -18); extrudeZ(m, lobe, 18, 30);
+  e = circleZ(9, -46, 0,CAM_Y, 14).concat(circleZ(9, 46, 0,CAM_Y, 14));
+  for (const z of [-30,-18,18,30])
+    for (let i = 0; i < 20; i++) {
+      const a0=(i/20)*2*Math.PI, a1=((i+1)/20)*2*Math.PI;
+      e.push((13+6*Math.cos(a0))*Math.cos(a0), CAM_Y+(13+6*Math.cos(a0))*Math.sin(a0), z,
+             (13+6*Math.cos(a1))*Math.cos(a1), CAM_Y+(13+6*Math.cos(a1))*Math.sin(a1), z);
+    }
+  MESH["camshaft"] = m; EDGES["camshaft"] = e; ANCHOR["camshaft"] = [0,CAM_Y+19,-30];
+
+  // spark plug: electrode, body, hex cap
+  m = []; ycyl(m, 2.5, 183,215, 0,0, 8); ycyl(m, 6, 215,232, 0,0, 12);
+  ycyl(m, 11, 232,240, 0,0, 6);
+  e = circleXZ(6, 215, 0,0, 12).concat(circleXZ(6, 232, 0,0, 12))
+    .concat(circleXZ(11, 240, 0,0, 6));
+  MESH["spark-plug"] = m; EDGES["spark-plug"] = e; ANCHOR["spark-plug"] = [0,240,0];
+
+  // manifolds: swept ducts out of the head's side faces
+  const iPath = [[-58,205,0],[-78,203,0],[-96,196,0],[-108,182,0],[-110,158,0]];
+  const ePath = iPath.map(([x,y,z]) => [-x,y,z]);
+  m = []; tubePath(m, iPath, 13, 13, 14);
+  e = circleYZ(13, -58, 205,0, 12).concat(circleYZ(13, -96, 196,0, 12))
+    .concat(circleXZ(13, 158, -110,0, 12));
+  MESH["intake-manifold"] = m; EDGES["intake-manifold"] = e;
+  ANCHOR["intake-manifold"] = [-110,170,0];
+  m = []; tubePath(m, ePath, 12, 12, 14);
+  e = circleYZ(12, 58, 205,0, 12).concat(circleYZ(12, 96, 196,0, 12))
+    .concat(circleXZ(12, 158, 110,0, 12));
+  MESH["exhaust-manifold"] = m; EDGES["exhaust-manifold"] = e;
+  ANCHOR["exhaust-manifold"] = [110,168,0];
+}
+
+// -- minimal mat4 ------------------------------------------------------------
+function orthoM(l, r, b, t, n, f) {
+  return [2/(r-l),0,0,0, 0,2/(t-b),0,0, 0,0,-2/(f-n),0,
+          -(r+l)/(r-l), -(t+b)/(t-b), -(f+n)/(f-n), 1];
+}
+function lookAtM(eye, c, up) {
+  const z = norm3(sub3(eye, c)), x = norm3(cross3(up, z)), y = cross3(z, x);
+  return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0,
+          -dot3(x,eye), -dot3(y,eye), -dot3(z,eye), 1];
+}
+function mulM(a, b) {
+  const o = new Array(16).fill(0);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+    for (let k = 0; k < 4; k++) o[c*4+r] += a[k*4+r] * b[c*4+k];
+  return o;
+}
+const sub3 = (a,b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+const cross3 = (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const dot3 = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const norm3 = (a) => { const l = Math.hypot(...a) || 1; return [a[0]/l,a[1]/l,a[2]/l]; };
+
+// -- URL params / modes -------------------------------------------------------
+const Q = new URLSearchParams(location.search);
+const SHOT = Q.has("shot");
+const CAPTURE = SHOT || Q.has("capture");
+const EDGES_ON = Q.get("edge") !== "0";
+const LABELS_ON = (SHOT || Q.has("labels")) && Q.get("labels") !== "0";
+let explode = Math.min(1, Math.max(0, parseFloat(Q.get("explode") || "0") || 0));
+let yawDeg = parseFloat(Q.get("yaw") || "35") || 0;
+const turntable = Q.has("turntable") ? (parseFloat(Q.get("turntable")) || 12) : 0;
+let labelOpacity = LABELS_ON ? 1 : 0;
+if (SHOT) document.documentElement.classList.add("shot");
+if (CAPTURE) document.documentElement.classList.add("capture");
+
+// -- WebGL setup --------------------------------------------------------------
+const canvas = document.getElementById("fig");
+const stageView = document.getElementById("stageView");
+const gl = canvas.getContext("webgl", { antialias: false });
+if (!gl) throw new Error("WebGL context could not be created");
+
+const VS_SOLID = `
+attribute vec3 aPos;
+attribute vec3 aNrm;
+uniform mat4 uMVP;
+uniform mat3 uView;
+uniform vec3 uOff;
+uniform vec3 uColor;
+uniform float uSpec;
+uniform float uShin;
+varying vec3 vCol;
+void main() {
+  gl_Position = uMVP * vec4(aPos + uOff, 1.0);
+  vec3 n = normalize(uView * aNrm);           // view-space normal
+  vec3 L1 = normalize(vec3(-0.55, 0.75, 0.45));   // key light
+  vec3 L2 = normalize(vec3(0.65, -0.15, -0.5));   // fill light
+  float d1 = max(dot(n, L1), 0.0);
+  float d2 = max(dot(n, L2), 0.0);
+  vec3 amb = mix(vec3(0.11, 0.11, 0.13), vec3(0.42, 0.44, 0.50), n.y * 0.5 + 0.5);
+  vec3 h = normalize(L1 + vec3(0.0, 0.0, 1.0));
+  float ndh = max(dot(n, h), 0.0);
+  float s2 = ndh * ndh;                       // spec ^16 via multiplies
+  float s8 = s2 * s2; s8 *= s8;
+  float sp = s8 * s8 * uSpec * (0.5 + uShin * 0.01);
+  float rim = 1.0 - max(n.z, 0.0);
+  rim = rim * rim * rim * 0.10;
+  vCol = uColor * (amb + vec3(1.0, 0.97, 0.92) * d1 * 0.85
+                   + vec3(0.70, 0.78, 0.90) * d2 * 0.35)
+         + vec3(sp) + uColor * rim;
+}`;
+const FS_SOLID = `
+precision mediump float;
+varying vec3 vCol;
+void main() { gl_FragColor = vec4(vCol, 1.0); }`;
+const VS_FLAT = `
+attribute vec3 aPos;
+uniform mat4 uMVP;
+uniform vec3 uOff;
+void main() { gl_Position = uMVP * vec4(aPos + uOff, 1.0); }`;
+const FS_FLAT = `
+precision mediump float;
+uniform vec3 uColor;
+void main() { gl_FragColor = vec4(uColor, 1.0); }`;
+// background: gentle vertical gradient quad drawn in clip space
+const VS_BG = `
+attribute vec2 aXY;
+varying vec2 vXY;
+void main() { vXY = aXY; gl_Position = vec4(aXY, 0.999, 1.0); }`;
+const FS_BG = `
+precision mediump float;
+varying vec2 vXY;
+void main() {
+  float t = vXY.y * 0.5 + 0.5;
+  float r = length(vXY * vec2(1.15, 1.0));
+  vec3 c = mix(vec3(0.106, 0.114, 0.137), vec3(0.145, 0.153, 0.184), t);
+  c *= 1.0 - 0.18 * r * r;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+function makeProg(vs, fs) {
+  const s = (t, src) => { const sh = gl.createShader(t); gl.shaderSource(sh, src);
+                          gl.compileShader(sh); return sh; };
+  const p = gl.createProgram();
+  gl.attachShader(p, s(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, s(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  return p;
+}
+const progSolid = makeProg(VS_SOLID, FS_SOLID);
+const progFlat = makeProg(VS_FLAT, FS_FLAT);
+const progBg = makeProg(VS_BG, FS_BG);
+const L = {
+  sMVP: gl.getUniformLocation(progSolid, "uMVP"),
+  sView: gl.getUniformLocation(progSolid, "uView"),
+  sOff: gl.getUniformLocation(progSolid, "uOff"),
+  sCol: gl.getUniformLocation(progSolid, "uColor"),
+  sSpec: gl.getUniformLocation(progSolid, "uSpec"),
+  sShin: gl.getUniformLocation(progSolid, "uShin"),
+  sPos: gl.getAttribLocation(progSolid, "aPos"),
+  sNrm: gl.getAttribLocation(progSolid, "aNrm"),
+  fMVP: gl.getUniformLocation(progFlat, "uMVP"),
+  fOff: gl.getUniformLocation(progFlat, "uOff"),
+  fCol: gl.getUniformLocation(progFlat, "uColor"),
+  fPos: gl.getAttribLocation(progFlat, "aPos"),
+  bPos: gl.getAttribLocation(progBg, "aXY"),
+};
+const bgBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, bgBuf);
+gl.bufferData(gl.ARRAY_BUFFER,
+              new Float32Array([-1,-1, 1,-1, 1,1, -1,-1, 1,1, -1,1]),
+              gl.STATIC_DRAW);
+
+const triBuf = {}, triCnt = {}, edgeBuf = {}, edgeCnt = {};
+for (const p of PARTS) {
+  const data = new Float32Array(MESH[p.id]);
+  triBuf[p.id] = gl.createBuffer(); triCnt[p.id] = data.length / 6;
+  gl.bindBuffer(gl.ARRAY_BUFFER, triBuf[p.id]);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  const ed = new Float32Array(EDGES[p.id]);
+  edgeBuf[p.id] = gl.createBuffer(); edgeCnt[p.id] = ed.length / 3;
+  gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf[p.id]);
+  gl.bufferData(gl.ARRAY_BUFFER, ed, gl.STATIC_DRAW);
+}
+gl.enable(gl.DEPTH_TEST);
+gl.disable(gl.CULL_FACE);
+
+// -- camera -------------------------------------------------------------------
+const CENTER_Y0 = 85, ELEV = 22 * Math.PI / 180, DIST = 700;
+let selected = null, hovered = null;
+const readout = document.getElementById("readout");
+
+function camera() {
+  const cy = CENTER_Y0 + 120 * explode;
+  const halfH = 190 + 110 * explode;
+  const w = canvas.width, h = canvas.height;
+  const yaw = yawDeg * Math.PI / 180;
+  const eye = [DIST * Math.cos(ELEV) * Math.sin(yaw),
+               cy + DIST * Math.sin(ELEV),
+               DIST * Math.cos(ELEV) * Math.cos(yaw)];
+  const halfW = halfH * (w / h);
+  const proj = orthoM(-halfW, halfW, -halfH, halfH, 10, 1400);
+  const view = lookAtM(eye, [0, cy, 0], [0, 1, 0]);
+  return { mvp: mulM(proj, view), view, halfH };
+}
+
+function partOffset(p) {
+  return [p.ex[0]*explode, p.ex[1]*explode, p.ex[2]*explode];
+}
+
+function drawPart(p, mvp, viewRot) {
+  const off = partOffset(p);
+  let c = p.mat.col;
+  if (p.id === selected) c = SELECT_COLOR;
+  else if (p.id === hovered) c = c.map(v => v + (1 - v) * HOVER_TINT);
+  gl.uniform3f(L.sOff, off[0], off[1], off[2]);
+  gl.uniform3f(L.sCol, c[0], c[1], c[2]);
+  gl.uniform1f(L.sSpec, p.mat.spec);
+  gl.uniform1f(L.sShin, p.mat.shin);
+  gl.bindBuffer(gl.ARRAY_BUFFER, triBuf[p.id]);
+  gl.vertexAttribPointer(L.sPos, 3, gl.FLOAT, false, 24, 0);
+  gl.vertexAttribPointer(L.sNrm, 3, gl.FLOAT, false, 24, 12);
+  gl.drawArrays(gl.TRIANGLES, 0, triCnt[p.id]);
+}
+
+function render() {
+  const w = canvas.width, h = canvas.height;
+  gl.viewport(0, 0, w, h);
+  const cam = camera();
+  const viewRot = [cam.view[0], cam.view[1], cam.view[2],
+                   cam.view[4], cam.view[5], cam.view[6],
+                   cam.view[8], cam.view[9], cam.view[10]];
+  if (SHOT || CAPTURE) {                         // gradient capture backdrop
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.disable(gl.DEPTH_TEST);
+    gl.useProgram(progBg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bgBuf);
+    gl.enableVertexAttribArray(L.bPos);
+    gl.vertexAttribPointer(L.bPos, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.disableVertexAttribArray(L.bPos);
+    gl.enable(gl.DEPTH_TEST);
+  } else {                                       // flat clear, cheap on CPU GL
+    gl.clearColor(0.129, 0.141, 0.176, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  }
+
+  gl.useProgram(progSolid);
+  gl.uniformMatrix4fv(L.sMVP, false, new Float32Array(cam.mvp));
+  gl.uniformMatrix3fv(L.sView, false, new Float32Array(viewRot));
+  gl.enableVertexAttribArray(L.sPos);
+  gl.enableVertexAttribArray(L.sNrm);
+  gl.enable(gl.POLYGON_OFFSET_FILL);
+  gl.polygonOffset(1, 1);
+  for (const p of PARTS) drawPart(p, cam.mvp, viewRot);
+  gl.disable(gl.POLYGON_OFFSET_FILL);
+
+  if (EDGES_ON) {                                // thin edge overlay
+    gl.useProgram(progFlat);
+    gl.uniformMatrix4fv(L.fMVP, false, new Float32Array(cam.mvp));
+    gl.uniform3f(L.fCol, 0.06, 0.06, 0.07);
+    gl.enableVertexAttribArray(L.fPos);
+    for (const p of PARTS) {
+      const off = partOffset(p);
+      gl.uniform3f(L.fOff, off[0], off[1], off[2]);
+      gl.bindBuffer(gl.ARRAY_BUFFER, edgeBuf[p.id]);
+      gl.vertexAttribPointer(L.fPos, 3, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.LINES, 0, edgeCnt[p.id]);
+    }
+    gl.disableVertexAttribArray(L.fPos);
+  }
+  gl.disableVertexAttribArray(L.sPos);
+  gl.disableVertexAttribArray(L.sNrm);
+
+  if (LABELS_ON || labelOpacity > 0) layoutLabels(cam.mvp);
+  readout.textContent =
+    `azimuth ${((yawDeg % 360) + 360) % 360 | 0}° · elevation 22° · ` +
+    `${explode > 0.02 ? "exploded " + Math.round(explode*100) + "%" : "assembled"}` +
+    ` · ${PARTS.length} parts` +
+    (selected ? ` · selected: ${PARTS.find(p => p.id === selected).name}` : "");
+}
+
+let lastT = 0;
+function frame(t) {
+  if (turntable) {
+    const dt = lastT ? (t - lastT) / 1000 : 0;
+    yawDeg += turntable * dt;
+  }
+  lastT = t;
+  render();
+  requestAnimationFrame(frame);
+}
+
+// -- labels: gutter chips + leader lines ---------------------------------------
+const labelsDiv = document.getElementById("labels");
+const leadersSvg = document.getElementById("leaders");
+const lblEls = {}, lineEls = {}, dotEls = {};
+if (LABELS_ON) {
+  for (const p of PARTS) {
+    const d = document.createElement("div");
+    d.className = "lbl"; d.textContent = p.name; d.dataset.lbl = p.id;
+    labelsDiv.appendChild(d); lblEls[p.id] = d;
+    const ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    const dt = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    dt.setAttribute("r", "3");
+    leadersSvg.appendChild(ln); leadersSvg.appendChild(dt);
+    lineEls[p.id] = ln; dotEls[p.id] = dt;
+  }
+}
+function projectPt(mvp, x, y, z, w, h) {
+  const cx = mvp[0]*x + mvp[4]*y + mvp[8]*z + mvp[12];
+  const cy = mvp[1]*x + mvp[5]*y + mvp[9]*z + mvp[13];
+  const cw = mvp[3]*x + mvp[7]*y + mvp[11]*z + mvp[15];
+  return [(cx/cw*0.5 + 0.5) * w, (1 - (cy/cw*0.5 + 0.5)) * h];
+}
+function layoutLabels(mvp) {
+  const w = canvas.width, h = canvas.height;
+  leadersSvg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  labelsDiv.style.opacity = labelOpacity;
+  leadersSvg.style.opacity = labelOpacity;
+  const cols = { left: [], right: [] };
+  const anchorPx = {};
+  for (const p of PARTS) {
+    const a = ANCHOR[p.id], off = partOffset(p);
+    const [sx, sy] = projectPt(mvp, a[0]+off[0], a[1]+off[1], a[2]+off[2], w, h);
+    anchorPx[p.id] = [sx, sy];
+    cols[sx < w/2 ? "left" : "right"].push({ p, sy });
+  }
+  const MIN = 26, TOP = 14, BOT = h - 14;
+  for (const side of ["left", "right"]) {
+    const col = cols[side].sort((a, b) => a.sy - b.sy);
+    let y = TOP;                                   // clamp downward
+    for (const it of col) { it.ly = Math.max(it.sy, y); y = it.ly + MIN; }
+    y = BOT;                                       // then clamp upward
+    for (let i = col.length - 1; i >= 0; i--) {
+      col[i].ly = Math.min(col[i].ly, y); y = col[i].ly - MIN;
+    }
+    for (const it of col) {
+      const el = lblEls[it.p.id];
+      el.className = "lbl " + side;
+      el.style.top = it.ly + "px";
+      const [ax, ay] = anchorPx[it.p.id];
+      const x0 = side === "left" ? 10 + el.offsetWidth + 4 : w - 10 - el.offsetWidth - 4;
+      const ln = lineEls[it.p.id];
+      ln.setAttribute("x1", x0); ln.setAttribute("y1", it.ly);
+      ln.setAttribute("x2", ax); ln.setAttribute("y2", ay);
+      const dt = dotEls[it.p.id];
+      dt.setAttribute("cx", ax); dt.setAttribute("cy", ay);
+    }
+  }
+}
+
+// -- rotation: pointer drag + arrow keys --------------------------------------
+let dragging = false, lastX = 0;
+canvas.addEventListener("pointerdown", (e) => {
+  dragging = true; lastX = e.clientX;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (dragging) {
+    yawDeg += (e.clientX - lastX) * 0.4;
+    lastX = e.clientX;
+  } else if (!CAPTURE) {
+    hitTest(e);
+  }
+});
+canvas.addEventListener("pointerup", (e) => { dragging = false;
+  try { canvas.releasePointerCapture(e.pointerId); } catch (err) {} });
+canvas.addEventListener("pointerleave", () => { hovered = null; hideTooltip(); });
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") yawDeg -= 15;
+  else if (e.key === "ArrowRight") yawDeg += 15;
+  else return;
+  e.preventDefault();
+});
+
+// -- parts list + info panel ---------------------------------------------------
+const list = document.getElementById("parts");
+const info = document.querySelector("[data-part-info]");
+const tooltip = document.getElementById("tooltip");
+for (const p of PARTS) {
+  const li = document.createElement("li");
+  li.dataset.part = p.id;
+  li.textContent = p.name;
+  li.addEventListener("click", () => select(p));
+  list.appendChild(li);
+}
+function select(p) {
+  selected = p.id;
+  for (const li of list.children) li.classList.toggle("selected", li.dataset.part === p.id);
+  info.innerHTML = "";
+  const h = document.createElement("h2"); h.textContent = p.name;
+  const d = document.createElement("p"); d.textContent = p.desc;
+  info.appendChild(h); info.appendChild(d);
+}
+
+// -- canvas hover: screen-space bbox of each part's mesh vertices --------------
+function partScreenBox(p, mvp) {
+  const w = canvas.width, h = canvas.height;
+  const g = MESH[p.id], off = partOffset(p);
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (let i = 0; i < g.length; i += 6) {
+    const x = g[i] + off[0], y = g[i+1] + off[1], z = g[i+2] + off[2];
+    const cx = mvp[0]*x + mvp[4]*y + mvp[8]*z + mvp[12];
+    const cy = mvp[1]*x + mvp[5]*y + mvp[9]*z + mvp[13];
+    const cw = mvp[3]*x + mvp[7]*y + mvp[11]*z + mvp[15];
+    const sx = (cx/cw*0.5 + 0.5) * w, sy = (1 - (cy/cw*0.5 + 0.5)) * h;
+    if (sx < x0) x0 = sx; if (sx > x1) x1 = sx;
+    if (sy < y0) y0 = sy; if (sy > y1) y1 = sy;
+  }
+  return { x0, x1, y0, y1 };
+}
+function hitTest(e) {
+  const r = canvas.getBoundingClientRect();
+  const px = (e.clientX - r.left) * (canvas.width / r.width);
+  const py = (e.clientY - r.top) * (canvas.height / r.height);
+  const cam = camera();
+  let best = null, bestD = 1e9;
+  for (const p of PARTS) {
+    const b = partScreenBox(p, cam.mvp);
+    const cxp = (b.x0 + b.x1) / 2, cyp = (b.y0 + b.y1) / 2;
+    const inside = px >= b.x0 && px <= b.x1 && py >= b.y0 && py <= b.y1;
+    const d = Math.hypot(px - cxp, py - cyp);
+    if (inside && d < bestD) { bestD = d; best = p; }
+  }
+  hovered = best ? best.id : null;
+  if (best && !CAPTURE) {
+    tooltip.style.display = "block";
+    tooltip.style.left = (e.clientX + 14) + "px";
+    tooltip.style.top = (e.clientY + 10) + "px";
+    tooltip.textContent = best.name;
+  } else hideTooltip();
+}
+function hideTooltip() { tooltip.style.display = "none"; }
+
+// -- resize + deterministic frame control for captures -------------------------
+function fitCanvas() {
+  if (SHOT) {
+    canvas.width = stageView.clientWidth;
+    canvas.height = stageView.clientHeight;
+  }
+}
+window.addEventListener("resize", fitCanvas);
+fitCanvas();
+window.__fig = {
+  set(o) {
+    if (typeof o.yaw === "number") yawDeg = o.yaw;
+    if (typeof o.explode === "number")
+      explode = Math.min(1, Math.max(0, o.explode));
+    if (typeof o.labels === "number") labelOpacity = Math.min(1, Math.max(0, o.labels));
+    render();
+  },
+};
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
