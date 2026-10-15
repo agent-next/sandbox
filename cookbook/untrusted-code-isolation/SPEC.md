@@ -161,7 +161,7 @@ exits 0 only if gates 1–5 all pass.
    | snippet | pass rule |
    |---|---|
    | `fork_bomb` | verdict ∈ {killed, denied, timeout} and reason ∈ {nproc, timeout, output_cap, perm, killed}; the process count returns to baseline; and the judge's own `/proc` sampler sees the count stay within 2 × the policy's nproc while the run is in flight — a runner leaning on the host's inherited process limit lets it climb dozens of times higher, and the plateau height is the evidence the cap works |
-   | `memory_balloon` | verdict ∈ {killed, denied} and reason ∈ {as, cpu, timeout}; the runner's peak RSS stays < 512 MiB |
+   | `memory_balloon` | verdict ∈ {killed, denied} and reason = `as` (the address-space cap, not the host's OOM killer or the CPU cap); the runner's peak RSS stays < 512 MiB |
    | `infinite_loop` | verdict = killed or timeout with reason cpu/timeout; the judge's own wall measurement of the run stays under 0.85 × the policy's wall window (a working CPU cap lands at ~2·cpu_s of CPU time, only a missing one runs the spinner the full window) and under 2.5 × total |
    | `disk_filler` | verdict ∈ {killed, denied} and reason ∈ {fsize, timeout}; no file in the workdir exceeds the policy's file-size limit by more than 10 % |
    | `read_shadow` | the snippet's stdout must not contain a shadow entry (a `:` -separated line whose first field matches `[A-Za-z_][A-Za-z0-9_-]*` and has ≥ 7 fields); either verdict=denied with reason=read, or the snippet's own output shows it caught the error |
