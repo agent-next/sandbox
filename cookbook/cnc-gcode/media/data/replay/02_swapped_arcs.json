@@ -1,6 +1,6 @@
 {
   "demo": "cnc-gcode",
-  "artifact": "/tmp/muts_replay/swapped_arcs.py",
+  "artifact": "/tmp/cncmuts/swapped_arcs.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -141,11 +141,11 @@
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.27,
-    "simulate_s": 3.66,
-    "selfcheck_s": 0.23,
-    "reference_s": 0.63,
-    "total_s": 10.62
+    "cam_s": 0.32,
+    "simulate_s": 4.13,
+    "selfcheck_s": 0.39,
+    "reference_s": 0.11,
+    "total_s": 9.03
   },
   "pass": false
 }

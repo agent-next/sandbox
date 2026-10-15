@@ -1,7 +1,7 @@
 grade: FAIL (gates: gouge)
 {
   "demo": "cnc-gcode",
-  "artifact": "/tmp/muts_replay/no_tool_offset.py",
+  "artifact": "/tmp/cncmuts/no_tool_offset.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -142,11 +142,11 @@ grade: FAIL (gates: gouge)
     "worst_gouge_mm": 6.0
   },
   "timing": {
-    "cam_s": 0.72,
-    "simulate_s": 4.06,
-    "selfcheck_s": 0.16,
-    "reference_s": 0.08,
-    "total_s": 6.32
+    "cam_s": 0.11,
+    "simulate_s": 1.33,
+    "selfcheck_s": 0.13,
+    "reference_s": 0.05,
+    "total_s": 3.73
   },
   "pass": false
 }

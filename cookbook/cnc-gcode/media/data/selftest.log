@@ -1,0 +1,12 @@
+selftest: known-good PASS
+mutate: wrote 7 mutants to /tmp/tmp.UcAHqseyrr/mutants
+selftest: mutant KILLED: deep_pass  (caught by: stepdown)
+selftest: mutant KILLED: hot_feed  (caught by: process)
+selftest: mutant KILLED: inch_mode  (caught by: units)
+selftest: mutant KILLED: no_tool_offset  (caught by: gouge)
+selftest: mutant KILLED: rapid_into_stock  (caught by: rapid_safety)
+selftest: mutant KILLED: swapped_arcs  (caught by: residual)
+selftest: mutant KILLED: wide_stepover  (caught by: stepover, residual)
+selftest: kill rate 7/7 (100%)
+selftest: determinism PASS (same seed -> identical verdict)
+selftest: PASS

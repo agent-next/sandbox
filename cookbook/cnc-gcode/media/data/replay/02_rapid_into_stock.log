@@ -1,7 +1,7 @@
 grade: FAIL (gates: rapid_safety)
 {
   "demo": "cnc-gcode",
-  "artifact": "/tmp/muts_replay/rapid_into_stock.py",
+  "artifact": "/tmp/cncmuts/rapid_into_stock.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -142,11 +142,11 @@ grade: FAIL (gates: rapid_safety)
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.61,
-    "simulate_s": 4.85,
-    "selfcheck_s": 0.15,
-    "reference_s": 0.11,
-    "total_s": 7.47
+    "cam_s": 0.15,
+    "simulate_s": 2.53,
+    "selfcheck_s": 0.12,
+    "reference_s": 0.08,
+    "total_s": 5.73
   },
   "pass": false
 }

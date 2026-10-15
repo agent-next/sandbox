@@ -1,6 +1,6 @@
 {
   "demo": "cnc-gcode",
-  "artifact": "/tmp/muts_replay/hot_feed.py",
+  "artifact": "/tmp/cncmuts/hot_feed.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -141,11 +141,11 @@
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.25,
-    "simulate_s": 1.02,
-    "selfcheck_s": 0.29,
-    "reference_s": 0.2,
-    "total_s": 3.72
+    "cam_s": 0.34,
+    "simulate_s": 1.24,
+    "selfcheck_s": 0.15,
+    "reference_s": 0.07,
+    "total_s": 3.37
   },
   "pass": false
 }

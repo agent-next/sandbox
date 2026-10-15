@@ -1,7 +1,7 @@
 grade: FAIL (gates: stepover, residual)
 {
   "demo": "cnc-gcode",
-  "artifact": "/tmp/muts_replay/wide_stepover.py",
+  "artifact": "/tmp/cncmuts/wide_stepover.py",
   "seed": 20261014,
   "randomness": "none (deterministic judge; seed recorded but unused)",
   "gates": {
@@ -142,11 +142,11 @@ grade: FAIL (gates: stepover, residual)
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.23,
-    "simulate_s": 1.74,
-    "selfcheck_s": 1.11,
-    "reference_s": 0.41,
-    "total_s": 9.27
+    "cam_s": 0.39,
+    "simulate_s": 1.52,
+    "selfcheck_s": 0.51,
+    "reference_s": 0.49,
+    "total_s": 7.4
   },
   "pass": false
 }
