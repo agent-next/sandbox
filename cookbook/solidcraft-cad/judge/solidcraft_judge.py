@@ -134,7 +134,7 @@ def occt_measure(step: Path) -> dict:
     from OCP.BRepGProp import BRepGProp, BRepGProp_Face
     from OCP.BRepTools import BRepTools
     from OCP.Bnd import Bnd_Box
-    from OCP.GeomAbs import GeomAbs_Cylinder
+    from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
     from OCP.GProp import GProp_GProps
     from OCP.IFSelect import IFSelect_RetDone
     from OCP.STEPControl import STEPControl_Reader
@@ -169,29 +169,91 @@ def occt_measure(step: Path) -> dict:
     ex = TopExp_Explorer(shape, TopAbs_FACE)
     while ex.More():
         face = TopoDS.Face(ex.Current())
-        surf = BRepAdaptor_Surface(face)
-        if surf.GetType() == GeomAbs_Cylinder:
-            c = surf.Cylinder()
-            d, loc = c.Axis().Direction(), c.Location()
-            if abs(abs(d.Z()) - 1) < 1e-9:
-                umin, umax, vmin, vmax = BRepTools.UVBounds_s(face)
-                p, n = gp_Pnt(), gp_Vec()
-                BRepGProp_Face(face).Normal((umin + umax) / 2, (vmin + vmax) / 2, p, n)
-                # concave (a hole) when the outward normal points at the axis
-                concave = n.X() * (loc.X() - p.X()) + n.Y() * (loc.Y() - p.Y()) > 0
-                fb = Bnd_Box()
-                BRepBndLib.Add_s(face, fb)
-                z0, z1 = fb.CornerMin().Z(), fb.CornerMax().Z()
-                key = (round(loc.X(), 3), round(loc.Y(), 3), round(c.Radius(), 3), concave)
-                e = cyl.setdefault(key, {"x": loc.X(), "y": loc.Y(), "r": c.Radius(),
-                                         "concave": concave, "z0": z0, "z1": z1})
-                e["z0"], e["z1"] = min(e["z0"], z0), max(e["z1"], z1)
+        found = z_cylinder(face, BRepAdaptor_Surface(face), GeomAbs_Cylinder, GeomAbs_Plane,
+                           BRepTools, BRepGProp_Face, gp_Pnt, gp_Vec)
+        if found:
+            x, y, r, concave = found
+            fb = Bnd_Box()
+            BRepBndLib.Add_s(face, fb)
+            z0, z1 = fb.CornerMin().Z(), fb.CornerMax().Z()
+            key = (round(x, 3), round(y, 3), round(r, 3), concave)
+            e = cyl.setdefault(key, {"x": x, "y": y, "r": r, "concave": concave, "z0": z0, "z1": z1})
+            e["z0"], e["z1"] = min(e["z0"], z0), max(e["z1"], z1)
         ex.Next()
 
     return {"solids": solids, "valid": bool(BRepCheck_Analyzer(shape).IsValid()),
             "volume": vp.Mass(), "area": sp.Mass(), "com": [com.X(), com.Y(), com.Z()],
             "bbox_min": [lo.X(), lo.Y(), lo.Z()], "bbox_max": [hi.X(), hi.Y(), hi.Z()],
             "cylinders": sorted(cyl.values(), key=lambda e: (e["r"], e["x"], e["y"]))}
+
+
+def z_cylinder(face, surf, cyl_type, plane_type, BRepTools, BRepGProp_Face, gp_Pnt, gp_Vec):
+    """(centre x, centre y, radius, concave) if the face is part of a cylinder
+    with a Z axis, else None.  Exact cylinders are read directly; other
+    surfaces (a cylinder exported as a B-spline, e.g. after a rotation) are
+    sampled on a 5x5 UV grid and accepted only if every normal is horizontal
+    and the points fit one circle to 1e-4 mm."""
+    umin, umax, vmin, vmax = BRepTools.UVBounds_s(face)
+    prop = BRepGProp_Face(face)
+
+    def sample(u, v):
+        p, n = gp_Pnt(), gp_Vec()
+        prop.Normal(u, v, p, n)
+        return p, n
+
+    if surf.GetType() == cyl_type:
+        c = surf.Cylinder()
+        if abs(abs(c.Axis().Direction().Z()) - 1) >= 1e-9:
+            return None
+        x, y, r = c.Location().X(), c.Location().Y(), c.Radius()
+    elif surf.GetType() == plane_type:
+        return None
+    else:
+        pts = []
+        for i in range(5):
+            for j in range(5):
+                p, n = sample(umin + (umax - umin) * i / 4, vmin + (vmax - vmin) * j / 4)
+                if n.Magnitude() == 0 or abs(n.Z()) > 1e-6 * n.Magnitude():
+                    return None
+                pts.append((p.X(), p.Y()))
+        fit = fit_circle(pts)
+        if fit is None:
+            return None
+        x, y, r = fit
+        if max(abs(math.hypot(px - x, py - y) - r) for px, py in pts) > 1e-4:
+            return None
+    p, n = sample((umin + umax) / 2, (vmin + vmax) / 2)
+    # concave (a hole) when the outward normal points at the axis
+    return x, y, r, n.X() * (x - p.X()) + n.Y() * (y - p.Y()) > 0
+
+
+def fit_circle(pts):
+    """Least-squares circle x^2 + y^2 + D x + E y + F = 0 (Kasa); None if degenerate."""
+    A = [[0.0] * 3 for _ in range(3)]
+    b = [0.0] * 3
+    for x, y in pts:
+        row, rhs = (x, y, 1.0), -(x * x + y * y)
+        for i in range(3):
+            b[i] += row[i] * rhs
+            for j in range(3):
+                A[i][j] += row[i] * row[j]
+    for c in range(3):  # Gaussian elimination with partial pivoting
+        piv = max(range(c, 3), key=lambda k: abs(A[k][c]))
+        if abs(A[piv][c]) < 1e-12:
+            return None
+        A[c], A[piv], b[c], b[piv] = A[piv], A[c], b[piv], b[c]
+        for k in range(c + 1, 3):
+            f = A[k][c] / A[c][c]
+            for j in range(c, 3):
+                A[k][j] -= f * A[c][j]
+            b[k] -= f * b[c]
+    sol = [0.0] * 3
+    for c in (2, 1, 0):
+        sol[c] = (b[c] - sum(A[c][j] * sol[j] for j in range(c + 1, 3))) / A[c][c]
+    D, E, F = sol
+    cx, cy = -D / 2, -E / 2
+    rr = cx * cx + cy * cy - F
+    return (cx, cy, math.sqrt(rr)) if rr > 0 else None
 
 
 # --------------------------------------------------------------------- STL --
