@@ -164,10 +164,20 @@ static void dump_prim(NanousdPrim prim, int* first) {
     print_json_string(path ? path : "?");
     printf(",\"type\":");
     print_json_string(type ? type : "?");
-    printf(",\"defined\":%d,\"xform\":[", nanousd_isdefined(prim));
+    printf(",\"defined\":%d,\"local_xform\":[", nanousd_isdefined(prim));
     double xf[16];
     int reset = 0;
     int xok = nanousd_get_local_transform(prim, 0.0, xf, &reset);
+    if (xok) {
+        for (int i = 0; i < 16; i++) printf("%s%.17g", i ? "," : "", xf[i]);
+    } else {
+        for (int i = 0; i < 16; i++) printf("%s0", i ? "," : "");
+    }
+    printf("],\"reset_xform_stack\":%d", reset);
+    /* "xform" keeps its name for the judge's G2 world comparison; the
+     * judge composes the world matrix from the local chain itself (both
+     * readers emit LOCAL transforms; see judge.py world_matrix). */
+    printf(",\"xform\":[");
     if (xok) {
         for (int i = 0; i < 16; i++) printf("%s%.17g", i ? "," : "", xf[i]);
     } else {

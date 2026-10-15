@@ -106,36 +106,73 @@ def main() -> int:
 
 
 def dump_stage(stage) -> dict:
-    from pxr import UsdGeom
-    world = stage.GetPrimAtPath("/World")
+    from pxr import Usd, UsdGeom
     prims = []
-    if world and world.IsActive():
-        xc = UsdGeom.XformCache()
-        for p in world.GetAllChildren():
-            entry = {"path": str(p.GetPath()),
-                     "type": p.GetTypeName() or "",
-                     "defined": int(p.IsActive())}
+
+    def emit(p):
+        ptype = p.GetTypeName() or ""
+        local = local_transform(p)
+        # A Xformable's own resetXformStack is what makes its local
+        # transform its world transform.
+        reset = 0
+        if ptype in ("Xform", "Mesh", "Camera", "Scope", "DistantLight",
+                     "DomeLight", "RectLight", "SphereLight"):
             try:
-                entry["xform"] = [float(c) for row in
-                                  xc.GetLocalToWorldTransform(p)
-                                  for c in row]
-                entry["xform_ok"] = 1
+                reset = int(bool(p.GetAttribute("resetXformStack!").Get()))
             except Exception:
-                entry["xform"] = [0.0] * 16
-                entry["xform_ok"] = 0
-            entry["attribs"] = {}
-            for name in ("points", "faceVertexCounts", "faceVertexIndices",
-                         "primvars:displayColor", "focalLength",
-                         "horizontalAperture", "verticalAperture",
-                         "clippingRange", "inputs:intensity"):
-                attr = p.GetAttribute(name)
-                if not attr or not attr.HasValue():
-                    continue
-                conv = vt_to_py(attr.Get())
-                if conv is not None:
-                    entry["attribs"][name] = conv
-            prims.append(entry)
+                reset = 0
+        entry = {"path": str(p.GetPath()),
+                 "type": ptype,
+                 "defined": int(p.IsActive()),
+                 "local_xform": local,
+                 "reset_xform_stack": reset,
+                 "reader_world_xform": world_transform(p),
+                 "xform_ok": 1,
+                 "attribs": {}}
+        attribs = {}
+        for name in ("points", "faceVertexCounts", "faceVertexIndices",
+                     "primvars:displayColor", "focalLength",
+                     "horizontalAperture", "verticalAperture",
+                     "clippingRange", "inputs:intensity"):
+            attr = p.GetAttribute(name)
+            if not attr or not attr.HasValue():
+                continue
+            conv = vt_to_py(attr.Get())
+            if conv is not None:
+                attribs[name] = conv
+        entry["attribs"] = attribs
+        prims.append(entry)
+
+    root = stage.GetPseudoRoot()
+    for p in root.GetAllChildren():
+        emit(p)
+        stack = list(p.GetAllChildren())
+        while stack:                      # full recursion, like nanousd
+            ch = stack.pop()
+            emit(ch)
+            stack.extend(ch.GetAllChildren())
     return {"prims": prims}
+
+
+def local_transform(p):
+    """USD row-major row-vector local matrix (p' = p * G)."""
+    try:
+        from pxr import UsdGeom
+        xf = UsdGeom.Xformable(p).GetLocalTransformation()
+        return [float(c) for row in xf for c in row]
+    except Exception:
+        return [0.0] * 16
+
+
+def world_transform(p):
+    """USD row-major row-vector world matrix (p' = p * G)."""
+    try:
+        from pxr import UsdGeom
+        xc = UsdGeom.XformCache()
+        return [float(c) for row in xc.GetLocalToWorldTransform(p)
+                for c in row]
+    except Exception:
+        return [0.0] * 16
 
 
 if __name__ == "__main__":

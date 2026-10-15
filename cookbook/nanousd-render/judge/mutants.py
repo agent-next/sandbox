@@ -11,23 +11,28 @@ and prints one line per mutant: "<mutant> <gate it must fail> <path>".
 
 Mutants and the gate each must trip:
 
-  out_of_frame       translate one mesh far off-screen     -> G4 offscreen
+  out_of_frame       one mesh translated far off-screen    -> G4
+  half_offscreen     one mesh translated so only ~36% of its
+                     projected rectangle is inside the frame
+                     (area and every structural rule still pass)
+                                                             -> G4 offscreen
   recolored          one mesh's displayColor -> near copy
                      of a neighbour's                        -> G1 colors_close
-  camera_away        camera looks the wrong way             -> G4 (and G3)
+  camera_away        camera looks the wrong way             -> G3
   malformed          truncate the file mid-attribute        -> G1 nanousd.open
-  skelroot_divergence one mesh typed SkelRoot (a forbidden schema
-                     prefix)                                -> G1
+  skelroot_schema    one mesh typed SkelRoot (a forbidden schema
+                     prefix; both readers keep the prim, so it
+                     is the schema rule that fires, not G2)  -> G1
   missing_light      the light prim is deleted              -> G1 no_light
-  too_few_points     one mesh down to 4 points              -> G1 points
-  aperture_broken    verticalAperture 20 (ratio 1.8)        -> G1 aperture_ratio
+  too_few_points     one mesh down to 3 points              -> G1 points
+  aperture_broken    verticalAperture 20.25 (ratio 1.78)    -> G1 aperture_ratio
   composite_arc      a references = line                   -> G1 forbidden_arc
   smuggled_arc       an inherits=[</Nope>] arc formatted
                      without the spaces the old text scan
                      matched (the forge-a-pass cheat; now
                      the parser reports it)              -> G1 forbidden_arc
   rects_overlap      the Cube slid right until its projected
-                     rectangle overlaps the Wedge's (every
+                     rectangle overlaps the Cylinder's (every
                      structural rule still holds)          -> G4 rects_overlap
 """
 
@@ -59,10 +64,20 @@ def sub_once(text: str, old: str, new: str, what: str) -> str:
 # ---------------------------------------------------------------- mutants
 
 def m_out_of_frame(t: str) -> str:
-    # Push the tetrahedron way past the right frustum edge.
+    # Push the tetrahedron way past the right frustum edge (0% of its
+    # projected rectangle is on screen).
     return sub_once(
         t, 'float3 xformOp:translate = (4.2, 0.55, 0)',
         'float3 xformOp:translate = (60.0, 0.55, 0)', "out_of_frame")
+
+
+def m_half_offscreen(t: str) -> str:
+    # Slide the tetrahedron right so only ~36% of its projected rectangle
+    # is inside the frame: the area rule and every structural rule still
+    # pass, and what fails is G4's on-screen rule specifically.
+    return sub_once(
+        t, 'float3 xformOp:translate = (4.2, 0.55, 0)',
+        'float3 xformOp:translate = (5.7, 0.55, 0)', "half_offscreen")
 
 
 def m_recolored(t: str) -> str:
@@ -76,7 +91,7 @@ def m_recolored(t: str) -> str:
 def m_camera_away(t: str) -> str:
     # Aim the camera at the ceiling instead of the mesh row.
     return sub_once(
-        t, 'float3 xformOp:rotateXYZ = (-18, 0, 0)',
+        t, 'float3 xformOp:rotateXYZ = (-14, 0, 0)',
         'float3 xformOp:rotateXYZ = (85, 0, 0)', "camera_away")
 
 
@@ -85,12 +100,12 @@ def m_malformed(t: str) -> str:
     return t[: t.index("float horizontalAperture")] + "float horizontalAperture = (\n"
 
 
-def m_skelroot_divergence(t: str) -> str:
+def m_skelroot_schema(t: str) -> str:
     # A plugin schema type (SkelRoot) that is on G1's forbidden-prefix list:
-    # both readers keep the prim, so no G2 divergence occurs, but the parsed
+    # both readers keep the prim and agree, so G2 still passes; the parsed
     # type name is reported as a forbidden schema and fails G1.
     return sub_once(
-        t, 'def Mesh "Tetra"', 'def SkelRoot "Tetra"', "skelroot_divergence")
+        t, 'def Mesh "Tetra"', 'def SkelRoot "Tetra"', "skelroot_schema")
 
 
 def m_missing_light(t: str) -> str:
@@ -101,7 +116,8 @@ def m_missing_light(t: str) -> str:
 
 
 def m_too_few_points(t: str) -> str:
-    # Tetrahedron down to 3 points (and the matching degenerate faces).
+    # Tetrahedron down to 3 points (the faces keep indexing the old
+    # vertices; G1's point-count rule fires before anything renders).
     old = t[t.index('def Mesh "Tetra"'):]
     start = old.index("point3f[] points =") + len("point3f[] points =")
     end = old.index("]", start) + 1
@@ -112,7 +128,7 @@ def m_too_few_points(t: str) -> str:
 
 
 def m_aperture_broken(t: str) -> str:
-    # 16:9 ratio instead of 4:3.
+    # 16:9 ratio (20.25) instead of 4:3 (27): the judge renders 640x480.
     return sub_once(
         t, "float verticalAperture = 27", "float verticalAperture = 20.25",
         "aperture_broken")
@@ -131,7 +147,8 @@ def m_composite_arc(t: str) -> str:
 
 def m_rects_overlap(t: str) -> str:
     # Slide the Cube right until its projected rectangle overlaps the
-    # Wedge's by far more than 10% of the smaller area. Every structural
+    # Cylinder's by ~31% of the smaller area (cube -> x [248,309] vs
+    # cylinder x [291,349] at the 640x480 grade frame). Every structural
     # rule still holds (both readers agree, colors stay pairwise far
     # apart, the mesh is fully on screen), so only G4's screen-separation
     # layout rule -- re-measured by the judge's own projection -- catches
@@ -139,7 +156,7 @@ def m_rects_overlap(t: str) -> str:
     # meshes).
     return sub_once(
         t, 'float3 xformOp:translate = (-4.2, 0.6, 0)',
-        'float3 xformOp:translate = (-2.3, 0.6, 0)', "rects_overlap")
+        'float3 xformOp:translate = (-0.7, 0.6, 0)', "rects_overlap")
 
 
 def m_smuggled_arc(t: str) -> str:
@@ -158,10 +175,11 @@ def m_smuggled_arc(t: str) -> str:
 
 MUTANTS = [
     ("out_of_frame", "G4", m_out_of_frame),
+    ("half_offscreen", "G4", m_half_offscreen),
     ("recolored", "G1", m_recolored),
     ("camera_away", "G3", m_camera_away),
     ("malformed", "G1", m_malformed),
-    ("skelroot_divergence", "G1", m_skelroot_divergence),
+    ("skelroot_schema", "G1", m_skelroot_schema),
     ("missing_light", "G1", m_missing_light),
     ("too_few_points", "G1", m_too_few_points),
     ("aperture_broken", "G1", m_aperture_broken),

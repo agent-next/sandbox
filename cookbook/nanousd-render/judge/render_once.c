@@ -8,10 +8,13 @@
  *
  * Usage:
  *   render_once <scene.usda> <cam.bin> <out1.raw> <out2.raw>
- * where cam.bin is 39 float32: view16 (col-major), proj16 (col-major),
- * eye3, width, height, pad, render_mode (raster=0, material=1). The scene
- * is rendered twice into two separate buffers so the judge can assert
- * byte-determinism (G3).
+ * where cam.bin is 39 float32: view16, proj16, eye3, width, height, pad,
+ * render_mode (raster=0, material=1). The two 4x4 matrices are
+ * COLUMN-VECTOR matrices (p' = M @ p) stored in ROW-MAJOR array order:
+ * flat[r*4 + c] = M[r][c], so a pure translation sits at flat[12..14]
+ * (index 11 would be a transposed translation -- the layout that draws
+ * nothing). The scene is rendered twice into two separate buffers so the
+ * judge can assert byte-determinism (G3).
  *
  * Exit codes: 0 ok, 1 render failure (message on stderr).
  */

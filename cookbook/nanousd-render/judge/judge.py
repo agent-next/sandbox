@@ -81,6 +81,9 @@ FORBIDDEN_TOKENS_COMPACT = (
     "sublayers=", "inherits=", "prependinherits=", "appendinherits=",
     "variantsets=", "variantset=", "instanceable=true",
     "relmaterial:binding",
+    # raw matrix transforms keep the two readers on separate code paths
+    # (SPEC.md artifact rules)
+    "xformOp:transform",
 )
 SCHEMA_FORBIDDEN_PREFIXES = ("SkelRoot", "PhysicsScene", "PhysicsRigidBody")
 
@@ -184,10 +187,78 @@ def read_nanousd(path: str) -> dict:
 # ---------------------------------------------------------------------------
 # world transform math
 
-def flat16_to_mat(f):
-    """nanousd/usd-core flat xform -> column-vector matrix (transpose of
-    the USD row-major row-vector layout)."""
-    return [[f[c * 4 + r] for c in range(4)] for r in range(4)]
+def world_matrix(prim, prims_by_path):
+    """Compose the WORLD transform of one prim from the LOCAL transforms
+    every reader resolves, walking up the ancestor chain and honouring
+    ``resetXformStack!`` exactly as the readers do (see SPEC.md).
+
+    Both nanousd_dump (local transforms) and usd-core dumper can report a
+    local matrix; if a record ever carries an already-composed
+    ``world_xform`` it is used unchanged (and cross-checked below). The
+    chain order is parent-first: world = L(anc) @ ... @ L(parent) @ L(self).
+    Each flat array is USD row-major ROW-vector (p' = p * G): compose in
+    that layout and transpose at the end for column-vector math.
+    """
+    flat = prim.get("local_xform") or prim.get("xform")
+    if flat is None or len(flat) != 16:
+        return [1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0]
+    reset = bool(prim.get("reset_xform_stack"))
+    chain = [prim]
+    cur = prim
+    while True:
+        parent_path = cur["path"].rsplit("/", 1)[0]
+        if not parent_path or parent_path not in prims_by_path:
+            break
+        p = prims_by_path[parent_path]
+        if reset or bool(p.get("reset_xform_stack")):
+            break
+        chain.append(p)
+        cur = p
+    for p in chain:
+        flat = p.get("local_xform") or flat
+    # chain is self-first; compose world = L(parent) @ ... @ L(self)
+    acc = [[1.0, 0.0, 0.0, 0.0],
+           [0.0, 1.0, 0.0, 0.0],
+           [0.0, 0.0, 1.0, 0.0],
+           [0.0, 0.0, 0.0, 1.0]]
+    for p in reversed(chain):
+        f = p.get("local_xform")
+        if f is None or len(f) != 16:
+            continue
+        G = [[f[r * 4 + c] for c in range(4)] for r in range(4)]
+        acc = rowvec_mul(acc, G)
+    # column-vector M = transpose of the row-vector result
+    return [acc[c][r] for r in range(4) for c in range(4)]
+
+
+def rowvec_mul(a, b):
+    """4x4 @ 4x4 in USD row-vector layout (p' = p * (a*b) = (p*a)*b)."""
+    out = [[0.0] * 4 for _ in range(4)]
+    for i in range(4):
+        for j in range(4):
+            out[i][j] = sum(a[i][k] * b[k][j] for k in range(4))
+    return out
+
+
+def annotate_world_xforms(prims):
+    """Add a composed 'world_xform' to every prim, and 'has_reset' for a
+    resetXformStack anywhere on its ancestor chain (the reason its local
+    transform IS its world transform)."""
+    by_path = {p["path"]: p for p in prims}
+    for p in prims:
+        p["world_xform"] = world_matrix(p, by_path)
+        cur, reset = p, False
+        while cur["path"] in by_path:
+            reset = reset or bool(cur.get("reset_xform_stack"))
+            parent_path = cur["path"].rsplit("/", 1)[0]
+            cur = by_path.get(parent_path)
+            if cur is None or parent_path not in by_path:
+                break
+        p["has_reset"] = reset
+    return prims
 
 
 def flatten_prims(record: dict):
@@ -223,17 +294,34 @@ def struct_check(prims, reader: str):
     errs = []
     meshes, cameras, lights = mesh_entries(prims, reader)
 
-    if len(meshes) < 4:
+    # SPEC: exactly 5 meshes, exactly 1 camera
+    if len(meshes) < 5:
         errs.append(fail("G1", f"{reader}.too_few_meshes",
-                         f"{reader}: {len(meshes)} meshes under /World, need >= 4"))
+                         f"{reader}: {len(meshes)} meshes under /World, need exactly 5"))
         return errs, meshes, None
+    if len(meshes) > 5:
+        errs.append(fail("G1", f"{reader}.too_many_meshes",
+                         f"{reader}: {len(meshes)} meshes under /World, need exactly 5"))
     if len(cameras) < 1:
         errs.append(fail("G1", f"{reader}.no_camera",
                          f"{reader}: no Camera prim under /World"))
         return errs, meshes, None
+    if len(cameras) > 1:
+        errs.append(fail("G1", f"{reader}.too_many_cameras",
+                         f"{reader}: {len(cameras)} Camera prims under /World, "
+                         f"need exactly 1"))
     if len(lights) < 1:
         errs.append(fail("G1", f"{reader}.no_light",
                          f"{reader}: no DistantLight/DomeLight/RectLight under /World"))
+    else:
+        # SPEC: at least one qualifying light with authored intensity > 0
+        bright = [l for l in lights
+                  if isinstance(l["attribs"].get("inputs:intensity"),
+                                (int, float))
+                  and l["attribs"]["inputs:intensity"] > 0]
+        if not bright:
+            errs.append(fail("G1", f"{reader}.light_intensity",
+                f"{reader}: no light with authored inputs:intensity > 0"))
 
     for m in meshes:
         pts = m["attribs"].get("points")
@@ -276,6 +364,10 @@ def struct_check(prims, reader: str):
         if not isinstance(camattr.get(k), (int, float)):
             errs.append(fail("G1", f"{reader}.camera_intrinsics",
                 f"{reader}: camera missing authored {k}"))
+    cr = camattr.get("clippingRange")
+    if not (isinstance(cr, list) and len(cr) == 2):
+        errs.append(fail("G1", f"{reader}.clippingRange",
+            f"{reader}: camera missing authored clippingRange (near, far)"))
     if isinstance(camattr.get("horizontalAperture"), (int, float)) and \
        isinstance(camattr.get("verticalAperture"), (int, float)):
         ratio = camattr["horizontalAperture"] / camattr["verticalAperture"]
@@ -296,8 +388,11 @@ def struct_check(prims, reader: str):
 def compare_readers(nn_flat, uc_prims):
     """G2: the two readers must agree on the full prim set under /World
     (a prim one reader silently drops is a divergence whatever its type),
-    then on mesh paths, point counts, point values, world 4x4 transforms
-    and judge-computed world bboxes."""
+    then on mesh paths, point counts, point values, judge-composed WORLD
+    transforms (from each reader's own LOCAL chain, resetXformStack
+    honoured) and judge-computed world bboxes."""
+    annotate_world_xforms(nn_flat)
+    annotate_world_xforms(uc_prims)
     errs = []
     nn_all = sorted(p["path"] for p in nn_flat
                     if p["path"].startswith("/World/"))
@@ -340,14 +435,30 @@ def compare_readers(nn_flat, uc_prims):
         if worst > 1e-6:
             errs.append(fail("G2", "points_values",
                 f"{path}: points differ by {worst:.3g} between readers"))
-        # world transform (both flats are USD row-major row-vector)
-        d_xf = max(abs(a - b) for a, b in zip(nn["xform"], uc["xform"]))
+        # world transform: judge-composed from each reader's own LOCAL
+        # chain (both dumps emit local transforms; resetXformStack honoured)
+        nn_w, uc_w = nn["world_xform"], uc["world_xform"]
+        d_xf = max(abs(a - b) for a, b in zip(nn_w, uc_w))
         if d_xf > 1e-9:
             errs.append(fail("G2", "world_xform",
                 f"{path}: world transform differs by {d_xf:.3g} > 1e-9"))
+        # cross-check the judge's composition against each reader's own
+        # resolved world transform, when the reader reports one -- a
+        # composition bug would show up here, not as a silent pass
+        for who, prim, composed in (("nanousd", nn, nn_w),
+                                    ("usd-core", uc, uc_w)):
+            own = prim.get("reader_world_xform")
+            if own is None or len(own) != 16:
+                continue
+            d_own = max(abs(a - b) for a, b in zip(own, composed))
+            if d_own > 1e-9:
+                errs.append(fail("G2", "world_xform",
+                    f"{path}: judge-composed world transform differs from "
+                    f"{who}'s own resolved world matrix by {d_own:.3g} "
+                    f"> 1e-9"))
         # world bbox computed by the judge from each reader's own data
-        bb_nn = world_bbox(nn_pts, nn["xform"])
-        bb_uc = world_bbox(uc_pts, uc["xform"])
+        bb_nn = world_bbox(nn_pts, nn_w)
+        bb_uc = world_bbox(uc_pts, uc_w)
         if bb_nn is None or bb_uc is None:
             errs.append(fail("G2", "bbox",
                 f"{path}: cannot compute world bbox from a reader"))
@@ -359,10 +470,10 @@ def compare_readers(nn_flat, uc_prims):
                 f"(nanousd={['%.3f' % v for v in bb_nn]} "
                 f"usd-core={['%.3f' % v for v in bb_uc]})"))
 
-    # camera agreement (world transform + authored intrinsics)
+    # camera agreement (judge-composed world transform + intrinsics)
     if nn_cams and uc_cams:
-        d_cam = max(abs(a - b) for a, b in zip(nn_cams[0]["xform"],
-                                               uc_cams[0]["xform"]))
+        d_cam = max(abs(a - b) for a, b in zip(nn_cams[0]["world_xform"],
+                                               uc_cams[0]["world_xform"]))
         if d_cam > 1e-9:
             errs.append(fail("G2", "camera_xform",
                 f"camera world transform differs by {d_cam:.3g} > 1e-9"))
@@ -375,19 +486,19 @@ def compare_readers(nn_flat, uc_prims):
     return errs
 
 
-def world_bbox(flat_points, xform_flat):
-    """AABB of the world-transformed points; None if not computable."""
+def world_bbox(flat_points, colmat_flat):
+    """AABB of the world-transformed points; None if not computable.
+
+    colmat_flat is a COLUMN-vector matrix (flat[r*4+c] = M[r][c], as
+    world_xform is stored: p' = M @ p)."""
     if len(flat_points) < 3 or len(flat_points) % 3:
         return None
     pts = [tuple(flat_points[i:i + 3]) for i in range(0, len(flat_points), 3)]
     corners = []
-    M = [xform_flat[r * 4:(r + 1) * 4] for r in range(4)]  # Gf rows
+    M = [[colmat_flat[r * 4 + c] for c in range(4)] for r in range(4)]
     for p in pts:
-        # p' = p * G (row-vector); homogeneous w stays in G[.][3]
-        x = sum(p[k] * M[k][0] for k in range(3)) + M[3][0]
-        y = sum(p[k] * M[k][1] for k in range(3)) + M[3][1]
-        z = sum(p[k] * M[k][2] for k in range(3)) + M[3][2]
-        corners.append((x, y, z))
+        corners.append(tuple(
+            sum(p[k] * M[k][j] for k in range(3)) + M[3][j] for j in range(3)))
     return (min(c[0] for c in corners), min(c[1] for c in corners),
             min(c[2] for c in corners),
             max(c[0] for c in corners), max(c[1] for c in corners),
@@ -505,14 +616,17 @@ def main() -> int:
             setgate("G4", g4["pass"], g4)
 
         verdict["pass"] = all_pass
-        finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
-        return 0 if all_pass else 1
+        integrity_ok = finish(args, verdict, tmpdir, judge_dir,
+                              judge_hash_before)
+        return 0 if (all_pass and integrity_ok) else 1
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def finish(args, verdict, tmpdir, judge_dir, hash_before):
-    # judge integrity: judge/ tree must be untouched by the graded run
+    # judge integrity: judge/ tree must be untouched by the graded run --
+    # and the check FAILS CLOSED: a changed judge tree forces pass:false
+    # and a non-zero exit, whatever the gates said (SPEC.md).
     h = hashlib.sha256()
     for root, _dirs, files in sorted(os.walk(judge_dir)):
         for f in sorted(files):
@@ -520,13 +634,23 @@ def finish(args, verdict, tmpdir, judge_dir, hash_before):
             h.update(fp.encode())
             with open(fp, "rb") as fh:
                 h.update(fh.read())
-    verdict["judge_integrity_ok"] = h.hexdigest() == hash_before.hexdigest()
+    integrity_ok = h.hexdigest() == hash_before.hexdigest()
+    verdict["judge_integrity_ok"] = integrity_ok
+    if not integrity_ok:
+        verdict["pass"] = False
+        verdict.setdefault("gates", {})["integrity"] = {
+            "pass": False,
+            "errors": [fail("integrity", "judge_tree_modified",
+                "the judge/ tree changed during the grade: hashes differ; "
+                "the verdict is void")],
+        }
     verdict["timing"] = timing()
     if args.json:
         with open(args.json, "w") as fh:
             json.dump(verdict, fh, indent=2, sort_keys=True)
             fh.write("\n")
     print(json.dumps(verdict, indent=2, sort_keys=True))
+    return integrity_ok
 
 
 def gate_render(art, nn_flat, cam, tmpdir, out_png=None):
@@ -549,10 +673,12 @@ def gate_render(art, nn_flat, cam, tmpdir, out_png=None):
     env["LD_LIBRARY_PATH"] = ":".join(libs + [env.get("LD_LIBRARY_PATH", "")])
     raw1 = os.path.join(tmpdir, "a.raw")
     raw2 = os.path.join(tmpdir, "b.raw")
-    p = run([RENDER_ONCE, art, camfile, raw1, raw2], env=env)
-    if p.returncode != 0:
+    rc, _out, err, timed_out = _run_guarded(
+        [RENDER_ONCE, art, camfile, raw1, raw2], SUBPROC_TIMEOUT_S["render"],
+        env=env)
+    if timed_out or rc != 0:
         return {"pass": False, "errors": [fail("G3", "render_failed",
-                                               p.stderr.strip()[:300])]}, None
+            (err or f"exit {rc}").strip()[:300])]}, None
     img = np.fromfile(raw1, dtype=np.uint8)
     if img.size != W * H * 4:
         return {"pass": False, "errors": [fail("G3", "shape",
@@ -588,15 +714,16 @@ def camera_math(cam, np):
     the artifact's camera world transform and authored intrinsics.
 
     Both matrices are 4x4 column-vector matrices (p' = M @ p) serialized
-    ROW-MAJOR (flat[r*4+c] = M[r][c]) — measured to be what
-    viewer_render_to_rgba consumes (its header comment says column-major;
-    the row-major transpose is what actually draws — verified against a
-    known scene on llvmpipe).
+    ROW-MAJOR (flat[r*4+c] = M[r][c]) — the layout measured to be what
+    viewer_render_to_rgba consumes (its header comment once said
+    "column-major", which was wrong: the row-major transpose is what
+    actually draws — verified against a known scene on llvmpipe).
 
-    The reader's xform flat array is USD row-major row-vector (p' = p*G,
-    translation at [12..14]); its transpose is the column-vector M.
+    The reader's world_xform (judge-composed, see world_matrix) is already
+    a COLUMN-vector matrix: flat[r*4+c] = M[r][c], so it reshapes straight
+    into M @ p with no transpose.
     """
-    M = np.array(cam["xform"], dtype=float).reshape(4, 4).T
+    M = np.array(cam["world_xform"], dtype=float).reshape(4, 4)
     right = M[:3, 0]
     up    = M[:3, 1]
     fwd   = -M[:3, 2]     # USD cameras look down local -Z
@@ -639,12 +766,13 @@ def gate_oracle(nn_flat, cam, ctx):
     VP = P @ V
 
     meshes, _, _ = mesh_entries(nn_flat, "nanousd")
-    rects = {}
+    rects = {}      # UNCLAMPED: what the math says, even off frame
+    clamped = {}    # for pixel sampling only
     colors = {}
     for m in meshes:
         pts = np.array(m["attribs"]["points"], dtype=float).reshape(-1, 3)
-        # reader xform is USD row-major row-vector; transpose -> M @ p
-        Mw = np.array(m["xform"], dtype=float).reshape(4, 4).T
+        # judge-composed world matrix (column-vector, flat[r*4+c]=M[r][c])
+        Mw = np.array(m["world_xform"], dtype=float).reshape(4, 4)
         ones = np.ones((len(pts), 1))
         Pw = (Mw @ np.hstack([pts, ones]).T).T          # keep w for VP
 
@@ -667,8 +795,12 @@ def gate_oracle(nn_flat, cam, ctx):
                 f"{m['path']}: too few projectable points"))
             continue
         rects[m["path"]] = (
-            max(0.0, float(px[ok].min())), max(0.0, float(py[ok].min())),
-            min(float(W), float(px[ok].max())), min(float(H), float(py[ok].max())))
+            float(px[ok].min()), float(py[ok].min()),
+            float(px[ok].max()), float(py[ok].max()))
+        clamped[m["path"]] = (
+            max(0.0, rects[m["path"]][0]), max(0.0, rects[m["path"]][1]),
+            min(float(W), rects[m["path"]][2]),
+            min(float(H), rects[m["path"]][3]))
         colors[m["path"]] = m["attribs"]["primvars:displayColor"][:3]
 
     # ---- per-mesh rectangle rules

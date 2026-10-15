@@ -24,11 +24,12 @@ trap 'rm -rf "$tmp"' EXIT
 
 python3 - "$tmp/cam.bin" <<'PY'
 import struct, sys
-# The pinned renderer expects the caller's 4x4 matrices as COLUMN-MAJOR
-# flat arrays: flat[c*4 + r] = M[r][c].  Verified against the renderer's
-# own headless render on llvmpipe -- the row-major byte layout draws
-# nothing (a flat image with ok=1), so this layout is load-bearing.
-# Eye at z=+5 looking down -Z, identity view -> translation at index 11.
+# The pinned renderer consumes 4x4 COLUMN-VECTOR matrices (p' = M @ p)
+# stored in ROW-MAJOR array order: flat[r*4 + c] = M[r][c], so the
+# translation column is flat[12..14] and M[2][3] (view z at index 11)
+# holds it here (eye z=5 -> -5). Transposing the layout (column-major
+# array order) is what draws nothing, so the convention is load-bearing
+# and must match judge.py's camera_math and render_once.c's header.
 view = [1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1]
 view[11] = -5.0
 f = 1.0 / __import__("math").tan(__import__("math").radians(45.0) / 2)

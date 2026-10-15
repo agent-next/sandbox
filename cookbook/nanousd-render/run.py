@@ -17,10 +17,8 @@ is gone. Python 3.10+, standard library only.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -140,7 +138,6 @@ def main() -> int:
         return p.returncode == 0, (p.stdout or "") + (p.stderr or "")
 
     ok_all = True
-    verdict_text = ""
     try:
         # ------------------------------------------------ clone the repo
         with Step(f"clone --depth 1 --branch {args.ref}") as s:
@@ -181,7 +178,6 @@ def main() -> int:
                 f"set -o pipefail; cd ~/sandbox/{DEMO} && "
                 f"bash judge/grade.sh examples/good/scene.usda "
                 f"--seed 0 --json /tmp/verdict.json 2>&1 | tail -40", TIMEOUT_GRADE_S)
-            verdict_text = out
             log(out.strip()[-3000:])
             if not ok:
                 ok_all = False

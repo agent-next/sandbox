@@ -6,18 +6,21 @@ Every frame is real output of the pinned run, per media/STORYBOARD.md:
   * all 3D frames come from the pinned `render_once` on Mesa llvmpipe
     (the same binary the judge's G3 uses), rendering the exact graded
     scene `examples/good/scene.usda` -- the hook with the artifact's own
-    camera, the orbit with a camera in the judge's convention;
+    camera, the orbit with a camera orbiting the graded scene;
   * the projected rectangles / k values are re-derived per frame with the
     same numpy pinhole math as the judge's G4 oracle, from the nanousd
     dump of the graded scene;
-  * the terminal shot scrolls the real setup/selftest log lines
-    (media/setup_progress.txt + the live selftest.json);
-  * the proof shot shows the real verdict.json and selftest.json.
+  * the terminal shot scrolls the REAL setup log lines written by
+    make_media.sh itself (media/setup_progress.txt) plus the live
+    selftest.json, with an honest "Nx speed" badge;
+  * the proof shot shows the real verdict.json and selftest.json as a
+    HUD over the still-orbiting render.
 
-Hard cuts only. Captions: DejaVu Sans Bold 72 px on the 1080p frame
-(cap height ~53 px >= 4% of frame height). The web encode is
-H.264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart from a
-lossless -crf 0 master in media/master/ (git-ignored).
+Hard cuts only. Captions: two lines max, wrapped, in DejaVu Sans Bold
+72 px on the 1080p frame (cap height ~53 px >= 4% of frame height). The
+web encode is H.264 -crf 18 -preset slow -pix_fmt yuv420p
+-movflags +faststart from a lossless -crf 0 master in media/master/
+(git-ignored).
 
 Usage: PREFIX/bin/venv python build_video.py   (needs numpy + pillow)
 """
@@ -48,10 +51,11 @@ FONT_DIR = os.environ.get(
     "DEMO_FONT_DIR", "/usr/share/fonts/truetype/dejavu")
 
 # slot boundaries (s) -- the cut list in STORYBOARD.md
-T = {"hook": 0.0, "input": 2.2, "orbit": 9.4, "rects": 13.2,
-     "term": 17.0, "proof": 24.0, "end": 31.6, "stop": 34.4}
+T = {"hook": 0.0, "input": 2.0, "orbit": 8.6, "rects": 12.4,
+     "term": 16.4, "proof": 23.0, "end": 29.0, "stop": 32.0}
 
 CAPTION_PX = 72            # cap height ~53 px = 4.9% of 1080
+CAPTION_MAX_W = 1680       # leave side margins, never clip
 MONO_PX = 34
 INK = (245, 247, 250)
 SCRIM = (10, 12, 16)
@@ -110,14 +114,17 @@ def render_rgb(size, eye, target, up, fov_v_deg, cache={}):
 
 
 def lookat(eye, target, up):
-    """Column-vector view matrix (p' = V @ p); USD cameras look down -Z,
-    same convention as the judge's camera_math."""
+    """Column-vector view matrix (p' = V @ p) whose ROWS are the camera
+    basis (right / up / -fwd), exactly as the judge's camera_math writes
+    them (judge/judge.py): putting the basis in the columns instead maps
+    the scene behind the camera and the renderer culls it all -- that was
+    the black-video bug."""
     f = normalize(np.array(target, float) - np.array(eye, float))
     r = normalize(np.cross(f, np.array(up, float)))
     u = np.cross(r, f)
     V = np.eye(4)
-    V[:3, 0], V[:3, 1], V[:3, 2] = r, u, -f
-    V[:3, 3] = -np.array([r @ eye, u @ eye, f @ eye], float)
+    V[:3, :3] = np.array([r, u, -f])
+    V[:3, 3] = V[:3, :3] @ -np.array(eye, float)
     return V
 
 
@@ -194,24 +201,53 @@ def project_rects(meshes, view, proj, size):
 
 # ------------------------------------------------------------------ drawing
 
+def wrap(d, text, f, max_w):
+    """Word-wrap to max_w, at most 2 lines; the last line gets an ellipsis
+    rather than being allowed to run off the frame."""
+    words = text.split()
+    lines, cur = [], ""
+    for w in words:
+        trial = (cur + " " + w).strip()
+        if d.textlength(trial, font=f) <= max_w or not cur:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    if len(lines) > 2:
+        keep = " ".join(lines[:-1])
+        while d.textlength(keep + " …", font=f) > max_w and " " in keep:
+            keep = keep.rsplit(" ", 1)[0]
+        lines = [keep + " …"] if d.textlength(keep + " …", font=f) <= max_w \
+            else lines[:2]
+    return lines[:2]
+
+
 def caption(img: Image.Image, text: str, y=None) -> None:
-    """Burn a caption with a scrim; 72 px bold, cap height ~53 px."""
+    """Burn a wrapped (<= 2 line) caption with a scrim; 72 px bold, cap
+    height ~53 px, always inside the frame."""
     f = font("bold", CAPTION_PX)
     d = ImageDraw.Draw(img, "RGBA")
-    tw = d.textlength(text, font=f)
-    x = (W - tw) / 2
-    y = (H - 170) if y is None else y
-    d.rectangle([x - 44, y - 26, x + tw + 44, y + CAPTION_PX + 26],
+    lines = wrap(d, text, f, CAPTION_MAX_W)
+    lh = int(CAPTION_PX * 1.22)
+    block_h = lh * len(lines)
+    y = (H - 190 - block_h) if y is None else y
+    widest = max(d.textlength(ln, font=f) for ln in lines)
+    x = (W - widest) / 2
+    d.rectangle([x - 40, y - 24, x + widest + 40, y + block_h + 18],
                 fill=(*SCRIM, 215))
-    d.text((x, y), text, font=f, fill=INK)
+    for i, ln in enumerate(lines):
+        d.text((x, y + i * lh), ln, font=f, fill=INK)
 
 
-def badge(img, text, xy, size=46, fill=(255, 205, 60), ink=(16, 18, 22)) -> None:
+def badge(img, text, xy, size=46, fill=(255, 205, 60), ink=(16, 18, 22),
+          pad=16):
     f = font("monobold", size)
     d = ImageDraw.Draw(img, "RGBA")
     tw = d.textlength(text, font=f)
-    d.rectangle([xy[0] - 18, xy[1] - 10, xy[0] + tw + 18, xy[1] + size + 10],
-                fill=fill)
+    d.rectangle([xy[0] - pad, xy[1] - pad * 0.6,
+                 xy[0] + tw + pad, xy[1] + size + pad * 0.6], fill=fill)
     d.text(xy, text, font=f, fill=ink)
 
 
@@ -245,7 +281,7 @@ def shot_hook(meshes, cam, cam_attribs, n, verdict):
     for i in range(n):
         z = 1.0 + 0.03 * (i / max(1, n - 1))
         img = zoom(base, z)
-        caption(img, "Five meshes. Two USD implementations. One CPU render.")
+        caption(img, "Five meshes, two USD readers, one CPU render.")
         yield img
 
 
@@ -300,6 +336,7 @@ def shot_input(meshes, cam, cam_attribs, n, verdict, scene_text):
     end = src.index("def Mesh", start + 10)
     lines = [ln.rstrip() for ln in src[start:end].splitlines() if ln.strip()][:14]
     k = {p: m["illuminance_k"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
+    rects = {p: m["rect"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
     for i in range(n):
         base = hook_base(meshes, cam, cam_attribs)
         d = ImageDraw.Draw(base, "RGBA")
@@ -309,13 +346,17 @@ def shot_input(meshes, cam, cam_attribs, n, verdict, scene_text):
         f = font("bold", 44)
         d.text((60, 86), "scene.usda", font=f, fill=(255, 205, 60),
                stroke_width=2, stroke_fill=(0, 0, 0))
-        rects = {p: m["rect"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
-        draw_rects(base, rects, None, scale=1440 / 640)
-        caption(base, "The artifact is one USDA file - the judge re-derives the rest")
+        # the oracle rectangles slide in over the first half of the slot
+        rects_i = {p: (r[0] + (1440 / 640) * (i / max(1, n - 1)) * 30,
+                       r[1], r[2] + 0.0, r[3])
+                   for p, r in rects.items()}
+        draw_rects(base, rects_i, None, scale=1440 / 640)
+        caption(base, "The artifact is one USDA file, the judge re-derives "
+                      "the rest")
         yield base
 
 
-def shot_orbit(meshes, cam_attribs, n0, n1, with_rects):
+def shot_orbit(meshes, cam_attribs, n0, n1, with_rects, light_to_dark):
     """T['orbit'] - T['term']: real per-frame orbit renders at 1080p."""
     fov = math.degrees(2.0 * math.atan(
         float(cam_attribs["verticalAperture"])
@@ -324,7 +365,7 @@ def shot_orbit(meshes, cam_attribs, n0, n1, with_rects):
     r, h = 12.0, 4.2          # the authored camera's radius and height
     theta0, span = 0.0, math.radians(38.0)
     k = None
-    if with_rects:
+    if with_rects or light_to_dark:
         verdict = json.load(open(os.path.join(BUILD, "verdict.json")))
         k = {p: m["illuminance_k"]
              for p, m in verdict["gates"]["G4"]["meshes"].items()}
@@ -333,13 +374,15 @@ def shot_orbit(meshes, cam_attribs, n0, n1, with_rects):
         theta = theta0 - span / 2 + span * t
         eye = (target[0] + r * math.sin(theta), h, target[2] + r * math.cos(theta))
         img = render_rgb((W, H), eye, target, (0, 1, 0), fov)
+        V = lookat(eye, target, (0, 1, 0))
+        P = perspective(fov, W / H, 0.1, 1000.0)
         if with_rects:
-            V = lookat(eye, target, (0, 1, 0))
-            P = perspective(fov, W / H, 0.1, 1000.0)
-            draw_rects(img, project_rects(meshes, V, P, (W, H)), None, 1.0, k=k)
-            caption(img, "Where the numpy pinhole oracle says every mesh must land")
+            draw_rects(img, project_rects(meshes, V, P, (W, H)), None,
+                       1.0, k=k)
+            caption(img, "Where the numpy pinhole oracle says every mesh "
+                         "must land")
         else:
-            caption(img, "The pinned renderer: Mesa llvmpipe - no GPU, no X")
+            caption(img, "The pinned renderer: Mesa llvmpipe, no GPU, no X")
         yield img
 
 
@@ -366,29 +409,30 @@ def shot_terminal(n, setup_lines, selftest_lines, speed_label):
     win_lines = 15
     win_h = lh * win_lines
     max_y = scroll.size[1] - win_h
-    mid = max(1, n // 2)
+    if max_y <= 0:
+        img = Image.new("RGB", (W, H), (8, 10, 13))
+        caption(img, "Pinned toolchain built from sha256-checked source")
+        for _ in range(n):
+            yield img.copy()
+        return
     for i in range(n):
-        if i < mid:
-            t = (i / max(1, mid - 1)) ** 1.15
-            y = int(t * max_y)
-            crop = scroll.crop((0, y, min(1560, scroll.size[0]), y + win_h))
-            crop = crop.resize((1780, int(win_h * 1780 / 1560)), Image.LANCZOS)
-            img = Image.new("RGB", (W, H), (8, 10, 13))
-            img.paste(crop, (70, 60))
-            badge(img, speed_label, (70, 60 + crop.size[1] + 26), size=54)
-            caption(img, "Pinned toolchain built from sha256-checked source in a sandbox")
-        else:
-            img = Image.new("RGB", (W, H), (236, 240, 246))
-            d = ImageDraw.Draw(img)
-            d.text((92, 200), "verdict: pass  (all gates true)", font=font("bold", 60),
-                   fill=(20, 22, 28))
-            d.text((92, 300), "mutants: 11 / 11 killed by a named gate",
-                   font=font("bold", 44), fill=(20, 22, 28))
+        t = (i / max(1, n - 1)) ** 1.15      # scrub the whole log in 7 s
+        y = int(t * max_y)
+        crop = scroll.crop((0, y, min(1560, scroll.size[0]), y + win_h))
+        crop = crop.resize((1780, int(win_h * 1780 / 1560)), Image.LANCZOS)
+        img = Image.new("RGB", (W, H), (8, 10, 13))
+        img.paste(crop, (70, 60))
+        # badge sits ABOVE the caption scrim (which occupies the bottom
+        # 250 px), so it is never hidden
+        badge(img, speed_label, (70, 60), size=54)
+        caption(img, "The pinned toolchain, built from sha256-checked "
+                     "source in a sandbox", y=880)
         yield img
 
 
-def shot_proof(n, verdict, selftest):
-    """T['proof'] - T['end']: verdict key lines + the mutant kill matrix."""
+def shot_proof(n, verdict, selftest, meshes, cam_attribs):
+    """T['proof'] - T['end']: the judge verdict + kill matrix as a HUD
+    over the still-orbiting real render (never a text slide)."""
     left = [
         "verdict.json  (seed 0)",
         f'  pass            : {str(verdict["pass"]).lower()}',
@@ -407,46 +451,56 @@ def shot_proof(n, verdict, selftest):
     rows = [("known-good", "PASS", "—")]
     rows += [(m["name"], m["verdict"], m["gates_failed"])
              for m in selftest["mutants"]]
-    rows.append(("kill rate", selftest["kill_rate"], f'{selftest["mutants_total"]} mutants'))
+    rows.append(("kill rate", selftest["kill_rate"],
+                 f'{selftest["mutants_total"]} mutants'))
+    total_frac = f'{selftest["mutants_killed"]}/{selftest["mutants_total"]}'
 
+    fov = math.degrees(2.0 * math.atan(
+        float(cam_attribs["verticalAperture"])
+        / (2.0 * float(cam_attribs["focalLength"]))))
+    target = np.array([0.0, 0.3, 0.0])
+    r, h = 12.0, 4.2
+    span = math.radians(10.0)        # slow drift, still moving
     mid = max(1, n // 2)
     for i in range(n):
+        theta = math.radians(14.0) - span / 2 + span * (i / max(1, n - 1))
+        eye = (target[0] + r * math.sin(theta), h,
+               target[2] + r * math.cos(theta))
+        img = render_rgb((W, H), eye, target, (0, 1, 0), fov)
+        # darken the moving render just enough for the HUD text to read
+        img = Image.blend(img, Image.new("RGB", (W, H), (0, 0, 0)), 0.45)
+        d = ImageDraw.Draw(img, "RGBA")
         light = i >= mid
-        bg = (238, 241, 246) if light else (12, 14, 18)
-        img = Image.new("RGB", (W, H), bg)
-        d = ImageDraw.Draw(img)
-        panel = (250, 251, 253) if light else (16, 18, 24)
-        d.rectangle([60, 56, 940, 1020], fill=panel)
-        d.rectangle([980, 56, 1860, 1020], fill=panel)
-        ink = (26, 28, 34) if light else (222, 228, 236)
-        good = (22, 128, 42) if light else (126, 231, 135)
-        bad = (192, 46, 33) if light else (240, 113, 99)
-        dim = (72, 78, 90) if light else (178, 186, 196)
-        head = (156, 111, 8) if light else (255, 205, 60)
-        fl, fr = font("mono", 34), font("mono", 30)
-        d.text((92, 84), "JUDGE VERDICT", font=font("bold", 46),
-               fill=head)
-        y = 168
+        panel_fill = (10, 12, 16, 178)
+        d.rectangle([60, 56, 940, 1000], fill=panel_fill)
+        d.rectangle([980, 56, 1860, 1000], fill=panel_fill)
+        ink = (232, 238, 246)
+        good = (126, 231, 135)
+        bad = (240, 113, 99)
+        dim = (170, 178, 190)
+        head = (255, 205, 60)
+        fl, fr = font("mono", 32), font("mono", 28)
+        d.text((92, 84), "JUDGE VERDICT", font=font("bold", 44), fill=head)
+        y = 160
         for ln in left:
-            col = good if ": true" in ln or "k=" in ln else ink
+            col = good if (": true" in ln or "k=" in ln) else ink
             d.text((92, y), ln, font=fl, fill=col)
-            y += 52
-        d.text((1012, 84), "MUTANT KILL MATRIX", font=font("bold", 46),
+            y += 48
+        d.text((1012, 84), "MUTANT KILL MATRIX", font=font("bold", 44),
                fill=head)
-        y = 168
+        y = 160
         for name, verdict_, gates in rows:
             col = good if verdict_ in ("PASS", "KILLED") else bad
             d.text((1012, y), f"{name:<20}", font=fr, fill=ink)
             d.text((1462, y), f"{verdict_:<9}", font=fr, fill=col)
             d.text((1662, y), gates, font=fr, fill=dim)
-            y += 44
-        caption(img, f'{selftest["mutants_killed"]}/{selftest["mutants_total"]} '
-                     f'mutants killed by a named gate - the judge fails when it must')
+            y += 42
+        caption(img, f"{total_frac} mutants killed by a named judge gate")
         yield img
 
 
 def shot_end(n, one_command):
-    """T['end'] - T['stop']: static end card (last 2.8 s, YDIF = 0)."""
+    """T['end'] - T['stop']: static end card (last 3.0 s, YDIF = 0)."""
     img = Image.new("RGB", (W, H), (10, 12, 16))
     d = ImageDraw.Draw(img)
     f = font("monobold", 74)
@@ -472,9 +526,11 @@ def frames():
         if ln.strip()]
     selftest_lines = [
         "[selftest] grading known-bad mutants",
-        * [f'[selftest]   {m["name"]:<20} {m["verdict"]:<8} (failed gates: {m["gates_failed"]})'
-           for m in selftest["mutants"][:6]],
-        f'[selftest] mutants killed      : {selftest["mutants_killed"]} / {selftest["mutants_total"]}',
+        * [f'[selftest]   {m["name"]:<20} {m["verdict"]:<8} (failed gates: '
+           f'{m["gates_failed"]})'
+           for m in selftest["mutants"]],
+        f'[selftest] mutants killed      : {selftest["mutants_killed"]} / '
+        f'{selftest["mutants_total"]}',
         f'[selftest] kill rate           : {selftest["kill_rate"]}',
         "[selftest] selftest: PASS",
     ]
@@ -489,12 +545,15 @@ def frames():
     yield from shot_input(meshes, cam, cam_attribs, fr(T["input"], T["orbit"]),
                           verdict, scene_text)
     yield from shot_orbit(meshes, cam_attribs,
-                          0, fr(T["orbit"], T["rects"]), with_rects=False)
+                          0, fr(T["orbit"], T["rects"]), with_rects=False,
+                          light_to_dark=False)
     yield from shot_orbit(meshes, cam_attribs,
-                          fr(T["orbit"], T["rects"]), fr(T["rects"], T["term"]), with_rects=True)
+                          fr(T["orbit"], T["rects"]), fr(T["rects"], T["term"]),
+                          with_rects=True, light_to_dark=False)
     yield from shot_terminal(fr(T["term"], T["proof"]),
                              setup_lines, selftest_lines, speed_label)
-    yield from shot_proof(fr(T["proof"], T["end"]), verdict, selftest)
+    yield from shot_proof(fr(T["proof"], T["end"]), verdict, selftest,
+                          meshes, cam_attribs)
     yield from shot_end(fr(T["end"], T["stop"]),
                         "python3 cookbook/nanousd-render/run.py")
 
