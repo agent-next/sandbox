@@ -1,0 +1,21 @@
+{
+  "_source": "robosimstudio/examples/01_cloth/cloth.py, class ClothMaterialSpec, field metadata ui(tier=, unit=, log=, range=), at robosimstudio @ 73739abe212f963e8a9f5862b27bca370df091a7",
+  "_note": "lo/hi are RSS's own declared ranges; 'log' means the gate compares in log space. This file is the authority for G1.",
+  "fields": {
+    "tri_ke":             {"unit": "N/m",       "lo": 1.0e2, "hi": 1.0e6, "log": true,  "group": "in-plane",   "tier": "LIVE"},
+    "tri_ka":             {"unit": "N/m",       "lo": 1.0e2, "hi": 1.0e6, "log": true,  "group": "in-plane",   "tier": "LIVE"},
+    "tri_kd":             {"unit": "N*s/m",     "lo": 1.0e-4,"hi": 1.0e0, "log": true,  "group": "in-plane",   "tier": "LIVE"},
+    "edge_ke":            {"unit": "N*m/rad",   "lo": 1.0e-5,"hi": 1.0e2, "log": true,  "group": "bending",    "tier": "LIVE"},
+    "edge_kd":            {"unit": "N*m*s/rad", "lo": 1.0e-6,"hi": 1.0e-1,"log": true,  "group": "bending",    "tier": "LIVE"},
+    "core_shear_modulus": {"unit": "Pa",        "lo": 1.0e3, "hi": 1.0e7, "log": true,  "group": "core (slab)","tier": "LIVE"},
+    "core_lame_lambda":   {"unit": "Pa",        "lo": 0.0,   "hi": 1.0e7, "log": false, "group": "core (slab)","tier": "LIVE"},
+    "core_damping":       {"unit": "Pa*s",      "lo": 1.0e-4,"hi": 1.0e1, "log": true,  "group": "core (slab)","tier": "LIVE"},
+    "areal_density":      {"unit": "kg/m^2",    "lo": 0.05,  "hi": 1.5,   "log": false, "group": "mass",       "tier": "REBUILD"},
+    "thickness":          {"unit": "m",         "lo": 0.0,   "hi": 0.02,  "log": false, "group": "geometry",   "tier": "REBUILD"},
+    "particle_radius":    {"unit": "m",         "lo": 2.0e-4,"hi": 1.0e-2,"log": true,  "group": "contact",    "tier": "LIVE"},
+    "contact_ke":         {"unit": "N/m",       "lo": 1.0e2, "hi": 1.0e6, "log": true,  "group": "contact",    "tier": "RECAPTURE"},
+    "contact_kd":         {"unit": "N*s/m",     "lo": 1.0e-3,"hi": 1.0e2, "log": true,  "group": "contact",    "tier": "RECAPTURE"},
+    "friction":           {"unit": "-",         "lo": 0.0,   "hi": 2.0,   "log": false, "group": "contact",    "tier": "RECAPTURE"}
+  },
+  "shells": ["slab", "membrane"]
+}

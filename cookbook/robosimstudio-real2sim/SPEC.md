@@ -73,7 +73,7 @@ ignored. Log-scaled fields are compared in log space, because a range of
 | `particle_radius` | m | 2.0e-4 … 1.0e-2 | log |
 | `contact_ke` | N/m | 1.0e2 … 1.0e6 | log |
 | `contact_kd` | N·s/m | 1.0e-3 … 1.0e2 | log |
-| `friction` | – | 0.0 … 1.0 | linear |
+| `friction` | – | 0.0 … 2.0 | linear |
 
 ### G2 — trajectory match on the training motion
 

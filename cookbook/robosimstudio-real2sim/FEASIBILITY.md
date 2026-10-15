@@ -213,6 +213,36 @@ through RSS's own recorder, headless, on whichever device is chosen below —
 `record()` is `run(1)` + `render()` per frame, and `render()` is already
 proven on both paths.
 
+### A3. The API the judge needs (probed on CPU, 2026-10-15)
+
+The demo's judge has to drive the arms deterministically and read the cloth
+back, so the two things it needs were probed rather than assumed:
+
+```
+CTRL {"joint_target_shape": [16], "control_mode": "?",
+ "joint_q_shape": [16],
+ "joint_q": [-0.0, 1.047, 1.047, -0.0, 0.0, -0.0, 0.0475, -0.0475,
+             0.274, 2.114, 2.003, -1.459, 0.0, 0.274, 0.0469, -0.0469],
+ "assign_ok": true,
+ "joint_q_after": [0.0033, 1.047, 1.047, 0.0, 0.002, -0.0, 0.0474, -0.0475,
+                   0.274, 2.114, 2.003, -1.459, 0.0, 0.274, 0.0469, -0.0469],
+ "towel_particles": [1922, 3]}
+```
+
+- `sim.pipeline.control.joint_target_q` is a 16-wide array — two 6-DOF YAM
+  arms plus two grippers each — and `ctrl.joint_target_q.assign(t)` then
+  `sim.run(1)` moves the arm (the left arm's first joint went `-0.0 → 0.0033`).
+  So a **joint-space track is a `[steps, 16]` array written one row at a time**,
+  with no IK, no viser, no session, and no browser. That is what makes the judge
+  deterministic and headless.
+- The right arm's six joints are exactly the towel example's `over_edge`
+  `(0.274, 2.114, 2.003, -1.459, 0.0, 0.274)`, which is how a track is anchored
+  to the scene the example builds.
+- `sim["towel"].particle_q` is `[1922, 3]` — the per-particle positions G2 and
+  G3 compare. (This scene is `cells=30` on `bench_0728`; the standalone
+  `00_towel.py` above is `bench_0728` too but a different `size`, hence 1922
+  there as well.)
+
 ### CPU verdict
 
 - All three priority scenes **build, step and render headless on CPU**; the
