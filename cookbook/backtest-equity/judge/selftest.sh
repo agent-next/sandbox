@@ -21,8 +21,12 @@ trap 'rm -rf "$WORK"' EXIT
 
 # judge/VERSIONS.txt is written by judge/setup.sh (the standard requires it
 # to live there); it records installs, not judge logic, so it is excluded.
+# __pycache__ is created by importing judge/reference.py and is also not
+# judge logic.
 judge_hash() {
-    find "$SCRIPT_DIR" -type f ! -name VERSIONS.txt -print0 | LC_ALL=C sort -z \
+    find "$SCRIPT_DIR" -type f \
+         ! -name VERSIONS.txt ! -path '*/__pycache__/*' -print0 \
+        | LC_ALL=C sort -z \
         | xargs -0 sha256sum 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 HASH_BEFORE=$(judge_hash)

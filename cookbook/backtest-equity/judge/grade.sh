@@ -11,4 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# no __pycache__ in the judge tree: importing judge/reference.py must not
+# change the tree selftest.sh checksums around every run.
+export PYTHONDONTWRITEBYTECODE=1
 exec python3 "$SCRIPT_DIR/judge.py" "$@"
