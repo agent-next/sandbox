@@ -1,0 +1,134 @@
+{
+  "artifact": "/tmp/tmpam2gawaj/paused-skipped",
+  "seed": 20261015,
+  "gates": {
+    "digest": {
+      "passed": true,
+      "2026-10-12_events": 128,
+      "2026-10-12_errors": 16,
+      "2026-10-12_server_errors": 1,
+      "2026-10-12_error_rate": 0.125,
+      "2026-10-12_mean_ms": 2908.883,
+      "2026-10-12_p50_ms": 281,
+      "2026-10-12_p95_ms": 16447,
+      "2026-10-12_max_ms": 19837,
+      "2026-10-13_events": 141,
+      "2026-10-13_errors": 18,
+      "2026-10-13_server_errors": 4,
+      "2026-10-13_error_rate": 0.12766,
+      "2026-10-13_mean_ms": 3380.007,
+      "2026-10-13_p50_ms": 281,
+      "2026-10-13_p95_ms": 16098,
+      "2026-10-13_max_ms": 19987,
+      "2026-10-14_events": 96,
+      "2026-10-14_errors": 15,
+      "2026-10-14_server_errors": 4,
+      "2026-10-14_error_rate": 0.15625,
+      "2026-10-14_mean_ms": 3352.594,
+      "2026-10-14_p50_ms": 292,
+      "2026-10-14_p95_ms": 14552,
+      "2026-10-14_max_ms": 19859,
+      "busiest": {
+        "2026-10-12": "api",
+        "2026-10-13": "api",
+        "2026-10-14": "batch"
+      }
+    },
+    "dates": {
+      "passed": true,
+      "counts": {
+        "2026-10-12": 128,
+        "2026-10-13": 141,
+        "2026-10-14": 96
+      }
+    },
+    "shape": {
+      "passed": true,
+      "keys": [
+        "busiest_project",
+        "date",
+        "error_rate",
+        "errors",
+        "events",
+        "max_ms",
+        "mean_ms",
+        "p50_ms",
+        "p95_ms",
+        "projects",
+        "server_errors",
+        "status"
+      ]
+    },
+    "schedule": {
+      "passed": false,
+      "uses": [
+        "sleep_until_fire",
+        "resume",
+        "digest",
+        "collect",
+        "collect"
+      ],
+      "expected": [
+        "sleep_until_fire",
+        "resume",
+        "digest",
+        "collect",
+        "pause"
+      ],
+      "reason": "steps are ['sleep_until_fire', 'resume', 'digest', 'collect', 'collect'], the canonical lifecycle is ['sleep_until_fire', 'resume', 'digest', 'collect', 'pause']"
+    },
+    "lifecycle": {
+      "passed": true,
+      "fires": [
+        "2026-10-12",
+        "2026-10-13",
+        "2026-10-14"
+      ],
+      "states_between_runs": [
+        "paused",
+        "paused",
+        "paused"
+      ],
+      "pause_seconds": 0.05,
+      "sandbox": "local-sandbox",
+      "sbx_shim_resumes": 3,
+      "sbx_shim_calls": [
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx",
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx",
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx"
+      ]
+    },
+    "negative": {
+      "passed": true,
+      "status": "no events",
+      "events": 0
+    },
+    "failure": {
+      "passed": true,
+      "exit_code": 1,
+      "names_log": true,
+      "names_row": true
+    },
+    "integrity": {
+      "passed": true,
+      "copied_to": "<temp>/artifact",
+      "judge_untouched": true
+    }
+  },
+  "passed": false,
+  "failed_gate": "schedule",
+  "reason": "steps are ['sleep_until_fire', 'resume', 'digest', 'collect', 'collect'], the canonical lifecycle is ['sleep_until_fire', 'resume', 'digest', 'collect', 'pause']",
+  "timing": {
+    "wall_seconds": 0.462
+  },
+  "failed_gates": [
+    "schedule"
+  ]
+}
+grade: FAIL (exit 1; judge integrity verified)

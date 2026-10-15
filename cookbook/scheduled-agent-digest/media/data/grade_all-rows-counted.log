@@ -1,0 +1,103 @@
+{
+  "artifact": "/tmp/tmpalpwcmsg/all-rows-counted",
+  "seed": 20261015,
+  "gates": {
+    "digest": {
+      "passed": false,
+      "date": "2026-10-12",
+      "field": "events",
+      "actual": 138,
+      "expected": 128,
+      "reason": "2026-10-12: events is 138, the oracle says 128"
+    },
+    "dates": {
+      "passed": false,
+      "date": "2026-10-12",
+      "actual": 138,
+      "expected": 128,
+      "reason": "2026-10-12: 138 events counted, 128 belong to that date (the log holds 138 rows in total)"
+    },
+    "shape": {
+      "passed": true,
+      "keys": [
+        "busiest_project",
+        "date",
+        "error_rate",
+        "errors",
+        "events",
+        "max_ms",
+        "mean_ms",
+        "p50_ms",
+        "p95_ms",
+        "projects",
+        "server_errors",
+        "status"
+      ]
+    },
+    "schedule": {
+      "passed": true,
+      "cron": "0 2 * * *",
+      "steps": [
+        "sleep_until_fire",
+        "resume",
+        "digest",
+        "collect",
+        "pause"
+      ]
+    },
+    "lifecycle": {
+      "passed": true,
+      "fires": [
+        "2026-10-12",
+        "2026-10-13",
+        "2026-10-14"
+      ],
+      "states_between_runs": [
+        "paused",
+        "paused",
+        "paused"
+      ],
+      "pause_seconds": 0.05,
+      "sandbox": "local-sandbox",
+      "sbx_shim_resumes": 3,
+      "sbx_shim_calls": [
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx",
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx",
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx"
+      ]
+    },
+    "negative": {
+      "passed": true,
+      "status": "no events",
+      "events": 0
+    },
+    "failure": {
+      "passed": true,
+      "exit_code": 1,
+      "names_log": true,
+      "names_row": true
+    },
+    "integrity": {
+      "passed": true,
+      "copied_to": "<temp>/artifact",
+      "judge_untouched": true
+    }
+  },
+  "passed": false,
+  "failed_gate": "digest",
+  "reason": "2026-10-12: events is 138, the oracle says 128",
+  "timing": {
+    "wall_seconds": 0.561
+  },
+  "failed_gates": [
+    "digest",
+    "dates"
+  ]
+}
+grade: FAIL (exit 1; judge integrity verified)

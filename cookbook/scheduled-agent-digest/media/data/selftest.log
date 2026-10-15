@@ -1,0 +1,15 @@
+selftest: known-good PASS
+selftest: mutant KILLED: all-rows-counted (failed gates: digest,dates)
+selftest: mutant KILLED: busiest-tie-wrong (failed gates: digest)
+selftest: mutant KILLED: cron-hour-3 (failed gates: schedule)
+selftest: mutant KILLED: error-rate-wrong (failed gates: digest,shape)
+selftest: mutant KILLED: extra-key (failed gates: shape)
+selftest: mutant KILLED: malformed-swallowed (failed gates: failure)
+selftest: mutant KILLED: mean-unrounded (failed gates: digest)
+selftest: mutant KILLED: no-events-as-zero (failed gates: negative)
+selftest: mutant KILLED: p95-off-by-one (failed gates: digest)
+selftest: mutant KILLED: paused-skipped (failed gates: schedule)
+selftest: mutant KILLED: silent-no-output (failed gates: digest)
+selftest: kill rate 11/11 (100%)
+selftest: determinism PASS (same seed -> identical verdict)
+selftest: PASS

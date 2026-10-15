@@ -1,0 +1,41 @@
+{
+  "artifact": "/tmp/tmpaufnp4j5/silent-no-output",
+  "seed": 20261015,
+  "gates": {
+    "digest": {
+      "passed": false,
+      "reason": "the artifact could not run the three nights: digest.py exited 0 for /tmp/digest-judge-q91qwobl/fixtures/night1.csv but wrote no digest at /tmp/digest-judge-q91qwobl/artifact/digest-2026-10-12.json"
+    },
+    "dates": {
+      "passed": true
+    },
+    "shape": {
+      "passed": true
+    },
+    "schedule": {
+      "passed": true
+    },
+    "lifecycle": {
+      "passed": true
+    },
+    "negative": {
+      "passed": true
+    },
+    "failure": {
+      "passed": true
+    },
+    "integrity": {
+      "passed": true
+    }
+  },
+  "passed": false,
+  "failed_gate": "digest",
+  "reason": "the artifact could not run the three nights: digest.py exited 0 for /tmp/digest-judge-q91qwobl/fixtures/night1.csv but wrote no digest at /tmp/digest-judge-q91qwobl/artifact/digest-2026-10-12.json",
+  "timing": {
+    "wall_seconds": 0.18
+  },
+  "failed_gates": [
+    "digest"
+  ]
+}
+grade: FAIL (exit 1; judge integrity verified)

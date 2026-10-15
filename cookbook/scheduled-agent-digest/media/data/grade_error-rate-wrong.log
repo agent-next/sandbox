@@ -1,0 +1,92 @@
+{
+  "artifact": "/tmp/tmp_la38rqo/error-rate-wrong",
+  "seed": 20261015,
+  "gates": {
+    "digest": {
+      "passed": false,
+      "date": "2026-10-12",
+      "field": "error_rate",
+      "actual": 0.007812,
+      "expected": 0.125,
+      "reason": "2026-10-12: error_rate is 0.007812, the oracle says 0.125"
+    },
+    "dates": {
+      "passed": true,
+      "counts": {
+        "2026-10-12": 128,
+        "2026-10-13": 141,
+        "2026-10-14": 96
+      }
+    },
+    "shape": {
+      "passed": false,
+      "date": "2026-10-12",
+      "reason": "error_rate 0.007812 != errors/events 0.125000"
+    },
+    "schedule": {
+      "passed": true,
+      "cron": "0 2 * * *",
+      "steps": [
+        "sleep_until_fire",
+        "resume",
+        "digest",
+        "collect",
+        "pause"
+      ]
+    },
+    "lifecycle": {
+      "passed": true,
+      "fires": [
+        "2026-10-12",
+        "2026-10-13",
+        "2026-10-14"
+      ],
+      "states_between_runs": [
+        "paused",
+        "paused",
+        "paused"
+      ],
+      "pause_seconds": 0.05,
+      "sandbox": "local-sandbox",
+      "sbx_shim_resumes": 3,
+      "sbx_shim_calls": [
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx",
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx",
+        "connect judge-sbx",
+        "resume judge-sbx",
+        "pause judge-sbx"
+      ]
+    },
+    "negative": {
+      "passed": true,
+      "status": "no events",
+      "events": 0
+    },
+    "failure": {
+      "passed": true,
+      "exit_code": 1,
+      "names_log": true,
+      "names_row": true
+    },
+    "integrity": {
+      "passed": true,
+      "copied_to": "<temp>/artifact",
+      "judge_untouched": true
+    }
+  },
+  "passed": false,
+  "failed_gate": "digest",
+  "reason": "2026-10-12: error_rate is 0.007812, the oracle says 0.125",
+  "timing": {
+    "wall_seconds": 0.525
+  },
+  "failed_gates": [
+    "digest",
+    "shape"
+  ]
+}
+grade: FAIL (exit 1; judge integrity verified)
