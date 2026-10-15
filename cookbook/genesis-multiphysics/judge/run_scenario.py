@@ -103,8 +103,8 @@ def validate_spec(s: dict) -> None:
         x0 = p - sz / 2 - ps; x1 = p + sz / 2 + ps
         if not (np.all(x0 > lo) and np.all(x1 < up)):
             raise SystemExit(f"{gp}domain must fully contain every entity")
-    if up[2] < cpos[2] + cs[2] + 3.0 * cs[2]:
-        raise SystemExit(f"{gp}domain needs >= 3x column height of headroom")
+    if up[2] < cpos[2] + cs[2] / 2 + cs[2]:
+        raise SystemExit(f"{gp}domain top must leave at least one column height of headroom")
 
 
 def run(scenario_path: Path, out_prefix: Path, seed: int,
