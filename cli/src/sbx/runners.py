@@ -190,7 +190,8 @@ class GitHub:
         """Resolve a single-use runner to its terminal job, including rerun attempts.
 
         GitHub has no runner-to-job endpoint. Search watched repositories (or the
-        registration scope), paging runs and jobs, then allow for result propagation.
+        registration scope), interleaving requests so one repository's history
+        cannot consume the lookup budget, then allow for result propagation.
         """
         deadline = time.monotonic() + 60
 
@@ -213,30 +214,48 @@ class GitHub:
                     if len(batch) < 100:
                         break
                     page += 1
+
+        def search(repo: str):
+            """Yield after each request so other repositories get a turn."""
+            page = 1
+            while True:
+                resp = get(f"/repos/{repo}/actions/runs", params={"per_page": 100, "page": page})
+                runs = self._check(resp, "list runs for failed runner").json()["workflow_runs"]
+                yield None
+                for run in runs:
+                    job_page = 1
+                    while True:
+                        resp = get(f"/repos/{repo}/actions/runs/{run['id']}/jobs",
+                                   params={"per_page": 100, "page": job_page, "filter": "all"})
+                        jobs = self._check(resp, "list jobs for failed runner").json()["jobs"]
+                        for job in jobs:
+                            if job.get("runner_name") == runner and job.get("conclusion") is not None:
+                                yield {**job, "repo": repo,
+                                       "head_sha": job.get("head_sha") or run["head_sha"]}
+                                return
+                        yield None
+                        if len(jobs) < 100:
+                            break
+                        job_page += 1
+                if len(runs) < 100:
+                    break
+                page += 1
+
         for attempt in range(3):
             if attempt:
                 time.sleep(2)
-            for repo in repos:
-                page = 1
-                while True:
-                    resp = get(f"/repos/{repo}/actions/runs", params={"per_page": 100, "page": page})
-                    runs = self._check(resp, "list runs for failed runner").json()["workflow_runs"]
-                    for run in runs:
-                        job_page = 1
-                        while True:
-                            resp = get(f"/repos/{repo}/actions/runs/{run['id']}/jobs",
-                                       params={"per_page": 100, "page": job_page, "filter": "all"})
-                            jobs = self._check(resp, "list jobs for failed runner").json()["jobs"]
-                            for job in jobs:
-                                if job.get("runner_name") == runner and job.get("conclusion") is not None:
-                                    return {**job, "repo": repo,
-                                            "head_sha": job.get("head_sha") or run["head_sha"]}
-                            if len(jobs) < 100:
-                                break
-                            job_page += 1
-                    if len(runs) < 100:
-                        break
-                    page += 1
+            searches = [search(repo) for repo in repos]
+            while searches:
+                active = []
+                for pages in searches:
+                    try:
+                        match = next(pages)
+                    except StopIteration:
+                        continue
+                    if match is not None:
+                        return match
+                    active.append(pages)
+                searches = active
         raise RunnerError(f"no completed GitHub job found for runner {runner}")
 
 
