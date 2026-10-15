@@ -252,8 +252,16 @@ def main():
                 with open(os.path.join(args.artifacts, "%s.log" % name),
                           "w") as fh:
                     fh.write(log)
-            print("artifacts: step logs saved to %s" % args.artifacts,
-                  flush=True)
+            # VERSIONS.txt is what setup.sh recorded about the sandbox's
+            # toolchain; RECEIPT.md quotes it, so fetch it before the kill.
+            proc, _ = sbx_exec(
+                sbx_id, 60, ["cat", "sandbox/%s/judge/VERSIONS.txt" % DEMO_DIR])
+            if proc.returncode == 0 and (proc.stdout or "").strip():
+                with open(os.path.join(args.artifacts, "VERSIONS.txt"),
+                          "w") as fh:
+                    fh.write(proc.stdout)
+            print("artifacts: step logs and VERSIONS.txt saved to %s"
+                  % args.artifacts, flush=True)
 
         raw = read_remote_file(sbx_id, "/tmp/verdict.json", "verdict JSON")
         try:
