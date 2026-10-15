@@ -258,93 +258,24 @@ def grade(artifact_dir, seed, json_path):
         metrics["artifact_hash"] = None
     pass_fail("artifact_matches", ok, detail)
 
-    # -- replay the artifact's own G-code (the object under test) ----------
+    # -- replay BOTH G-code files: the artifact's own part.gcode (the object
+    #    under test) and the judge's re-slice of the same profile.  Every
+    #    behavioural gate must hold on each: a bad G-code is caught on the
+    #    artifact file, a bad profile on its re-slice. ------------------------
     t0 = time.time()
-    m = interp.replay(part_gcode)
+    m = interp.replay(part_gcode) if os.path.exists(part_gcode) else None
+    m_res = interp.replay(resliced) if (resliced and os.path.exists(resliced)) else None
     timing["replay_s"] = round(time.time() - t0, 1)
+
     fa = 3.141592653589793 * (spec["filament_diameter_mm"] / 2.0) ** 2
-    deposited_mm3 = m.e_consumed * fa
-    metrics["deposited_volume_mm3"] = round(deposited_mm3, 1)
-    metrics["stl_volume_mm3"] = None  # filled after STL load below
 
     tris = interp.load_stl(bracket_stl)
     stl_vol = interp.stl_volume(tris)
     bbox = interp.stl_bbox(tris)
     metrics["stl_volume_mm3"] = round(stl_vol, 1)
 
-    # -- gate: moves_inside_bed --------------------------------------------
-    t0 = time.time()
-    inside = all(0.0 <= mv[1] and mv[3] <= spec["bed_size_mm"][0]
-                 and 0.0 <= mv[2] and mv[4] <= spec["bed_size_mm"][1]
-                 and mv[0] >= 0.0
-                 for mv in m.extr_moves)
-    worst = None
-    if not inside:
-        worst = min(m.extr_moves,
-                    key=lambda mv: min(mv[1], mv[3], mv[2], mv[4], -mv[0]))
-    detail = "all %d extruding moves inside bed" % len(m.extr_moves) if inside \
-        else "move outside bed: %s" % (worst,)
-    pass_fail("moves_inside_bed", inside and not m.errors, detail)
-    timing["bed_gate_s"] = round(time.time() - t0, 1)
-
-    # -- gate: moves_near_part ---------------------------------------------
-    t0 = time.time()
-    fp = interp.footprint_segments(tris, bbox)
-    tol = spec["brim_max_mm"]
-    maxdist = 0.0
-    off_part = []
-    for mv in m.extr_moves:
-        if mv[0] > bbox[1][2] + tol:      # above part: travel/none
-            continue
-        d = interp.dist_to_footprint(mv[1], mv[2], fp)
-        d2 = interp.dist_to_footprint(mv[3], mv[4], fp)
-        dmax = max(d, d2)
-        if dmax > tol:
-            off_part.append((mv, dmax))
-        maxdist = max(maxdist, dmax)
-    metrics["max_dist_from_footprint_mm"] = round(maxdist, 2)
-    pass_fail("moves_near_part", not off_part,
-              "max extrusion distance from footprint %.2f mm (tol %.2f)"
-              % (maxdist, tol))
-    timing["near_part_gate_s"] = round(time.time() - t0, 1)
-
-    # -- gate: layer_z_sequence --------------------------------------------
-    t0 = time.time()
-    zl = [z for z, _s in m.layer_first_z]
-    first_z = zl[0] if zl else None
-    hs = layer_heights(m.layer_first_z)
-    steady = hs[1:] if len(hs) > 1 else []
-    lh_max_spec = min(spec["layer_height_max_mm"],
-                      0.8 * spec["nozzle_diameter_mm"])
-    problems = []
-    if first_z is None:
-        problems.append("no extrusion layers")
-    else:
-        if not (spec["first_layer_height_min_mm"] <= first_z
-                <= spec["first_layer_height_max_mm"]):
-            problems.append("first layer Z %.3f outside [%.2f, %.2f]"
-                            % (first_z, spec["first_layer_height_min_mm"],
-                               spec["first_layer_height_max_mm"]))
-        if first_z > spec["max_first_layer_vs_nozzle"] * spec["nozzle_diameter_mm"]:
-            problems.append("first layer Z %.3f > %.2f x nozzle"
-                            % (first_z, spec["max_first_layer_vs_nozzle"]))
-    bad_steady = [h for h in steady if not (0.0 < h <= lh_max_spec)]
-    if bad_steady:
-        problems.append("steady layer heights out of band: %s"
-                        % sorted(set(bad_steady))[:4])
-    if m.errors:
-        problems.append("Z regression: " + m.errors[0])
-    metrics["first_layer_z_mm"] = first_z
-    metrics["layer_count"] = len(zl)
-    metrics["steady_layer_height_mm"] = sorted(set(steady))
-    pass_fail("layer_z_sequence", not problems,
-              "; ".join(problems) if problems
-              else "first Z %.3f, %d layers, steady h %s"
-                   % (first_z, len(zl), sorted(set(steady))))
-    timing["layer_gate_s"] = round(time.time() - t0, 1)
-
-    # -- gate: volume_matches_model ---------------------------------------
-    t0 = time.time()
+    # -- behavioural gates, evaluated on BOTH replays -----------------------
+    # Profile values the volume gate needs.
     prof = load_profile(profile_ini)
     wall_loops = int(float(prof.get("wall_loops", 2)))
     infill_pct = float(prof.get("sparse_infill_density", 15))
@@ -352,26 +283,195 @@ def grade(artifact_dir, seed, json_path):
     solid_b = int(float(prof.get("bottom_shell_layers", 3)))
     solid_t = int(float(prof.get("top_shell_layers", 4)))
     line_width = float(prof.get("line_width", 0.42))
-    lhs = [first_z] + [(z2 - z1) for z1, z2 in zip(zl, zl[1:])]
-    expected = interp.expected_deposit(tris, bbox, zl, lhs, 0.5, wall_loops,
-                                       line_width, infill, solid_b, solid_t)
+    lh_max_spec = min(spec["layer_height_max_mm"],
+                      0.8 * spec["nozzle_diameter_mm"])
     band = spec["volume_band_frac"]
     skirt = spec["skirt_allowance_mm3"]
-    lo = expected * (1 - band) - skirt
-    hi = expected * (1 + band) + skirt
-    mass_g = deposited_mm3 / 1000.0 * spec["pla_density_g_cm3"]
-    ok = lo <= deposited_mm3 <= hi and mass_g <= spec["max_filament_g"]
-    metrics["expected_volume_mm3"] = round(expected, 1)
-    metrics["volume_band_mm3"] = [round(lo, 1), round(hi, 1)]
-    metrics["filament_mass_g"] = round(mass_g, 2)
+    fp = interp.footprint_segments(tris, bbox)
+
+    BEHAVIOURAL = ["moves_inside_bed", "moves_near_part", "layer_z_sequence",
+                   "volume_matches_model", "pla_temperatures",
+                   "time_estimate"]
+
+    def behavioural(rm, gcode_path, label):
+        """Evaluate the six behavioural gates on one G-code replay.
+
+        Returns {gate: (ok, detail, extra_metrics)}; extra_metrics are
+        merged into the verdict only for the artifact's own file (the
+        object under test).
+        """
+        if rm is None or not gcode_path or not os.path.exists(gcode_path):
+            return {g: (False, "no G-code to replay (%s)" % label, {})
+                    for g in BEHAVIOURAL}
+        out = {}
+
+        # moves_inside_bed
+        inside = all(0.0 <= mv[1] and mv[3] <= spec["bed_size_mm"][0]
+                     and 0.0 <= mv[2] and mv[4] <= spec["bed_size_mm"][1]
+                     and mv[0] >= 0.0
+                     for mv in rm.extr_moves)
+        worst = None
+        if not inside:
+            worst = min(rm.extr_moves,
+                        key=lambda mv: min(mv[1], mv[3], mv[2], mv[4],
+                                           -mv[0]))
+        out["moves_inside_bed"] = (
+            inside and not rm.errors,
+            "all %d extruding moves inside bed" % len(rm.extr_moves)
+            if inside else "move outside bed: %s" % (worst,), {})
+
+        # moves_near_part
+        tol = spec["brim_max_mm"]
+        maxdist = 0.0
+        off_part = []
+        for mv in rm.extr_moves:
+            if mv[0] > bbox[1][2] + tol:      # above part: travel/none
+                continue
+            d = interp.dist_to_footprint(mv[1], mv[2], fp)
+            d2 = interp.dist_to_footprint(mv[3], mv[4], fp)
+            dmax = max(d, d2)
+            if dmax > tol:
+                off_part.append((mv, dmax))
+            maxdist = max(maxdist, dmax)
+        out["moves_near_part"] = (
+            not off_part,
+            "max extrusion distance from footprint %.2f mm (tol %.2f)"
+            % (maxdist, tol),
+            {"max_dist_from_footprint_mm": round(maxdist, 2)})
+
+        # layer_z_sequence
+        zl = [z for z, _s in rm.layer_first_z]
+        first_z = zl[0] if zl else None
+        hs = layer_heights(rm.layer_first_z)
+        steady = hs[1:] if len(hs) > 1 else []
+        problems = []
+        if first_z is None:
+            problems.append("no extrusion layers")
+        else:
+            if not (spec["first_layer_height_min_mm"] <= first_z
+                    <= spec["first_layer_height_max_mm"]):
+                problems.append("first layer Z %.3f outside [%.2f, %.2f]"
+                                % (first_z,
+                                   spec["first_layer_height_min_mm"],
+                                   spec["first_layer_height_max_mm"]))
+            if first_z > spec["max_first_layer_vs_nozzle"] \
+                    * spec["nozzle_diameter_mm"]:
+                problems.append("first layer Z %.3f > %.2f x nozzle"
+                                % (first_z,
+                                   spec["max_first_layer_vs_nozzle"]))
+        bad_steady = [h for h in steady if not (0.0 < h <= lh_max_spec)]
+        if bad_steady:
+            problems.append("steady layer heights out of band: %s"
+                            % sorted(set(bad_steady))[:4])
+        if rm.errors:
+            problems.append("Z regression: " + rm.errors[0])
+        out["layer_z_sequence"] = (
+            not problems,
+            "; ".join(problems) if problems
+            else "first Z %.3f, %d layers, steady h %s"
+                 % (first_z, len(zl), sorted(set(steady))),
+            {"first_layer_z_mm": first_z, "layer_count": len(zl),
+             "steady_layer_height_mm": sorted(set(steady))})
+
+        # volume_matches_model
+        deposited_mm3 = rm.e_consumed * fa
+        lhs = [first_z] + [(z2 - z1) for z1, z2 in zip(zl, zl[1:])] \
+            if first_z is not None else []
+        if lhs:
+            expected = interp.expected_deposit(tris, bbox, zl, lhs, 0.5,
+                                               wall_loops, line_width,
+                                               infill, solid_b, solid_t)
+        else:
+            expected = 0.0
+        lo = expected * (1 - band) - skirt
+        hi = expected * (1 + band) + skirt
+        mass_g = deposited_mm3 / 1000.0 * spec["pla_density_g_cm3"]
+        ok = lo <= deposited_mm3 <= hi and mass_g <= spec["max_filament_g"]
+        out["volume_matches_model"] = (
+            ok,
+            "deposited %.1f mm3 vs expected %.1f (band %.1f..%.1f), "
+            "mass %.2f g (max %.1f g)"
+            % (deposited_mm3, expected, lo, hi, mass_g,
+               spec["max_filament_g"]),
+            {"deposited_volume_mm3": round(deposited_mm3, 1),
+             "expected_volume_mm3": round(expected, 1),
+             "volume_band_mm3": [round(lo, 1), round(hi, 1)],
+             "filament_mass_g": round(mass_g, 2)})
+
+        # pla_temperatures
+        probs = []
+        # Only set points issued while printing (before the last extruding
+        # move) are constrained: trailing M104/M140 S0 is the normal cooldown.
+        last_ext_seq = rm.last_extrude_seq
+        printing_nozzle = [t for s, t in rm.nozzle_cmds
+                           if s < (last_ext_seq or 0)]
+        printing_bed = [t for s, t in rm.bed_cmds
+                        if s < (last_ext_seq or 0)]
+        nozzle_ok = all(spec["nozzle_temp_min_c"] <= t
+                        <= spec["nozzle_temp_max_c"]
+                        for t in printing_nozzle)
+        bed_ok = all(spec["bed_temp_min_c"] <= t <= spec["bed_temp_max_c"]
+                     for t in printing_bed)
+        if not nozzle_ok:
+            badt = [t for t in printing_nozzle
+                    if not (spec["nozzle_temp_min_c"] <= t
+                            <= spec["nozzle_temp_max_c"])]
+            probs.append("nozzle temps out of PLA window: %s" % badt[:4])
+        if not bed_ok:
+            badt = [t for t in printing_bed
+                    if not (spec["bed_temp_min_c"] <= t
+                            <= spec["bed_temp_max_c"])]
+            probs.append("bed temps out of PLA window: %s" % badt[:4])
+        first_bed_seq = min((s for s, _t in rm.bed_cmds), default=None)
+        if rm.first_extrude_seq is None or first_bed_seq is None \
+                or first_bed_seq > rm.first_extrude_seq:
+            probs.append("first bed-heat command does not precede "
+                         "first extrusion")
+        if rm.first_extrude_seq is None:
+            probs.append("no extrusion in file")
+        out["pla_temperatures"] = (
+            not probs,
+            "; ".join(probs) if probs else
+            "nozzle %s C, bed %s C, bed heated before first extrusion"
+            % (sorted({t for _s, t in rm.nozzle_cmds}),
+               sorted({t for _s, t in rm.bed_cmds})),
+            {"nozzle_setpoints_c": sorted({t for _s, t in rm.nozzle_cmds}),
+             "bed_setpoints_c": sorted({t for _s, t in rm.bed_cmds})})
+
+        # time_estimate
+        slicer_t = interp.slicer_estimated_time_s(gcode_path)
+        judge_t = rm.time_s
+        ok = slicer_t is not None and judge_t is not None \
+            and abs(judge_t - slicer_t) <= spec["time_band_frac"] * slicer_t \
+            and slicer_t <= spec["max_print_time_s"]
+        out["time_estimate"] = (
+            ok,
+            "judge %.0fs vs slicer %ss (band +-%.0f%%), max %ss"
+            % (judge_t, slicer_t, 100 * spec["time_band_frac"],
+               spec["max_print_time_s"]),
+            {"judge_time_s": round(judge_t, 1), "slicer_time_s": slicer_t})
+
+        return out
+
+    t0 = time.time()
+    art = behavioural(m, part_gcode if os.path.exists(part_gcode) else None,
+                      "artifact")
+    res = behavioural(m_res, resliced, "re-slice")
+    for gname in BEHAVIOURAL:
+        ok_a, det_a, extra_a = art[gname]
+        ok_r, det_r, _ = res[gname]
+        if ok_a and ok_r:
+            detail = det_a
+        elif not ok_a:
+            detail = "artifact: %s" % det_a
+        else:
+            detail = "re-slice: %s" % det_r
+        # metrics come from the artifact's own file (the object under test)
+        metrics.update(extra_a)
+        pass_fail(gname, ok_a and ok_r, detail)
     metrics["profile_wall_loops"] = wall_loops
     metrics["profile_infill_pct"] = infill_pct
-    pass_fail("volume_matches_model", ok,
-              "deposited %.1f mm3 vs expected %.1f (band %.1f..%.1f), "
-              "mass %.2f g (max %.1f g)"
-              % (deposited_mm3, expected, lo, hi, mass_g,
-                 spec["max_filament_g"]))
-    timing["volume_gate_s"] = round(time.time() - t0, 1)
+    timing["behavioural_gates_s"] = round(time.time() - t0, 1)
 
     # -- gate: cube_crosscheck (judge QA: analytic band must hold on a
     #    simple solid) -------------------------------------------------------
@@ -402,58 +502,6 @@ def grade(artifact_dir, seed, json_path):
         metrics["cube_stl_volume_mm3"] = round(cube_vol, 1)
     pass_fail("cube_crosscheck", ok, detail)
     timing["cube_gate_s"] = round(time.time() - t0, 1)
-
-    # -- gate: pla_temperatures ---------------------------------------------
-    t0 = time.time()
-    probs = []
-    # Only set points issued while printing (before the last extruding
-    # move) are constrained: trailing M104/M140 S0 is the normal cooldown.
-    last_ext_seq = m.last_extrude_seq
-    printing_nozzle = [t for s, t in m.nozzle_cmds
-                       if s < (last_ext_seq or 0)]
-    printing_bed = [t for s, t in m.bed_cmds if s < (last_ext_seq or 0)]
-    nozzle_ok = all(spec["nozzle_temp_min_c"] <= t <= spec["nozzle_temp_max_c"]
-                    for t in printing_nozzle)
-    bed_ok = all(spec["bed_temp_min_c"] <= t <= spec["bed_temp_max_c"]
-                 for t in printing_bed)
-    if not nozzle_ok:
-        badt = [t for t in printing_nozzle
-                if not (spec["nozzle_temp_min_c"] <= t
-                        <= spec["nozzle_temp_max_c"])]
-        probs.append("nozzle temps out of PLA window: %s" % badt[:4])
-    if not bed_ok:
-        badt = [t for t in printing_bed
-                if not (spec["bed_temp_min_c"] <= t
-                        <= spec["bed_temp_max_c"])]
-        probs.append("bed temps out of PLA window: %s" % badt[:4])
-    first_bed_seq = min((s for s, _t in m.bed_cmds), default=None)
-    if m.first_extrude_seq is None or first_bed_seq is None \
-            or first_bed_seq > m.first_extrude_seq:
-        probs.append("first bed-heat command does not precede first extrusion")
-    if m.first_extrude_seq is None:
-        probs.append("no extrusion in file")
-    metrics["nozzle_setpoints_c"] = sorted({t for _s, t in m.nozzle_cmds})
-    metrics["bed_setpoints_c"] = sorted({t for _s, t in m.bed_cmds})
-    pass_fail("pla_temperatures", not probs,
-              "; ".join(probs) if probs else
-              "nozzle %s C, bed %s C, bed heated before first extrusion"
-              % (metrics["nozzle_setpoints_c"], metrics["bed_setpoints_c"]))
-    timing["temp_gate_s"] = round(time.time() - t0, 1)
-
-    # -- gate: time_estimate ------------------------------------------------
-    t0 = time.time()
-    slicer_t = interp.slicer_estimated_time_s(part_gcode)
-    judge_t = m.time_s
-    ok = slicer_t is not None and judge_t is not None \
-        and abs(judge_t - slicer_t) <= spec["time_band_frac"] * slicer_t \
-        and slicer_t <= spec["max_print_time_s"]
-    metrics["judge_time_s"] = round(judge_t, 1)
-    metrics["slicer_time_s"] = slicer_t
-    pass_fail("time_estimate", ok,
-              "judge %.0fs vs slicer %ss (band +-%.0f%%), max %ss"
-              % (judge_t, slicer_t, 100 * spec["time_band_frac"],
-                 spec["max_print_time_s"]))
-    timing["time_gate_s"] = round(time.time() - t0, 1)
 
     # -- gate: klipper_batch ------------------------------------------------
     t0 = time.time()

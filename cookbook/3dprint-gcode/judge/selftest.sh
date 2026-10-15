@@ -39,6 +39,16 @@ echo "== selftest: generating known-bad mutants =="
 python3 "$SCRIPT_DIR/mutants.py" "$BAD_DIR" || exit 1
 
 total=0; killed=0
+declare -A TARGETS    # mutant -> declared target gates (from mutants.py)
+while read -r name gates; do
+    TARGETS[$name]="$gates"
+done < <(python3 -c '
+import json
+m = json.load(open("'"$BAD_DIR"'/mutants.json"))
+for k, v in m.items():
+    print(k, ",".join(v))
+')
+
 for d in "$BAD_DIR"/*/; do
     name=$(basename "$d")
     [ "$name" = "good" ] && continue
@@ -47,7 +57,24 @@ for d in "$BAD_DIR"/*/; do
         echo "mutant $name: PASS (unexpected)" >&2
     else
         killed=$((killed + 1))
-        echo "mutant $name: FAIL (expected) -- killed by gate: $(failing_gates "$BAD_DIR/$name.json")"
+        fired=$(failing_gates "$BAD_DIR/$name.json")
+        echo "mutant $name: FAIL (expected) -- killed by gate: $fired"
+        # every declared target gate must fire (SPEC.md mutant table)
+        fired_csv="${fired// /}"
+        targets="${TARGETS[$name]:-}"
+        if [ -n "$targets" ]; then
+            missing=""
+            for g in ${targets//,/ }; do
+                case ",$fired_csv," in
+                    *",$g,"*) : ;;
+                    *) missing="$missing $g" ;;
+                esac
+            done
+            if [ -n "$missing" ]; then
+                echo "mutant $name: declared target gate(s) did not fire:$missing" >&2
+                exit 1
+            fi
+        fi
     fi
 done
 

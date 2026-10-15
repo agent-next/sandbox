@@ -119,7 +119,8 @@ def main():
     os.makedirs(outdir, exist_ok=True)
     prof = read_profile()
     gc = read_gcode()
-    for name, kind, _desc, _gates in MUTANTS:
+    manifest = {}
+    for name, kind, _desc, gates in MUTANTS:
         d = os.path.join(outdir, name)
         if os.path.exists(d):
             shutil.rmtree(d)
@@ -134,7 +135,12 @@ def main():
                         os.path.join(d, "profile.ini"))
             with open(os.path.join(d, "part.gcode"), "w") as fh:
                 fh.write(edit_gcode(name, gc))
+        manifest[name] = gates
         print("wrote %s" % d)
+    # manifest: selftest.sh checks each declared target gate actually fires
+    import json
+    with open(os.path.join(outdir, "mutants.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
 
 
 if __name__ == "__main__":
