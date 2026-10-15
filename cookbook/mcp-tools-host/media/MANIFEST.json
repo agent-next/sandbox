@@ -1,0 +1,20 @@
+{
+  "demo.mp4": {
+    "command": "bash media/make_media.sh (renders frames with matplotlib, encodes a -crf 0 master then the -crf 18 yuv420p faststart web encode)",
+    "sha256": "75d97e084df9607f710af1a424e6eccd191646700b59761625b0870d0543279d",
+    "source": "media/judge_runs/good.json",
+    "what": "30 s step-through: title, the eight gates, the G5/G6 oracle comparisons, the kill-rate bars, the verdict"
+  },
+  "loop.png": {
+    "command": "bash media/make_media.sh (judge/mutants.py + one grade.sh per mutant + good)",
+    "sha256": "be4e56375e24aa1771c34fef148b1f006bc47204fba1e06e76140259b7613240",
+    "source": "media/judge_runs/*.json",
+    "what": "agent loop: gates passed per graded iteration until the known-good passes; self-test kill-rate bars (known-good vs each single-edit mutant)"
+  },
+  "result.png": {
+    "command": "bash media/make_media.sh (judge/grade.sh examples/good/server.py \u2192 media/judge_runs/good.json, seed 20261015)",
+    "sha256": "e31baa42ec4654077a6807e2b95442f1bab4823cf5141a179fc5c903cb525c9c",
+    "source": "media/judge_runs/good.json",
+    "what": "G5 unit conversions and G6 expressions measured from the known-good server against the judge oracle, plus the error budget with the 1e-9 pass line drawn"
+  }
+}
