@@ -183,10 +183,10 @@
     }
   },
   "timing": {
-    "build_s": 3.3,
-    "flows_s": 15.1,
-    "hygiene_s": 20.3,
-    "serve_s": 1.6,
+    "build_s": 4.1,
+    "flows_s": 19.5,
+    "hygiene_s": 26.8,
+    "serve_s": 1.7,
     "structure_s": 0.0
   }
 }

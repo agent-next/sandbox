@@ -181,9 +181,9 @@
     }
   },
   "timing": {
-    "build_s": 5.5,
-    "flows_s": 14.4,
-    "serve_s": 1.7,
+    "build_s": 7.9,
+    "flows_s": 19.2,
+    "serve_s": 2.2,
     "structure_s": 0.0
   }
 }
