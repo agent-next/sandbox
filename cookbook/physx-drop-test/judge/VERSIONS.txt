@@ -1,0 +1,22 @@
+# physx-drop-test toolchain — recorded by judge/versions.sh
+# from the venv at $HOME/.venvs/physx-drop-test
+
+python: Python 3.12.15
+platform: Linux x86_64
+
+pip freeze ($HOME/.venvs/physx-drop-test/bin/python -m pip freeze):
+  newton-usd-schemas==0.5.0
+  numpy==2.2.6
+  ovphysx==0.6.3
+  ovstage==0.2.0.377349
+  packaging==23.2
+  warp-lang==1.17.0
+
+native-library load check (ovphysx.PhysX imports):
+  ovphysx 0.6.3
+  ovstage 0.2.0.377349
+  newton-usd-schemas 0.5.0
+  warp-lang 1.17.0
+  numpy 2.2.6
+  packaging 23.2
+  PhysX importable: True
