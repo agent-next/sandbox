@@ -19,6 +19,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(sys.argv[1], 'judge'))
 import oracle  # noqa: E402
 from make_figures import (  # noqa: E402

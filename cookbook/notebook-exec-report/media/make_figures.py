@@ -255,7 +255,8 @@ def main():
             ax1.plot(i, row, 'X', ms=13, color=RED, zorder=3)
     ax1.set_yticks(range(len(gate_rows)), gate_rows)
     ax1.set_xticks(range(len(loop)),
-                   [f'iter {i + 1}\n{os.path.basename(v["artifact"])[:20]}'
+                   [f'iter {i + 1}\n'
+                    + os.path.basename(v["artifact"]).removesuffix('.ipynb')
                     for i, v in enumerate(loop)])
     ax1.set_ylim(-0.7, len(gate_rows) - 0.3)
     ax1.set_xlim(-0.6, len(loop) - 0.4)

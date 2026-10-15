@@ -1,0 +1,30 @@
+{
+  "demo": "cookbook/notebook-exec-report",
+  "note": "every plotted number comes from judge verdict JSONs written by grade.sh runs in this make_media.sh invocation (seed 20261015, alpha 10)",
+  "files": [
+    {
+      "file": "result.png",
+      "what": "Key figure: (a) held-out predictions on the test split with the G5 rmse_test limit 0.3040, (b) graded split vs the five blind refits with the 1.25x-median band, (c) coefficient recovery vs the generator-exact W_TRUE with the 0.05 limit, (d) reported-vs-refit agreement against the G4 tolerances (1e-6 / 1e-9).",
+      "command": "bash media/make_media.sh  (make_figures.py)",
+      "source_data": "media/judge_runs/good.json",
+      "sha256": "504c46218c406a89f2dce422e9f5adc40e55217da48e5bb98bd9dbb4f84b6b82",
+      "bytes": 421051
+    },
+    {
+      "file": "loop.png",
+      "what": "The agent loop, replayed: which judge gate failed at each of four graded iterations (one defect fixed per iteration) until the artifact passes everything; plus the self-test kill-rate bar (known-good vs all 7 known-bad mutants).",
+      "command": "bash media/make_media.sh  (make_figures.py)",
+      "source_data": "media/judge_runs/loop/*.json, media/judge_runs/mutants/*.json",
+      "sha256": "1eb46207530d1c2bcedc843c9e73bbc6961cd57705cc1eeab05959fcadf3fd8d",
+      "bytes": 191288
+    },
+    {
+      "file": "demo.mp4",
+      "what": "Step-through of the demo: the graded artifact, the independent refit, the four key figures with their pass lines, the self-test kill rate, the final verdict. Lossless crf-0 master in git-ignored media/master/.",
+      "command": "bash media/make_media.sh  (make_frames.py + ffmpeg)",
+      "source_data": "media/judge_runs/good.json, media/judge_runs/mutants/*.json",
+      "sha256": "c1806923e81213120d56030dd22f752815e2b2b15b364852092b60313ace8c5f",
+      "bytes": 510078
+    }
+  ]
+}
