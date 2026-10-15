@@ -57,9 +57,9 @@ cannot be confirmed.
 | step | wall time |
 |---|---|
 | `git clone --depth 1` | ~1 s |
-| `judge/setup.sh` (fresh venv) | 63 s (idempotent re-run: 4 s) |
+| `judge/setup.sh` (fresh venv) | 63–107 s (idempotent re-run: 4 s) |
 | `judge/grade.sh examples/good` | 12 s |
-| `judge/selftest.sh` (good + 12 mutants + determinism) | 2 m 40 s |
+| `judge/selftest.sh` (good + 13 mutants + determinism) | 3 m 38 s |
 
 Grading runs the model three times (nominal, repeat, zero-melt); each run
 is ~4 s. `run.py` prints a per-step timing line.

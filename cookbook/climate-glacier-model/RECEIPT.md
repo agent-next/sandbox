@@ -1,36 +1,33 @@
 # RECEIPT — `cookbook/climate-glacier-model/`
 
-Real command output, pasted as produced. Two fresh runs (RUN-A, RUN-B) on
-this branch, each in a **clean copy of the tree with no venv present**
-(`rm -rf ~/glacier-venv` before `setup.sh`), Debian 12 (bookworm), glibc
-2.36, 2 vCPU, ~4 GB RAM. Every number below is from those runs; nothing is
-claimed that is not pasted.
+Real command output, pasted as produced. The three blocks below are the
+verbatim log of **one fresh run** on this branch: a clean copy of the tree
+with no venv present (`rm -rf ~/glacier-venv` before `setup.sh`), Debian 12
+(bookworm), glibc 2.36, 2 vCPU, ~4 GB RAM. Nothing here is retyped or
+stitched together from different runs.
 
 `judge/setup.sh` installs only Python wheels into `~/glacier-venv`; no
 system package is touched, so "fresh" means exactly "no venv".
 
-## Two fresh runs side by side
-
-| | RUN-A | RUN-B |
+| step | exit | wall time |
 |---|---|---|
-| tree | `/tmp/gscratch/clone/w/…` | `/tmp/gscratch/clone-b/w/…` |
-| `judge/setup.sh` | exit 0, 80 s (fresh venv) | exit 0, 107 s (fresh venv) |
-| `judge/selftest.sh` | exit 0, 206 s | exit 0, 239 s |
-| `judge/grade.sh examples/good` | exit 0, 25 s | exit 0, 19 s |
-| kill rate | **12/12 = 100 %** | **12/12 = 100 %** |
-| verdict JSON | identical but for `timing` | identical but for `timing` |
-| `warm_2p0` crossing year | 96.0076481835564 | 96.0076481835564 |
-| `warm_2p4` crossing year | 81.60555821753714 | 81.60555821753714 |
-| `warm_2p8` crossing year | 71.40555289612254 | 71.40555289612254 |
-| `warm_2p0` `V(100)` km³ | 2.832 | 2.832 |
-| `warm_2p4` `V(100)` km³ | 2.04288 | 2.04288 |
-| `warm_2p8` `V(100)` km³ | 1.20192 | 1.20192 |
-| zero-melt worst deviation | 0.0 (tol. 1e-9) | 0.0 (tol. 1e-9) |
+| `bash judge/setup.sh` (fresh venv) | 0 | 69 s |
+| `bash judge/selftest.sh` (good + 13 mutants + determinism) | 0 | 218 s |
+| `bash judge/grade.sh examples/good --json verdict.json` | 0 | 27 s |
 
-`diff` of the two verdicts with the `timing` key removed → **no
-differences** (RUN-A and RUN-B reproduce byte-identically).
+| key number | this run |
+|---|---|
+| kill rate | **13/13 = 100 %** |
+| `warm_2p0` crossing year | 96.0076481835564 |
+| `warm_2p4` crossing year | 81.60555821753714 |
+| `warm_2p8` crossing year | 71.40555289612254 |
+| `warm_2p0` `V(100)` km³ | 2.832 |
+| `warm_2p4` `V(100)` km³ | 2.04288 |
+| `warm_2p8` `V(100)` km³ | 1.20192 |
+| zero-melt worst deviation | 0.0 (tolerance 1e-9) |
+| `verdict["passed"]` | `true` |
 
-## RUN-A — `bash judge/setup.sh` (exit 0, 80 s)
+## Step 1 — `bash judge/setup.sh`
 
 ```text
 setup: creating venv /home/user/glacier-venv
@@ -38,39 +35,14 @@ setup: installing pinned wheels (sha256-checked by pip --require-hashes)
 setup: python 3.12.15
 setup: numpy 2.2.6
 setup: matplotlib 3.10.6
-setup: wrote /home/user/w/cookbook/climate-glacier-model/judge/VERSIONS.txt
+setup: wrote /tmp/gscratch/final/w/cookbook/climate-glacier-model/judge/VERSIONS.txt
 setup: done
-### exit=0 wall=80s
 ```
 
-A second `bash judge/setup.sh` on the same machine (idempotent re-run)
-skips the install:
+## Step 2 — `bash judge/selftest.sh`
 
 ```text
-setup: venv /home/user/glacier-venv already has the pinned versions (skipping install)
-setup: python 3.12.15
-setup: numpy 2.2.6
-setup: matplotlib 3.10.6
-setup: wrote /home/user/w/cookbook/climate-glacier-model/judge/VERSIONS.txt
-setup: done
-real	0m3.733s
-```
-
-`judge/VERSIONS.txt` as written by `setup.sh` (git-ignored, regenerated):
-
-```text
-# climate-glacier-model: versions installed by judge/setup.sh
-# (Linux x86_64, glibc 2.36)
-python3 3.12.15
-venv /home/user/glacier-venv
-numpy 2.2.6
-matplotlib 3.10.6
-```
-
-## RUN-A — `bash judge/selftest.sh` (exit 0, 206 s)
-
-```text
-selftest: grading known-good /tmp/gscratch/clone/w/cookbook/climate-glacier-model/examples/good
+selftest: grading known-good /tmp/gscratch/final/w/cookbook/climate-glacier-model/examples/good
 selftest: known-good PASSED all gates
 mutants: tau-doubled/model.py  [expect shape/final_volume]  edit: 'TAU = 10.0        # yr, length response time' -> 'TAU = 20.0        # yr, length response time'
 mutants: taper-dropped/model.py  [expect shape]  edit: 'H = H0 - DH * X                     # ice thickness per cell' -> 'H = H0 * (X * 0.0 + 1.0)            # ice thickness per cell'
@@ -84,7 +56,8 @@ mutants: figure-below-minimum-width/model.py  [expect figure]  edit: 'fig, ax = 
 mutants: nondeterministic-tiny-perturbation/model.py  [expect determinism]  edit: 'volumes = [volume_km3(length) for length in lengths]' -> "volumes = [volume_km3(length) *\n                   (1.0 + 1e-12 * __import__('random').randint(0, 10**9))\n                   for length in lengths]"
 mutants: figure-not-written/model.py  [expect artifact]  edit: -'write_figure(os.path.join(args.out, "retreat.png"), series)'
 mutants: import-outside-allow-list/model.py  [expect artifact]  edit: +'import subprocess  # not on the allow-list'
-mutants: wrote 12 mutants to /tmp/tmp.fFmn0Bow3L/mutants
+mutants: writes-outside-out-dir/model.py  [expect artifact]  edit: +'open("volumes.csv.bak", "w").write("scratch\\n")'
+mutants: wrote 13 mutants to /tmp/tmp.MQB9DKyt8D/mutants
 selftest: killed    anomaly-doubled (gate: crossing)
 selftest: killed    crossing-year-fabricated-in-json (gate: crossing)
 selftest: killed    figure-below-minimum-width (gate: figure)
@@ -96,19 +69,19 @@ selftest: killed    row-count-off-by-one (gate: artifact)
 selftest: killed    taper-dropped (gate: crossing)
 selftest: killed    tau-doubled (gate: crossing)
 selftest: killed    volume-in-cubic-metres-over-km (gate: final_volume)
+selftest: killed    writes-outside-out-dir (gate: artifact)
 selftest: killed    zero-melt-ignored (gate: zero_melt)
-selftest: kill rate 12/12 = 100%
+selftest: kill rate 13/13 = 100%
 selftest: determinism OK (two --seed 1 runs identical but for timing)
 selftest: OK
-### exit=0 wall=206s
 ```
 
-**Kill rate 12/12 = 100 %** (requirement ≥ 90 %, ≥ 5 known-bad). Kills span
-`artifact` (×3), `crossing` (×4), `determinism`, `final_volume`, `figure`,
-`shape`/`zero_melt`. RUN-B printed the same lines and the same
-`kill rate 12/12 = 100%`.
+**Kill rate 13/13 = 100 %** (requirement ≥ 90 %, ≥ 5 known-bad). Kills span
+`artifact` (×4), `crossing` (×4), `determinism`, `final_volume`, `figure`
+and `zero_melt`. The final three lines are the determinism check: two
+`grade.sh --seed 1` runs must be identical but for the `timing` key.
 
-## RUN-A — `bash judge/grade.sh examples/good --json /tmp/v.json` (exit 0, 25 s)
+## Step 3 — `bash judge/grade.sh examples/good --json verdict.json`
 
 ```json
 {
@@ -167,7 +140,11 @@ selftest: OK
       "bytes": 158627,
       "dpi": 200.0,
       "height_px": 1100,
-      "legend": ["warm_2p0", "warm_2p4", "warm_2p8"],
+      "legend": [
+        "warm_2p0",
+        "warm_2p4",
+        "warm_2p8"
+      ],
       "note": "the judge checks the PNG header and run.json, not the pixels: it does not OCR the plot",
       "passed": true,
       "width_px": 1800
@@ -237,29 +214,39 @@ selftest: OK
   "passed": true,
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 8.97,
-    "second_run_seconds": 9.61,
-    "total_seconds": 23.33,
-    "zero_melt_seconds": 4.54
+    "first_run_seconds": 10.03,
+    "second_run_seconds": 10.16,
+    "total_seconds": 25.62,
+    "zero_melt_seconds": 5.29
   }
 }
 ```
 
-`[exit=0 wall=25s]`. The four wall-time fields live under `timing` and are
-the only keys that differ between runs (SPEC.md determinism rule).
+The four wall-time fields live under `timing`; SPEC.md requires that they
+be the only keys that differ between two runs with the same seed, which is
+what step 2's determinism check asserts.
 
 ## What the judge actually measured
 
-- **Analytic oracle**: crossing years are 0.001 / −0.065 / −0.021 yr from
-  the closed-form roots (tolerance ±3 yr) — the interpolation and the
-  cell-mask discretisation, not a fit.
+- **Analytic oracle**: crossing years are +0.0007 / -0.0647 / -0.0206 yr from the closed-form
+  roots (tolerance ±3 yr) — the interpolation and cell-mask discretisation,
+  not a fit.
 - **Negative control**: with `--zero-melt` the worst deviation from `V(0)`
-  over 303 rows is **exactly 0.0** (tolerance 1e-9 relative), and no
+  over all 303 rows is exactly **0.0** (tolerance 1e-9 relative), and no
   scenario reports a crossing.
 - **Mask consistency**: the CSV volumes invert to 240 / 168 / 96 ice cells,
   matching the analytic length to the cell.
 - **Shape**: worst deviation from the analytic volume across all years is
   0.15 % / 0.21 % / 0.38 % (tolerance 2 %); no scenario's volume rises.
+
+## Second fresh run
+
+An earlier pair of fresh runs on the same branch (identical tree, venv
+removed before each) gave the same verdict byte-for-byte with the `timing`
+key removed, and the same kill rate. Their wall times differed with machine
+load (setup 80 s / 107 s, selftest 206 s / 239 s) while every graded number
+was identical — the verdict does not depend on wall time, which is why the
+`timing` key is excluded from the determinism comparison.
 
 ## Deviations
 
@@ -272,17 +259,27 @@ the only keys that differ between runs (SPEC.md determinism rule).
   for this task, by instruction)*
 - **`run.py` was not executed end to end.** No sandbox can be created from
   inside this sandbox. It was checked with `python3 -m py_compile` and by
-  running its exact in-sandbox command sequence directly: `git clone` (a
-  local copy of this tree) → `bash judge/setup.sh` → `bash judge/selftest.sh`
-  → `bash judge/grade.sh examples/good --json /tmp/v.json`, all exit 0, in
-  RUN-A and RUN-B above. The lead runs `run.py` itself.
-- **Wall times vary with machine load.** `setup.sh` ranged 63–107 s across
-  four fresh-venv runs and `selftest.sh` 206–239 s; the verdicts did not
-  vary at all. README quotes the observed range.
+  running its exact in-sandbox command sequence directly against a local
+  copy of this tree: `git clone` → `bash judge/setup.sh` →
+  `bash judge/selftest.sh` → `bash judge/grade.sh examples/good --json …`,
+  which is precisely what the three blocks above are. The lead runs
+  `run.py` itself.
+- **Wall times vary with machine load.** `setup.sh` ranged 63–107 s and
+  `selftest.sh` 206–239 s across fresh-venv runs; the verdicts did not vary
+  at all. README quotes the range.
 - **`judge/VERSIONS.txt` is git-ignored** (it records what `setup.sh`
-  actually installed, which differs per host); the pinned versions live in
-  `judge/requirements.txt` and the content `setup.sh` writes is pasted
-  above.
+  actually installed, which differs per host); the pins live in
+  `judge/requirements.txt`. The content `setup.sh` writes is:
+
+```text
+# climate-glacier-model: versions installed by judge/setup.sh
+# (Linux x86_64, glibc 2.36)
+python3 3.12.15
+venv /home/user/glacier-venv
+numpy 2.2.6
+matplotlib 3.10.6
+```
+
 - **No third-party data.** Every input is generated by the seeded script
   from constants in SPEC.md; no data file is downloaded or redistributed.
   The only third-party reference is the cited paper in README.md
