@@ -1,32 +1,25 @@
 {
   "files": [
     {
-      "file": "frame_title.png",
-      "shows": "title beat 'Aurora Notes' at t=2.0s of the rendered output.mp4",
-      "command": "hyperframes render examples/good/composition -o output.mp4 -f 30 -w 2; ffmpeg -ss 2 -i output.mp4 -frames:v 1 frame_title.png",
-      "source": "examples/good rendered by hyperframes 0.8.61 (chrome-headless-shell 152.0.7977.30)",
-      "sha256": "b5cb6fde7345fa590d1bbd67e99671dd5b0d798d9e4cc6d1448bbb0f399cf3a8"
+      "file": "demo.mp4",
+      "shows": "20 s 1920x1080@30 product teaser rendered by HyperFrames from examples/good/composition (kinetic type, self-typing UI mockup, animated counter/chart, live search filter, eased end card)",
+      "command": "hyperframes render examples/good/composition -o master/output.mp4 -f 30 -w 2; ffmpeg -i master/output.mp4 -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart demo.mp4",
+      "source": "examples/good/composition/index.html rendered by hyperframes 0.8.61 (chrome-headless-shell 152.0.7977.30)",
+      "sha256": "8743d999bd6ba3121e6f2a1f46d3eeb777741796c8e33d5114d298256119372b"
     },
     {
-      "file": "frame_beat1.png",
-      "shows": "beat 1 'Capture ideas in one keystroke' at t=6.0s",
-      "command": "ffmpeg -ss 6 -i output.mp4 -frames:v 1 frame_beat1.png",
-      "source": "same render as frame_title.png",
-      "sha256": "bf54e85c7139d1ca5ab58b7707503836066c5631f5b0e8e0d689eba2220f90ed"
+      "file": "result.png",
+      "shows": "poster frame at t=6.9s: beat 1 'Capture ideas in one keystroke' with the self-typed note and the capture toast",
+      "command": "ffmpeg -ss 6.9 -i demo.mp4 -frames:v 1 result.png",
+      "source": "media/demo.mp4",
+      "sha256": "003e0030fdb1dc0eabab96816847a4d244aea3a02962adf27f5a1c5329fdd7db"
     },
     {
-      "file": "frame_beat3.png",
-      "shows": "beat 3 'Search everything instantly' at t=16.0s",
-      "command": "ffmpeg -ss 16 -i output.mp4 -frames:v 1 frame_beat3.png",
-      "source": "same render as frame_title.png",
-      "sha256": "7c7c1dabcb2aa22013ade2a5e4c905a4fef5036787b62f06e348a16f5c0b793f"
-    },
-    {
-      "file": "frame_endcard.png",
-      "shows": "end card 'Try it free today' at t=21.0s",
-      "command": "ffmpeg -ss 21 -i output.mp4 -frames:v 1 frame_endcard.png",
-      "source": "same render as frame_title.png",
-      "sha256": "b819af6443deaf5205f53bc7e41edea644fe0c7b568a7cb8bb28ed4afe53d9af"
+      "file": "strip.png",
+      "shows": "six frames across the teaser: title, quick capture, sync counter, search filter, end card (3x2, 640x360 tiles)",
+      "command": "ffmpeg -i demo.mp4 -vf select+scale=640:360,tile=3x2 strip.png (frames 45,159,285,419,537,578)",
+      "source": "media/demo.mp4",
+      "sha256": "36d5454f33cfb21d34d409d420d093ddd8e6bf488399fc3f5bcabec1268ae66a"
     }
   ]
 }
