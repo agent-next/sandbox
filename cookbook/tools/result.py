@@ -179,6 +179,28 @@ def _sniff_ftyp(head):
         pos = i + 4
 
 
+def _moov_box(f):
+    """The top-level moov box (up to _SNIFF_WINDOW bytes), found by walking
+    box headers — files written without +faststart keep it after mdat."""
+    f.seek(0)
+    while True:
+        header = f.read(8)
+        if len(header) < 8:
+            return b""
+        size, typ = int.from_bytes(header[:4], "big"), header[4:]
+        if size == 1:
+            size = int.from_bytes(f.read(8), "big") - 8
+        elif size == 0:
+            size = None  # box runs to end of file
+        if size is not None and size < 8:
+            return b""
+        if typ == b"moov":
+            return header + f.read(_SNIFF_WINDOW)
+        if size is None:
+            return b""
+        f.seek(size - 8, 1)
+
+
 def _sniff(path):
     """Return the format tag from magic bytes, or None if unknown."""
     try:
@@ -186,7 +208,7 @@ def _sniff(path):
             head = f.read(64)
             if len(head) >= 12 and head[4:8] == b"ftyp":
                 head += f.read(_SNIFF_WINDOW - len(head))
-                return _sniff_ftyp(head)
+                return _sniff_ftyp(head) or _sniff_ftyp(head[:64] + _moov_box(f))
     except OSError:
         return None
     if head[:8] == b"\x89PNG\r\n\x1a\n":
