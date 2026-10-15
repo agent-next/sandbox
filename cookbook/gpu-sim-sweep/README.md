@@ -29,11 +29,13 @@ python3 cookbook/gpu-sim-sweep/run.py --ref sbx/demo-gpu-sim-sweep   # other ref
 ```
 
 Each run prints wall time per step, the verdict JSON, and a short human
-summary, then kills the sandbox/lease and confirms it is gone. The GPU path
-takes minutes, not seconds: a fresh lease cold-compiles the Warp kernels once
-(~60–100 s, reported as setup time) and then every grade — the good config and
-each mutant — runs real simulations (~2 min each). See RECEIPT.md for the
-measured runs.
+summary, then kills the sandbox/lease and confirms it is gone. `--gpu` packs
+the local checkout's `judge/` + `examples/` onto the lease (the `--ref` flag
+applies to the CPU-sandbox clone path only). The GPU path takes minutes, not
+seconds — measured ~7–8 min end-to-end: a fresh lease cold-compiles the Warp
+kernels once (~83–88 s, reported as setup time) and each grade — the good
+config and every mutant — runs real simulations (good ~131–139 s, mutants
+0–105 s each). See RECEIPT.md for the two measured runs.
 
 To try the judge locally on a CPU-only Linux box instead:
 

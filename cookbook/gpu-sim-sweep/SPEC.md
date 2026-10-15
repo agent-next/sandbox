@@ -75,11 +75,11 @@ rc=1 "graded and failed".
    as an observed failure, not a crash.
 4. **cpu-parity** — measured GPU world-0 qpos trajectory vs the measured
    CPU trajectory, max abs error ≤ 0.05 rad over the settle window. (The
-   two engines diverge ~8e-3 rad over 800 steps — float32 accumulation;
-   mutants diverge by ≥ 0.1 or explode.)
+   two engines diverge 0.008 rad over 800 steps — float32 accumulation;
+   mutants measured at 0.067–131 rad or explode.)
 5. **throughput** — measured top-nworld aggregate steps/s ≥ floor ×
-   measured CPU steps/s (default floor 4×; measured ~12–31× on the 4 GiB
-   lease). Reported in the verdict as `top_steps_per_s`,
+   measured CPU steps/s (default floor 4×; measured ×22.4–29.9 on the 4 GiB
+   lease, see RECEIPT.md). Reported in the verdict as `top_steps_per_s`,
    `cpu_steps_per_s`, `speedup`.
 
 **cpu-check mode** (no GPU): gate 1 plus **cpu-physics** — the same live
@@ -145,15 +145,16 @@ The GPU path uses a 4 GiB VRAM slice lease created via the agent-next REST API:
 ```
 POST /sandboxes {"accel":{"vram_gb":4,"reserve":"exec"}}
 → returns lease id (gl-...)
-POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": 2400}
-→ unpacks judge/ + examples/, grades the good config and every mutant:
-   each grade runs the CPU baseline + the mujoco_warp sweep itself
+POST /sandboxes/{id}/exec {"code": <python>, "timeout_s": S}
+→ exec 1 unpacks judge/ + examples/ under ~/ and generates the mutants;
+  then one exec per grade (good + each mutant): each grade runs the CPU
+  baseline + the mujoco_warp sweep itself as a subprocess
 DELETE /sandboxes/{id}
 GET /sandboxes/{id} → 404 (or phase=dead)
 ```
 
 The lease image already has Python 3.13, mujoco 3.8.1, mujoco-warp 3.8.1,
 warp-lang 1.13.0, numpy 1.26.4 on an RTX 5090 slice (cc 12.0); no pip
-needed. Warp kernels cold-compile ~60–100 s per fresh lease (measured;
+needed. Warp kernels cold-compile ~83–88 s per fresh lease (measured;
 reported as setup time under `timing.cold_compile_s`, not sim time), then
 run warm from the kernel cache.

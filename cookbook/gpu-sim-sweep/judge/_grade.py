@@ -45,7 +45,7 @@ ARM_ERR_TOL = 0.15
 BOX_Z_MIN_MARGIN = 0.02
 BOX_Z_MAX_MARGIN = 0.25
 BOX_SPEED_MAX = 5.0
-DEFAULT_SPEEDUP_FLOOR = 4.0  # measured ~12x on the 4 GiB lease (see RECEIPT)
+DEFAULT_SPEEDUP_FLOOR = 4.0  # measured x22-30 on the 4 GiB lease (see RECEIPT)
 CPU_TIMED_STEPS = 20000      # CPU steps/s benchmark length
 CPU_WARMUP_STEPS = 1000
 
