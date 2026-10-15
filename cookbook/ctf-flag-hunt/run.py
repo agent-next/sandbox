@@ -156,10 +156,18 @@ def wait_step(sid: str, name: str, log: str,
 
 
 def show(sid: str, log: str) -> None:
-    """Echo a finished step's log so the user sees the judge's own lines."""
+    """Echo a finished step's log so the user sees the judge's own lines.
+
+    The trailing `__RC__<n>` marker is the poll protocol's business, not
+    the user's: it is stripped from the echo (wait_step has already
+    checked its value).
+    """
     proc = sh(sid, f"cat {log}")
     if proc.stdout:
-        print(proc.stdout.rstrip(), flush=True)
+        text = proc.stdout.rstrip()
+        text = text.rsplit("__RC__", 1)[0].rstrip() if "__RC__" in text else text
+        if text:
+            print(text, flush=True)
 
 
 def fetch(sid: str, remote: str, local: str) -> None:
@@ -250,11 +258,14 @@ def main() -> int:
         oracle = gates.get("oracle", {})
         neg = gates.get("negative_control", {})
         blast = gates.get("blast_radius", {})
+        # G4's own `required` is 0 (flags allowed on the legitimate path),
+        # so the summary reads it against the 5 challenges it protects.
         print("run: SUMMARY "
               f"passed={verdict.get('passed')} "
               f"flags={flags.get('captured')}/{flags.get('required')} "
               f"oracle={oracle.get('passed')}/{oracle.get('required')} "
-              f"neg_control={neg.get('captured')}/{neg.get('required')} "
+              f"neg_control={neg.get('captured')}/5 leaked "
+              f"sweep_hits={len(neg.get('sweep_hits', []))} "
               f"blast_radius={'clean' if blast.get('passed') else 'DIRTY'}",
               flush=True)
         if not verdict.get("passed"):
