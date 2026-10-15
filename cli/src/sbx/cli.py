@@ -223,8 +223,8 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     boot = runners.sandbox_boot(
         gh, _sandbox_cls(), snapshot=args.snapshot, labels=labels, group_id=args.group_id,
         job_timeout_s=round(args.job_timeout_min * 60), idle_ttl_s=round(args.idle_min * 60),
-        **({"failed_jobs": _failed_jobs(key, domain), "keep_failed": args.keep_failed,
-            "repos": watch} if args.keep_failed else {}),
+        failed_jobs=_failed_jobs(key, domain) if args.keep_failed else None,
+        keep_failed=args.keep_failed,
     )
     wake = threading.Event()
     if args.webhook_port is not None:

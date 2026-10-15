@@ -20,3 +20,6 @@ Verified against actions/runner source at
   Lines 296–298 contain `variables["system.github.job"].value`.
   [ExecutionContext.cs, lines 1028–1034](https://github.com/actions/runner/blob/796cc18ffaaafd5cea525d6231f5a8c93c11c603/src/Runner.Worker/ExecutionContext.cs#L1028-L1034)
   adds that variable as `github.job` *after* the job message is logged.
+- [HostTraceListener.cs, lines 70–88](https://github.com/actions/runner/blob/796cc18ffaaafd5cea525d6231f5a8c93c11c603/src/Runner.Common/HostTraceListener.cs#L70-L88)
+  rotates diagnostic files after a size limit. The reader checks files newest
+  first until it finds the job message, not just the last log page.

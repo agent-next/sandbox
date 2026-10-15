@@ -102,7 +102,7 @@ class FailedJobs:
         with self._locked():
             records = self._read()
             snap = sbx.create_snapshot()
-            sid = getattr(snap, "snapshot_id", None) or getattr(snap, "id", None) or str(snap)
+            sid = snap.snapshot_id
             record.update(snapshot_id=sid, created_at=time.time())
             records.append(record)
             try:

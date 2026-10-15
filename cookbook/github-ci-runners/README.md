@@ -193,12 +193,23 @@ snapshot does not kill an already restored sandbox.
 
 The job index is local to the serving machine, API endpoint and key, under
 `$XDG_STATE_HOME/sbx/failed-runners` (default `~/.local/state/sbx/failed-runners`).
-Run `debug` with the same state directory and credentials. For an org pool,
-use `--watch <owner>/<repo>` to limit job lookups; without it, lookup searches
-the org's repositories. GitHub results can take a moment to arrive, so lookup
-retries within a 60-second budget. Snapshots may contain job files, secrets
-and process state. Enable retention only for trusted jobs and delete snapshots
-when they are no longer needed.
+Run `debug` with the same state directory and credentials. Before killing the
+runner sandbox, `serve` reads the newest job message from its
+`_diag/Worker_*.log` files in one command (10-second timeout), then polls only
+`GET /repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs`, matching
+`runner_name`, until the conclusion arrives or the 60-second lookup budget ends.
+It never searches run history or discovers org repositories. `--watch` remains
+only for queue-based pool scaling, not job lookup.
+
+The worker's `Job message:` JSON contains `contextData.github.d` key/value
+entries for `repository`, `run_id`, `run_attempt` and `sha`.
+`variables["system.github.job"].value` supplies `github.job`, which the runner
+adds after logging the message. See the
+[sanitized real-log fixture and source references](../../cli/tests/fixtures/worker_diag/README.md).
+Only identity fields leave the sandbox, not the diagnostic log.
+
+Snapshots may contain job files, secrets and process state. Enable retention
+only for trusted jobs and delete snapshots when they are no longer needed.
 
 ## Coming next
 

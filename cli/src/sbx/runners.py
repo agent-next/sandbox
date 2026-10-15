@@ -15,13 +15,14 @@ import hmac
 import json
 import os
 import secrets
+import shlex
 import signal
 import sys
 import threading
 import time
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Callable
+from typing import Callable, Iterator
 
 import httpx
 
@@ -123,16 +124,26 @@ class GitHub:
 
     def jobs(self, repo: str, run_id: int, attempt: int) -> list[dict]:
         """Only the selected attempt, never mix a rerun with historical jobs."""
-        jobs, page = [], 1
+        return list(self._jobs(repo, run_id, attempt))
+
+    def _jobs(self, repo: str, run_id: int, attempt: int, *,
+              deadline: float | None = None) -> Iterator[dict]:
+        """Share attempt pagination; lookup can stop at its runner without reading later pages."""
+        count, page = 0, 1
         while True:
+            timeout = 30 if deadline is None else min(30, deadline - time.monotonic())
+            if timeout <= 0:
+                raise RunnerError("GitHub job lookup timed out")
             body = self._check(self.http.get(
                 f"/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs",
                 params={"per_page": 100, "page": page},
+                timeout=timeout,
             ), "list jobs").json()
             batch = body["jobs"]
-            jobs.extend(batch)
-            if len(jobs) >= body["total_count"]:
-                return jobs
+            yield from batch
+            count += len(batch)
+            if count >= body["total_count"]:
+                return
             if not batch:
                 raise RunnerError("runners stats: incomplete job listing; retry")
             page += 1
@@ -186,86 +197,16 @@ class GitHub:
                         page += 1
         return count
 
-    def job(self, runner: str, repos: list[str]) -> dict:
-        """Resolve a single-use runner to its terminal job, including rerun attempts.
-
-        GitHub has no runner-to-job endpoint. Search watched repositories (or the
-        registration scope), interleaving requests so one repository's history
-        cannot consume the lookup budget, then allow for result propagation.
-        """
+    def job(self, runner: str, identity: dict) -> dict:
+        """Poll only the worker's run attempt until our runner's conclusion propagates."""
         deadline = time.monotonic() + 60
-
-        def get(path: str, **kwargs):
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise RunnerError(f"GitHub job lookup timed out for runner {runner}")
-            return self.http.get(path, timeout=min(30, remaining), **kwargs)
-
-        if not repos:
-            if self.scope.startswith("repos/"):
-                repos = [self.scope.removeprefix("repos/")]
-            else:
-                repos = []
-                page = 1
-                while True:
-                    resp = get(f"/{self.scope}/repos", params={"per_page": 100, "page": page})
-                    batch = self._check(resp, "list repositories").json()
-                    repos.extend(r["full_name"] for r in batch)
-                    if len(batch) < 100:
-                        break
-                    page += 1
-
-        def search(repo: str):
-            """Yield between requests; inaccessible Actions listings only end this search."""
-            page = 1
-            while True:
-                resp = get(f"/repos/{repo}/actions/runs", params={"per_page": 100, "page": page})
-                if resp.status_code in (403, 404):
-                    return
-                runs = self._check(resp, "list runs for failed runner").json()["workflow_runs"]
-                yield None
-                for run in runs:
-                    job_page = 1
-                    while True:
-                        resp = get(f"/repos/{repo}/actions/runs/{run['id']}/jobs",
-                                   params={"per_page": 100, "page": job_page, "filter": "all"})
-                        if resp.status_code in (403, 404):
-                            return
-                        jobs = self._check(resp, "list jobs for failed runner").json()["jobs"]
-                        for job in jobs:
-                            if job.get("runner_name") == runner:
-                                yield {**job, "repo": repo,
-                                       "head_sha": job.get("head_sha") or run["head_sha"]}
-                                return
-                        yield None
-                        if len(jobs) < 100:
-                            break
-                        job_page += 1
-                if len(runs) < 100:
-                    break
-                page += 1
-
+        repo = identity["repository"]
         while time.monotonic() < deadline:
-            searches = [search(repo) for repo in repos]
-            while searches:
-                active = []
-                for pages in searches:
-                    try:
-                        match = next(pages)
-                    except StopIteration:
-                        continue
-                    if match is not None:
-                        # Once located, poll this job directly rather than repeatedly
-                        # searching history or giving up before propagation completes.
-                        while match.get("conclusion") is None:
-                            time.sleep(min(2, max(0, deadline - time.monotonic())))
-                            resp = get(f"/repos/{match['repo']}/actions/jobs/{match['id']}")
-                            job = self._check(resp, "read job for failed runner").json()
-                            match = {**match, **job, "repo": match["repo"],
-                                     "head_sha": job.get("head_sha") or match["head_sha"]}
-                        return match
-                    active.append(pages)
-                searches = active
+            for job in self._jobs(repo, identity["run_id"], identity["run_attempt"], deadline=deadline):
+                if job.get("runner_name") == runner:
+                    if job.get("conclusion") is not None:
+                        return {**job, "repo": repo, "head_sha": job.get("head_sha") or identity["sha"]}
+                    break
             time.sleep(min(2, max(0, deadline - time.monotonic())))
         raise RunnerError(f"GitHub job lookup timed out for runner {runner}")
 
@@ -469,9 +410,61 @@ def sweep(gh: GitHub, sandbox_cls, prefix: str) -> None:
                 emit("orphan_killed", runner=name, sandbox=info.sandbox_id)
 
 
+# Worker.cs logs the serialized message before ExecutionContext adds github.job.
+# See tests/fixtures/worker_diag/README.md for the real-log fixture and source lines.
+# Parse inside the sandbox: diagnostic logs can contain credentials and must not
+# be copied to the serving machine or included in an exception.
+_WORKER_IDENTITY = r"""
+import json, re, sys
+from pathlib import Path
+
+try:
+    logs = sorted(Path(sys.argv[1]).glob("_diag/Worker_*.log"),
+                  key=lambda p: p.stat().st_mtime_ns, reverse=True)
+    for path in logs:
+        with path.open() as log:
+            for line in log:
+                if " INFO Worker] Job message:" in line:
+                    break
+            else:
+                continue
+            lines = []
+            for line in log:
+                if line.startswith("["):
+                    break
+                lines.append(line)
+                if line.rstrip("\r\n") == "}":
+                    break
+        break
+    else:
+        raise ValueError()
+    message = json.loads("".join(lines))
+    github = {p["k"]: p["v"] for p in message["contextData"]["github"]["d"]}
+    repo = github["repository"]
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or any(
+        part in (".", "..") for part in repo.split("/")
+    ):
+        raise ValueError()
+    for key in ("run_id", "run_attempt"):
+        if not re.fullmatch(r"[1-9][0-9]*", github[key]):
+            raise ValueError()
+    job = message["variables"]["system.github.job"]["value"]
+    if not isinstance(job, str) or not job:
+        raise ValueError()
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", github["sha"]):
+        raise ValueError()
+    print(json.dumps({
+        "repository": repo, "run_id": int(github["run_id"]),
+        "run_attempt": int(github["run_attempt"]), "job": job, "sha": github["sha"],
+    }))
+except Exception:
+    sys.exit("runner job identity missing or invalid")
+"""
+
+
 def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], group_id: int,
-                 job_timeout_s: int, idle_ttl_s: int, failed_jobs=None, keep_failed: int = 0,
-                 repos: list[str] | None = None) -> Callable[[Slot], None]:
+                 job_timeout_s: int, idle_ttl_s: int, failed_jobs=None,
+                 keep_failed: int = 0) -> Callable[[Slot], None]:
     """boot() for Pool: JIT-register, start the runner in a fresh sandbox, kill it after one job."""
 
     lifetime = job_timeout_s + idle_ttl_s + 300
@@ -506,7 +499,11 @@ def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], g
                     slot.finishing = True
             if preserve:
                 try:
-                    job = gh.job(slot.name, repos or [])
+                    identity = sbx.commands.run(
+                        f"python3 -c {shlex.quote(_WORKER_IDENTITY)} {shlex.quote(RUNNER_DIR)}",
+                        timeout=10, user="root",
+                    )
+                    job = gh.job(slot.name, json.loads(identity.stdout))
                     if job["conclusion"] == "failure":
                         failed_jobs.keep(sbx, job, slot.name, maximum=keep_failed)
                 except Exception as exc:
