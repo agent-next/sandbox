@@ -28,7 +28,6 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-
 HF_ROOT = ("https://huggingface.co/datasets/nvidia/"
            "PhysicalAI-SimReady-Warehouse-01/resolve/main/")
 USER_AGENT = "agent-next-sbx/1.0 (omniverse-rtx-scenes build)"
@@ -59,7 +58,16 @@ def dataset_rel(asset_path: str, anchor: Path | None = None) -> str:
     if anchor is not None:
         a = str(anchor).replace("\\", "/").rstrip("/") + "/"
         if p.startswith(a):
-            return p[len(a):].lstrip("/")
+            p = p[len(a):].lstrip("/")
+    # Some assemblies reference props dataset-root-relative
+    # (`@Props/general/X/X.usd@`) instead of `@../../general/...@`, so
+    # ComputeAllDependencies resolves them to
+    # `Props/assembly/Asm/Props/general/X/X.usd`.  Truncating at the LAST
+    # `Props/` recovers the real dataset path; the first-occurrence truncation
+    # would only work for paths already relative to the dataset root.
+    idx = p.rfind("Props/")
+    if idx > 0:
+        return p[idx:]
     idx = p.find("Props/")
     if idx >= 0:
         return p[idx:]
@@ -187,7 +195,13 @@ def closure(entry_rel: str, cache: Path,
                 dep = dataset_rel(str(u), anchor=cache)
                 if not dep or dep in seen:
                     continue
-                if not dep.endswith(NON_USD):
+                # A *bare* reference (`@OmniPBR.mdl@`) carries no directory
+                # information, so dataset_rel cannot place it; it resolves
+                # relative to the layer that referenced it.  A resolved path
+                # always keeps a dataset top-level prefix (Props/, SubLayers/,
+                # …), so anything without one is bare and needs re-anchoring.
+                first = dep.split("/", 1)[0]
+                if first not in TOP_LEVEL:
                     # a bare @OmniPBR.mdl@ etc.: re-anchor at the layer that
                     # referenced it so it lands next to that layer.
                     anchor_dir = dataset_rel(str(p), anchor=cache)
