@@ -12,7 +12,10 @@
 # It is fetched from the Debian bookworm pool by exact URL (no `latest`, no
 # `apt-get install`; a Debian stable security update from 2024, not a
 # package published in the last two weeks), checked against the sha256
-# below, and unpacked with `dpkg-deb -x` into
+# below (the sha256 of
+# <http://deb.debian.org/debian/pool/main/u/util-linux/util-linux_2.38.1-5+deb12u3_amd64.deb>:
+# `sha256sum` over the 1177276 bytes that URL serves), and unpacked with
+# `dpkg-deb -x` into
 # $HOME/.local/untrusted-code-isolation, so the system package database is
 # never touched and no root is needed.
 #
