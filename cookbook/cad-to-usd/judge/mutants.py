@@ -83,13 +83,18 @@ def swap_yz(stage, UsdGeom):
             attr = prim.GetAttribute("points")
             pts = attr.Get()
             attr.Set([(p[0], p[2], p[1]) for p in pts])
+            # the authored extent hint feeds the judge's BBoxCache, so it
+            # must be swapped too (it stays consistent with the points)
+            ext = prim.GetAttribute("extent")
+            if ext and ext.Get():
+                ext.Set([(e[0], e[2], e[1]) for e in ext.Get()])
 
 
 def drop_largest_mesh(stage, UsdGeom):
     meshes = [p for p in stage.Traverse() if p.IsA(UsdGeom.Mesh)]
     biggest = max(meshes, key=lambda p: len(
         UsdGeom.Mesh(p).GetPointsAttr().Get() or []))
-    stage.RemovePrim(biggest)
+    stage.RemovePrim(biggest.GetPath())
 
 
 def decimate_largest_mesh(stage, UsdGeom):
