@@ -53,6 +53,16 @@ class LoggingHandler(SimpleHTTPRequestHandler):
             for (path, ua), n in sorted(counts.items()):
                 f.write(json.dumps({'path': path, 'ua': ua, 'n': n}) + '\n')
 
+    def end_headers(self):
+        # no-store: a scraper that re-visits a page it has already loaded must
+        # always hit the server. Left to the browser's cache, the same crawl
+        # sometimes revalidates (a logged request) and sometimes is served from
+        # memory with no request at all -- so the judge's measured request count
+        # would differ between two identical runs, and no verdict would ever be
+        # reproducible.
+        self.send_header('Cache-Control', 'no-store')
+        SimpleHTTPRequestHandler.end_headers(self)
+
     def log_message(self, fmt, *args):
         # the base handler is chatty on stderr; the judge owns that stream
         sys.stderr.write('[serve] %s\n' % (fmt % args))
