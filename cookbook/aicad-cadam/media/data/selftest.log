@@ -13,9 +13,9 @@
 [mutants] 11 mutants in /home/user/w/cookbook/aicad-cadam/examples/bad
 
 [selftest] Known-good cases (must PASS):
-[selftest]   good/bushing  PASS  (15s)
-[selftest]   good/plate  PASS  (59s)
-[selftest]   good/bracket  PASS  (10s)
+[selftest]   good/bushing  PASS  (9s)
+[selftest]   good/plate  PASS  (25s)
+[selftest]   good/bracket  PASS  (7s)
 
 [selftest] Determinism (same case twice, verdict JSON minus 'timing'):
 [selftest]   bushing  deterministic
