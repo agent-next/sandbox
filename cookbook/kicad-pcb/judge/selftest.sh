@@ -83,8 +83,12 @@ try:
     v = json.load(open(sys.argv[1]))
 except Exception:
     sys.exit(1)
-bad = [k for k, g in v.get("gates", {}).items() if not g["pass"]]
-if v.get("overall_pass") is False and bad:
+gates = v.get("gates", {})
+bad = [k for k, g in gates.items() if not g["pass"]]
+# a tool/oracle crash is not detection: it never counts as a kill
+crashed = [k for k, g in gates.items()
+           if "oracle_error" in (g.get("details") or {})]
+if v.get("overall_pass") is False and bad and not crashed:
     print(" ".join(sorted(bad)))
 else:
     sys.exit(1)

@@ -85,17 +85,26 @@ def mutant_blurb(name):
     """First line of the mutant's docstring — the reviewed description
     of the single edit."""
     fn = mut_mod.MUTANTS[name]
-    return (fn.__doc__ or "").strip().splitlines()[0]
+    para = " ".join((fn.__doc__ or "").strip().split("\n\n")[0].split())
+    if len(para) > 100:               # keep the first whole clause
+        cut = [i for i in (para.find(": "), para.find(". ")) if i > 0]
+        para = para[:min(cut)] if cut else para
+    return para
 
 
 def fail_metric(gate, det):
     """Short measured-value string for a FAILED gate cell."""
     if gate == "G1_erc":
+        short = {"endpoint_off_grid": "off grid",
+                 "pin_not_connected": "pin unconn.",
+                 "pin_to_pin": "pin to pin"}
         if det.get("erc_errors"):
-            et = ",".join(det.get("error_types", {})) or "error"
-            return f"errors={det['erc_errors']}\n({et})"
+            et = ",".join(short.get(t, t[:12])
+                          for t in det.get("error_types", {})) or "error"
+            return f"errors={det['erc_errors']}\n{et}"
         bad = det.get("warning_types_not_allowed", {})
-        return "warn\n" + ",".join(f"{t}x{n}" for t, n in bad.items())
+        return "warn " + ",".join(f"{short.get(t, t[:12])} x{n}"
+                                  for t, n in bad.items())
     if gate == "G2_drc":
         return (f"viol={det.get('drc_violations', 0)}\n"
                 f"unconn={det.get('drc_unconnected_items', 0)}")
@@ -371,6 +380,15 @@ def markers_for(name):
             lab = "renamed net label (TRIG -> TRIGX)"
         return "sch", pts, lab
     pts, lab = pcb_markers(name)
+    if not pts:                       # board_oversize: no DRC marker
+        det = load(name)["gates"]["G7_limits"]["details"]
+        if det.get("board_size_ok") is False:
+            e = edge_cuts_points(os.path.join(proj_dir(name), PCB_NAME))
+            x1 = max(p[0] for p in e)
+            ys = [p[1] for p in e]
+            pts = [(x1, (min(ys) + max(ys)) / 2)]
+            w, h = det["board_size_mm"]
+            lab = f"outline {w:.0f} x {h:.0f} mm > 50 mm limit"
     return "pcb", pts, lab
 
 

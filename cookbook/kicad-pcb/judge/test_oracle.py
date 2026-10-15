@@ -142,6 +142,14 @@ class G6Drill(unittest.TestCase):
         self.assertTrue(ok, det)
         self.assertEqual(det["drill_hits"], 1)
 
+    def test_horizontal_slot_needs_short_axis_tool(self):
+        pcb = self.PCB.replace("(drill oval 1.0 2.0)", "(drill oval 2.0 1.0)")
+        with tempfile.TemporaryDirectory() as d:
+            write(d, "x.drl", self.DRL)
+            ok, det = oracle.gate_drill(d, write(d, "b.kicad_pcb", pcb))
+        self.assertTrue(ok, det)
+        self.assertEqual(det["missing_tool_mm"], [])
+
 
 class G7Limits(unittest.TestCase):
     """Finding 4: the limits SPEC.md publishes are real pass rules."""
@@ -173,6 +181,19 @@ class G7Limits(unittest.TestCase):
             ok, det = self.limits(d, self.RECT.format(x=200), self.PRO)
         self.assertFalse(ok)
         self.assertFalse(det["board_size_ok"])
+
+    def test_thin_track_fails(self):
+        seg = (' (segment (start 110 110) (end 120 110) (width {w})'
+               ' (layer "F.Cu") (net 1))')
+        with tempfile.TemporaryDirectory() as d:
+            ok, _ = self.limits(d, self.RECT.format(x=140)[:-1]
+                                + seg.format(w=0.25) + ")", self.PRO)
+            bad, det = self.limits(d, self.RECT.format(x=140)[:-1]
+                                   + seg.format(w=0.10) + ")", self.PRO)
+        self.assertTrue(ok)
+        self.assertFalse(bad)
+        self.assertFalse(det["track_width_ok"])
+        self.assertEqual(det["min_track_width_mm"], 0.10)
 
     def test_weak_netclass_fails(self):
         pro = json.loads(json.dumps(self.PRO))

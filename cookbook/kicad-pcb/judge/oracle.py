@@ -611,14 +611,16 @@ def needed_holes(pcb_path):
     every thru_hole / np_thru_hole pad and every via. A drill of 0 means
     'no hole' — for a through-hole pad that is itself the defect."""
     def drill_dia(node):
-        """First numeric token of a (drill ...) child, else 0."""
+        """Cutter diameter of a (drill ...) child, else 0. An oval
+        (drill oval W H) slot is cut by a tool of the shorter axis."""
         d = child(node, "drill")
+        dims = []
         for tok in (d[1:] if d else []):
             try:
-                return fnum(tok)
-            except ValueError:
-                continue          # e.g. (drill oval 1.0 1.4)
-        return 0.0
+                dims.append(fnum(tok))
+            except (ValueError, TypeError):
+                continue          # 'oval' keyword, (offset ...) child
+        return min(dims) if dims else 0.0
 
     tree = parse_sexpr(open(pcb_path).read())
     holes = []
@@ -720,6 +722,18 @@ def gate_limits(pcb_path, pro_path):
         ok = False
     else:
         det["netclass_ok"] = True
+    # netclass widths are routing defaults, not DRC minima: check the
+    # copper the board actually has as well
+    tree = parse_sexpr(open(pcb_path).read())
+    widths = [fnum(child(t, "width")[1])
+              for kind in ("segment", "arc") for t in find_all(tree, kind)
+              if child(t, "width")]
+    det["min_track_width_mm"] = min(widths) if widths else None
+    if widths and min(widths) < NETCLASS_MIN_MM["track_width"]:
+        det["track_width_ok"] = False
+        ok = False
+    else:
+        det["track_width_ok"] = True
     return ok, det
 
 

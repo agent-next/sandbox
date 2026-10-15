@@ -45,7 +45,7 @@ The known-good example is `examples/good/555-blinker/`
 | G4 Outline | `.kicad_pcb` parsed directly | no Edge.Cuts line/arc/curve endpoint is left open (each shared by >=2 primitives; `gr_rect`/`gr_circle`/`gr_poly` are inherently closed), and at least one closed loop or self-closing shape is present |
 | G5 Gerbers | `kicad-cli pcb export gerbers <pcb> -o dir --layers F.Cu,B.Cu,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask,Edge.Cuts` | all 7 layer files exist; each has >=1 `%ADD` aperture and >=1 draw (`D01`) or flash (`D03`) operation — a `D02` pen-up move is not geometry; **and** the bounding box of geometry drawn in the Edge.Cuts gerber matches the `.kicad_pcb` Edge.Cuts bounding box to <= 0.1 mm per side (gerber y-axis is inverted vs board coords) |
 | G6 Drill | `kicad-cli pcb export drill <pcb> -o dir` | every `thru_hole`/`np_thru_hole` pad and every via in the `.kicad_pcb` has drill > 0; >=1 `.drl` file; >=1 `TnC<d>` tool with d>0; >=1 `X..Y..` hit or `G85` slot cycle; every required drill diameter has a matching tool; hits cover the holes the board needs |
-| G7 Limits | `.kicad_pcb` Edge.Cuts + `.kicad_pro` `net_settings` | Edge.Cuts bounding box fits within 50 x 50 mm; every netclass has clearance >= 0.20 mm, track width >= 0.20 mm, via drill >= 0.30 mm |
+| G7 Limits | `.kicad_pcb` Edge.Cuts + `.kicad_pro` `net_settings` | Edge.Cuts bounding box fits within 50 x 50 mm; every netclass has clearance >= 0.20 mm, track width >= 0.20 mm, via drill >= 0.30 mm; every copper track segment/arc on the board is >= 0.20 mm wide |
 
 ### ERC warning allow-list (G1)
 
@@ -100,7 +100,8 @@ requires the sums to match.
   `netlist_mismatch`, `led_reversed`, `drc_unconnected`, `drc_short`,
   `drc_rules_off`, `outline_open`, `board_oversize`, `drill_no_tools`,
 - each mutant must fail >= 1 gate with a valid failing verdict JSON —
-  a grade crash or a missing/unreadable verdict is a selftest failure,
+  a grade crash, a missing/unreadable verdict, or a gate that failed
+  only because a tool or the oracle crashed (`oracle_error`) is a selftest failure,
   not a kill; zero mutants generated is a selftest failure; kill rate
   must be >= 90 %,
 - `judge/` checksum before and after must be identical.

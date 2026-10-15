@@ -44,7 +44,7 @@ times, then always kills the sandbox and verifies it is gone.
 | G4 | Edge.Cuts parsed from `.kicad_pcb` | outline is a closed loop, no open segment ends |
 | G5 | gerber export (7 layers) | >=1 aperture + >=1 draw/flash op per layer; Edge.Cuts extents match the board to 0.1 mm |
 | G6 | Excellon drill export | every through-hole pad/via has a drill, a matching tool exists, hits cover all holes |
-| G7 | `.kicad_pcb` + `.kicad_pro` | board <= 50x50 mm; netclass clearance/track >= 0.20 mm, via drill >= 0.30 mm |
+| G7 | `.kicad_pcb` + `.kicad_pro` | board <= 50x50 mm; netclass clearance/track >= 0.20 mm, via drill >= 0.30 mm; every copper track >= 0.20 mm |
 
 ## Measured wall time (this sandbox, 2 vCPU / 4 GB)
 
