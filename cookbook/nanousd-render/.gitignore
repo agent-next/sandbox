@@ -1,3 +1,2 @@
-# written by judge/setup.sh in each sandbox (exact versions of what it
-# installed); the reference copy's numbers are pasted in RECEIPT.md
-judge/VERSIONS.txt
+# lossless video master trees written by media/make_media.sh
+media/master/

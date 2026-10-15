@@ -27,7 +27,6 @@ import time
 
 REPO_URL = "https://github.com/agent-next/sandbox"
 DEMO = "cookbook/nanousd-render"
-GOOD_ARTIFACT = f"{DEMO}/examples/good/scene.usda"
 
 
 def log(msg: str) -> None:
@@ -72,17 +71,12 @@ def sh(argv: list[str], **kw) -> subprocess.CompletedProcess:
 
 
 def sandbox_id(out: str) -> str | None:
-    """Pull the sandbox id out of `sbx create` output."""
-    m = re.search(r"\b(sbx_[A-Za-z0-9_-]+)\b", out)
-    if m:
-        return m.group(1)
+    """Pull the sandbox id out of `sbx create` output. The CLI prints the
+    id on its own (a single bare line); take the first one-token line."""
     for line in out.splitlines():
         line = line.strip()
-        if line and not line.lower().startswith(("created", "sandbox", "id")):
-            continue
-        tok = line.split()[-1] if line.split() else ""
-        if tok and " " not in tok:
-            return tok
+        if line and " " not in line:
+            return line
     return None
 
 
@@ -155,7 +149,8 @@ def main() -> int:
         # -------------------------------------------------------- grade
         with Step("judge/grade.sh examples/good/scene.usda") as s:
             ok, out = exec_in(
-                f"cd ~/sandbox/{DEMO} && bash judge/grade.sh {GOOD_ARTIFACT} "
+                f"cd ~/sandbox/{DEMO} && bash judge/grade.sh "
+                f"examples/good/scene.usda "
                 f"--seed 0 --json /tmp/verdict.json 2>&1 | tail -40", "grade")
             verdict_text = out
             log(out.strip()[-3000:])
@@ -191,21 +186,21 @@ def main() -> int:
     finally:
         if args.keep:
             log(f"--keep given: sandbox {sb_id} left running")
-            return_code = 0 if ok_all else 1
             print(f"[run] kept sandbox id: {sb_id}")
-            sys.exit(return_code)
+            sys.exit(0 if ok_all else 1)
         # ------------------------------------------------ always kill
         with Step("sbx kill"):
             p = sh([sbx, "kill", sb_id])
             if p.returncode != 0:
                 log(f"sbx kill reported a failure for {sb_id}: "
                     f"{p.stderr.strip()[:200]}")
-        # and confirm it is really gone
+        # and confirm it is really gone (a lost kill reply is not a kill)
         p = sh([sbx, "list"])
         if re.search(rf"\b{re.escape(sb_id)}\b", p.stdout or ""):
-            log(f"WARNING: {sb_id} still present in `sbx list` after kill")
-        else:
-            log(f"confirmed {sb_id} is gone")
+            print(f"[run] ERROR: cleanup of sandbox {sb_id} could not be "
+                  f"confirmed: it still appears in `sbx list`", file=sys.stderr)
+            sys.exit(1)
+        log(f"confirmed {sb_id} is gone")
 
 
 if __name__ == "__main__":

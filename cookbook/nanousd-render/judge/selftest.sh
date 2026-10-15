@@ -49,7 +49,6 @@ killed=0
 total=0
 declare -a rows=()
 
-"$JUDGE_DIR/../judge/grade.sh" --help >/dev/null 2>&1  # no --help in judge.py; ignore
 log "generating mutants"
 python3 "$JUDGE_DIR/mutants.py" --out "$MUT_DIR" --good "$GOOD" \
     || { log "mutant generation FAILED"; exit 1; }
