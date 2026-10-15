@@ -1,232 +1,104 @@
-# CPU verification, 2026-10-14
+# GPU acceptance, 2026-10-14
 
-**PARTIAL, not an accepted demo.** Setup and unit/schema checks pass. No real
-HDR frame has returned, so `examples/good/scene.json` is a candidate, not a
-verified good example. No physical gate, convergence slope or full mutant
-kill rate is claimed.
+**PASS on two fresh GPU `browser` leases.** Both ran `python3 run.py` (seed 17)
+from this checkout. Every judge, scene and runner file's SHA-256, as recorded by
+the lease in `runner.json`, matches commit `193f632`. Later commits add media
+and documentation only.
 
-Implementation: `8c3c5af` on `sbx/demo-render-pathtrace`.
-Physical attempts below used the preceding implementation revisions noted
-below. Later fixes record adapter architecture and bound a stalled process
-tree; they do not alter light transport.
-Documentation-only commits may follow these code revisions.
-All setup, browser, render, judge and test commands ran in real CPU sandboxes.
-The workstation only edited/committed files and managed leases.
-No media was produced.
-
-## Setup
-
-Command, in a fresh CPU sandbox:
-
-```sh
-sh judge/setup.sh
-```
-
-Real output tail (20 s; exit 0):
+## Versions (judge/VERSIONS.txt, identical in both leases)
 
 ```text
-MuTracer 0.1.1 SHA-512 and SHA-256 verified
-Python 3.12.15
-Playwright 1.63.0
-Chromium 153.0.8010.12
+Python 3.12.3
+Playwright 1.55.0
+Chromium 140.0.7339.16
 numpy 2.2.6
 MuTracer 0.1.1 (MIT)
 MuTracer SHA-256 a84ec7913ae95e49b1172ea0cba45f20179f4a5d0cce08768d4812348e3e7b4a
-setup PASS
 ```
 
-Idempotent rerun with executable `./judge/setup.sh`, real output tail:
+Adapter in both verdicts:
+`{"architecture": "blackwell", "vendor": "nvidia"}`, backend `webgpu`.
+`setup.log` ends with `MuTracer 0.1.1 SHA-512 and SHA-256 verified` … `setup PASS`.
 
-```text
-MuTracer 0.1.1 SHA-512 and SHA-256 verified
-Python 3.12.15
-Playwright 1.63.0
-Chromium 153.0.8010.12
-numpy 2.2.6
-MuTracer 0.1.1 (MIT)
-MuTracer SHA-256 a84ec7913ae95e49b1172ea0cba45f20179f4a5d0cce08768d4812348e3e7b4a
-setup PASS
-idempotent_setup_exit=0 seconds=3
-```
+## Steps and wall times (seconds)
 
-The direct adapter probe, launched with the CPU driver's Chromium flags,
-returned:
-
-```text
-{'vendor': 'google', 'architecture': 'swiftshader', 'device': '', 'description': ''}
-```
-
-This proves adapter availability, **not rendering correctness**. MuTracer
-reports its short adapter name as `google`; the driver therefore checks the
-architecture as well, rather than incorrectly requiring the vendor string
-to contain `swiftshader`.
-
-## Unit and preflight tests
-
-Command:
-
-```sh
-$HOME/.local/share/render-pathtrace/venv/bin/python -m unittest discover -s judge -p test_contract.py
-```
-
-Real output tail, exit 0:
-
-```text
-----------------------------------------------------------------------
-Ran 11 tests in 0.034s
-
-OK
-```
-
-These include synthetic positive/negative furnace and convergence fixtures,
-HDR hash/seed logic, software-adapter identification and mocked runner cleanup.
-Fixture output mentioning `PASS` is not a real render pass.
-The final deadline regression also uses a mock, not a 595 s sleep.
-The same sandbox command printed `py_compile_exit=0` and `unit_exit=0`.
-
-Six actual `judge/grade.sh` subprocesses on scripted mutants returned:
-
-```text
-SCHEMA energy_gain exit=1 {"error": "AssertionError: number outside [0, 1]", "error_kind": "artifact", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 0.014}}
-SCHEMA hidden_emission exit=1 {"error": "AssertionError: G2: undeclared emission", "error_kind": "artifact", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 0.006}}
-SCHEMA clipping skipped: requires real HDR render
-SCHEMA one_sample exit=1 {"error": "AssertionError: spp budget", "error_kind": "artifact", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 0.005}}
-SCHEMA inside_sphere exit=1 {"error": "AssertionError: camera inside sphere", "error_kind": "artifact", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 0.011}}
-SCHEMA nan_material exit=1 {"error": "ValueError: non-finite JSON: NaN", "error_kind": "artifact", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 0.006}}
-SCHEMA resolution exit=1 {"error": "AssertionError: number outside [64, 128]", "error_kind": "artifact", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 0.005}}
-6/6 schema mutants rejected; full 7-mutant kill rate not measured
-```
-
-These are input-validation checks. They do not establish the required >=90%
-physical-judge kill rate.
-
-## Real render attempts
-
-Every attempt used seed 17 and
-`sh judge/grade.sh examples/good/scene.json --seed 17`.
-All failed inside G1 before returning an HDR buffer.
-
-| attempt | measured total seconds | exit | result |
-| --- | ---: | ---: | --- |
-| 120 s offline-stage cap | 125.806 | 1 | stage timeout |
-| 300 s offline-stage cap | 306.199 | 1 | stage timeout |
-| temporary Dawn `disable_robustness` experiment | 307.892 | 1 | stage timeout; option not retained |
-| bevelSamples=1, 300 s cap | 458.804 | 1 | stage timeout, including slow cleanup |
-| 16×8 sphere geometry, 550 s cap (`21c7e8c`) | 306.734 | 1 | WebGPU device lost |
-| disabled GPU watchdog (`15fb217`) | 429.557 | 1 | WebGPU device lost |
-
-The last attempt's real output was:
-
-```text
-Running G1
-{"adapter": "google", "backend": "webgpu", "chromium": "153.0.8010.12", "error": "Error: Page.evaluate: Error: WebGPU device lost (unknown): A valid external Instance reference no longer exists.\n    at http://localhost:43595/dist/mutracer.umd.js:13253:20761", "error_kind": "renderer", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 429.557}}
-```
-
-A WebGL fallback attempt and two unmonitored fresh reproduction leases
-became unavailable before their final logs could be collected. Their cause
-is unconfirmed; no exit code or render result is inferred from lease loss.
-Later reproduction leases receive periodic exec probes.
-
-## Two fresh monitored runs
-
-Both cloned `15fb217` from the pushed branch and ran, in order:
-
-```sh
-sh judge/setup.sh
-sh judge/selftest.sh --seed 17
-sh judge/grade.sh examples/good/scene.json --seed 17 --json /tmp/verdict.json
-```
-
-Both setup logs ended with the version/integrity block pasted above. Periodic
-exec probes kept these leases available until their results were captured.
-
-| step | A exit / wall seconds | B exit / wall seconds |
+| step | lease A exit / s | lease B exit / s |
 | --- | --- | --- |
-| setup | 0 / 18 | 0 / 17 |
-| self-test | 1 / 411 | 1 / 391 |
-| grade | 1 / 317 | 1 / 511 |
-| physical gates completed | 0 | 0 |
-| full kill rate | not measured | not measured |
-| G1 means / G3 slope | unavailable | unavailable |
-| actual backend / short adapter name | webgpu / google | webgpu / google |
+| upload (3.78 MB MuTracer in 29 parts + 23 kB source; PUT) | — / 37.7 since start | — / 38.3 since start |
+| setup (offline; image NumPy reused, no wheel upload) | 0 / 1.093 | 0 / 0.905 |
+| judge unit tests (15) | 0 / 1.215 | 0 / 1.191 |
+| runner unit tests (13) | 0 / 0.071 | 0 / 0.091 |
+| self-test | 0 / 31.771 | 0 / 29.643 |
+| grade | 0 / 6.240 | 0 / 5.826 |
+| caller total, create → GET 404 | 100.205 | 124.413 |
 
-Run A, real step output:
+Cleanup, both leases: `DELETE 200; GET 404`. Lease meters: 76.8 s and 75.0 s
+billed at a 2 GiB slice, `stray_compute: false`.
+The run is dominated by the upload: the public files route measured about
+0.1 MB/s per lease regardless of chunk size.
 
-```text
-setup exit=0 seconds=18
-selftest exit=1 seconds=411
-grade exit=1 seconds=317
-```
+## Gate results (identical in both leases)
 
-Run A, real self-test output:
+| gate | measured | pass rule |
+| --- | --- | --- |
+| G1 furnace, rho 0.18 / 0.5 / 0.8 | 0.17946 / 0.49849 / 0.79764; background max error 0.0 | \|mean − rho\| ≤ 0.01716 / 0.02099 / 0.02459 |
+| G2 energy, max channel | clay 0.617, coat 0.305, floor 0.621, metal 0.942, velvet 0.347 | ≤ 1.05 |
+| G3 RMSE at 1/2/4/8 spp vs 128-spp reference | 0.20883 / 0.14836 / 0.10612 / 0.07621; slope −0.48463 | slope in [−0.65, −0.35] |
+| G4 HDR SHA-256, same seed ×2 | `b82318c76632e81d9e27cc5fabcc8907e101efa46a97edf8f1c752210d8355e4` ×2; seed 18 → `0a6bd2fd…` | identical; other seed differs |
+| G5 median / clipped / floor noise | 0.61611 / 0.00486 / 0.02046; non-finite 0; 512×512, 128 spp | [0.08, 0.85] / ≤ 0.10 / ≤ 0.15 |
 
-```text
-Running G1
-GOOD {"adapter": "google", "backend": "webgpu", "chromium": "153.0.8010.12", "error": "Error: Page.evaluate: Error: WebGPU device lost (unknown): A valid external Instance reference no longer exists.\n    at http://localhost:32827/dist/mutracer.umd.js:13253:20761", "error_kind": "renderer", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 409.583}}
-{"kill_rate": null, "reason": "good control failed; mutant and determinism results not valid", "selftest_pass": false, "timing": {"total_seconds": 410.659}}
-```
+The final `studio.npy` hash is byte-identical across the two leases
+(`b82318c7…55e4`), so cross-lease agreement is exact, not merely within 1e-4.
 
-Run A, real grade output:
-
-```text
-Running G1
-{"adapter": "google", "backend": "webgpu", "chromium": "153.0.8010.12", "error": "Error: Page.evaluate: Error: WebGPU device lost (unknown): A valid external Instance reference no longer exists.\n    at http://localhost:45317/dist/mutracer.umd.js:13253:20761", "error_kind": "renderer", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 315.587}}
-```
-
-Run B, real step output:
+## Self-test (identical verdicts in both leases, timing removed)
 
 ```text
-setup exit=0 seconds=17
-selftest exit=1 seconds=391
-grade exit=1 seconds=511
+{"kill_rate": 1.0, "killed": 8, "selftest_pass": true, "total": 8, "verdict_determinism": true, "wrong_albedo_rejected": true}
 ```
 
-Run B, real self-test output:
+| mutant | rejected by |
+| --- | --- |
+| energy_gain (baseColor 1.6) | schema: `number outside [0, 1]` |
+| hidden_emission (floor) | schema: `G2: undeclared emission` |
+| clipping (lights ×100) | G5 render gate |
+| underexposed (lights and environment ÷200) | G5 render gate |
+| one_sample | schema: `spp budget` |
+| inside_sphere | schema: `camera inside sphere` |
+| nan_material | `non-finite JSON: NaN` |
+| resolution | schema: `number outside [64, 512]` |
+| wrong-albedo renderer control | G1: rho 0.18 rendered 0.08973 |
 
-```text
-Running G1
-GOOD {"adapter": "google", "backend": "webgpu", "chromium": "153.0.8010.12", "error": "Error: Page.evaluate: Error: WebGPU device lost (unknown): A valid external Instance reference no longer exists.\n    at http://localhost:38905/dist/mutracer.umd.js:13253:20761", "error_kind": "renderer", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 390.03}}
-{"kill_rate": null, "reason": "good control failed; mutant and determinism results not valid", "selftest_pass": false, "timing": {"total_seconds": 391.249}}
-```
+Two mutants (clipping, underexposed) and the renderer control need a real HDR
+render to be caught; the rest are rejected before rendering.
 
-Run B, real grade output:
+## Media (seed 17, `sh media/make_media.sh`)
 
-```text
-Running G1
-{"adapter": "google", "backend": "webgpu", "chromium": "153.0.8010.12", "error": "Error: Page.evaluate: Error: WebGPU device lost (unknown): A valid external Instance reference no longer exists.\n    at http://localhost:37033/dist/mutracer.umd.js:13253:20761", "error_kind": "renderer", "gates": {}, "judge_unchanged": true, "pass": false, "requested_backend": "cpu", "seed": 17, "timing": {"total_seconds": 508.666}}
-```
+`media/frames.py` rendered the good scene at 1–256 spp on one more GPU lease
+(cleanup `GET 404`), measured against a 1024-spp reference with a different
+sample stream:
 
-The identical failure class is reproducible; the wall times vary. No numeric
-agreement between rendered images can be assessed without returned HDR data.
-The later adapter/deadline fixes passed unit tests but were not subjected to
-another fresh full render sequence within the task budget.
+| spp | 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| RMSE | 0.2095 | 0.1472 | 0.1049 | 0.0748 | 0.0529 | 0.0375 | 0.0270 | 0.0196 | 0.0145 |
 
-## Outstanding acceptance
-
-- G1 measured furnace means/variances/background errors: (not done: no HDR frame).
-- G1 wrong-albedo **real-render** rejection: (not done: no HDR frame).
-- G2 measured energy means: (not done: no HDR frame).
-- G3 real RMSE levels/slope: (not done: no HDR frame).
-- G4 byte-identical real HDR hashes and repeated verdict comparison:
-  (not done: no HDR frame).
-- G5 measured good-scene bands/noise and accepted candidate:
-  (not done: no HDR frame; SPEC targets remain provisional).
-- Full self-test kill rate: (not done: no passing good control).
-- `run.py` end-to-end create/clone/kill: (not done: assigned to the lead).
-  Its modules compile and cleanup behavior is unit-tested; the remote command
-  sequence is exercised directly instead of nesting sandbox creation.
-- Independent other-model reproduction: (not done: not dispatched).
-- Media: (not done: explicitly deferred by the owner).
+`media/MANIFEST.json` lists each file's source data and SHA-256.
 
 ## Deviations
 
-1. Owner-pinned MuTracer 0.1.1 was published 2026-10-14, inside the standard's
-   two-week exclusion window. Its supplied npm SHA-512 integrity and recorded
-   SHA-256 are checked before extraction; it runs only in disposable sandboxes.
-2. Playwright/Chromium come from the sandbox image. Setup verifies exact
-   versions and fails when absent/mismatched instead of downloading replacements.
-3. Numeric G5 targets are engineering targets, not calibrated limits from a
-   passing example. No acceptance or completed-demo claim is made.
-4. The cookbook index is not updated because it lists reviewed demos.
-5. Two fresh successful runs and independent reproduction remain pre-merge
-   blockers. Media is excluded from this task by explicit instruction.
+1. MuTracer 0.1.1 was published 2026-10-14, inside the standard's two-week
+   exclusion window; the owner pinned it. Its npm SHA-512 integrity and a
+   SHA-256 are checked on the caller and again in the lease before extraction.
+2. `run.py` uses the public REST API instead of the `sbx` CLI for the GPU path,
+   because GPU leases are created with an `accel` body and run Python through
+   `exec`. It uploads the local checkout rather than cloning a ref, since the
+   GPU lease has no network. Cleanup still runs in `finally` and needs GET 404.
+3. The CPU backend (SwiftShader WebGPU) lost its device before any HDR frame
+   in every attempt (six bounded runs plus two fresh monitored runs, 306–511 s
+   each, `A valid external Instance reference no longer exists`). It stays a
+   documented diagnostic path, not an accepted backend.
+4. A GPU lease whose Chromium silently fell back to SwiftShader ran into the
+   556 s timeout once during development. The driver now rejects a non-NVIDIA
+   adapter at start (`test_gpu_backend_fails_fast_on_software_adapter_at_start`).
+5. `loop.png` shows the self-test matrix rather than a per-iteration score
+   history: the scene was tuned by hand while the judge was being calibrated,
+   so no agent iteration log exists to plot.

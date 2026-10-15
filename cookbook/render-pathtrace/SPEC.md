@@ -65,7 +65,8 @@ render, rather than an adapter smoke, is required for every physical gate.
 
 Single-edit mutants: baseColor=1.6, undeclared floor emission, light intensity
 x100, spp=1, camera inside a sphere, NaN material parameter, over-budget
-resolution. Require all mutants rejected and kill rate >=90%.
+resolution, lights and environment /200 (underexposed). Require all mutants
+rejected and kill rate >=90%.
 Repeat grading with the same seed and compare complete verdicts after removing
 only `timing`. Two fresh GPU lease receipts are required. Cross-lease G1,
 G2 and G5 means must agree within 1e-4 and G3 slope within 1e-4 for the same
@@ -76,7 +77,6 @@ cross-lease determinism.
 
 Independent reproduction by another model family is a pre-merge requirement;
 unavailable reproduction must be marked not done, never inferred.
-Media is explicitly deferred by the task owner.
 
 ## Dependency exception
 
