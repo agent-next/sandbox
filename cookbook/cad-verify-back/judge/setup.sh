@@ -4,6 +4,7 @@
 # Installs (system-wide via pip, plus apt graphics libs):
 #   - cadquery 2.7.0 (its OCCT kernel via cadquery-ocp 7.8.1.1.post1)
 #   - ezdxf 1.4.4
+#   - trimesh 5.1.1 + manifold3d 3.5.4 (mesh checks and boolean XOR)
 # every wheel sha256-pinned in requirements.txt. Safe to re-run.
 #
 # Usage: bash judge/setup.sh
@@ -28,7 +29,7 @@ apt_ensure() {
     fi
     echo "[setup] installing apt graphics libs (libgl1 libglu1-mesa libxrender1 libxkbcommon0 libegl1)"
     sudo apt-get update -qq
-    sudo apt-get install -y -qq libgl1 libglu1-mesa libxrender1 libxkbcommon0 libegl1
+    sudo apt-get install -y -qq -o=Dpkg::Use-Pty=0 libgl1 libglu1-mesa libxrender1 libxkbcommon0 libegl1
 }
 
 # ---------------------------------------------------------------------------
@@ -36,14 +37,16 @@ apt_ensure() {
 # pip refuses to install any wheel whose sha256 does not match the pin.
 # ---------------------------------------------------------------------------
 pip_ensure() {
-    if "$PY" -c "import cadquery, ezdxf" >/dev/null 2>&1 \
+    if "$PY" -c "import cadquery, ezdxf, trimesh" >/dev/null 2>&1 \
         && [ "$("$PY" -c 'import cadquery; print(cadquery.__version__)' 2>/dev/null)" = "2.7.0" ] \
-        && [ "$("$PY" -c 'import ezdxf; print(ezdxf.__version__)' 2>/dev/null)" = "1.4.4" ]; then
-        echo "[setup] cadquery 2.7.0 + ezdxf 1.4.4 already installed"
+        && [ "$("$PY" -c 'import ezdxf; print(ezdxf.__version__)' 2>/dev/null)" = "1.4.4" ] \
+        && [ "$("$PY" -c 'import trimesh; print(trimesh.__version__)' 2>/dev/null)" = "5.1.1" ] \
+        && [ "$("$PY" -c 'import importlib.metadata as md; print(md.version("manifold3d"))' 2>/dev/null)" = "3.5.4" ]; then
+        echo "[setup] cadquery 2.7.0 + ezdxf 1.4.4 + trimesh 5.1.1 + manifold3d 3.5.4 already installed"
         return 0
     fi
-    echo "[setup] installing pinned python wheels (cadquery 2.7.0, ezdxf 1.4.4, occt via cadquery-ocp)"
-    "$PY" -m pip install --require-hashes --no-deps -r "$REQS"
+    echo "[setup] installing pinned python wheels (cadquery 2.7.0, ezdxf 1.4.4, trimesh 5.1.1, manifold3d 3.5.4, occt via cadquery-ocp)"
+    "$PY" -m pip install --require-hashes --no-deps --no-warn-script-location -r "$REQS"
 }
 
 # ---------------------------------------------------------------------------
@@ -55,7 +58,7 @@ pip_ensure
 echo "[setup] installed:"
 "$PY" - <<'EOF'
 import importlib.metadata as md
-for pkg in ("cadquery", "cadquery-ocp", "ezdxf", "ocp"):
+for pkg in ("cadquery", "cadquery-ocp", "ezdxf", "ocp", "trimesh", "manifold3d"):
     try:
         print(f"  {pkg} {md.version(pkg)}")
     except md.PackageNotFoundError:
