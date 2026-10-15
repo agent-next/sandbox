@@ -6,23 +6,31 @@ agent: sweep commits 20..30 in parallel, one disposable agent-next sandbox per
 suspect commit, and name the exact commit that introduced the regression with
 the diff of it — then let a judge it cannot fool grade the sweep report.
 
-Self-contained: everything runs inside sandboxes that clone this repo at
---ref (default main), so the script works from any directory (no local
-checkout of the repo is needed — only the `sbx` CLI and an API key).
+Self-contained: the scripts and judge come from this repo at --ref (default
+main), staged into sandboxes from one utility sandbox's clone, so run.py works
+from any directory (no local checkout of the repo is needed — only the `sbx`
+CLI and an API key).
 
 Steps (each timed, each printed, each fatal on failure):
-  1. sbx create x11 (one per suspect commit) — parallel
-  2. each sandbox: clone repo at ref, run sweep/one_commit.sh <i>, print a
-     receipt JSON; kill the sandbox as soon as its receipt is in
-  3. one utility sandbox: clone repo, judge/setup.sh, judge/selftest.sh
-     (proves the judge can fail before its verdict is trusted)
-  4. serial baseline in the utility sandbox: the same 11 one_commit.sh runs,
-     one after another (the honest serial floor for the sweep alone)
+  1. one utility sandbox: clone this repo at --ref, stage
+     fixture/make_fixture.py + sweep/one_commit.sh (base64), judge/setup.sh,
+     judge/selftest.sh (proves the judge can fail before its verdict is
+     trusted)
+  2. sbx create x11 (one per suspect commit) — parallel
+  3. each sweep sandbox: stage the two scripts, run sweep/one_commit.sh <i>
+     between SWEEP sentinels, print a receipt JSON; the sandbox is killed as
+     soon as its receipt is in
+  4. serial baseline in the utility sandbox: the identical staged-command
+     sequence, one commit after another (the honest serial floor)
   5. negative control in the utility sandbox: the same sweep on the reverted
      fixture must report "no regression in range"
   6. judge/grade.sh on the sweep report → verdict JSON; PASS only if every
      gate passes
   7. always kill every sandbox this run created and confirm with sbx list
+
+Per-commit work is byte-identical in the parallel sweep and the serial
+baseline (fixture build + local clone + suite), which is what the G7 speedup
+gate compares; sandbox create/kill walls are reported separately.
 
 Requires the `sbx` CLI on PATH:
   pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
@@ -103,7 +111,9 @@ class CleanupError(RuntimeError):
 
 def kill_and_confirm(sid: str, what: str) -> None:
     """Kill one sandbox this run created and confirm via sbx list."""
-    backoff = (5, 15, 30)          # a kill right after an exec can 405 briefly
+    backoff = (5, 15, 30, 45, 60, 60, 60)
+    # a busy sandbox can answer kills with 405 for a couple of minutes
+    # after its execs; observed to clear well inside this window
     for attempt, sleep_s in enumerate(backoff, start=1):
         rc, out = sbx("kill", sid, timeout=180)
         if rc == 0:
@@ -136,34 +146,6 @@ def create_sandbox(what: str, registry: dict) -> str:
     return sid
 
 
-def parse_receipt(out: str, sid: str, i: int) -> dict:
-    """Extract the receipt JSON from a combined `sbx exec` output.
-
-    sbx exec returns the command's stdout and stderr as separate buffers
-    (stdout written first, then stderr), while one_commit.sh sends ALL
-    progress noise to stderr and prints the single JSON receipt line to
-    stdout.  The receipt is therefore a JSON line in the combined output —
-    but NOT the last line (the suite's own stderr follows it), so scan for
-    the last line that parses as a receipt object instead.
-    """
-    for line in reversed(out.strip().splitlines()):
-        line = line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            obj = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(obj, dict) and "index" in obj and "sha" in obj:
-            if obj["index"] != i:
-                raise RuntimeError(f"sandbox {sid} (commit {i}) printed a "
-                                   f"receipt for commit {obj['index']}:\n"
-                                   f"{out.strip()}")
-            return obj
-    raise RuntimeError(f"sandbox {sid} (commit {i}) printed no receipt "
-                       f"JSON:\n{out.strip()}")
-
-
 def parse_tagged(out: str, begin: str, end: str) -> str:
     """Return the text between the BEGIN/END sentinels of a combined
     output (the reliable way to fetch multi-line JSON out of a sandbox)."""
@@ -180,19 +162,66 @@ def parse_tagged(out: str, begin: str, end: str) -> str:
     return "\n".join(lines[i + 1:j])
 
 
-def run_one_sandbox(sid: str, ref: str, i: int) -> dict:
-    """Clone the repo in sandbox `sid`, run sweep/one_commit.sh for index i,
-    then kill the sandbox (its receipt is all we need from it)."""
-    cmd = ("git clone --depth 1 -b {ref} {url} repo && "
-           "cd repo/{demo} && FIXTURE_DIR=/tmp/fixture-{i} "
-           "bash sweep/one_commit.sh {i}").format(
-               ref=ref, url=REPO_URL, demo=DEMO_DIR, i=i)
+def _write_b64_cmd(payload_b64: str, dest: str) -> str:
+    return ("python3 -c 'import base64,sys;"
+            "open(sys.argv[2],\"wb\").write(base64.b64decode(sys.argv[1]))' "
+            f"{payload_b64} {dest}")
+
+
+def stage_cmd(mf_b64: str, oc_b64: str) -> str:
+    """Stage the fixture generator and the per-commit script with the same
+    directory layout one_commit.sh expects (sweep/ next to fixture/)."""
+    return ("mkdir -p /tmp/sw/sweep /tmp/sw/fixture && " +
+            _write_b64_cmd(mf_b64, "/tmp/sw/fixture/make_fixture.py") +
+            " && " +
+            _write_b64_cmd(oc_b64, "/tmp/sw/sweep/one_commit.sh") +
+            " && chmod +x /tmp/sw/sweep/one_commit.sh")
+
+
+def fetch_sources(sid: str, ref: str) -> tuple[str, str]:
+    """From the utility sandbox's clone of the repo at --ref, fetch
+    base64 of fixture/make_fixture.py and sweep/one_commit.sh."""
+    cmd = ("cd repo/{demo} && echo SRC_MF_BEGIN && "
+           "base64 -w0 fixture/make_fixture.py && echo && "
+           "echo SRC_MF_END && echo SRC_OC_BEGIN && "
+           "base64 -w0 sweep/one_commit.sh && echo && echo SRC_OC_END"
+           ).format(demo=DEMO_DIR)
+    rc, out, _ = timed("stage fixture/one_commit from ref", sbx,
+                       "exec", sid, "--timeout", "120", "--",
+                       "bash", "-c", cmd, timeout=180)
+    if rc != 0:
+        raise RuntimeError(f"could not read the sweep scripts at ref "
+                           f"{ref} (exit {rc}):\n{out.strip()[-400:]}")
+    mf = base64.b64decode(parse_tagged(out, "SRC_MF_BEGIN",
+                                       "SRC_MF_END").strip()).decode()
+    oc = base64.b64decode(parse_tagged(out, "SRC_OC_BEGIN",
+                                       "SRC_OC_END").strip()).decode()
+    # sanity: these are the demo's scripts, not something else at that path
+    if f"PLANTED_INDEX = {PLANTED_INDEX}" not in mf:
+        raise RuntimeError(f"make_fixture.py at ref {ref} does not match "
+                           f"this run (no 'PLANTED_INDEX = {PLANTED_INDEX}')")
+    if "one_commit.sh" not in oc or "receipt" not in oc:
+        raise RuntimeError(f"sweep/one_commit.sh at ref {ref} does not "
+                           "look like the demo's per-commit script")
+    return mf, oc
+
+
+def run_one_sandbox(sid: str, mf_b64: str, oc_b64: str, i: int) -> dict:
+    """Stage the scripts in sandbox `sid`, run sweep/one_commit.sh for index
+    i between sentinels, then kill the sandbox (its receipt is all we need
+    from it)."""
+    cmd = (stage_cmd(mf_b64, oc_b64) +
+           f" && echo SWEEP_BEGIN && FIXTURE_DIR=/tmp/fixture-{i} "
+           f"bash /tmp/sw/sweep/one_commit.sh {i} && echo SWEEP_END")
     rc, out = sbx("exec", sid, "--timeout", "600", "--",
                   "bash", "-c", cmd, timeout=660)
     if rc != 0:
         raise RuntimeError(f"sandbox {sid} (commit {i}) exec failed "
                            f"(exit {rc}):\n{out.strip()[-800:]}")
-    receipt = parse_receipt(out, sid, i)
+    receipt = json.loads(parse_tagged(out, "SWEEP_BEGIN", "SWEEP_END"))
+    if receipt.get("index") != i:
+        raise RuntimeError(f"sandbox {sid} printed a receipt for commit "
+                           f"{receipt.get('index')}, expected {i}")
     kill_and_confirm(sid, f"commit {i}")
     return receipt
 
@@ -203,11 +232,11 @@ def util_exec(sid: str, name: str, cmd: str, timeout_s: int) -> tuple[str, float
     rc, out, dt = timed(name, sbx, "exec", sid, "--timeout", str(timeout_s),
                         "--", "bash", "-c", cmd, timeout=timeout_s + 60)
     if out.strip():
-        print(scrub(_indent(out)), flush=True)
+        print(_indent(out), flush=True)
     if rc != 0:
         raise RuntimeError(f"{name} failed (exit {rc}) in sandbox {sid} — "
                            "never printing ok for a failed step; "
-                           f"output above")
+                           "output above")
     return out, dt
 
 
@@ -250,16 +279,16 @@ def negative_control_cmd() -> str:
 
 def grade_cmd(report_b64: str) -> str:
     return (
-        "cd repo/{demo} && "
+        "cd repo/@DEMO@ && "
         "python3 -c 'import base64,sys;"
         "open(\"/tmp/sweep_report.json\",\"wb\")."
-        "write(base64.b64decode(sys.argv[1]))' {b64} && "
+        "write(base64.b64decode(sys.argv[1]))' @B64@ && "
         "set +e; bash judge/grade.sh /tmp/sweep_report.json "
         "--json /tmp/bisect_verdict.json; rc=$?; set -e; "
         "echo GRADE_RC=$rc; "
         "echo VERDICT_BEGIN; cat /tmp/bisect_verdict.json; echo VERDICT_END; "
         "test $rc -eq 0"
-    ).format(demo=DEMO_DIR, b64=report_b64)
+    ).replace("@DEMO@", DEMO_DIR).replace("@B64@", report_b64)
 
 
 def main():
@@ -282,7 +311,22 @@ def main():
     failed = False
 
     try:
-        # --- 1. one sandbox per suspect commit, in parallel -----------------
+        # --- 1. utility sandbox: clone the ref, stage scripts, selftest ----
+        util_sid = create_sandbox("utility: ref/selftest/serial/grade",
+                                  created)
+        util_exec(util_sid, "clone repo (utility)",
+                  f"git clone --depth 1 -b {args.ref} {REPO_URL} repo", 300)
+        mf, oc = fetch_sources(util_sid, args.ref)
+        mf_b64 = base64.b64encode(mf.encode()).decode("ascii")
+        oc_b64 = base64.b64encode(oc.encode()).decode("ascii")
+        util_exec(util_sid, "judge/setup.sh",
+                  f"cd repo/{DEMO_DIR} && bash judge/setup.sh", 600)
+        _, dt = util_exec(util_sid, "judge/selftest.sh",
+                          f"cd repo/{DEMO_DIR} && bash judge/selftest.sh",
+                          1800)
+        timings["selftest_s"] = round(dt, 2)
+
+        # --- 2. one sandbox per suspect commit, in parallel ---------------
         print(f"[run] ref {args.ref}: sweeping commits {SWEEP_FIRST}.."
               f"{SWEEP_LAST} ({N_SANDBOXES} sandboxes in parallel)",
               flush=True)
@@ -296,11 +340,11 @@ def main():
         print(f"[run] created {len(ids)} sandboxes "
               f"in {timings['create_sandboxes_s']}s", flush=True)
 
-        # --- 2. every sandbox runs its commit (parallel wall) --------------
+        # --- 3. every sandbox runs its commit (parallel wall) -------------
         t0 = time.monotonic()
         receipts: dict[int, dict] = {}
         with concurrent.futures.ThreadPoolExecutor(N_SANDBOXES) as ex:
-            futs = {ex.submit(run_one_sandbox, sid, args.ref, i): i
+            futs = {ex.submit(run_one_sandbox, sid, mf_b64, oc_b64, i): i
                     for i, sid in ids.items()}
             for fut in concurrent.futures.as_completed(futs):
                 r = fut.result()
@@ -312,31 +356,19 @@ def main():
         print(f"[run] parallel sweep: {timings['parallel_sweep_s']}s "
               f"(sandboxes killed as receipts arrived)", flush=True)
 
-        # --- 3. utility sandbox: setup + selftest --------------------------
-        util_sid = create_sandbox("setup/selftest/serial/control/grade",
-                                  created)
-        util_exec(util_sid, "clone repo (utility)",
-                  f"git clone --depth 1 -b {args.ref} {REPO_URL} repo",
-                  300)
-        util_exec(util_sid, "judge/setup.sh",
-                  f"cd repo/{DEMO_DIR} && bash judge/setup.sh", 600)
-        _, dt = util_exec(util_sid, "judge/selftest.sh",
-                          f"cd repo/{DEMO_DIR} && bash judge/selftest.sh",
-                          1500)
-        timings["selftest_s"] = round(dt, 2)
-
-        # --- 4. serial baseline in the utility sandbox ---------------------
-        serial_cmd = ("cd repo/{demo} && r=0; for i in $(seq {first} {last}); "
-                      "do FIXTURE_DIR=/tmp/fixture-serial bash "
-                      "sweep/one_commit.sh $i >/dev/null 2>&1 || r=1; done; "
-                      "exit $r").format(demo=DEMO_DIR, first=SWEEP_FIRST,
-                                        last=SWEEP_LAST)
+        # --- 4. serial baseline: same staged commands, one machine --------
+        serial_cmd = (stage_cmd(mf_b64, oc_b64) +
+                      " && r=0; for i in $(seq {first} {last}); do "
+                      "FIXTURE_DIR=/tmp/fixture-serial bash "
+                      "/tmp/sw/sweep/one_commit.sh $i >/dev/null 2>&1 "
+                      "|| r=1; done; exit $r"
+                      ).format(first=SWEEP_FIRST, last=SWEEP_LAST)
         _, dt = util_exec(util_sid, "serial baseline (11 commits, 1 machine)",
                           serial_cmd, 1500)
         timings["serial_sweep_s"] = round(dt, 2)
         serial_seconds = dt
 
-        # --- 5. negative control on the reverted fixture -------------------
+        # --- 5. negative control on the reverted fixture ------------------
         out, dt = util_exec(util_sid, "negative control (reverted fixture)",
                             negative_control_cmd(), 900)
         timings["negative_control_s"] = round(dt, 2)
@@ -344,7 +376,7 @@ def main():
         if neg["report"] != "no regression in range":
             raise RuntimeError(f"negative control failed: {neg}")
 
-        # --- 6. derive the culprit from the receipts -----------------------
+        # --- 6. derive the culprit from the receipts ----------------------
         bad = sorted(i for i, r in receipts.items() if not r["passed"])
         if not bad:
             raise RuntimeError("sweep found no failing commit in range; "
@@ -368,7 +400,7 @@ def main():
         out_path = Path("sweep_report.json").resolve()
         out_path.write_text(json.dumps(report, indent=2) + "\n")
 
-        # --- 7. grade the report in the utility sandbox --------------------
+        # --- 7. grade the report in the utility sandbox -------------------
         report_b64 = base64.b64encode(
             json.dumps(report).encode()).decode("ascii")
         out, dt = util_exec(util_sid, "judge/grade.sh sweep_report.json",
@@ -390,9 +422,10 @@ def main():
               f"[run] report   : {out_path}", flush=True)
 
         if not verdict.get("passed"):
-            failed = verdict.get("failed_gate", "?")
+            failed_gate = verdict.get("failed_gate", "?")
             raise RuntimeError(f"judge rejected the report at gate "
-                               f"'{failed}'; verdict in bisect_verdict.json")
+                               f"'{failed_gate}'; verdict in "
+                               f"bisect_verdict.json")
 
         print("\n[run] ======== verdict ========", flush=True)
         print(json.dumps(verdict, indent=2), flush=True)

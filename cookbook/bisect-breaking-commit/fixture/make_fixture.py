@@ -36,8 +36,10 @@ SWEEP_FIRST, SWEEP_LAST = 20, 30   # the suspect range (11 commits, 11 sandboxes
 NUM_CASES = 400
 # The suite's settle delay, standing in for real-suite I/O: per-commit cost is
 # latency-dominated, as it is for real test suites and sandbox lifecycles.
-# This is the latency the parallel sweep overlaps (SPEC.md, "speedup").
-SOAK_S = 2.0
+# This is the latency the parallel sweep overlaps (SPEC.md, "speedup"); 3.0 s
+# keeps the G7 speedup gate's >= 2x margin on 2 vCPU when per-commit work also
+# pays fixture build + local clone.
+SOAK_S = 3.0
 # Fixed history clock: base + i minutes, so SHAs are reproducible.
 BASE_DATE = "2026-01-01T00:00:00+00:00"
 
