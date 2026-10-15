@@ -8,15 +8,51 @@
   "geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -13.8,
+      30.0,
+      -13.12458
+     ],
+     [
+      13.8,
+      44.0,
+      13.12458
+     ]
+    ]
    },
    "/TrafficCone/Base": {
     "bbox_dev_cm": 0.0,
-    "points": 8
+    "points": 8,
+    "world_bbox_cm": [
+     [
+      -18.0,
+      0.0,
+      -18.0
+     ],
+     [
+      18.0,
+      4.0,
+      18.0
+     ]
+    ]
    },
    "/TrafficCone/Body": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -13.0,
+      4.0,
+      -12.363734
+     ],
+     [
+      13.0,
+      58.0,
+      12.363734
+     ]
+    ]
    }
   },
   "oracle": {
@@ -69,6 +105,7 @@
      "normals": 40,
      "normals_interpolation": "faceVarying",
      "points": 20,
+     "xform_ops": [],
      "zero_area_faces": 0
     },
     "/TrafficCone/Base": {
@@ -79,6 +116,7 @@
      "normals": 24,
      "normals_interpolation": "faceVarying",
      "points": 8,
+     "xform_ops": [],
      "zero_area_faces": 0
     },
     "/TrafficCone/Body": {
@@ -89,6 +127,7 @@
      "normals": 60,
      "normals_interpolation": "faceVarying",
      "points": 20,
+     "xform_ops": [],
      "zero_area_faces": 0
     }
    },
@@ -98,16 +137,80 @@
   "recount_geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "xform_ops": []
    },
    "/TrafficCone/Base": {
     "bbox_dev_cm": 0.0,
-    "points": 8
+    "points": 8,
+    "xform_ops": []
    },
    "/TrafficCone/Body": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "xform_ops": []
    }
+  },
+  "up_axis": {
+   "height_axis": "Y",
+   "height_margin_cm": 22.0,
+   "meshes": {
+    "/TrafficCone/Band": {
+     "world_bbox_cm": [
+      [
+       -13.8,
+       30.0,
+       -13.12458
+      ],
+      [
+       13.8,
+       44.0,
+       13.12458
+      ]
+     ]
+    },
+    "/TrafficCone/Base": {
+     "world_bbox_cm": [
+      [
+       -18.0,
+       0.0,
+       -18.0
+      ],
+      [
+       18.0,
+       4.0,
+       18.0
+      ]
+     ]
+    },
+    "/TrafficCone/Body": {
+     "world_bbox_cm": [
+      [
+       -13.0,
+       4.0,
+       -12.363734
+      ],
+      [
+       13.0,
+       58.0,
+       12.363734
+      ]
+     ]
+    }
+   },
+   "upAxis": "Y",
+   "world_bbox_cm": [
+    [
+     -18.0,
+     0.0,
+     -18.0
+    ],
+    [
+     18.0,
+     58.0,
+     18.0
+    ]
+   ]
   },
   "validator": {
    "issues_by_severity": {
@@ -142,6 +245,10 @@
    ],
    "passed": false
   },
+  "up_axis": {
+   "errors": [],
+   "passed": true
+  },
   "validator": {
    "errors": [
     "nvidia_usd_validate exited 1",
@@ -164,10 +271,11 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.003,
-  "oracle_s": 0.53,
-  "recount_s": 0.012,
-  "total_s": 3.102,
-  "validator_s": 2.556
+  "geometry_s": 0.008,
+  "oracle_s": 1.622,
+  "recount_s": 0.065,
+  "total_s": 7.686,
+  "up_axis_s": 0.012,
+  "validator_s": 5.975
  }
 }

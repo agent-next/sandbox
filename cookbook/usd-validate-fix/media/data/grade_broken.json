@@ -1,5 +1,5 @@
 {
- "artifact": "task/traffic_cone_broken.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/task/traffic_cone_broken.usda",
  "facts": {
   "crosscheck": {
    "errors": [
@@ -10,15 +10,51 @@
   "geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -13.8,
+      30.0,
+      -13.12458
+     ],
+     [
+      13.8,
+      44.0,
+      13.12458
+     ]
+    ]
    },
    "/TrafficCone/Base": {
     "bbox_dev_cm": 0.0,
-    "points": 8
+    "points": 8,
+    "world_bbox_cm": [
+     [
+      -18.0,
+      0.0,
+      -18.0
+     ],
+     [
+      18.0,
+      4.0,
+      18.0
+     ]
+    ]
    },
    "/TrafficCone/Body": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -13.0,
+      4.0,
+      -12.363734
+     ],
+     [
+      13.0,
+      58.0,
+      12.363734
+     ]
+    ]
    }
   },
   "oracle": {
@@ -68,6 +104,7 @@
      "normals": null,
      "normals_interpolation": null,
      "points": 20,
+     "xform_ops": [],
      "zero_area_faces": 1
     },
     "/TrafficCone/Base": {
@@ -78,6 +115,7 @@
      "normals": null,
      "normals_interpolation": null,
      "points": 8,
+     "xform_ops": [],
      "zero_area_faces": 0
     },
     "/TrafficCone/Body": {
@@ -88,6 +126,7 @@
      "normals": null,
      "normals_interpolation": null,
      "points": 20,
+     "xform_ops": [],
      "zero_area_faces": 0
     }
    },
@@ -97,16 +136,80 @@
   "recount_geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "xform_ops": []
    },
    "/TrafficCone/Base": {
     "bbox_dev_cm": 0.0,
-    "points": 8
+    "points": 8,
+    "xform_ops": []
    },
    "/TrafficCone/Body": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "xform_ops": []
    }
+  },
+  "up_axis": {
+   "height_axis": "Y",
+   "height_margin_cm": 22.0,
+   "meshes": {
+    "/TrafficCone/Band": {
+     "world_bbox_cm": [
+      [
+       -13.8,
+       30.0,
+       -13.12458
+      ],
+      [
+       13.8,
+       44.0,
+       13.12458
+      ]
+     ]
+    },
+    "/TrafficCone/Base": {
+     "world_bbox_cm": [
+      [
+       -18.0,
+       0.0,
+       -18.0
+      ],
+      [
+       18.0,
+       4.0,
+       18.0
+      ]
+     ]
+    },
+    "/TrafficCone/Body": {
+     "world_bbox_cm": [
+      [
+       -13.0,
+       4.0,
+       -12.363734
+      ],
+      [
+       13.0,
+       58.0,
+       12.363734
+      ]
+     ]
+    }
+   },
+   "upAxis": "Z",
+   "world_bbox_cm": [
+    [
+     -18.0,
+     0.0,
+     -18.0
+    ],
+    [
+     18.0,
+     58.0,
+     18.0
+    ]
+   ]
   },
   "validator": {
    "issues_by_severity": {
@@ -163,17 +266,23 @@
    ],
    "passed": false
   },
+  "up_axis": {
+   "errors": [
+    "upAxis is 'Z' but the prop's height axis measures as 'Y' (world spans X=36.0, Y=58.0, Z=36.0 cm) -- the geometry lies on its side for this up axis"
+   ],
+   "passed": false
+  },
   "validator": {
    "errors": [
     "nvidia_usd_validate exited 1",
     "validator status 'FAIL' != 'PASS'",
-    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
-    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
-    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
+    "ExtentsChecker: Prim does not have any extent value",
+    "ExtentsChecker: Prim does not have any extent value",
+    "ExtentsChecker: Prim does not have any extent value",
     "DefaultPrimChecker: Stage has missing or invalid defaultPrim.",
-    "ExtentsChecker: Prim does not have any extent value",
-    "ExtentsChecker: Prim does not have any extent value",
-    "ExtentsChecker: Prim does not have any extent value"
+    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
+    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
+    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop "
    ],
    "issues_by_severity": {
     "FAILURE": 7,
@@ -194,10 +303,11 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.006,
-  "oracle_s": 0.701,
-  "recount_s": 0.023,
-  "total_s": 2.205,
-  "validator_s": 1.474
+  "geometry_s": 0.041,
+  "oracle_s": 2.114,
+  "recount_s": 0.066,
+  "total_s": 9.33,
+  "up_axis_s": 0.002,
+  "validator_s": 7.106
  }
 }

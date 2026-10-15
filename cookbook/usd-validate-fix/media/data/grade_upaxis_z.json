@@ -8,15 +8,51 @@
   "geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -13.8,
+      30.0,
+      -13.12458
+     ],
+     [
+      13.8,
+      44.0,
+      13.12458
+     ]
+    ]
    },
    "/TrafficCone/Base": {
     "bbox_dev_cm": 0.0,
-    "points": 8
+    "points": 8,
+    "world_bbox_cm": [
+     [
+      -18.0,
+      0.0,
+      -18.0
+     ],
+     [
+      18.0,
+      4.0,
+      18.0
+     ]
+    ]
    },
    "/TrafficCone/Body": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -13.0,
+      4.0,
+      -12.363734
+     ],
+     [
+      13.0,
+      58.0,
+      12.363734
+     ]
+    ]
    }
   },
   "oracle": {
@@ -28,13 +64,13 @@
      "extent": [
       [
        -13.8,
-       -13.12458,
-       30.0
+       30.0,
+       -13.12458
       ],
       [
        13.8,
-       13.12458,
-       44.0
+       44.0,
+       13.12458
       ]
      ],
      "face_corners": 40,
@@ -49,13 +85,13 @@
      "extent": [
       [
        -18.0,
-       -18.0,
-       0.0
+       0.0,
+       -18.0
       ],
       [
        18.0,
-       18.0,
-       4.0
+       4.0,
+       18.0
       ]
      ],
      "face_corners": 24,
@@ -70,13 +106,13 @@
      "extent": [
       [
        -13.0,
-       -12.363734,
-       4.0
+       4.0,
+       -12.363734
       ],
       [
        13.0,
-       12.363734,
-       58.0
+       58.0,
+       12.363734
       ]
      ],
      "face_corners": 60,
@@ -99,13 +135,13 @@
      "extent": [
       [
        -13.8,
-       -13.12458,
-       30.0
+       30.0,
+       -13.12458
       ],
       [
        13.8,
-       13.12458,
-       44.0
+       44.0,
+       13.12458
       ]
      ],
      "face_corners": 40,
@@ -113,6 +149,7 @@
      "normals": 40,
      "normals_interpolation": "faceVarying",
      "points": 20,
+     "xform_ops": [],
      "zero_area_faces": 0
     },
     "/TrafficCone/Base": {
@@ -120,13 +157,13 @@
      "extent": [
       [
        -18.0,
-       -18.0,
-       0.0
+       0.0,
+       -18.0
       ],
       [
        18.0,
-       18.0,
-       4.0
+       4.0,
+       18.0
       ]
      ],
      "face_corners": 24,
@@ -134,6 +171,7 @@
      "normals": 24,
      "normals_interpolation": "faceVarying",
      "points": 8,
+     "xform_ops": [],
      "zero_area_faces": 0
     },
     "/TrafficCone/Body": {
@@ -141,13 +179,13 @@
      "extent": [
       [
        -13.0,
-       -12.363734,
-       4.0
+       4.0,
+       -12.363734
       ],
       [
        13.0,
-       12.363734,
-       58.0
+       58.0,
+       12.363734
       ]
      ],
      "face_corners": 60,
@@ -155,6 +193,7 @@
      "normals": 60,
      "normals_interpolation": "faceVarying",
      "points": 20,
+     "xform_ops": [],
      "zero_area_faces": 0
     }
    },
@@ -164,16 +203,80 @@
   "recount_geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "xform_ops": []
    },
    "/TrafficCone/Base": {
     "bbox_dev_cm": 0.0,
-    "points": 8
+    "points": 8,
+    "xform_ops": []
    },
    "/TrafficCone/Body": {
     "bbox_dev_cm": 0.0,
-    "points": 20
+    "points": 20,
+    "xform_ops": []
    }
+  },
+  "up_axis": {
+   "height_axis": "Y",
+   "height_margin_cm": 22.0,
+   "meshes": {
+    "/TrafficCone/Band": {
+     "world_bbox_cm": [
+      [
+       -13.8,
+       30.0,
+       -13.12458
+      ],
+      [
+       13.8,
+       44.0,
+       13.12458
+      ]
+     ]
+    },
+    "/TrafficCone/Base": {
+     "world_bbox_cm": [
+      [
+       -18.0,
+       0.0,
+       -18.0
+      ],
+      [
+       18.0,
+       4.0,
+       18.0
+      ]
+     ]
+    },
+    "/TrafficCone/Body": {
+     "world_bbox_cm": [
+      [
+       -13.0,
+       4.0,
+       -12.363734
+      ],
+      [
+       13.0,
+       58.0,
+       12.363734
+      ]
+     ]
+    }
+   },
+   "upAxis": "Z",
+   "world_bbox_cm": [
+    [
+     -18.0,
+     0.0,
+     -18.0
+    ],
+    [
+     18.0,
+     58.0,
+     18.0
+    ]
+   ]
   },
   "validator": {
    "issues_by_severity": {},
@@ -200,6 +303,12 @@
    ],
    "passed": false
   },
+  "up_axis": {
+   "errors": [
+    "upAxis is 'Z' but the prop's height axis measures as 'Y' (world spans X=36.0, Y=58.0, Z=36.0 cm) -- the geometry lies on its side for this up axis"
+   ],
+   "passed": false
+  },
   "validator": {
    "errors": [],
    "issues_by_severity": {},
@@ -212,10 +321,11 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.008,
-  "oracle_s": 0.972,
-  "recount_s": 0.03,
-  "total_s": 4.583,
-  "validator_s": 3.573
+  "geometry_s": 0.011,
+  "oracle_s": 1.336,
+  "recount_s": 0.055,
+  "total_s": 6.08,
+  "up_axis_s": 0.01,
+  "validator_s": 4.667
  }
 }

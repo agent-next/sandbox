@@ -1,0 +1,329 @@
+{
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/wrong_material.usda",
+ "facts": {
+  "crosscheck": {
+   "errors": [],
+   "passed": true
+  },
+  "geometry": {
+   "/TrafficCone/Band": {
+    "bbox_dev_cm": 0.0,
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -13.8,
+      30.0,
+      -13.12458
+     ],
+     [
+      13.8,
+      44.0,
+      13.12458
+     ]
+    ]
+   },
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 0.0,
+    "points": 8,
+    "world_bbox_cm": [
+     [
+      -18.0,
+      0.0,
+      -18.0
+     ],
+     [
+      18.0,
+      4.0,
+      18.0
+     ]
+    ]
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 0.0,
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -13.0,
+      4.0,
+      -12.363734
+     ],
+     [
+      13.0,
+      58.0,
+      12.363734
+     ]
+    ]
+   }
+  },
+  "oracle": {
+   "colliders": 1,
+   "defaultPrim": "TrafficCone",
+   "meshes": {
+    "/TrafficCone/Band": {
+     "bound_material": "/TrafficCone/Looks/OrangePlastic",
+     "extent": [
+      [
+       -13.8,
+       30.0,
+       -13.12458
+      ],
+      [
+       13.8,
+       44.0,
+       13.12458
+      ]
+     ],
+     "face_corners": 40,
+     "max_normal_dev": 1.7e-08,
+     "normals": 40,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Base": {
+     "bound_material": "/TrafficCone/Looks/OrangePlastic",
+     "extent": [
+      [
+       -18.0,
+       0.0,
+       -18.0
+      ],
+      [
+       18.0,
+       4.0,
+       18.0
+      ]
+     ],
+     "face_corners": 24,
+     "max_normal_dev": 1.7e-08,
+     "normals": 24,
+     "normals_interpolation": "faceVarying",
+     "points": 8,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "/TrafficCone/Looks/OrangePlastic",
+     "extent": [
+      [
+       -13.0,
+       4.0,
+       -12.363734
+      ],
+      [
+       13.0,
+       58.0,
+       12.363734
+      ]
+     ],
+     "face_corners": 60,
+     "max_normal_dev": 1.6e-08,
+     "normals": 60,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 0.01,
+   "upAxis": "Y"
+  },
+  "recount": {
+   "colliders": 1,
+   "defaultPrim": "TrafficCone",
+   "meshes": {
+    "/TrafficCone/Band": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -13.8,
+       30.0,
+       -13.12458
+      ],
+      [
+       13.8,
+       44.0,
+       13.12458
+      ]
+     ],
+     "face_corners": 40,
+     "max_normal_dev": 8e-09,
+     "normals": 40,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "xform_ops": [],
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Base": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -18.0,
+       0.0,
+       -18.0
+      ],
+      [
+       18.0,
+       4.0,
+       18.0
+      ]
+     ],
+     "face_corners": 24,
+     "max_normal_dev": 1.6e-08,
+     "normals": 24,
+     "normals_interpolation": "faceVarying",
+     "points": 8,
+     "xform_ops": [],
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -13.0,
+       4.0,
+       -12.363734
+      ],
+      [
+       13.0,
+       58.0,
+       12.363734
+      ]
+     ],
+     "face_corners": 60,
+     "max_normal_dev": 3.4e-08,
+     "normals": 60,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "xform_ops": [],
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 0.01,
+   "upAxis": "Y"
+  },
+  "recount_geometry": {
+   "/TrafficCone/Band": {
+    "bbox_dev_cm": 0.0,
+    "points": 20,
+    "xform_ops": []
+   },
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 0.0,
+    "points": 8,
+    "xform_ops": []
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 0.0,
+    "points": 20,
+    "xform_ops": []
+   }
+  },
+  "up_axis": {
+   "height_axis": "Y",
+   "height_margin_cm": 22.0,
+   "meshes": {
+    "/TrafficCone/Band": {
+     "world_bbox_cm": [
+      [
+       -13.8,
+       30.0,
+       -13.12458
+      ],
+      [
+       13.8,
+       44.0,
+       13.12458
+      ]
+     ]
+    },
+    "/TrafficCone/Base": {
+     "world_bbox_cm": [
+      [
+       -18.0,
+       0.0,
+       -18.0
+      ],
+      [
+       18.0,
+       4.0,
+       18.0
+      ]
+     ]
+    },
+    "/TrafficCone/Body": {
+     "world_bbox_cm": [
+      [
+       -13.0,
+       4.0,
+       -12.363734
+      ],
+      [
+       13.0,
+       58.0,
+       12.363734
+      ]
+     ]
+    }
+   },
+   "upAxis": "Y",
+   "world_bbox_cm": [
+    [
+     -18.0,
+     0.0,
+     -18.0
+    ],
+    [
+     18.0,
+     58.0,
+     18.0
+    ]
+   ]
+  },
+  "validator": {
+   "issues_by_severity": {},
+   "rules_not_passing": [],
+   "validator_exit": 0,
+   "validator_status": "PASS"
+  }
+ },
+ "failed_gate": "oracle",
+ "gates": {
+  "geometry": {
+   "errors": [],
+   "passed": true
+  },
+  "oracle": {
+   "errors": [
+    "/TrafficCone/Band: bound to /TrafficCone/Looks/OrangePlastic, must be /TrafficCone/Looks/WhitePlastic (the reflective band is the white plastic)"
+   ],
+   "passed": false
+  },
+  "recount": {
+   "errors": [
+    "/TrafficCone/Band: bound to </TrafficCone/Looks/OrangePlastic>, must be /TrafficCone/Looks/WhitePlastic (the reflective band is the white plastic)"
+   ],
+   "passed": false
+  },
+  "up_axis": {
+   "errors": [],
+   "passed": true
+  },
+  "validator": {
+   "errors": [],
+   "issues_by_severity": {},
+   "passed": true,
+   "rules_not_passing": [],
+   "validator_exit": 0,
+   "validator_status": "PASS"
+  }
+ },
+ "passed": false,
+ "seed": 0,
+ "timing": {
+  "geometry_s": 0.015,
+  "oracle_s": 0.741,
+  "recount_s": 0.03,
+  "total_s": 5.599,
+  "up_axis_s": 0.014,
+  "validator_s": 4.799
+ }
+}

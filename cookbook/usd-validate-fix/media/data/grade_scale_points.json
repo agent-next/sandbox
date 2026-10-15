@@ -2,21 +2,59 @@
  "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/scale_points.usda",
  "facts": {
   "crosscheck": {
-   "errors": [],
-   "passed": true
+   "errors": [
+    "cross-check: /TrafficCone/Base bbox_dev oracle=3564.0 recount=1782.0"
+   ],
+   "passed": false
   },
   "geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 4356.0,
-    "points": 20
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -1380.0,
+      3000.0,
+      -1312.458008
+     ],
+     [
+      1380.0,
+      4400.0,
+      1312.458008
+     ]
+    ]
    },
    "/TrafficCone/Base": {
-    "bbox_dev_cm": 1782.0,
-    "points": 8
+    "bbox_dev_cm": 3564.0,
+    "points": 8,
+    "world_bbox_cm": [
+     [
+      -1800.0,
+      0.0,
+      -1800.0
+     ],
+     [
+      1800.0,
+      400.0,
+      1800.0
+     ]
+    ]
    },
    "/TrafficCone/Body": {
     "bbox_dev_cm": 5742.0,
-    "points": 20
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -1300.0,
+      400.0,
+      -1236.373413
+     ],
+     [
+      1300.0,
+      5800.0,
+      1236.373413
+     ]
+    ]
    }
   },
   "oracle": {
@@ -69,6 +107,7 @@
      "normals": 40,
      "normals_interpolation": "faceVarying",
      "points": 20,
+     "xform_ops": [],
      "zero_area_faces": 0
     },
     "/TrafficCone/Base": {
@@ -79,6 +118,7 @@
      "normals": 24,
      "normals_interpolation": "faceVarying",
      "points": 8,
+     "xform_ops": [],
      "zero_area_faces": 0
     },
     "/TrafficCone/Body": {
@@ -89,6 +129,7 @@
      "normals": 60,
      "normals_interpolation": "faceVarying",
      "points": 20,
+     "xform_ops": [],
      "zero_area_faces": 0
     }
    },
@@ -98,16 +139,80 @@
   "recount_geometry": {
    "/TrafficCone/Band": {
     "bbox_dev_cm": 4356.0,
-    "points": 20
+    "points": 20,
+    "xform_ops": []
    },
    "/TrafficCone/Base": {
     "bbox_dev_cm": 1782.0,
-    "points": 8
+    "points": 8,
+    "xform_ops": []
    },
    "/TrafficCone/Body": {
     "bbox_dev_cm": 5742.0,
-    "points": 20
+    "points": 20,
+    "xform_ops": []
    }
+  },
+  "up_axis": {
+   "height_axis": "Y",
+   "height_margin_cm": 2200.0,
+   "meshes": {
+    "/TrafficCone/Band": {
+     "world_bbox_cm": [
+      [
+       -1380.0,
+       3000.0,
+       -1312.458008
+      ],
+      [
+       1380.0,
+       4400.0,
+       1312.458008
+      ]
+     ]
+    },
+    "/TrafficCone/Base": {
+     "world_bbox_cm": [
+      [
+       -1800.0,
+       0.0,
+       -1800.0
+      ],
+      [
+       1800.0,
+       400.0,
+       1800.0
+      ]
+     ]
+    },
+    "/TrafficCone/Body": {
+     "world_bbox_cm": [
+      [
+       -1300.0,
+       400.0,
+       -1236.373413
+      ],
+      [
+       1300.0,
+       5800.0,
+       1236.373413
+      ]
+     ]
+    }
+   },
+   "upAxis": "Y",
+   "world_bbox_cm": [
+    [
+     -1800.0,
+     0.0,
+     -1800.0
+    ],
+    [
+     1800.0,
+     5800.0,
+     1800.0
+    ]
+   ]
   },
   "validator": {
    "issues_by_severity": {
@@ -124,9 +229,9 @@
  "gates": {
   "geometry": {
    "errors": [
-    "/TrafficCone/Band: points bbox deviates from the original by 4.36e+03 cm > 1e-06 cm",
-    "/TrafficCone/Base: points bbox deviates from the original by 1.78e+03 cm > 1e-06 cm",
-    "/TrafficCone/Body: points bbox deviates from the original by 5.74e+03 cm > 1e-06 cm"
+    "/TrafficCone/Band: world bbox deviates from the original by 4.36e+03 cm > 1e-06 cm (a transform that moves, scales or tips the mesh fails the repair)",
+    "/TrafficCone/Base: world bbox deviates from the original by 3.56e+03 cm > 1e-06 cm (a transform that moves, scales or tips the mesh fails the repair)",
+    "/TrafficCone/Body: world bbox deviates from the original by 5.74e+03 cm > 1e-06 cm (a transform that moves, scales or tips the mesh fails the repair)"
    ],
    "passed": false
   },
@@ -147,9 +252,14 @@
     "/TrafficCone/Body: extent not authored",
     "/TrafficCone/Band: points bbox deviates from the original by 4.36e+03 cm > 1e-06 cm",
     "/TrafficCone/Base: points bbox deviates from the original by 1.78e+03 cm > 1e-06 cm",
-    "/TrafficCone/Body: points bbox deviates from the original by 5.74e+03 cm > 1e-06 cm"
+    "/TrafficCone/Body: points bbox deviates from the original by 5.74e+03 cm > 1e-06 cm",
+    "cross-check: /TrafficCone/Base bbox_dev oracle=3564.0 recount=1782.0"
    ],
    "passed": false
+  },
+  "up_axis": {
+   "errors": [],
+   "passed": true
   },
   "validator": {
    "errors": [
@@ -173,10 +283,11 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.004,
-  "oracle_s": 0.36,
-  "recount_s": 0.015,
-  "total_s": 2.124,
-  "validator_s": 1.745
+  "geometry_s": 0.01,
+  "oracle_s": 1.853,
+  "recount_s": 0.079,
+  "total_s": 8.52,
+  "up_axis_s": 0.027,
+  "validator_s": 6.55
  }
 }

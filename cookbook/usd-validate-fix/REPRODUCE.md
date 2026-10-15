@@ -1,60 +1,82 @@
 # REPRODUCE.md — independent reproduction
 
-A different agent (different model family from the builder) follows only
-README.md in a fresh sandbox and records its numbers here. Numbers must
-match the RECEIPT within the tolerances stated in SPEC.md.
+DEMO-STANDARD.md: "before merge, a different agent (different model family
+from the builder) follows only README.md in a fresh sandbox and records its
+numbers in `REPRODUCE.md`; numbers must match the RECEIPT within the
+tolerances stated in SPEC.md."
 
-## Reproduction run
+## Status: not done in this environment
 
-**Agent:** [to be filled by independent agent]  
-**Model family:** [to be filled]  
-**Date:** [to be filled]  
-**Sandbox:** fresh Debian, 2 vCPU / 3.8 GiB, Python 3.12  
-**Commit:** [to be filled]
+The independent reproduction has **not** been run here, and this file says
+so rather than claiming it has:
 
-### Commands and output
+- It needs a *fresh sandbox*, which needs an `SBX_API_KEY`
+  (`run.py` reads that key from the environment and there is no
+  `sbx login`). No such key exists in the environment that built this
+  branch, so `run.py` cannot create a sandbox and a different agent cannot
+  be started in one.
+- It needs a second agent from a different model family, which also
+  requires API access this environment does not have.
+
+So the comparison table below is **not filled in** — a filled-in table
+copied from the RECEIPT would be a fabricated reproduction, which is worse
+than a missing one (LESSONS.md: "A lost reply is not a confirmation:
+verify, and report failure instead of claiming success").
+
+## What to run
+
+For whoever can run it (a fresh Debian sandbox, 2 vCPU / ~4 GiB, Python
+3.10–3.12, with `SBX_API_KEY` set), following **only README.md**:
 
 ```bash
-# 1. Clone repo
-git clone --depth 1 https://github.com/agent-next/sandbox
-cd sandbox/cookbook/usd-validate-fix
-
-# 2. Setup judge
-bash judge/setup.sh
-# Expected: exit 0, ~38 s, creates ~/.usd-validate-fix-venv with usd-core==25.5, usd-validation-nvidia==1.22.0
-
-# 3. Self-test
-bash judge/selftest.sh
-# Expected: exit 0, ~85 s, kill rate 12/12 = 100%, determinism OK
-
-# 4. Grade known-good
-bash judge/grade.sh examples/good/traffic_cone_fixed.usda --json /tmp/v.json
-# Expected: exit 0, ~4 s, verdict.passed=true, all 4 gates passed
+export SBX_API_KEY=<your key>
+python3 cookbook/usd-validate-fix/run.py
 ```
 
-### Verdict comparison
+or the judge directly, following README's "Ask your agent" prompt:
 
-| Metric | RECEIPT (run 1) | Reproduction | Match? |
-|--------|-----------------|--------------|--------|
-| setup.sh exit | 0 |  |  |
-| setup.sh wall | 38.7 s |  |  |
-| selftest.sh exit | 0 |  |  |
-| selftest.sh wall | 84.7 s |  |  |
-| kill rate | 12/12 = 100% |  |  |
-| determinism | OK |  |  |
-| grade.sh exit | 0 |  |  |
-| grade.sh wall | 3.97 s |  |  |
-| validator status | PASS |  |  |
-| oracle errors | 0 |  |  |
-| geometry bbox dev | 0.0 cm |  |  |
-| recount errors | 0 |  |  |
+```bash
+git clone --depth 1 -b <ref> https://github.com/agent-next/sandbox
+cd sandbox
+bash cookbook/usd-validate-fix/judge/setup.sh
+bash cookbook/usd-validate-fix/judge/selftest.sh
+bash cookbook/usd-validate-fix/judge/grade.sh \
+    cookbook/usd-validate-fix/examples/good/traffic_cone_fixed.usda \
+    --seed 20261015 --json /tmp/repro.json
+python3 cookbook/tools/video_gate.py \
+    cookbook/usd-validate-fix/media/demo.mp4
+```
 
-### Deviations
+## Verdict comparison (to fill in)
 
-[Any differences explained here]
+| Metric | RECEIPT.md | Reproduction | Match? |
+|--------|------------|--------------|--------|
+| `setup.sh` wall | ~36 s | | |
+| `selftest.sh` wall | ~110 s | | |
+| `selftest.sh` exit | 0 | | |
+| kill rate | 16/16 = 100 % | | |
+| determinism (--seed 1 twice) | OK | | |
+| `grade.sh` exit | 0 | | |
+| `grade.sh` wall | ~3 s | | |
+| gate 1 validator status | PASS, 0 FAILURE / 0 ERROR | | |
+| gate 2 oracle errors | 0 | | |
+| gate 3 world bbox deviation | 0 cm (tolerance 1e-6) | | |
+| gate 4 recount errors | 0 | | |
+| gate 5 height axis | Y, margin 22 cm (>= 5) | | |
+| verdict body vs RECEIPT (excl. `timing`) | identical | | |
+| `video_gate.py` | `passed: true` | | |
 
-## Verification
+Tolerances: SPEC.md gates are exact-count or <= 1e-6 cm tolerances, and the
+verdict must be byte-identical apart from the `timing` key; wall times may
+differ by any amount.
 
-- [ ] All gate measurements match RECEIPT within SPEC.md tolerances
-- [ ] Two fresh-sandbox runs produce byte-identical verdict bodies (excl. timing)
-- [ ] Video gate passes: `python3 cookbook/tools/video_gate.py media/demo.mp4`
+## Deviations (to fill in)
+
+[Any difference explained here]
+
+## Verification (to fill in)
+
+- [ ] all gate measurements match RECEIPT.md within SPEC.md tolerances
+- [ ] the two verdict bodies are byte-identical except `timing`
+- [ ] `python3 cookbook/tools/video_gate.py media/demo.mp4` prints
+      `passed: true`

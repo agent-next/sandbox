@@ -2,13 +2,19 @@
 # usd-validate-fix media: regenerate every media file from real judge output.
 #
 # Pipeline (all data written by judge/grade.sh / judge/mutants.py runs in
-# THIS invocation — nothing is hand-edited or invented):
+# THIS invocation -- nothing is hand-edited or invented):
 #   1. run self-test + grade good + all mutants (into media/judge_runs/)
 #   2. extract mesh data for good + broken assets
-#   3. render result.png, loop.png
-#   4. render video frames -> lossless master (crf 0, gitignored) -> web encode
-#   5. write MANIFEST.json, result.json, STORYBOARD.md, REVIEW.json
-#   6. run video_gate on demo.mp4
+#   3. copy the verdicts to media/data/ for the figures and the video
+#   4. render result.png, loop.png
+#   5. render video frames -> lossless master (crf 0, git-ignored) -> web encode
+#   6. write MANIFEST.json, result.json, STORYBOARD.md, REVIEW.json
+#   7. run cookbook/tools/video_gate.py on demo.mp4 and FAIL the build unless
+#      it prints passed: true
+#
+# media/judge_runs/, media/master/, media/frames/ and media/.venv/ are all
+# git-ignored (see media/.gitignore): only the artefacts under media/data/
+# and the committed files above are source-controlled.
 #
 # Fails loudly if any expected judge output is missing.
 
@@ -21,6 +27,7 @@ RUNS="$MEDIA_DIR/judge_runs"
 REPLAY="$RUNS/replay"
 MASTER="$MEDIA_DIR/master"
 FRAMES="$MEDIA_DIR/frames"
+DATA="$MEDIA_DIR/data"
 VENV="$HOME/.usd-validate-fix-venv"
 PY="$VENV/bin/python"
 SEED="20261015"
@@ -46,26 +53,30 @@ echo "[media] ffmpeg $(ffmpeg -version | head -1 | awk '{print $3}')"
 
 # --- 1. replay: self-test + good + mutants ---
 echo "=== 1. replay: self-test + known-good + all mutants ==="
+rm -rf "$REPLAY"
 mkdir -p "$REPLAY/verdicts" "$REPLAY/mutants"
 
-# self-test output for loop.png kill rate
+# self-test output for the kill rate loop.png / make_video.py read
 bash "$JDIR/selftest.sh" > "$REPLAY/selftest_output.txt" 2>&1
 sed -i "s|/tmp/tmp\.[A-Za-z0-9]*|<tmp>|g" "$REPLAY/selftest_output.txt"
+tail -3 "$REPLAY/selftest_output.txt"
 
-# known-good graded twice (determinism)
+# known-good graded twice (determinism).  A failing grade exits non-zero and
+# `set -e` stops the build here rather than producing a video of a fail.
 bash "$JDIR/grade.sh" "$DEMO_DIR/examples/good/traffic_cone_fixed.usda" --seed "$SEED" --json "$REPLAY/verdicts/01_good.json" > /dev/null
 bash "$JDIR/grade.sh" "$DEMO_DIR/examples/good/traffic_cone_fixed.usda" --seed "$SEED" --json "$REPLAY/verdicts/01_good_replica.json" > /dev/null
-python3 -I - "$REPLAY/verdicts/01_good.json" "$REPLAY/verdicts/01_good_replica.json" <<'PY' || exit 1
+PYTHONDONTWRITEBYTECODE=1 "$PY" -I - "$REPLAY/verdicts/01_good.json" "$REPLAY/verdicts/01_good_replica.json" <<'PY' || exit 1
 import json, sys
 a = json.load(open(sys.argv[1])); a.pop("timing", None)
 b = json.load(open(sys.argv[2])); b.pop("timing", None)
 raise SystemExit(0 if a == b else 1)
 PY
 
-# broken asset (starting state)
+# broken asset (the starting state -- a failing grade is expected here)
 bash "$JDIR/grade.sh" "$DEMO_DIR/task/traffic_cone_broken.usda" --json "$REPLAY/verdicts/00_broken.json" > /dev/null 2>&1 || true
 
-# mutants
+# mutants: each must be killed by a judge gate, so a non-zero exit with a
+# verdict JSON is the expected outcome
 "$PY" -I "$JDIR/mutants.py" "$DEMO_DIR/examples/good/traffic_cone_fixed.usda" "$REPLAY/mutants" > /dev/null
 for m in "$REPLAY"/mutants/*.usda; do
     name="$(basename "$m" .usda)"
@@ -74,16 +85,22 @@ done
 
 # --- 2. extract mesh data ---
 echo "=== 2. extract mesh data (good + broken) ==="
-"$PY" -I "$MEDIA_DIR/extract_mesh.py" "$DEMO_DIR/examples/good/traffic_cone_fixed.usda" "$MEDIA_DIR/data/mesh_good.json"
-"$PY" -I "$MEDIA_DIR/extract_mesh.py" "$DEMO_DIR/task/traffic_cone_broken.usda" "$MEDIA_DIR/data/mesh_broken.json"
+"$PY" -I "$MEDIA_DIR/extract_mesh.py" "$DEMO_DIR/examples/good/traffic_cone_fixed.usda" "$DATA/mesh_good.json"
+"$PY" -I "$MEDIA_DIR/extract_mesh.py" "$DEMO_DIR/task/traffic_cone_broken.usda" "$DATA/mesh_broken.json"
 
 # --- 3. copy verdicts to media/data/ for figures ---
+# The figures and make_video.py read media/data/grade_<name>.json, so the
+# replay's numbered prefixes (00_/01_) are dropped here: grade_01_good.json
+# becomes grade_good.json.
 echo "=== 3. copy verdicts to media/data/ ==="
+rm -f "$DATA"/grade_*.json
 for f in "$REPLAY"/verdicts/*.json; do
-    name="$(basename "$f")"
-    cp "$f" "$MEDIA_DIR/data/grade_${name}"
+    base="$(basename "$f" .json)"
+    name="${base#00_}"; name="${name#01_}"
+    cp "$f" "$DATA/grade_${name}.json"
 done
-cp "$REPLAY/selftest_output.txt" "$MEDIA_DIR/data/selftest_output.txt"
+cp "$REPLAY/selftest_output.txt" "$DATA/selftest_output.txt"
+ls "$DATA"
 
 # --- 4. figures ---
 echo "=== 4. figures ==="
@@ -101,17 +118,16 @@ echo "=== 6. manifest + result.json + storyboard + review ==="
 "$PY" -I "$MEDIA_DIR/make_storyboard.py"
 "$PY" -I "$MEDIA_DIR/make_review.py"
 
-# --- 7. video gate ---
-echo "=== 7. video gate ==="
-if ! command -v python3 >/dev/null; then
-    echo "make_media: python3 missing" >&2; exit 1
-fi
-# Get video_gate.py from main if not present
-if [ ! -f "$MEDIA_DIR/video_gate.py" ]; then
-    echo "make_media: fetching video_gate.py from main..."
-    git show origin/main:cookbook/tools/video_gate.py > "$MEDIA_DIR/video_gate.py" 2>/dev/null || \
-        git show 6f5c53d4a4daef74ff58452db97f8ac1ca45be99:cookbook/tools/video_gate.py > "$MEDIA_DIR/video_gate.py"
-fi
-"$PY" "$MEDIA_DIR/video_gate.py" "$MEDIA_DIR/demo.mp4" --json "$MEDIA_DIR/video_gate_result.json"
+# --- 7. video gate: the standard's check must pass ---
+echo "=== 7. video gate (cookbook/tools/video_gate.py) ==="
+GATE_TOOL="$DEMO_DIR/../tools/video_gate.py"
+[ -f "$GATE_TOOL" ] || { echo "make_media: $GATE_TOOL missing" >&2; exit 1; }
+cp "$GATE_TOOL" "$RUNS/video_gate.py"
+"$PY" -I "$RUNS/video_gate.py" "$MEDIA_DIR/demo.mp4" --json "$MEDIA_DIR/video_gate_result.json" \
+    || { echo "make_media: video_gate FAILED (see above)" >&2; exit 1; }
+GATE_OK="$(python3 -I -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["passed"]))' \
+    "$MEDIA_DIR/video_gate_result.json")"
+[ "$GATE_OK" = "true" ] || { echo "make_media: video_gate passed=$GATE_OK, not true" >&2; exit 1; }
+echo "make_media: video gate passed: true"
 
 echo "make_media: done -> $MEDIA_DIR/{result.png,loop.png,demo.mp4,MANIFEST.json,result.json,STORYBOARD.md,REVIEW.json}"

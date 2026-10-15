@@ -1,38 +1,53 @@
 {
-  "note": "Two blind vision-model reviews of media/demo.mp4 with no README/context. Fill in with actual verdicts from the review panel.",
+  "note": "The blind review panel has NOT been run: it requires two vision models from different families answering outside this sandbox, and no vision-model API access exists here. Every judge slot is pending; nothing is invented. Pass is false because no judge has scored the video.",
+  "panel_required_by": "cookbook/DEMO-STANDARD.md # Review panel",
+  "panel_prompt": "cookbook/tools/video_review_prompt.md",
+  "pass_rules": {
+    "visual_quality_1_10": ">= 8",
+    "wow_1_10": ">= 7",
+    "clarity_1_10": ">= 7",
+    "payoff_visible_by_s": "<= 2",
+    "understandable_muted": true
+  },
   "reviewers": [
     {
       "model_family": "CLAUDE",
-      "model": "Claude-3.5-Sonnet (or similar)",
+      "model": "<model that ran the review>",
+      "ran_here": false,
+      "status": "pending",
+      "why_pending": "no vision-model API access in this sandbox (no ANTHROPIC_API_KEY)",
       "verdict": {
-        "frame0_what": "a finished simulation result",
-        "hook_type": "finished-result",
-        "payoff_visible_by_s": 0.5,
-        "on_screen_text": "usd-validate-fix: repaired traffic cone | NVIDIA validator PASS \u00b7 usd-core oracle 0 errors \u00b7 geometry invariant | before: task/traffic_cone_broken.usda | after: examples/good/traffic_cone_fixed.usda | same 3 meshes, same points \u2014 metadata, topology, bindings, normals repaired | D1: no normals \u2192 validator+oracle (3 errors) | D2: metersPerUnit/upAxis \u2192 oracle (2 errors) | D3: zero-area face \u2192 validator+oracle (1 error) | D4: no material on Band \u2192 oracle (1 error) | D5: no defaultPrim \u2192 validator+oracle (1 error) | D6: no extents \u2192 validator+oracle (3 errors) | gate 1 validator: PASS | gate 2 oracle: PASS | gate 3 geometry: PASS | gate 4 recount: PASS | judge self-test: 12/12 mutants killed (100%) | SPEC minimum 90% | \u2717 no_normals \u2192 gate 1 NVIDIA validator (FAIL) ... | python3 cookbook/usd-validate-fix/run.py",
-        "understandable_muted": true,
-        "visual_quality_1_10": 8,
-        "wow_1_10": 7,
-        "clarity_1_10": 8,
-        "why": "Opens on finished result within 1s, clear HUD overlays with gate status and mutant kill matrix, all numbers trace to judge verdicts, readable captions, smooth camera work.",
-        "fixes": []
+        "frame0_what": null,
+        "hook_type": null,
+        "payoff_visible_by_s": null,
+        "on_screen_text": null,
+        "understandable_muted": null,
+        "visual_quality_1_10": null,
+        "wow_1_10": null,
+        "clarity_1_10": null,
+        "why": null,
+        "fixes": null
       }
     },
     {
       "model_family": "GEMINI",
-      "model": "Gemini-1.5-Pro (or similar)",
+      "model": "<model that ran the review>",
+      "ran_here": false,
+      "status": "pending",
+      "why_pending": "no Google API access in this sandbox (no GEMINI_API_KEY)",
       "verdict": {
-        "frame0_what": "a finished simulation result",
-        "hook_type": "finished-result",
-        "payoff_visible_by_s": 0.5,
-        "on_screen_text": "usd-validate-fix: repaired traffic cone | NVIDIA validator PASS \u00b7 usd-core oracle 0 errors \u00b7 geometry invariant | before: task/traffic_cone_broken.usda | after: examples/good/traffic_cone_fixed.usda | same 3 meshes, same points \u2014 metadata, topology, bindings, normals repaired | D1: no normals \u2192 validator+oracle (3 errors) | D2: metersPerUnit/upAxis \u2192 oracle (2 errors) | D3: zero-area face \u2192 validator+oracle (1 error) | D4: no material on Band \u2192 oracle (1 error) | D5: no defaultPrim \u2192 validator+oracle (1 error) | D6: no extents \u2192 validator+oracle (3 errors) | gate 1 validator: PASS | gate 2 oracle: PASS | gate 3 geometry: PASS | gate 4 recount: PASS | judge self-test: 12/12 mutants killed (100%) | SPEC minimum 90% | \u2717 no_normals \u2192 gate 1 NVIDIA validator (FAIL) ... | python3 cookbook/usd-validate-fix/run.py",
-        "understandable_muted": true,
-        "visual_quality_1_10": 8,
-        "wow_1_10": 7,
-        "clarity_1_10": 8,
-        "why": "Opens on finished result immediately, no title card, clear before/after split, gate HUD and mutant matrix readable, end card has launch command.",
-        "fixes": []
+        "frame0_what": null,
+        "hook_type": null,
+        "payoff_visible_by_s": null,
+        "on_screen_text": null,
+        "understandable_muted": null,
+        "visual_quality_1_10": null,
+        "wow_1_10": null,
+        "clarity_1_10": null,
+        "why": null,
+        "fixes": null
       }
     }
   ],
-  "pass": true
+  "pass": false
 }

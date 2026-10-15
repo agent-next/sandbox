@@ -1,0 +1,78 @@
+{
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/latin1_comment.usda",
+ "facts": {
+  "crosscheck": {
+   "errors": [],
+   "passed": true
+  },
+  "geometry": {},
+  "oracle": {},
+  "recount": {},
+  "recount_geometry": {},
+  "up_axis": {},
+  "validator": {
+   "issues_by_severity": {
+    "ERROR": 1
+   },
+   "rules_not_passing": [
+    "?"
+   ],
+   "validator_exit": 1,
+   "validator_status": "FAIL"
+  }
+ },
+ "failed_gate": "validator",
+ "gates": {
+  "geometry": {
+   "errors": [
+    "check_geometry raised UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe9 in position 251: invalid continuation byte"
+   ],
+   "passed": false
+  },
+  "oracle": {
+   "errors": [
+    "check_asset raised ErrorException: <ErrorException with 2 arg(s)>"
+   ],
+   "passed": false
+  },
+  "recount": {
+   "errors": [
+    "check_asset raised UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe9 in position 15: invalid continuation byte",
+    "check_geometry raised UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe9 in position 15: invalid continuation byte"
+   ],
+   "passed": false
+  },
+  "up_axis": {
+   "errors": [
+    "check_up_axis raised ErrorException: <ErrorException with 2 arg(s)>"
+   ],
+   "passed": false
+  },
+  "validator": {
+   "errors": [
+    "nvidia_usd_validate exited 1",
+    "validator status 'FAIL' != 'PASS'",
+    "?: Failed to Open \"/tmp/tmpfnk6dz65/artifact.usda\""
+   ],
+   "issues_by_severity": {
+    "ERROR": 1
+   },
+   "passed": false,
+   "rules_not_passing": [
+    "?"
+   ],
+   "validator_exit": 1,
+   "validator_status": "FAIL"
+  }
+ },
+ "passed": false,
+ "seed": 0,
+ "timing": {
+  "geometry_s": 0.0,
+  "oracle_s": 0.89,
+  "recount_s": 0.02,
+  "total_s": 4.747,
+  "up_axis_s": 0.018,
+  "validator_s": 3.803
+ }
+}

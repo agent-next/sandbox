@@ -2,3 +2,15 @@
 # (DEMO-STANDARD.md: the -crf 0 master is written but git-ignored).
 master/
 .venv/
+__pycache__/
+
+# Result dumps and rendered frame sequences are reproducible from judge
+# output, never committed (DEMO-STANDARD.md "Size": no result dumps in git).
+frames/
+work/
+
+# The replay directory make_media.sh runs the judge into: per-mutant verdicts
+# and scratch .usda copies.  Everything a figure or the video reads from it is
+# copied to media/data/ and committed there; the replay itself is a build
+# artefact, and committing it duplicates the committed verdicts.
+judge_runs/

@@ -13,7 +13,7 @@ re-derives the same properties from scratch and confirms the repair did
 not damage the geometry.
 
 The task input is `task/traffic_cone_broken.usda`: a script-generated
-prop (a 61 cm road traffic cone — square base, cone body, reflective
+prop (a 58 cm road traffic cone — square base, cone body, reflective
 band; two `UsdPreviewSurface` materials; a `UsdPhysics.CollisionAPI`
 collider on the body) exported from a centimetre-based DCC with six
 seeded, realistic defects:
@@ -93,16 +93,46 @@ validator code): pass rule requires **all** of
 - at least one `Mesh` carries `UsdPhysics.CollisionAPI` (collider kept).
 
 ### Gate 3 — geometry preserved vs the original
-Compared against `task/traffic_cone_broken.usda` point-by-point:
+Compared against `task/traffic_cone_broken.usda`, whose sha256 is pinned in
+`judge/REFERENCE.sha256` and verified by `grade.sh` before and after the
+run (`grade.sh` fails closed if it ever changes, so an artifact cannot
+rewrite its own reference):
 - the set of `Mesh` prim paths is identical;
 - per mesh, point count is identical;
-- per mesh, the bbox over authored points agrees with the original
-  within `1e-6` cm per axis.
+- per mesh, the **composed world-space** bbox from `UsdGeom.BBoxCache`
+  (`useExtentsHint=False`) agrees with the original within `1e-6` cm per
+  axis. World bounds, not authored points: a `xformOp` that scales, rotates
+  or translates a prim changes the world bbox and fails here even though the
+  authored `points` array is byte-identical.
 
 This kills "fixes" that delete offending prims or rescale the points
-(e.g. multiplying by 100 and declaring `metersPerUnit = 1`).
+(e.g. multiplying by 100 and declaring `metersPerUnit = 1`), and it kills
+the transform cheats `xform_scale` and `xform_rot`.
 
-Exit 0 only if all three gates pass; one JSON verdict; `timing` key
+### Gate 4 — clean-room text recount (`judge/text_recount.py`)
+A stdlib-only recount of the ASCII layer: no `pxr`, no validator, no
+`usd-core`. It re-parses the `.usda` text, counts points, face corners,
+normals and per-prim `xformOp`s, reads which material path each mesh binds
+to, and re-checks the gate-2 and gate-3 facts it can express, then
+cross-checks its own counts against the pxr oracle's. Pass rule: zero
+errors **and** every cross-check agrees. This catches a repair that makes
+pxr happy while the file says something else — e.g. `sublayer_cheat`
+(hiding the real defects in a referenced sublayer so the pxr oracle sees
+the fixed values while the text does not).
+
+### Gate 5 — up axis matches the geometry (`judge/oracle.py`)
+`upAxis` is the stage's contract with every Y-up consumer, so it must
+describe the geometry actually in the file. The prop's height axis is
+**measured**, not read from the metadata the artifact just declared: the
+union of all mesh world bounds gives the three world spans, the largest is
+the height axis, and it must win by >= 5 cm over the other two and equal
+the stage's `upAxis`. The measured example is 36 x 58 x 36 cm, so the height
+axis Y wins by 22 cm. This catches `upaxis_z` (metadata says Y while the
+measured height is elsewhere), the transform cheats (which would tip the
+cone over, moving the height to a different axis), and an artifact that
+declares "Y" but authors along another axis.
+
+Exit 0 only if all five gates pass; one JSON verdict; `timing` key
 kept out of the deterministic body (identical seed ⇒ byte-identical
 JSON except `timing`).
 
@@ -118,10 +148,27 @@ shipped original.
 
 ## Known-bad mutants (`judge/mutants.py`)
 
-Single edits of the good artifact: `no_normals` (D1), `mpu_1` (D2a),
-`upaxis_z` (D2b), `zero_face` (D3), `unbind` (D4), `no_defaultprim`
-(D5), `no_extent` (D6), `delete_band` (delete the offending prim),
-`scale_points` (×100 with `metersPerUnit = 1` to fake units),
-`short_normals` (drop one normal — count mismatch), and `no_collision`
-(collider stripped). Self-test kill rate must be 100 % (≥ 90 %
-required).
+Single edits of the good artifact. Twelve are pure defects or
+deletions; the last four are the *cheats* a naive judge cannot see, and
+gate 3/4 exist to kill them.
+
+| mutant | what it does | gate that kills it |
+|---|---|---|
+| `no_normals` (D1) | drops normals from every mesh | 1 (NormalsExistChecker) + 2 |
+| `mpu_1` (D2a) | `metersPerUnit = 1.0` | 2 (value, not presence) |
+| `upaxis_z` (D2b) | `upAxis = "Z"` | 2 and 5 (measured height axis) |
+| `zero_face` (D3) | appends a degenerate quad to the Band | 1 (ZeroAreaFaceChecker) + 2 |
+| `unbind` (D4) | removes the Band's material binding | 2 |
+| `no_defaultprim` (D5) | drops `defaultPrim` | 1 (DefaultPrimChecker) + 2 |
+| `no_extent` (D6) | drops `extent` from every mesh | 1 (ExtentsChecker) + 2 |
+| `delete_band` | deletes the offending prim | 3 (Mesh prim paths differ) |
+| `scale_points` | x100 on the points, `metersPerUnit = 1` to fake units | 1 (extents) + 3 |
+| `short_normals` | drops one normal (count mismatch) | 1 (NormalsExistChecker) + 2 |
+| `no_collision` | strips the `CollisionAPI` | 2 |
+| `sublayer_cheat` | hides the defects in a referenced sublayer | 4 (text recount disagrees with pxr) |
+| `wrong_material` | binds Band to the orange material | 2 (required material per mesh) |
+| `latin1_comment` | injects a non-UTF-8 byte in a comment | 1 (validator fails to parse) — and the verdict must still name a gate |
+| `xform_scale` | `xformOp:scale = (0.5, 0.5, 0.5)` | 3 (world bbox deviates) + 4 (extra xformOp) |
+| `xform_rot` | `xformOp:rotateXYZ` tipping the cone | 3 (world bbox deviates) + 5 (height axis moves off upAxis) |
+
+Measured kill rate: 16/16 = 100 % (SPEC minimum 90 %).

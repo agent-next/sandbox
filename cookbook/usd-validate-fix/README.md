@@ -17,17 +17,29 @@ and the graded artifact is one small file it hands back.
 ## Results
 
 Key numbers from the judge verdict (`examples/good/traffic_cone_fixed
-.usda`, usd-core 25.5 + usd-validation-nvidia 1.22.0 on Python 3.12):
+.usda`, usd-core 25.5 + usd-validation-nvidia 1.22.0 on Python 3.12,
+seed 20261015):
 
 - **NVIDIA validator**: `PASS`, 0 FAILURE / 0 ERROR issues (gate 1)
 - **Oracle recount**: normals == face corners on all 3 meshes (24 / 60 /
   40), all unit-length within 1.7e-08, 0 zero-area faces, 3/3 bound
   materials, 1 collider, extents authored (gate 2)
-- **Geometry preserved**: 3/3 mesh paths, point counts 8 / 20 / 20, bbox
-  deviation 0 cm vs the original within 1e-06 (gate 3)
-- **Self-test kill rate**: 11/11 = 100 % (requirement ≥ 90 %)
+- **Geometry preserved**: 3/3 mesh paths, point counts 8 / 20 / 20, world
+  bbox 36 × 58 × 36 cm unchanged vs the original within 1e-06 — the
+  repair must edit metadata, topology and bindings, never the points or
+  any transform (gate 3)
+- **Up axis matches the geometry**: `upAxis = "Y"` and the prop's measured
+  world height axis is Y, winning by 22 cm over the other axes (gate 5)
+- **Clean-room text recount**: a stdlib-only recount of the ASCII layer
+  agrees with the pxr oracle on every count (gate 4)
+- **Self-test kill rate**: 16/16 = 100 % (requirement ≥ 90 %) — 12 seeded
+  defects and transform/scale/material cheats, each killed by a named gate
 
-Media (result figure, agent-loop, demo video): added by a later task.
+Media (`media/result.png`, `media/loop.png`, `media/demo.mp4`) is generated
+by `bash media/make_media.sh` from these same judge verdicts; every number
+on the figures and in the video traces to a `media/data/` file that run
+wrote. See `media/STORYBOARD.md` for the video's slots and
+`media/REVIEW.json` for the blind-panel status.
 
 ## Ask your agent
 
@@ -71,9 +83,9 @@ could not be confirmed.
 | step | wall time |
 |---|---|
 | `git clone --depth 1` | ~2 s |
-| `judge/setup.sh` (fresh venv + pinned wheels) | 36 s (idempotent re-run: 2 s) |
-| `judge/selftest.sh` (good + 11 mutants + determinism) | 52 s |
-| `judge/grade.sh examples/good/traffic_cone_fixed.usda` | 8 s |
+| `judge/setup.sh` (fresh venv + pinned wheels) | ~36 s (idempotent re-run: ~2 s) |
+| `judge/selftest.sh` (good + 16 mutants + determinism) | ~110 s |
+| `judge/grade.sh examples/good/traffic_cone_fixed.usda` | ~3 s |
 
 Whole run, including sandbox create and kill: a few minutes; grading
 itself is seconds. `run.py` prints a per-step timing line.
@@ -93,6 +105,22 @@ itself is seconds. `run.py` prints a per-step timing line.
 - The oracle checks properties, not provenance: any edit path that
   produces correct normals, extents, bindings and metadata passes —
   including the validator's own `--fix` flag where it applies.
-- The geometry gate compares against `task/traffic_cone_broken.usda`:
-  it pins mesh paths, point counts and the bbox to 1e-06 cm, so the
-  repair must edit metadata/topology, never the points.
+- The geometry gate compares against `task/traffic_cone_broken.usda`,
+  whose sha256 is pinned in `judge/REFERENCE.sha256` and checked by
+  `grade.sh` before and after grading: it pins mesh paths, point counts and
+  the **composed world** bbox to 1e-06 cm (via `UsdGeom.BBoxCache`, so a
+  `xformOp` scale, rotation or translation fails it even though the
+  authored `points` array is untouched), and the clean-room text recount of
+  gate 4 independently rejects any extra `xformOp`. The repair must edit
+  metadata/topology, never the points.
+- No USD renderer is available: the pinned wheels ship no
+  Hydra/hdStorm/UsdImaging and the sandbox has no OpenGL, so
+  `media/result.png` and `media/demo.mp4` render the asset's own points,
+  topology, authored face-varying normals and bound-material colours with
+  matplotlib's 3D renderer (dumped by `media/extract_mesh.py`, unchanged
+  from the file the judge graded) rather than with USD itself. See
+  `media/STORYBOARD.md` for the full deviation list.
+- The blind review panel in `cookbook/DEMO-STANDARD.md` (two vision models
+  judging `media/demo.mp4`) has not been run here — no vision-model access
+  exists in this environment. `media/REVIEW.json` records it as *not done*
+  with `pass: false` rather than inventing verdicts.

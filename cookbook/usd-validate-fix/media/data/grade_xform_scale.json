@@ -1,0 +1,352 @@
+{
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/xform_scale.usda",
+ "facts": {
+  "crosscheck": {
+   "errors": [
+    "cross-check: /TrafficCone/Band bbox_dev oracle=4356.0 recount=0.0",
+    "cross-check: /TrafficCone/Base bbox_dev oracle=3564.0 recount=0.0",
+    "cross-check: /TrafficCone/Body bbox_dev oracle=5742.0 recount=0.0"
+   ],
+   "passed": false
+  },
+  "geometry": {
+   "/TrafficCone/Band": {
+    "bbox_dev_cm": 4356.0,
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -1380.000019,
+      3000.0,
+      -1312.458038
+     ],
+     [
+      1380.000019,
+      4400.0,
+      1312.458038
+     ]
+    ]
+   },
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 3564.0,
+    "points": 8,
+    "world_bbox_cm": [
+     [
+      -1800.0,
+      0.0,
+      -1800.0
+     ],
+     [
+      1800.0,
+      400.0,
+      1800.0
+     ]
+    ]
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 5742.0,
+    "points": 20,
+    "world_bbox_cm": [
+     [
+      -1300.0,
+      400.0,
+      -1236.373425
+     ],
+     [
+      1300.0,
+      5800.0,
+      1236.373425
+     ]
+    ]
+   }
+  },
+  "oracle": {
+   "colliders": 1,
+   "defaultPrim": "TrafficCone",
+   "meshes": {
+    "/TrafficCone/Band": {
+     "bound_material": "/TrafficCone/Looks/WhitePlastic",
+     "extent": [
+      [
+       -13.8,
+       30.0,
+       -13.12458
+      ],
+      [
+       13.8,
+       44.0,
+       13.12458
+      ]
+     ],
+     "face_corners": 40,
+     "max_normal_dev": 1.7e-08,
+     "normals": 40,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Base": {
+     "bound_material": "/TrafficCone/Looks/OrangePlastic",
+     "extent": [
+      [
+       -18.0,
+       0.0,
+       -18.0
+      ],
+      [
+       18.0,
+       4.0,
+       18.0
+      ]
+     ],
+     "face_corners": 24,
+     "max_normal_dev": 1.7e-08,
+     "normals": 24,
+     "normals_interpolation": "faceVarying",
+     "points": 8,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "/TrafficCone/Looks/OrangePlastic",
+     "extent": [
+      [
+       -13.0,
+       4.0,
+       -12.363734
+      ],
+      [
+       13.0,
+       58.0,
+       12.363734
+      ]
+     ],
+     "face_corners": 60,
+     "max_normal_dev": 1.6e-08,
+     "normals": 60,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 0.01,
+   "upAxis": "Y"
+  },
+  "recount": {
+   "colliders": 1,
+   "defaultPrim": "TrafficCone",
+   "meshes": {
+    "/TrafficCone/Band": {
+     "bound_material": "</TrafficCone/Looks/WhitePlastic>",
+     "extent": [
+      [
+       -13.8,
+       30.0,
+       -13.12458
+      ],
+      [
+       13.8,
+       44.0,
+       13.12458
+      ]
+     ],
+     "face_corners": 40,
+     "max_normal_dev": 8e-09,
+     "normals": 40,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "xform_ops": [
+      "xformOp:scale"
+     ],
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Base": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -18.0,
+       0.0,
+       -18.0
+      ],
+      [
+       18.0,
+       4.0,
+       18.0
+      ]
+     ],
+     "face_corners": 24,
+     "max_normal_dev": 1.6e-08,
+     "normals": 24,
+     "normals_interpolation": "faceVarying",
+     "points": 8,
+     "xform_ops": [
+      "xformOp:scale"
+     ],
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -13.0,
+       4.0,
+       -12.363734
+      ],
+      [
+       13.0,
+       58.0,
+       12.363734
+      ]
+     ],
+     "face_corners": 60,
+     "max_normal_dev": 3.4e-08,
+     "normals": 60,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "xform_ops": [
+      "xformOp:scale"
+     ],
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 0.01,
+   "upAxis": "Y"
+  },
+  "recount_geometry": {
+   "/TrafficCone/Band": {
+    "bbox_dev_cm": 0.0,
+    "points": 20,
+    "xform_ops": [
+     "xformOp:scale"
+    ]
+   },
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 0.0,
+    "points": 8,
+    "xform_ops": [
+     "xformOp:scale"
+    ]
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 0.0,
+    "points": 20,
+    "xform_ops": [
+     "xformOp:scale"
+    ]
+   }
+  },
+  "up_axis": {
+   "height_axis": "Y",
+   "height_margin_cm": 2200.0,
+   "meshes": {
+    "/TrafficCone/Band": {
+     "world_bbox_cm": [
+      [
+       -1380.000019,
+       3000.0,
+       -1312.458038
+      ],
+      [
+       1380.000019,
+       4400.0,
+       1312.458038
+      ]
+     ]
+    },
+    "/TrafficCone/Base": {
+     "world_bbox_cm": [
+      [
+       -1800.0,
+       0.0,
+       -1800.0
+      ],
+      [
+       1800.0,
+       400.0,
+       1800.0
+      ]
+     ]
+    },
+    "/TrafficCone/Body": {
+     "world_bbox_cm": [
+      [
+       -1300.0,
+       400.0,
+       -1236.373425
+      ],
+      [
+       1300.0,
+       5800.0,
+       1236.373425
+      ]
+     ]
+    }
+   },
+   "upAxis": "Y",
+   "world_bbox_cm": [
+    [
+     -1800.0,
+     0.0,
+     -1800.0
+    ],
+    [
+     1800.0,
+     5800.0,
+     1800.0
+    ]
+   ]
+  },
+  "validator": {
+   "issues_by_severity": {},
+   "rules_not_passing": [],
+   "validator_exit": 0,
+   "validator_status": "PASS"
+  }
+ },
+ "failed_gate": "geometry",
+ "gates": {
+  "geometry": {
+   "errors": [
+    "/TrafficCone/Band: world bbox deviates from the original by 4.36e+03 cm > 1e-06 cm (a transform that moves, scales or tips the mesh fails the repair)",
+    "/TrafficCone/Base: world bbox deviates from the original by 3.56e+03 cm > 1e-06 cm (a transform that moves, scales or tips the mesh fails the repair)",
+    "/TrafficCone/Body: world bbox deviates from the original by 5.74e+03 cm > 1e-06 cm (a transform that moves, scales or tips the mesh fails the repair)"
+   ],
+   "passed": false
+  },
+  "oracle": {
+   "errors": [],
+   "passed": true
+  },
+  "recount": {
+   "errors": [
+    "/TrafficCone/Band: the artifact adds transform op(s) ['xformOp:scale'] that the original does not have -- the repair must edit the mesh's own data, not wrap it in a transform",
+    "/TrafficCone/Base: the artifact adds transform op(s) ['xformOp:scale'] that the original does not have -- the repair must edit the mesh's own data, not wrap it in a transform",
+    "/TrafficCone/Body: the artifact adds transform op(s) ['xformOp:scale'] that the original does not have -- the repair must edit the mesh's own data, not wrap it in a transform",
+    "cross-check: /TrafficCone/Band bbox_dev oracle=4356.0 recount=0.0",
+    "cross-check: /TrafficCone/Base bbox_dev oracle=3564.0 recount=0.0",
+    "cross-check: /TrafficCone/Body bbox_dev oracle=5742.0 recount=0.0"
+   ],
+   "passed": false
+  },
+  "up_axis": {
+   "errors": [],
+   "passed": true
+  },
+  "validator": {
+   "errors": [],
+   "issues_by_severity": {},
+   "passed": true,
+   "rules_not_passing": [],
+   "validator_exit": 0,
+   "validator_status": "PASS"
+  }
+ },
+ "passed": false,
+ "seed": 0,
+ "timing": {
+  "geometry_s": 0.02,
+  "oracle_s": 1.026,
+  "recount_s": 0.025,
+  "total_s": 5.676,
+  "up_axis_s": 0.005,
+  "validator_s": 4.6
+ }
+}

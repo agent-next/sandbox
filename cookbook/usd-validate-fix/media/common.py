@@ -2,7 +2,7 @@
 """Shared loading, validation and drawing for the usd-validate-fix media.
 
 Every number drawn comes from media/data/ (real judge output produced by
-make_data.sh) or from the graded assets themselves; each loader validates
+make_media.sh) or from the graded assets themselves; each loader validates
 the whole file before anything is drawn and names the first missing field.
 
 Palette: light-mode tokens from the agent-next dataviz reference palette.
@@ -42,16 +42,19 @@ MUTANT_IDS = {
     "zero_face": "D3", "unbind": "D4", "no_defaultprim": "D5",
     "no_extent": "D6", "delete_band": "cheat", "scale_points": "cheat",
     "short_normals": "cheat", "no_collision": "cheat",
-    "sublayer_cheat": "cheat",
+    "sublayer_cheat": "cheat", "latin1_comment": "crash",
+    "wrong_material": "D4'", "xform_scale": "cheat", "xform_rot": "cheat",
 }
 MUTANT_ORDER = ["no_normals", "mpu_1", "upaxis_z", "zero_face", "unbind",
                 "no_defaultprim", "no_extent", "delete_band",
                 "scale_points", "short_normals", "no_collision",
-                "sublayer_cheat"]
-GATE_ORDER = ["validator", "oracle", "geometry", "recount"]
+                "sublayer_cheat", "latin1_comment", "wrong_material",
+                "xform_scale", "xform_rot"]
+GATE_ORDER = ["validator", "oracle", "geometry", "up_axis", "recount"]
 GATE_LABEL = {"validator": "gate 1\nNVIDIA validator",
               "oracle": "gate 2\nusd-core oracle",
               "geometry": "gate 3\ngeometry kept",
+              "up_axis": "gate 5\nup axis matches",
               "recount": "gate 4\nclean-room text recount"}
 
 
@@ -73,7 +76,7 @@ def need(obj, *keys):
 def load_json(relpath, *required):
     path = os.path.join(DATA, relpath)
     if not os.path.isfile(path):
-        die("missing %s -- run media/make_data.sh first" % relpath)
+        die("missing %s -- run bash media/make_media.sh first" % relpath)
     try:
         with open(path, encoding="utf-8") as fh:
             obj = json.load(fh)
@@ -94,9 +97,10 @@ def load_verdict(name):
         "gates.validator.validator_status",
         "gates.oracle.passed", "gates.oracle.errors",
         "gates.geometry.passed", "gates.geometry.errors",
+        "gates.up_axis.passed", "gates.up_axis.errors",
         "gates.recount.passed", "gates.recount.errors",
         "facts.oracle.meshes", "facts.oracle.colliders",
-        "facts.geometry", "facts.crosscheck",
+        "facts.geometry", "facts.crosscheck", "facts.up_axis",
     )
     for mesh in need(v, "facts", "oracle", "meshes").values():
         for key in ("points", "face_corners", "zero_area_faces",
@@ -108,6 +112,29 @@ def load_verdict(name):
     need(v, "facts", "crosscheck", "passed")
     for key in ("recount", "recount_geometry"):
         need(v, "facts", key)
+    for key in ("upAxis", "height_axis", "height_margin_cm", "world_bbox_cm"):
+        need(need(v, "facts", "up_axis"), key)
+    return v
+
+
+def load_row(name):
+    """The minimum a mutant row needs: which gate failed, and how it failed.
+
+    Narrower than load_verdict() on purpose: a mutant can die in a gate that
+    skips the later facts entirely (the latin1_comment mutant's non-UTF-8
+    byte stops the oracle before it records `meshes`, so the stricter loader
+    would refuse a verdict the judge really did produce).  Only the fields the
+    loop figure and the video's step replay actually read are required.
+    """
+    v = load_json("grade_%s.json" % name,
+                  "artifact", "seed", "passed", "failed_gate")
+    gate = v["failed_gate"]
+    if gate is not None:
+        g = v["gates"].get(gate) or {}
+        if not isinstance(g.get("errors"), list):
+            die("grade_%s.json: gate %r has no error list" % (name, gate))
+    v["validator_status"] = ((v["gates"].get("validator") or {})
+                             .get("validator_status"))
     return v
 
 
@@ -247,12 +274,27 @@ def draw_cone(ax, mesh_dump, show_normals=False, normals_len=2.6, elev=14,
                       [d[1] * normals_len for d in dirs],
                       [d[2] * normals_len for d in dirs],
                       color=INK_2, linewidth=0.9, arrow_length_ratio=0.22)
+    # The asset is Y-up (SPEC gate 5), so the height runs up +Y: the window
+    # is 42 (X) x 62 (Y) x 42 (Z) cm -- the measured world bbox.
     ax.set_xlim(-21, 21)
-    ax.set_ylim(-21, 21)
-    ax.set_zlim(0, 62)
-    ax.set_box_aspect((1, 1, 62 / 42))   # true proportions: 42x42x62 cm window
+    ax.set_ylim(0, 62)
+    ax.set_zlim(-21, 21)
+    ax.set_box_aspect((1, 62 / 42, 1))   # true proportions: X:Y:Z
     ax.view_init(elev=elev, azim=azim)
     ax.set_axis_off()
+
+
+def bbox(mesh_dump):
+    """(min, max) of every point of every mesh in the dump, as float cm."""
+    pts = [p for m in mesh_dump["meshes"] for p in m["points"]]
+    return ([min(p[i] for p in pts) for i in range(3)],
+            [max(p[i] for p in pts) for i in range(3)])
+
+
+def spans(mesh_dump):
+    """[X, Y, Z] world extents of the whole dump, in cm."""
+    pts = [p for m in mesh_dump["meshes"] for p in m["points"]]
+    return [max(p[i] for p in pts) - min(p[i] for p in pts) for i in range(3)]
 
 
 def badge(ax, x, y, text, status, fontsize=13):
