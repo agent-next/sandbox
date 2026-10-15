@@ -12,22 +12,30 @@ same derivation the judge uses). The layout is deterministic:
   2. a band wider than MAX_ROW is split into sub-rows that minimise the
      number of edges kept inside a sub-row (the 11-node cyclic core of
      httpx becomes two rows whose edges mostly run top-to-bottom),
-  3. barycenter sweeps plus an adjacent-swap pass order nodes inside each
-     row to minimise edge crossings,
-  4. node size is fitted to the label/sublabel/tag text at the renderer's
-     own font metrics (textUnits * 0.6 * px + padding) so labels render at
-     their preferred size instead of being shrunk,
+  3. every node is then slotted into one of COLS fixed columns — a sweep
+     over row permutations minimises total column distance across edges,
+     so most edges land on straight verticals. Because columns share one
+     spacing (CW + GAP_X), the gaps between columns form vertical
+     corridors that run the whole canvas height; archify's router threads
+     long edges through them instead of crossing nodes,
+  4. node width is fitted to the label/sublabel/tag text at the
+     renderer's own font metrics (textUnits * 0.6 * px + padding) and
+     nodes are centred on their column, so corridor width never drops
+     below GAP_X,
   5. component type encodes the module role (legend labels are set
-     explicitly), in-degree rides in each node's tag, and edges that point
-     back upward (feedback inside the cyclic core) are drawn dashed,
+     explicitly), in-degree rides in each node's tag, and edges that
+     point back upward (feedback inside the cyclic core) are drawn
+     dashed,
   6. no meta.viewBox is authored: archify measures the canvas from the
-     geometry (so it is always fitted to the graph) and the desktop reader
-     scales primary labels to its 14 px comfort target.
+     geometry (so it is always fitted to the graph). The desktop reader
+     then widens the reader column until primary labels render at its
+     declared 14 px comfort target (data-reader-primary-text), so node
+     labels project at ~14 px on a 1920x1080 desktop.
 
 Routing is left fully automatic on purpose: archify's router spreads
-ports, threads gap corridors and resolves crossings between automatic
-routes with a halo. Authored `via` geometry would turn every crossing
-into a blocking validation error.
+ports, threads the gap corridors above and resolves remaining crossings
+between automatic routes with a halo. Authored `via` geometry would turn
+every crossing into a blocking validation error.
 
 Usage: python3 tools/build_map.py [--truth ~/ground-truth/httpx-0.28.1]
                                   [--out  examples/good/httpx-map/diagram.json]
@@ -72,11 +80,13 @@ LEGEND_LABELS = {
 FONT_PREFERRED = {"label": 11, "sublabel": 9, "tag": 7}
 CHAR_EM = 0.6
 TEXT_PAD = 8
-SIDE_PAD = 18
+SIDE_PAD = 16
 NODE_H = 64
-GAP_X = 92
-GAP_Y = 108
-MARGIN = 40
+MARGIN_X = 44
+MARGIN_TOP = 40
+MARGIN_BOTTOM = 48
+GAP_X = 120          # vertical corridor width between node columns
+GAP_Y = 150          # horizontal corridor height between node rows
 MAX_ROW = 6          # max nodes per visual row inside a band
 
 
@@ -162,68 +172,6 @@ def tarjan_scc(mods, edges):
     return sccs
 
 
-def crossings(order_a, order_b, edges_ab):
-    pos_b = {m: i for i, m in enumerate(order_b)}
-    seq = sorted((order_a.index(a), pos_b[b]) for a, b in edges_ab
-                 if a in order_a and b in pos_b)
-    return sum(1 for i in range(len(seq)) for j in range(i + 1, len(seq))
-               if seq[i][1] > seq[j][1])
-
-
-def barycenter_sweep(rows, edges, sweeps=40):
-    edge_list = sorted(edges)
-    pos = {m: i for row in rows for i, m in enumerate(row)}
-    for s in range(sweeps):
-        rng = range(len(rows)) if s % 2 == 0 else range(len(rows) - 1, -1, -1)
-        for l in rng:
-            row = rows[l]
-            if len(row) < 2:
-                continue
-            keys = {}
-            for m in row:
-                nb = []
-                for a, b in edge_list:
-                    if b == m:
-                        nb.append(pos[a])
-                    elif a == m:
-                        nb.append(pos[b])
-                keys[m] = (sum(nb) / len(nb)) if nb else float(pos[m])
-            row.sort(key=lambda m: (keys[m], m))
-            for i, m in enumerate(row):
-                pos[m] = i
-    return rows
-
-
-def swap_pass(rows, edges, passes=12):
-    """Swap adjacent nodes while the adjacent-row crossing count drops."""
-    for _ in range(passes):
-        changed = False
-        for l, row in enumerate(rows):
-            for i in range(len(row) - 1):
-                def xcount():
-                    n = 0
-                    if l > 0:
-                        n += crossings(row, rows[l - 1],
-                                       [(a, b) for a, b in edges
-                                        if b in row and a in rows[l - 1]])
-                    if l + 1 < len(rows):
-                        n += crossings(row, rows[l + 1],
-                                       [(a, b) for a, b in edges
-                                        if a in row and b in rows[l + 1]])
-                    # Lateral edges inside this row count half a crossing
-                    # when the swap wedges an endpoint between the pair.
-                    return n
-                before = xcount()
-                row[i], row[i + 1] = row[i + 1], row[i]
-                if xcount() > before:
-                    row[i], row[i + 1] = row[i + 1], row[i]
-                else:
-                    changed = True
-        if not changed:
-            break
-    return rows
-
-
 def band_split(members, edges):
     """Split a wide band into <=MAX_ROW sub-rows minimising the number of
     edges that stay inside one sub-row (those run laterally). For the
@@ -254,10 +202,44 @@ def band_split(members, edges):
         if rev > fwd:
             row_a, row_b = row_b, row_a
         return [row_a, row_b]
-    # Generic fallback for wider bands: greedy fill by barycenter order.
-    rows = [sorted(members[i:i + MAX_ROW])
+    # Generic fallback for wider bands: fixed-size slices.
+    return [sorted(members[i:i + MAX_ROW])
             for i in range(0, len(members), MAX_ROW)]
-    return rows
+
+
+def assign_columns(rows, edges, cols):
+    """Slot each node into one of `cols` fixed columns.
+
+    Sweeps over rows (top-down, then bottom-up) assigning each row's nodes
+    to the permutation of distinct columns that minimises total column
+    distance summed over every incident edge. Small rows float toward the
+    columns of their neighbours; the result is deterministic.
+    """
+    col = {}
+    for row in rows:
+        off = (cols - len(row)) // 2
+        for i, m in enumerate(sorted(row)):
+            col[m] = off + i
+    edge_list = sorted(edges)
+    for sweep in range(8):
+        rng = range(len(rows)) if sweep % 2 == 0 else range(len(rows) - 1, -1, -1)
+        for l in rng:
+            row = sorted(rows[l])
+            best_key = best_map = None
+            for chosen in itertools.permutations(range(cols), len(row)):
+                m2c = dict(zip(row, chosen))
+                cost = 0
+                for a, b in edge_list:
+                    ca = m2c.get(a, col.get(a))
+                    cb = m2c.get(b, col.get(b))
+                    if ca is None or cb is None:
+                        continue
+                    cost += abs(ca - cb)
+                key = (cost, chosen)
+                if best_key is None or key < best_key:
+                    best_key, best_map = key, m2c
+            col.update(best_map)
+    return col
 
 
 def build(truth_root):
@@ -292,26 +274,27 @@ def build(truth_root):
         rows.extend(band_split(members, edges)
                     if len(members) > MAX_ROW else [sorted(members)])
 
-    rows = barycenter_sweep(rows, edges)
-    rows = swap_pass(rows, edges)
+    cols = max(len(r) for r in rows)
+    col = assign_columns(rows, edges, cols)
 
     row_of = {m: l for l, row in enumerate(rows) for m in row}
-
     indeg = {m: 0 for m in mods}
     for a, b in edges:
         indeg[b] += 1
 
+    # Column geometry: every node centred on its column, every corridor
+    # between columns at least GAP_X wide regardless of per-node widths.
+    widths = {m: component_size(m, f"httpx/{m}.py", f"{indeg[m]} importers")[0]
+              for m in mods}
+    cell_w = max(widths.values())
+    lane = cell_w + GAP_X
+
     comps = []
-    canvas_w = 0
-    y = MARGIN
     for l, row in enumerate(rows):
-        sizes = {m: component_size(m, f"httpx/{m}.py",
-                                   f"{indeg[m]} importers") for m in row}
-        total = sum(s[0] for s in sizes.values()) + GAP_X * (len(row) - 1)
-        canvas_w = max(canvas_w, total)
-        x = -total / 2.0
+        y = MARGIN_TOP + l * (NODE_H + GAP_Y)
         for m in row:
-            w, h = sizes[m]
+            w = widths[m]
+            cx = MARGIN_X + cell_w / 2 + col[m] * lane
             # ids must match ^[a-zA-Z][a-zA-Z0-9_-]*$ — no leading "_".
             cid = {"__init__": "init__", "__version__": "version__"}.get(
                 m, m.lstrip("_"))
@@ -321,23 +304,22 @@ def build(truth_root):
                 "label": m,
                 "sublabel": f"httpx/{m}.py",
                 "tag": f"{indeg[m]} importers",
-                "pos": [int(round(x)), y],
-                "size": [w, h],
+                "pos": [int(round(cx - w / 2)), y],
+                "size": [w, NODE_H],
                 "sources": [{"path": f"httpx/{m}.py"}],
             })
-            x += w + GAP_X
-        y += NODE_H + GAP_Y
-
-    for c in comps:
-        c["pos"][0] += int(round(canvas_w / 2.0 + MARGIN))
 
     id_of = {c["sources"][0]["path"].split("/")[-1][:-3]: c["id"]
              for c in comps}
 
     back = {(a, b) for a, b in edges if row_of[a] > row_of[b]}
 
+    # Long-span edges first: they claim the vertical corridors before the
+    # resolved-route set is crowded; adjacent-row edges have many cheap
+    # local options either way.
+    span = lambda e: abs(row_of[e[0]] - row_of[e[1]])
     connections = []
-    for a, b in sorted(edges):
+    for a, b in sorted(edges, key=lambda e: (-span(e), e)):
         conn = {"from": id_of[a], "to": id_of[b]}
         if (a, b) in back:
             # upward feedback edge — drawn dashed so direction stays honest
@@ -383,7 +365,7 @@ def main():
     print(f"[build_map] {len(spec['components'])} nodes, "
           f"{len(spec['connections'])} edges ({len(back)} dashed feedback), "
           f"{len(rows)} rows: " + " / ".join(str(len(r)) for r in rows))
-    print(f"[build_map] content bounds {xs2}x{ys2}")
+    print(f"[build_map] content bounds {xs2 + MARGIN_X}x{ys2 + MARGIN_BOTTOM}")
 
 
 if __name__ == "__main__":
