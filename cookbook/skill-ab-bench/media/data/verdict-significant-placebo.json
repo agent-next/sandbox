@@ -91,7 +91,7 @@
     },
     "G8_judge_integrity": {
       "graded_from_copy": true,
-      "judge_sha256": "4e573b791723b99fc5f0a40afa313eba8053cd3b2f03a282fd95dc3d62f043fd",
+      "judge_sha256": "d16370e5afe8a8f0084150505ea957af21047f3b2add2d7075344ee6da3984a9",
       "pass": true,
       "problems": []
     }
@@ -99,7 +99,7 @@
   "schema": "skill-ab-bench/1",
   "seed": 20261014,
   "timing": {
-    "wall_s": 1.752
+    "wall_s": 1.821
   },
   "verdict": "fail"
 }

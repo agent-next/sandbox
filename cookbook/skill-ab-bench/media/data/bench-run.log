@@ -1,6 +1,6 @@
-bench: 16 tasks x 3 arms = 48 pairs in 10.8 s
+bench: 16 tasks x 3 arms = 48 pairs in 16.2 s
   skill    16/16 pass (100.0 pts)
   noskill  4/16 pass (25.0 pts)
   placebo  5/16 pass (31.2 pts)
 bench: delta skill-noskill = +75.0 pts
-bench: wrote /tmp/tmp.Bnp1OK08Hs/bench/results.json
+bench: wrote /tmp/tmp.FGjBebawUI/bench/results.json
