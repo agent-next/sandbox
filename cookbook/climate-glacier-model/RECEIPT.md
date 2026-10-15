@@ -422,6 +422,11 @@ two `grade.sh --seed 1` runs are identical but for the `timing` key.
 
 ## Deviations
 
+- **Independent reproduction is complete.** A different agent, following
+  only `README.md` in a fresh sandbox, reproduced every graded number exactly
+  (13/13 kill rate, identical crossing years and `V(100)` values,
+  `verdict["passed"] = true`); its numbers and the side-by-side comparison are
+  in `REPRODUCE.md`. *(done)*
 - **Wall times vary with machine load.** `setup.sh` was 63–107 s across
   earlier fresh-venv runs and 31.6–35.5 s in the two runs above; `selftest.sh`
   206–239 s earlier and 82.6–83.7 s above. No graded number varied at all —
