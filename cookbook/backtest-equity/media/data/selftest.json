@@ -82,6 +82,12 @@
    "failed": [
     "G6_schema_sanity"
    ]
+  },
+  "tiny-figure": {
+   "verdict": "FAIL",
+   "failed": [
+    "G6_schema_sanity"
+   ]
   }
  }
 }

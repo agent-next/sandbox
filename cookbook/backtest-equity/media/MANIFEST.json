@@ -13,15 +13,15 @@
    "shows": "the agent-loop replay's judge-measured deviation per attempt until the judge passes, and the self-test kill rate per known-bad mutant",
    "command": "media/make_media.sh -> media/make_figures.py make_loop",
    "source_data": "media/data/replay.json + media/data/selftest.json (grade verdicts of the known-bad mutants and the good artifact)",
-   "sha256": "e4624f67485551284d6b3e62fd0ebafb395cd1530a4666230986352885ec11e1",
-   "size_bytes": 178541
+   "sha256": "715be6232a419a83e6d330b7c8eda2604cc6c33e344d42c4c039c0ae791236cf",
+   "size_bytes": 183648
   },
   "demo.mp4": {
    "shows": "the same series animated: the backtest running day by day, the agent loop's deviations, then the kill rates",
    "command": "media/make_media.sh -> media/make_video.py + ffmpeg (crf 0 lossless master in media/master/, then -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart)",
    "source_data": "media/frames rendered by make_video.py from media/data/*.json",
-   "sha256": "9312f444a4e0b0ba45ecaee01819d9702bc6e2183f9fa2bdf3373338790677be",
-   "size_bytes": 1655972,
+   "sha256": "2ff14538fdb82b94636b68d928708cc97fac798d04266dbd6723c1a8a9d1b376",
+   "size_bytes": 1666709,
    "width": 1920,
    "height": 1080,
    "duration_sec": 34.7,

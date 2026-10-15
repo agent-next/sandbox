@@ -1,5 +1,15 @@
 # REPRODUCE — `cookbook/backtest-equity/`
 
+> **Update 2026-10-15 (builder, after the PR review):** the review of PR #60
+> asked for three fixes, now on branch `sbx/demo-backtest-equity-f3`: G6
+> rejects `lookahead_shift 0` (the lookahead cheat), the demo video was
+> re-cut to pass the repo's video gate, and `judge/mutants.py` gained an
+> eleventh mutant (`shift-0-declare`), so the self-test kill rate is now
+> **11/11** where this reproduction measured 10/10. Every graded number
+> below (final equity, Sharpe, drawdown, trades, days, gate details) is
+> unchanged — see `RECEIPT.md` for two fresh post-fix runs. The record below
+> is kept as the independent agent wrote it.
+
 An independent agent run reproduced this demo on 2026-10-15, following **only**
 `cookbook/backtest-equity/README.md` (never `SPEC.md`, `judge/*.py`, `run.py`
 internals or `RECEIPT.md` while measuring), in a **fresh sandbox** created for
