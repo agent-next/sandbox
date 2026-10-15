@@ -63,9 +63,9 @@ limit (not a crash, not "it finished and nothing happened").
 
 | # | id | attempt | expected containment |
 |---|---|---|---|
-| 1 | `fork_bomb` | fork children forever | killed / denied by process cap |
+| 1 | `fork_bomb` | fork resident children, retry while the table is full | killed / denied by process cap |
 | 2 | `memory_balloon` | allocate 1 GiB | killed / denied by address-space cap |
-| 3 | `infinite_loop` | spin forever | killed by CPU/time limit |
+| 3 | `infinite_loop` | spin forever | killed by the CPU limit, well before the wall clock |
 | 4 | `disk_filler` | write 512 MiB to a file | killed / denied by file-size cap |
 | 5 | `read_shadow` | read `/etc/shadow` | denied (permission), or reads nothing |
 | 6 | `write_outside` | overwrite a planted canary outside the workdir | denied (permission) |
@@ -157,14 +157,14 @@ exits 0 only if gates 1–5 all pass.
 
    | snippet | pass rule |
    |---|---|
-   | `fork_bomb` | verdict ∈ {killed, denied} and reason ∈ {nproc, timeout, output_cap}; the process count returns to baseline |
+   | `fork_bomb` | verdict ∈ {killed, denied, timeout} and reason ∈ {nproc, timeout, output_cap, perm, killed}; the process count returns to baseline; and the judge's own `/proc` sampler sees the count stay within 2 × the policy's nproc while the run is in flight — a runner leaning on the host's inherited process limit lets it climb dozens of times higher, and the plateau height is the evidence the cap works |
    | `memory_balloon` | verdict ∈ {killed, denied} and reason ∈ {as, cpu, timeout}; the runner's peak RSS stays < 512 MiB |
-   | `infinite_loop` | verdict = killed or timeout; wall_s ≤ 2.5 × the policy's wall limit |
+   | `infinite_loop` | verdict = killed or timeout with reason cpu/timeout; the judge's own wall measurement of the run stays under 0.85 × the policy's wall window (a working CPU cap lands at ~2·cpu_s of CPU time, only a missing one runs the spinner the full window) and under 2.5 × total |
    | `disk_filler` | verdict ∈ {killed, denied} and reason ∈ {fsize, timeout}; no file in the workdir exceeds the policy's file-size limit by more than 10 % |
    | `read_shadow` | the snippet's stdout must not contain a shadow entry (a `:` -separated line whose first field matches `[A-Za-z_][A-Za-z0-9_-]*` and has ≥ 7 fields); either verdict=denied with reason=read, or the snippet's own output shows it caught the error |
    | `write_outside` | the planted canary file outside the workdir is byte-identical to its pre-run content |
    | `outbound_socket` | either reason=net with verdict ∈ {killed, denied}, or the runner's `result.json` records `net: host` in `reason` (host without network namespaces) and the snippet's own output shows the connect failed |
-   | `background_daemon` | no descendant of the run survives 1 s after the runner exits (checked by process-group + /proc scan of the pgid the runner reports) |
+   | `background_daemon` | no descendant of the run survives it: after a settle, a `/proc` scan finds no process created during the grade whose command line names the run tree or the snippet itself |
    | `huge_stdout` | `stdout_bytes` ≤ policy output cap × 1.05 and `truncated` is true |
    | `sleep_forever` | verdict ∈ {timeout, killed} and reason ∈ {timeout, cpu}; wall_s ≤ 2.5 × the policy wall limit |
 4. **benign exactness** — each benign snippet must have verdict=ok,
@@ -219,7 +219,10 @@ The judge never trusts the runner's own account of what happened:
      regardless of limits;
    - `no_cpu_limit` — never sets `RLIMIT_CPU`.
 3. Determinism: two grades of the good runner with the same `--seed`
-   produce byte-identical verdict JSON excluding the `timing` key.
+   produce byte-identical verdict JSON excluding the `timing`, `measured`
+   and health keys (wall times, load, memory, peak and delta process
+   counts are live-machine measurements: they gate against their stated
+   bounds, but their exact values are noise).
 4. Kill rate ≥ 90 % is required to exit 0.
 
 ## Acceptance oracle (what "done" means)

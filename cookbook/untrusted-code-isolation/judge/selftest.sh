@@ -84,7 +84,7 @@ if python3 - "$WORK/det1.json" "$WORK/det2.json" <<'EOF'
 import json, sys
 # Wall times, load, memory and process counts are measurements of a live
 # machine and are reported, never gated; everything else must match exactly.
-NOISY = ("timing",)
+NOISY = ("timing", "measured")
 NOISY_GATES = ("health",)
 NOISY_RUN_KEYS = ("wall_s",)
 

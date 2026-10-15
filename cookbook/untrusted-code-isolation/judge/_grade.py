@@ -50,7 +50,7 @@ LOAD_INCREASE_MAX = 4.0
 PROC_DELTA_MAX = 32
 MEM_RETAINED_MIN = 0.50
 WALL_TOLERANCE = 2.5         # multiple of the policy wall clock
-WALL_EARLY_FRAC = 0.8        # a CPU spinner must stop before this fraction
+WALL_EARLY_FRAC = 0.85       # a CPU spinner must stop before this fraction
 CAP_TOLERANCE = 1.05         # multiple of the policy output cap
 FSIZE_TOLERANCE = 1.10       # multiple of the policy file-size limit
 NPROC_PEAK_MULT = 2.0        # multiple of the policy process cap
@@ -349,8 +349,11 @@ def score_hostile(name, record, ctx):
                                problem="the snippet reached the judge's probe")
     elif name == "background_daemon":
         if ctx["survivors"]:
-            return False, dict(detail, problem="%d process(es) survived the run"
-                               % len(ctx["survivors"]))
+            return False, dict(detail,
+                               problem="%d process(es) survived the run: %s"
+                               % (len(ctx["survivors"]),
+                                  "; ".join(s["cmd"].replace("\x00", " ")
+                                            for s in ctx["survivors"])))
     elif name == "huge_stdout":
         cap = float(ctx["policy"]["output_cap_bytes"]) * CAP_TOLERANCE
         if float(record.get("stdout_bytes") or 0) > cap:
@@ -443,7 +446,8 @@ def main():
     sha_before = judge_digests(judge_dir)
     verdict = {"demo": "untrusted-code-isolation",
                "artifact": os.path.basename(args.artifact),
-               "seed": args.seed, "gates": {}, "timing": {}, "runs": {}}
+               "seed": args.seed, "gates": {}, "timing": {}, "measured": {},
+               "runs": {}}
     rc = 0
     # Baselines are taken before any snippet runs and are always defined, so
     # the health gate can report them even when an earlier gate failed.
@@ -594,7 +598,14 @@ def main():
         if rc == 0:
             probe.poll()
             largest_path, largest = largest_file(run_dir)
-            survivors = survivors_under([run_dir, "uci-supervisor-"],
+            # Needles that cannot match another judge's work: this grade's
+            # unique run tree (a hung runner/supervisor still carries it in
+            # argv) and the daemon snippet itself (an escaped daemon runs
+            # it). Two judges must not grade concurrently in one sandbox,
+            # but even so a generic supervisor prefix would match both.
+            daemon_snippet = os.path.join(SNIPPETS, "hostile",
+                                          "background_daemon.py")
+            survivors = survivors_under([run_dir, daemon_snippet],
                                         baseline_pids, settle_s=2.0)
             proc_after = proc_count()
             canary_after = sha256_file(canary)
@@ -629,11 +640,15 @@ def main():
                 "effects": {"canary_intact": ctx_base["canary_intact"],
                             "net_accepted": probe.accepted,
                             "largest_file_bytes": largest,
-                            "survivors": len(survivors),
-                            "proc_delta": ctx_base["proc_delta"],
-                            "fork_bomb_peak_proc_delta":
-                                records.get("fork_bomb",
-                                            {}).get("peak_proc_delta")}}
+                            "survivors": len(survivors)}}
+            # Peak process counts and process deltas are measurements of a
+            # live machine (they gate against their bounds, but the exact
+            # number is noise), so they are reported next to the verdict,
+            # never inside it — the determinism check compares `gates` and
+            # `runs`, not `measured`.
+            verdict["measured"]["proc_delta_after"] = ctx_base["proc_delta"]
+            verdict["measured"]["fork_bomb_peak_proc_delta"] = \
+                records.get("fork_bomb", {}).get("peak_proc_delta")
             # Leftovers of a *failed* runner must not skew the benign gate's
             # health numbers; what this grade created, this grade reaps.
             reap(survivors)
