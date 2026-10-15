@@ -24,9 +24,8 @@ import json
 import sys
 
 # composition-arc fields usd-core authors on a prim/layer spec; anything
-# here can make two readers disagree about what is in the stage
-ARC_FIELDS = ("references", "payload", "inherits", "variantSets",
-              "variants", "instanceable")
+# here can make two readers disagree about what is in the stage (checked
+# per composed prim via the parser's own queries in find_forbidden_arcs)
 SCHEMA_FORBIDDEN_PREFIXES = ("SkelRoot", "PhysicsScene", "PhysicsRigidBody")
 
 
@@ -52,20 +51,25 @@ def vt_to_py(v):
 
 def find_forbidden_arcs(stage):
     """Composition arcs and forbidden schemas straight from the parsed
-    layer specs -- formatting cannot hide from this."""
+    stage -- formatting cannot hide from this: these are the composed
+    prim queries usd-core itself answers (HasAuthoredReferences & co.),
+    not a text scan."""
     arcs = []
     layer = stage.GetRootLayer()
     subs = list(layer.subLayerPaths or [])
     if subs:
         arcs.append({"where": "<layer>", "arc": "subLayers",
                      "detail": [str(p) for p in subs]})
-    for spec in layer.Traverse():
-        path = str(spec.path)
-        for field in spec.ListInfoKeys():
-            if field in ARC_FIELDS:
-                arcs.append({"where": path, "arc": field,
-                             "detail": str(spec.GetInfo(field))[:80]})
+    checks = (("references", "HasAuthoredReferences"),
+              ("payload", "HasAuthoredPayloads"),
+              ("inherits", "HasAuthoredInherits"),
+              ("variantSets", "HasVariantSets"),
+              ("instanceable", "IsInstanceable"))
     for prim in stage.Traverse():
+        for arc, method in checks:
+            if getattr(prim, method)():
+                arcs.append({"where": str(prim.GetPath()), "arc": arc,
+                             "detail": "reported by the parser"})
         type_name = prim.GetTypeName() or ""
         if type_name.startswith(SCHEMA_FORBIDDEN_PREFIXES):
             arcs.append({"where": str(prim.GetPath()), "arc": "schema",

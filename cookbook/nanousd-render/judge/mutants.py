@@ -16,8 +16,8 @@ Mutants and the gate each must trip:
                      of a neighbour's                        -> G1 colors_close
   camera_away        camera looks the wrong way             -> G4 (and G3)
   malformed          truncate the file mid-attribute        -> G1 nanousd.open
-  skelroot_divergence one mesh typed SkelRoot (a schema
-                     usd-core reads and nanousd drops)      -> G1/G2
+  skelroot_divergence one mesh typed SkelRoot (a forbidden schema
+                     prefix)                                -> G1
   missing_light      the light prim is deleted              -> G1 no_light
   too_few_points     one mesh down to 4 points              -> G1 points
   aperture_broken    verticalAperture 20 (ratio 1.8)        -> G1 aperture_ratio
@@ -86,8 +86,9 @@ def m_malformed(t: str) -> str:
 
 
 def m_skelroot_divergence(t: str) -> str:
-    # A plugin schema one reader knows and the other drops: usd-core sees the
-    # prim under /World, nanousd does not, so the two readers diverge.
+    # A plugin schema type (SkelRoot) that is on G1's forbidden-prefix list:
+    # both readers keep the prim, so no G2 divergence occurs, but the parsed
+    # type name is reported as a forbidden schema and fails G1.
     return sub_once(
         t, 'def Mesh "Tetra"', 'def SkelRoot "Tetra"', "skelroot_divergence")
 
@@ -118,9 +119,13 @@ def m_aperture_broken(t: str) -> str:
 
 
 def m_composite_arc(t: str) -> str:
+    # A references arc, spaced the way the text scan catches. Placed in
+    # the prim header (prim metadata must precede properties in USDA) so
+    # the file still parses and the kill comes from the arc gates, not
+    # from a reader error.
     return sub_once(
-        t, "defaultPrim = \"World\"",
-        "defaultPrim = \"World\"\n    references = </World/Root>",
+        t, 'def Mesh "Wedge"\n    {',
+        'def Mesh "Wedge" (\n        references = </World/Cube>\n    )\n    {',
         "composite_arc")
 
 
@@ -139,16 +144,15 @@ def m_rects_overlap(t: str) -> str:
 
 def m_smuggled_arc(t: str) -> str:
     # The cheat attempt: a composition arc formatted WITHOUT the spaces the
-    # old text scan matched ("inherits ="), so the scan saw nothing. If both
-    # readers tolerate the arc, the scene would otherwise grade PASS -- a
-    # forged verdict. The judge now takes arcs from the parser (and from a
-    # whitespace-proof text net), so the smuggling is the thing that fails.
+    # old text scan matched ("inherits ="), so the scan saw nothing while
+    # the file still parsed and both readers composed it quietly -- the
+    # scene would have graded PASS: a forged verdict. The judge now takes
+    # arcs from the parser (HasAuthoredInherits & co., which formatting
+    # cannot hide from) plus a whitespace-proof text net, so the smuggling
+    # itself is what fails.
     return sub_once(
-        t, 'uniform token[] xformOpOrder = ["xformOp:translate"]\n'
-        '    }\n\n    def Mesh "Wedge"',
-        'uniform token[] xformOpOrder = ["xformOp:translate"]\n'
-        '        inherits=[</Nope>]\n'
-        '    }\n\n    def Mesh "Wedge"',
+        t, 'def Mesh "Cube"\n    {',
+        'def Mesh "Cube" (\n        inherits=[</Nope>]\n    )\n    {',
         "smuggled_arc")
 
 
@@ -157,7 +161,7 @@ MUTANTS = [
     ("recolored", "G1", m_recolored),
     ("camera_away", "G3", m_camera_away),
     ("malformed", "G1", m_malformed),
-    ("skelroot_divergence", "G2", m_skelroot_divergence),
+    ("skelroot_divergence", "G1", m_skelroot_divergence),
     ("missing_light", "G1", m_missing_light),
     ("too_few_points", "G1", m_too_few_points),
     ("aperture_broken", "G1", m_aperture_broken),
