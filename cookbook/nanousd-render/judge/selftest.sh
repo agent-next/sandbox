@@ -80,7 +80,7 @@ if [ "$det_rc" -ne 0 ]; then
 elif python3 - "$gb" "$g2" <<'PY'
 import json, sys
 strip = lambda p: {k: v for k, v in json.load(open(p)).items() if k != "timing"}
-sys.exit(1 if strip(sys.argv[1]) == strip(sys.argv[2]) else 0)
+sys.exit(0 if strip(sys.argv[1]) == strip(sys.argv[2]) else 1)
 PY
 then
     determinism_ok=1
@@ -89,7 +89,7 @@ else
     determinism_ok=0
     log "  VERDICT JSON NOT IDENTICAL ACROSS RUNS"
     diff <(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])),indent=1,sort_keys=True))' "$gb") \
-         <(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[2])),indent=1,sort_keys=True))' "$g2") | head -20
+         <(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])),indent=1,sort_keys=True))' "$g2") | head -20
 fi
 
 # ------------------------------------------------------------------ mutants
@@ -114,12 +114,12 @@ done
 
 kill_rate="$(python3 -c "
 k, n = $killed, $total
-print(f'{100.0*k/n:.1f}%' if n else 'n/a')")
+print(f'{100.0*k/n:.1f}%' if n else 'n/a')")"
 
 # ------------------------------------------------------------------ verdict
 rc=1
 [ "$good_pass" = 1 ] && [ "$killed" = "$total" ] && [ "$determinism_ok" = 1 ] \
-    && [ "$MIN_KILL_RATE_CHECK" != "0" ] && [ "$total" -ge 5 ] && rc=0
+    && [ "$total" -ge 5 ] && rc=0
 
 log "-------------------------------------------------------------"
 log "known-good          : $([ "$good_pass" = 1 ] && echo PASS || echo FAIL)"

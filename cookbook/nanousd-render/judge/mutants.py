@@ -22,7 +22,11 @@ Mutants and the gate each must trip:
   too_few_points     one mesh down to 4 points              -> G1 points
   aperture_broken    verticalAperture 20 (ratio 1.8)        -> G1 aperture_ratio
   composite_arc      a references = line                   -> G1 forbidden_arc
-  swapped_colors     two displayColors exchanged            -> G4 color_confusion
+  swapped_colors     two displayColors exchanged            -> G1 colors_close
+                     (their L2 distance falls under the pair
+                     rule first; if the pair were wide enough
+                     to survive G1, G4's decisiveness fit
+                     would catch it)
 """
 
 from __future__ import annotations

@@ -49,13 +49,21 @@ W, H = 640, 480
 
 MIN_MESH_POINTS = 12
 MIN_COLOR_BRIGHTNESS = 0.45       # L2 norm of displayColor
+MIN_COLOR_CHANNEL = 0.05          # per channel (oracle divides by it)
 MIN_COLOR_PAIR_DISTANCE = 0.30    # L2 distance between any two meshes' colors
 APERTURE_RATIO_LO, APERTURE_RATIO_HI = 4 / 3 * 0.95, 4 / 3 * 1.05
 MIN_RECT_AREA_PX = 400.0
 MIN_ONSCREEN_FRAC = 0.90
 MAX_RECT_OVERLAP_FRAC = 0.10      # of the smaller rectangle's area
-COLOR_TOLERANCE = 0.22            # per channel, inner-rect median color
-COLOR_MARGIN = 1.6                # own color must win by this factor
+# The pinned raster shader is exactly multiplicative in displayColor
+# (color = displayColor * (ambient+key+fill+rim), gamma 2.2 at output),
+# so in LINEAR space the oracle checks proportionality, not absolute
+# color: a fitted illuminance k per mesh, a per-channel deviation from
+# k, and decisiveness vs every other graded mesh's color.
+K_MIN, K_MAX = 0.06, 1.30         # plausible linear illuminance band
+PROP_TOL = 0.35                   # max |med_lin/c - k| / k, own color
+PROP_MARGIN = 1.6                 # other colors must fit worse by this
+PROP_OTHER_MIN = 0.30             # ... and at least this much worse
 MIN_RENDERED_FRAC = 0.01          # pixels differing from the background
 
 FORBIDDEN_TOKENS = (
@@ -170,9 +178,20 @@ def read_nanousd(path: str) -> dict:
             err = p.stderr.strip()[:200] or f"exit {p.returncode}"
         return {"error": f"nanousd_dump: {err}"}
     try:
-        return json.loads(p.stdout)
+        rec = json.loads(p.stdout)
     except ValueError as e:
         return {"error": f"nanousd_dump emitted invalid JSON: {e}"}
+    # nanousd_dump wraps each attribute as {"type": t, "value": v}; unwrap to
+    # the plain value so the record has the same shape as the usd-core side
+    # (attributes with a null payload are dropped there, so drop them here).
+    for prim in rec.get("prims", []):
+        flat_attribs = {}
+        for name, spec in prim.get("attribs", {}).items():
+            value = spec.get("value") if isinstance(spec, dict) else spec
+            if value is not None:
+                flat_attribs[name] = value
+        prim["attribs"] = flat_attribs
+    return rec
 
 
 # ---------------------------------------------------------------------------
@@ -574,8 +593,13 @@ def camera_math(cam, np):
     fwd   = -M[:3, 2]     # USD cameras look down local -Z
     eye   = M[:3, 3]
 
+    # Standard lookAt (column-vector): the third row is -fwd, so a point
+    # in front of the camera gets a NEGATIVE view-space z (OpenGL clip
+    # convention, w_clip = -z_view). With +fwd the whole scene lands
+    # behind the camera and the renderer's frustum culling rejects all
+    # of it -- measured on llvmpipe (camz +11..+12 -> empty render).
     view = np.eye(4)
-    view[:3, :3] = np.array([right, up, fwd])   # rows: camera axes
+    view[:3, :3] = np.array([right, up, -fwd])
     view[:3, 3] = view[:3, :3] @ -eye
 
     f  = float(cam["attribs"]["focalLength"])
@@ -613,17 +637,19 @@ def gate_oracle(nn_flat, cam, ctx):
         # reader xform is USD row-major row-vector; transpose -> M @ p
         Mw = np.array(m["xform"], dtype=float).reshape(4, 4).T
         ones = np.ones((len(pts), 1))
-        Pw = (Mw @ np.hstack([pts, ones]).T).T
-        Pw = Pw[:, :3] / Pw[:, 3:4]
+        Pw = (Mw @ np.hstack([pts, ones]).T).T          # keep w for VP
 
         clip = (VP @ Pw.T).T
         with np.errstate(divide="ignore", invalid="ignore"):
             w = clip[:, 3]
-            ndc = np.where(np.abs(w)[None, :] > 1e-12,
-                           (clip[:, :2] / np.abs(w)[None, :]),
-                           np.nan) * np.sign(np.where(w < 0, -1.0, 1.0))[None, :]
             # in front of the camera: view-space z < 0
             camz = (V @ Pw.T).T[:, 2]
+            # NDC in x/y with the sign fixed by w (w = -z_view > 0 in
+            # front of the camera; behind-camera points are dropped by
+            # the camz test, not silently mirrored into frame)
+            ok_w = np.abs(w) > 1e-12
+            ndc = np.full_like(clip[:, :2], np.nan)
+            np.divide(clip[:, :2], w[:, None], out=ndc, where=ok_w[:, None])
         px = (ndc[:, 0] * 0.5 + 0.5) * W
         py = (1.0 - (ndc[:, 1] * 0.5 + 0.5)) * H   # top-left origin
         ok = np.isfinite(px) & np.isfinite(py) & (camz < -0.05)
@@ -664,8 +690,14 @@ def gate_oracle(nn_flat, cam, ctx):
                     f"{paths[i]} vs {paths[j]}: overlap {ov/sa*100:.0f}% "
                     f"of smaller rect (max {MAX_RECT_OVERLAP_FRAC*100:.0f}%)"))
 
-    # ---- median color in the inner (middle 50%) of each rectangle
+    # ---- color proportionality in the inner (middle 50%) of each rectangle
+    # The pinned raster shader multiplies displayColor by an illuminance and
+    # gamma-encodes at output, so the oracle undoes the gamma and checks that
+    # the inner-rect median is proportional to the authored displayColor:
+    # med_lin ~= k * color with one k per mesh. Background pixels (k ~ 0),
+    # wrong colors and swapped colors all break the fit.
     info = {"meshes": {}}
+    fits = {}
     for path, (x0, y0, x1, y1) in rects.items():
         ix0 = int(math.ceil(x0 + (x1 - x0) * 0.25))
         iy0 = int(math.ceil(y0 + (y1 - y0) * 0.25))
@@ -677,27 +709,52 @@ def gate_oracle(nn_flat, cam, ctx):
             continue
         patch = img[max(0, iy0):iy1, max(0, ix0):ix1, :3].reshape(-1, 3)
         med = np.median(patch, axis=0) / 255.0
+        med_lin = med ** 2.2                      # undo the output gamma
         own = np.array(colors[path])
-        d_own = float(np.abs(med - own).max())
-        others = {p: np.array(c) for p, c in colors.items() if p != path}
-        d_others = {p: float(np.abs(med - c).max()) for p, c in others.items()}
-        if d_own > COLOR_TOLERANCE:
+        if min(own) < MIN_COLOR_CHANNEL:
+            # G1 already requires brightness; this keeps the fit from
+            # dividing by ~0 on a mutant that reaches G4 anyway.
             errs.append(fail("G4", "color",
-                f"{path}: inner-rect median {med.round(3).tolist()} vs "
-                f"authored {own.round(3).tolist()} max|delta|={d_own:.3f} "
-                f"> {COLOR_TOLERANCE}"))
-        if d_others:
-            p_min, d_min = min(d_others.items(), key=lambda kv: kv[1])
-            if d_min <= 0 or d_own / d_min > 1.0 / COLOR_MARGIN:
+                f"{path}: displayColor channel < {MIN_COLOR_CHANNEL}"))
+            continue
+        k = float(np.median(med_lin / own))       # fitted illuminance
+        dev = float(np.abs(med_lin / own - k).max() / k)
+        fits[path] = (k, dev, med, own, (x0, y0, x1, y1))
+        if not (K_MIN <= k <= K_MAX):
+            errs.append(fail("G4", "color",
+                f"{path}: linear illuminance k={k:.3f} outside "
+                f"[{K_MIN}, {K_MAX}] (rect samples background?)"))
+        if dev > PROP_TOL:
+            errs.append(fail("G4", "color",
+                f"{path}: median {med.round(3).tolist()} not proportional "
+                f"to authored {own.round(3).tolist()} "
+                f"(k={k:.3f}, max dev {dev*100:.0f}% > {PROP_TOL*100:.0f}%)"))
+
+    # ---- decisiveness: every OTHER mesh's color must fit the pixels worse
+    for path, (k, dev, med, own, rect) in fits.items():
+        med_lin = med ** 2.2
+        worst_other = None
+        for opath, (_ok, _odev, _omed, oown, _orect) in fits.items():
+            if opath == path:
+                continue
+            k2 = float(np.median(med_lin / oown))
+            dev2 = float(np.abs(med_lin / oown - k2).max() / k2) \
+                if k2 > 0 else float("inf")
+            if worst_other is None or dev2 < worst_other[1]:
+                worst_other = (opath, dev2)
+        if worst_other:
+            opath, dev2 = worst_other
+            if not (dev2 - dev >= PROP_OTHER_MIN or
+                    (dev > 0 and dev2 / dev >= PROP_MARGIN)):
                 errs.append(fail("G4", "color_confusion",
-                    f"{path}: rendered color not decisively its own "
-                    f"(own d={d_own:.3f}, nearest other {p_min} d={d_min:.3f}, "
-                    f"need other/own >= {COLOR_MARGIN})"))
+                    f"{path}: pixels fit another mesh's color too "
+                    f"(own dev {dev*100:.0f}% vs {opath} dev {dev2*100:.0f}%)"))
         info["meshes"][path] = {
-            "rect": [round(v, 1) for v in (x0, y0, x1, y1)],
+            "rect": [round(v, 1) for v in rect],
             "median_rgb": [round(v, 3) for v in med.tolist()],
             "authored_rgb": [round(v, 3) for v in own.tolist()],
-            "d_own": round(d_own, 3),
+            "illuminance_k": round(k, 3),
+            "own_dev": round(dev, 3),
         }
     return {"pass": not errs, "errors": errs, **info}
 

@@ -105,20 +105,28 @@ accepted for interface uniformity (nothing in this judge is random).
     on-screen (kills off-frame meshes and a camera pointed away);
   - pairwise: rectangle overlap ≤ **10 %** of the smaller area (the layout
     rule, re-measured by the judge's own math);
-  - per mesh: the **median** color of the rendered pixels in the inner
-    rectangle (the middle 50 % of each side) matches the authored
-    `displayColor` within **0.22** per channel, and the inner-rectangle
-    mean color is closer (by ≥ **1.6×**) to its own displayColor than to any
-    other graded mesh's color (kills recolored or swapped meshes).
+  - per mesh, a **color-proportionality fit** on the inner rectangle (the
+    middle 50 % of each side). The pinned raster shader is exactly
+    multiplicative in `displayColor` (`color = displayColor × illuminance`,
+    gamma 2.2 at output), so the oracle gamma-decodes the inner-rect median
+    and requires `median_linear ≈ k · displayColor`: one fitted illuminance
+    `k` per mesh in **[0.06, 1.30]** with per-channel deviation ≤ **35 %**,
+    and every other graded mesh's color must fit the same pixels worse by
+    ≥ **max(30 %, 1.6×)** (kills recolored or swapped meshes — and a rect
+    that samples background fits nothing, killing mis-projection too).
 
 ## Acceptance oracle (independent of "it ran")
 
 1. **Reference tool**: usd-core is the reference reader; agreement with it
    (G2) is a cross-implementation check, not self-consistency.
 2. **Analytic projection**: G4 is closed-form pinhole math in numpy —
-   `x_px = W·(1/2 + (X/−Z)·f/hAp)/2`·... — see `judge/judge.py:project_rect`
-   for the exact formula — checked against the actual rendered pixels, so a
+   the judge's own view/proj matrices from the camera world transform and
+   authored intrinsics — checked against the actual rendered pixels, so a
    scene that renders somewhere other than where the file says cannot pass.
+   The color rule is likewise analytic: the pinned shader's response is
+   multiplicative in `displayColor` (see `shaders_gles.h` in the pinned
+   source), so the oracle fits `median_linear = k · displayColor` per mesh
+   and demands the fit be decisive against every other mesh's color.
 3. **Fail-closed parsing**: either reader refusing the file, or any
    divergence between them, fails the grade; there is no
    partially-verified pass.
