@@ -1,0 +1,5 @@
+# ctf-flag-hunt judge: versions installed by judge/setup.sh
+# (Linux x86_64)
+gcc 12.2.0
+gcc-12 debian package: 12.2.0-14+deb12u1
+python3 3.12.15
