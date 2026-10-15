@@ -16,10 +16,9 @@ intended gates. Exact measured output and commands: [RECEIPT.md](RECEIPT.md).
 ![Real edit with measured errors and pass lines](media/result.png)
 ![Builder iterations and mutant kill matrix](media/loop.png)
 
-[44-second demo](media/demo.mp4): actual rendered edit → numeric brief →
-frame-by-frame dissolve and provenance → audio → recorded sandbox run →
-judge gates and mutant matrix. The sandbox log is replayed, not presented
-as a recording of an autonomous editing agent.
+[40-second demo](media/demo.mp4): actual rendered edit → numeric brief →
+frame-by-frame dissolve and provenance → audio → judge gates → the same
+frame from the good edit and the off-by-one mutant → mutant matrix.
 
 ## Ask your agent
 
