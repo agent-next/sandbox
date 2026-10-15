@@ -10,3 +10,7 @@ verdict*.json
 serve/
 work/
 __pycache__/
+# Published media are committed; the lossless master stays local.
+!media/result.png
+!media/loop.png
+media/master/
