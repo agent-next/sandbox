@@ -1515,6 +1515,33 @@ def test_explicit_rate_limit_still_backs_off_runner_control():
         demand.gh.runners("sbx-")
 
 
+@pytest.mark.parametrize("missing_page", [1, 2])
+def test_deleted_tracked_run_is_forgotten_without_blocking_later_runs(missing_page):
+    clock, calls = Clock(), []
+
+    def handler(req):
+        calls.append(req)
+        if req.url.path.endswith("/runs"):
+            return httpx.Response(200, json={"workflow_runs": [{"id": 2}]})
+        if req.url.path.endswith("/1/jobs"):
+            if int(req.url.params["page"]) == missing_page:
+                return httpx.Response(404, json={"message": "Not Found"})
+            return httpx.Response(200, json={"jobs": [{"status": "completed"}] * 100})
+        assert req.url.path.endswith("/2/jobs")
+        return httpx.Response(200, json={"jobs": [
+            {"id": 20, "status": "queued", "labels": ["self-hosted", "sbx"]},
+        ]})
+
+    demand = rest_demand(clock, handler)
+    demand.tracked.add(("acme/app", 1))
+    for _ in range(3):
+        assert demand.poll(lambda *a: None) == 1, "a deleted run must not hide healthy demand"
+        assert ("acme/app", 1) not in demand.tracked, "forget deleted tracked runs"
+        clock.now = demand.next_poll
+    assert sum(req.url.path.endswith("/1/jobs") for req in calls) == missing_page
+    assert sum(req.url.path.endswith("/2/jobs") for req in calls) == 3
+
+
 def test_rate_limit_reset_is_respected(monkeypatch):
     clock = Clock()
     monkeypatch.setattr(runners.time, "time", lambda: 100)
