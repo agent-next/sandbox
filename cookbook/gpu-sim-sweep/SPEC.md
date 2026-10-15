@@ -106,8 +106,9 @@ rc=1 "graded and failed".
    two engines diverge 0.008 rad over 800 steps — float32 accumulation;
    mutants measured at 0.067–131 rad or explode.)
 6. **throughput** — measured top-nworld aggregate steps/s ≥ floor ×
-   measured CPU steps/s (default floor 4×; measured ×22.4–29.9 on the 4 GiB
-   lease, see RECEIPT.md). Reported in the verdict as `top_steps_per_s`,
+   measured CPU steps/s (default floor 4×; measured ×15.6–29.9 on the 4 GiB
+   lease across builder, lead and reproduction runs on a shared node, see
+   RECEIPT.md and REPRODUCE.md). Reported in the verdict as `top_steps_per_s`,
    `cpu_steps_per_s`, `speedup`.
 
 **cpu-check mode** (no GPU): gates 1–2 plus **cpu-physics** — the same live
