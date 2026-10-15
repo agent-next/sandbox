@@ -1,0 +1,35 @@
+{
+  "demo": "people-counter-cv",
+  "note": "Neutral scene contract the counting artifact sees. It describes the sensor and the pedestrian population, never the expected counts.",
+  "video": {
+    "file": "input/video.avi",
+    "width_px": 640,
+    "height_px": 360,
+    "fps": 12,
+    "duration_s": 60.0,
+    "grayscale": true
+  },
+  "tripwire": {
+    "x_fraction": 0.5,
+    "note": "a vertical counting line at x_fraction * width; east means +x"
+  },
+  "pedestrians": {
+    "body_w_px": [12, 22],
+    "body_h_px": [18, 24],
+    "head_radius_px": [2, 3],
+    "speed_px_per_s": [55, 100],
+    "count_hint": "roughly 15-25 distinct pedestrians appear over the clip; some only linger or turn back"
+  },
+  "background": {
+    "intensity": 200,
+    "noise_sigma": 6,
+    "brightness_ramp_amplitude": 12,
+    "note": "static textured floor, slow sinusoidal global illumination drift over 20 s"
+  },
+  "artifact": {
+    "output": "crossings.csv",
+    "columns": ["t_cross_s", "east", "west"],
+    "contract": "one row per detected tripwire crossing by a pedestrian, times in seconds from clip start, east/west are 0/1 and exactly one of them is 1 per row; rows sorted by t_cross_s; pedestrians only - anything wider than the body_w_px range (trolleys, forklifts) must not be counted"
+  },
+  "seed": 0
+}
