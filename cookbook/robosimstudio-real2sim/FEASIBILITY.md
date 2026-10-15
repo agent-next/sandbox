@@ -188,6 +188,31 @@ That is RSS's documented fallback (`an arm that ships no URDF falls back to
 Newton's own solver`), and it is what makes the minimal GPU payload in B3
 possible: **no jax, no jaxlib (85 MB), no pyroki, no jaxls, no yourdfpy.**
 
+**Headless video works, and it is a real H.264 mp4.** `sim.record(dir, steps)`
+on the tiled renderer with no GL context and no RT cores:
+
+```
+HARNESS_RESULT {"script": "examples/00_getting_started/00_hello_world.py", "device": "cpu",
+ "steps_in_view": 2, "run_wall_s": 26.887, "step_wall_s": 0.334, "steps_per_s": 5.988,
+ "state": {"body_q": {"n": 17, "finite": true}}, "state_finite": true,
+ "record": {"ok": true, "s": 4.518, "dir": "/tmp/rss/rec",
+            "files": ["view.mp4"], "sizes": {"view.mp4": 17520}},
+ "ok": true, "total_wall_s": 31.739}
+```
+
+```
+$ ffprobe -v error -show_entries stream=codec_name,width,height,nb_frames view.mp4
+codec_name=h264
+width=960
+height=540
+nb_frames=5
+```
+
+So the media round can render the reference rollout and the agent's rollout
+through RSS's own recorder, headless, on whichever device is chosen below —
+`record()` is `run(1)` + `render()` per frame, and `render()` is already
+proven on both paths.
+
 ### CPU verdict
 
 - All three priority scenes **build, step and render headless on CPU**; the
