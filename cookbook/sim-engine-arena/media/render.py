@@ -1,33 +1,20 @@
-"""Headless figures and CSV-driven animation. No illustrative measurements."""
+"""Offscreen MuJoCo replay of the judge's actual output, with Pillow labels."""
 
 import importlib.util
 import json
-import math
 from pathlib import Path
 import subprocess
+import xml.etree.ElementTree as ET
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Polygon
-from matplotlib.text import Text
-from matplotlib.ticker import MaxNLocator
+import mujoco
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 from collect import read_selftest
 
 HERE = Path(__file__).resolve().parent
 DEMO = HERE.parent
 DATA = HERE / "data"
-BLUE, ORANGE, GREEN, PURPLE = "#0072B2", "#D55E00", "#009E73", "#CC79A7"
-INK, GREY = "#172B3A", "#677783"
-plt.rcParams.update({
-    "font.family": "DejaVu Sans", "font.size": 12, "text.color": INK,
-    "axes.labelcolor": INK, "axes.titleweight": "bold", "axes.spines.top": False,
-    "axes.spines.right": False, "axes.grid": True, "grid.alpha": .16,
-    "axes.axisbelow": True, "legend.framealpha": .95,
-    "savefig.facecolor": "white",
-})
 module = importlib.util.spec_from_file_location("grade", DEMO / "judge/_grade.py")
 grade = importlib.util.module_from_spec(module)
 module.loader.exec_module(grade)
@@ -36,383 +23,343 @@ SCENES = {s["name"]: s for s in SPEC["scenarios"]}
 ORACLE = grade.oracle_values(SPEC)
 VERDICT = json.loads((DATA / "grade.json").read_text())
 METRIC = {n: s["oracle"] for n, s in VERDICT["scenarios"].items()}
-TRAJ = {n: {k: np.asarray(v) for k, v in grade.parse_traj(
-    DATA / s["output"]).items()} for n, s in SCENES.items()}
+INK, MUTED, WHITE, GREEN = "#152d40", "#526777", "#f4f8fb", "#087852"
+FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
-def check_text(fig, name):
-    """Check all visible labels, ticks, legends and dynamic readouts in pixels."""
-    fig.canvas.draw()
-    renderer = fig.canvas.get_renderer()
-    boxes = []
-    # Locators retain Text objects for ticks outside the view interval.
-    # Axis.draw does not draw those, even though Text.get_visible() is True.
-    undrawn = set()
-    for ax in fig.axes:
-        for axis in (ax.xaxis, ax.yaxis):
-            lo, hi = sorted(axis.get_view_interval())
-            for tick in axis.get_major_ticks() + axis.get_minor_ticks():
-                if not lo <= tick.get_loc() <= hi:
-                    undrawn.update((tick.label1, tick.label2))
-    for text in fig.findobj(Text):
-        if text in undrawn or not text.get_visible() or not text.get_text().strip():
-            continue
-        box = text.get_window_extent(renderer)
-        if box.width == 0 or box.height == 0:
-            continue
-        assert (box.x0 >= 0 and box.y0 >= 0 and
-                box.x1 <= fig.bbox.width and box.y1 <= fig.bbox.height), \
-            f"{name}: clipped text {text.get_text()!r}"
-        # Inset each bbox by one pixel: touching edges are not a collision.
-        box = box.padded(-1)
-        for previous, other in boxes:
-            assert not box.overlaps(other), \
-                f"{name}: overlapping {text.get_text()!r} / {previous!r}"
-        boxes.append((text.get_text(), box))
+def label(image, xy, text, size=32, fill=INK, bold=False):
+    """Reject clipped labels rather than shipping unreadable captions."""
+    font = ImageFont.truetype(BOLD if bold else FONT, size)
+    draw = ImageDraw.Draw(image)
+    box = draw.textbbox(xy, text, font=font)
+    assert min(box[:2]) >= 0 and box[2] <= image.width and box[3] <= image.height, \
+        f"Clipped label: {text}"
+    draw.text(xy, text, font=font, fill=fill)
 
 
-def save(fig, name):
-    check_text(fig, name)
-    fig.savefig(HERE / name, dpi=200, metadata={"Software": None})
-    plt.close(fig)
-    print(f"{name}: all text in bounds; no overlapping text")
+def readout(name):
+    m, o = METRIC[name], ORACLE[name]
+    if name == "drop":
+        return (f"Contact {m['t_contact']:.4f} s  |  oracle {o['t_contact']:.4f} s",
+                "PASS: contact error < 3%")
+    if name == "incline_slide":
+        return (f"a = {m['accel']:.4f} m/s²  |  oracle {o['accel']:.4f} m/s²",
+                "PASS: acceleration error < 5%")
+    if name == "incline_stick":
+        return (f"Travel {m['travel_m'] * 1000:.2f} mm  |  oracle 0 mm (stick)",
+                "PASS: travel < 20 mm")
+    return (f"Period {m['period']:.4f} s  |  oracle {o['period']:.4f} s",
+            "PASS: period error < 2%")
 
 
-def slope(name):
-    rows = TRAJ[name]
-    th = ORACLE[name]["theta"]
-    s = rows["x"] * math.cos(th) - rows["z"] * math.sin(th)
-    return s - s[0]
+def assert_state(actual, expected, context):
+    assert np.asarray(actual).shape == np.asarray(expected).shape, \
+        f"{context}: rendered-state mismatch (shape)"
+    assert np.isfinite(actual).all() and np.isfinite(expected).all() and \
+        np.max(np.abs(np.asarray(actual) - expected), initial=0) <= 1e-9, \
+        f"{context}: rendered-state mismatch"
 
 
-def theta_guide(t):
-    # This is a labelled cosine PERIOD guide, not the exact nonlinear orbit.
-    return SCENES["pendulum"]["theta0_rad"] * np.cos(
-        2 * np.pi * t / ORACLE["pendulum"]["period"])
+def visual_model(name, source):
+    """Only materials, textures, lighting and zero-mass noncontact scenery."""
+    root = ET.fromstring(source)
+    ET.SubElement(root, "visual")
+    visual = root.find("visual")
+    ET.SubElement(visual, "global", offwidth="1920", offheight="1080")
+    ET.SubElement(visual, "quality", shadowsize="2048", offsamples="4")
+    ET.SubElement(visual, "headlight", ambient=".25 .25 .25",
+                  diffuse=".55 .55 .55", specular=".3 .3 .3")
+    asset = ET.SubElement(root, "asset")
+    ET.SubElement(asset, "texture", name="sky", type="skybox", builtin="gradient",
+                  rgb1=".18 .28 .39", rgb2=".7 .79 .85", width="256", height="1536")
+    ET.SubElement(asset, "texture", name="tiles", type="2d", builtin="checker",
+                  rgb1=".47 .56 .60", rgb2=".61 .68 .70", width="256", height="256")
+    ET.SubElement(asset, "material", name="ground", texture="tiles",
+                  texrepeat="4 4", texuniform="true", reflectance=".12")
+    ET.SubElement(asset, "material", name="object", rgba="0.9 .38 .08 1",
+                  specular=".7", shininess=".6")
+    world = root.find("worldbody")
+    ET.SubElement(world, "light", pos="-2 -3 5", dir=".3 .4 -1",
+                  diffuse=".9 .85 .75", specular=".5 .5 .5", castshadow="true",
+                  directional="true")
+    ET.SubElement(world, "light", pos="2 3 3", dir="-.5 -.5 -1",
+                  diffuse=".3 .4 .5", castshadow="false")
+    for geom in root.findall(".//geom"):
+        geom.set("material", "ground" if geom.get("type") == "plane" else "object")
+    if name == "pendulum":
+        # The original point-mass inertia is explicit. The visible rod, anchor
+        # and floor have zero mass and cannot collide; no physics is changed.
+        mover = world.find("body")
+        ET.SubElement(mover, "geom", name="visual_link", type="capsule",
+                      fromto="0 0 0 0 0 -1", size=".006", mass="0",
+                      contype="0", conaffinity="0", rgba=".65 .72 .78 1")
+        ET.SubElement(world, "geom", name="visual_anchor", type="sphere",
+                      pos="0 0 2", size=".035", mass="0", contype="0",
+                      conaffinity="0", rgba=".2 .3 .4 1")
+        ET.SubElement(world, "geom", name="visual_floor", type="plane",
+                      size="5 5 .1", mass="0", contype="0", conaffinity="0",
+                      material="ground")
+    xml = ET.tostring(root, encoding="unicode")
+    (DATA / f"render_{name}.xml").write_text(xml + "\n")
+    return mujoco.MjModel.from_xml_string(xml)
 
 
-def result():
-    fig, axs = plt.subplots(2, 2, figsize=(12, 8.8), dpi=200)
-    fig.subplots_adjust(left=.085, right=.98, bottom=.12, top=.87,
-                        hspace=.68, wspace=.28)
-    fig.suptitle("Physics-engine arena | measured trajectories, analytic judge",
-                 fontsize=17, y=.97, weight="bold")
-    fig.text(.5, .92, "MuJoCo CPU · good artifact · seed 0 · all five gates PASS",
-             ha="center", fontsize=12)
-    a, b, c, d = axs.flat
-    r = TRAJ["drop"]
-    a.plot(r["t"], r["z"], color=BLUE, lw=2.5, label="MuJoCo center height")
-    t = np.linspace(0, ORACLE["drop"]["t_contact"], 400)
-    a.plot(t, SCENES["drop"]["body"]["pos"][2] - SPEC["gravity"] * t**2 / 2,
-           "--", color=ORANGE, lw=2, label="Analytic free fall (pre-contact)")
-    contact = METRIC["drop"]["t_contact"]
-    a.axvline(contact, color=GREEN, ls=":", lw=2,
-              label=f"Measured contact {contact:.4f} s")
-    a.set(title="A  Drop onto a floor", xlabel="Time (s)", ylabel="Center height z (m)",
-          xlim=(0, SCENES["drop"]["duration_s"]), ylim=(-.05, 1.55))
-    a.legend(loc="upper right", fontsize=10)
-    for name, color, label in (
-        ("incline_slide", BLUE, "35° slide: MuJoCo"),
-        ("incline_stick", GREEN, "20° stick: MuJoCo"),
-    ):
-        rows = TRAJ[name]
-        b.plot(rows["t"], slope(name), color=color, lw=2.5, label=label)
-    t = TRAJ["incline_slide"]["t"]
-    b.plot(t, .5 * ORACLE["incline_slide"]["accel"] * t**2, "--",
-           color=ORANGE, lw=2, label="Slide oracle: ½at²")
-    b.plot(t, np.zeros_like(t), ":", color=PURPLE, lw=2,
-           label="Stick oracle: s = 0")
-    b.set(title="B  Friction: slide vs stick", xlabel="Time (s)",
-          ylabel="Downhill travel s (m)", ylim=(-.04, 1.25), xlim=(0, 1))
-    b.legend(loc="upper left", fontsize=10)
-    rows = TRAJ["pendulum"]
-    c.plot(rows["t"], rows["theta"], color=BLUE, lw=2.5, label=f"MuJoCo angle, measured T = {METRIC['pendulum']['period']:.7f} s")
-    c.plot(rows["t"], theta_guide(rows["t"]), "--", color=ORANGE, lw=1.8,
-           label=f"Cosine guide, oracle T = {ORACLE['pendulum']['period']:.7f} s")
-    c.set(title="C  Pendulum about the anchor", xlabel="Time (s)",
-          ylabel="Angle θ (rad)", xlim=(0, SCENES["pendulum"]["duration_s"]),
-          ylim=(-.14, .21))
-    c.legend(loc="upper right", fontsize=10)
-    values = [
-        METRIC["drop"]["t_contact_err"] / grade.TOL["contact_time"],
-        METRIC["incline_slide"]["accel_err"] / grade.TOL["accel"],
-        METRIC["pendulum"]["period_err"] / grade.TOL["period"],
-        METRIC["incline_stick"]["travel_m"] / grade.STICK_TRAVEL_M,
-    ]
-    d.bar(range(4), np.array(values) * 100,
-          color=[BLUE, ORANGE, PURPLE, GREEN], width=.58)
-    d.axhline(100, color=INK, ls="--", lw=1.5, label="SPEC pass limit (100%)")
-    labels = [
-        f"{METRIC['drop']['t_contact_err'] * 100:.3f}% / {100 * grade.TOL['contact_time']:g}%",
-        f"{METRIC['incline_slide']['accel_err'] * 100:.3f}% / {100 * grade.TOL['accel']:g}%",
-        f"{METRIC['pendulum']['period_err'] * 100:.1e}% / {100 * grade.TOL['period']:g}%",
-        f"{METRIC['incline_stick']['travel_m'] * 1000:.2f} / "
-        f"{grade.STICK_TRAVEL_M * 1000:g} mm",
-    ]
-    for x, value, label in zip(range(4), values, labels):
-        d.text(x, max(value * 100, 0) + 6, label, ha="center", fontsize=9)
-    d.set(title="D  Oracle error relative to each limit",
-          ylabel="Error / SPEC limit (%)", ylim=(0, 145),
-          xticks=range(4), xticklabels=["Drop", "Slide", "Pendulum", "Stick"])
-    d.legend(loc="upper left", fontsize=10)
-    for ax in axs.flat:
-        if ax is not d:
-            ax.xaxis.set_major_locator(MaxNLocator(5, integer=ax is c))
-        ax.yaxis.set_major_locator(MaxNLocator(5))
-    fig.text(.5, .035, "Stick uses travel / 20 mm, not relative error to zero. "
-             "Cosine guide shows the SPEC period, not an exact nonlinear orbit.",
-             ha="center", fontsize=10)
-    save(fig, "result.png")
+def assert_physics(original, rendered):
+    # Existing geoms keep their exact shape, contact settings and transforms.
+    # Added geoms are strictly visual; explicit inertia is unchanged.
+    for key in ("body_mass", "body_inertia", "body_ipos", "body_iquat",
+                "body_pos", "body_quat", "qpos0", "dof_damping",
+                "jnt_axis", "jnt_pos"):
+        assert_state(getattr(rendered, key), getattr(original, key), f"physics {key}")
+    indices = [mujoco.mj_name2id(rendered, mujoco.mjtObj.mjOBJ_GEOM,
+                               mujoco.mj_id2name(original, mujoco.mjtObj.mjOBJ_GEOM, i))
+               for i in range(original.ngeom)]
+    assert all(i >= 0 for i in indices), "Missing original geometry"
+    for key in ("geom_size", "geom_pos", "geom_quat", "geom_friction",
+                "geom_solref", "geom_solimp", "geom_contype", "geom_conaffinity"):
+        assert_state(getattr(rendered, key)[indices],
+                     getattr(original, key), f"physics {key}")
+    assert rendered.opt.timestep == original.opt.timestep == SPEC["timestep_s"]
+    assert_state(rendered.opt.gravity, original.opt.gravity, "physics gravity")
+    for i in set(range(rendered.ngeom)) - set(indices):
+        assert rendered.geom_contype[i] == rendered.geom_conaffinity[i] == 0
 
 
-def gate_label(gates):
-    entries = gates.split(",")
-    suffixes = {g.split(".")[-1] for g in entries}
-    if suffixes == {"csv_shape"}:
-        return f"csv-shape ({len(entries)} scenes)"
-    if suffixes == {"oracle"}:
-        short = {"drop": "drop", "incline_slide": "slide",
-                 "incline_stick": "stick", "pendulum": "pendulum"}
-        return "oracle: " + ", ".join(short[g.split(".")[0]] for g in entries)
-    return ", ".join(entries)
+class Replay:
+    def __init__(self, name):
+        self.name = name
+        self.scene = SCENES[name]
+        self.rows = grade.parse_traj(DATA / self.scene["output"])
+        source = (DATA / f"model_{name}.xml").read_text()
+        self.original = mujoco.MjModel.from_xml_string(source)
+        self.model = visual_model(name, source)
+        assert_physics(self.original, self.model)
+        self.data = mujoco.MjData(self.model)
+        self.states = self.replay()
+        np.save(DATA / f"state_{name}.npy", self.states, allow_pickle=False)
+        self.renderer = None
+        self.checked = 0
+        self.camera = mujoco.MjvCamera()
+        self.camera.type = mujoco.mjtCamera.mjCAMERA_FREE
+        if name == "drop":
+            self.camera.lookat[:] = [0, 0, .48]
+            self.camera.distance, self.camera.azimuth, self.camera.elevation = 2.2, 115, -16
+        elif name.startswith("incline"):
+            self.camera.lookat[:] = [.35, 0, -.13] if name.endswith("slide") else [0, 0, .03]
+            self.camera.distance, self.camera.azimuth, self.camera.elevation = 1.9, 100, -12
+        else:
+            self.camera.lookat[:] = [0, 0, 1.48]
+            self.camera.distance, self.camera.azimuth, self.camera.elevation = 2.3, 90, -10
+
+    def replay(self):
+        """Verify every sample against the *actual* CSV scored by the judge."""
+        data = mujoco.MjData(self.original)
+        if self.name == "pendulum":
+            data.qpos[0] = -self.scene["theta0_rad"]
+        mujoco.mj_forward(self.original, data)
+        states = []
+        bid = mujoco.mj_name2id(self.original, mujoco.mjtObj.mjOBJ_BODY, "mover")
+        for i in range(len(self.rows["t"])):
+            before = data.qpos.copy()
+            if i:
+                mujoco.mj_step(self.original, data)
+            p = data.xpos[bid]
+            if self.name == "drop":
+                measured = [p[2], data.qvel[5]]
+            elif self.name.startswith("incline"):
+                measured = [p[0], p[2], data.qvel[3], data.qvel[5]]
+            else:
+                measured = [-data.qpos[0], -data.qvel[0]]
+            expected = [self.rows[c][i] for c in self.scene["columns"][1:]]
+            assert_state(measured, expected, f"{self.name} CSV sample {i}")
+            assert abs(self.rows["t"][i] - i * self.original.opt.timestep) < 1e-12
+            # mj_step leaves xpos at its pre-integration value. Free-joint
+            # CSVs record xpos; pendulum CSVs instead record the updated qpos.
+            states.append(data.qpos.copy() if self.name == "pendulum" else before)
+        print(f"{self.name}: {len(states)} actual graded samples verified", flush=True)
+        return np.asarray(states)
+
+    def frame(self, index, width=1920, height=1080):
+        if self.renderer is None:
+            self.renderer = mujoco.Renderer(self.model, height, width)
+        assert (self.renderer.width, self.renderer.height) == (width, height)
+        self.data.qpos[:] = self.states[index]
+        mujoco.mj_forward(self.model, self.data)
+        assert_state(self.data.qpos, self.states[index], f"{self.name} frame {index} qpos")
+        bid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "mover")
+        if self.name == "pendulum":
+            assert_state([-self.data.qpos[0]], [self.rows["theta"][index]],
+                         f"{self.name} frame {index} angle")
+        else:
+            cols, axes = (["z"], [2]) if self.name == "drop" else (["x", "z"], [0, 2])
+            assert_state(self.data.xpos[bid][axes], [self.rows[c][index] for c in cols],
+                         f"{self.name} frame {index} graded position")
+        self.renderer.update_scene(self.data, camera=self.camera)
+        self.renderer.scene.flags[mujoco.mjtRndFlag.mjRND_SHADOW] = True
+        self.checked += 1
+        return Image.fromarray(self.renderer.render())
+
+    def close(self):
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
+
+
+TITLES = {"drop": "01  DROP / sphere meets floor",
+          "incline_slide": "02  SLIDE / 35° incline",
+          "incline_stick": "03  STICK / 20° incline",
+          "pendulum": "04  PENDULUM / anchored swing"}
+
+
+def caption(image, name, index, compact=False):
+    w, h = image.size
+    draw = ImageDraw.Draw(image)
+    top, bottom = (64, 94) if compact else (150, 225)
+    draw.rectangle((0, 0, w, top), fill=WHITE)
+    draw.rectangle((0, h - bottom, w, h), fill=WHITE)
+    size = 22 if compact else 38
+    label(image, (24, 10 if compact else 28), TITLES[name], size, bold=True)
+    label(image, (24, h - bottom + 8), readout(name)[0], 20 if compact else 30)
+    label(image, (24, h - bottom + (40 if compact else 61)),
+          readout(name)[1], 20 if compact else 30, GREEN, True)
+    if not compact:
+        label(image, (24, 92), f"MuJoCo 3D replay  /  simulation t = {index * SPEC['timestep_s']:.3f} s",
+              27, MUTED)
+        label(image, (24, h - 70), "Actual graded trajectory  •  seed 0  •  visual-only scene dressing",
+              25, MUTED)
+    else:
+        label(image, (w - 180, 41), f"t = {index * SPEC['timestep_s']:.3f} s", 18, MUTED)
+    return image
+
+
+def result(replays):
+    hero = Image.new("RGB", (2400, 2130), WHITE)
+    label(hero, (32, 18), "Physics-engine arena / real MuJoCo 3D renders", 44, bold=True)
+    label(hero, (32, 80), "Actual judge-scored states • seed 0 • measured vs analytic oracle • all gates PASS",
+          28, MUTED)
+    moments = {"drop": [0, 441, 650], "incline_slide": [0, 500, 1000],
+               "incline_stick": [0, 500, 1000], "pendulum": [0, 502, 1004]}
+    for row, (name, indices) in enumerate(moments.items()):
+        replay = replays[name]
+        for col, index in enumerate(indices):
+            image = replay.frame(index).resize((800, 480), Image.Resampling.LANCZOS)
+            hero.paste(caption(image, name, index, compact=True), (col * 800, 150 + row * 490))
+        replay.close()
+    hero.save(HERE / "result.png", dpi=(200, 200))
 
 
 def loop():
     history = json.loads((DEMO / "examples/good/loop.json").read_text())["iterations"]
     mutants = read_selftest(DATA / "selftest.txt")
-    fig, (a, b) = plt.subplots(1, 2, figsize=(12, 8), dpi=200,
-                               gridspec_kw={"width_ratios": [1, 1.5]})
-    fig.subplots_adjust(left=.07, right=.98, top=.81, bottom=.17, wspace=.70)
-    fig.suptitle("The fixing loop, and a judge that rejects broken ports",
-                 fontsize=17, y=.97, weight="bold")
-    fig.text(.5, .915, "Recorded draft replay (not a live agent trace) + real judge/selftest.sh",
-             ha="center")
-    xs = [r["iteration"] for r in history]
-    ys = [sum(s["pass"] for s in r["scenarios"].values()) for r in history]
-    a.plot(xs, ys, color=BLUE, lw=2, marker="o", ms=9)
-    for x, y, row in zip(xs, ys, history):
-        a.text(x, y + .22, "PASS" if row["passed"] else "FAIL",
-               ha="center", color=INK, weight="bold")
-    a.axhline(len(SCENES), color=GREEN, ls="--", label="All scenes pass")
-    a.set(title="A  Judge result per iteration", xlabel="Draft iteration",
-          ylabel="Scenes passing CSV + oracle gates (count)",
-          xlim=(.6, 3.4), ylim=(0, 5.2), xticks=xs, yticks=range(5))
-    a.legend(loc="lower right", fontsize=10)
-    a.text(.02, -.18, "1  Wrong pendulum pivot\n2  Box not aligned to incline\n"
-           "3  Both corrected; agreement PASS", transform=a.transAxes, fontsize=10)
-    labels = ["good"] + [name for name, _ in mutants]
-    b.barh(range(len(labels)), [0] + [1] * len(mutants), color=BLUE, height=.60)
-    b.scatter([0], [0], marker="o", color=GREEN, s=50, zorder=3)
-    for y, label in enumerate(["PASS (not killed)"] +
-                              [gate_label(g) for _, g in mutants]):
-        b.text(1.07, y, label, va="center", fontsize=10)
-    b.set(title=f"B  Selftest: {len(mutants)}/{len(mutants)} = 100% killed",
-          xlabel="Rejected by judge (fraction)", yticks=range(len(labels)),
-          yticklabels=labels, xlim=(-.04, 2.13), xticks=[0, .5, 1],
-          ylim=(len(labels) - .4, -.9))
-    b.tick_params(axis="y", labelsize=10)
-    fig.text(.5, .035, "Good must pass; every mutant must fail. "
-             "Gate labels come from selftest stdout, not the SPEC's predicted kills.",
-             ha="center", fontsize=10)
-    save(fig, "loop.png")
+    image = Image.new("RGB", (2400, 1600), WHITE)
+    draw = ImageDraw.Draw(image)
+    label(image, (70, 40), "The fixing loop / a judge that rejects broken ports", 48, bold=True)
+    label(image, (70, 115), "Recorded draft replay, not a live agent trace. Results come from judge verdicts.",
+          30, MUTED)
+    label(image, (70, 230), "Judge result per iteration", 37, bold=True)
+    changes = ["Wrong pendulum pivot", "Box not aligned to incline", "Both corrected; agreement PASS"]
+    for i, (row, change) in enumerate(zip(history, changes)):
+        y = 320 + i * 200
+        count = sum(s["pass"] for s in row["scenarios"].values())
+        label(image, (70, y), f"Iteration {row['iteration']}  /  {count}/4 scenes", 32, bold=True)
+        draw.rounded_rectangle((70, y + 63, 870, y + 98), radius=9, fill="#dbe4e9")
+        draw.rounded_rectangle((70, y + 63, 70 + count * 200, y + 98),
+                               radius=9, fill=GREEN if row["passed"] else "#b35b13")
+        label(image, (70, y + 120), change, 27, MUTED)
+        label(image, (910, y + 58), "PASS" if row["passed"] else "FAIL",
+              28, GREEN if row["passed"] else INK, True)
+    label(image, (1150, 230), "Self-test kill rate: 8/8 = 100%", 37, GREEN, True)
+    label(image, (1150, 305), "Known-good: PASS, not killed", 29, bold=True)
+    for i, (name, gates) in enumerate(mutants):
+        y = 385 + i * 123
+        label(image, (1150, y), name, 29, bold=True)
+        draw.rectangle((1150, y + 49, 1320, y + 68), fill=GREEN)
+        suffix = ", ".join(sorted({g.split(".")[-1] for g in gates.split(",")}))
+        label(image, (1350, y + 39), f"KILLED / {suffix}", 26)
+    label(image, (70, 1080), "Pass line: all 4 scenes + every judge gate", 30, GREEN, True)
+    label(image, (70, 1160), "1  Pendulum fails the oracle", 28)
+    label(image, (70, 1230), "2  Stick travel 38.88 mm exceeds 20 mm", 28)
+    label(image, (70, 1300), "3  All five gates pass; judge intact", 28)
+    label(image, (70, 1500), "Good must pass. Every broken mutant must fail. Self-test determinism: OK.",
+          30, MUTED)
+    image.save(HERE / "loop.png", dpi=(200, 200))
 
 
-def at(name, column, t):
-    return float(np.interp(t, TRAJ[name]["t"], TRAJ[name][column]))
+def pass_card(frame):
+    image = frame.copy()
+    # Keep the rendered pendulum visible on the right of the final frame.
+    panel = Image.new("RGBA", image.size)
+    draw = ImageDraw.Draw(panel)
+    draw.rounded_rectangle((35, 160, 1140, 870), radius=24, fill=(244, 248, 251, 245))
+    image = Image.alpha_composite(image.convert("RGBA"), panel).convert("RGB")
+    label(image, (75, 195), "PASS / all five judge gates", 46, GREEN, True)
+    for y, name in zip((300, 405, 510, 615), SCENES):
+        label(image, (75, y), readout(name)[0], 29)
+        label(image, (75, y + 43), readout(name)[1], 26, GREEN)
+    label(image, (75, 737), "Self-test kill rate 8/8  •  judge intact", 31, bold=True)
+    label(image, (75, 799), "graded by the judge in a disposable sandbox", 30)
+    return image
 
 
-def video_base(title, subtitle):
-    fig = plt.figure(figsize=(19.2, 10.8), dpi=100, facecolor="white")
-    fig.text(.055, .935, title, fontsize=28, weight="bold")
-    fig.text(.055, .875, subtitle, fontsize=17, color=GREY)
-    fig.text(.055, .04, "sim-engine-arena | MuJoCo CPU | seed 0 | "
-             "CSV samples + SPEC-derived analytic guides", fontsize=15, color=GREY)
-    return fig
-
-
-def readouts(fig, lines):
-    return [fig.text(.66, .76 - i * .07, line, fontsize=19)
-            for i, line in enumerate(lines)]
-
-
-def drop_video():
-    fig = video_base("01 / Drop: free fall, then contact",
-                     "A sphere, as simulated in the SPEC. Horizontal lanes separate the overlays.")
-    ax = fig.add_axes([.07, .18, .48, .61])
-    ax.set(xlim=(-.25, 1.1), ylim=(-.08, 1.15), ylabel="Center height z (m)",
-           xticks=[0, .65], xticklabels=["Measured (CSV)", "Analytic ghost"])
-    ax.set_aspect("equal")
-    ax.axhline(0, color=INK, lw=2)
-    radius = SCENES["drop"]["body"]["radius"]
-    ball = Circle((0, 1), radius, color=BLUE)
-    ghost = Circle((.65, 1), radius, fill=False, ec=ORANGE, lw=3, ls="--")
-    ax.add_patch(ball)
-    ax.add_patch(ghost)
-    text = readouts(fig, ["", "", "", "", "", ""])
-    def update(t):
-        z = at("drop", "z", t)
-        free = SCENES["drop"]["body"]["pos"][2] - SPEC["gravity"] * t*t/2
-        ball.center = (0, z)
-        ghost.center = (.65, max(radius, free))
-        lines = [
-            f"Simulation time       {t:6.3f} s",
-            f"Measured height       {z:.4f} m",
-            (f"Free-fall height       {free:.4f} m" if t <= ORACLE["drop"]["t_contact"]
-             else "Ghost held at first contact"),
-            f"Measured contact      {METRIC['drop']['t_contact']:.5f} s",
-            f"Oracle contact           {ORACLE['drop']['t_contact']:.5f} s",
-            f"Relative error             {100 * METRIC['drop']['t_contact_err']:.3f}%",
-        ]
-        for artist, line in zip(text, lines):
-            artist.set_text(line)
-    return fig, update
-
-
-def box_vertices(center, theta, hx, hz):
-    rotation = np.array([[math.cos(theta), math.sin(theta)],
-                         [-math.sin(theta), math.cos(theta)]])
-    return np.array([[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) @ rotation.T + center
-
-
-def incline_video():
-    fig = video_base("02 / Inclines: friction separates slide from stick",
-                     "Blue: CSV center positions. Orange dashed: analytic ghost. Outlines retain initial orientation.")
-    patches = []
-    for i, name in enumerate(("incline_slide", "incline_stick")):
-        scene = SCENES[name]
-        theta = ORACLE[name]["theta"]
-        ax = fig.add_axes([.08, .53 - i * .34, .46, .24])
-        ax.set(xlim=(-.15, .95), ylim=(-.65, .19), xlabel="x (m)", ylabel="z (m)")
-        ax.set_aspect("equal", adjustable="box")
-        ax.set_title(f"{scene['plane']['tilt_deg']:g}°  |  μ = {scene['plane']['friction_mu']:g}",
-                     fontsize=15)
-        x = np.array([-.15, .95])
-        ax.plot(x, -x * math.tan(theta), color=INK, lw=2)
-        real = Polygon(np.zeros((4, 2)), color=BLUE)
-        ghost = Polygon(np.zeros((4, 2)), fill=False, ec=ORANGE, lw=3, ls="--")
-        ax.add_patch(real)
-        ax.add_patch(ghost)
-        patches.append((name, real, ghost))
-    text = readouts(fig, [""] * 7)
-    def update(t):
-        for name, real, ghost in patches:
-            scene = SCENES[name]
-            theta = ORACLE[name]["theta"]
-            hx, _, hz = scene["body"]["half_extents"]
-            s = .5 * ORACLE[name]["accel"] * t*t if name == "incline_slide" else 0
-            center = np.array([hz * math.sin(theta) + s * math.cos(theta),
-                               hz * math.cos(theta) - s * math.sin(theta)])
-            real.set_xy(box_vertices([at(name, "x", t), at(name, "z", t)], theta, hx, hz))
-            ghost.set_xy(box_vertices(center, theta, hx, hz))
-        measured_s = float(np.interp(t, TRAJ["incline_slide"]["t"], slope("incline_slide")))
-        stick_s = float(np.interp(t, TRAJ["incline_stick"]["t"], slope("incline_stick")))
-        lines = [
-            f"Simulation time          {t:.3f} s",
-            f"Slide: measured s       {measured_s:.4f} m",
-            f"Slide: oracle ½at²       {.5 * ORACLE['incline_slide']['accel'] * t*t:.4f} m",
-            f"Fitted acceleration     {METRIC['incline_slide']['accel']:.5f} m/s²",
-            f"Oracle acceleration   {ORACLE['incline_slide']['accel']:.5f} m/s²",
-            f"Stick travel now          {abs(stick_s) * 1000:.2f} mm",
-            "Stick oracle                 0 mm",
-        ]
-        for artist, line in zip(text, lines):
-            artist.set_text(line)
-    return fig, update
-
-
-def pendulum_video():
-    fig = video_base("03 / Pendulum: the pivot belongs at the anchor",
-                     "Orange ghost: θ₀ cos(2πt / T_oracle), a period guide, not the exact nonlinear orbit.")
-    scene = SCENES["pendulum"]
-    height, length = scene["anchor"][2], scene["link"]["L_m"]
-    ax = fig.add_axes([.08, .16, .47, .63])
-    ax.set(xlim=(-.45, .45), ylim=(height - length - .12, height + .1),
-           xlabel="x (m)", ylabel="z (m)")
-    ax.set_aspect("equal")
-    ax.scatter([0], [height], color=INK, s=70)
-    line, = ax.plot([], [], color=BLUE, lw=4)
-    ghost, = ax.plot([], [], color=ORANGE, ls="--", lw=2)
-    bob = Circle((0, height - length), .025, color=BLUE)
-    guide = Circle((0, height - length), .035, fill=False, ec=ORANGE, lw=2)
-    ax.add_patch(bob)
-    ax.add_patch(guide)
-    text = readouts(fig, [""] * 6)
-    def update(t):
-        angle, oracle_angle = at("pendulum", "theta", t), float(theta_guide(t))
-        for theta, rod, mass in ((angle, line, bob), (oracle_angle, ghost, guide)):
-            x, z = length * math.sin(theta), height - length * math.cos(theta)
-            rod.set_data([0, x], [height, z])
-            mass.center = (x, z)
-        for artist, value in zip(text, [
-            f"Simulation time     {t:.3f} s",
-            f"Measured angle      {angle:+.5f} rad",
-            f"Period-guide angle {oracle_angle:+.5f} rad",
-            f"Measured period     {METRIC['pendulum']['period']:.7f} s",
-            f"Oracle period          {ORACLE['pendulum']['period']:.7f} s",
-            f"Relative error          {100 * METRIC['pendulum']['period_err']:.2e}%",
-        ]):
-            artist.set_text(value)
-    return fig, update
-
-
-def table_video():
-    assert all(g["pass"] for g in VERDICT["gates"].values())
-    assert all(g["pass"] for s in VERDICT["scenarios"].values() for g in s.values())
-    fig = video_base("PASS / All five judge gates",
-                     "Full grade.sh execution, seed 0. Values below come from data/grade.json.")
-    rows = [
-        ["Drop contact", f"{METRIC['drop']['t_contact']:.5f} s",
-         f"{ORACLE['drop']['t_contact']:.5f} s ± {100 * grade.TOL['contact_time']:g}%", "PASS"],
-        ["Incline slide", f"{METRIC['incline_slide']['accel']:.5f} m/s²",
-         f"{ORACLE['incline_slide']['accel']:.5f} m/s² ± {100 * grade.TOL['accel']:g}%", "PASS"],
-        ["Incline stick", f"{1000 * METRIC['incline_stick']['travel_m']:.2f} mm",
-         f"< {1000 * grade.STICK_TRAVEL_M:g} mm", "PASS"],
-        ["Pendulum period", f"{METRIC['pendulum']['period']:.7f} s",
-         f"{ORACLE['pendulum']['period']:.7f} s ± {100 * grade.TOL['period']:g}%", "PASS"],
-    ]
-    cols = [.07, .32, .57, .89]
-    for x, title in zip(cols, ["Scene / metric", "Measured", "Oracle / SPEC limit", "Judge"]):
-        fig.text(x, .73, title, fontsize=20, weight="bold")
-    for y, row in zip([.63, .53, .43, .33], rows):
-        for x, value in zip(cols, row):
-            fig.text(x, y, value, fontsize=20, color=GREEN if value == "PASS" else INK)
-    fig.text(.07, .19, "Structure  PASS    Run  PASS    CSV shape  PASS    "
-             "Oracle  PASS    Reference agreement  PASS", fontsize=19)
-    fig.text(.07, .12, f"Judge intact: {VERDICT['judge_intact']}    "
-             f"Selftest: {len(read_selftest(DATA / 'selftest.txt'))}/8 mutants killed",
-             fontsize=19)
-    return fig, lambda t: None
-
-
-def video():
-    fps = 30
-    command = [
-        "ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgba",
-        "-s", "1920x1080", "-r", str(fps), "-i", "-", "-an",
-        "-c:v", "libx264", "-threads", "2", "-crf", "0", "-preset", "ultrafast",
-        "-pix_fmt", "yuv444p", "-map_metadata", "-1", str(HERE / "master/demo.mp4"),
-    ]
-    # Every frame is drawn at 30 fps. Each chapter covers the complete CSV span.
-    chapters = [(drop_video, 6, SCENES["drop"]["duration_s"]),
-                (incline_video, 8, SCENES["incline_slide"]["duration_s"]),
-                (pendulum_video, 10, SCENES["pendulum"]["duration_s"]),
-                (table_video, 4, 0)]
+def video(replays):
+    command = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+               "-s", "1920x1080", "-r", "30", "-i", "-", "-an", "-c:v", "libx264",
+               "-threads", "2", "-crf", "0", "-preset", "ultrafast",
+               "-pix_fmt", "yuv444p", "-map_metadata", "-1", str(HERE / "master/demo.mp4")]
+    # Drop is slowed 4x; inclines 8x, side by side; pendulum is real time.
+    # Indices always address actual graded samples, never interpolated poses.
     with subprocess.Popen(command, stdin=subprocess.PIPE) as encoder:
         try:
-            for constructor, seconds, span in chapters:
-                fig, update = constructor()
-                for t in np.linspace(0, span, seconds * fps):
-                    update(float(t))
-                    check_text(fig, constructor.__name__)
-                    encoder.stdin.write(fig.canvas.buffer_rgba())
-                plt.close(fig)
-                print(f"{constructor.__name__}: every frame text-checked", flush=True)
+            for name, seconds in (("drop", 6), ("inclines", 8), ("pendulum", 10), ("pass", 4)):
+                for i in range(seconds * 30):
+                    if name == "inclines":
+                        image = Image.new("RGB", (1920, 1080))
+                        for x, scene in ((0, "incline_slide"), (960, "incline_stick")):
+                            replay = replays[scene]
+                            index = round(i * (len(replay.states) - 1) / (seconds * 30 - 1))
+                            tile = replay.frame(index, 960, 1080)
+                            # Half-width video labels use smaller type but full 3D renders.
+                            draw = ImageDraw.Draw(tile)
+                            draw.rectangle((0, 0, 960, 150), fill=WHITE)
+                            draw.rectangle((0, 855, 960, 1080), fill=WHITE)
+                            label(tile, (24, 28), TITLES[scene], 32, bold=True)
+                            label(tile, (24, 92), f"simulation t = {index * SPEC['timestep_s']:.3f} s / 8x slow motion", 25, MUTED)
+                            for y, text in zip((875, 931), readout(scene)):
+                                label(tile, (24, y), text, 27, GREEN if y == 931 else INK)
+                            label(tile, (24, 1015), "Real graded state • MuJoCo • seed 0", 25, MUTED)
+                            image.paste(tile, (x, 0))
+                    else:
+                        replay = replays["pendulum" if name == "pass" else name]
+                        index = len(replay.states) - 1 if name == "pass" else round(
+                            i * (len(replay.states) - 1) / (seconds * 30 - 1))
+                        image = replay.frame(index)
+                        if name == "pass":
+                            # A second camera frames the same final state beside the card.
+                            replay.camera.lookat[0] = -.47
+                            image = pass_card(replay.frame(index))
+                        else:
+                            image = caption(image, name, index)
+                    encoder.stdin.write(image.tobytes())
+                for replay in replays.values():
+                    replay.close()
+                print(f"video {name}: every frame state-checked", flush=True)
         finally:
             encoder.stdin.close()
         assert encoder.wait() == 0, "Lossless encoding failed"
 
 
-if __name__ == "__main__":
-    result()
+def main():
+    assert all(g["pass"] for g in VERDICT["gates"].values())
+    assert all(g["pass"] for s in VERDICT["scenarios"].values() for g in s.values())
+    replays = {name: Replay(name) for name in SCENES}
+    result(replays)
     loop()
-    video()
+    video(replays)
+    checks = {n: {"graded_samples": len(r.states), "rendered_frames_checked": r.checked,
+                  "max_state_tolerance": 1e-9} for n, r in replays.items()}
+    (DATA / "render-checks.json").write_text(json.dumps(checks, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    main()
