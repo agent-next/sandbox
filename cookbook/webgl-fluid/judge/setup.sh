@@ -19,6 +19,7 @@
 # Exit codes: 0 ok, 1 install/verification failure, 2 no network.
 
 set -euo pipefail
+trap 'rc=$?; echo "[setup] ERROR: exit $rc at line $LINENO: $BASH_COMMAND" >&2' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PREFIX="$HOME/.wfs-fluid"
@@ -78,7 +79,7 @@ $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
     libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
     libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 \
     libcairo2 libatspi2.0-0 libx11-6 libxcb1 libxext6 libxi6 libxtst6 \
-    bc >/dev/null
+    bc curl xz-utils python3 >/dev/null
 
 fetch() {  # fetch <url> <dest> <sha256>
     log "downloading $(basename "$2")"
@@ -126,14 +127,12 @@ fi
 if [[ ! -x "$PREFIX/chromium/chrome-linux/chrome" ]]; then
     fetch "$CHROMIUM_URL" "$DL/chromium.zip" "$CHROMIUM_SHA256"
     (cd "$PREFIX/chromium" && python3 -m zipfile -e "$DL/chromium.zip" .)
-    # python's zipfile does not restore the execute bit
+    # python's zipfile does not restore the execute bit; the browser
+    # binaries and every .so (dlopen target) need it back
     chmod -R u+rwX,go+rX "$PREFIX/chromium"
-    chmod +x "$PREFIX/chromium/chrome-linux/chrome" \
-             "$PREFIX/chromium/chrome-linux/chrome_crashpad_handler" \
-             "$PREFIX/chromium/chrome-linux/chrome_sandbox" 2>/dev/null || true
-    find "$PREFIX/chromium/chrome-linux" -maxdepth 1 -name "*.so" -o \
-         -maxdepth 1 -name "swiftshader" -type d | while read -r f; do
-        [[ -d "$f" ]] && chmod +x "$f"/lib*.so 2>/dev/null; done
+    find "$PREFIX/chromium/chrome-linux" -type f \
+        \( -name '*.so' -o -name 'chrome' -o -name 'chrome_*' \
+           -o -name 'headless_shell' \) -exec chmod +x {} +
 fi
 export PLAYWRIGHT_BROWSERS_PATH="$PREFIX"
 # Symlink into the layout playwright-core expects:
