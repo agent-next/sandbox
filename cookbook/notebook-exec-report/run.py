@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -24,19 +25,41 @@ REPO = "https://github.com/agent-next/sandbox"
 DEMO = "cookbook/notebook-exec-report"
 ARTIFACT = "examples/good/analysis.ipynb"
 CLONE_DIR = "notebook-demo-repo"
+# local wall-clock allowance per step; the in-sandbox --timeout is the
+# command's own limit and this is the client-side backstop above it.
+LOCAL_MARGIN_S = 120.0
 
 
 class Failure(RuntimeError):
     pass
 
 
-def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
+def scrub(text: str) -> str:
+    """Never let a key from the environment reach the printed output."""
+    for name in ("SBX_API_KEY", "E2B_API_KEY"):
+        value = os.environ.get(name)
+        if value:
+            text = text.replace(value, "[redacted]")
+    return text
+
+
+def sbx(*args: str, timeout: float = 180.0) -> subprocess.CompletedProcess:
     """Run one sbx CLI command; never raises, caller checks exit code."""
-    return subprocess.run(["sbx", *args], capture_output=True, text=True,
-                          timeout=timeout)
+    try:
+        proc = subprocess.run(["sbx", *args], capture_output=True, text=True,
+                              timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # the command's own limit already expired; the CLI did not reply
+        return subprocess.CompletedProcess(
+            ["sbx", *args], 124,
+            f"sbx {' '.join(args)}: no reply within {timeout:.0f}s "
+            f"(the sandbox command may still be running in the sandbox)\n")
+    proc.stdout = scrub(proc.stdout or "")
+    proc.stderr = scrub(proc.stderr or "")
+    return proc
 
 
-def step(name: str, fn) -> subprocess.CompletedProcess:
+def step(name: str, fn, timeout: float = 300.0) -> subprocess.CompletedProcess:
     start = time.monotonic()
     proc = fn()
     dt = time.monotonic() - start
@@ -80,20 +103,24 @@ def main() -> int:
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
                          "git", "clone", "--depth", "1", "-b", args.ref,
-                         REPO, CLONE_DIR))
+                         REPO, CLONE_DIR),
+             timeout=300 + LOCAL_MARGIN_S)
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
+            # the local subprocess timeout must cover the sandbox-side
+            # --timeout, or a long step is killed while it still works
             proc = step(name, lambda: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"))
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}"),
+                timeout=timeout + LOCAL_MARGIN_S)
             if echo:
                 show(proc)
             return proc
 
         # fresh sandbox: the venv and the pinned wheels are not there yet
         in_sandbox("judge/setup.sh", "bash judge/setup.sh", 1200)
-        in_sandbox("judge/selftest.sh", "bash judge/selftest.sh", 2400,
+        in_sandbox("judge/selftest.sh", "bash judge/selftest.sh", 3600,
                    echo=True)
         graded = in_sandbox(
             f"judge/grade.sh {ARTIFACT}",
@@ -132,19 +159,19 @@ def main() -> int:
                 print(f"run: --keep: sandbox {sid} left running "
                      "(remember: sbx kill when done)", flush=True)
             else:
-                try:
-                    killed = sbx("kill", sid, timeout=180)
-                    if killed.returncode != 0:
-                        print(f"run: WARNING kill exit {killed.returncode}",
-                              file=sys.stderr)
-                    listing = sbx("list", timeout=120)
-                except subprocess.TimeoutExpired:
-                    print(f"run: FAILED cleanup: sbx kill/list timed out; "
-                          f"run sbx kill {sid}", file=sys.stderr)
+                killed = sbx("kill", sid, timeout=240)
+                listing = sbx("list", timeout=180)
+                if killed.returncode != 0:
+                    print(f"run: WARNING kill exit {killed.returncode}",
+                          file=sys.stderr)
+                if listing.returncode != 0:
+                    print(f"run: FAILED cleanup: sbx list exit "
+                          f"{listing.returncode}; cannot confirm sandbox {sid} "
+                          f"is gone -- run sbx kill {sid}", file=sys.stderr)
                     sys.exit(1)
                 if sid in (listing.stdout or ""):
                     print(f"run: FAILED cleanup: sandbox {sid} still live; "
-                          "run sbx kill for this id", file=sys.stderr)
+                          f"run sbx kill {sid}", file=sys.stderr)
                     sys.exit(1)
                 print(f"run: killed and confirmed gone: {sid}", flush=True)
     return 1 if fail else 0
