@@ -42,7 +42,7 @@ HOSTILE = ("fork_bomb", "memory_balloon", "infinite_loop", "disk_filler",
 BENIGN = ("hello", "arith", "argv_env", "file_roundtrip", "cpu_bounded")
 
 MAX_BYTES = 96 * 1024
-RUN_TIMEOUT_S = 120          # per snippet, on top of the policy's wall clock
+RUN_TIMEOUT_S = 40           # per snippet, on top of the policy's wall clock
 MEM_ABSOLUTE_MB = 512        # peak RSS a single hostile run may reach
 LOAD_INCREASE_MAX = 4.0
 PROC_DELTA_MAX = 32

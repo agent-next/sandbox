@@ -90,6 +90,25 @@ def _oserror():
     return OSError(err, os.strerror(err))
 
 
+def child_cpu(pid):
+    """CPU seconds the snippet has used, from /proc, or None if it is gone."""
+    try:
+        with open("/proc/%d/stat" % pid, "rb") as fh:
+            data = fh.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    close = data.rfind(")")
+    if close < 0:
+        return None
+    fields = data[close + 2:].split()
+    if len(fields) < 13:
+        return None
+    try:
+        return (int(fields[11]) + int(fields[12])) / os.sysconf("SC_CLK_TCK")
+    except (ValueError, OSError):
+        return None
+
+
 def main():
     (cpu, as_bytes, fsize, nproc, wall, cap, workdir, snippet, env_path,
      out_path, uid, gid, drop_uid, read_only) = sys.argv[1:15]
