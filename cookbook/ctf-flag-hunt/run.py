@@ -28,7 +28,12 @@ import time
 REPO = "https://github.com/agent-next/sandbox"
 DEMO = "cookbook/ctf-flag-hunt"
 ARTIFACT = "examples/good"
-CLONE_DIR = "ctf-demo-repo"
+# Absolute paths: every exec starts in the sandbox's $HOME, and a detached
+# step's log must be one fixed path for the launcher, the poller and the
+# final read-back, or the run waits on a file it will never find.
+CLONE_DIR = "/tmp/ctf-demo-repo"
+DEMO_DIR = f"{CLONE_DIR}/{DEMO}"
+LOG_DIR = "/tmp/ctf-logs"
 
 # The longest step from outside the sandbox.  Detached runs poll instead,
 # so this only bounds one lost poll or one stuck kill/list.
@@ -75,7 +80,8 @@ def detached(sid: str, name: str, cmd: str, log: str) -> None:
     the only record, so the run fails loudly if the step never completes.
     """
     short_step(sid, f"start {name} (detached, log {log})",
-               f"cd {CLONE_DIR}/{DEMO} && setsid nohup bash -c "
+               f"mkdir -p {LOG_DIR} && cd {DEMO_DIR} && "
+               f"setsid nohup bash -c "
                f"'{cmd}; echo __RC__$? >> {log}' >> {log} 2>&1 < /dev/null &")
 
 
@@ -85,14 +91,16 @@ def wait_step(sid: str, name: str, log: str,
 
     A poll that returns non-zero is the sandbox being unreachable, not the
     step failing: the step's own result is only ever the __RC__ marker.
-    Treat the first lost poll as such and fail only if none ever succeed.
+    The step is declared missing only if its log never appeared at all --
+    a log that appears and stops growing is the step itself hanging, and
+    the deadline handles that.
     """
     start = time.monotonic()
     last = ""
     read_ok = False
     while time.monotonic() - start < deadline:
         time.sleep(POLL_INTERVAL)
-        proc = sh(sid, f"cat {log} 2>/dev/null")
+        proc = sh(sid, f"cat {log} 2>/dev/null || true")
         if proc.returncode != 0:
             if not read_ok:
                 continue
@@ -190,18 +198,21 @@ def main() -> int:
         short_step(sid, "git clone",
                    f"git clone --depth 1 -b {args.ref} {REPO} {CLONE_DIR}")
 
-        detached(sid, "judge/setup.sh", "bash judge/setup.sh", "setup.log")
-        wait_step(sid, "judge/setup.sh", "setup.log")
+        setup_log = f"{LOG_DIR}/setup.log"
+        detached(sid, "judge/setup.sh", "bash judge/setup.sh", setup_log)
+        wait_step(sid, "judge/setup.sh", setup_log)
 
+        selftest_log = f"{LOG_DIR}/selftest.log"
         detached(sid, "judge/selftest.sh", "bash judge/selftest.sh",
-                 "selftest.log")
-        wait_step(sid, "judge/selftest.sh", "selftest.log")
-        show(sid, "selftest.log")
+                 selftest_log)
+        wait_step(sid, "judge/selftest.sh", selftest_log)
+        show(sid, selftest_log)
 
+        grade_log = f"{LOG_DIR}/grade.log"
         detached(sid, f"judge/grade.sh {ARTIFACT}",
                  f"bash judge/grade.sh {ARTIFACT} --json /tmp/verdict.json",
-                 "grade.log")
-        wait_step(sid, f"judge/grade.sh {ARTIFACT}", "grade.log")
+                 grade_log)
+        wait_step(sid, f"judge/grade.sh {ARTIFACT}", grade_log)
         fetch(sid, "/tmp/verdict.json", verdict_path)
         with open(verdict_path) as f:
             verdict_text = f.read()
