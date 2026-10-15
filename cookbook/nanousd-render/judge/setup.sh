@@ -178,8 +178,8 @@ build_drivers() {
         -I"$rend_src/src" \
         "$JUDGE_DIR/render_once.c" \
         -L"$rend_bld" -lnusd_gles -lnusd_renderer_opengl \
-        -L"$rend_bld/nanousd" -lnanousdapi \
-        -Wl,-rpath,"$rend_bld" -Wl,-rpath,"$rend_bld/nanousd" \
+        -L"$rend_bld/Release" -lnanousdapi \
+        -Wl,-rpath,"$rend_bld" -Wl,-rpath,"$rend_bld/Release" \
         -lm -lEGL \
         -o "$out/render_once"
 

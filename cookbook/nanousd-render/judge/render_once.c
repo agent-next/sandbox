@@ -9,8 +9,9 @@
  * Usage:
  *   render_once <scene.usda> <cam.bin> <out1.raw> <out2.raw>
  * where cam.bin is 39 float32: view16 (col-major), proj16 (col-major),
- * eye3, width, height, render_mode. The scene is rendered twice into two
- * separate buffers so the judge can assert byte-determinism (G3).
+ * eye3, width, height, pad, render_mode (raster=0, material=1). The scene
+ * is rendered twice into two separate buffers so the judge can assert
+ * byte-determinism (G3).
  *
  * Exit codes: 0 ok, 1 render failure (message on stderr).
  */
@@ -46,7 +47,7 @@ int main(int argc, char** argv) {
             "usage: render_once <scene.usda> <cam.bin> <out1.raw> <out2.raw>\n");
         return 2;
     }
-    const int N_FLOATS = 16 + 16 + 3 + 3; /* view, proj, eye, w/h/mode */
+    const int N_FLOATS = 16 + 16 + 3 + 4; /* view, proj, eye, w/h/pad/mode */
     float* cam = read_f32(argv[2], (size_t)N_FLOATS);
     if (!cam) return 1;
 
@@ -55,7 +56,7 @@ int main(int argc, char** argv) {
     float* eye  = cam + 32;
     int   w     = (int)(cam[35] + 0.5f);
     int   h     = (int)(cam[36] + 0.5f);
-    int   mode  = (int)(cam[38] + 0.5f);
+    int   mode  = (int)(cam[38] + 0.5f);  /* [37] unused pad */
     if (w <= 0 || h <= 0 || w > 4096 || h > 4096) {
         fprintf(stderr, "render_once: bad render size %dx%d\n", w, h);
         free(cam);

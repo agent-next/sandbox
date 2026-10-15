@@ -15,6 +15,9 @@ SCENE="${2:?usage: render_smoke.sh <render_once> <scene.usda>}"
 # Force software rendering even if another EGL driver is present.
 export LIBGL_ALWAYS_SOFTWARE=1
 export GALLIUM_DRIVER=llvmpipe
+# The renderer libs live in the setup prefix (their baked-in RUNPATH
+# already points there, but LD_LIBRARY_PATH also covers relocated trees).
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$(dirname "$BIN")/../build/nanousd-opengl-renderer:$(dirname "$BIN")/../build/nanousd-opengl-renderer/Release:$(dirname "$BIN")/../build/nanousd/Release"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
