@@ -115,9 +115,9 @@
  "passed": true,
  "seed": 20261015,
  "timing": {
-  "geometry_s": 0.014,
-  "oracle_s": 1.172,
-  "total_s": 6.962,
-  "validator_s": 5.766
+  "geometry_s": 0.008,
+  "oracle_s": 1.05,
+  "total_s": 3.797,
+  "validator_s": 2.739
  }
 }
