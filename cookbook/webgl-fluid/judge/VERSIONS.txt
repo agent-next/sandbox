@@ -14,6 +14,7 @@ $ node -p playwright-core/package.json .version
 291d86de38ea23b8fb63d1879afeea77e9a4556900bbd67e13bc1d5ea007ce4e  /home/user/w/cookbook/webgl-fluid/judge/upstream/script.js
 27976ca8ac2e125de97163455131890e8686ed2afc2007cd5524080b7d53ef7b  /home/user/w/cookbook/webgl-fluid/judge/upstream/dat.gui.min.js
 1be448ae1212de2bee77b4cf851ab0acea0a7f7f32d21cd73095dd94dc173f66  /home/user/w/cookbook/webgl-fluid/judge/upstream/LICENSE
+140c55bd97c21b9b22008d7054b492333fec67fbfc1a1b266e5b0209b647eed4  /home/user/w/cookbook/webgl-fluid/judge/upstream/LDR_LLL1_0.png
 
 # apt: chromium runtime libraries
 libnss3 2:3.87.1-1+deb12u4
