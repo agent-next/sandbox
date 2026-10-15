@@ -28,6 +28,7 @@ Standard library only.
 """
 from __future__ import annotations
 
+import bisect
 import hashlib
 import heapq
 import json
