@@ -17,22 +17,17 @@ and the graded artifact is two small files it hands back.
 
 ## Results
 
-![Per-cell status across the matrix](media/result.png)
-
-![Agent-loop replay & self-test kill rate](media/loop.png)
-
-[▶ demo.mp4](media/demo.mp4) — 40 s: the matrix table filling in cell by
-cell → the 3.9 failure detected → the aggregated table against the expected
-mask → the agent-loop replay → the self-test kill-rate bars (1920×1080,
-H.264, < 8 MB)
-
-Key numbers from the judge verdict (`examples/good/`, toggle on):
+The key numbers from the judge verdict (`examples/good/`, toggle on) are
+below. The `media/` figures (`result.png`, `loop.png`) and `demo.mp4` ship
+in a follow-up PR; this page will embed them when they land.
 
 - **Failing cell**: exactly `3.9` (the `match`-syntax `SyntaxError`), the
   other four pass
-- **Test count per cell**: 6 (identical on every version)
+- **Test count per cell**: 7 (6 executed + 1 toggle-skipped; identical on
+  every version — pytest's JUnit `tests` attribute counts the skipped test)
 - **Interpreter identity**: 3.9.25, 3.10.21, 3.11.16, 3.12.14, 3.13.15 —
-  five distinct interpreters, each matching its cell
+  five distinct interpreters, each matching its cell (the judge checks
+  major.minor per SPEC; the exact patches are the pins the runner requests)
 - **Exit codes**: 0 with the toggle off, 1 with the toggle on
 - **Self-test kill rate**: 9/9 = 100 % (requirement ≥ 90 %)
 
@@ -74,7 +69,7 @@ naming the sandbox id if cleanup cannot be confirmed.
 |---|---|
 | `git clone --depth 1` | ~1 s |
 | `judge/setup.sh` (fresh install) | 3.2 s (idempotent re-run: 0.1 s) |
-| `judge/selftest.sh` (good + 9 mutants + determinism) | ~60 s |
+| `judge/selftest.sh` (good + 9 mutants + determinism) | ~2.5 min |
 | `judge/grade.sh examples/good/` | ~30 s |
 
 Whole run, including sandbox create and kill: a few minutes; grading itself is
@@ -82,16 +77,19 @@ tens of seconds. `run.py` prints a per-step timing line.
 
 ## Limits, plainly
 
-- The fixture is hand-written and pinned: 6 tests, pure stdlib, with one
-  deliberately version-specific failure (`match` syntax, a `SyntaxError`
-  below 3.10). Real package installation from PyPI is out of scope — only
-  the one pinned, hash-checked `pytest` wheel set is installed per cell.
-- Interpreters are the exact CPython patches `3.9.25`, `3.10.21`,
-  `3.11.16`, `3.12.14`, `3.13.15`, uv-managed (see SPEC.md); a base image
-  without those downloads needs network access for `uv`.
-- The judge grades what SPEC.md grades: the five gates plus the exit-code
-  gate. Parallelism, caching and reporting style beyond a machine-parseable
-  YAML table are not rewarded.
+- The fixture is hand-written and pinned: 7 tests (6 executed + 1
+  toggle-skipped), pure stdlib, with one deliberately version-specific
+  failure (`match` syntax, a `SyntaxError` below 3.10). Real package
+  installation from PyPI is out of scope — only the one pinned,
+  hash-checked `pytest` wheel set is installed per cell.
+- Interpreters are uv-managed CPython 3.9–3.13; uv fetched `3.9.25`,
+  `3.10.21`, `3.11.16`, `3.12.14`, `3.13.15` at setup time on 2026-10-15
+  (recorded in `judge/VERSIONS.txt`), and the judge checks each cell's
+  interpreter is distinct and matches its cell on major.minor (see SPEC.md).
+  A base image without those downloads needs network access for `uv`.
+- The judge grades what SPEC.md grades: the seven gates G1–G7. Parallelism,
+  caching and reporting style beyond a machine-parseable YAML table are not
+  rewarded.
 - `uv` needs to download the five interpreters and the pinned wheels on a
   fresh machine; that is the one network dependency, sha256-checked on the
   `uv` binary and hash-checked on every wheel.

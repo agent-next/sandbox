@@ -1,8 +1,10 @@
-"""The fixture's test suite: 6 tests, identical on every interpreter.
+"""The fixture's test suite: 7 tests (6 executed + 1 skipped), identical on
+every interpreter.
 
-Five always pass (they are pure stdlib).  The sixth imports the 3.10+ only
-module and is skipped unless the toggle is on, so the per-cell test count
-stays 6 whichever way the toggle is set.
+Five always pass (they are pure stdlib).  The sixth parses a dimensioned
+entry.  The seventh imports the 3.10+ only module and is skipped unless the
+toggle is on, so the per-cell test count stays 7 whichever way the toggle is
+set (pytest's JUnit `tests` attribute counts the skipped test).
 """
 
 import os

@@ -143,13 +143,18 @@ def main() -> int:
             else:
                 try:
                     killed = sbx("kill", sid, timeout=180)
-                    if killed.returncode != 0:
-                        print(f"run: WARNING kill exit {killed.returncode}",
-                              file=sys.stderr)
                     listing = sbx("list", timeout=120)
                 except subprocess.TimeoutExpired:
                     print(f"run: FAILED cleanup: sbx kill/list timed out; "
                           f"run sbx kill {sid}", file=sys.stderr)
+                    sys.exit(1)
+                # Fail closed: a lost kill or a failed inventory is not a
+                # confirmation (sbx kill on an already-gone sandbox exits 0).
+                if killed.returncode != 0 or listing.returncode != 0:
+                    print(f"run: FAILED cleanup: sbx kill exit "
+                          f"{killed.returncode}, sbx list exit "
+                          f"{listing.returncode}; run sbx kill {sid}",
+                          file=sys.stderr)
                     sys.exit(1)
                 if sid in (listing.stdout or ""):
                     print(f"run: FAILED cleanup: sandbox {sid} still live; "

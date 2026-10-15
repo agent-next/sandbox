@@ -69,9 +69,12 @@ All gates are numeric and deterministic. Exit 0 only if every gate passes.
 - **G2 coverage**: `run_matrix.py` runs and produces a JUnit XML file for
   **every** version in `python_versions` (5 files), each non-empty.
 - **G3 interpreter identity**: each cell's JUnit XML records a `python`
-  version string (the `hostname` attribute or a `properties` block) matching
-  the version in `python_versions` for that cell — no two cells share the
-  same interpreter.
+  version string (the `properties` block the fixture's `conftest.py` stamps
+  via `record_testsuite_property`, or pytest's `hostname` attribute as a
+  fallback). The judge compares the major.minor against the cell's version in
+  `python_versions` and checks that no two cells share an interpreter. The
+  exact patch reported (3.9.25, 3.10.21, …) is what uv fetched for that
+  major.minor at setup time, measured and recorded in `judge/VERSIONS.txt`.
 - **G4 failure detection**: when the fixture's toggle is **on**, the
   aggregated matrix table shows **exactly one** failing cell, at version
   `3.9`, and the other four cells pass. When the toggle is **off**, all five
@@ -98,16 +101,19 @@ Violating any gate fails with the offending numbers printed.
    compares the aggregated table against it. This catches a runner that
    reports all-pass when it actually skipped the 3.9 cell.
 2. **Interpreter identity**: the judge inspects each JUnit XML file for a
-   version stamp (the `hostname` attribute, which the runner sets to the
-   interpreter version). It checks that all five versions are distinct and
-   match `python_versions`. This catches a runner that runs every cell under
-   one interpreter.
+   version stamp — the `properties` block the fixture's `conftest.py` records
+   via `record_testsuite_property`, or pytest's `hostname` attribute as a
+   fallback. It checks the five stamps are all distinct and match
+   `python_versions` on major.minor. This catches a runner that runs every
+   cell under one interpreter.
 3. **Spec mask**: the pass/fail pattern in the aggregated table must match
    the expected mask (G6), computed from the fixture's known behaviour, not
    asserted by the artifact or its comments.
-4. **Monte-Carlo reproducibility**: with the fixed seed the pass fraction
-   must be identical between two consecutive grade invocations
-   (deterministic RNG seeding); `--seed` overrides it.
+4. **Deterministic verdict**: `grade.sh` run twice with the same `--seed`
+   produces byte-identical verdict JSON (except the `timing` key). `--seed`
+   is accepted for interface parity with the other cookbook judges and does
+   not change any numeric result; the self-test checks determinism on every
+   run.
 
 ## Self-test (`judge/selftest.sh`)
 
@@ -118,16 +124,17 @@ Violating any gate fails with the offending numbers printed.
   `same-interpreter` (all cells stamped 3.12),
   `failure-masked` (runner exits 0 despite a failing cell),
   `junit-missing` (no JUnit XML written for one cell),
-  `wrong-count` (aggregated table reports 5 tests instead of 6).
+  `wrong-count` (aggregated table reports 6 tests instead of 7).
 - Kill rate ≥ 90 % printed by the self-test; exit non-zero otherwise.
 - Determinism: two `grade.sh` runs with the same seed produce
   byte-identical verdict JSON; checked by the self-test on every run.
 
 ## Judge-integrity rule
 
-The artifact under test is copied to a temp dir before grading; the judge
-compares `sha256` of its own `judge/` tree before and after every grade and
-fails closed if anything changed.
+The artifact under test is graded on a *copy* in a temp dir, so it can never
+modify the judge tree as a side effect of running. `judge/selftest.sh`
+additionally computes a `sha256` of its own `judge/` tree before and after
+the whole self-test and fails closed if anything changed.
 
 ## Out of scope for the judge
 
@@ -139,6 +146,8 @@ fails closed if anything changed.
 
 - uv **0.12.16** (GitHub release tarball, SHA256-pinned download),
   installed idempotently. Python 3.10+ (stdlib only) for the judge math.
-- Interpreters: CPython 3.9.25, 3.10.21, 3.11.16, 3.12.14, 3.13.15
-  (uv-managed, exact patches).
+- Interpreters: CPython 3.9, 3.10, 3.11, 3.12, 3.13 (uv-managed; uv fetches
+  the latest patch of each requested major.minor — measured at setup time on
+  2026-10-15: 3.9.25, 3.10.21, 3.11.16, 3.12.14, 3.13.15, recorded in
+  `judge/VERSIONS.txt`).
 - pytest **8.4.2** (PyPI wheel, hash-pinned via `uv pip install --require-hashes`).
