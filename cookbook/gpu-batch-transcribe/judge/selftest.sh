@@ -38,9 +38,11 @@ while read -r name; do
     total=$((total + 1))
     # grade.sh prints "grade: exit N" on every run: a judge that always
     # exits 0 (or prints ok for a failing mutant) shows up here instead
-    # of passing silently.
+    # of passing silently. The || capture keeps set -e from eating the
+    # expected non-zero grade of a killed mutant.
+    rc=0
     out=$(bash "$HERE/grade.sh" "$MUT/$name.py" \
-        --json "$WORK/$name.json" 2>&1); rc=$?
+        --json "$WORK/$name.json" 2>&1) || rc=$?
     greplast=$(printf '%s\n' "$out" | grep "grade: exit" | tail -1)
     if [ "$rc" -eq 0 ]; then
         fails="$fails $name"
@@ -53,11 +55,12 @@ import json, sys
 try:
     v = json.load(open(sys.argv[1]))
 except Exception:
+    # no/unreadable verdict: the judge's exit line above carries the news
     print("no verdict json")
-    raise SystemExit
-gates = v.get("gates", {})
-failed = [k for k, g in gates.items() if isinstance(g, dict) and not g.get("pass")]
-print(",".join(failed) or "exit")
+else:
+    gates = v.get("gates", {})
+    failed = [k for k, g in gates.items() if isinstance(g, dict) and not g.get("pass")]
+    print(",".join(failed) or "exit 0")
 EOF
 )
         echo "selftest: mutant $name: killed (gate: $gate; $greplast)"
