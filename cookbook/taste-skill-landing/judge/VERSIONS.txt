@@ -1,0 +1,10 @@
+# recorded by judge/setup.sh at 2026-10-15T09:02:49+00:00
+playwright: 1.63.0 (pip, --require-hashes judge/requirements.txt)
+chromium: 153.0.8010.12 (/home/user/.cache/ms-playwright, build pinned by playwright 1.63.0)
+axe-core: 4.10.3 (npm tarball, sha256 0f2b4d7dcdf7d1219df8d1959ad68e565f51d14c3f0d88bb71cd59abeb956292)
+Python 3.12.15
+pip freeze:
+greenlet==3.5.6
+playwright==1.63.0
+pyee==13.0.1
+typing_extensions==4.16.0

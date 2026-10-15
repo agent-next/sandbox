@@ -1,0 +1,10 @@
+<mujoco model="arena-drop">
+  <option gravity="0 0 -9.81" timestep="0.001"/>
+    <worldbody>
+    <geom name="floor" type="plane" size="5 5 0.1" pos="0 0 0" friction="1 1 0.001"/>
+    <body name="mover" pos="0 0 1">
+      <freejoint/>
+      <geom name="ball" type="sphere" size="0.05" mass="1.0" friction="1 1 0.001"/>
+    </body>
+  </worldbody>
+</mujoco>

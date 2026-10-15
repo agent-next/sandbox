@@ -1,0 +1,18 @@
+{"commands": [
+  {"command": "parameters.change", "params": {"name": "thickness", "expression": "6 mm"}},
+  {"command": "parameters.change", "params": {"name": "boss_height", "expression": "3 mm"}},
+  {"command": "sketch.create", "params": {"plane": "XY", "name": "Plate"}},
+  {"command": "sketch.rectangle.rounded", "params": {"p0": [-30, -25], "p1": [30, 25], "radius": 5}},
+  {"command": "sketch.circle.center", "params": {"center": [0, 0], "diameter": 22}},
+  {"command": "sketch.circle.center", "params": {"center": [15.5, 15.5], "diameter": 3.4}},
+  {"command": "sketch.circle.center", "params": {"center": [-15.5, 15.5], "diameter": 3.4}},
+  {"command": "sketch.circle.center", "params": {"center": [-15.5, -15.5], "diameter": 3.4}},
+  {"command": "sketch.circle.center", "params": {"center": [15.5, -15.5], "diameter": 3.4}},
+  {"command": "sketch.finish", "params": {}},
+  {"command": "solid.extrude", "params": {"distance": "thickness", "profiles": [{"point": [25, 0]}], "body_name": "Plate"}},
+  {"command": "sketch.create", "params": {"plane": "XY", "offset": "thickness", "name": "Boss"}},
+  {"command": "sketch.circle.center", "params": {"center": [0, 0], "diameter": 32}},
+  {"command": "sketch.circle.center", "params": {"center": [0, 0], "diameter": 22}},
+  {"command": "sketch.finish", "params": {}},
+  {"command": "solid.extrude", "params": {"distance": "boss_height", "profiles": [{"point": [13.5, 0]}], "operation": "join"}}
+]}
