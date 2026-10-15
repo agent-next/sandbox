@@ -526,11 +526,14 @@ def test_queued_counts_only_jobs_this_pool_can_serve():
             return httpx.Response(200, json={"workflow_runs": runs})
         return httpx.Response(200, json={"jobs": [
             {"status": "queued", "labels": ["self-hosted", "SBX"]},
+            {"status": "queued", "labels": ["self-hosted", "sbx", "linux"]},
+            {"status": "queued", "labels": ["self-hosted"]},
             {"status": "queued", "labels": ["ubuntu-latest"]},
             {"status": "in_progress", "labels": ["self-hosted", "sbx"]},
         ]})
 
-    assert github(handler).queued(["acme/app"], ["self-hosted", "sbx"]) == 1
+    demand = runners.RestDemand(github(handler), ["acme/app"], ["self-hosted", "sbx"])
+    assert demand.poll(lambda repo, job: pytest.fail("unexpected cancel")) == 2
 
 
 # --- CLI -------------------------------------------------------------------
@@ -753,13 +756,13 @@ def test_latest_runner_version_strips_the_v():
         runners.latest_runner_version(http)
 
 
-def test_backlog_is_only_counted_when_no_runner_is_ready():
+def test_backlog_is_counted_even_when_runners_are_starting():
     gh, clock = FakeGitHub(), Clock()
     calls = []
     pool = make_pool(gh, clock, warm=1, maximum=4, queued=lambda: calls.append(1) or 5)
     pool.tick()  # empty pool: count the backlog
-    pool.tick()  # starting runners exist: skip the API calls
-    assert len(calls) == 1
+    pool.tick()  # demand polling owns its cadence, not the pool's ready count
+    assert len(calls) == 2
 
 
 def test_shutdown_does_not_wait_on_retired_slots(capsys, monkeypatch):
@@ -869,16 +872,16 @@ def test_webhook_server_round_trip():
         server.shutdown()
 
 
-def test_cheap_backlog_scales_even_while_runners_are_idle():
+def test_backlog_scales_even_while_runners_are_idle():
     gh, clock = FakeGitHub(), Clock()
     backlog = {"n": 0}
-    pool = make_pool(gh, clock, warm=2, maximum=8, queued=lambda: backlog["n"], queued_is_cheap=True)
+    pool = make_pool(gh, clock, warm=2, maximum=8, queued=lambda: backlog["n"])
     pool.tick()
     for slot in live(pool):
         gh.online(slot)
-    backlog["n"] = 5  # 5 jobs queued: 2 land on the idle runners, 3 need new ones, plus 2 warm
+    backlog["n"] = 5  # two idle runners absorb two jobs; boot the remaining three
     state = pool.tick()
-    assert state["spawned"] == 5 and len(pool.slots) == 7
+    assert state["spawned"] == 3 and len(pool.slots) == 5
 
 
 def test_wake_forces_an_early_tick():
@@ -975,7 +978,7 @@ def test_event_stream_is_scrubbed(monkeypatch, capsys):
     assert secret not in out and "[redacted]" in out
 
 
-@pytest.mark.parametrize("flag", ["--interval", "--idle-min", "--job-timeout-min"])
+@pytest.mark.parametrize("flag", ["--interval", "--poll-interval", "--idle-min", "--job-timeout-min"])
 @pytest.mark.parametrize("bad", ["0", "-1", "nan"])
 def test_serve_timing_options_must_be_positive(flag, bad, monkeypatch, capsys):
     monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
@@ -1019,13 +1022,18 @@ def test_image_refuses_a_version_that_is_not_a_version(version, fake_sbx):
     assert fake_sbx.made == []
 
 
-def test_watch_and_webhook_are_alternatives(monkeypatch, capsys):
+def test_watch_and_webhook_share_rest_cancel_tracking(monkeypatch):
     monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
     monkeypatch.setenv("GH_TOKEN", "gh-test-token")
     monkeypatch.setenv("GH_WEBHOOK_SECRET", "hook-secret-value")
-    argv = ["runners", "serve", "--snapshot", "s", "--org", "a", "--webhook-port", "0", "--watch", "a/b"]
-    assert cli.main(argv) == 2
-    assert "alternatives" in capsys.readouterr().err
+    monkeypatch.setattr(runners.GitHub, "check_repo", lambda *a: None)
+    monkeypatch.setattr(runners, "webhook_server", lambda *a: None)
+    monkeypatch.setattr(runners, "sweep", lambda *a: None)
+    seen = {}
+    monkeypatch.setattr(runners, "serve", lambda pool, **kw: seen.update(pool=pool))
+    argv = ["runners", "serve", "--snapshot", "s", "--org", "a", "--webhook-port", "0", "--watch-repo", "a/b"]
+    assert cli.main(argv) == 0
+    assert seen["pool"].demand.repos == ["a/b"]
 
 
 def test_a_start_timeout_is_one_retire(capsys):
@@ -1040,7 +1048,7 @@ def test_a_start_timeout_is_one_retire(capsys):
     assert capsys.readouterr().out.count('"event": "retire"') == 1
 
 
-def test_a_full_pool_does_not_poll_the_backlog():
+def test_a_full_pool_still_checks_demand_for_cancellations():
     gh, clock = FakeGitHub(), Clock()
     calls = []
     pool = make_pool(gh, clock, warm=1, maximum=1, queued=lambda: calls.append(1) or 3)
@@ -1049,7 +1057,7 @@ def test_a_full_pool_does_not_poll_the_backlog():
     gh.online(slot, busy=True)
     pool.tick()
     pool.tick()
-    assert len(calls) == 1
+    assert len(calls) == 3
 
 
 def test_second_signal_aborts_busy_runners(monkeypatch):
@@ -1135,7 +1143,8 @@ def test_queued_pages_through_large_matrices():
         n = 100 if req.url.params["page"] == "1" else 30
         return httpx.Response(200, json={"jobs": [{"status": "queued", "labels": ["self-hosted", "sbx"]}] * n})
 
-    assert github(handler).queued(["acme/app"], ["self-hosted", "sbx"]) == 130
+    demand = runners.RestDemand(github(handler), ["acme/app"], ["self-hosted", "sbx"])
+    assert demand.poll(lambda repo, job: pytest.fail("unexpected cancel")) == 130
 
 
 def test_job_timeout_must_fit_the_sandbox_lifetime(monkeypatch, capsys):
@@ -1304,3 +1313,219 @@ def test_key_concurrency_is_none_when_the_gateway_is_unreachable(monkeypatch):
 
     monkeypatch.setattr(cli.httpx, "get", get)
     assert _real_key_concurrency("e2b-test-key", "sbx.example") is None
+
+
+# --- REST demand and cancel reclaim ----------------------------------------
+
+
+def rest_demand(clock, handler, repos=None, **kw):
+    gh = github(handler)
+    gh.clock = clock
+    return runners.RestDemand(gh, ["acme/app"] if repos is None else repos,
+                              ["self-hosted", "sbx"], clock=clock, **kw)
+
+
+@pytest.mark.parametrize("maximum,expected", [(10, 7), (9, 7), (5, 3), (2, 0)])
+@pytest.mark.parametrize("online", [False, True])
+def test_nine_queued_jobs_boot_the_shortfall_beyond_two_warm(maximum, expected, online, capsys):
+    clock, gh = Clock(), FakeGitHub()
+    jobs = []
+
+    def handler(req):
+        if req.url.path.endswith("/runs"):
+            return httpx.Response(200, json={"workflow_runs": [{"id": 1}] if jobs else []})
+        return httpx.Response(200, json={"jobs": jobs})
+
+    demand = rest_demand(clock, handler)
+    pool = make_pool(gh, clock, maximum=maximum, demand=demand)
+    assert pool.tick()["spawned"] == 2
+    if online:
+        for slot in live(pool):
+            gh.online(slot)
+    jobs.extend({"id": i, "status": "queued", "labels": ["self-hosted", "sbx"]} for i in range(9))
+    clock.now = demand.next_poll
+    assert pool.tick()["spawned"] == expected
+    assert len(pool.slots) == 2 + expected
+    (event,) = [e for e in events(capsys) if e["event"] == "demand" and e["queued"] == 9]
+    assert event["spawned"] == expected and event["max"] == maximum
+
+
+def test_cancelled_run_disappears_but_only_its_owned_sandbox_is_reclaimed(monkeypatch, capsys):
+    clock, gh = Clock(), FakeGitHub()
+    jobs, active = [], True
+    killed = []
+
+    def handler(req):
+        if req.url.path.endswith("/runs"):
+            return httpx.Response(200, json={"workflow_runs": [{"id": 7}] if active else []})
+        assert req.url.path == "/repos/acme/app/actions/runs/7/jobs"
+        return httpx.Response(200, json={"jobs": jobs})
+
+    demand = rest_demand(clock, handler)
+    pool = make_pool(gh, clock, warm=2, maximum=2, demand=demand)
+    pool.tick()
+    a, b = live(pool)
+    for slot in (a, b):
+        gh.online(slot, busy=True)
+        slot.sandbox_id = "sandbox-" + slot.name
+        slot.kill = lambda s=slot: killed.append(s.name)
+    jobs.extend({"id": i, "status": "in_progress", "labels": ["self-hosted", "sbx"],
+                 "runner_name": s.name, "runner_id": gh.registered[s.name]["id"]}
+                for i, s in enumerate((a, b)))
+    clock.now = demand.next_poll
+    pool.tick()
+    jobs[0].update(status="completed", conclusion="cancelled", completed_at="2026-10-15T00:00:00Z")
+    # Even a same-prefix foreign runner and a stale registration id must be spared.
+    jobs.extend([
+        {**jobs[0], "id": 3, "runner_name": "sbx-another-pool"},
+        {**jobs[0], "id": 4, "runner_name": b.name, "runner_id": 999},
+        {**jobs[1], "id": 5, "status": "completed", "conclusion": "success"},
+    ])
+    active = False  # the cancelled workflow no longer appears in active runs
+    monkeypatch.setattr(runners.time, "time", lambda: 1792022403.0)
+
+    def kill():
+        killed.append(a.name)
+        clock.now += 0.2
+
+    a.kill = kill
+    clock.now = demand.next_poll
+    pool.tick()
+    assert killed == [a.name] and a.retiring and not b.retiring
+    assert a.name not in pool.slots and b.name in pool.slots
+    assert gh.deleted == []  # cancellation bypasses GitHub's busy-runner delete refusal
+    (reclaimed,) = [e for e in events(capsys) if e["event"] == "reclaimed"]
+    assert reclaimed["job"] == 0 and reclaimed["sandbox"] == a.sandbox_id
+    assert reclaimed["poll_delay_s"] == 0.2 and reclaimed["delay_s"] == 3.0
+
+
+def test_reclaim_does_not_claim_a_failed_kill_and_retries_the_cancel(capsys):
+    clock, gh = Clock(), FakeGitHub()
+    job = {"id": 1, "status": "completed", "conclusion": "cancelled",
+           "runner_name": "sbx-owned", "runner_id": 1}
+
+    def handler(req):
+        key = "workflow_runs" if req.url.path.endswith("/runs") else "jobs"
+        return httpx.Response(200, json={key: [] if key == "workflow_runs" else [job]})
+
+    demand = rest_demand(clock, handler)
+    demand.tracked.add(("acme/app", 7))
+    pool = make_pool(gh, clock, warm=0, maximum=1, demand=demand)
+    kill = Blip(1, httpx.ConnectError("kill unavailable"))
+    slot = runners.Slot("sbx-owned", clock(), sandbox_id="sandbox-owned", kill=kill)
+    pool.slots[slot.name] = slot
+    assert pool.tick()["spawned"] == 0
+    assert not slot.retiring and ("acme/app", 7) in demand.tracked
+    assert not [e for e in events(capsys) if e["event"] == "reclaimed"]
+    clock.now = demand.next_poll
+    pool.tick()
+    assert slot.retiring and kill.calls == 2 and not demand.tracked
+    assert len([e for e in events(capsys) if e["event"] == "reclaimed"]) == 1
+
+
+@pytest.mark.parametrize("failure,delay", [("network", 5), (500, 5), (403, 60), (429, 60)])
+def test_rest_errors_back_off_without_crashing_or_reusing_stale_demand(failure, delay, capsys):
+    clock, calls = Clock(), []
+
+    def handler(req):
+        calls.append(req)
+        if failure == "network":
+            raise httpx.ConnectError("unavailable")
+        return httpx.Response(failure, headers={"Retry-After": "60"} if failure in (403, 429) else {})
+
+    demand = rest_demand(clock, handler)
+    demand.backlog = 9
+    assert demand.poll(lambda *a: None) == 0
+    assert demand.next_poll == clock() + delay
+    assert demand.poll(lambda *a: None) == 0 and len(calls) == 1
+    with pytest.raises(runners.RunnerError, match="backing off"):
+        demand.gh.runners("sbx-")
+    assert len(calls) == 1
+    clock.now = demand.next_poll
+    assert demand.poll(lambda *a: None) == 0 and len(calls) == 2
+    assert demand.next_poll - clock() >= delay
+    assert len([e for e in events(capsys) if e["event"] == "poll_error"]) == 2
+
+
+def test_rate_limit_reset_is_respected(monkeypatch):
+    clock = Clock()
+    monkeypatch.setattr(runners.time, "time", lambda: 100)
+    demand = rest_demand(clock, lambda req: httpx.Response(
+        403, headers={"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "220"}))
+    assert demand.poll(lambda *a: None) == 0
+    assert demand.next_poll == clock() + 120
+
+
+def test_conditional_reads_reuse_304_bodies_and_obey_cost_aware_interval():
+    clock, requests = Clock(), []
+    seen = set()
+
+    def handler(req):
+        requests.append(req)
+        key = str(req.url)
+        if key in seen:
+            assert req.headers["If-None-Match"] == '"v1"'
+            return httpx.Response(304)
+        seen.add(key)
+        assert "If-None-Match" not in req.headers
+        if req.url.path.endswith("/runs"):
+            body = {"workflow_runs": [{"id": 1}]}  # deduplicated across queued/in_progress
+        else:
+            body = {"jobs": [{"id": 1, "status": "queued", "labels": ["self-hosted", "SBX"]}]}
+        return httpx.Response(200, json=body, headers={"ETag": '"v1"'})
+
+    demand = rest_demand(clock, handler)
+    assert demand.poll(lambda *a: None) == 1 and len(requests) == 3
+    assert demand.next_poll == clock() + 6
+    clock.now += 5
+    assert demand.poll(lambda *a: None) == 1 and len(requests) == 3
+    clock.now += 1
+    assert demand.poll(lambda *a: None) == 1 and len(requests) == 6
+
+
+def test_default_discovery_is_capped_recent_and_refreshed():
+    clock, calls = Clock(), []
+
+    def handler(req):
+        calls.append(req)
+        if req.url.path == "/orgs/acme/repos":
+            assert req.url.params["per_page"] == "20" and req.url.params["sort"] == "pushed"
+            return httpx.Response(200, json=[{"full_name": "acme/new"}, {"full_name": "acme/old"}])
+        if "created" in req.url.params:
+            assert req.url.params["created"].startswith(">=")
+            return httpx.Response(200, json={"workflow_runs": [{"id": 1}] if "/new/" in req.url.path else []})
+        assert "/old/" not in req.url.path
+        return httpx.Response(200, json={"workflow_runs": []})
+
+    demand = rest_demand(clock, handler, repos=[])
+    assert demand.poll(lambda *a: None) == 0
+    assert demand.repos == ["acme/new"]
+    clock.now = demand.next_poll
+    demand.poll(lambda *a: None)
+    assert sum(r.url.path == "/orgs/acme/repos" for r in calls) == 1
+    clock.now += 300
+    demand.poll(lambda *a: None)
+    assert sum(r.url.path == "/orgs/acme/repos" for r in calls) == 2
+
+
+def test_active_run_pagination_is_not_limited_to_fifty_runs():
+    clock = Clock()
+
+    def handler(req):
+        if req.url.path.endswith("/runs"):
+            ids = range(100) if req.url.params["page"] == "1" else [100]
+            return httpx.Response(200, json={"workflow_runs": [{"id": i} for i in ids]})
+        return httpx.Response(200, json={"jobs": [{"id": req.url.path, "status": "queued",
+                                                  "labels": ["self-hosted", "sbx"]}]})
+
+    demand = rest_demand(clock, handler)
+    assert demand.poll(lambda *a: None) == 101
+
+
+@pytest.mark.parametrize("repos", [["bad"], [f"acme/repo{i}" for i in range(21)]])
+def test_watch_repo_validation_is_local(repos, monkeypatch, capsys):
+    monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
+    monkeypatch.setenv("GH_TOKEN", "gh-test-token")
+    argv = [arg for repo in repos for arg in ("--watch-repo", repo)]
+    assert cli.main(serve_argv(*argv)) == 2
+    assert "--watch-repo" in capsys.readouterr().err

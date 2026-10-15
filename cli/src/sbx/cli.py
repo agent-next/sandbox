@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import math
 import os
+import re
 import shlex
 import sys
 
@@ -195,7 +196,8 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     from . import runners
 
     key, domain = _credentials()
-    for value, flag in ((args.interval, "--interval"), (args.idle_min, "--idle-min"),
+    for value, flag in ((args.interval, "--interval"), (args.poll_interval, "--poll-interval"),
+                        (args.idle_min, "--idle-min"),
                         (args.job_timeout_min, "--job-timeout-min")):
         _positive_seconds(value, flag)
     if args.job_timeout_min + args.idle_min + 5 > MAX_TIMEOUT_MIN:
@@ -206,8 +208,6 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
         raise SbxError("runners serve: need 0 <= --warm <= --max")
     if not args.prefix.strip():
         raise SbxError("runners serve: --prefix must not be empty (it decides which runners this pool owns)")
-    if args.webhook_port is not None and args.watch:
-        raise SbxError("runners serve: --watch and --webhook-port are alternatives; give one")
     secret = os.environ.get("GH_WEBHOOK_SECRET")
     if args.webhook_port is not None and not secret:
         raise SbxError("--webhook-port needs GH_WEBHOOK_SECRET (the webhook's secret)")
@@ -215,6 +215,10 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     labels = ["self-hosted", *[x.strip() for x in args.labels.split(",") if x.strip()]]
     gh = runners.GitHub(runners.github_token(), scope)
     watch = args.watch or ([args.repo] if args.repo else [])
+    if len(set(watch)) > runners.RestDemand.REPO_LIMIT:
+        raise SbxError(f"--watch-repo supports at most {runners.RestDemand.REPO_LIMIT} repositories")
+    if any(not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) for repo in watch):
+        raise SbxError("--watch-repo needs OWNER/REPO")
     for repo in args.watch or []:
         gh.check_repo(repo)
     boot = runners.sandbox_boot(
@@ -225,9 +229,10 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     if args.webhook_port is not None:
         queue = runners.JobQueue(secret, labels, on_change=wake.set)
         runners.webhook_server(queue, args.webhook_host, args.webhook_port)
-        queued, cheap = queue.__len__, True
+        queued = queue.__len__
     else:
-        queued, cheap = ((lambda: gh.queued(watch, labels)) if watch else (lambda: 0)), False
+        queued = lambda: 0
+    demand = runners.RestDemand(gh, watch, labels, interval=args.poll_interval)
     warm, maximum = args.warm, args.max
     limit = _key_concurrency(key, domain)
     if limit is not None and limit < maximum:  # past the key's limit every spawn is a 429
@@ -235,7 +240,7 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
         warm, maximum = min(warm, limit), limit
     pool = runners.Pool(
         gh, boot, warm=warm, maximum=maximum, prefix=args.prefix,
-        idle_ttl=args.idle_min * 60, queued=queued, queued_is_cheap=cheap,
+        idle_ttl=args.idle_min * 60, queued=queued, demand=demand,
     )
     runners.sweep(gh, _sandbox_cls(), args.prefix)
     runners.serve(pool, interval=args.interval, stop=threading.Event(), wake=wake)
@@ -310,7 +315,10 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--group-id", type=int, default=1, help="runner group id (default 1, the Default group)")
     r.add_argument("--warm", type=int, default=2, help="idle runners to keep registered (default 2)")
     r.add_argument("--max", type=int, default=10, help="most sandboxes at once (default 10)")
-    r.add_argument("--watch", action="append", help="OWNER/REPO whose queued jobs (in its 50 newest active runs) scale the pool past --warm (repeatable)")
+    r.add_argument("--watch-repo", "--watch", dest="watch", action="append",
+                   help="OWNER/REPO to poll for queued jobs and cancellations (repeatable, at most 20); default: recently active repos")
+    r.add_argument("--poll-interval", type=float, default=5,
+                   help="minimum seconds between demand polls (default 5; grows with API cost)")
     r.add_argument(
         "--webhook-port", type=int, default=None,
         help="also take workflow_job webhooks on this port (secret: GH_WEBHOOK_SECRET); queued jobs then scale the pool at once",

@@ -19,7 +19,9 @@ import signal
 import sys
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
 
@@ -79,9 +81,13 @@ def emit(event: str, **fields) -> None:
 class GitHub:
     """The few GitHub REST calls a JIT runner pool needs."""
 
-    def __init__(self, token: str, scope: str, client: httpx.Client | None = None):
+    def __init__(self, token: str, scope: str, client: httpx.Client | None = None,
+                 clock: Callable[[], float] = time.monotonic):
         # scope: "orgs/<org>" or "repos/<owner>/<repo>"
         self.scope = scope
+        self.clock = clock
+        self.read_after, self.read_failures, self.reads = 0.0, 0, 0
+        self.cache: OrderedDict = OrderedDict()
         self.http = client or httpx.Client(
             base_url=GITHUB_API,
             timeout=30,
@@ -100,6 +106,44 @@ class GitHub:
     def check_repo(self, repo: str) -> None:
         self._check(self.http.get(f"/repos/{repo}"), f"read repo {repo}")
 
+    def get(self, path: str, params: dict | None = None):
+        """Conditional, bounded-cache REST reads with shared rate-limit/error backoff."""
+        if self.clock() < self.read_after:
+            raise RunnerError("GitHub reads backing off")
+        key = (path, tuple(sorted((params or {}).items())))
+        cached = self.cache.get(key)
+        resp = None
+        try:
+            resp = self.http.get(path, params=params,
+                                 headers={"If-None-Match": cached[0]} if cached else {})
+            self.reads += 1
+            if resp.status_code == 304 and cached:
+                self.read_failures = 0
+                self.cache.move_to_end(key)
+                return cached[1]
+            data = self._check(resp, "poll").json()
+        except (httpx.HTTPError, RunnerError, ValueError):
+            self.read_failures += 1
+            delay = min(300, 5 * 2 ** min(self.read_failures - 1, 6))
+            if resp is not None:
+                try:
+                    delay = max(delay, float(resp.headers.get("Retry-After", 0)))
+                    if resp.headers.get("X-RateLimit-Remaining") == "0":
+                        delay = max(delay, float(resp.headers["X-RateLimit-Reset"]) - time.time())
+                except (ValueError, KeyError):
+                    pass
+            self.read_after = self.clock() + delay
+            raise
+        self.read_failures = 0
+        if resp.headers.get("ETag"):
+            self.cache[key] = (resp.headers["ETag"], data)
+            self.cache.move_to_end(key)
+            if len(self.cache) > 512:
+                self.cache.popitem(last=False)
+        else:
+            self.cache.pop(key, None)
+        return data
+
     def jit(self, name: str, labels: list[str], group_id: int) -> str:
         resp = self.http.post(
             f"/{self.scope}/actions/runners/generate-jitconfig",
@@ -112,8 +156,7 @@ class GitHub:
         out: dict[str, dict] = {}
         page = 1
         while True:
-            resp = self.http.get(f"/{self.scope}/actions/runners", params={"per_page": 100, "page": page})
-            batch = self._check(resp, "list runners").json()["runners"]
+            batch = self.get(f"/{self.scope}/actions/runners", {"per_page": 100, "page": page})["runners"]
             out.update({r["name"]: r for r in batch if r["name"].startswith(prefix)})
             if len(batch) < 100:
                 return out
@@ -129,25 +172,89 @@ class GitHub:
         self._check(resp, "delete runner")
         return True
 
-    def queued(self, repos: list[str], labels: list[str]) -> int:
-        """Queued jobs in repos whose runs-on labels are all served by this pool."""
-        want = {label.lower() for label in labels}
-        count = 0
+    def jobs(self, repos: list[str], tracked: set[tuple[str, int]]):
+        """Active runs plus previously seen runs, even if cancellation removed them from the list."""
         for repo in repos:
             for status in ("queued", "in_progress"):
-                resp = self.http.get(f"/repos/{repo}/actions/runs", params={"status": status, "per_page": 50})
-                for run in self._check(resp, "list runs").json()["workflow_runs"]:
-                    page = 1
-                    while True:
-                        resp = self.http.get(f"/repos/{repo}/actions/runs/{run['id']}/jobs",
-                                             params={"per_page": 100, "page": page})
-                        jobs = self._check(resp, "list jobs").json()["jobs"]
-                        count += sum(1 for job in jobs if job["status"] == "queued"
-                                     and {x.lower() for x in job["labels"]} <= want)
-                        if len(jobs) < 100:
-                            break
-                        page += 1
-        return count
+                page = 1
+                while True:
+                    runs = self.get(f"/repos/{repo}/actions/runs",
+                                    {"status": status, "per_page": 100, "page": page})["workflow_runs"]
+                    tracked.update((repo, run["id"]) for run in runs)
+                    if len(runs) < 100:
+                        break
+                    page += 1
+        for repo, run_id in sorted(tracked):
+            page, complete = 1, True
+            while True:
+                jobs = self.get(f"/repos/{repo}/actions/runs/{run_id}/jobs",
+                                {"per_page": 100, "page": page})["jobs"]
+                for job in jobs:
+                    complete = complete and job["status"] == "completed"
+                    yield repo, job
+                if len(jobs) < 100:
+                    break
+                page += 1
+            if complete:
+                tracked.discard((repo, run_id))
+
+
+class RestDemand:
+    """Bounded repo discovery and demand polling, independent of warm/starting/full state."""
+
+    REPO_LIMIT = 20
+
+    def __init__(self, gh: GitHub, repos: list[str], labels: list[str], *, interval: float = 5,
+                 clock: Callable[[], float] = time.monotonic):
+        self.gh, self.repos, self.labels = gh, list(dict.fromkeys(repos)), {x.lower() for x in labels}
+        self.interval, self.clock = interval, clock
+        self.discover = not repos
+        self.next_poll, self.next_discovery, self.failures, self.backlog = 0.0, 0.0, 0, 0
+        self.tracked: set[tuple[str, int]] = set()
+        if len(self.repos) > self.REPO_LIMIT:
+            raise RunnerError(f"--watch-repo supports at most {self.REPO_LIMIT} repositories")
+
+    def _discover(self) -> None:
+        if self.gh.scope.startswith("repos/"):
+            self.repos = [self.gh.scope.removeprefix("repos/")]
+            return
+        # Scan only the 20 most recently pushed repos, once per five minutes.
+        candidates = self.gh.get(f"/{self.gh.scope}/repos",
+                                 {"sort": "pushed", "direction": "desc", "per_page": self.REPO_LIMIT})
+        since = datetime.fromtimestamp(time.time() - 3600, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        repos = []
+        for candidate in candidates:
+            repo = candidate["full_name"]
+            runs = self.gh.get(f"/repos/{repo}/actions/runs", {"created": f">={since}", "per_page": 1})
+            if runs["workflow_runs"]:
+                repos.append(repo)
+        self.repos = repos
+
+    def poll(self, on_cancel: Callable[[str, dict], None]) -> int:
+        if self.clock() < self.next_poll:
+            return self.backlog
+        reads = self.gh.reads
+        try:
+            if self.discover and self.clock() >= self.next_discovery:
+                self._discover()
+                self.next_discovery = self.clock() + 300
+            count = 0
+            for repo, job in self.gh.jobs(self.repos, self.tracked):
+                if job["status"] == "completed" and job.get("conclusion") == "cancelled":
+                    # Reclaim now, not after the remaining repositories have been polled.
+                    on_cancel(repo, job)
+                if job["status"] == "queued" and self.labels <= {x.lower() for x in job["labels"]}:
+                    count += 1
+            self.backlog, self.failures = count, 0
+            # Budget roughly 1,800 reads/hour, including conditional requests.
+            self.next_poll = self.clock() + max(self.interval, 2 * (self.gh.reads - reads))
+        except (httpx.HTTPError, RunnerError, ValueError, KeyError, TypeError) as exc:
+            self.backlog = 0  # an old backlog must not keep booting runners during an outage
+            self.failures += 1
+            delay = max(self.interval, min(300, 5 * 2 ** min(self.failures - 1, 6)))
+            self.next_poll = max(self.clock() + delay, self.gh.read_after)
+            emit("poll_error", error=_error(exc), retry_s=round(self.next_poll - self.clock(), 2))
+        return self.backlog
 
 
 @dataclass
@@ -161,6 +268,7 @@ class Slot:
     done: bool = False
     retiring: bool = False
     sandbox_id: str | None = None
+    runner_id: int | None = None
     kill: Callable[[], None] | None = field(default=None, repr=False)
 
 
@@ -180,7 +288,7 @@ class Pool:
         scale_down_after: float = 60,
         boot_backoff: float = 15,
         queued: Callable[[], int] = lambda: 0,
-        queued_is_cheap: bool = False,
+        demand: RestDemand | None = None,
         clock: Callable[[], float] = time.monotonic,
         spawn: Callable[[Callable[[], None]], None] | None = None,
     ):
@@ -190,7 +298,7 @@ class Pool:
         self.warm, self.maximum, self.prefix = warm, maximum, prefix
         self.idle_ttl, self.start_ttl, self.scale_down_after = idle_ttl, start_ttl, scale_down_after
         self.boot_backoff, self.backoff_until = boot_backoff, 0.0
-        self.queued, self.queued_is_cheap, self.clock = queued, queued_is_cheap, clock
+        self.queued, self.demand, self.clock = queued, demand, clock
         self.spawn = spawn or (lambda fn: threading.Thread(target=fn, daemon=True).start())
         self.slots: dict[str, Slot] = {}
         self.lock = threading.Lock()
@@ -224,6 +332,7 @@ class Pool:
         return True
 
     def tick(self) -> dict:
+        backlog = max(self.queued(), self.demand.poll(self.reclaim) if self.demand else 0)
         now = self.clock()
         seen = self.gh.runners(self.prefix)
         with self.lock:
@@ -243,6 +352,8 @@ class Pool:
                 if slot.retiring:
                     continue
                 reg = seen.get(slot.name)
+                if reg is not None:
+                    slot.runner_id = reg["id"]
                 if reg is None or reg["status"] != "online":
                     if slot.online_at is None:
                         if now - slot.born > self.start_ttl:
@@ -269,12 +380,8 @@ class Pool:
                     slot.idle_since = slot.idle_since or now
                     idle.append((slot, reg))
 
-            # idle runners absorb queued jobs on their own; a polled backlog costs GitHub API
-            # calls, so it is only counted once the pool is empty and can still grow (a webhook
-            # count is free)
-            full = sum(1 for s in self.slots.values() if not s.retiring) >= self.maximum
-            backlog = self.queued() if self.queued_is_cheap or not (starting or idle or full) else 0
-            excess = len(idle) - (self.warm + backlog)
+            target = max(self.warm, backlog)
+            excess = len(idle) - target
             for slot, reg in sorted(idle, key=lambda x: x[0].idle_since):
                 idle_for = now - slot.idle_since
                 if idle_for > self.idle_ttl:
@@ -287,13 +394,42 @@ class Pool:
                     excess -= 1
             ready = len(starting) + sum(1 for s, _ in idle if not s.retiring)
             live = sum(1 for s in self.slots.values() if not s.retiring)
-            need = min(self.maximum - live, self.warm + backlog - ready)
+            need = min(self.maximum - live, target - ready)
             if now < self.backoff_until:
                 need = 0
             for _ in range(max(0, need)):
                 self._new_slot()
+            emit("demand", queued=backlog, ready=ready, spawned=max(0, need),
+                 max=self.maximum, backoff=now < self.backoff_until)
             return {"starting": len(starting), "idle": ready - len(starting), "busy": len(busy),
                     "queued": backlog, "spawned": max(0, need)}
+
+    def reclaim(self, repo: str, job: dict) -> None:
+        """A completed cancellation may kill only its exact, single-job local slot."""
+        slot = self.slots.get(job.get("runner_name"))
+        if (job.get("status") != "completed" or job.get("conclusion") != "cancelled"
+                or slot is None or slot.done or slot.retiring or not slot.kill
+                or not slot.sandbox_id or not job.get("runner_id")
+                or (slot.runner_id is not None and slot.runner_id != job["runner_id"])):
+            return
+        observed = self.clock()
+        slot.retiring = True
+        try:
+            slot.kill()  # no deregistration first: GitHub can still report the cancelled runner busy
+        except Exception as exc:
+            slot.retiring = False
+            emit("reclaim_failed", runner=slot.name, sandbox=slot.sandbox_id, error=_error(exc))
+            raise RunnerError("cancel reclaim failed") from exc
+        delay = None
+        if job.get("completed_at"):
+            try:
+                delay = max(0, time.time() - datetime.fromisoformat(
+                    job["completed_at"].replace("Z", "+00:00")).timestamp())
+            except (ValueError, TypeError):
+                pass
+        emit("reclaimed", runner=slot.name, sandbox=slot.sandbox_id, repo=repo, job=job["id"],
+             delay_s=round(delay, 3) if delay is not None else None,
+             poll_delay_s=round(self.clock() - observed, 3))
 
     def abort(self) -> None:
         """Kill every sandbox, busy ones included; their jobs fail.

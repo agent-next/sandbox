@@ -64,8 +64,17 @@ runner `sbx-e8650e11`.
 `--warm` is the number of idle runners kept ready: set it to the jobs one push
 starts. `--max` is capped to your key's concurrent limit (a free key runs 2
 sandboxes at once, so a 9-job push queues). Warm runners use credit while they
-wait. `--webhook-port` makes queued jobs grow the pool at once (see the `sbx`
-README).
+wait. Repeat `--watch-repo OWNER/REPO` to poll up to 20 repos for matching queued
+jobs and cancelled jobs on this pool's runners. Without it, org pools discover
+repos with runs in the last hour among the 20 most recently pushed repos
+(refreshed every five minutes); repo pools watch their own repo.
+`--poll-interval 5` sets the minimum polling interval, increased with API cost
+and rate-limit backoff; ETags avoid downloading unchanged responses.
+Demand boots the shortfall beyond idle/starting runners, capped by `--max`
+and the key's limit. Cancelled jobs are killed when a poll sees their completed
+cancellation, without waiting for runner shutdown. `demand` and `reclaimed`
+JSON events report decisions and reclaim delay. `--webhook-port` also accepts
+instant demand notifications (see the `sbx` README).
 
 ## Prompt for your coding agent
 
@@ -137,4 +146,4 @@ steps:
 
 ## Coming next
 
-Runner debugging, stats, migration and demand scaling are in review.
+Runner debugging and stats are in review.

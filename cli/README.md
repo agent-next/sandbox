@@ -86,18 +86,33 @@ instead of 2 vCPU / 8 GB; `--from-image` or `--template` choose another base.
 
 `serve` keeps `--warm` single-use (JIT) runners registered and idle, so a
 queued job starts at once; each runner takes one job, exits, and its sandbox
-is killed while the pool refills. `--watch OWNER/REPO` counts that repo's
-queued jobs to grow past `--warm` (up to `--max`) when every runner is busy.
-Idle runners are recycled after `--idle-min`; a runner GitHub reports busy is
-never removed. Ctrl-C (or SIGTERM) deregisters the idle runners and lets busy
-ones finish; a second Ctrl-C kills the busy ones too. Every event is one JSON
-line on stdout.
+is killed while the pool refills. `--watch-repo OWNER/REPO` (repeatable,
+legacy alias `--watch`) polls queued jobs to grow past `--warm`, up to `--max`,
+even while warm runners are idle or starting. The target ready count is the
+larger of `--warm` and queued demand, not their sum.
+Without an explicit watch list, an org pool checks its 20 most recently pushed
+repos for runs from the last hour, refreshing discovery every five minutes;
+a repo pool watches its own repo. Only jobs whose labels include all the
+pool's labels count. The snapshot/registration must also support any extra
+labels requested by those jobs.
+`--poll-interval` sets the minimum demand poll interval (default 5 seconds);
+it grows with request cost (roughly 1,800 reads/hour) and backs off on errors
+or rate limits. Conditional reads use ETags when GitHub supplies them.
+Cancelled jobs assigned to this process's runners are reclaimed as soon as a
+poll sees completion, without waiting for the runner to exit. `demand` events
+report queued count and spawn decisions; `reclaimed` reports `delay_s` since
+job completion and `poll_delay_s` since observing the cancellation.
+Idle runners are recycled after `--idle-min`; other than confirmed cancellations,
+a runner GitHub reports busy is never removed. Ctrl-C (or SIGTERM) deregisters
+the idle runners and lets busy ones finish; a second Ctrl-C kills the busy ones
+too. Every event is one JSON line on stdout.
 
 With `--webhook-port PORT` (and `GH_WEBHOOK_SECRET`), `serve` also takes
 GitHub `workflow_job` webhooks: point an org or repo webhook (content type
 JSON, event "Workflow jobs", same secret) at that port through a TLS proxy or
 tunnel. Queued jobs then grow the pool the moment they are queued, instead of
-after the warm runners are used up.
+at the next REST demand poll. REST polling still handles cancel reclaim when
+webhooks are enabled.
 
 Give the pool its own API key: the key's concurrent-sandbox quota caps the
 pool, so CI bursts never take sandboxes from your other workloads. `serve`
