@@ -138,12 +138,14 @@
           30.0
         ],
         "board_size_ok": true,
+        "min_track_width_mm": 0.25,
         "netclass_min_mm": {
           "clearance": 0.2,
           "track_width": 0.2,
           "via_drill": 0.3
         },
-        "netclass_ok": true
+        "netclass_ok": true,
+        "track_width_ok": true
       },
       "pass": true
     }
@@ -151,6 +153,6 @@
   "overall_pass": false,
   "seed": 42,
   "timing": {
-    "wall_seconds": 12.929
+    "wall_seconds": 4.967
   }
 }
