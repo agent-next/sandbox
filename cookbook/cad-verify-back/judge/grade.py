@@ -34,6 +34,7 @@ TOL_POS = 0.02         # mm, gates G4 / G5 / G6 / G11
 TOL_ANG = 0.05         # deg, gates G5 / G6
 TOL_VOL_STL = 0.01     # relative, gate G10
 TOL_XOR = 0.01         # relative, gate G7 (symmetric difference vs reference)
+TOL_OUTLINE = 0.01     # mm, gate G12 (DXF outline corners vs spec)
 TOL_DR = 0.01          # mm, gate G13
 TESSELLATE_TOL = 0.01  # mm, chord tolerance for the XOR reference meshes
 
@@ -166,6 +167,58 @@ def angular_steps_deg(centres):
     steps = [(angs[(i + 1) % len(angs)] - angs[i]) % 360.0
              for i in range(len(angs))]
     return angs, steps
+
+
+def _xy_close(p, q, tol):
+    return abs(p[0] - q[0]) <= tol and abs(p[1] - q[1]) <= tol
+
+
+def _chain_lines_to_loop(segs, tol):
+    """Order straight 2-D segments into a closed polygon.
+
+    Returns the ordered vertex list (without the repeated closing point),
+    or None when the segments do not form exactly one closed loop. Vertex
+    order matters here: the same four corners in bow-tie order chain into
+    a loop too, and only the polygon-shape check below rejects it.
+    """
+    if len(segs) != 4:
+        return None
+    poly = [segs[0][0], segs[0][1]]
+    rest = list(segs[1:])
+    while rest:
+        last = poly[-1]
+        hit = None
+        for i, (a, b) in enumerate(rest):
+            if _xy_close(a, last, tol) or _xy_close(b, last, tol):
+                hit = i
+                break
+        if hit is None:
+            return None
+        a, b = rest.pop(hit)
+        poly.append(b if _xy_close(a, last, tol) else a)
+    if not _xy_close(poly[-1], poly[0], tol):
+        return None
+    return poly[:-1]
+
+
+def _simple_quad(pts):
+    """True iff 4 ordered vertices form a simple (non-self-crossing) quad.
+
+    Every interior turn must take the same strict sign: a bow-tie vertex
+    order mixes signs, a degenerate or collinear turn gives a zero cross
+    product, and a concave quad flips one.
+    """
+    if len(pts) != 4:
+        return False
+    crosses = []
+    for i in range(4):
+        ax = pts[(i + 1) % 4][0] - pts[i][0]
+        ay = pts[(i + 1) % 4][1] - pts[i][1]
+        bx = pts[(i + 2) % 4][0] - pts[(i + 1) % 4][0]
+        by = pts[(i + 2) % 4][1] - pts[(i + 1) % 4][1]
+        crosses.append(ax * by - ay * bx)
+    eps = 1e-9
+    return all(c > eps for c in crosses) or all(c < -eps for c in crosses)
 
 
 def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
@@ -409,42 +462,55 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
              diameters=sorted(set(round(c[0], 3) for c in got)))
 
     with Gate(gates, "dxf_outline",
-              "DXF outline: closed rectangle plate_l x plate_w centred") as g:
-        corners = set()
-        closed = False
+              "DXF outline: closed rectangle plate_l x plate_w centred, "
+              "straight edges, corners within 0.01 mm") as g:
+        # the outline's vertices in boundary order: one closed straight-edge
+        # LWPOLYLINE / POLYLINE, or 4 LINE entities chained into a loop.
+        # A polyline with any nonzero bulge is a curved edge, not a
+        # rectangle side, so it cannot be the candidate outline.
+        pts = None
         for lwp in msp.query("LWPOLYLINE"):
-            pts = [tuple(round(v, 3) for v in p[:2]) for p in lwp.get_points("xy")]
-            if lwp.closed and len(pts) == 4:
-                closed = True
-                corners = set(pts)
+            if not lwp.closed:
+                continue
+            raw = lwp.get_points("xyb")
+            if len(raw) == 4 and all(abs(p[2]) <= 1e-9 for p in raw):
+                pts = [(p[0], p[1]) for p in raw]
         for pl in msp.query("POLYLINE"):
-            pts = [tuple(round(v, 3) for v in (v_.dxf.location.x, v_.dxf.location.y))
-                   for v_ in pl.vertices]
-            if pl.is_closed and len(pts) == 4:
-                closed = True
-                corners = set(pts)
-        if not closed and len(list(msp.query("LINE"))) == 4:
-            # 4 LINEs: check they form a closed loop with the spec corners
-            segs = [((round(l.dxf.start.x, 3), round(l.dxf.start.y, 3)),
-                     (round(l.dxf.end.x, 3), round(l.dxf.end.y, 3)))
+            if not pl.is_closed:
+                continue
+            raw = [(v.dxf.location.x, v.dxf.location.y, v.dxf.bulge)
+                   for v in pl.vertices]
+            if len(raw) == 4 and all(abs(p[2]) <= 1e-9 for p in raw):
+                pts = [(p[0], p[1]) for p in raw]
+        if pts is None:
+            segs = [((l.dxf.start.x, l.dxf.start.y),
+                     (l.dxf.end.x, l.dxf.end.y))
                     for l in msp.query("LINE")]
-            pts_all = {p for s in segs for p in s}
-            edges = {frozenset(s) for s in segs}
-            loop_ok = len(segs) == 4 and len(edges) == 4 \
-                and len(pts_all) == 4 and len(set(frozenset((p,))
-                                                 for p in pts_all)) == 0
-            # each point touched by exactly 2 lines
-            deg = {p: sum(1 for s in segs if p in s) for p in pts_all}
-            if loop_ok and all(v == 2 for v in deg.values()):
-                closed = True
-                corners = pts_all
-        if not closed:
-            g.fail("no closed 4-corner outline found in the DXF "
-                   "(LWPOLYLINE, POLYLINE or 4 LINEs)")
-        want = set((round(x, 3), round(y, 3)) for x, y in exp["outline_corners"])
-        if corners != want:
-            g.fail(f"outline corners {sorted(corners)} vs expected {sorted(want)}")
-        g.ok(corners=sorted(corners))
+            pts = _chain_lines_to_loop(segs, TOL_OUTLINE)
+        if pts is None:
+            g.fail("no closed 4-corner straight-edge outline found in the "
+                   "DXF (LWPOLYLINE, POLYLINE or 4 LINEs)")
+        if not _simple_quad(pts):
+            g.fail("outline vertices do not form a simple rectangle "
+                   "(self-crossing vertex order or degenerate edge)")
+        want = [tuple(c) for c in exp["outline_corners"]]
+        errs, used = [], set()
+        match = True
+        for w in want:
+            i = min(range(len(pts)),
+                    key=lambda j: math.hypot(pts[j][0] - w[0],
+                                             pts[j][1] - w[1]))
+            d = math.hypot(pts[i][0] - w[0], pts[i][1] - w[1])
+            if i in used or d > TOL_OUTLINE:
+                match = False
+                break
+            used.add(i)
+            errs.append(d)
+        if not match:
+            g.fail(f"outline corners {sorted(pts)} vs expected "
+                   f"{sorted(want)} (each corner must be within "
+                   f"{TOL_OUTLINE} mm of a distinct spec corner)")
+        g.ok(corners=sorted(pts), max_corner_err_mm=round(max(errs), 5))
 
     # ---- G13: design rules ------------------------------------------------
     with Gate(gates, "design_rules",
