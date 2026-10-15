@@ -24,6 +24,9 @@ part.py or by post-processing the good exports:
   stl_box_same_volume - good STEP/DXF, but the STL is a plain box with the
                        same volume: watertight, outward, within 1 % by
                        volume — only a geometry comparison can catch it
+  wrong_bolt_angles  - one bolt hole 0.1 mm along the (correct) PCD in
+                       STEP+STL; the DXF keeps the spec positions, so
+                       nothing but the angular-spacing gate can fail
 
 PASS_CASES (written to <pass_out> when given; must PASS every gate):
   dxf_outline_lines  - the spec rectangle drawn as 4 LINE entities
@@ -48,6 +51,7 @@ MUTANTS = [
     "scale_inch_mm", "stl_flipped_facet", "stl_not_watertight",
     "dxf_missing_hole", "edge_violation", "tangential_hole_drift",
     "dxf_outline_bowtie", "dxf_outline_bulge", "stl_box_same_volume",
+    "wrong_bolt_angles",
 ]
 
 PASS_CASES = [
@@ -125,12 +129,12 @@ def flip_one_facet(stl_in, stl_out):
         f.write(bytes(data))
 
 
-def build_drifted_part(spec, out_dir, hole_index, arc_mm):
+def build_drifted_part(spec, out_dir, hole_index, arc_mm, drift_dxf=True):
     """Good part with ONE bolt hole slid `arc_mm` along the pitch circle.
 
-    The moved hole stays exactly on the PCD (radial error 0), so only the
-    angular-spacing gate catches it. STEP, STL and DXF all show the same
-    drifted geometry, so no export-level gate can catch it either.
+    The moved hole stays exactly on the PCD (radial error 0). With
+    drift_dxf=True the DXF shows the same drifted geometry; with False
+    the DXF keeps the spec positions so no drawing gate can see the drift.
     """
     import cadquery as cq
     import ezdxf
@@ -166,7 +170,8 @@ def build_drifted_part(spec, out_dir, hole_index, arc_mm):
     if boss_h > 0:
         msp.add_circle((0, 0), boss_od / 2)
     for i in range(n):
-        msp.add_circle((r * math.cos(angle(i)), r * math.sin(angle(i))), d / 2)
+        a_dxf = angle(i) if drift_dxf else 2.0 * math.pi * i / n
+        msp.add_circle((r * math.cos(a_dxf), r * math.sin(a_dxf)), d / 2)
     doc.saveas(os.path.join(out_dir, "part.dxf"))
 
 
@@ -303,6 +308,11 @@ def main():
     s, d = sp("dxf_outline_bulge")
     build_part(s, d)
     rewrite_dxf_outline(os.path.join(d, "part.dxf"), "bulge")
+
+    # --- angular-only: a hole 0.1 mm along the right PCD in STEP+STL but
+    # spec-positioned in the DXF, so only the angular-spacing gate can fail
+    s, d = sp("wrong_bolt_angles")
+    build_drifted_part(s, d, hole_index=2, arc_mm=0.1, drift_dxf=False)
 
     # --- STL mutants: good STEP/DXF, unrelated but plausible mesh ---------
     s, d = sp("stl_box_same_volume")

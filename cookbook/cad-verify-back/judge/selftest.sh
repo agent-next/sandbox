@@ -115,7 +115,23 @@ EOF
     fi
 done
 
-# --- 2b. every pass-case must pass --------------------------------------
+# --- 2b. wrong_bolt_angles must fail ONLY the angular-spacing gate ----
+# the mutant puts the bolt holes on the right PCD at wrong angles and
+# keeps the DXF at the spec positions; any other named gate failing means
+# angular_spacing never got to prove itself alone
+python3 - "$LOGDIR/wrong_bolt_angles.json" <<'EOF'
+import json, sys
+v = json.load(open(sys.argv[1]))
+named = [k for k, g in v["gates"].items()
+         if not g["pass"] and not g.get("error", "").startswith("skipped:")]
+if named != ["angular_spacing"]:
+    print("selftest: wrong_bolt_angles: expected only angular_spacing to "
+          f"fail, got {named}", file=sys.stderr)
+    sys.exit(1)
+print("selftest: wrong_bolt_angles fails ONLY the angular_spacing gate")
+EOF
+
+# --- 2c. every pass-case must pass --------------------------------------
 # near-miss artifacts that are inside tolerance (4-LINE rectangle, outline
 # shifted 0.005 mm) must not be rejected: a judge that fails good parts is
 # as broken as one that passes bad ones
