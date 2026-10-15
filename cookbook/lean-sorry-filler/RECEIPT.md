@@ -1,11 +1,116 @@
 # RECEIPT — lean-sorry-filler
 
-Real output from this builder's sandbox (Debian 12, 2 vCPU, ~3.8 GB RAM,
-x86-64, CPython 3.12.15), branch `sbx/demo-lean-sorry-filler`. Every
-command below was run from `cookbook/lean-sorry-filler/` in a fresh
-clone of the repository at the head commit of the branch, with the
-toolchain wiped (`rm -rf ~/.elan`) before setup so the numbers are
-cold-start.
+Real output from two fresh sandbox runs of the one-command acceptance
+(`python3 cookbook/lean-sorry-filler/run.py --ref sbx/demo-lean-sorry-filler-f4`),
+run from outside the repo on 2026-10-15 after the statement-freeze and
+cleanup-verification fixes. Each run created its own sandbox, cloned the
+branch, ran `judge/setup.sh` (cold toolchain download), `judge/selftest.sh`
+(9 mutants), and `judge/grade.sh examples/good/exercises`, then killed the
+sandbox and confirmed it was gone. Both exited 0 with an all-gates-pass
+verdict. Builder environment: Debian 12, 2 vCPU, ~3.8 GB RAM, x86-64,
+CPython 3.12.15.
+
+## Run 1 — sandbox 01a14036-290f-7303-b0c1-1f8caf7eca29
+
+```
+  [create] sbx create --timeout-min ... ok (2 s)
+  [clone] sbx exec 01a14036-... ... ok (5 s)
+setup.sh: downloading elan.tar.gz from the pinned release URL
+setup.sh: downloading lean.tar.zst from the pinned release URL
+setup.sh: ok
+  [setup] sbx exec 01a14036-... ... ok (161 s)
+selftest: generating mutants
+selftest: grading known-good
+selftest: known-good: PASS
+selftest: mutant resubmit_sorry: killed (gate: axioms,build,structure)
+selftest: mutant admit_token: killed (gate: axioms,build,structure)
+selftest: mutant axiom_cheat: killed (gate: axioms,structure)
+selftest: mutant native_decide_cheat: killed (gate: axioms,structure)
+selftest: mutant binder_swap: killed (gate: structure)
+selftest: mutant syntax_error: killed (gate: axioms,build)
+selftest: mutant missing_file: killed (gate: axioms,structure)
+selftest: mutant broken_proof: killed (gate: axioms,build)
+selftest: mutant statement_parked_in_comment: killed (gate: axioms,build,structure)
+selftest: kill rate: 9/9 = 100%
+selftest: determinism check (two grades of the good artifact)
+selftest: determinism: OK
+selftest: ok
+  [selftest] sbx exec 01a14036-... ... ok (62 s)
+  [grade] sbx exec 01a14036-... ... ok (7 s)
+  [cat] sbx exec 01a14036-... ... ok (2 s)
+killed 01a14036-290f-7303-b0c1-1f8caf7eca29
+  [kill] sbx kill 01a14036-... ... ok (4 s)
+  [list] sbx list ... ok (3 s)
+cleanup: sandbox 01a14036-290f-7303-b0c1-1f8caf7eca29 killed and confirmed gone
+total: 247 s
+
+lean-sorry-filler demo: PASS
+  gate structure: pass  statements 10/10, tokens 0 problems
+  gate build: pass  exit 0, sorry warnings 0
+  gate axioms: pass  10/10 audited
+  gate closure: pass  10/10 closed (100%)
+  judge_intact: True
+RUN_PY_EXIT=0
+```
+
+Verdict JSON key numbers (run 1):
+
+```json
+{
+  "pass": true,
+  "judge_intact": true,
+  "seed": 0,
+  "structure": {"pass": true, "statements_matched": 10, "problems": []},
+  "build": {"pass": true, "build_exit": 0, "sorry_warnings": 0,
+            "build_log_lines": 14},
+  "axioms": {"pass": true, "audit_exit": 0, "problems": [], "axioms": {
+    "exercise_add_comm_three": ["Quot.sound", "propext"],
+    "exercise_add_twice": ["Quot.sound", "propext"],
+    "exercise_and_distrib": [],
+    "exercise_append_nil": ["propext"],
+    "exercise_even_witness": [],
+    "exercise_le_refl": [],
+    "exercise_length_append": ["propext"],
+    "exercise_one_add_self": ["Quot.sound", "propext"],
+    "exercise_pow_succ": [],
+    "exercise_two_mul_two": []}},
+  "closure": {"pass": true, "planted": 10, "remaining": 0,
+              "closed": 10, "closed_rate": 1.0},
+  "timing": {"axioms_s": 0.6, "build_s": 4.3, "total_s": 4.9}
+}
+```
+
+## Run 2 — sandbox 01a1403a-61da-7f60-a3a6-aa17082fa424
+
+```
+  [grade] sbx exec 01a1403a-... ... ok (9 s)
+  [cat] sbx exec 01a1403a-... ... ok (3 s)
+killed 01a1403a-61da-7f60-a3a6-aa17082fa424
+  [kill] sbx kill 01a1403a-... ... ok (6 s)
+  [list] sbx list ... ok (1 s)
+cleanup: sandbox 01a1403a-61da-7f60-a3a6-aa17082fa424 killed and confirmed gone
+total: 217 s
+
+lean-sorry-filler demo: PASS
+  gate structure: pass  statements 10/10, tokens 0 problems
+  gate build: pass  exit 0, sorry warnings 0
+  gate axioms: pass  10/10 audited
+  gate closure: pass  10/10 closed (100%)
+  judge_intact: True
+RUN_PY_EXIT=0
+```
+
+Verdict JSON key numbers (run 2, tail captured): `pass: true`,
+`judge_intact: true`, `structure: {pass: true, statements_matched: 10,
+problems: []}`, `closure: {closed: 10, remaining: 0, pass: true}`,
+`timing: {axioms_s: 0.7, build_s: 5.5, total_s: 6.2}`. Selftest kill rate
+9/9 = 100 % (same 9 mutants as run 1; the run-2 output file captured only
+the post-verdict tail — noted under Deviations).
+
+Both runs: `sbx list` afterwards shows neither sandbox id — cleanup
+confirmed gone in both.
+
+## Earlier builder runs (pre-fix, same branch base)
 
 Tool versions installed (judge/VERSIONS.txt, from setup):
 
