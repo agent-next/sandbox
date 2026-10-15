@@ -1,0 +1,4 @@
+{
+ "task_id": 39,
+ "solution": "import heapq\nfrom collections import Counter\ndef rearange_string(S):\n    ctr = Counter(S)\n    heap = [(-value, key) for key, value in ctr.items()]\n    heapq.heapify(heap)\n    if (-heap[0][0]) * 2 > len(S) + 1: \n        return \"\"\n    ans = []\n    while len(heap) >= 2:\n        nct1, char1 = heapq.heappop(heap)\n        nct2, char2 = heapq.heappop(heap)\n        ans.extend([char1, char2])\n        if nct1 + 1: heapq.heappush(heap, (nct1 + 1, char1))\n        if nct2 + 1: heapq.heappush(heap, (nct2 + 1, char2))\n    return \"\".join(ans) + (heap[0][1] if heap else \"\")"
+}

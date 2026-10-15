@@ -1,0 +1,4 @@
+{
+ "task_id": 23,
+ "solution": "def maximum_Sum(list1): \n    maxi = -100000\n    for x in list1: \n        sum = 0 \n        for y in x: \n            sum+= y      \n        maxi = max(sum,maxi)     \n    return maxi"
+}

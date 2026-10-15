@@ -1,0 +1,4 @@
+{
+ "task_id": 36,
+ "solution": "def find_Nth_Digit(p,q,N) :  \n    while (N > 0) : \n        N -= 1;  \n        p *= 10;  \n        res = p // q;  \n        p %= q;  \n    return res;"
+}

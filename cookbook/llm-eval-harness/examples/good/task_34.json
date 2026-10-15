@@ -1,0 +1,4 @@
+{
+ "task_id": 34,
+ "solution": "def find_missing(ar,N): \n    l = 0\n    r = N - 1\n    while (l <= r):  \n        mid = (l + r) / 2\n        mid= int (mid) \n        if (ar[mid] != mid + 1 and ar[mid - 1] == mid): \n            return (mid + 1)  \n        elif (ar[mid] != mid + 1): \n            r = mid - 1 \n        else: \n            l = mid + 1\n    return (-1)"
+}

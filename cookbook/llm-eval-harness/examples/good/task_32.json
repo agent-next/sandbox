@@ -1,0 +1,4 @@
+{
+ "task_id": 32,
+ "solution": "import math \ndef max_Prime_Factors (n): \n    maxPrime = -1 \n    while n%2 == 0: \n        maxPrime = 2\n        n >>= 1    \n    for i in range(3,int(math.sqrt(n))+1,2): \n        while n % i == 0: \n            maxPrime = i \n            n = n / i \n    if n > 2: \n        maxPrime = n  \n    return int(maxPrime)"
+}

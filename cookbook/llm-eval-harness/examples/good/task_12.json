@@ -1,0 +1,4 @@
+{
+ "task_id": 12,
+ "solution": "def sort_matrix(M):\n    result = sorted(M, key=sum)\n    return result"
+}

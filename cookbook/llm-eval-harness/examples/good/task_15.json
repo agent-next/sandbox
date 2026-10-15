@@ -1,0 +1,4 @@
+{
+ "task_id": 15,
+ "solution": "import re\ndef split_lowerstring(text):\n return (re.findall('[a-z][^a-z]*', text))"
+}

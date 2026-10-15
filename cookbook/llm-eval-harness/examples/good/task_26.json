@@ -1,0 +1,4 @@
+{
+ "task_id": 26,
+ "solution": "def check_k_elements(test_list, K):\n  res = True\n  for tup in test_list:\n    for ele in tup:\n      if ele != K:\n        res = False\n  return (res)"
+}

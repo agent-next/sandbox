@@ -1,0 +1,4 @@
+{
+ "task_id": 22,
+ "solution": "def find_first_duplicate(nums):\n    num_set = set()\n    no_duplicate = -1\n\n    for i in range(len(nums)):\n\n        if nums[i] in num_set:\n            return nums[i]\n        else:\n            num_set.add(nums[i])\n\n    return no_duplicate"
+}

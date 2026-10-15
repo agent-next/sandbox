@@ -1,0 +1,4 @@
+{
+ "task_id": 19,
+ "solution": "def test_duplicate(arraynums):\n    nums_set = set(arraynums)    \n    return len(arraynums) != len(nums_set)"
+}

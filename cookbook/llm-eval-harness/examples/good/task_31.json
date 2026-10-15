@@ -1,0 +1,4 @@
+{
+ "task_id": 31,
+ "solution": "def func(nums, k):\n    import collections\n    d = collections.defaultdict(int)\n    for row in nums:\n        for i in row:\n            d[i] += 1\n    temp = []\n    import heapq\n    for key, v in d.items():\n        if len(temp) < k:\n            temp.append((v, key))\n            if len(temp) == k:\n                heapq.heapify(temp)\n        else:\n            if v > temp[0][0]:\n                heapq.heappop(temp)\n                heapq.heappush(temp, (v, key))\n    result = []\n    while temp:\n        v, key = heapq.heappop(temp)\n        result.append(key)\n    return result"
+}

@@ -1,0 +1,4 @@
+{
+ "task_id": 40,
+ "solution": "from collections import Counter\nfrom itertools import chain\ndef freq_element(nums):\n  result = Counter(chain.from_iterable(nums))\n  return result"
+}

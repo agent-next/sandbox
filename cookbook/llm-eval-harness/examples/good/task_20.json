@@ -1,0 +1,4 @@
+{
+ "task_id": 20,
+ "solution": "def is_woodall(x): \n\tif (x % 2 == 0): \n\t\treturn False\n\tif (x == 1): \n\t\treturn True\n\tx = x + 1 \n\tp = 0\n\twhile (x % 2 == 0): \n\t\tx = x/2\n\t\tp = p + 1\n\t\tif (p == x): \n\t\t\treturn True\n\treturn False"
+}

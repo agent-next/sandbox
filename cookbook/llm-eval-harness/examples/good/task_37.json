@@ -1,0 +1,4 @@
+{
+ "task_id": 37,
+ "solution": "def sort_mixed_list(mixed_list):\n    int_part = sorted([i for i in mixed_list if type(i) is int])\n    str_part = sorted([i for i in mixed_list if type(i) is str])\n    return int_part + str_part"
+}

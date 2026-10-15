@@ -1,0 +1,4 @@
+{
+ "task_id": 29,
+ "solution": "def get_Odd_Occurrence(arr,arr_size):   \n    for i in range(0,arr_size): \n        count = 0\n        for j in range(0,arr_size): \n            if arr[i] == arr[j]: \n                count+=1     \n        if (count % 2 != 0): \n            return arr[i]     \n    return -1"
+}

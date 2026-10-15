@@ -1,0 +1,4 @@
+{
+ "task_id": 16,
+ "solution": "import re\ndef text_lowercase_underscore(text):\n        patterns = '^[a-z]+_[a-z]+$'\n        if re.search(patterns,  text):\n                return 'Found a match!'\n        else:\n                return('Not matched!')"
+}

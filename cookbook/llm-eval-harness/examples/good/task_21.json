@@ -1,0 +1,4 @@
+{
+ "task_id": 21,
+ "solution": "def multiples_of_num(m,n): \n    multiples_of_num= list(range(n,(m+1)*n, n)) \n    return list(multiples_of_num)"
+}

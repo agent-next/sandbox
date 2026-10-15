@@ -1,0 +1,4 @@
+{
+ "task_id": 33,
+ "solution": "def decimal_To_Binary(N): \n    B_Number = 0\n    cnt = 0\n    while (N != 0): \n        rem = N % 2\n        c = pow(10,cnt)  \n        B_Number += rem*c  \n        N //= 2 \n        cnt += 1\n    return B_Number"
+}

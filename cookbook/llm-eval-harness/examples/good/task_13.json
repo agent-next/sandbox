@@ -1,0 +1,4 @@
+{
+ "task_id": 13,
+ "solution": "from collections import Counter\ndef count_common(words):\n  word_counts = Counter(words)\n  top_four = word_counts.most_common(4)\n  return (top_four)"
+}

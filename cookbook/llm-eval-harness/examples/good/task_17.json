@@ -1,0 +1,4 @@
+{
+ "task_id": 17,
+ "solution": "def square_perimeter(a):\n  perimeter=4*a\n  return perimeter"
+}

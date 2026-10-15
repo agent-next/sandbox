@@ -1,0 +1,4 @@
+{
+ "task_id": 27,
+ "solution": "import re  \ndef remove(list): \n    pattern = '[0-9]'\n    list = [re.sub(pattern, '', i) for i in list] \n    return list"
+}

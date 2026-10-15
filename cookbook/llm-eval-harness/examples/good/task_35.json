@@ -1,0 +1,4 @@
+{
+ "task_id": 35,
+ "solution": "def find_rect_num(n):\n  return n*(n + 1)"
+}
