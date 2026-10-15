@@ -184,6 +184,72 @@ class Puzzle:
                 if t not in (WALL, BLANK):
                     self.goal_pos[t] = (r, c)
 
+    def _index(self):
+        """The set of playable (non-wall) cell indices."""
+        return {i for i in range(self.rows * self.cols) if i not in
+                {r * self.cols + c for r, c in self.walls}}
+
+    def manhattan(self, state):
+        """Sum over tiles of the distance to their goal cell (admissible)."""
+        total = 0
+        for i, cell in enumerate(state):
+            if cell in (WALL, BLANK):
+                continue
+            gr, gc = self.goal_pos[cell]
+            r, c = divmod(i, self.cols)
+            total += abs(gr - r) + abs(gc - c)
+        return total
+
+    def linear_conflict(self, state):
+        """Extra cost from goal-sharing rows/cols (still admissible)."""
+        total = 0
+        rows, cols = self.rows, self.cols
+        # rows: tiles already in their goal row, ordered by goal column
+        for r in range(rows):
+            line = []
+            for c in range(cols):
+                t = state[r * cols + c]
+                if t in (WALL, BLANK):
+                    line = []  # a wall breaks the row into segments
+                    continue
+                gr, gc = self.goal_pos[t]
+                if gr == r:
+                    line.append(gc)
+            total += self._conflicts(line)
+        # columns likewise
+        for c in range(cols):
+            line = []
+            for r in range(rows):
+                t = state[r * cols + c]
+                if t in (WALL, BLANK):
+                    line = []
+                    continue
+                gr, gc = self.goal_pos[t]
+                if gc == c:
+                    line.append(gr)
+            total += self._conflicts(line)
+        return 2 * total
+
+    @staticmethod
+    def _conflicts(line):
+        """2 * the minimum number of tiles that must leave the line.
+
+        `line` is the goal positions of the line's tiles in their current
+        order.  The tiles that can stay are the longest already-ordered
+        subsequence; every other tile must leave and come back (2 moves).
+        """
+        if len(line) < 2:
+            return 0
+        # patience-sorting LIS length (strictly increasing goal positions)
+        tails = []
+        for x in line:
+            i = bisect.bisect_left(tails, x)
+            if i == len(tails):
+                tails.append(x)
+            else:
+                tails[i] = x
+        return 2 * (len(line) - len(tails))
+
     # -- packing ----------------------------------------------------------
     def pack(self, board):
         return bytes(
