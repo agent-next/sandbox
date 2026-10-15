@@ -86,8 +86,8 @@ instead of 2 vCPU / 8 GB; `--from-image` or `--template` choose another base.
 
 `serve` keeps `--warm` single-use (JIT) runners registered and idle, so a
 queued job starts at once; each runner takes one job, exits, and its sandbox
-is killed while the pool refills. `--watch-repo OWNER/REPO` (repeatable,
-legacy alias `--watch`) polls queued jobs to grow past `--warm`, up to `--max`,
+is killed while the pool refills. `--watch OWNER/REPO` (repeatable) selects
+the repo set for job lookups and polls queued jobs to grow past `--warm`, up to `--max`,
 even while warm runners are idle or starting. The target ready count is the
 larger of `--warm` and queued demand, not their sum.
 Without an explicit watch list, an org pool checks its 20 most recently pushed

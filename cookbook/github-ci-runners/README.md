@@ -64,7 +64,7 @@ runner `sbx-e8650e11`.
 `--warm` is the number of idle runners kept ready: set it to the jobs one push
 starts. `--max` is capped to your key's concurrent limit (a free key runs 2
 sandboxes at once, so a 9-job push queues). Warm runners use credit while they
-wait. Repeat `--watch-repo OWNER/REPO` to poll up to 20 repos for matching queued
+wait. Repeat `--watch OWNER/REPO` to poll up to 20 repos for matching queued
 jobs and cancelled jobs on this pool's runners. Without it, org pools discover
 repos with runs in the last hour among the 20 most recently pushed repos
 (refreshed every five minutes); repo pools watch their own repo.

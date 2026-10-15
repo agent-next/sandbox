@@ -214,12 +214,12 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     scope = f"orgs/{args.org}" if args.org else f"repos/{args.repo}"
     labels = ["self-hosted", *[x.strip() for x in args.labels.split(",") if x.strip()]]
     gh = runners.GitHub(runners.github_token(), scope)
-    watch = args.watch or ([args.repo] if args.repo else [])
-    if len(set(watch)) > runners.RestDemand.REPO_LIMIT:
-        raise SbxError(f"--watch-repo supports at most {runners.RestDemand.REPO_LIMIT} repositories")
+    watch = list(dict.fromkeys(args.watch or ([args.repo] if args.repo else [])))
+    if len(watch) > runners.RestDemand.REPO_LIMIT:
+        raise SbxError(f"--watch supports at most {runners.RestDemand.REPO_LIMIT} repositories")
     if any(not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) for repo in watch):
-        raise SbxError("--watch-repo needs OWNER/REPO")
-    for repo in args.watch or []:
+        raise SbxError("--watch needs OWNER/REPO")
+    for repo in watch if args.watch else []:
         gh.check_repo(repo)
     boot = runners.sandbox_boot(
         gh, _sandbox_cls(), snapshot=args.snapshot, labels=labels, group_id=args.group_id,
@@ -315,7 +315,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--group-id", type=int, default=1, help="runner group id (default 1, the Default group)")
     r.add_argument("--warm", type=int, default=2, help="idle runners to keep registered (default 2)")
     r.add_argument("--max", type=int, default=10, help="most sandboxes at once (default 10)")
-    r.add_argument("--watch-repo", "--watch", dest="watch", action="append",
+    r.add_argument("--watch", action="append",
                    help="OWNER/REPO to poll for queued jobs and cancellations (repeatable, at most 20); default: recently active repos")
     r.add_argument("--poll-interval", type=float, default=5,
                    help="minimum seconds between demand polls (default 5; grows with API cost)")

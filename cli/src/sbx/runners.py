@@ -233,7 +233,7 @@ class RestDemand:
         self.tracked: set[tuple[str, int]] = set()
         self.cancelled_since = time.time() - 60
         if len(self.repos) > self.REPO_LIMIT:
-            raise RunnerError(f"--watch-repo supports at most {self.REPO_LIMIT} repositories")
+            raise RunnerError(f"--watch supports at most {self.REPO_LIMIT} repositories")
 
     def _discover(self) -> None:
         if self.gh.scope.startswith("repos/"):
