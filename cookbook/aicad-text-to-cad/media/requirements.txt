@@ -1,0 +1,26 @@
+# Pinned install for the demo's offscreen 3D rendering of the REAL meshes.
+# The OWNER RULE for this demo: part images are a real 3D render of the real
+# mesh (pyrender + the distro OSMesa), never matplotlib Poly3DCollection.
+# Same pinning policy as judge/requirements.txt: every wheel sha256-pinned,
+# installed with --require-hashes --only-binary.
+# The OSMesa library itself is the distro build (libosmesa6 22.3.6-1+deb12u2,
+# same policy as the distro ffmpeg); its version is recorded in MANIFEST.json.
+# imageio 2.37.4 / pyglet 2.1.16 are the newest releases of each that clear
+# the standard's two-week freshness rule (2.38.x and 2.1.17+ were published
+# 2026-09-28..2026-10-11); pyrender imports them at module load but touches
+# neither on the offscreen OSMesa path.
+# Install: pip install --require-hashes --only-binary :all: --no-deps -r requirements.txt
+freetype-py==2.5.1 \
+    --hash=sha256:289b443547e03a4f85302e3ac91376838e0d11636050166662a4f75e3087ed0b
+imageio==2.37.4 \
+    --hash=sha256:1ab2e22c8debf700f24c3ac43e8f95f3b3a8110c83b93411e97b4b0b2cd1c7e6
+networkx==3.7 \
+    --hash=sha256:e3fd2c13a7814cee3746340d8d7f8598a67f16a58bf47fb7f8793fab6efca1b0
+pyrender==0.1.45 \
+    --hash=sha256:5cf751d1f21fba4640e830cef3a0b5a95ed0f05677bf92c6b8330056b4023aeb
+pyglet==2.1.16 \
+    --hash=sha256:27f9cabf97a64b15d335cf70d9e8979bbab5f84a9900a058206bcd3a2de341ae
+PyOpenGL==3.1.10 \
+    --hash=sha256:794a943daced39300879e4e47bd94525280685f42dbb5a998d336cfff151d74f
+PyOpenGL-accelerate==3.1.10 \
+    --hash=sha256:3282e7edd22d7126a3874c08ebcb146122031d0cea774c52f872ae56aaf17f39
