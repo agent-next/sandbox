@@ -72,10 +72,10 @@ id if cleanup could not be confirmed.
 |---|---|
 | `git clone --depth 1` | ~10 s |
 | `judge/setup.sh` (fresh install: Node tarball, 2 Chromium zips, npm cache) | ~75 s (idempotent re-run: ~3 s) |
-| `judge/selftest.sh` (good + 6 mutants + determinism double-grade) | ~10 min |
-| `judge/grade.sh examples/good/app` (build + serve + 6 flows + reference) | ~2 min |
+| `judge/selftest.sh` (good + 6 mutants + determinism double-grade) | ~10–11 min |
+| `judge/grade.sh examples/good/app` (build + serve + 6 flows + reference) | ~1.5–2 min |
 
-A full `run.py` from `sbx create` to confirmed kill is ~14 minutes; the
+A full `run.py` from `sbx create` to confirmed kill is ~15–16 minutes; the
 sandbox is created with a 30-minute lifetime, which the run fits with
 margin. `run.py` prints a per-step timing line.
 
