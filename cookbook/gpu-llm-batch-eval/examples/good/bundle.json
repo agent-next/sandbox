@@ -709,7 +709,7 @@
  "model": "Qwen/Qwen2.5-0.5B-Instruct",
  "model_commit": "7ae557604adf67be50417f59c2c2f167def9a775",
  "n_problems": 100,
- "problems_sha256": "7bef8eaab9d35facca5b8e1d29d3bc95174626b088e0dbc46887a805e5b1d688",
+ "problems_sha256": "462f82b15285e2096b97f82a86c3f103145dcf7bee9bf37e10e30faff5e335dc",
  "provenance": "hand-written fixture (2026-10-15): judge-mechanics proof, not a model run; regenerate with run.py --gpu",
  "reported_accuracy": 0.34,
  "seed": 0,

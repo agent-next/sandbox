@@ -503,7 +503,7 @@
    "question": "Mary is an avid gardener. Yesterday, she received 18 new potted plants from her favorite plant nursery. She already has 2 potted plants on each of the 40 window ledges of her large country home. Feeling generous, she has decided that she will give 1 potted plant from each ledge to friends and family tomorrow. How many potted plants will Mary remain with?"
   }
  ],
- "source": "openai/grade-school-math grade_school_math/data/test.jsonl",
+ "source": "GSM8K test split (MIT), first 100 of 1319 rows in file order, pinned by sha256",
  "source_commit": "3101c7d5072418e28b9008a6636bde82a006892c",
  "source_sha256": "3730d312f6e3440559ace48831e51066acaca737f6eabec99bccb9e4b3c39d14"
 }
