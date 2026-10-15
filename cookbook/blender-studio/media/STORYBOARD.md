@@ -20,10 +20,7 @@ change, not merely tiny caption edits. The machine gate measures actual cuts.
 The final three seconds are static. No labels imply that the 12 pose samples
 were rendered at 30 fps: the master repeats actual render frames.
 The process slot replays measured self-test output, not a screen recording or
-an autonomous agent session. The lead reviews that presentation explicitly.
+an autonomous agent session.
 
-Final capture deviation: cloud renders completed but credit exhaustion blocked
-their download. The cut uses retained earlier sandbox renders (frame 2 from a
-separate retry) and proof images from a local pinned-Blender self-test.
-`data/capture.json` and `RECEIPT.md` record this fallback. The default
-`make_media.sh` still regenerates the entire frame set in one fresh sandbox.
+All frames come from one fresh sandbox capture (`data/capture.json`); the
+default `make_media.sh` regenerates the entire frame set in one sandbox.

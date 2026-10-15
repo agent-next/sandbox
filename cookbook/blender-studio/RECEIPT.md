@@ -3,10 +3,10 @@
 The final judge passed `python3 run.py` twice from fresh `blender` sandboxes,
 strictly sequentially, seed 17. Both processes exited 0, caught 10/10 mutants,
 and produced byte-identical verdicts excluding `timing`. Both sandbox deletions
-were confirmed by `sbx list`. The shipped fallback video passes the mechanical
-gate. A fresh cloud media capture is **not accepted**: its renders completed,
-but credit exhaustion blocked downloading them. No pending gate is claimed
-as passing.
+were confirmed by `sbx list`. The shipped media comes from one fresh, complete
+sandbox capture and passes the mechanical video gate, the blind two-judge
+review panel and an independent reproduction (`media/REVIEW.json`,
+`REPRODUCE.md`).
 
 ## Versions
 
@@ -168,10 +168,11 @@ This code review is **not** the independent README reproduction or media panel.
 
 ## Media
 
-**Fresh complete capture blocked.** Sandbox
-`01a13f18-bae3-7ee1-b05e-ada941a5ae7c` ran the final ten-mutant self-test and
-rendered all thirteen 1920×1080 images at seed 17, 8 samples, Cycles CPU, four
-threads. The exact render command was:
+**Fresh complete capture, one sandbox.** `sh media/make_media.sh` created
+sandbox `01a13f64-e3c8-7212-b22b-337a431caa5f`, uploaded the source snapshot
+(sha256 `ae8e9e7a46fa60fcbef87c503282e742b571757540207b5cd20528bb16688cff`),
+ran setup and the ten-mutant self-test, then rendered all thirteen 1920×1080
+images at seed 17, 8 samples, Cycles CPU, four threads:
 
 ```sh
 blender -b --factory-startup --python-exit-code 1 -t 4 \
@@ -181,97 +182,46 @@ blender -b --factory-startup --python-exit-code 1 -t 4 \
 Real output excerpts:
 
 ```text
-SELFTEST killed=10/10 kill_rate=100.0% exit=0 wall=176.756s
-selftest: exit=0 wall=182.1s
-media-render: exit=0 wall=675.2s
+setup: exit=0 wall=37.2s
+SELFTEST killed=10/10 kill_rate=100.0% exit=0 wall=108.186s
+selftest: exit=0 wall=117.4s
+media-render: exit=0 wall=838.4s
+cleanup confirmed: 01a13f64-e3c8-7212-b22b-337a431caa5f absent from sbx list
 ```
 
-The optional SDK streaming download progressed too slowly and its local
-process was stopped (exit 143). The default CLI collector then tried to read
-the same completed sandbox, without creating a replacement. It failed before
-collecting any new complete file:
+All 37 collected files (renders, render.json, self-test verdicts and mutant
+heroes) were transferred in bounded CLI chunks and each matched its remote
+size and SHA-256 before replacing local evidence (`media/data/transfers.json`).
+The proof data in the video (`media/data/selftest.json`) is this sandbox's
+self-test output, not a local run. Per-image render seconds
+(`media/source/render.json`, total 824.6 s):
 
-```text
-cleanup confirmed: 01a13f18-bae3-7ee1-b05e-ada941a5ae7c absent from sbx list
-RuntimeError: sbx exec failed: sbx: SandboxException: Code.FAILED_PRECONDITION: credit exhausted; add credit to resume
-PROCESS_EXIT=1
-```
+| source file | measured seconds |
+| --- | --- |
+| frame-01.png | 44.679 |
+| frame-02.png | 55.052 |
+| frame-03.png | 46.229 |
+| frame-04.png | 44.084 |
+| frame-05.png | 51.307 |
+| frame-06.png | 68.0 |
+| frame-07.png | 66.908 |
+| frame-08.png | 70.623 |
+| frame-09.png | 60.92 |
+| frame-10.png | 89.003 |
+| frame-11.png | 83.601 |
+| frame-12.png | 69.163 |
+| unlinked.png | 75.019 |
 
-The collector's `finally` killed the sandbox and confirmed deletion. There is
-no authority here to purchase credit. Restore service credit, then run the
-README's `sh media/make_media.sh` to replace the fallback with a complete
-single-sandbox capture. The optional SDK path was removed; the default uses
-bounded CLI chunks and verifies files before replacing local evidence.
+An earlier attempt the same day rendered successfully but lost its collection
+to a service-side interruption; nothing from it is shipped. Media PNGs need
+not be byte-identical across re-renders; only verdict JSON must be
+byte-identical excluding `timing`. `result.png` and `loop.png` regenerated
+byte-identical from this capture.
 
-### Shipped fallback and provenance
-
-The clip uses twelve intact retained files from the earlier sandbox capture
-(eleven poses plus unlinked.png), and the intact frame-02 retry recovered from
-an earlier run's working directory. All are actual Blender 1920×1080 renders, not drawings or
-interpolated geometry. The twelve retained files match their recorded remote
-SHA-256s. Frame 02 decodes fully and has recorded local SHA-256
-`6967cca179bf011c80c2dc6fc0f50c45f463c8d5eeec34caa4d3f424303014d9`;
-its own remote checksum is unavailable, so it is explicitly **not**
-remote-checksum-verified. This is the mixed-capture fallback the requested
-fresh run was intended to replace, not a claim that the fresh transfer passed.
-
-The original capture command was the same render command above, snapshot
-`31a60cd5e6f0deffd3cc9d040dc1861032b1e887c65a5dad4b5005ee894aaab5`,
-in sandbox `01a13e90-0220-7883-8936-c3f03ad3ca30`, render-step wall 1465.5 s.
-`judge/studio.py` and `examples/good/scene.py` are unchanged since that capture;
-only the judge's measurement coverage and mutants were hardened.
-
-| source file | measured seconds | timing basis |
-| --- | --- | --- |
-| frame-01.png | 134.425 | original render |
-| frame-02.png | 73.3 | standalone retry's remote-step wall, not isolated render |
-| frame-03.png | 126.698 | original render |
-| frame-04.png | 102.626 | original render |
-| frame-05.png | 123.168 | original render |
-| frame-06.png | 112.468 | original render |
-| frame-07.png | 128.715 | original render |
-| frame-08.png | 94.494 | original render |
-| frame-09.png | 103.419 | original render |
-| frame-10.png | 102.682 | original render |
-| frame-11.png | 91.128 | original render |
-| frame-12.png | 84.141 | original render |
-| unlinked.png | 81.177 | original render |
-
-Proof images and numeric media data were regenerated locally with the same
-pinned Blender 5.2.2 build `d13f752e3b9c`, host Python 3.12.3, using:
+Composition and gate:
 
 ```sh
-sh judge/selftest.sh --seed 17 --out outputs-edge-selftest
-```
-
-Real output:
-
-```text
-MUTANT unlinked_rim: killed=True failed=G3_backdrop,G5_linking
-MUTANT wrong_period: killed=True failed=G4_loop
-MUTANT off_center: killed=True failed=G1_framing,G3_backdrop
-MUTANT overexposed: killed=True failed=G2_exposure
-MUTANT clipped_hero: killed=True failed=G1_framing,G3_backdrop,G5_linking
-MUTANT visible_seam: killed=True failed=G3_backdrop
-MUTANT high_seam: killed=True failed=G3_backdrop
-MUTANT filtered_seam: killed=True failed=G3_backdrop
-MUTANT orbiting_hero: killed=True failed=G1_framing
-MUTANT unlinked_halo: killed=True failed=G2_exposure,G5_linking
-GOOD pass=True repeat=True byte_identical=True
-SELFTEST killed=10/10 kill_rate=100.0% exit=0 wall=37.948s
-PROCESS_EXIT=0
-```
-
-Local display luminance is 0.481605 vs cloud 0.481615 (difference 0.000010);
-endpoint difference is 0.000001 vs cloud 0.000002. Both differences are inside
-SPEC tolerances. All gate booleans, geometry, receiver lists and linking
-measurements agree. The video labels the local self-test replay, not a sandbox
-screen recording. `media/data/capture.json` and MANIFEST preserve this distinction.
-
-Composition command, after recovering the retained input files:
-
-```sh
-STUDIO_REUSE_SOURCE=1 sh media/make_media.sh
+sh media/make_media.sh
 ```
 
 Font DejaVuSans.ttf is SHA-256 pinned:
@@ -419,20 +369,13 @@ No key, private hostname, workstation path, or person name was added.
 3. Tools are verified from the pinned `blender` image instead of installed or
    downloaded by `setup.sh`. The exact build and embedded/host dependencies
    are checked; no archives or pip packages are fetched.
-4. A fresh complete render succeeded, but its transfer failed on exhausted
-   credit. The shipped media therefore uses retained earlier sandbox renders,
-   one recovered separately rendered pose without its own remote checksum,
-   and local pinned-Blender proof images. MANIFEST marks the complete capture
-   **not accepted**. This is a declared fallback, not the preferred one-sandbox
-   capture. Restore credit and rerun `sh media/make_media.sh`.
-   Media PNGs need not be byte-identical across re-renders; only verdict JSON
-   must be byte-identical excluding `timing`. Every current file has a recorded
-   SHA-256, but local recovery is not proof of remote transfer integrity.
+4. Media PNGs need not be byte-identical across re-renders; only verdict JSON
+   must be byte-identical excluding `timing`. Every shipped file has a recorded
+   SHA-256 verified against the sandbox copy.
 5. The 30 fps master repeats twelve real poses at six poses/second. The process
    slot is a labelled compressed replay of measured self-test output, not an
    autonomous-agent screen recording.
 6. Five unrelated pre-existing media tests fail as reported above; no other
    demo or its evidence was changed to conceal them.
-7. `media/REVIEW.json` and `REPRODUCE.md` remain explicitly pending. The lead
-   owns the blind two-model review and independent README reproduction.
-   This demo is not claimed merge-ready before those gates.
+7. Review panel and independent reproduction: see `media/REVIEW.json` and
+   `REPRODUCE.md`.

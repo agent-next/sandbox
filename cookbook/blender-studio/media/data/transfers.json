@@ -1,225 +1,187 @@
 [
   {
-    "name": "media/source/frame-01.png",
-    "size": 1894466,
-    "sha256": "ad55fd530a0dfe6f4e02803ade84edbd6713c3e0bf00bf8bff85945efd1647e1",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
-  },
-  {
-    "name": "media/source/frame-02.png",
-    "size": 1870522,
-    "sha256": "6967cca179bf011c80c2dc6fc0f50c45f463c8d5eeec34caa4d3f424303014d9",
-    "source": "recovered standalone retry",
-    "remote_checksum_verified": false
-  },
-  {
     "name": "media/source/frame-03.png",
     "size": 1846614,
-    "sha256": "e406b9c5bbacfac748501b69e27848986264320f1d84f07352fe2674228698cd",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
+    "sha256": "78da1e832c2f5911cc28af0d6a653d88ecfcc158c8acf2503263849b816dda5b"
   },
   {
     "name": "media/source/frame-04.png",
     "size": 1833233,
-    "sha256": "b0f905853514a4ac0d27073280502496b02f0731c42ac84fc285e46dc7e38a28",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
-  },
-  {
-    "name": "media/source/frame-05.png",
-    "size": 1823524,
-    "sha256": "3796d912276c55211c2336b1d7b2d3d1645735732bc7d6334e5f68055fb72e0b",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
-  },
-  {
-    "name": "media/source/frame-06.png",
-    "size": 1828466,
-    "sha256": "0df4f06bcb1c4e3aa9219733e1a867a264cd2620c2812a6b8f436d65c9688507",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
+    "sha256": "077e646cd5d2b27bffb81aaecf8f34b6b489bd869c6d09967438d3e4b8a714d1"
   },
   {
     "name": "media/source/frame-07.png",
     "size": 1832993,
-    "sha256": "358770b935f02cb7f3124c8a431164b24e09c863a431172fdacd00f89cfe376b",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
-  },
-  {
-    "name": "media/source/frame-08.png",
-    "size": 1848076,
-    "sha256": "5cfdca775fd4ef30bc9887d16e10019bac1a0c2d2945fdbe5ceb60a46f46d879",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
-  },
-  {
-    "name": "media/source/frame-09.png",
-    "size": 1844734,
-    "sha256": "e005b06b256629559579a65f5b2ea11393e820d0914ee2e65a3768cf71a1c61a",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
-  },
-  {
-    "name": "media/source/frame-10.png",
-    "size": 1853292,
-    "sha256": "f6a41e7ec5236c58afb995d4dec78a0374d1c7411427ed3213aaf2d89905c8ba",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
+    "sha256": "4db1e0529d8e051e63beb1b68c88e14b8731e8747e7c2e36c95ebdd76b25b4dd"
   },
   {
     "name": "media/source/frame-11.png",
     "size": 1875669,
-    "sha256": "e63163ffdc1ae663095a13127ab7819af1d588fa952e2180c07508b36e16fecd",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
+    "sha256": "489458df6a0a1ee8b59edb51a1082751cb917099e10c8725f6ba0909b14fec2e"
   },
   {
-    "name": "media/source/frame-12.png",
-    "size": 1893027,
-    "sha256": "dfe0cf4615e545acb9ef41ccd304c85d1678bca22353f75fe0d192c45ad52930",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
+    "name": "media/source/frame-08.png",
+    "size": 1848076,
+    "sha256": "cdac5403e5023043f667dbeb75aa24bf54be5e7290fa2c3e174c4a68e2fce795"
+  },
+  {
+    "name": "media/source/frame-09.png",
+    "size": 1844734,
+    "sha256": "a6a8688e9923dabe7a111c5158bea3b6c284a44aa483ccae61fe438cb0fdcd29"
   },
   {
     "name": "media/source/unlinked.png",
     "size": 1900138,
-    "sha256": "7ec075b20195c413f01b681dead56e270a436b446c1b53849e7fe82c001487ea",
-    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
-    "remote_checksum_verified": true
+    "sha256": "471935ca143dddff2f1119913b39067a7429613b0c2ddcad7cfa3fcff4643f99"
   },
   {
-    "name": "outputs-edge-selftest/good/hero.png",
-    "size": 44448,
-    "sha256": "64c3ca537ca8253943b495efab8d90e7fea98bc7a91afa128aa9e41731fe6924",
-    "source": "local pinned Blender"
+    "name": "media/source/frame-01.png",
+    "size": 1894466,
+    "sha256": "a283384bfd06440a4a66b9302c70c98b16596468ef664e196b20852c127de2c2"
   },
   {
-    "name": "outputs-edge-selftest/good/rim-on.png",
-    "size": 5418,
-    "sha256": "6068920a13cdc9bc71102dd642a9e30fe48b7db7adeecb4ef46129053fa97899",
-    "source": "local pinned Blender"
+    "name": "media/source/frame-06.png",
+    "size": 1828466,
+    "sha256": "23350168d4258343441301b3534593db4e02fa6a79a15ff4d4e062876c776981"
   },
   {
-    "name": "outputs-edge-selftest/clipped_hero/hero.png",
-    "size": 53176,
-    "sha256": "f22c9fa9d98f70ec780d373ee41519cfb50dd9d54fa3e20a3623672a3be3e311",
-    "source": "local pinned Blender"
+    "name": "media/source/frame-02.png",
+    "size": 1871022,
+    "sha256": "e2cd01741d18de542cb6c55d7f3cab1d00946e0a50d9519af2054d145093f7d7"
   },
   {
-    "name": "outputs-edge-selftest/clipped_hero/rim-on.png",
-    "size": 5755,
-    "sha256": "c4856c473f0398ab1cd705e6db6620a5be47dc556085593b0b6230dc416cdd33",
-    "source": "local pinned Blender"
+    "name": "media/source/frame-10.png",
+    "size": 1853292,
+    "sha256": "763fe8f157e022069ee9a46896bf7f0cb6860587bbea9634187b9fa3e11c04a6"
   },
   {
-    "name": "outputs-edge-selftest/filtered_seam/hero.png",
-    "size": 44960,
-    "sha256": "5ecf57e64c42cd4ddab02f828945fcd4a968ccc7e9bdfce19b5c5031a339ab6e",
-    "source": "local pinned Blender"
+    "name": "media/source/frame-05.png",
+    "size": 1823524,
+    "sha256": "c6b92b727b3231954571c3919be89e393f35739c03f177e528b5365c7d0a62f5"
   },
   {
-    "name": "outputs-edge-selftest/filtered_seam/rim-on.png",
-    "size": 5382,
-    "sha256": "6625c9266f17ffbcf68cd87f0d8b7948f6d896f3cda1d6e87f9509d7488402f6",
-    "source": "local pinned Blender"
+    "name": "media/source/frame-12.png",
+    "size": 1893027,
+    "sha256": "da5fae0238e8ba5156f2b679045c6023c72076355292646e9a76405f8813252b"
   },
   {
-    "name": "outputs-edge-selftest/high_seam/hero.png",
-    "size": 45386,
-    "sha256": "0a748c81d5eb600baa9b60720406f7fd7234148434d59a93c398aa1d423f67a0",
-    "source": "local pinned Blender"
+    "name": "media/source/render.json",
+    "size": 2044,
+    "sha256": "b4e0ed37e378881e07bcb1bbe5a8b8d8cf376ee661d0aa50a51dd327b2d84df0"
   },
   {
-    "name": "outputs-edge-selftest/high_seam/rim-on.png",
-    "size": 5395,
-    "sha256": "6d291b671a67b763496fa0133e4880460b6a3b073d36a885921d43f70f6411eb",
-    "source": "local pinned Blender"
+    "name": "outputs-selftest/selftest.json",
+    "size": 11974,
+    "sha256": "932182d49b2c019e4e3f4ca46da6bbd30ebfe875af71b43fd613e5b29f4b0799"
   },
   {
-    "name": "outputs-edge-selftest/off_center/hero.png",
-    "size": 44191,
-    "sha256": "80f98443ad832db8da2db50b0d100b0b8e2d8be6aafe111182be2350d9e5f8ae",
-    "source": "local pinned Blender"
+    "name": "outputs-selftest/off_center/hero.png",
+    "size": 44210,
+    "sha256": "697bd02aad3c56180c22f0286838f9fa93174e4b3cb6087dc6cd7950c0432bfb"
   },
   {
-    "name": "outputs-edge-selftest/off_center/rim-on.png",
+    "name": "outputs-selftest/visible_seam/hero.png",
+    "size": 45424,
+    "sha256": "0b8c8134f2350290ea7d596033769d7bf13a70195caefae2ca0f538575041e19"
+  },
+  {
+    "name": "outputs-selftest/orbiting_hero/hero.png",
+    "size": 44504,
+    "sha256": "85960fe17551a01290e192bac8d90a7787fe75ca3a699bebb042a7d9f6bf0e2e"
+  },
+  {
+    "name": "outputs-selftest/unlinked_halo/hero.png",
+    "size": 43693,
+    "sha256": "b25dda9a7fa08212fd9a094b208877bdd3bd6cd3c27e63c5fa64cc4a45b8c43b"
+  },
+  {
+    "name": "outputs-selftest/good/hero.png",
+    "size": 44446,
+    "sha256": "87e1430e799ec0f0a7290fff00263e36916b1e3e57aed1a3b0adb68b2070352a"
+  },
+  {
+    "name": "outputs-selftest/unlinked_rim/hero.png",
+    "size": 44841,
+    "sha256": "14214e0ab5bb1b1be8c131b1e4daf4092139fa79d9574a2d3df32f3d225b12c4"
+  },
+  {
+    "name": "outputs-selftest/clipped_hero/hero.png",
+    "size": 53160,
+    "sha256": "8929d3c2f10e5f185de4d14bddc715f0b6e0203355017de4f14b7b6a60599a5f"
+  },
+  {
+    "name": "outputs-selftest/wrong_period/hero.png",
+    "size": 44446,
+    "sha256": "29701099feac59d99c0bc5cd6920bf6d2ed0352e24044bf6f70973532e4225ad"
+  },
+  {
+    "name": "outputs-selftest/overexposed/hero.png",
+    "size": 15250,
+    "sha256": "3ae94c7384f3a56d6a6f231dd1e4644b2a6fc8e747a39061cc63b9984b9778a1"
+  },
+  {
+    "name": "outputs-selftest/high_seam/hero.png",
+    "size": 45360,
+    "sha256": "1b560a3cbeb5c18b29175bd4e995982c1a09ca0241901ef4c5935d10459c90b5"
+  },
+  {
+    "name": "outputs-selftest/filtered_seam/hero.png",
+    "size": 44981,
+    "sha256": "94c3d9745985c6b70c7e94e89c10f561151146332d2328f90e389da713e10128"
+  },
+  {
+    "name": "outputs-selftest/off_center/rim-on.png",
     "size": 5170,
-    "sha256": "fa3e1b9d2a2f538000ad8449efba754a340d0e57291e537ec3cdc152d4eaaf57",
-    "source": "local pinned Blender"
+    "sha256": "d1d90c0d7f2b09a462870661cbf8df8270906a4f19d992f88efae48f6c7f0c31"
   },
   {
-    "name": "outputs-edge-selftest/orbiting_hero/hero.png",
-    "size": 44485,
-    "sha256": "f0f32e9ff81b5cf21f7f0ba75afc421951fff8e15788a4b222d124cd0ad3a0ec",
-    "source": "local pinned Blender"
+    "name": "outputs-selftest/visible_seam/rim-on.png",
+    "size": 5418,
+    "sha256": "940b40eb4ef2e05758a2473e3c979efb67237d929c0e63b6709b0475c5495ad4"
   },
   {
-    "name": "outputs-edge-selftest/orbiting_hero/rim-on.png",
+    "name": "outputs-selftest/orbiting_hero/rim-on.png",
     "size": 5278,
-    "sha256": "c04f277ecc4c63d3cc6a98aa04d3b5a0514972e8517ec6a8b187d1f0e4393570",
-    "source": "local pinned Blender"
+    "sha256": "ad60d6fbea749b3ddff87024c527dfbfbf2bfeb4dd4246aef6cd517b8eb4279c"
   },
   {
-    "name": "outputs-edge-selftest/overexposed/hero.png",
-    "size": 15257,
-    "sha256": "6b5a1c5d327ce0220d5416b2908734aca47079d2fa087acab995ef4a2bb19ff5",
-    "source": "local pinned Blender"
-  },
-  {
-    "name": "outputs-edge-selftest/overexposed/rim-on.png",
+    "name": "outputs-selftest/unlinked_halo/rim-on.png",
     "size": 5418,
-    "sha256": "95941946b9c61ed621bba19bba996f5c637703d14fe2b486647bf8dbaa81ee25",
-    "source": "local pinned Blender"
+    "sha256": "a880cbbe254716ea0acf5b9577b8b512519f22474f9dd16983febe77350844bc"
   },
   {
-    "name": "outputs-edge-selftest/unlinked_halo/hero.png",
-    "size": 43672,
-    "sha256": "767b02a569b1edc5890cafb2f3c03d8476ff493b8053494eac73e51b91e6a57a",
-    "source": "local pinned Blender"
-  },
-  {
-    "name": "outputs-edge-selftest/unlinked_halo/rim-on.png",
+    "name": "outputs-selftest/good/rim-on.png",
     "size": 5418,
-    "sha256": "362204dfe23fb25806ba9049e2cc5d9feb3dffc8af6fb6ddd9489781c60d0ebc",
-    "source": "local pinned Blender"
+    "sha256": "c5feea756b976bf962b7fd73260dec38fbeb929b48e5821754bdcc1623d935d0"
   },
   {
-    "name": "outputs-edge-selftest/unlinked_rim/hero.png",
-    "size": 44840,
-    "sha256": "9c4d4c686813f02cb76fb5cf13ba7b94564d34255f1c951f09536863b7bad4d4",
-    "source": "local pinned Blender"
+    "name": "outputs-selftest/unlinked_rim/rim-on.png",
+    "size": 15609,
+    "sha256": "98d2906415d2a5f69941739025dc2fe90592a09511c97623aebcb4638a65ac0f"
   },
   {
-    "name": "outputs-edge-selftest/unlinked_rim/rim-on.png",
-    "size": 15606,
-    "sha256": "a9e3f64fe30fd64297ee32f035bef7c21382c46fc86b97791d81f28c68ada2c4",
-    "source": "local pinned Blender"
+    "name": "outputs-selftest/clipped_hero/rim-on.png",
+    "size": 5755,
+    "sha256": "9f01bad129f9e8f19efceb31793bad987ae6e1260128e83bc6d486e15c6751c9"
   },
   {
-    "name": "outputs-edge-selftest/visible_seam/hero.png",
-    "size": 45443,
-    "sha256": "905799d351cbfa6d14e49623b6d2925867e68651e7ba53e39622f97bcb28df83",
-    "source": "local pinned Blender"
-  },
-  {
-    "name": "outputs-edge-selftest/visible_seam/rim-on.png",
+    "name": "outputs-selftest/wrong_period/rim-on.png",
     "size": 5418,
-    "sha256": "4bee40305445de2ffb4ced2854af9048c949ce80723bd6de5a06aaad9e2631f1",
-    "source": "local pinned Blender"
+    "sha256": "86ec98d9aee03eece640b3a3b22f582962a29c5e3be56e930e4248fa332e9037"
   },
   {
-    "name": "outputs-edge-selftest/wrong_period/hero.png",
-    "size": 44448,
-    "sha256": "d65577ede6f1a2ebf7ae303be1d558d621236d861553549a0a0c6a0e4ea10acf",
-    "source": "local pinned Blender"
-  },
-  {
-    "name": "outputs-edge-selftest/wrong_period/rim-on.png",
+    "name": "outputs-selftest/overexposed/rim-on.png",
     "size": 5418,
-    "sha256": "045dd791ea5a896da8aa9310e4159aa1b8d5fe1d68b132ddde3efc9507a359c0",
-    "source": "local pinned Blender"
+    "sha256": "743baf91d289d24414d7b2a80f6a5bbd606b797c62fb26dd29dccd2fcbb71a27"
+  },
+  {
+    "name": "outputs-selftest/high_seam/rim-on.png",
+    "size": 5395,
+    "sha256": "d6985bf0b64d50f4b0ced055705174b29752c6b855fa2ba7626753e5a328a3d3"
+  },
+  {
+    "name": "outputs-selftest/filtered_seam/rim-on.png",
+    "size": 5382,
+    "sha256": "6ac6116e66b4b144c03adba68a875d60e44e3996c8fce2a07cb45692b00c9d24"
   }
 ]

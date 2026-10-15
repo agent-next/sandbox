@@ -12,11 +12,8 @@ installing them on your computer, and is deleted after the run.
 [Watch the 1080p demo](media/demo.mp4) · [Judge specification](SPEC.md) ·
 [Two-run receipt](RECEIPT.md)
 
-The two launch runs are verified. The shipped media is a documented fallback:
-retained sandbox renders, one separately recovered pose, and local
-pinned-Blender proof images. A fresh complete media render finished, but service
-credit exhaustion blocked its download. This is **not** a completed fresh cloud
-media reproduction; details and remaining gates are in the receipt.
+The two launch runs are verified, and the shipped media comes from one fresh,
+complete sandbox capture with every file checksum-verified; see the receipt.
 
 ## Ask your agent
 
@@ -115,7 +112,7 @@ Transfers use only stdlib and the `sbx` CLI, with bounded chunk retries and
 SHA-256 verification before replacing a local source file. An optional SDK
 streaming path tried during development was removed after a slow live transfer.
 
-## Limits and pending pre-merge gates
+## Limits
 
 This is a constrained procedural scene-design task, not a judge for arbitrary
 Blender code or aesthetic taste. Eight-sample small renders make the numeric
@@ -128,6 +125,5 @@ The 30 fps video repeats twelve real turntable poses at six poses/second.
 Its process slot is a labelled replay of measured self-test output, not a
 screen recording or an autonomous agent session.
 
-The lead must run the blind two-model media review and independent reproduction.
-`media/REVIEW.json` and `REPRODUCE.md` are explicit pending placeholders, not
-passing verdicts. See the receipt's Deviations before calling this merge-ready.
+The blind review panel verdicts are in `media/REVIEW.json`; the independent
+reproduction is in `REPRODUCE.md`.

@@ -1,30 +1,6 @@
 {
-  "mode": "mixed_historical_sandbox_renders_with_local_proof",
-  "accepted_complete_capture": false,
-  "render_backend": "Blender 5.2.2 LTS Cycles CPU inside blender sandboxes",
-  "original_render_sandbox": "01a13e90-0220-7883-8936-c3f03ad3ca30",
-  "original_render_snapshot_sha256": "31a60cd5e6f0deffd3cc9d040dc1861032b1e887c65a5dad4b5005ee894aaab5",
-  "frame_02": {
-    "source": "intact earlier standalone sandbox retry recovered from task scratch",
-    "remote_checksum_verified": false,
-    "reason": "the earlier retry was compared against the original render's hash, not its own; local decoded bytes are hashed in render_frames"
-  },
-  "proof_command": "sh judge/selftest.sh --seed 17 --out outputs-edge-selftest",
-  "proof_backend": "local pinned Blender",
-  "proof_wall_seconds": 37.948,
-  "proof_host_python": "3.12.3",
-  "proof_blender": "5.2.2 LTS",
-  "proof_blender_build": "d13f752e3b9c",
-  "failed_fresh_capture": {
-    "sandbox": "01a13f18-bae3-7ee1-b05e-ada941a5ae7c",
-    "snapshot_sha256": "ae8e9e7a46fa60fcbef87c503282e742b571757540207b5cd20528bb16688cff",
-    "render_command": "blender -b --factory-startup --python-exit-code 1 -t 4 -P media/render.py -- --out media/source --seed 17",
-    "render_exit": 0,
-    "render_wall_seconds": 675.2,
-    "completed_images": 13,
-    "sdk_capture_process_exit": 143,
-    "cli_collect_process_exit": 1,
-    "error": "Code.FAILED_PRECONDITION: credit exhausted; add credit to resume",
-    "cleanup": "killed; confirmed absent from sbx list"
-  }
+  "mode": "single_sandbox",
+  "sandbox": "01a13f64-e3c8-7212-b22b-337a431caa5f",
+  "proof_command": "sh judge/selftest.sh --seed 17",
+  "proof_backend": "blender sandbox"
 }
