@@ -565,8 +565,9 @@ def img_panel(fig, rect, img, clip, title, markers=None, mark_label=""):
             # label pinned inside the panel corner so it never clips
             ax.annotate(mark_label, (mx, my),
                         xytext=(x0 + (x1 - x0) * 0.03,
-                                y0 + (y1 - y0) * 0.10),
+                                y0 + (y1 - y0) * 0.04),
                         fontsize=13, color=C["mark"], weight="bold",
+                        va="top",
                         arrowprops=dict(arrowstyle="-", color=C["mark"],
                                         lw=1.5),
                         bbox=dict(boxstyle="round,pad=0.3",
