@@ -19,7 +19,8 @@ SHA_FILE="$SCRIPT_DIR/package-sha256.txt"
 JH="$HOME/.hyperframes-judge"
 NODE_VER="v22.23.3"
 CHS_VER="152.0.7977.30"
-CHS_HOME="$HOME/.cache/hyperframes/chrome/chrome-headless-shell/$CHS_VER"
+# the dir name hyperframes' own cache lookup expects (<platform>-<build>)
+CHS_HOME="$HOME/.cache/hyperframes/chrome/chrome-headless-shell/linux-$CHS_VER"
 ENV_FILE="$JH/env.sh"
 MARK="$JH/.installed"
 
@@ -47,6 +48,7 @@ if [[ $FORCE -eq 0 && -f "$MARK" \
         && -x "$JH/node/bin/node" \
         && "$("$JH/node/bin/node" --version 2>/dev/null)" == "$NODE_VER" \
         && -x "$JH/app/node_modules/.bin/hyperframes" \
+        && -f "$CHS_HOME/.sha256-verified" \
         && -x "$CHS_HOME/chrome-headless-shell-linux64/chrome-headless-shell" \
         && "$(sha256sum "$SCRIPT_DIR/vendor/gsap.min.js" | cut -d' ' -f1)" \
             == "c174bfce53a729418d57a8ad8625e7247c793a22fef8e2851e3cfa3de9cd8280" ]] \
@@ -146,12 +148,15 @@ HF_VER="$(cd "$JH/app" && PATH="$JH/node/bin:$PATH" \
 #    itself searches; version is the one 0.8.61 pins internally).
 # ---------------------------------------------------------------------------
 CHS_BIN="$CHS_HOME/chrome-headless-shell-linux64/chrome-headless-shell"
-if [[ ! -x "$CHS_BIN" || $FORCE -eq 1 ]]; then
-    log "Installing Chrome Headless Shell $CHS_VER"
-    rm -rf "$CHS_HOME"
+if [[ ! -f "$CHS_HOME/.sha256-verified" || ! -x "$CHS_BIN" || $FORCE -eq 1 ]]; then
+    # Only the sha256-verified zip counts: a copy that hyperframes
+    # auto-downloaded at first render is the same upstream build but arrives
+    # unverified, so we lay ours over it and mark the result.
+    log "Installing Chrome Headless Shell $CHS_VER (sha256-verified zip)"
     mkdir -p "$CHS_HOME"
     unzip -oq "$DL/chrome-headless-shell-linux64-$CHS_VER.zip" -d "$CHS_HOME"
     chmod +x "$CHS_BIN"
+    touch "$CHS_HOME/.sha256-verified"
 fi
 "$CHS_BIN" --version | grep -q "$CHS_VER" \
     || { log "ERROR: chrome-headless-shell --version mismatch"; exit 1; }

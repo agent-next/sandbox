@@ -350,7 +350,7 @@ def main():
     out1 = os.path.join(work, "render1.mp4")
     ok, why = render(comp_dir, out1, fps, rlog)
     gate(1, "render", ok,
-         {"output_bytes": os.path.getsize(out1) if ok else 0,
+         {"output": os.path.basename(out1) if ok else None,
           "error": why or None})
     if not ok:
         for n, nm in ((2, "container-format"), (3, "beat-text-ocr"),
