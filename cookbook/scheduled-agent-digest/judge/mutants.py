@@ -76,6 +76,14 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "            except ValueError:\n"
         "                continue",
     ),
+    (
+        # exits 0 without writing anything: the judge must fail closed on the
+        # missing digest, not crash out of the run
+        "silent-no-output",
+        "digest.py",
+        "    digest = summarise(args.date, rows)",
+        "    return 0\n    digest = summarise(args.date, rows)",
+    ),
     # --- schedule.json mutants ----------------------------------------------
     (
         "paused-skipped",

@@ -1,0 +1,6 @@
+# cookbook/scheduled-agent-digest has no pip dependencies.
+#
+# digest.py, the judge, the mutants and the fixture generator are Python
+# standard library only, so there is nothing to pin here.  The only external
+# tool is the sqlite3 CLI, installed and sha256-checked by judge/setup.sh;
+# the exact version it installs is recorded in judge/VERSIONS.txt.

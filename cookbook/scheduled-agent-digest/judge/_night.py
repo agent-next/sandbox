@@ -202,6 +202,9 @@ def run_night(*, log: Path, date: str, fire_on: str, workdir: Path,
     if proc.returncode != 0:
         raise OracleError(f"digest.py failed for {log} (exit "
                           f"{proc.returncode}): {record['stderr']}")
+    if not digest_path.is_file():
+        raise OracleError(f"digest.py exited 0 for {log} but wrote no digest "
+                          f"at {digest_path}")
     record["digest"] = str(digest_path)
     record["digest_sha256"] = _sha(digest_path)
 

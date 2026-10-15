@@ -448,7 +448,24 @@ def grade(artifact_dir: Path, seed: int = DEFAULT_SEED) -> dict:
 
         gates = {}
 
-        records, digests = run_three_nights(artifact, work)
+        # An artifact that cannot even run the three nights fails closed: the
+        # verdict says so, with the reason, instead of raising out of the
+        # judge (SPEC G1).
+        try:
+            records, digests = run_three_nights(artifact, work)
+        except (_night.OracleError, OSError, ValueError) as exc:
+            gates["digest"] = Gate("digest")
+            gates["digest"].fail(f"the artifact could not run the three "
+                                 f"nights: {exc}")
+            for name in GATES[1:]:
+                gates[name] = Gate(name)
+            verdict["gates"] = {name: gates[name].as_json() for name in GATES}
+            verdict["passed"] = False
+            verdict["failed_gate"] = "digest"
+            verdict["failed_gates"] = ["digest"]
+            verdict["reason"] = gates["digest"].reason
+            verdict["timing"]["wall_seconds"] = round(time.monotonic() - t0, 3)
+            return verdict
 
         gates["digest"] = gate_digest(work, digests, seed)
         gates["dates"] = gate_dates(digests, work)
