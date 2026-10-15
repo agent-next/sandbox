@@ -12,6 +12,10 @@
 #
 # Requires: judge/setup.sh already run (the venv under $HOME holds numpy +
 # matplotlib) and ffmpeg on PATH.  No pinned deps beyond those.
+#
+# Every judge invocation below runs from the demo root with repo-relative
+# artifact paths, so a regenerated verdict names its artifact the same way
+# as the committed ones (DEMO-STANDARD.md: no host paths in committed data).
 set -euo pipefail
 
 MEDIA="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,50 +28,51 @@ die() { echo "make_media: $*" >&2; exit 1; }
 command -v ffmpeg >/dev/null || die "ffmpeg missing (distro package)"
 [ -x "$PY" ] || die "$PY missing -- run judge/setup.sh first"
 
-# --- judge outputs (regenerate if absent; they are committed) ------------
-if [ ! -f "$MEDIA/data/verdicts/good.json" ]; then
+cd "$DEMO"
+
+# --- judge outputs (committed; regenerate identically if absent) ----------
+if [ ! -f media/data/verdicts/good.json ]; then
     echo "== verdicts missing -> grading good + mutants =="
-    mkdir -p "$MEDIA/data/verdicts"
-    bash "$DEMO/judge/grade.sh" "$DEMO/examples/good" \
-        --json "$MEDIA/data/verdicts/good.json" >/dev/null
-    rm -rf "$MEDIA/data/mutants"
-    python3 -I "$DEMO/judge/mutants.py" "$DEMO/examples/good" \
-        "$MEDIA/data/mutants" >/dev/null
-    for m in "$MEDIA"/data/mutants/*/; do
+    mkdir -p media/data/verdicts
+    bash judge/grade.sh examples/good \
+        --json media/data/verdicts/good.json >/dev/null
+    rm -rf media/data/mutants
+    python3 -I judge/mutants.py examples/good media/data/mutants >/dev/null
+    for m in media/data/mutants/*/; do
         name="$(basename "$m")"
-        bash "$DEMO/judge/grade.sh" "$m" \
-            --json "$MEDIA/data/verdicts/$name.json" >/dev/null 2>&1 || true
+        bash judge/grade.sh "$m" \
+            --json "media/data/verdicts/$name.json" >/dev/null 2>&1 || true
     done
 fi
 
-if [ ! -f "$MEDIA/data/loop/iter5.json" ]; then
+if [ ! -f media/data/loop/iter5.json ]; then
     echo "== agent-loop artifacts missing -> building + grading =="
-    python3 -I "$MEDIA/make_loop_artifacts.py" "$DEMO/examples/good" \
-        "$MEDIA/data/loop" >/dev/null
+    python3 -I media/make_loop_artifacts.py examples/good \
+        media/data/loop >/dev/null
     for i in 1 2 3 4 5; do
-        bash "$DEMO/judge/grade.sh" "$MEDIA/data/loop/iter$i" \
-            --json "$MEDIA/data/loop/iter$i.json" >/dev/null 2>&1 || true
+        bash judge/grade.sh "media/data/loop/iter$i" \
+            --json "media/data/loop/iter$i.json" >/dev/null 2>&1 || true
     done
 fi
 
-if [ ! -f "$MEDIA/data/run/good/volumes.csv" ]; then
+if [ ! -f media/data/run/good/volumes.csv ]; then
     echo "== good run outputs missing -> running the artifact =="
-    mkdir -p "$MEDIA/data/run/good"
-    "$PY" -I "$DEMO/examples/good/model.py" --out "$MEDIA/data/run/good" \
+    mkdir -p media/data/run/good
+    "$PY" -I examples/good/model.py --out media/data/run/good \
         --seed 20261015 >/dev/null
 fi
 
 # --- figures -------------------------------------------------------------
 echo "== result.png =="
-"$PY" -I "$MEDIA/fig_result.py" "$DEMO"
+"$PY" -I media/fig_result.py .
 echo "== loop.png =="
-"$PY" -I "$MEDIA/fig_loop.py" "$DEMO"
+"$PY" -I media/fig_loop.py .
 
 # --- video: frames -> lossless master -> H.264 web encode ----------------
 echo "== demo.mp4 =="
 rm -rf "$MEDIA/frames" "$MEDIA/master"
 mkdir -p "$MEDIA/frames" "$MEDIA/master"
-"$PY" -I "$MEDIA/make_frames.py" "$DEMO" "$MEDIA/frames"
+"$PY" -I media/make_frames.py . "$MEDIA/frames"
 ffmpeg -y -loglevel error -framerate 30 -i "$MEDIA/frames/f%04d.png" \
     -c:v libx264 -crf 0 -preset veryslow -pix_fmt yuv420p \
     "$MEDIA/master/demo-master.mp4"
@@ -78,6 +83,6 @@ rm -rf "$MEDIA/frames"
 
 # --- MANIFEST ------------------------------------------------------------
 echo "== MANIFEST.json =="
-"$PY" -I "$MEDIA/make_manifest.py" "$DEMO"
+"$PY" -I media/make_manifest.py .
 
 echo "make_media: done"

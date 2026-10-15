@@ -12,8 +12,13 @@ From the repo root, on this branch:
 ```bash
 pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 export SBX_API_KEY=<your key>
-python3 cookbook/climate-glacier-model/run.py --ref sbx/demo-climate-glacier-model-f4
+python3 cookbook/climate-glacier-model/run.py --ref sbx/demo-climate-glacier-model-f5
 ```
+
+> Port note: the branch was re-landed on top of current `main` (the original
+> branch had forked from the repo's first commit). The judge, the artifact
+> and every graded number are unchanged — the fresh runs at the ported HEAD
+> in `RECEIPT.md` reproduce these numbers exactly.
 
 One fresh sandbox (`01a13ff8-…ef66`), created, used and confirmed gone.
 

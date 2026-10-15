@@ -72,12 +72,17 @@ def main() -> int:
             "command": f"{'$HOME/glacier-venv/bin/python'} media/fig_loop.py .",
         },
         "demo.mp4": {
-            "shows": "The simulation itself: the three volume curves draw "
-                     "themselves in over the 100-year sweep from the judge's "
-                     "own good-run data, with the 50 %-crossing line and each "
-                     "scenario's crossing year marked as its curve reaches it; "
-                     "30 fps, 1920x1080, H.264 (-crf 18). A lossless master "
-                     "(-crf 0) is written to media/master/ (git-ignored).",
+            "shows": "The sweep the judge graded, in five moving shots cut "
+                     "on black: (1) one pass per scenario, a playhead "
+                     "sweeping the 100 years while the measured volume fills "
+                     "in behind it and the 50 %-crossing marker pops; (2) "
+                     "zoomed crossings, the 50 % rule line sweeping down and "
+                     "locking each measured year in; (3) the judge's shape "
+                     "gate drawn live against the +-2 % band; (4) the "
+                     "self-test kill matrix scanned row by row (13/13); (5) "
+                     "a static end card with the verdict. 26.2 s, 30 fps, "
+                     "1920x1080, H.264 (-crf 18). A lossless master (-crf 0) "
+                     "is written to media/master/ (git-ignored).",
             "sources": ["data/run/good/volumes.csv",
                         "data/verdicts/good.json"],
             "command": "bash media/make_media.sh",

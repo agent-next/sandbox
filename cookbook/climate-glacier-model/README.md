@@ -62,7 +62,12 @@ judge's own outputs by `bash media/make_media.sh` (never hand-edited):
   with the measured deviation inside it.
 - `media/loop.png` — the agent loop (gates failing per iteration of a real
   fix sequence, ending in PASS) and the self-test kill matrix (13/13).
-- `media/demo.mp4` — 23 s, 1920×1080: the sweep animating year by year.
+- `media/demo.mp4` — 26 s, 1920×1080, five moving shots cut on black: the
+  sweep (a playhead per scenario, the measured volume filling in behind it),
+  the crossings locking in as the 50 % rule line sweeps down, the judge's
+  shape gate drawn live against the ±2 % band, the kill matrix scanned row
+  by row, and a static verdict end card. Passes
+  `cookbook/tools/video_gate.py` (motion, cuts, duration, end card).
 - `media/MANIFEST.json` — what each file shows, its command, source data and
   sha256.
 

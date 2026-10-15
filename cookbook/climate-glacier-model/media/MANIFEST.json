@@ -2,10 +2,10 @@
   "demo": "cookbook/climate-glacier-model",
   "files": {
     "demo.mp4": {
-      "bytes": 336961,
+      "bytes": 2021752,
       "command": "bash media/make_media.sh",
-      "sha256": "35d2f66b9c0826964d6fcfc99520fd392db1a442f22eac157059ba928cfc5177",
-      "shows": "The simulation itself: the three volume curves draw themselves in over the 100-year sweep from the judge's own good-run data, with the 50 %-crossing line and each scenario's crossing year marked as its curve reaches it; 30 fps, 1920x1080, H.264 (-crf 18). A lossless master (-crf 0) is written to media/master/ (git-ignored).",
+      "sha256": "caec54a1db58c40a682ae990959eb9f0c43d8f2f01b7dcc6d387c3201a8197aa",
+      "shows": "The sweep the judge graded, in five moving shots cut on black: (1) one pass per scenario, a playhead sweeping the 100 years while the measured volume fills in behind it and the 50 %-crossing marker pops; (2) zoomed crossings, the 50 % rule line sweeping down and locking each measured year in; (3) the judge's shape gate drawn live against the +-2 % band; (4) the self-test kill matrix scanned row by row (13/13); (5) a static end card with the verdict. 26.2 s, 30 fps, 1920x1080, H.264 (-crf 18). A lossless master (-crf 0) is written to media/master/ (git-ignored).",
       "sources": [
         "data/run/good/volumes.csv",
         "data/verdicts/good.json"
