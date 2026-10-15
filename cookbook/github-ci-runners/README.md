@@ -168,6 +168,49 @@ Serve's `spawn` → `sandbox` timestamps measure VM-ready delay; `spawn` →
 stay `null` in JSON (`?` in text), and skipped steps have no duration.
 Unassigned jobs and other self-hosted runners are excluded.
 
+## Debug a failed job
+
+Opt in to keeping the exact machine after a failed job:
+
+```bash
+sbx runners serve --repo <owner>/<repo> --snapshot "$snap" --keep-failed
+sbx runners debug --list
+sbx runners debug <job-id-or-job-url> --exec 'cat /tmp/failure-proof'
+sbx runners debug --delete <job-id>
+```
+
+`--keep-failed=10` changes the default cap of five snapshots. The oldest is
+deleted when the cap is exceeded. Successful and cancelled jobs leave no
+snapshot. A `kept_failed` JSONL event includes the job ID, URL, repository,
+commit SHA and snapshot ID; lookup or snapshot errors are logged and the
+runner sandbox is still killed.
+
+`debug` prints the restored sandbox ID and copyable `sbx exec` commands to
+inspect its workspace, plus `sbx kill` to clean up. `--exec` runs a command
+immediately and returns its exit code. The debug sandbox lives for 30 minutes
+by default (`--timeout-min` changes that); kill it when finished. Deleting a
+snapshot does not kill an already restored sandbox.
+
+The job index is local to the serving machine, API endpoint and key, under
+`$XDG_STATE_HOME/sbx/failed-runners` (default `~/.local/state/sbx/failed-runners`).
+Run `debug` with the same state directory and credentials. Before killing the
+runner sandbox, `serve` reads the newest job message from its
+`_diag/Worker_*.log` files in one command (10-second timeout), then polls only
+`GET /repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs`, matching
+`runner_name`, until the conclusion arrives or the 60-second lookup budget ends.
+It never searches run history or discovers org repositories. `--watch` remains
+only for queue-based pool scaling, not job lookup.
+
+The worker's `Job message:` JSON contains `contextData.github.d` key/value
+entries for `repository`, `run_id`, `run_attempt` and `sha`.
+`variables["system.github.job"].value` supplies `github.job`, which the runner
+adds after logging the message. See the
+[sanitized real-log fixture and source references](../../cli/tests/fixtures/worker_diag/README.md).
+Only identity fields leave the sandbox, not the diagnostic log.
+
+Snapshots may contain job files, secrets and process state. Enable retention
+only for trusted jobs and delete snapshots when they are no longer needed.
+
 ## Coming next
 
-Runner debugging and demand scaling are in review.
+Demand scaling is in review.
