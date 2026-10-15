@@ -2,7 +2,7 @@
 # cookbook/cnc-gcode judge: run an artifact's cam.py and grade every gate.
 #
 # Usage:
-#   bash judge/grade.sh <cam.py> [--seed N] [--json out.json]
+#   bash judge/grade.sh <cam.py> [--seed N] [--json out.json] [--trace DIR]
 #
 # 1. hashes the judge sources (the artifact must not modify them)
 # 2. copies the artifact + the repo's own spec.json into a scratch dir
@@ -22,11 +22,13 @@ PYBIN="${VENV}/bin/python"
 ARTIFACT="${1:-}"
 SEED="20261014"
 JSON_OUT=""
+TRACE_OUT=""
 rc=0
 while [ $# -gt 1 ]; do
     case "$2" in
         --seed) SEED="$3"; shift 2 ;;
         --json) JSON_OUT="$3"; shift 2 ;;
+        --trace) TRACE_OUT="$3"; shift 2 ;;
         *) shift ;;
     esac
 done
@@ -48,11 +50,16 @@ mkdir -p "$WORK"
 cp "$ARTIFACT" "$WORK/cam.py"
 cp "$HERE/../spec.json" "$WORK/spec.json"
 
+# --trace DIR: grade.py additionally dumps the parsed move list, per-move
+# records and per-move removal events for offline plotting (see grade.py).
+[ -z "$TRACE_OUT" ] || mkdir -p "$TRACE_OUT"
+
 "$PYBIN" "$HERE/grade.py" \
     --work-dir "$WORK" \
     --artifact-label "$ARTIFACT" \
     --spec "$WORK/spec.json" \
-    --seed "$SEED" ${JSON_OUT:+--json "$JSON_OUT"} || rc=$?
+    --seed "$SEED" ${JSON_OUT:+--json "$JSON_OUT"} \
+    ${TRACE_OUT:+--trace "$TRACE_OUT"} || rc=$?
 
 # the artifact must not have touched the judge
 JUDGE_HASH_AFTER="$(find "$HERE" -type f \

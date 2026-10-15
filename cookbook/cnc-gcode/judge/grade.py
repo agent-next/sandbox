@@ -7,13 +7,26 @@ Invoked by judge/grade.sh with a scratch work directory that already holds
 `part.nc` it writes against the analytic oracle derived from the spec.
 
 Exit 0 iff every gate passes.
+
+`--trace DIR` (optional, off by default, no effect on grading): after the
+simulation, dump what the judge itself parsed and computed, so media scripts
+can plot the real toolpath and removal grid instead of re-deriving them:
+  meta.json     spec echo + seed + move counts
+  moves.json    the move list exactly as gcode_sim.parse_gcode parsed it
+  records.csv   the per-move records the gates were evaluated on
+  events.npz    per-move removal events (grid cells each move lowered, + Z)
+  final.npz     final heightmap, oracle target/masks, grid coordinates
+The events are replayed on a fresh Simulator and asserted bit-identical to
+the graded heightmap before anything is written.
 """
 from __future__ import annotations
 
 import argparse
 import ast
+import csv
 import json
 import math
+import os
 import subprocess
 import sys
 import time
@@ -133,6 +146,83 @@ def measure_circle_slot(spec):
 
 
 # ---------------------------------------------------------------------------
+# trace dump (--trace DIR): what the judge parsed and computed, for plotting
+# ---------------------------------------------------------------------------
+
+def dump_trace(trace_dir, args, spec, mach, sim, moves, recs, orc,
+               quant_band):
+    """Write the judge's own parse + simulation state for offline plotting.
+
+    Pure output: nothing here feeds back into a gate.  The removal events are
+    captured by replaying every move on a fresh Simulator; the replay must
+    reproduce the graded heightmap exactly or the trace is refused.
+    """
+    os.makedirs(trace_dir, exist_ok=True)
+
+    meta = {
+        "demo": "cnc-gcode",
+        "artifact": args.artifact_label,
+        "seed": args.seed,
+        "grid_mm": spec["grid_mm"],
+        "stock": spec["stock"],
+        "tool": spec["tool"],
+        "limits": spec["limits"],
+        "safe_z_mm": mach["safe_z_mm"],
+        "n_moves": len(moves),
+        "n_events": 0,                      # filled below
+        "grid_shape": [sim.ny, sim.nx],
+    }
+    with open(os.path.join(trace_dir, "moves.json"), "w", encoding="utf-8") as fh:
+        json.dump(moves, fh, default=list)
+    with open(os.path.join(trace_dir, "records.csv"), "w", encoding="utf-8",
+              newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["move_index", "line", "kind", "motion", "z_end", "feed",
+                    "spindle", "cut_cells", "axial_mm", "rapid_hit_mm",
+                    "spacing_mm"])
+        for i, r in enumerate(recs):
+            w.writerow([i, r["line"], r["kind"], r["motion"], r["z_end"],
+                        r["feed"], r["spindle"], r["cut_cells"],
+                        r["axial_mm"], r["rapid_hit_mm"], r["spacing_mm"]])
+
+    sim2 = gs.Simulator(spec)
+    ev_idx, ev_z, ev_box, ev_bits = [], [], [], []
+    for i, mv in enumerate(moves):
+        before = sim2.H.copy()
+        sim2.run([mv])
+        diff = sim2.H != before          # exactly the cells this move lowered
+        if not diff.any():
+            continue
+        jj, ii = np.nonzero(diff)
+        j0, j1 = int(jj.min()), int(jj.max()) + 1
+        i0, i1 = int(ii.min()), int(ii.max()) + 1
+        bits = np.packbits(diff[j0:j1, i0:i1], axis=None)
+        ev_idx.append(i)
+        ev_z.append(mv["end"][2])
+        ev_box.append((j0, j1, i0, i1, j1 - j0, i1 - i0))
+        ev_bits.append(bits)
+    if not np.array_equal(sim2.H, sim.H):
+        raise RuntimeError("trace: replay diverged from the graded heightmap")
+    np.savez_compressed(
+        os.path.join(trace_dir, "events.npz"),
+        move_index=np.asarray(ev_idx, dtype=np.int64),
+        z_end=np.asarray(ev_z, dtype=np.float64),
+        box=np.asarray(ev_box, dtype=np.int64),
+        bits=np.concatenate(ev_bits) if ev_bits else np.zeros(0, np.uint8),
+    )
+    np.savez_compressed(
+        os.path.join(trace_dir, "final.npz"),
+        H=sim.H, target=orc["target"], must_clear=orc["must_clear"],
+        in_pocket=orc["in_pocket"], in_island=orc["in_island"],
+        quant_band=quant_band,
+        xs=sim.xs, ys=sim.ys,
+    )
+    meta["n_events"] = len(ev_idx)
+    with open(os.path.join(trace_dir, "meta.json"), "w", encoding="utf-8") as fh:
+        json.dump(meta, fh, indent=2)
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 
@@ -143,6 +233,9 @@ def main():
                     help="original path of the artifact, for the report")
     ap.add_argument("--spec", required=True)
     ap.add_argument("--json", dest="json_out")
+    ap.add_argument("--trace",
+                    help="optional dump dir for the parsed moves, per-move "
+                         "records and removal events (no effect on grading)")
     ap.add_argument("--seed", type=int, default=20261014)
     args = ap.parse_args()
 
@@ -344,6 +437,10 @@ def main():
              worst_gouge_mm=round(gouge_max, 4),
              tolerance_mm=0.01)
     gates["gouge"] = g8.dict()
+
+    if args.trace:
+        dump_trace(args.trace, args, spec, mach, sim, moves, recs, orc,
+                   quant_band)
 
     # ---- gate 9: simulator self-check --------------------------------------
     g9 = Gate("simulator_selfcheck")
