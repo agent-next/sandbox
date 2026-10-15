@@ -1,0 +1,50 @@
+# Judge + media pins for cookbook/solidcraft-cad.  Installed by judge/setup.sh:
+#   pip install --no-cache-dir --require-hashes -r judge/requirements.txt
+# cadquery-ocp is the OpenCascade (OCCT 8.0.1) binding the judge uses to
+# re-measure SolidCraft's STEP output; it pulls vtk and matplotlib (also used
+# by media/make_media.sh).  Hashes cover the CPython 3.12/3.13 manylinux
+# x86_64 wheels (3.11 too where the pinned version ships one); every pin was
+# published at least two weeks before 2026-10-14.
+cadquery-ocp==8.0.1.0.0 \
+    --hash=sha256:cc6a26a513a0094d018582e1d5fc6dc4196eec665e9d300bd8383107e39ef868 \
+    --hash=sha256:4565c08a536ca6d70772ada154591714179136e6bcc55e399659afe34c67bd8c \
+    --hash=sha256:93e4eacac5e0504bc9157a10a134b7dce7719eb4999d79af25d34b35e8d9ab03
+cadquery-ocp-proxy==8.0.1.0.0 \
+    --hash=sha256:d6a6909a73d2300ca4581ff762ccf0137993ac75c57a2dc82e12bffa3a12b680
+vtk==9.6.2 \
+    --hash=sha256:0fd9fa3f851192619ac0cec05591ab88adbed67ba063903297d2bb40b457bd00 \
+    --hash=sha256:8c9f31430d15afbf46c2076cf3e30b4d6136512a5faabee8318552ccea907323 \
+    --hash=sha256:fb85c7fbad59209a08e428479defbdf96f974a9f39d4212960fb1a24a919613c
+matplotlib==3.11.2 \
+    --hash=sha256:07d9b9fa60cd4c393692f50d0bb03123242ddf61c99bb0e95e75feb354e7c1a8 \
+    --hash=sha256:df4f7784aca81a94f254c0a2767d592ee25f407e488f5fa7203e51093fb6ca27 \
+    --hash=sha256:1944895967f87c84c9b4bad29a707b31f5b36df4a3a2339ea1f8ea3ce5105539
+numpy==2.5.3 \
+    --hash=sha256:b7e18c623bb5c95acb3b3328861272816ba199fb531921c5d6d0b675f1fde9e3 \
+    --hash=sha256:a5fa86b80fd24bcd1aff83ad23be44ea323de3f787be8f8b15d4a65621e25321
+contourpy==1.4.0 \
+    --hash=sha256:875f42444c9cf48d56f724f2637e60d0f73b3b12c9041e1484580a233edf9591 \
+    --hash=sha256:f1219a8898523cba821085f2da8a1b962cc696325763f09d7f93538ba43b2d70
+cycler==0.12.1 \
+    --hash=sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30
+fonttools==4.66.0 \
+    --hash=sha256:3ea59aaec135c96c4cff20d79fdf1d10623993712a77990585a42cfd6a42bc5c \
+    --hash=sha256:aea0cc5609a5f2a2500f91bd6e1989fdd22da0f225be00dc1c4cec775838a7d0 \
+    --hash=sha256:c519433e8632284dbe64ee4c81b609a17e205bc1afff285553723964880d1c89 \
+    --hash=sha256:bc7b7ddc1a1f46c363354304e9a8dd93722e4a6a24f785015650898dacf40df9
+kiwisolver==1.5.1 \
+    --hash=sha256:95a02752aa032eef4aed01cda6d9b687c669bd0396bf4519eef8bba22a286720 \
+    --hash=sha256:34633ecf50d16187ab8e5528b7a2530f2feb4e23f300db4672538b51cfc5cd38 \
+    --hash=sha256:74ad5c3dad54a4641b4c28cd15ded70899d04459c6c7aeacafea716be97cce6d
+packaging==26.3 \
+    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+pillow==12.3.0 \
+    --hash=sha256:23d27a3e0307ec2244cc51e7287b919aa68d097504ebe19df4e76a98a3eea5bd \
+    --hash=sha256:78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91 \
+    --hash=sha256:0847a763afefb695bc912d7c131e7e0632d4edc1d8698f58ddabec8e46b8b6d3
+pyparsing==3.3.3 \
+    --hash=sha256:ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4
+python-dateutil==2.9.0.post0 \
+    --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
+six==1.17.0 \
+    --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274

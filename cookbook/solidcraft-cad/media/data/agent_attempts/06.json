@@ -1,0 +1,222 @@
+{
+ "commands": [
+  {
+   "command": "parameters.add",
+   "params": {
+    "name": "thickness",
+    "expression": "6 mm",
+    "unit": "mm"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XY",
+    "name": "PlateOutline"
+   }
+  },
+  {
+   "command": "sketch.rectangle.two_point",
+   "params": {
+    "p0": [
+     -30,
+     -20
+    ],
+    "p1": [
+     30,
+     20
+    ]
+   }
+  },
+  {
+   "command": "sketch.rectangle.two_point",
+   "params": {
+    "p0": [
+     -25,
+     -25
+    ],
+    "p1": [
+     25,
+     25
+    ]
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     25,
+     20
+    ],
+    "radius": 5
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     -25,
+     20
+    ],
+    "radius": 5
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     -25,
+     -20
+    ],
+    "radius": 5
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     25,
+     -20
+    ],
+    "radius": 5
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.extrude",
+   "params": {
+    "sketch": "PlateOutline",
+    "profiles": "all",
+    "distance": "thickness",
+    "operation": "new",
+    "body_name": "MotorAdapter"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 32,
+    "height": 3,
+    "base": [
+     0,
+     0,
+     "thickness"
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XY",
+    "offset": "thickness + 4 mm",
+    "name": "BoreCut"
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     0,
+     0
+    ],
+    "diameter": 22
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.extrude",
+   "params": {
+    "sketch": "BoreCut",
+    "distance": "thickness + 5 mm",
+    "direction": "negative",
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "material.assign",
+   "params": {
+    "bodies": [
+     "MotorAdapter"
+    ],
+    "material": "Aluminum"
+   }
+  }
+ ]
+}

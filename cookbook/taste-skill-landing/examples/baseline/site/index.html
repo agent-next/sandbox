@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel - wind-aware route planner</title>
+<style>
+  /* A plain first attempt: no design system, just make it work. */
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #8a8a8a;
+         background: #F4F1EA; margin: 0 auto; min-width: 1200px; width: 1200px; }
+  header { background: linear-gradient(135deg, #0E6E54, #4fbfa0); color: #fff;
+           padding: 30px; text-align: center; }
+  header h1 { font-size: 40px; margin: 0 0 8px; }
+  header p { font-size: 15px; }
+  .btn { display: inline-block; background: #e65100; color: white;
+         padding: 6px 14px; text-decoration: none; border-radius: 8px;
+         font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,.3); }
+  nav { background: #fff; border-bottom: 1px solid #ddd; padding: 8px 20px; }
+  nav a { color: #666; font-size: 12px; text-decoration: none;
+          margin-right: 10px; padding: 3px 6px; }
+  section { padding: 25px 30px; border-bottom: 1px solid #eee; }
+  h2 { font-size: 22px; color: #333; margin: 0 0 12px; }
+  .cards { display: flex; gap: 15px; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 6px;
+          padding: 15px; width: 33%; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .card h3 { font-size: 15px; color: #0E6E54; margin: 0 0 6px; }
+  .card p { font-size: 12px; line-height: 1.4; }
+  .steps h3 { font-size: 14px; color: #333; margin: 10px 0 4px; }
+  .price { font-size: 34px; color: #0E6E54; font-weight: bold; }
+  .faq p { font-size: 12px; }
+  footer { background: #1A241F; color: #777; padding: 20px; text-align: center;
+           font-size: 11px; }
+  footer h2 { color: #fff; font-size: 26px; }
+  img { max-width: 100%; }
+</style>
+</head>
+<body>
+
+<header id="hero">
+  <h1>Kestrel</h1>
+  <p>The route planner that reads the wind forecast and plans the loop that rides home with the wind at your back.</p>
+  <a class="btn" href="#download">Plan a wind-aware route</a>
+</header>
+
+<nav>
+  <a href="#how">How it plans</a>
+  <a href="#routes">Three loops</a>
+  <a href="#pricing">Price</a>
+  <a href="#faq">Questions</a>
+</nav>
+
+<section id="how">
+  <h2>How Kestrel plans</h2>
+  <div class="steps">
+    <h3>01. Forecast</h3>
+    <p>Hourly wind for your whole ride window, resolved onto every road segment.</p>
+    <h3>02. Compass split</h3>
+    <p>True ground speed on each leg: a 24 km/h rider with 18 km/h of headwind is not a 24 km/h rider.</p>
+    <h3>03. Route search</h3>
+    <p>Both ways round the loop, and the honest difference printed in minutes.</p>
+  </div>
+  <img src="assets/img/windfield.png" alt="Wind arrows">
+</section>
+
+<section id="routes">
+  <h2>Three loops</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>The Harbour Drag</h3>
+      <p>40 km, 180 m climbing. Long causeway legs; the wind quality swings hardest here.</p>
+    </div>
+    <div class="card">
+      <h3>Millstone Ridge</h3>
+      <p>58 km, 640 m climbing. Hedged lanes soften the wind to a whisper.</p>
+    </div>
+    <div class="card">
+      <h3>The Estuary Ring</h3>
+      <p>72 km, 240 m climbing. Flat, exposed, shaped like a bent horseshoe.</p>
+    </div>
+  </div>
+  <img src="assets/img/routes.png">
+</section>
+
+<section id="pricing">
+  <h2>One price</h2>
+  <p class="price">&euro;4 a month</p>
+  <p>Unlimited wind-aware routes, forecast archive, GPX export. Free tier: five routes a month.</p>
+  <a class="btn" href="#download">Start free</a>
+</section>
+
+<section id="faq" class="faq">
+  <h2>Questions</h2>
+  <h3>Where does the forecast come from?</h3>
+  <p>The national weather service hourly model, 1 km grid, refreshed every three hours.</p>
+  <h3>Does it work for running?</h3>
+  <p>Yes. The wind math is the same; you set your still-air speed.</p>
+  <h3>What if the forecast is wrong?</h3>
+  <p>Kestrel shows the confidence band and suggests the most sheltered loop.</p>
+  <h3>Can I export to my bike computer?</h3>
+  <p>GPX for every device, with wind notes as course points.</p>
+  <h3>Do I need an account?</h3>
+  <p>No. The first five routes are planned on this device.</p>
+</section>
+
+<section id="download">
+  <h2>Ride with the wind</h2>
+  <p>Plan your first wind-aware route before the next window of fair weather closes.</p>
+  <a class="btn" href="mailto:ride@kestrel.example">Plan a route</a>
+</section>
+
+<footer id="footer">
+  <h2>Kestrel</h2>
+  <p>A plain first attempt, built without the taste-skill rules.</p>
+</footer>
+
+</body>
+</html>

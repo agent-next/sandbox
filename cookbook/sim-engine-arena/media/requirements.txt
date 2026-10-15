@@ -1,0 +1,2 @@
+# MuJoCo and NumPy come from judge/requirements.lock in the same interpreter.
+pillow==11.3.0

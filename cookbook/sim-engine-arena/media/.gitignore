@@ -1,0 +1,10 @@
+.venv/
+.tools/
+work/
+master/
+data/traj_*.csv
+data/versions.txt
+data/model_*.xml
+data/state_*.npy
+data/render_*.xml
+data/render-checks.json

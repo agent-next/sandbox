@@ -1,0 +1,106 @@
+{
+  "demo": "cfd-openfoam",
+  "headline": "The agent's OpenFOAM cases reproduce the analytic Poiseuille parabola to L2 = 0.0043 and Ghia's Re=100 cavity data to 0.0033/0.0073 max error, with 10/10 mutants killed.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "Mesh quality",
+      "pass": true,
+      "measured": "checkMesh exit 0; max non-orthogonality 0.0; max skewness 1.78e-14",
+      "threshold": "non-orthogonality <= 70 deg; skewness <= 4"
+    },
+    {
+      "name": "Solver convergence",
+      "pass": true,
+      "measured": "final residuals Ux 1.86e-14, Uy 3.56e-12, p 7.79e-07; continuity error 2.06e-11",
+      "threshold": "initial residuals < 1e-5; continuity < 1e-8"
+    },
+    {
+      "name": "Poiseuille accuracy",
+      "pass": true,
+      "measured": "L2 0.004253; Re 99.66; dp/dx rel err 0.0189",
+      "threshold": "L2 <= 0.02; |Re-100|/100 <= 0.10; dp/dx rel err <= 0.15"
+    },
+    {
+      "name": "Poiseuille mesh convergence",
+      "pass": true,
+      "measured": "observed orders 2.15, 1.91 (avg 2.03)",
+      "threshold": ">= 1.5 on both refinement steps"
+    },
+    {
+      "name": "Cavity vs Ghia et al. 1982",
+      "pass": true,
+      "measured": "max u err 0.0033; max v err 0.0073",
+      "threshold": "<= 0.02 (lid-speed units)"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "Poiseuille L2 profile error",
+      "value": 0.004253,
+      "unit": "",
+      "source": "RECEIPT.md:225"
+    },
+    {
+      "label": "Poiseuille dp/dx relative error",
+      "value": 0.018916,
+      "unit": "",
+      "source": "RECEIPT.md:226"
+    },
+    {
+      "label": "Poiseuille Re measured",
+      "value": 99.6646,
+      "unit": "",
+      "source": "RECEIPT.md:227"
+    },
+    {
+      "label": "Mesh-convergence orders",
+      "value": "2.153, 1.907",
+      "unit": "",
+      "source": "RECEIPT.md:228"
+    },
+    {
+      "label": "Cavity max u error vs Ghia",
+      "value": 0.003261,
+      "unit": "",
+      "source": "RECEIPT.md:229"
+    },
+    {
+      "label": "Cavity max v error vs Ghia",
+      "value": 0.007316,
+      "unit": "",
+      "source": "RECEIPT.md:230"
+    },
+    {
+      "label": "mutant kill rate",
+      "value": "10/10 (100%)",
+      "unit": "",
+      "source": "RECEIPT.md:65"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "Poiseuille centreline vs analytic parabola, cavity centreline vs Ghia 1982, mesh convergence order, and the cavity |U| field."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "replayed agent loop + self-test kill rate (10/10)"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "cavity flow developing over pseudo-time from a real icoFoam run"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/cfd-openfoam/run.py",
+    "ask_agent": "Create a CPU sandbox. In it, clone https://github.com/agent-next/sandbox\nand run `bash cookbook/cfd-openfoam/judge/setup.sh` to install the pinned\nOpenFOAM. Then build a case directory for the lid-driven cavity at\nRe = 100 (unit square, lid speed 1 m/s, icoFoam) and iterate with\n`bash cookbook/cfd-openfoam/judge/grade.sh <your-case-dir>` until every\ngate passes. Do the same for a plane-Poiseuille channel case (fully\ndeveloped parabolic inlet, Re = 100). Report the final verdict JSON and\nkill the sandbox when done."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "e08022b2c22f907028783518a6daf5ccc242801e",
+  "schema": "agent-next/result@1"
+}

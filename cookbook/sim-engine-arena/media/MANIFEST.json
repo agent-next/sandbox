@@ -1,0 +1,120 @@
+{
+  "demo": "cookbook/sim-engine-arena",
+  "seed": 0,
+  "command": "bash cookbook/sim-engine-arena/media/make_media.sh",
+  "note": "collect.py invokes the unchanged judge main with a run_artifact observer that copies the ACTUAL graded CSVs and generated MJCF before judge cleanup. It does not rerun the artifact to reconstruct evidence. All replay samples match all CSV columns within 1e-9. For free joints, the artifact logs pre-integration xpos, so rendered qpos is that same pre-step state; pendulum logs updated qpos. Every rendered frame checks qpos and the graded position/angle. data/grade.json excludes only timing.",
+  "render_only_changes": [
+    "Generated artifact MJCF remains the physics source, not ref_sim.py.",
+    "Render-only XML adds skybox/checker textures, materials, lights and offscreen settings. Cameras are runtime view settings; shadows enabled.",
+    "Pendulum gets a zero-mass, noncolliding visible link, anchor and floor. Existing masses, inertia, geometry, friction, contact parameters, transforms, gravity and timestep are asserted unchanged."
+  ],
+  "files": [
+    {
+      "file": "result.png",
+      "what": "Grid of twelve real 3D MuJoCo frames: release/contact/settling drop; 35-degree sliding and 20-degree sticking boxes at three times each; pendulum at both extrema and center. Every tile gives measured vs oracle and its numeric PASS line.",
+      "command": "bash cookbook/sim-engine-arena/media/make_media.sh",
+      "source": [
+        "media/data/traj_*.csv",
+        "media/data/model_*.xml",
+        "media/data/state_*.npy",
+        "media/data/grade.json",
+        "judge/spec.json"
+      ],
+      "sha256": "f288bf87251d3599419eb1f3813bab23c758ab1d18c79e50d200952195f390a6",
+      "bytes": 705341
+    },
+    {
+      "file": "loop.png",
+      "what": "Pillow table/bars: actual recorded draft verdicts 3/4, 3/4, 4/4; FAIL, FAIL, PASS; known-good passes and eight mutants are killed.",
+      "command": "bash cookbook/sim-engine-arena/media/make_media.sh",
+      "source": [
+        "examples/good/loop.json",
+        "media/data/selftest.txt"
+      ],
+      "sha256": "a831b513901ab47d5a45e60cf1d45a9fb6fe951405716ddd0b0e0136854e6c3b",
+      "bytes": 174412
+    },
+    {
+      "file": "demo.mp4",
+      "what": "28 seconds of mujoco.Renderer 3D replay: drop at 4x slow motion, inclines side by side at 8x slow motion, pendulum in real time, then a PASS card over the final rendered state. Pillow captions. Web crf 18/preset slow from ignored lossless crf 0 master.",
+      "command": "bash cookbook/sim-engine-arena/media/make_media.sh",
+      "source": [
+        "media/data/traj_*.csv",
+        "media/data/model_*.xml",
+        "media/data/state_*.npy",
+        "media/data/grade.json",
+        "media/data/selftest.txt",
+        "media/master/demo.mp4"
+      ],
+      "sha256": "6d9a7123239e93e157f76770b72df5d5167d66b806056157fa4370e659490c0c",
+      "bytes": 1151013
+    }
+  ],
+  "source_sha256": {
+    "judge/spec.json": "2adbc93c9f531fa02296b77948919e9a76750629ec44ac0538ae649ddcecb12a",
+    "judge/_grade.py": "8b241233dd424706b61c1bf9b54eee26c1ad6be7349e5485ceafb2392e39f90d",
+    "judge/grade.sh": "3b84215331e9c8d66b253ec1c810b3faa8392e574fd68abf680ea340719e38e6",
+    "judge/setup.sh": "6275fa92657108aaca5e07761e2466e3fa596b81d51f5d990176a171001e70ea",
+    "judge/selftest.sh": "48d7e49618a4f558aa30cd7cc3461a632dc39236fb06a1c35fd94fcf3c5ca34f",
+    "judge/mutants.py": "63d246af7e74eefb85d78dfa1c2f6b67fb56308b15a714137dedf05ddf164ca7",
+    "judge/ref_sim.py": "b373e3327068e2c184c1d53e31a3b37e3ff53e38aebe67ce8abf8df8c0ccd7ea",
+    "judge/requirements.lock": "62015d3c3043fa1702d5e74f1ab3e351036edb5ffa10c734911123dabd8a1507",
+    "examples/good/sim.py": "8f3d283bfc89a634238afd6a885e578248d2136f5185951b42b8ca4cb82c7ba5",
+    "examples/good/loop.json": "d85247453ddda58cb99038e060056cb13ab803827d3e6fca34501a06798602c6",
+    "examples/loop.py": "c4575e0b35cbabad903ded0ba8d3d682272ddeb87ceff7bb32fc72dd7e2873c5",
+    "media/requirements.txt": "5384f48cf2870928f545a6be15f2234efb475d144b8a25bb0e87479a3c5511b6",
+    "media/collect.py": "d72e89a72868938a8f4cfb4de0e97421954958102c6e27eeaa566f7794f383c5",
+    "media/render.py": "904e818985d089b18464328d0b2f048d53ca749758fa0948e62ef37c04329f17",
+    "media/manifest.py": "27d79e02e05065c50c45991fd2782139423b5190495afe09f43bd72159c1c86b",
+    "media/make_media.sh": "d114b8aa28327c7f507c850a8ad6611ee5b07be8b87802f53e0092c25e501a1b",
+    "media/test_media.py": "be114c30068809d905562971ee378847e180694c4405eab10527cca2aa7ebf07",
+    "media/data/grade.json": "d96fcf920f9c8f4d85187aecd1f127362795b1ce995500fe6a6808727460cc0b",
+    "media/data/selftest.txt": "7e239c04261d341d074d35f23c0f4cda29694c9504296cb90facfd8ec4ce572b",
+    "media/data/render-checks.json": "7a10cea0df92d5bc0d87b74eaa220a0fb945d517fd19560841d0db75d534b1f6",
+    "media/data/traj_drop.csv": "09b5bb9ccede30f336070ddf90c56d0bdaa9a6756d5f347ea2b822e55c46c4e0",
+    "media/data/model_drop.xml": "572463910aa27497a6fcc8ffd2f4d4a89270b651598771d0af265e9bdd94ccaf",
+    "media/data/render_drop.xml": "f12fe9613a1f44119978515cd1a0a9ef6efea42d49fbfca42e6fe1aad617da9b",
+    "media/data/state_drop.npy": "cc66b31a2385b74e00c24cce1cb4c7aa5078909468804b6844813399aaaab65c",
+    "examples/good/mjcf/model_drop.xml": "f0587b98c10c838f4424d695624f1460eafbcddbe6fa5832b833bacfdd653fcd",
+    "media/data/traj_incline_slide.csv": "fefc3b9333f36d71176ac24ff078b166738d8f81eb77f156ca1ba98844489a1d",
+    "media/data/model_incline_slide.xml": "cdce5ae2876eb3f7430718acb508ee683126c3a908ea9f17373af3f5cd7c8142",
+    "media/data/render_incline_slide.xml": "86bbedfde477c421ea6991d55571a0315daa56422f4a9519e07806cbc6f9590e",
+    "media/data/state_incline_slide.npy": "01af04baaed5a5a715a97cd815b237e96a1802accea07c25bb2e0b8279264708",
+    "examples/good/mjcf/model_incline_slide.xml": "7410e3d22ede7c69a55db9dfe8f0946c601ed4658f56359f9f4218bb7249ecc3",
+    "media/data/traj_incline_stick.csv": "ae6f39cde6bd165eac7c47b008ce798ec5afc3c5c5c5ea8c7e570ddc90420fac",
+    "media/data/model_incline_stick.xml": "d07203ffde127ddaaa307ae4b872404620ba93681a7477a53412bc419243f5d5",
+    "media/data/render_incline_stick.xml": "517d5528684a72afc6e60661005a80512112fd84b976a1a535e661d9382f80fb",
+    "media/data/state_incline_stick.npy": "f9ae9e7e510c52698ebe585649dd815c07c220c7e4f26c4f8034929f62def2b3",
+    "examples/good/mjcf/model_incline_stick.xml": "77c86bc4f8a156ccce08f6d37f124b25d33ab31f445f703a335b910a56cd34b0",
+    "media/data/traj_pendulum.csv": "42bf11919647f0c8d825c80050b7ee3a92ad551949958167e8319f78e529fee0",
+    "media/data/model_pendulum.xml": "8944091c460cf58f4d2d100bc1a46251fa7fd0f426f381f9cac696e9e449161e",
+    "media/data/render_pendulum.xml": "72e8d2000c1a925d9213913c5c89699735b16ea0194f8df900c8a9be77429e37",
+    "media/data/state_pendulum.npy": "3db1c5eba3c00405aa559503924a3898da05dfe3d985cbdc5fcf3557d15aa204",
+    "examples/good/mjcf/model_pendulum.xml": "8944091c460cf58f4d2d100bc1a46251fa7fd0f426f381f9cac696e9e449161e",
+    "media/master/demo.mp4": "a85b24a580daa627da18dd34fa9d9368e7c27f4c30650f703138eb0dbb1fd767",
+    "media/data/versions.txt": "83846b526eef8b0228efe7693ec40c707216ee167b4e03324bf3f2ef4b0b96b7"
+  },
+  "toolchain": {
+    "python": "3.12.3",
+    "mujoco": "3.8.1",
+    "numpy": "2.5.3",
+    "pillow": "11.3.0",
+    "gl_backend": "egl",
+    "font": "DejaVu Sans (system font, checksummed below)",
+    "font_sha256": {
+      "DejaVuSans.ttf": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280",
+      "DejaVuSans-Bold.ttf": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
+    },
+    "judge": "python 3.12.3, mujoco 3.8.1, numpy 2.5.3",
+    "ffmpeg": "6.1.1-3ubuntu5"
+  },
+  "video": {
+    "codec_name": "h264",
+    "width": 1920,
+    "height": 1080,
+    "r_frame_rate": "30/1",
+    "pix_fmt": "yuv420p",
+    "nb_frames": "840"
+  },
+  "duration_s": 28.0
+}
