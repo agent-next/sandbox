@@ -91,25 +91,28 @@ tG, _, _, _, _, FG, tauG = c.trace("good", 2)
 axA.plot(tA, tauA, color=c.ORANGE, lw=2.0, zorder=3,
          label="too-aggressive (Q × 1000)")
 axA.plot(tG, tauG, color=c.BLUE, lw=2.0, zorder=3,
-         label="good (committed example)")
+         label="good (committed)")
 axA.axhline(c.TAU_MAX, color=c.CRIT, lw=1.6, zorder=2,
             label="actuator limit ±1 N·m")
 axA.axhline(-c.TAU_MAX, color=c.CRIT, lw=1.6, zorder=2)
 axA.axhline(0, color=c.AXIS, lw=1.0, zorder=1)
 bad = c.verdict("too-aggressive")["gates"]["s2_tau_demand_max_Nm"]["value"]
-axA.annotate(f"measured peak |τ| = {bad:.2f} N·m - gate fails at 1 N·m\n"
-             "(unclamped demand; the simulation clamps the real input)",
-             xy=(tA[np.argmax(np.abs(tauA))], tauA[np.argmax(np.abs(tauA))]),
-             xytext=(1.6, 1.78), fontsize=10.5, color=c.INK2,
+# label and leader drawn separately: the layout check then measures the
+# label text alone, not the whole leader-line box
+iA = np.argmax(np.abs(tauA))
+axA.text(1.6, 1.45, f"measured peak |τ| = {bad:.2f} N·m - gate fails at 1 N·m\n"
+         "(unclamped demand; the simulation clamps the real input)",
+         fontsize=10.5, color=c.INK2)
+axA.annotate("", xy=(tA[iA], tauA[iA]), xytext=(1.55, 1.6),
              arrowprops=dict(arrowstyle="-", color=c.AXIS, lw=1))
 axA.set_xlabel("time (s)", fontsize=11.5, color=c.INK2)
 axA.set_ylabel("torque demand (N·m)", fontsize=11.5, color=c.INK2)
 axA.set_title("Killed by the actuator gate - scenario 2 torque demand",
               fontsize=12, color=c.INK, pad=8)
 axA.set_xlim(-0.2, 10.2)
-axA.set_ylim(-2.75, 3.35)
+axA.set_ylim(-4.4, 4.3)
 c.style_axis(axA)
-axA.legend(loc="lower right", fontsize=9.5, frameon=True, facecolor=c.SURFACE,
+axA.legend(loc="lower right", ncol=3, fontsize=8.5, frameon=True, facecolor=c.SURFACE,
            edgecolor=c.GRID)
 for txt in axA.get_legend().get_texts():
     txt.set_color(c.INK2)
@@ -130,20 +133,20 @@ axS.axhline(-c.S2_X_BAND, color=c.GOOD, lw=1.2, zorder=2)
 axS.fill_between([-0.3, 10.3], -c.S2_X_BAND, c.S2_X_BAND, color=c.GOOD,
                  alpha=0.08, zorder=1)
 vs = c.verdict("too-sluggish")["gates"]["s2_x_settle_s"]["value"]
-axS.annotate(f"too-sluggish never settles\n"
-             f"(gate ≤ {c.S2_SETTLE_MAX:.0f} s, measured {vs:.0f} s)\n"
-             f"good settles {Vg['gates']['s2_x_settle_s']['value']:.2f} s",
-             xy=(9.4, xS[940]), xytext=(10.0, 1.06), fontsize=10.5,
-             color=c.INK2, ha="right", va="top",
+axS.text(10.0, 1.06, f"too-sluggish never settles\n"
+         f"(gate ≤ {c.S2_SETTLE_MAX:.0f} s, measured {vs:.0f} s)\n"
+         f"good settles {Vg['gates']['s2_x_settle_s']['value']:.2f} s",
+         fontsize=10.5, color=c.INK2, ha="right", va="top")
+axS.annotate("", xy=(9.4, xS[940]), xytext=(9.75, 0.6),
              arrowprops=dict(arrowstyle="-", color=c.AXIS, lw=1))
 axS.set_xlabel("time (s)", fontsize=11.5, color=c.INK2)
 axS.set_ylabel("cart position x (m)", fontsize=11.5, color=c.INK2)
 axS.set_title("Killed by the settling gate - scenario 2 cart displacement",
               fontsize=12, color=c.INK, pad=8)
 axS.set_xlim(-0.3, 10.3)
-axS.set_ylim(-0.35, 1.12)
+axS.set_ylim(-0.62, 1.12)
 c.style_axis(axS)
-axS.legend(loc="upper left", bbox_to_anchor=(0.29, 0.99), fontsize=9.5,
+axS.legend(loc="lower left", fontsize=9.5,
            frameon=True, facecolor=c.SURFACE,
            edgecolor=c.GRID)
 for txt in axS.get_legend().get_texts():
