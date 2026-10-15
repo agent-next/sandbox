@@ -41,7 +41,8 @@ command -v python3 >/dev/null 2>&1 || fail "python3 missing -- run 'bash judge/s
 command -v sqlite3 >/dev/null 2>&1 || fail "sqlite3 missing -- run 'bash judge/setup.sh' first"
 
 # hash the judge before any artifact code runs (SPEC judge-integrity rule)
-JUDGE_HASH_BEFORE="$(find "$HERE" -type f ! -name 'setup.sh' ! -name 'grade.sh' \
+JUDGE_HASH_BEFORE="$(find "$HERE" -type f ! -path '*/__pycache__/*' \
+                     ! -name 'setup.sh' ! -name 'grade.sh' \
                      ! -name 'selftest.sh' ! -name 'RECEIPT.md' -exec sha256sum {} + \
                      | sort | sha256sum | awk '{print $1}')"
 
@@ -51,7 +52,8 @@ rc=$?
 set -e
 
 # the artifact must not have touched the judge
-JUDGE_HASH_AFTER="$(find "$HERE" -type f ! -name 'setup.sh' ! -name 'grade.sh' \
+JUDGE_HASH_AFTER="$(find "$HERE" -type f ! -path '*/__pycache__/*' \
+                    ! -name 'setup.sh' ! -name 'grade.sh' \
                     ! -name 'selftest.sh' ! -name 'RECEIPT.md' -exec sha256sum {} + \
                     | sort | sha256sum | awk '{print $1}')"
 [ "$JUDGE_HASH_BEFORE" = "$JUDGE_HASH_AFTER" ] \
