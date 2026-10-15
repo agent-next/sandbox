@@ -39,6 +39,9 @@ NUM_CASES = 400
 # This is the latency the parallel sweep overlaps (SPEC.md, "speedup"); 3.0 s
 # keeps the G7 speedup gate's >= 2x margin on 2 vCPU when per-commit work also
 # pays fixture build + local clone.
+# Pinned: SOAK_S is baked into the fixture's committed tree, so changing it
+# changes every commit SHA — the checked-in good example, the mutant SHAs and
+# the RECEIPT/REPRODUCE numbers are all measured at 3.0 s.
 SOAK_S = 3.0
 # Fixed history clock: base + i minutes, so SHAs are reproducible.
 BASE_DATE = "2026-01-01T00:00:00+00:00"

@@ -12,7 +12,7 @@ rebuilds the fixture, re-runs the suite at every commit itself and re-runs the
 same sweep on a reverted fixture as a negative control — checks the answer
 (`judge/grade.sh`, gates G1–G8 in `SPEC.md`). Parallel sandboxes help because
 per-commit cost is latency (clone + suite), not CPU: on 2 vCPU the sweep
-measures ~4.4–4.6× over the serial baseline in fresh runs (RECEIPT.md; the
+measures ~4.4–4.7× over the serial baseline in fresh runs (RECEIPT.md; the
 judge's own re-measure ~10×; the local good example reports 5.85×).
 
 ## Ask your agent
@@ -66,7 +66,7 @@ in `examples/good/report.json`.
 ## Limits, plainly
 
 - The fixture is synthetic and small on purpose: 31 commits, 400-case corpus,
-  2.0 s per-suite settle delay standing in for real-suite I/O. A real repo
+  3.0 s per-suite settle delay standing in for real-suite I/O. A real repo
   with a compile step would dominate the suite cost and scale the same way.
 - The regression is planted and the judge knows it (G3); the demo shows the
   sweep finds it with receipts, not that regressions are always
