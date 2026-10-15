@@ -128,6 +128,118 @@ def _plant_pyc(s):
         "    import json")
 
 
+def _shuffled_grid(s):
+    """Move the resonance sample (the sweep's minimum) to the end of the
+    reported sweep: every (freq, S11) pair is kept, so the pointwise
+    cross-check still passes, but a scalar-only check that interpolates
+    on the artifact's own grid would read the moved minimum as the value
+    at any frequency >= it. Only the judge's sweep-grid validation
+    (ordering) catches it."""
+    return s.replace(
+        "    i_res = int(np.nanargmin(s11))\n"
+        "    i_tgt = int(np.argmin(np.abs(fr - f_target_ghz)))\n"
+        "    out = dict(params=p, S11_dB_at_target=float(s11[i_tgt]),\n"
+        "               f_res_GHz=float(fr[i_res]),\n"
+        "               freqs_GHz=r[\"freqs_GHz\"], S11_dB=r[\"S11_dB\"])",
+        "    _fq = list(r[\"freqs_GHz\"]); _sv = list(r[\"S11_dB\"])\n"
+        "    _i = int(np.argmin(_sv))\n"
+        "    _fq.append(_fq.pop(_i)); _sv.append(_sv.pop(_i))\n"
+        "    i_res = int(np.nanargmin(s11))\n"
+        "    i_tgt = int(np.argmin(np.abs(fr - f_target_ghz)))\n"
+        "    out = dict(params=p, S11_dB_at_target=float(s11[i_tgt]),\n"
+        "               f_res_GHz=float(fr[i_res]),\n"
+        "               freqs_GHz=_fq, S11_dB=_sv)")
+
+
+_SWAP_PORTS_MAIN = '''def main():
+    import json, time
+    results_path = os.path.abspath("antenna_results.json")
+    sim = os.path.abspath("oems_sim")   # openEMS chdir()s during Run
+    p = dict(f_target_ghz=f_target_ghz, er=er, tanD=tanD, sub_h=sub_h,
+             patch_L=patch_L, patch_W=patch_W, feed_inset=feed_inset,
+             mesh_res=mesh_res)
+    r = simulate(p, sim)
+    s11, fr = np.asarray(r["S11_dB"]), np.asarray(r["freqs_GHz"])
+    # cache the port files the solver just produced, then swap them back
+    # in AFTER Run returned: mtimes land inside the run window (+ the
+    # post-Run CalcPort writes), but the bytes no longer match the
+    # sha256 the runner hashed at the end of Run.
+    _pu = open(os.path.join(sim, "port_ut_1"), "rb").read()
+    _pi = open(os.path.join(sim, "port_it_1"), "rb").read()
+    time.sleep(10.0)                       # comfortably inside the old slack
+    open(os.path.join(sim, "port_ut_1"), "wb").write(_pu + b"\\n")
+    open(os.path.join(sim, "port_it_1"), "wb").write(_pi + b"\\n")
+    i_res = int(np.nanargmin(s11))
+    i_tgt = int(np.argmin(np.abs(fr - f_target_ghz)))
+    out = dict(params=p, S11_dB_at_target=float(s11[i_tgt]),
+               f_res_GHz=float(fr[i_res]),
+               freqs_GHz=r["freqs_GHz"], S11_dB=r["S11_dB"])
+    with open(results_path, "w") as fh:
+        json.dump(out, fh, indent=1)
+    print("RESULT S11_dB_at_{:.2f}GHz={:.2f} f_res_GHz={:.3f}".format(
+        f_target_ghz, out["S11_dB_at_target"], out["f_res_GHz"]))
+'''
+
+
+def _late_ports_swap(s):
+    # lambda replacement: re.sub must not process the \\n escapes in the
+    # mutated source
+    return re.sub(r"(?s)def main\(\):.*?(?=\n\nif __name__)",
+                  lambda m: _SWAP_PORTS_MAIN, s)
+
+
+def _forge_journal(s):
+    """The full pre-hardening provenance attack, no solver anywhere: replay
+    fabricated port files, burn >= min_sim_cpu_s, and append a forged
+    ok:true journal line with matching sim_path + timestamps (+ even the
+    port hashes) to fdtd_runs.jsonl in the workdir — where the judge's
+    journal used to live. The judge now journals to an unlinked fd the
+    artifact never sees, so the forged file is never read."""
+    return re.sub(
+        r"(?s)def main\(\):.*?(?=\n\nif __name__)", lambda m: '''def main():
+    import json, os, time, hashlib
+    p = dict(f_target_ghz=f_target_ghz, er=er, tanD=tanD, sub_h=sub_h,
+             patch_L=patch_L, patch_W=patch_W, feed_inset=feed_inset,
+             mesh_res=mesh_res)
+    fr = np.linspace(2.2e9, 2.7e9, 51)
+    s11_db = -4.0 - 14.0*np.exp(-((fr/1e9 - 2.44)/0.02)**2)
+    gm = 10**(s11_db/20.0)
+    U = np.ones(len(fr), dtype=complex)
+    I = U*(1 - gm)/(1 + gm)/50.0
+    t = np.arange(0, 100e-9, 20e-12)
+    df = fr[1] - fr[0]
+    ut = np.zeros(len(t)); it = np.zeros(len(t))
+    for k, f in enumerate(fr):
+        ut += np.real(U[k]*np.exp(2j*np.pi*f*t))*2*df
+        it += np.real(I[k]*np.exp(2j*np.pi*f*t))*2*df
+    os.makedirs("oems_sim", exist_ok=True)
+    np.savetxt("oems_sim/port_ut_1", np.column_stack([t, ut]))
+    np.savetxt("oems_sim/port_it_1", np.column_stack([t, it]))
+    t0 = time.time()
+    x = 0.0
+    while time.time() - t0 < 8.0:            # burn >= min_sim_cpu_s
+        x += 1.0
+    ports = {}
+    for nm in ("port_ut_1", "port_it_1"):
+        b = open(os.path.join("oems_sim", nm), "rb").read()
+        ports[nm] = [len(b), hashlib.sha256(b).hexdigest()]
+    with open("fdtd_runs.jsonl", "a") as fh:
+        json.dump({"sim_path": os.path.abspath("oems_sim"),
+                   "t0": t0 - 30.0, "t1": time.time(), "ok": True,
+                   "ports": ports}, fh)
+        fh.write("\\n")
+    i_res = int(np.argmin(s11_db))
+    i_tgt = int(np.argmin(np.abs(fr/1e9 - f_target_ghz)))
+    out = dict(params=p, S11_dB_at_target=float(s11_db[i_tgt]),
+               f_res_GHz=float(fr[i_res]/1e9),
+               freqs_GHz=(fr/1e9).tolist(), S11_dB=s11_db.tolist())
+    with open(os.path.abspath("antenna_results.json"), "w") as fh:
+        json.dump(out, fh, indent=1)
+    print("RESULT S11_dB_at_{:.2f}GHz={:.2f} f_res_GHz={:.3f}".format(
+        f_target_ghz, out["S11_dB_at_target"], out["f_res_GHz"]))
+''', s)
+
+
 # (filename, targeted gate, human description, mutator(src)->src)
 MUTANTS = [
     ("bad_nan_er.py", "G1_syntax_and_params",
@@ -182,6 +294,17 @@ MUTANTS = [
     ("bad_plant_pyc.py", "G9_judge_integrity",
      "plants a forged .pyc for verify_line under judge/__pycache__",
      _plant_pyc),
+    ("bad_shuffled_grid.py", "G3_sim_runs",
+     "2.42 GHz sample moved to the end of the reported sweep (reordered "
+     "grid; pointwise data unchanged)", _shuffled_grid),
+    ("bad_late_ports_swap.py", "G3_sim_runs",
+     "port files rewritten 10 s after Run returned (inside the old slack, "
+     "physics unchanged — only the end-of-Run sha256 catches it)",
+     _late_ports_swap),
+    ("bad_forge_journal.py", "G3_sim_runs",
+     "no solver at all: fabricated ports + 8 CPU-s burn + a forged "
+     "ok:true fdtd_runs.jsonl in the workdir (the pre-hardening journal "
+     "location)", _forge_journal),
 ]
 
 

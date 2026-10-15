@@ -19,6 +19,9 @@ actually failed.
 | `bad_no_result.py` | `__main__` writes a fabricated results JSON, never simulates | G3 (no raw solver data) |
 | `bad_lie_scalars.py` | no ground plane (~−0.2 dB) but reports `S11=-20 dB`, `f_res=2.45` | G3 (scalars disagree with judge-derived curve) |
 | `bad_replay_cached.py` | fabricates `port_ut_1`/`port_it_1` so the judge's DFT sees a plausible dip — no solver run | G3 (no recorded solver run) |
+| `bad_shuffled_grid.py` | moves the resonance sample to the end of the reported sweep (pairs intact — pointwise data honest, grid reordered) | G3 sweep-grid check |
+| `bad_late_ports_swap.py` | rewrites `port_ut_1`/`port_it_1` 10 s after `Run` returned (inside the old 30 s slack, physics unchanged) | G3 (sha256 recorded at Run end no longer matches) |
+| `bad_forge_journal.py` | no solver: fabricated ports + 8 CPU-s burn + a forged `ok:true` `fdtd_runs.jsonl` in the workdir (the pre-hardening journal location) | G3 (journal is an unlinked fd; forged file never read) |
 | `bad_fake_curve.py` | real sim, but the reported `S11_dB` sweep is shifted +8 dB | G6 raw cross-check |
 | `bad_oracle_tamper.py` | overwrites the judge's private `oracle.py` copy mid-run | G7 oracle (tamper detected) |
 | `bad_fine_geometry.py` | `simulate()` silently uses a 25 %-longer patch at the fine mesh | G8 (fine f_res leaves the ±2 % band) |
