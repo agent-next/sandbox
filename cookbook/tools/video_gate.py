@@ -211,8 +211,10 @@ def count_scene_cuts(path: str) -> int:
             f"scene detection failed: {_text(proc.stderr).strip()[:400]}"
         )
     text = _text(proc.stdout) + _text(proc.stderr)
+    # One line per selected frame; the log prefix differs between ffmpeg
+    # versions ("Parsed_showinfo_0 @ ..."), so match on the filter name.
     return len(
-        re.findall(r"Parsed_showinfo.*pts_time:\d+(?:\.\d+)?", text)
+        re.findall(r"showinfo.*pts_time:\d+(?:\.\d+)?", text)
     )
 
 
