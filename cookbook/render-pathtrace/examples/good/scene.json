@@ -2,21 +2,24 @@
   "seed": 17,
   "resolution": [512, 512],
   "spp": 128,
-  "camera": {"position": [0, 2.6, 7], "target": [0, 0.7, 0], "fov": 42},
+  "camera": {"position": [0, 3.6, 5.6], "target": [0, 0.45, 0], "fov": 36},
   "materials": {
-    "clay": {"baseColor": [0.55, 0.12, 0.06], "specularWeight": 0, "specularRoughness": 0.7},
-    "metal": {"baseColor": [0.7, 0.55, 0.25], "baseMetalness": 1, "specularRoughness": 0.35},
-    "coat": {"baseColor": [0.05, 0.24, 0.45], "specularRoughness": 0.4, "coatWeight": 0.7, "coatRoughness": 0.25},
-    "floor": {"baseColor": [0.42, 0.42, 0.42], "specularWeight": 0, "specularRoughness": 0.8}
+    "clay": {"baseColor": [0.62, 0.14, 0.07], "specularWeight": 0, "specularRoughness": 0.7},
+    "metal": {"baseColor": [0.95, 0.72, 0.32], "baseMetalness": 1, "specularRoughness": 0.25},
+    "coat": {"baseColor": [0.04, 0.2, 0.5], "specularRoughness": 0.45, "coatWeight": 1, "coatRoughness": 0.08},
+    "velvet": {"baseColor": [0.08, 0.32, 0.14], "specularWeight": 0, "fuzzWeight": 1, "fuzzColor": [0.6, 0.9, 0.65], "fuzzRoughness": 0.5},
+    "floor": {"baseColor": [0.62, 0.6, 0.57], "specularWeight": 0.3, "specularRoughness": 0.6}
   },
   "spheres": [
-    {"position": [-1.5, 0.65, 0], "radius": 0.65, "material": "clay"},
-    {"position": [0, 0.65, 0], "radius": 0.65, "material": "metal"},
-    {"position": [1.5, 0.65, 0], "radius": 0.65, "material": "coat"}
+    {"position": [-1.41, 0.42, 0], "radius": 0.42, "material": "clay"},
+    {"position": [-0.47, 0.42, 0], "radius": 0.42, "material": "metal"},
+    {"position": [0.47, 0.42, 0], "radius": 0.42, "material": "coat"},
+    {"position": [1.41, 0.42, 0], "radius": 0.42, "material": "velvet"}
   ],
-  "floor": {"y": 0, "size": 20, "material": "floor"},
-  "environment": {"type": "constant", "color": [0.3, 0.3, 0.3]},
+  "floor": {"y": 0, "size": 30, "material": "floor"},
+  "environment": {"type": "gradient", "top": [0.85, 0.9, 1.0], "bottom": [0.3, 0.28, 0.26]},
   "lights": [
-    {"type": "rect", "size": [3, 3], "position": [-2, 4, 2], "target": [0, 0, 0], "color": [1, 0.95, 0.9], "intensity": 1.5}
+    {"type": "rect", "size": [3, 3], "position": [-3, 5, 3], "target": [0, 0.5, 0], "color": [1, 0.92, 0.82], "intensity": 6},
+    {"type": "rect", "size": [2, 4], "position": [3, 3, -4], "target": [0, 0.5, 0], "color": [0.8, 0.88, 1], "intensity": 4}
   ]
 }

@@ -35,7 +35,7 @@ window.renderScene = async function (s, spp, seed, api = "webgpu") {
       const {emissive, ...params} = value;
       return [name, new M.OpenPBRMaterial(params)];
     }));
-  const geometry = M.createSphereGeometry(16, 8);
+  const geometry = M.createSphereGeometry(96, 48);
   const meshes = s.spheres.map(ball => {
     const mesh = new M.Mesh(geometry, materials[ball.material]);
     transform(mesh, ball.position, [ball.radius, ball.radius, ball.radius]);
