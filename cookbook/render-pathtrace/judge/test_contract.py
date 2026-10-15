@@ -120,6 +120,22 @@ class ContractTests(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 renderer.render(scene, 32, 17)
 
+    def test_gpu_backend_fails_fast_on_software_adapter_at_start(self):
+        page = Mock()
+        page.evaluate.return_value = "google"
+        playwright = Mock()
+        playwright.chromium.launch.return_value.new_page.return_value = page
+        with patch("driver.sync_playwright") as start:
+            start.return_value.start.return_value = playwright
+            with self.assertRaisesRegex(RuntimeError, "'google', not NVIDIA"):
+                with Renderer("gpu"):
+                    pass
+        page.evaluate.return_value = "nvidia"
+        with patch("driver.sync_playwright") as start:
+            start.return_value.start.return_value = playwright
+            with Renderer("gpu") as renderer:
+                self.assertIs(renderer.page, page)
+
     def test_saved_hdr_and_preview(self):
         image = np.full((2, 3, 4), 0.5, dtype="<f4")
         with tempfile.TemporaryDirectory() as temp:
