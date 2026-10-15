@@ -2,10 +2,11 @@
 
 Model: Unitree Go1 from MuJoCo Menagerie
 (https://github.com/google-deepmind/mujoco_menagerie @
-d7b481bac63d3d600ab404ee74f7474c5efe8a67, Apache-2.0, see model/LICENSE).
+d7b481bac63d3d600ab404ee74f7474c5efe8a67, BSD 3-Clause, see model/LICENSE).
 Visual meshes and cameras are stripped; every collision geom in that model
-is a primitive and every body has an explicit <inertial>, so the dynamics
-are identical to the original.
+is a primitive and every body has an explicit <inertial>. Only the four
+foot spheres collide (upstream trains foot-only: a fallen trunk passes
+through the floor, which keeps the per-world constraint arena small).
 
 Physics dt 0.002 s, control dt 0.02 s (10 substeps). The 12 <position
 kp=100 forcerange=+/-23.7/35.55> actuators of the Menagerie model are the
@@ -18,6 +19,7 @@ from __future__ import annotations
 import os
 
 import numpy as np
+import torch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODEL_XML = os.path.join(HERE, "model", "go1_meshless.xml")
@@ -86,7 +88,7 @@ class Go1Batch:
         mujoco.mj_forward(mjm, mjd)
         self.mjm = mjm
         self.m = mjw.put_model(mjm)
-        self.d = mjw.put_data(mjm, mjd, nworld=n_envs)
+        self.d = mjw.put_data(mjm, mjd, nworld=n_envs, njmax=128)
         # live torch views of the warp sim state
         self.qpos = wp.to_torch(self.d.qpos)            # (n, 19)
         self.qvel = wp.to_torch(self.d.qvel)            # (n, 18)
