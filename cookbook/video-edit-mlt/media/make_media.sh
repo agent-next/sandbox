@@ -23,7 +23,7 @@ sudo apt-get install -y --no-install-recommends libnss3 libatk1.0-0 libatk-bridg
     libxrandr2 libpango-1.0-0 libcairo2 libasound2 fonts-dejavu-core >/dev/null
 (cd media/video && npm ci --no-audit --no-fund && npm run render)
 ffmpeg -y -v error -i media/master/remotion.mp4 \
-    -c:v libx264 -crf 18 -preset slow -threads 2 -pix_fmt yuv420p \
+    -vf scale=out_range=tv -c:v libx264 -crf 18 -preset slow -threads 2 -pix_fmt yuv420p \
     -movflags +faststart media/demo.mp4
 python3 ../tools/video_gate.py media/demo.mp4 --json media/video_gate.json
 python3 ../tools/result.py check media/result.json
