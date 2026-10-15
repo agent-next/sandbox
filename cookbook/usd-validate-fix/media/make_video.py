@@ -169,7 +169,7 @@ def scene_escalate(good_v):
     """s3 (9-16 s): orbit with the five gate verdicts as HUD chips."""
     mesh = load_mesh("good")
     paths = []
-    for i in range(int(7.0 * FPS)):
+    for i in range(int(5.0 * FPS)):
         fig = new_frame()
         ax = axes3d(fig, [0.28, 0.08, 0.70, 0.72])
         draw_cone(ax, mesh, show_normals=True,
@@ -257,7 +257,7 @@ def scene_proof():
         gate = v.get("failed_gate") or "no verdict"
         rows.append((name, gate))
     paths = []
-    for i in range(int(14.0 * FPS)):
+    for i in range(int(8.0 * FPS)):
         fig = new_frame()
         ax = axes3d(fig, [0.02, 0.14, 0.60, 0.70])
         draw_cone(ax, mesh, show_normals=True,
