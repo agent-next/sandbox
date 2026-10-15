@@ -20,8 +20,9 @@ Steps (each timed, each printed, each fatal on failure):
   3. each sweep sandbox: stage the two scripts, run sweep/one_commit.sh <i>
      between SWEEP sentinels, print a receipt JSON; the sandbox is killed as
      soon as its receipt is in
-  4. serial baseline in the utility sandbox: the identical staged-command
-     sequence, one commit after another (the honest serial floor)
+  4. serial baseline in the utility sandbox: one exec per commit, the same
+     command the sweep sends each sandbox, issued one after another (the
+     honest serial floor — 11 commits on one machine)
   5. negative control in the utility sandbox: the same sweep on the reverted
      fixture must report "no regression in range"
   6. judge/grade.sh on the sweep report → verdict JSON; PASS only if every
@@ -382,17 +383,31 @@ def main():
             raise RuntimeError("sweep-sandbox cleanup failed:\n  "
                                + "\n  ".join(kill_failures))
 
-        # --- 4. serial baseline: same staged commands, one machine --------
-        serial_cmd = (stage_cmd(mf_b64, oc_b64) +
-                      " && r=0; for i in $(seq {first} {last}); do "
-                      "FIXTURE_DIR=/tmp/fixture-serial bash "
-                      "/tmp/sw/sweep/one_commit.sh $i >/dev/null 2>&1 "
-                      "|| r=1; done; exit $r"
-                      ).format(first=SWEEP_FIRST, last=SWEEP_LAST)
-        _, dt = util_exec(util_sid, "serial baseline (11 commits, 1 machine)",
-                          serial_cmd, 1500)
-        timings["serial_sweep_s"] = round(dt, 2)
-        serial_seconds = dt
+        # --- 4. serial baseline: the identical per-commit work, one machine
+        #     One exec per commit, issued back to back — the same command the
+        #     parallel sweep sends to each sandbox, so the two walls differ
+        #     only in machine count, not in how the work is packaged.  A
+        #     single bash loop would fold the eleven per-exec walls into one
+        #     and understate the honest serial floor.
+        util_exec(util_sid, "serial stage scripts (1 machine)",
+                  stage_cmd(mf_b64, oc_b64), 300)
+        t0 = time.monotonic()
+        serial_failures = []
+        for i in range(SWEEP_FIRST, SWEEP_LAST + 1):
+            cmd = (f"FIXTURE_DIR=/tmp/fixture-serial bash "
+                   f"/tmp/sw/sweep/one_commit.sh {i} >/dev/null 2>&1")
+            rc, out, _ = timed(f"serial commit {i}", sbx, "exec", util_sid,
+                               "--timeout", "300", "--", "bash", "-c", cmd,
+                               timeout=360)
+            if rc != 0:
+                serial_failures.append(f"commit {i}: exit {rc}")
+        serial_seconds = time.monotonic() - t0
+        timings["serial_sweep_s"] = round(serial_seconds, 2)
+        print(f"[run] serial baseline: {serial_seconds:.1f}s over "
+              f"{N_SANDBOXES} commits (one exec each, 1 machine)", flush=True)
+        if serial_failures:
+            raise RuntimeError("serial baseline failed:\n  "
+                               + "\n  ".join(serial_failures))
 
         # --- 5. negative control on the reverted fixture ------------------
         out, dt = util_exec(util_sid, "negative control (reverted fixture)",
