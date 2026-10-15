@@ -75,7 +75,13 @@ CONTAIN_REASON = {
 }
 CONTAIN_TOKEN = {
     "fork_bomb": ("nproc", "timeout", "output_cap", "perm", "killed"),
-    "memory_balloon": ("as", "cpu", "timeout", "killed"),
+    # SPEC: the balloon's stop must be named by the address-space limit
+    # (as/cpu/timeout). A bare "killed" is what the host's own OOM killer
+    # produces, so accepting it let the no_as_limit mutant survive on a
+    # host whose memory cgroup killed the balloon for it (self-test run
+    # 2026-10-15, kill rate 9/10): a runner with no address-space cap
+    # would have passed.
+    "memory_balloon": ("as", "cpu", "timeout"),
     "infinite_loop": ("cpu", "timeout"),
     "disk_filler": ("fsize", "timeout", "perm"),
     "read_shadow": ("perm", "read", "as"),

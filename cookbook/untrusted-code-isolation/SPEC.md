@@ -124,8 +124,11 @@ It must:
   - `timeout` — the wall clock expired.
   - `error` — the snippet exited non-zero, or the runner could not run it.
 - `reason` — a short token naming *why*: one of `nproc`, `as`, `cpu`,
-  `fsize`, `timeout`, `output_cap`, `net`, `write`, `read`, `daemon`,
-  `exit`, `none`, `unavailable:<what>`.
+  `fsize`, `timeout`, `output_cap`, `net`, `write`, `read`, `perm`,
+  `daemon`, `killed`, `signal`, `exit`, `none`, `unavailable:<what>`.
+  `perm` is the runner's name for a permission refusal the environment
+  made (the judge decides from the effect which limit it was); `killed`
+  means the runner stopped the job without a named limit firing.
 - `stdout_sha256` — sha256 of the stdout bytes the runner captured *before*
   truncation, so the judge can check the cap without trusting a byte count.
 - The runner must print one line per run to stdout:
