@@ -77,10 +77,11 @@ python3 analysis.py --data-dir <dir> --out-dir <dir>
 from the artifact's own directory, with `<dir>` holding the two pinned CSVs
 (the judge passes a copy of `examples/good/data/`). It must:
 
-- use **pandas** to load the CSV and **matplotlib** to draw the charts (the
-  judge does not grade the libraries used, but the brief and the mutants are
-  built around that stack; a solution that never imports pandas does not meet
-  the brief);
+- use **pandas** to load the CSV and **matplotlib** to draw the charts. G1
+  checks this by parsing the file's imports: a script that never imports
+  pandas or matplotlib is not the artifact the brief asks for, however good
+  its numbers. Beyond that the judge does not care *how* the numbers are
+  computed or the charts drawn;
 - run headless (no display; the judge sets `MPLBACKEND=Agg`);
 - write `answers.json` and `charts.json` into `--out-dir`, plus the three
   PNGs named in `charts.json` (bare file names, written to `--out-dir`);
@@ -111,10 +112,18 @@ the same numeric keys as `answers.json` (the values the chart plots) plus:
 | `C2` (Mauna Loa mean seasonal cycle) | `months` (`[month, mean_average]` for months 1..12) and `amplitude_ppm` |
 | `C3` (OWID 2024 top-10 ISO emitters, horizontal bars) | `entities` (list of entity names), `emissions_gt` (list of `[name, value_gt]` pairs, descending by value, 10 entries) and `total_gt` |
 
-The PNG files named `c1_mauna_loa_trend.png`, `c2_seasonal_cycle.png`,
-`c3_top_emitters_2024.png` must be written to `--out-dir` (size in px given
-by `width_px` / `height_px` in `charts.json`, which must be 1280×800, 1280×800
-and 1280×900 respectively).
+Each `C1`/`C2`/`C3` object also declares **where its PNG is and how big it
+is**, inside that same object:
+
+| key | value |
+|---|---|
+| `file` | the bare file name, exactly `c1_mauna_loa_trend.png` / `c2_seasonal_cycle.png` / `c3_top_emitters_2024.png` |
+| `width_px`, `height_px` | integers, exactly 1280×800 (C1), 1280×800 (C2), 1280×900 (C3) |
+
+The PNGs must be written to `--out-dir` under those names. The judge compares
+the declared size and the declared file name against the file it decodes, so
+neither is trusted: a PNG that does not exist, or exists at another size,
+fails G3.
 
 ## Judge gates (`judge/grade.sh <artifact> [--seed N] [--json out.json]`)
 
@@ -219,7 +228,9 @@ changed.
 
 - Whether the analysis is *interesting* or the charts are *pretty*.
 - Anything the artifact claims in comments, docstrings or printed output.
-- Libraries other than pandas/matplotlib, as long as G1's imports hold.
+- Any *other* library the artifact also imports, as long as G1's two imports
+  hold; the judge does not require the analysis to be done in pandas, only
+  that pandas is used and imported.
 
 ## Tools (pinned by `judge/setup.sh`)
 
