@@ -149,7 +149,7 @@ def shot(t, verdict, measurements, matrix, loglines, run_seconds):
         text(im, (80, 60), "AN AGENT CUT THIS VIDEO IN CODE", 78, INK, True)
         text(im, (80, 160), "Open-source Premiere (MLT) / judged frame by frame", 60, MUTED)
         panel(im, (1290, 780, 1850, 925), "#0b6e4f")
-        text(im, (1330, 805), "PASS 225/225", 78, INK, True)
+        text(im, (1325, 810), "PASS 225/225", 66, INK, True)
         panel(im, (70, 780, 1250, 925), BG)
         text(im, (110, 805), "THE CUT. EVERY FRAME.", 78, INK, True)
         readout(im, index, (110, 300))
