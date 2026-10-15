@@ -25,9 +25,10 @@ in a follow-up PR; this page will embed them when they land.
   other four pass
 - **Test count per cell**: 7 (6 executed + 1 toggle-skipped; identical on
   every version — pytest's JUnit `tests` attribute counts the skipped test)
-- **Interpreter identity**: 3.9.25, 3.10.21, 3.11.16, 3.12.14, 3.13.15 —
+- **Interpreter identity**: 3.9.25, 3.10.21, 3.11.2, 3.12.14, 3.13.15 —
   five distinct interpreters, each matching its cell (the judge checks
-  major.minor per SPEC; the exact patches are the pins the runner requests)
+  major.minor per SPEC; the exact patches are what uv fetched at setup time,
+  measured on the acceptance runs of 2026-10-15)
 - **Exit codes**: 0 with the toggle off, 1 with the toggle on
 - **Self-test kill rate**: 9/9 = 100 % (requirement ≥ 90 %)
 
@@ -69,7 +70,7 @@ naming the sandbox id if cleanup cannot be confirmed.
 |---|---|
 | `git clone --depth 1` | ~1 s |
 | `judge/setup.sh` (fresh install) | 3.2 s (idempotent re-run: 0.1 s) |
-| `judge/selftest.sh` (good + 9 mutants + determinism) | ~2.5 min |
+| `judge/selftest.sh` (good + 9 mutants + determinism) | ~4-6 min |
 | `judge/grade.sh examples/good/` | ~30 s |
 
 Whole run, including sandbox create and kill: a few minutes; grading itself is
@@ -83,10 +84,12 @@ tens of seconds. `run.py` prints a per-step timing line.
   installation from PyPI is out of scope — only the one pinned,
   hash-checked `pytest` wheel set is installed per cell.
 - Interpreters are uv-managed CPython 3.9–3.13; uv fetched `3.9.25`,
-  `3.10.21`, `3.11.16`, `3.12.14`, `3.13.15` at setup time on 2026-10-15
-  (recorded in `judge/VERSIONS.txt`), and the judge checks each cell's
-  interpreter is distinct and matches its cell on major.minor (see SPEC.md).
-  A base image without those downloads needs network access for `uv`.
+  `3.10.21`, `3.11.2`, `3.12.14`, `3.13.15` on the acceptance runs of
+  2026-10-15 (recorded in `judge/VERSIONS.txt` — uv installs the latest
+  patch it knows for each requested major.minor, which can drift as new
+  patches ship), and the judge checks each cell's interpreter is distinct
+  and matches its cell on major.minor (see SPEC.md). A base image without
+  those downloads needs network access for `uv`.
 - The judge grades what SPEC.md grades: the seven gates G1–G7. Parallelism,
   caching and reporting style beyond a machine-parseable YAML table are not
   rewarded.

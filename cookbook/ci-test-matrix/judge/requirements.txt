@@ -13,8 +13,8 @@
 #   * Each entry lists the pure-python wheel and the sdist; both are the
 #     digests PyPI publishes for those files.
 #
-# verified against the exact interpreter set SPEC.md pins:
-#   for v in 3.9.25 3.10.21 3.11.16 3.12.14 3.13.15; do
+# verified against the interpreter set SPEC.md pins:
+#   for v in 3.9 3.10 3.11 3.12 3.13; do
 #       uv venv --python "$v" /tmp/v && \
 #           uv pip install --python /tmp/v/bin/python --require-hashes \
 #               -r judge/requirements.txt || echo "FAIL $v"; done

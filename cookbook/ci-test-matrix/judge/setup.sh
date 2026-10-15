@@ -9,9 +9,10 @@
 # Installs into $HOME/tools/bin:
 #   uv 0.12.16   (GitHub release tarball, sha256-pinned)
 #
-# The five CPython interpreters (3.9.25, 3.10.21, 3.11.16, 3.12.14,
-# 3.13.15) and the pinned pytest wheel set are fetched by uv itself, per
-# matrix cell, from judge/requirements.txt (hash-pinned).
+# The five CPython interpreters (3.9, 3.10, 3.11, 3.12, 3.13; uv fetches
+# the latest patch it knows for each) and the pinned pytest wheel set are
+# fetched by uv itself, per matrix cell, from judge/requirements.txt
+# (hash-pinned).
 #
 # Usage: bash judge/setup.sh [--force]
 # Exit codes: 0 ok, 1 download/verification failure, 2 no network or sources.
@@ -93,7 +94,7 @@ log "uv: $("$INSTALL_DIR/uv" --version)"
     echo ""
     echo "### interpreters and pytest (uv-managed, pinned by hash)"
     echo ""
-    echo "Interpreter pins (SPEC.md): 3.9.25 3.10.21 3.11.16 3.12.14 3.13.15"
+    echo "Interpreter major.minor pins (SPEC.md): 3.9 3.10 3.11 3.12 3.13"
     echo "Wheel pins: judge/requirements.txt (--require-hashes)"
 } > "$VERSIONS_FILE"
 

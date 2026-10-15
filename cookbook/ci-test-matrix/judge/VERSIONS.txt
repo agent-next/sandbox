@@ -15,5 +15,6 @@ uv sha256 : 8e5c6e5523dffc2dcf615bd995554c84c9feb4e577808a3fb8698a639d3f8d9c
 
 ### interpreters and pytest (uv-managed, pinned by hash)
 
-Interpreter pins (SPEC.md): 3.9.25 3.10.21 3.11.16 3.12.14 3.13.15
+Interpreter major.minor pins (SPEC.md): 3.9 3.10 3.11 3.12 3.13
+uv fetched (acceptance runs, 2026-10-15): 3.9.25 3.10.21 3.11.2 3.12.14 3.13.15
 Wheel pins: judge/requirements.txt (--require-hashes)

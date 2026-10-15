@@ -73,8 +73,9 @@ All gates are numeric and deterministic. Exit 0 only if every gate passes.
   via `record_testsuite_property`, or pytest's `hostname` attribute as a
   fallback). The judge compares the major.minor against the cell's version in
   `python_versions` and checks that no two cells share an interpreter. The
-  exact patch reported (3.9.25, 3.10.21, …) is what uv fetched for that
-  major.minor at setup time, measured and recorded in `judge/VERSIONS.txt`.
+  exact patch reported (3.9.25, 3.10.21, 3.11.2, …) is what uv fetched for
+  that major.minor at setup time, measured and recorded in
+  `judge/VERSIONS.txt`.
 - **G4 failure detection**: when the fixture's toggle is **on**, the
   aggregated matrix table shows **exactly one** failing cell, at version
   `3.9`, and the other four cells pass. When the toggle is **off**, all five
@@ -147,7 +148,7 @@ the whole self-test and fails closed if anything changed.
 - uv **0.12.16** (GitHub release tarball, SHA256-pinned download),
   installed idempotently. Python 3.10+ (stdlib only) for the judge math.
 - Interpreters: CPython 3.9, 3.10, 3.11, 3.12, 3.13 (uv-managed; uv fetches
-  the latest patch of each requested major.minor — measured at setup time on
-  2026-10-15: 3.9.25, 3.10.21, 3.11.16, 3.12.14, 3.13.15, recorded in
+  the latest patch of each requested major.minor — measured on the acceptance
+  runs of 2026-10-15: 3.9.25, 3.10.21, 3.11.2, 3.12.14, 3.13.15, recorded in
   `judge/VERSIONS.txt`).
 - pytest **8.4.2** (PyPI wheel, hash-pinned via `uv pip install --require-hashes`).
