@@ -23,7 +23,10 @@ import time
 
 REPO_URL = "https://github.com/agent-next/sandbox"
 DEMO_DIR = "cookbook/doc-extract-convert"
-SID_RE = re.compile(r"^sbx_[A-Za-z0-9]+$")
+# A sandbox id: UUID-shaped (what the CLI prints today) or prefixed.  Matching
+# the shape keeps a future extra output line from being taken for the id.
+SID_RE = re.compile(r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                    r"[0-9a-f]{12}|sbx_[A-Za-z0-9]+)$")
 
 
 def scrub(text):
