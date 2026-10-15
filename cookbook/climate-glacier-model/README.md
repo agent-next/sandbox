@@ -73,9 +73,9 @@ judge's own outputs by `bash media/make_media.sh` (never hand-edited):
 | `sbx create` | ~3–4 s |
 | `git clone --depth 1` | ~5 s |
 | `judge/setup.sh` (fresh venv) | 32–36 s (idempotent re-run: a few s) |
-| `judge/grade.sh examples/good` | 11 s |
-| `judge/selftest.sh` (good + 13 mutants + determinism) | 83 s |
-| `run.py` end to end | ~2 m 15 s |
+| `judge/grade.sh examples/good` | 10–13 s |
+| `judge/selftest.sh` (good + 13 mutants + determinism) | 80–106 s |
+| `run.py` end to end | ~2 m 10 s – 2 m 40 s |
 
 Grading runs the model three times (nominal, repeat, zero-melt); each run
 is ~3 s. `run.py` prints a per-step timing line. Times vary with machine
