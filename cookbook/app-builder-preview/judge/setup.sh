@@ -2,9 +2,9 @@
 # Install the pinned judge toolchain into $HOME/.tools/app-builder-preview.
 #
 # One closure: Node.js 22.23.3 (official tarball, sha256-checked) and
-# Playwright 1.63.0 with Chromium (npm, sha256-checked via the lockfile).
-# Idempotent: an existing install that already provides the pinned versions
-# is left untouched.
+# Playwright 1.63.0 with Chromium (npm, lockfile-pinned). Idempotent: an
+# existing install that already provides the pinned versions is left
+# untouched.
 
 set -eu
 
@@ -67,8 +67,12 @@ if [ "$need_pw" -eq 1 ]; then
     cd "$TOOLS/pw"
     npm init -y >/dev/null 2>&1
     npm install --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}" \
-        >/dev/null 2>&1
-    npx playwright install chromium >/dev/null 2>&1
+        >/dev/null
+    # the browser download is the expensive part; keep it quiet but fail loud
+    if ! npx playwright install chromium >/dev/null 2>&1; then
+        echo "setup.sh: playwright chromium download failed" >&2
+        exit 1
+    fi
 fi
 
 # --- Record what was actually installed, for RECEIPT.md --------------------
