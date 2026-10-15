@@ -5,9 +5,9 @@ Real command output from two fresh sandbox runs of the one-command demo
 review fixes (G6 rejects `lookahead_shift 0`; the demo video was re-cut;
 the self-test now carries 11 mutants). Both runs created a fresh sandbox,
 cloned this repo at `--ref sbx/demo-backtest-equity-f3` (the branch the demo
-lives on), ran `judge/setup.sh` → `judge/selftest.sh` →
-`judge/grade.sh examples/good --seed 42`, and killed the sandbox, confirming
-with `sbx list` that its id was gone.
+lives on, at the head SHA this RECEIPT ships with), ran `judge/setup.sh` →
+`judge/selftest.sh` → `judge/grade.sh examples/good --seed 42`, and killed
+the sandbox, confirming with `sbx list` that its id was gone.
 
 Command (from outside the repo, exactly as a user runs it):
 
@@ -15,16 +15,16 @@ Command (from outside the repo, exactly as a user runs it):
 python3 cookbook/backtest-equity/run.py --ref sbx/demo-backtest-equity-f3
 ```
 
-## Run A — sandbox `01a14076-420f-7fb3-9404-c6665d68a531`
+## Run A — sandbox `01a1408c-a4b0-7212-8cd2-b69d85c9c68b`
 
 Per-step timing lines printed by `run.py`:
 
 ```
-[  4.1s] sandbox 01a14076-420f-7fb3-9404-c6665d68a531
-[  6.5s] clone: ok
-[ 49.1s] setup: ok
-[ 11.2s] selftest: ok
-[  3.2s] grade: ok
+[  2.9s] sandbox 01a1408c-a4b0-7212-8cd2-b69d85c9c68b
+[  5.8s] clone: ok
+[ 33.0s] setup: ok
+[  5.9s] selftest: ok
+[  2.9s] grade: ok
 ```
 
 `run.py` exit code: **0**. Verdict: **PASS** (all six gates).
@@ -74,19 +74,19 @@ run: SUMMARY verdict=PASS final_equity=0.9470302914437041 (reference 0.947030291
 ```
 
 Sandbox cleanup: `run.py` printed
-`sandbox 01a14076-420f-7fb3-9404-c6665d68a531 killed and confirmed gone`,
+`sandbox 01a1408c-a4b0-7212-8cd2-b69d85c9c68b killed and confirmed gone`,
 and `sbx list` no longer lists the id.
 
-## Run B — sandbox `01a14078-6634-71a2-97b6-3198c673b712`
+## Run B — sandbox `01a1408d-c72a-7172-8956-c77e9558f184`
 
 Per-step timing lines:
 
 ```
-[  3.5s] sandbox 01a14078-6634-71a2-97b6-3198c673b712
-[  8.0s] clone: ok
-[ 51.6s] setup: ok
-[  9.2s] selftest: ok
-[  4.1s] grade: ok
+[  2.1s] sandbox 01a1408d-c72a-7172-8956-c77e9558f184
+[  4.6s] clone: ok
+[ 32.8s] setup: ok
+[  5.9s] selftest: ok
+[  2.3s] grade: ok
 ```
 
 `run.py` exit code: **0**. Verdict: **PASS** (all six gates).
@@ -97,7 +97,7 @@ PASS; judge integrity PASS; selftest PASS.
 Summary line: identical to Run A.
 
 Sandbox cleanup: `run.py` printed
-`sandbox 01a14078-6634-71a2-97b6-3198c673b712 killed and confirmed gone`,
+`sandbox 01a1408d-c72a-7172-8956-c77e9558f184 killed and confirmed gone`,
 and `sbx list` no longer lists the id.
 
 ## What the PR-review fixes changed (measured)
@@ -112,7 +112,7 @@ and `sbx list` no longer lists the id.
 - **Video re-cut.** `cookbook/tools/video_gate.py` on the new
   `media/demo.mp4`: `scene_cuts_per_10s 1.44` (≥ 0.8), `motion_fraction
   0.52` (≥ 0.20), `endcard_static 0.00` (≤ 0.5), 34.7 s, 1920×1080, 30 fps,
-  1.58 MiB — `passed: true`, `failed: []`. The old cut was a slow morph
+  1.59 MiB — `passed: true`, `failed: []`. The old cut was a slow morph
   reveal (0 cuts, moving tail); the new one is four scenes separated by hard
   black cuts with a rolling per-day market tape.
 
@@ -131,10 +131,10 @@ and `sbx list` no longer lists the id.
 | determinism | PASS | PASS |
 | judge integrity | PASS | PASS |
 | `run.py` exit code | 0 | 0 |
-| clone wall time | 6.5 s | 8.0 s |
-| setup wall time (fresh install) | 49.1 s | 51.6 s |
-| selftest wall time | 11.2 s | 9.2 s |
-| grade wall time | 3.2 s | 4.1 s |
+| clone wall time | 5.8 s | 4.6 s |
+| setup wall time (fresh install) | 33.0 s | 32.8 s |
+| selftest wall time | 5.9 s | 5.9 s |
+| grade wall time | 2.9 s | 2.3 s |
 
 The two runs agree on every graded number to full double precision. Wall
 times differ by a few seconds per step, as expected for a shared network.
