@@ -84,14 +84,16 @@ cannot monkeypatch Blender, emit a forged score, or rewrite the judge.
 The trusted factory is an original implementation of the template product-shot
 recipe, cited with the inspected source digest in the specification.
 
+## Media
+
 To regenerate the full-resolution still, turntable and video:
 
 ```sh
 sh media/make_media.sh
 ```
 
-This creates another fresh sandbox with a 90-minute media-only idle timeout, runs self-test, renders the actual scene
-and turntable at 1920×1080, downloads only render evidence, deletes the sandbox,
+This creates another fresh sandbox with a 180-minute media-only timeout (a lifetime: status polls do not extend it), runs self-test, renders the actual scene
+and 48 turntable poses at 1920×1080, downloads only render evidence, deletes the sandbox,
 then builds figures and a lossless master plus the H.264 web clip using local
 FFmpeg 6.1.1-3ubuntu5 and Pillow 10.2.0. The large source frames, blend file and lossless master
 are ignored by Git. Command, seed, render time and hashes live in
@@ -111,6 +113,15 @@ Do not splice a re-rendered single frame into an older capture.
 Transfers use only stdlib and the `sbx` CLI, with bounded chunk retries and
 SHA-256 verification before replacing a local source file. An optional SDK
 streaming path tried during development was removed after a slow live transfer.
+Media rendering launches once. After a gateway restart or lost status reply,
+at most three read-only probes reattach to that same job; sandbox creation and
+render launches are never automatically retried.
+
+The 32-second video plays 48 real Cycles poses at 24 poses/second inside a
+30 fps master. These are quarter-frame samples of the same animation, not
+optical-flow interpolation or synthesized frames. The judge's twelve-pose
+G4 contract is unchanged. The process slot is a labelled replay of measured
+sandbox self-test output, not a screen recording or an autonomous agent session.
 
 ## Limits
 
@@ -121,9 +132,5 @@ Framing measures the evaluated bounding box, not silhouette area. The linking
 probe isolates direct light; indirect reflection on the backdrop is legitimate.
 Framing is checked at all twelve poses. Full-frame primary rays and filter-border
 rays reject seams outside the strips used to measure backdrop smoothness.
-The 30 fps video repeats twelve real turntable poses at six poses/second.
-Its process slot is a labelled replay of measured self-test output, not a
-screen recording or an autonomous agent session.
-
 The blind review panel verdicts are in `media/REVIEW.json`; the independent
 reproduction is in `REPRODUCE.md`.
