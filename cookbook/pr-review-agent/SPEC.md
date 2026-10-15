@@ -34,13 +34,17 @@ sqlite-backed store, pagination, config lookup, a worker and a shared
 counter) written for this demo and shipped in `judge/fixture/`. It is
 *pinned* two ways:
 
-- `judge/fixture/repo/` is the pristine tree; its file list and per-file
-  `sha256` are recorded in `judge/fixture/PINS.json`, and `grade.sh` fails
-  closed if the pristine tree does not match the pins.
+- `judge/fixture/repo/` is the pristine tree; its `sha256` (path + content
+  over every file) is recorded as `pristine_sha256` in
+  `judge/oracle/GROUND_TRUTH.json`, and `grade.sh` fails closed if the tree
+  on disk does not match — before any test runs.
 - The 6 PRs are **single-hunk unified diffs** (`judge/fixture/pr<k>.diff`)
   applied on top of the pristine tree, produced by the committed,
-  deterministic generator `judge/fixture/make_fixture.py`. Same pristine
-  tree + same seed → byte-identical diffs; `selftest.sh` checks this.
+  deterministic generator `judge/fixture/make_fixture.py`. Each applied PR
+  tree is hashed and checked against `pr_sha256` in the same answer key, so
+  a diff that does not land fails closed. Same pristine tree → byte-identical
+  diffs and answer key; `selftest.sh` re-checks this on every run
+  (`make_fixture.py --check`).
 
 Four PRs each carry exactly one planted defect, one per class:
 
@@ -69,7 +73,7 @@ The artifact is a directory. For each PR `k` in `1..6` it contains:
   {
     "pr": 1,
     "findings": [
-      {"file": "orders/pagination.py", "line": 27,
+      {"file": "orders/pagination.py", "line": 7,
        "severity": "major", "kind": "off-by-one"}
     ]
   }
@@ -80,8 +84,11 @@ The artifact is a directory. For each PR `k` in `1..6` it contains:
   - `kind`: one of `off-by-one`, `sql-injection`, `none-deref`, `race`,
     `other`.
 - `pr<k>/tests/test_pr<k>.py` — a `pytest` module the judge runs twice:
-  once against the PR tree (must **fail**) and once against the judge's
-  private fixed tree (must **pass**).
+  once against the PR tree (must **fail**) and once against the fixed
+  version (must **pass**). For the 4 defect PRs the fixed version is the
+  pristine tree; for the 2 clean PRs it is the PR tree itself, which is
+  already clean — the test still has to pass there, so a module that cannot
+  even import against the tree it was written for fails closed.
 
 Graded with `judge/grade.sh <artifact-dir>`.
 
