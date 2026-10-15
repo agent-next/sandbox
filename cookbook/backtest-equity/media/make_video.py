@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """Render the demo.mp4 frames into $FRAMES_DIR.
 
-31 s, 1920x1080 at 30 fps: the equity curve and its drawdown/position panels
-drawn day by day as the backtest runs, then the agent loop's deviation per
-attempt, then the self-test kill-rate bars.  Every number comes from
-media/data/*.json (make_data.py writes those from judge outputs).
+~35 s, 1920x1080 at 30 fps, four scenes separated by hard black cuts:
+
+  1. the market tape: a rolling window of the strategy's daily net returns
+     marching through the fixture day by day (the equity curve so far and
+     the position strip underneath) -- a real animation, not a slide show
+  2. the whole backtest held for a beat (the finished equity curve)
+  3. the agent loop's deviation per attempt
+  4. the self-test kill-rate bars, then a static end card
+
+Every number comes from media/data/*.json (make_data.py writes those from
+judge outputs).
 """
 from __future__ import annotations
 
@@ -23,9 +30,13 @@ FRAMES = Path(os.environ.get("FRAMES_DIR", MEDIA / "master" / "frames"))
 
 W, H = 19.2, 10.8          # inches at 100 dpi = 1920x1080
 FPS = 30
-REVEAL_SEC = 20.0
+TAPE_SEC = 18.0
+TAPE_DAYS = 63             # trading days visible in the rolling window
+HOLD_SEC = 1.5
+CUT_SEC = 0.6
 LOOP_SEC = 6.0
 SELFTEST_SEC = 5.0
+ENDCARD_SEC = 3.0
 
 SURFACE = "#fcfcfb"
 TEXT = "#0b0b0b"
@@ -35,6 +46,8 @@ S1 = "#2a78d6"
 S2 = "#eb6834"
 GOOD = "#0ca30c"
 CRIT = "#d03b3b"
+CARD_BG = "#0b0b0b"
+CARD_FG = "#f5f4f2"
 
 plt.rcParams.update({
     "font.family": "DejaVu Sans",
@@ -49,9 +62,65 @@ def load(name):
     return json.loads((DATA / name).read_text())
 
 
-def draw_scene(fig, series, metrics, upto):
-    """The trading scene revealed up to trading day `upto` (inclusive)."""
+def draw_tape(fig, series, upto):
+    """Scene 1: the rolling market tape ending at trading day `upto`.
+
+    The window shifts a few days every frame, so every frame redraws the
+    whole bar panel -- the video-gate's motion check sees real movement,
+    not a slide show.
+    """
     fig.clf()
+    fig.patch.set_facecolor(SURFACE)
+    gs = fig.add_gridspec(3, 1, height_ratios=[2.4, 0.7, 1.0], hspace=0.24)
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+    ax3 = fig.add_subplot(gs[2])
+
+    n = len(series["equity"])
+    hi = min(upto + 1, n)
+    lo = max(0, hi - TAPE_DAYS)
+    x = np.arange(lo, hi)
+    net = np.array(series["net"][lo:hi])
+    pos = np.array(series["position"][lo:hi])
+
+    up = net >= 0
+    ax1.bar(x[up], net[up], width=1.0, color=GOOD, alpha=0.9)
+    ax1.bar(x[~up], net[~up], width=1.0, color=CRIT, alpha=0.9)
+    ax1.axhline(0.0, color=TEXT2, lw=0.8)
+    m = max(abs(v) for v in series["net"]) * 1.08
+    ax1.set_ylim(-m, m)
+    ax1.set_xlim(lo - 0.5, lo + TAPE_DAYS - 0.5)
+    ax1.set_ylabel("strategy net return\non the day")
+    ax1.set_title(f"the market tape: {series['dates'][lo]} .. "
+                  f"{series['dates'][hi - 1]}  (day {hi} of {n})",
+                  fontsize=15)
+    ax1.grid(alpha=0.3)
+    ax1.tick_params(labelbottom=False)
+
+    ax2.fill_between(x, pos, color=GOOD, alpha=0.5, lw=0, step="mid")
+    ax2.plot(x, pos, color=GOOD, lw=0.9, drawstyle="steps-mid")
+    ax2.set_ylim(-0.08, 1.15)
+    ax2.set_yticks([0.0, 1.0])
+    ax2.set_xlim(lo - 0.5, lo + TAPE_DAYS - 0.5)
+    ax2.set_ylabel("position")
+    ax2.grid(alpha=0.3)
+    ax2.tick_params(labelbottom=False)
+
+    xe = np.arange(hi)
+    eq = np.array(series["equity"][:hi])
+    ax3.plot(xe, eq, color=S1, lw=1.8)
+    ax3.axhline(1.0, color=TEXT2, lw=1.0, ls=":")
+    ax3.set_xlim(0, n)
+    ax3.set_ylim(0.45, 1.65)
+    ax3.set_ylabel("equity so far\n(1.0 at day 0)")
+    ax3.set_xlabel(f"trading day of {n}  (0 = {series['dates'][0]})")
+    ax3.grid(alpha=0.3)
+
+
+def draw_scene(fig, series, metrics, upto):
+    """Scene 2: the whole backtest, equity/drawdown/position panels."""
+    fig.clf()
+    fig.patch.set_facecolor(SURFACE)
     gs = fig.add_gridspec(3, 1, height_ratios=[2.2, 0.9, 0.9], hspace=0.22)
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[1], sharex=ax1)
@@ -102,8 +171,9 @@ def draw_scene(fig, series, metrics, upto):
 
 
 def draw_loop(fig, replay, frac):
-    """The agent loop: deviation per attempt, revealed to a fraction."""
+    """Scene 3: the agent loop, deviation per attempt, to a fraction."""
     fig.clf()
+    fig.patch.set_facecolor(SURFACE)
     ax = fig.add_subplot(111)
     steps = [r["step"] for r in replay]
     errs = [r["error"] if r["error"] else 1e-9 for r in replay]
@@ -127,8 +197,9 @@ def draw_loop(fig, replay, frac):
 
 
 def draw_selftest(fig, selftest, frac):
-    """The self-test kill-rate bars, revealed to a fraction."""
+    """Scene 4: the self-test kill-rate bars, revealed to a fraction."""
     fig.clf()
+    fig.patch.set_facecolor(SURFACE)
     ax = fig.add_subplot(111)
     muts = selftest["mutants"]
     names = sorted(muts)
@@ -153,6 +224,45 @@ def draw_selftest(fig, selftest, frac):
                 va="bottom", fontsize=8, color=TEXT2, rotation=90)
 
 
+def draw_cut(fig):
+    """A hard-cut frame: solid black, no content."""
+    fig.clf()
+    fig.patch.set_facecolor(CARD_BG)
+    ax = fig.add_subplot(111)
+    ax.set_facecolor(CARD_BG)
+    ax.set_axis_off()
+
+
+def draw_endcard(fig, metrics, selftest):
+    """The static end card: the judge's verdict, held to the last frame."""
+    fig.clf()
+    fig.patch.set_facecolor(CARD_BG)
+    ax = fig.add_subplot(111)
+    ax.set_facecolor(CARD_BG)
+    ax.set_axis_off()
+    muts = selftest["mutants"]
+    killed = sum(1 for m in muts.values() if m["verdict"] != "PASS")
+    ax.text(0.5, 0.78, "backtest-equity", ha="center", va="center",
+            fontsize=34, color=CARD_FG, weight="bold",
+            transform=ax.transAxes)
+    ax.text(0.5, 0.64, f"verdict {selftest['good_verdict']} -- all 6 gates",
+            ha="center", va="center", fontsize=24, color=CARD_FG,
+            transform=ax.transAxes)
+    ax.text(0.5, 0.52,
+            f"final equity {metrics['final_equity']:.4f} = the blind "
+            f"reference's   |   Sharpe {metrics['sharpe']:.4f}   |   "
+            f"max drawdown {metrics['max_drawdown']:.2%}",
+            ha="center", va="center", fontsize=18, color=CARD_FG,
+            transform=ax.transAxes)
+    ax.text(0.5, 0.41, f"self-test: {killed}/{len(muts)} known-bad mutants "
+            f"killed (requirement >= 90%)", ha="center", va="center",
+            fontsize=18, color=CARD_FG, transform=ax.transAxes)
+    ax.text(0.5, 0.18, "cookbook/backtest-equity  --  "
+            "judge/grade.sh examples/good --seed 42",
+            ha="center", va="center", fontsize=15, color="#9a9891",
+            transform=ax.transAxes)
+
+
 def main():
     curve = load("curve.json")
     series = load("series.json")
@@ -163,47 +273,48 @@ def main():
 
     FRAMES.mkdir(parents=True, exist_ok=True)
     fig = plt.figure(figsize=(W, H), dpi=100)
-
-    reveal = int(REVEAL_SEC * FPS)
     idx = 0
 
-    # --- scene 1: the backtest running, day by day ----------------------
-    # The long quiet stretches are stepped through so the whole 10-year
-    # path is covered in 20 s; the trading days are shown one frame each.
-    for f in range(reveal):
-        upto = int(round((f + 1) / reveal * (n - 1)))
-        draw_scene(fig, series, metrics, upto)
-        fig.savefig(FRAMES / f"frame{idx:05d}.png")
-        plt.close(fig)
-        fig = plt.figure(figsize=(W, H), dpi=100)
+    def shoot(draw, facecolor=SURFACE):
+        nonlocal idx
+        draw()
+        fig.savefig(FRAMES / f"frame{idx:05d}.png", facecolor=facecolor)
         idx += 1
 
-    # finale: the finished curve held for a beat
-    hold = int(1.5 * FPS)
-    for _ in range(hold):
-        draw_scene(fig, series, metrics, n - 1)
-        fig.savefig(FRAMES / f"frame{idx:05d}.png")
-        plt.close(fig)
-        fig = plt.figure(figsize=(W, H), dpi=100)
-        idx += 1
+    # --- scene 1: the market tape, marching day by day --------------------
+    # The whole 10-year path is covered in TAPE_SEC; the window shifts most
+    # days, so each frame is a real redraw of the bar panel.
+    tape_frames = int(TAPE_SEC * FPS)
+    for f in range(tape_frames):
+        upto = int(round((f + 1) / tape_frames * (n - 1)))
+        shoot(lambda: draw_tape(fig, series, upto))
 
-    # --- scene 2: the agent loop -----------------------------------------
+    # payoff: the finished curve held for a beat
+    for _ in range(int(HOLD_SEC * FPS)):
+        shoot(lambda: draw_scene(fig, series, metrics, n - 1))
+
+    # hard cut
+    for _ in range(int(CUT_SEC * FPS)):
+        shoot(lambda: draw_cut(fig), facecolor=CARD_BG)
+
+    # --- scene 2: the agent loop ------------------------------------------
     loop_frames = int(LOOP_SEC * FPS)
     for f in range(loop_frames):
-        draw_loop(fig, replay, (f + 1) / loop_frames)
-        fig.savefig(FRAMES / f"frame{idx:05d}.png")
-        plt.close(fig)
-        fig = plt.figure(figsize=(W, H), dpi=100)
-        idx += 1
+        shoot(lambda f=f: draw_loop(fig, replay, (f + 1) / loop_frames))
 
-    # --- scene 3: the self-test kill rate --------------------------------
+    # hard cut
+    for _ in range(int(CUT_SEC * FPS)):
+        shoot(lambda: draw_cut(fig), facecolor=CARD_BG)
+
+    # --- scene 3: the self-test kill rate ---------------------------------
     st_frames = int(SELFTEST_SEC * FPS)
     for f in range(st_frames):
-        draw_selftest(fig, selftest, (f + 1) / st_frames)
-        fig.savefig(FRAMES / f"frame{idx:05d}.png")
-        plt.close(fig)
-        fig = plt.figure(figsize=(W, H), dpi=100)
-        idx += 1
+        shoot(lambda f=f: draw_selftest(fig, selftest, (f + 1) / st_frames))
+
+    # --- static end card ---------------------------------------------------
+    for _ in range(int(ENDCARD_SEC * FPS)):
+        shoot(lambda: draw_endcard(fig, metrics, selftest),
+              facecolor=CARD_BG)
 
     plt.close(fig)
     total = idx / FPS

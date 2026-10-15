@@ -71,13 +71,13 @@
     "G3_sharpe_consistency"
    ]
   },
-  "short-history": {
+  "shift-0-declare": {
    "verdict": "FAIL",
    "failed": [
     "G6_schema_sanity"
    ]
   },
-  "tiny-figure": {
+  "short-history": {
    "verdict": "FAIL",
    "failed": [
     "G6_schema_sanity"

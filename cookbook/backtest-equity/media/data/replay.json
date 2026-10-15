@@ -56,14 +56,6 @@
   "error": null
  },
  {
-  "step": "tiny-figure",
-  "verdict": "FAIL",
-  "failed_gates": [
-   "G6_schema_sanity"
-  ],
-  "error": null
- },
- {
   "step": "short-history",
   "verdict": "FAIL",
   "failed_gates": [
