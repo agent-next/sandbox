@@ -37,6 +37,30 @@ def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
                           timeout=timeout)
 
 
+def retry_sbx(name: str, args: tuple[str, ...], attempts: int,
+              timeout: float = 120.0) -> subprocess.CompletedProcess:
+    """Run an sbx command, retrying with backoff while the service answers
+    429/quota (a capacity condition, not a verdict on the command: another
+    tenant's sandbox can hold the last concurrent slot for a while).  Every
+    attempt prints its outcome; a non-rate-limit failure returns at once."""
+    delay = 10.0
+    for attempt in range(1, attempts + 1):
+        proc = sbx(*args, timeout=timeout)
+        if proc.returncode == 0:
+            return proc
+        blob = (proc.stdout or "") + (proc.stderr or "")
+        transient = proc.returncode != 0 and (
+            "RateLimitException" in blob or "429" in blob
+            or "quota exceeded" in blob or "try again later" in blob)
+        if not transient or attempt == attempts:
+            return proc
+        print(f"run: {name} hit a rate limit (attempt {attempt}/{attempts}); "
+              f"retrying in {delay:.0f} s", flush=True)
+        time.sleep(delay)
+        delay *= 2
+    return proc
+
+
 def step(name: str, fn) -> subprocess.CompletedProcess:
     start = time.monotonic()
     proc = fn()
@@ -74,8 +98,14 @@ def main() -> int:
     sid = None
     fail = False
     try:
-        created = step("sbx create --timeout-min 30",
-                       lambda: sbx("create", "--timeout-min", "30"))
+        # 6 attempts with 10..320 s backoff: a concurrent-quota 429 can last
+        # as long as another tenant's sandbox holds the slot (up to its
+        # timeout-min lifetime), and giving up on the first one fails a demo
+        # that would have run.
+        created = step(
+            "sbx create --timeout-min 30",
+            lambda: retry_sbx("sbx create", ("create", "--timeout-min", "30"),
+                              attempts=6, timeout=120))
         sid = created.stdout.strip().splitlines()[-1].strip()
         print(f"run: sandbox {sid}", flush=True)
 
