@@ -79,13 +79,17 @@ def main() -> int:
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
                          "git", "clone", "--depth", "1", "-b", args.ref,
-                         REPO, CLONE_DIR))
+                         REPO, CLONE_DIR, timeout=390))
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
+            # remote --timeout bounds the command inside the sandbox; the
+            # local subprocess timeout must be longer or we cut a healthy
+            # step off at the knee (the CLI, not the command, times out).
             proc = step(name, lambda: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"))
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}",
+                timeout=timeout + 90))
             if echo:
                 show(proc)
             return proc
