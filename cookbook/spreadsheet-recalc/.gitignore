@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+judge/mutants/
+judge/__pycache__/
