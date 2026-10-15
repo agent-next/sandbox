@@ -58,6 +58,11 @@ The agent produces two files (graded by `judge/grade.sh <samples.jsonl> <eval.py
 
 ## Judge gates (`judge/grade.sh <samples.jsonl> <eval.py> [--seed N] [--json out.json]`)
 
+`grade.sh` never trusts the artifact: it copies both files to a scratch dir,
+re-executes every sample itself (G2), recomputes both metrics with exact
+`fractions.Fraction` arithmetic over its own per-task counts, and compares
+those against the two numbers `eval.py` prints (G4).
+
 All gates are numeric and deterministic. Exit 0 only if every gate passes.
 
 - **G1 format**: `samples.jsonl` is valid JSONL; every line has integer
@@ -75,13 +80,21 @@ All gates are numeric and deterministic. Exit 0 only if every gate passes.
   prints its own pass@1 and pass@k on stdout.
 - **G4 numbers match**: the judge recomputes pass@1 and pass@k independently
   using the exact estimator from the Goal above over its own per-task counts
-  and requires |eval.py's value − judge's value| ≤ **1e-9** for both metrics.
-- **G5 timeout counts as failure**: the judge inserts one deliberately
-  non-terminating sample (infinite loop) into a copy of the dataset and
-  confirms `eval.py` still completes with exit 0 and reports that sample as
-  failing (its pass@1 must drop by at least 1/num_tasks vs the original run).
-  This is checked by the judge, not by a gate on the artifact directly: the
-  gate passes if `eval.py` handles the timeout correctly.
+  and requires |eval.py's value − judge's value| ≤ **1e-9** for both metrics,
+  on **two** sample files:
+  - the artifact's own `samples.jsonl`;
+  - a judge-built mixed file (deterministic from the pinned dataset:
+    tasks with n=2 (reference + failing), n=2 (all failing), n=3 (reference +
+    two failing, one of them a deliberate infinite loop), n=1 (reference);
+    n_total=65 over the 30 tasks, so k=2 and the combinatorial term
+    C(n−c,k)/C(n,k) is non-trivial).  Estimator bugs invisible on an
+    all-pass n=1 artifact (wrong denominators, off-by-one factorials,
+    timeouts counted as passes) change the numbers there.
+- **G5 timeout counts as failure**: the judge replaces the first sample with
+  a deliberately non-terminating one (infinite loop), runs `eval.py` on that
+  copy, and confirms it still completes with exit 0 within the run budget and
+  reports that sample as failing: pass@1 on the copy must be at most
+  `1 − 1/num_tasks` (an infinite-loop sample never counts as passing).
 
 Violating any gate fails with the offending numbers printed.
 
@@ -111,6 +124,32 @@ Violating any gate fails with the offending numbers printed.
 - Kill rate ≥ 90 % printed by the self-test; exit non-zero otherwise.
 - Determinism: two `grade.sh` runs with the same seed produce byte-identical
   verdict JSON (excluding the `timing` key).
+
+## Known-bad artifacts (`judge/mutants.py` → `examples/bad/`)
+
+Five single-edit mutants of the good `eval.py`, each graded against the good
+`samples.jsonl`:
+
+| mutant | edit | intended kill |
+|---|---|---|
+| `m1_wrong_pass1_formula` | pass@1 = total correct / total samples | G4 (eval.py's number disagrees with the judge's fraction) |
+| `m2_timeout_counts_as_pass` | `except TimeoutExpired: return True` | G4 + G5 (hanging sample counted as passing) |
+| `m3_metrics_on_stderr` | writes the pass@1 line to stderr | G4 (stdout does not start with the two required `pass@*:` lines) |
+| `m4_tests_ignored` | `return proc.returncode == 0` → `return True` | G4 (every executed sample counts as passing, incl. failing tests) |
+| `m5_off_by_one_index` | `range(k - 1)` in the falling factorial | G4 (pass@k estimator wrong for k ≥ 2) |
+
+## Media (`media/`)
+
+- `media/result.png` — the judged pass@1/pass@k bars for the known-good
+  artifact with the judge's pass/fail line drawn on them.
+- `media/loop.png` — the agent loop: per-task pass counts from the grade JSON
+  plus the self-test kill-rate bar (known-good vs each known-bad).
+- `media/demo.mp4` — 20–60 s step-through of the harness run: judge
+  self-checks → per-sample execution → metrics → verdict; the harness is not
+  time-dependent, so the video steps through the run's figures with captions.
+- `media/MANIFEST.json` — what each file shows, the command that produced it,
+  the source data file, sha256.
+- `media/make_media.sh` — regenerates every file from the judge outputs.
 
 ## Judge-integrity rule
 
