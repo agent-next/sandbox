@@ -1031,7 +1031,7 @@ def test_watch_and_webhook_share_rest_cancel_tracking(monkeypatch):
     monkeypatch.setattr(runners, "sweep", lambda *a: None)
     seen = {}
     monkeypatch.setattr(runners, "serve", lambda pool, **kw: seen.update(pool=pool))
-    argv = ["runners", "serve", "--snapshot", "s", "--org", "a", "--webhook-port", "0", "--watch-repo", "a/b"]
+    argv = ["runners", "serve", "--snapshot", "s", "--org", "a", "--webhook-port", "0", "--watch", "a/b"]
     assert cli.main(argv) == 0
     assert seen["pool"].demand.repos == ["a/b"]
 
@@ -1686,6 +1686,28 @@ def test_active_run_pagination_is_not_limited_to_fifty_runs():
 def test_watch_repo_validation_is_local(repos, monkeypatch, capsys):
     monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
     monkeypatch.setenv("GH_TOKEN", "gh-test-token")
-    argv = [arg for repo in repos for arg in ("--watch-repo", repo)]
+    argv = [arg for repo in repos for arg in ("--watch", repo)]
     assert cli.main(serve_argv(*argv)) == 2
-    assert "--watch-repo" in capsys.readouterr().err
+    assert "--watch " in capsys.readouterr().err
+
+
+def test_serve_exposes_one_repeatable_watch_option(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.build_parser().parse_args(["runners", "serve", "--help"])
+    assert exc.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "--watch WATCH" in help_text
+    assert "--watch-repo" not in help_text, "share the existing --watch repo-set option"
+
+
+def test_watch_uses_one_deduplicated_repo_set(monkeypatch):
+    monkeypatch.setenv("E2B_API_KEY", "e2b-test-key")
+    monkeypatch.setenv("GH_TOKEN", "gh-test-token")
+    checked, seen = [], {}
+    monkeypatch.setattr(runners.GitHub, "check_repo", lambda self, repo: checked.append(repo))
+    monkeypatch.setattr(runners, "sandbox_boot", lambda *a, **kw: None)
+    monkeypatch.setattr(runners, "sweep", lambda *a: None)
+    monkeypatch.setattr(runners, "serve", lambda pool, **kw: seen.update(pool=pool))
+    assert cli.main(serve_argv("--watch", "a/b", "--watch", "a/c", "--watch", "a/b")) == 0
+    assert checked == ["a/b", "a/c"], "validate the same shared repo set that consumers use"
+    assert seen["pool"].demand.repos == checked
