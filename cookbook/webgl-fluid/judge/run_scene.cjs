@@ -108,7 +108,9 @@ async function runOnce(page, driveJs) {
     const url = `http://127.0.0.1:${port}/driver/index.html`;
 
     const browser = await chromium.launch({
+        timeout: 120000,
         args: [
+            '--no-sandbox', '--disable-dev-shm-usage',
             '--use-gl=angle', '--use-angle=swiftshader',
             '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
         ],

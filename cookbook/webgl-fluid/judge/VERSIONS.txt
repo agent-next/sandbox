@@ -1,0 +1,23 @@
+# What judge/setup.sh actually installed (tool-reported versions)
+# reproduce: bash judge/setup.sh && bash judge/versions.sh > judge/VERSIONS.txt
+
+$ node --version
+v20.19.5
+
+$ chromium --version (build 1187)
+Chromium 140.0.7339.16 
+
+$ node -p playwright-core/package.json .version
+1.55.0
+
+# upstream: PavelDoGreat/WebGL-Fluid-Simulation @ a2d292931f19d9b3b9f564e23e6c32729d2121c3
+291d86de38ea23b8fb63d1879afeea77e9a4556900bbd67e13bc1d5ea007ce4e  /home/user/w/cookbook/webgl-fluid/judge/upstream/script.js
+27976ca8ac2e125de97163455131890e8686ed2afc2007cd5524080b7d53ef7b  /home/user/w/cookbook/webgl-fluid/judge/upstream/dat.gui.min.js
+1be448ae1212de2bee77b4cf851ab0acea0a7f7f32d21cd73095dd94dc173f66  /home/user/w/cookbook/webgl-fluid/judge/upstream/LICENSE
+
+# apt: chromium runtime libraries
+libnss3 2:3.87.1-1+deb12u4
+libatk-bridge2.0-0 2.46.0-5
+libcups2 2.4.2-3+deb12u9
+libgbm1 22.3.6-1+deb12u2
+libasound2 1.2.8-1+b1

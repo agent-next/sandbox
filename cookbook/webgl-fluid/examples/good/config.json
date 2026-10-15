@@ -1,0 +1,43 @@
+{
+  "dt": 0.016,
+  "frames": 84,
+  "config": {
+    "SIM_RESOLUTION": 128,
+    "DYE_RESOLUTION": 256,
+    "DENSITY_DISSIPATION": 1.0,
+    "VELOCITY_DISSIPATION": 0.2,
+    "PRESSURE": 0.8,
+    "PRESSURE_ITERATIONS": 20,
+    "CURL": 30,
+    "SPLAT_RADIUS": 0.25,
+    "SPLAT_FORCE": 6000,
+    "SHADING": false,
+    "COLORFUL": false,
+    "BLOOM": false,
+    "SUNRAYS": false
+  },
+  "probe": {
+    "frame": 2,
+    "x": 0.20, "y": 0.50,
+    "dx": 700.0, "dy": 0.0,
+    "rgb": [0.05, 0.35, 0.95],
+    "trackFrames": 30
+  },
+  "obstacles": [
+    {"x0": 0.55, "y0": 0.30, "x1": 0.62, "y1": 0.70},
+    {"x0": 0.75, "y0": 0.10, "x1": 0.82, "y1": 0.45}
+  ],
+  "aim": {
+    "frame": 36,
+    "x": 0.46, "y": 0.50,
+    "dx": 900.0, "dy": 0.0,
+    "rgb": [0.9, 0.15, 0.05]
+  },
+  "show": [
+    {"frame": 44, "x": 0.15, "y": 0.80, "dx": 200.0, "dy": -150.0, "rgb": [0.2, 0.9, 0.3]},
+    {"frame": 50, "x": 0.85, "y": 0.80, "dx": -200.0, "dy": -150.0, "rgb": [0.9, 0.8, 0.1]},
+    {"frame": 56, "x": 0.15, "y": 0.18, "dx": 200.0, "dy": 150.0, "rgb": [0.8, 0.1, 0.8]},
+    {"frame": 62, "x": 0.85, "y": 0.18, "dx": -200.0, "dy": 150.0, "rgb": [0.1, 0.7, 0.9]},
+    {"frame": 70, "x": 0.50, "y": 0.92, "dx": 0.0, "dy": -500.0, "rgb": [0.95, 0.5, 0.1]}
+  ]
+}
