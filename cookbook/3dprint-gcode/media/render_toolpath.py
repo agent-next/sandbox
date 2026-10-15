@@ -160,7 +160,7 @@ def camera_part(pl, azimuth=VIEW_AZIMUTH, elevation=VIEW_ELEVATION,
 
 
 def render_frame(trace, out_path, layer_upto=None, show_stl=False,
-                 azimuth=VIEW_AZIMUTH, elevation=VIEW_ELEVATION, zoom=ZOOM,
+                 azimuth=VIEW_AZIMUTH, elevation=VIEW_ELEVATION,
                  bead_cmap="plasma", dim_old=False, title=None):
     """Render one frame. layer_upto: show only layers <= this index
     (None = the finished print)."""
@@ -185,7 +185,7 @@ def render_frame(trace, out_path, layer_upto=None, show_stl=False,
         stl = bracket_mesh()
         pl.add_mesh(stl, color="#2e6f9e", opacity=0.28, smooth_shading=True,
                     specular=0.2, diffuse=0.7, ambient=0.35)
-    camera_part(pl, azimuth, elevation, zoom)
+    camera_part(pl, azimuth, elevation)
     pl.screenshot(out_path)
     pl.close()
 
@@ -199,12 +199,11 @@ def main():
     ap.add_argument("--stl", action="store_true")
     ap.add_argument("--azimuth", type=float, default=VIEW_AZIMUTH)
     ap.add_argument("--elevation", type=float, default=VIEW_ELEVATION)
-    ap.add_argument("--zoom", type=float, default=ZOOM)
     args = ap.parse_args()
     trace = json.load(open(args.trace))
     render_frame(trace, args.out, layer_upto=args.layer_upto,
                  show_stl=args.stl, azimuth=args.azimuth,
-                 elevation=args.elevation, zoom=args.zoom)
+                 elevation=args.elevation)
     print("wrote", args.out)
 
 
