@@ -4,15 +4,24 @@
 Grades one USDA artifact through four gates (see ../SPEC.md):
 
   G1 structure     both readers (nanousd C API via nanousd_dump, and
-                   usd-core) parse the file and see a conforming scene
-  G2 agreement     the two independent readers agree exactly on mesh
-                   paths, point counts, world transforms, world bboxes
+                   usd-core via an out-of-process dumper) parse the file
+                   and see a conforming scene; composition arcs and
+                   plugin schemas are rejected as the parsers report
+                   them, plus a formatting-proof text net
+  G2 agreement     the two independent readers agree exactly on the prim
+                   set under /World, mesh paths, point counts, world
+                   transforms, world bboxes
   G3 render        nanousd-opengl-renderer renders 640x480 headlessly
                    on llvmpipe, byte-deterministically, and the image
                    is not empty
   G4 oracle        closed-form numpy pinhole projection predicts where
                    every mesh must land; the rendered pixels inside each
                    predicted rectangle carry that mesh's displayColor
+
+The artifact is only ever parsed and rendered by out-of-process helpers
+(the C dumper, the usd-core dumper, the C renderer driver): a crafted
+file cannot touch the judge's own process, and every judged quantity is
+re-derived by the judge from those helpers' output.
 
 Run through grade.sh (which resolves every binary path); direct use:
     python3 judge.py <artifact.usda> [--seed N] [--json out.json]
@@ -66,13 +75,26 @@ PROP_MARGIN = 1.6                 # other colors must fit worse by this
 PROP_OTHER_MIN = 0.30             # ... and at least this much worse
 MIN_RENDERED_FRAC = 0.01          # pixels differing from the background
 
-FORBIDDEN_TOKENS = (
-    "references =", "prepend references", "append references",
-    "payload =", "prepend payload", "append payload",
-    "subLayers =", "inherits =", "variantSets =", "variantSet =",
-    "instanceable = true", "rel material:binding",
+FORBIDDEN_TOKENS_COMPACT = (
+    "references=", "prependreferences=", "appendreferences=",
+    "payload=", "prependpayload=", "appendpayload=",
+    "sublayers=", "inherits=", "prependinherits=", "appendinherits=",
+    "variantsets=", "variantset=", "instanceable=true",
+    "relmaterial:binding",
 )
 SCHEMA_FORBIDDEN_PREFIXES = ("SkelRoot", "PhysicsScene", "PhysicsRigidBody")
+
+
+def text_arc_scan(text: str) -> list[str]:
+    """Forbidden composition arcs by text, robust to formatting: comments
+    stripped, ALL whitespace removed, compact tokens searched. The parsed
+    arc report (usdcore_dump.py) is authoritative; this second net catches
+    arcs a parser might silently ignore -- and a mutant smuggles one past
+    the old spaced-token scan (``inherits=[</Nope>]``), which is exactly
+    the cheat this closes."""
+    body = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+    compact = "".join(body.split())
+    return [tok for tok in FORBIDDEN_TOKENS_COMPACT if tok in compact]
 
 
 # ---------------------------------------------------------------------------
@@ -94,74 +116,37 @@ def run(argv: list[str], **kw) -> subprocess.CompletedProcess:
 
 
 # ---------------------------------------------------------------------------
-# usd-core side
+# usd-core side (out of process: the artifact is never parsed in the
+# judge's own process -- see usdcore_dump.py)
 
-def _vt_to_py(v):
-    """Convert a pxr value to plain Python (Vec arrays -> flat float lists
-    to match nanousd_dump's shape)."""
-    from pxr import Gf
-    if isinstance(v, (int, float, str, bool)):
-        return v
-    if isinstance(v, (Gf.Vec2f, Gf.Vec2d, Gf.Vec3f, Gf.Vec3d, Gf.Vec4f,
-                      Gf.Vec4d)):
-        return [float(c) for c in v]
-    if hasattr(v, "__iter__"):
-        out = []
-        for item in v:
-            c = _vt_to_py(item)
-            if c is None:
-                return None
-            out.extend(c) if isinstance(c, list) else out.append(c)
-        return out
-    return None
+USDCORE_DUMP = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "usdcore_dump.py")
+SUBPROC_TIMEOUT_S = {"nanousd": 120, "usdcore": 120, "render": 300}
+
+
+def _run_guarded(argv: list[str], timeout_s: float, **kw
+                 ) -> tuple[int, str, str, bool]:
+    """run() with a timeout: a hung reader is an error, never a hang."""
+    try:
+        p = run(argv, timeout=timeout_s, **kw)
+    except subprocess.TimeoutExpired:
+        return 124, "", f"timed out after {timeout_s:g}s", True
+    return p.returncode, p.stdout or "", p.stderr or "", False
 
 
 def read_usdcore(path: str) -> dict:
-    """Open with usd-core; return {'error': ...} or a full scene record
-    shaped exactly like the nanousd dump (flat prim list, flat float
-    attribute values, USD row-major row-vector xform flat list)."""
+    """Open with usd-core IN ITS OWN PROCESS; return {'error': ...} or the
+    record usdcore_dump.py prints (same shape as the nanousd dump, plus
+    the parser-reported forbidden_arcs list)."""
+    rc, out, err, timed_out = _run_guarded(
+        [sys.executable, USDCORE_DUMP, path], SUBPROC_TIMEOUT_S["usdcore"])
+    if timed_out or rc != 0:
+        return {"error": f"usdcore_dump exited {rc}: "
+                         f"{(err or out).strip()[:200]}"}
     try:
-        from pxr import Usd, UsdGeom
-    except ImportError as e:
-        return {"error": f"usd-core not importable: {e}"}
-    try:
-        stage = Usd.Stage.Open(path)
-    except Exception as e:
-        return {"error": f"stage open raised: {e}"}
-    if stage is None:
-        return {"error": "Usd.Stage.Open returned None"}
-    try:
-        world = stage.GetPrimAtPath("/World")
-        prims = []
-        if world and world.IsActive():
-            xc = UsdGeom.XformCache()
-            for p in world.GetAllChildren():
-                entry = {"path": str(p.GetPath()),
-                         "type": p.GetTypeName() or "",
-                         "defined": int(p.IsActive())}
-                try:
-                    entry["xform"] = [float(c) for row in
-                                      xc.GetLocalToWorldTransform(p)
-                                      for c in row]
-                    entry["xform_ok"] = 1
-                except Exception:
-                    entry["xform"] = [0.0] * 16
-                    entry["xform_ok"] = 0
-                entry["attribs"] = {}
-                for name in ("points", "faceVertexCounts", "faceVertexIndices",
-                             "primvars:displayColor", "focalLength",
-                             "horizontalAperture", "verticalAperture",
-                             "clippingRange", "inputs:intensity"):
-                    attr = p.GetAttribute(name)
-                    if not attr or not attr.HasValue():
-                        continue
-                    conv = _vt_to_py(attr.Get())
-                    if conv is not None:
-                        entry["attribs"][name] = conv
-                prims.append(entry)
-        return {"prims": prims}
-    except Exception as e:
-        return {"error": f"usd-core traversal raised: {e}"}
+        return json.loads(out)
+    except ValueError as e:
+        return {"error": f"usdcore_dump emitted invalid JSON: {e}"}
 
 
 # ---------------------------------------------------------------------------
@@ -170,15 +155,17 @@ def read_usdcore(path: str) -> dict:
 def read_nanousd(path: str) -> dict:
     env = dict(os.environ)
     env["NANOUSD_BACKEND"] = NANOUSD_LIB
-    p = run([NANOUSD_DUMP, NANOUSD_LIB, path], env=env)
-    if p.returncode != 0:
+    rc, out, err, timed_out = _run_guarded(
+        [NANOUSD_DUMP, NANOUSD_LIB, path], SUBPROC_TIMEOUT_S["nanousd"],
+        env=env)
+    if timed_out or rc != 0:
         try:
-            err = json.loads(p.stdout).get("error", p.stderr.strip()[:200])
+            errmsg = json.loads(out).get("error", err.strip()[:200])
         except (ValueError, AttributeError):
-            err = p.stderr.strip()[:200] or f"exit {p.returncode}"
-        return {"error": f"nanousd_dump: {err}"}
+            errmsg = err.strip()[:200] or f"exit {rc}"
+        return {"error": f"nanousd_dump: {errmsg}"}
     try:
-        rec = json.loads(p.stdout)
+        rec = json.loads(out)
     except ValueError as e:
         return {"error": f"nanousd_dump emitted invalid JSON: {e}"}
     # nanousd_dump wraps each attribute as {"type": t, "value": v}; unwrap to
@@ -229,8 +216,10 @@ def mesh_entries(prims, reader: str):
     return meshes, cameras, lights
 
 
-def struct_check(prims, reader: str, text: str):
-    """G1 for one reader. Returns (errors, meshes, camera)."""
+def struct_check(prims, reader: str):
+    """G1 for one reader. Returns (errors, meshes, camera). Composition
+    arcs and forbidden schemas are checked from the parsed records in
+    main() (formatting cannot hide what a parser reports)."""
     errs = []
     meshes, cameras, lights = mesh_entries(prims, reader)
 
@@ -294,26 +283,33 @@ def struct_check(prims, reader: str, text: str):
             errs.append(fail("G1", f"{reader}.aperture_ratio",
                 f"{reader}: aperture ratio {ratio:.3f} outside 4:3 +/-5%"))
 
-    # forbidden composition arcs / schemas, by authored text
-    for tok in FORBIDDEN_TOKENS:
-        if tok in text:
-            errs.append(fail("G1", f"{reader}.forbidden_arc",
-                f"forbidden composition arc in file: '{tok}'"))
-    for line in text.splitlines():
-        s = line.strip()
-        if s.startswith("def ") and any(
-                s[len("def "):].lstrip().startswith(pre)
-                for pre in SCHEMA_FORBIDDEN_PREFIXES):
+    # forbidden plugin schemas, from each reader's own parsed prim types
+    for p in prims:
+        if p["type"].startswith(SCHEMA_FORBIDDEN_PREFIXES):
             errs.append(fail("G1", f"{reader}.forbidden_schema",
-                f"forbidden plugin schema in file: '{s[:60]}'"))
+                f"{reader}: {p['path']} has plugin schema type "
+                f"'{p['type']}'"))
 
     return errs, meshes, cam
 
 
 def compare_readers(nn_flat, uc_prims):
-    """G2: the two readers must agree on mesh paths, point counts, point
-    values, world 4x4 transforms and judge-computed world bboxes."""
+    """G2: the two readers must agree on the full prim set under /World
+    (a prim one reader silently drops is a divergence whatever its type),
+    then on mesh paths, point counts, point values, world 4x4 transforms
+    and judge-computed world bboxes."""
     errs = []
+    nn_all = sorted(p["path"] for p in nn_flat
+                    if p["path"].startswith("/World/"))
+    uc_all = sorted(p["path"] for p in uc_prims
+                    if p["path"].startswith("/World/"))
+    if nn_all != uc_all:
+        only_nn = sorted(set(nn_all) - set(uc_all))
+        only_uc = sorted(set(uc_all) - set(nn_all))
+        errs.append(fail("G2", "prim_paths",
+            f"prim path sets differ: only nanousd={only_nn} "
+            f"only usd-core={only_uc}"))
+
     nn_meshes, nn_cams, _ = mesh_entries(nn_flat, "nanousd")
     uc_meshes, uc_cams, _ = mesh_entries(uc_prims, "usd-core")
 
@@ -462,15 +458,28 @@ def main() -> int:
             return 1
 
         nn_flat = flatten_prims(nn)
-        errs1, meshes, cam = struct_check(nn_flat, "nanousd", text)
-        errs1b, uc_meshes, uc_cam = struct_check(uc["prims"], "usd-core", text)
-        g1_ok = not errs1 and not errs1b
-        setgate("G1", g1_ok, {"errors": errs1 + errs1b,
+        errs1, meshes, cam = struct_check(nn_flat, "nanousd")
+        errs1b, uc_meshes, uc_cam = struct_check(uc["prims"], "usd-core")
+        # composition arcs: parser-reported first, then the formatting-
+        # proof text net (both below G1; the artifact cannot forge these
+        # from inside a subprocess)
+        arc_errs = [fail("G1", "forbidden_arc",
+                         f"composition arc reported by the parser at "
+                         f"{a['where']}: {a['arc']} = {a['detail']}")
+                    for a in uc.get("forbidden_arcs", [])]
+        arc_errs += [fail("G1", "forbidden_arc",
+                          f"forbidden composition arc in file: '{tok}'")
+                     for tok in text_arc_scan(text)]
+        g1_ok = not errs1 and not errs1b and not arc_errs
+        setgate("G1", g1_ok, {"errors": errs1 + errs1b + arc_errs,
                               "nanousd_meshes": len(meshes),
                               "usdcore_meshes": len(uc_meshes)})
 
         errs2 = compare_readers(nn_flat, uc["prims"])
         setgate("G2", not errs2, {"errors": errs2,
+                                  "prims_compared": sum(
+                                      1 for p in nn_flat
+                                      if p["path"].startswith("/World/")),
                                   "meshes_compared": len(meshes)})
 
         if not (g1_ok and not errs2):

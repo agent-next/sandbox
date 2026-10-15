@@ -22,11 +22,13 @@ Mutants and the gate each must trip:
   too_few_points     one mesh down to 4 points              -> G1 points
   aperture_broken    verticalAperture 20 (ratio 1.8)        -> G1 aperture_ratio
   composite_arc      a references = line                   -> G1 forbidden_arc
-  swapped_colors     two displayColors exchanged            -> G1 colors_close
-                     (their L2 distance falls under the pair
-                     rule first; if the pair were wide enough
-                     to survive G1, G4's decisiveness fit
-                     would catch it)
+  smuggled_arc       an inherits=[</Nope>] arc formatted
+                     without the spaces the old text scan
+                     matched (the forge-a-pass cheat; now
+                     the parser reports it)              -> G1 forbidden_arc
+  rects_overlap      the Cube slid right until its projected
+                     rectangle overlaps the Wedge's (every
+                     structural rule still holds)          -> G4 rects_overlap
 """
 
 from __future__ import annotations
@@ -52,13 +54,6 @@ def sub_once(text: str, old: str, new: str, what: str) -> str:
             f"mutants: {what}: pattern appears {text.count(old)} times, "
             f"expected exactly 1 -- update mutants.py against the example")
     return text.replace(old, new, 1)
-
-
-def transient(name: str) -> bool:
-    """Prim order in the file is stable, so every mutant below is a plain
-    textual edit; nothing depends on reordering."""
-    del name
-    return False
 
 
 # ---------------------------------------------------------------- mutants
@@ -129,15 +124,32 @@ def m_composite_arc(t: str) -> str:
         "composite_arc")
 
 
-def m_swapped_colors(t: str) -> str:
-    # Exchange two meshes' displayColors: each rect now carries a colour that
-    # belongs to a different prim -> the colour-confusion rule bites.
+def m_rects_overlap(t: str) -> str:
+    # Slide the Cube right until its projected rectangle overlaps the
+    # Wedge's by far more than 10% of the smaller area. Every structural
+    # rule still holds (both readers agree, colors stay pairwise far
+    # apart, the mesh is fully on screen), so only G4's screen-separation
+    # layout rule -- re-measured by the judge's own projection -- catches
+    # it (and the inner-rect color fit, whose samples now straddle two
+    # meshes).
     return sub_once(
-        t, 'color3f[] primvars:displayColor = [(0.2, 0.35, 0.9)]\n'
-        '        float3 xformOp:translate = (0, 0.55, -0.2)',
-        'color3f[] primvars:displayColor = [(0.75, 0.15, 0.8)]\n'
-        '        float3 xformOp:translate = (0, 0.55, -0.2)',
-        "swapped_colors")
+        t, 'float3 xformOp:translate = (-4.2, 0.6, 0)',
+        'float3 xformOp:translate = (-2.3, 0.6, 0)', "rects_overlap")
+
+
+def m_smuggled_arc(t: str) -> str:
+    # The cheat attempt: a composition arc formatted WITHOUT the spaces the
+    # old text scan matched ("inherits ="), so the scan saw nothing. If both
+    # readers tolerate the arc, the scene would otherwise grade PASS -- a
+    # forged verdict. The judge now takes arcs from the parser (and from a
+    # whitespace-proof text net), so the smuggling is the thing that fails.
+    return sub_once(
+        t, 'uniform token[] xformOpOrder = ["xformOp:translate"]\n'
+        '    }\n\n    def Mesh "Wedge"',
+        'uniform token[] xformOpOrder = ["xformOp:translate"]\n'
+        '        inherits=[</Nope>]\n'
+        '    }\n\n    def Mesh "Wedge"',
+        "smuggled_arc")
 
 
 MUTANTS = [
@@ -150,7 +162,8 @@ MUTANTS = [
     ("too_few_points", "G1", m_too_few_points),
     ("aperture_broken", "G1", m_aperture_broken),
     ("composite_arc", "G1", m_composite_arc),
-    ("swapped_colors", "G4", m_swapped_colors),
+    ("smuggled_arc", "G1", m_smuggled_arc),
+    ("rects_overlap", "G4", m_rects_overlap),
 ]
 
 
@@ -169,8 +182,6 @@ def main() -> int:
     for name, gate, fn in MUTANTS:
         before = read_good()
         after = fn(before)
-        if transient(name):
-            continue
         if after == before:
             print(f"mutants: {name}: edit was a no-op", file=sys.stderr)
             return 1
