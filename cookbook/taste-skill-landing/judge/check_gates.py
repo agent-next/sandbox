@@ -162,6 +162,32 @@ COLLECT_JS = r"""
 }
 """
 
+# Wind-widget probe: read the rendered #wind-result text at the default
+# slider position and two others, and extract every "N minutes" figure.
+# Returns {present, samples:[{speed, text}], minutes:[...] }.
+WIND_JS = r"""
+async () => {
+  const speed = document.getElementById('wind-speed');
+  const out = document.getElementById('wind-result');
+  if (!speed || !out) return {present: false, samples: [], minutes: []};
+  const read = () => {
+    const text = out.textContent || '';
+    const mins = [...text.matchAll(/(-?\d+)\s*minutes/g)]
+      .map(m => parseInt(m[1], 10));
+    return {speed: speed.value, text: text, minutes: mins};
+  };
+  const samples = [];
+  samples.push(read());                    // default slider position
+  for (const v of [speed.min, speed.max]) { // two other positions
+    speed.value = v;
+    speed.dispatchEvent(new Event('input', {bubbles: true}));
+    samples.push(read());
+  }
+  return {present: true, samples: samples,
+          minutes: samples.flatMap(s => s.minutes)};
+}
+"""
+
 AXE_RUN_JS = r"""
 async () => {
   const r = await window.axe.run(document, {
@@ -297,6 +323,8 @@ def main():
             if axe_src and w in (1440, TAP_WIDTH):
                 page.add_script_tag(content=axe_src)
                 data[w]["axe"] = page.evaluate(AXE_RUN_JS)
+                if w == 1440:
+                    data[w]["wind"] = page.evaluate(WIND_JS)
             ctx.close()
         browser.close()
 
@@ -360,6 +388,26 @@ def main():
     gate("brief_sections", sec_ok and (ground_hex == ground_want),
          {"sections": sec_detail, "ground_want": ground_want,
           "ground_got": ground_hex})
+
+    # -- gate 7: wind widget sanity ---------------------------------------
+    # The brief hero asks for "the honest time saved": the rendered widget
+    # text is read at the default slider position and at the slider's min
+    # and max, and every "N minutes" figure must be a sane count.
+    wind = data[1440].get("wind", {"present": False, "samples": [],
+                                   "minutes": []})
+    if not wind["present"]:
+        wind_ok, wind_bad, wind_note = True, [], "no wind widget on the page"
+    else:
+        wind_bad = [{"sample": s["text"][:120], "minutes": s["minutes"]}
+                    for s in wind["samples"]
+                    if any((not isinstance(m, int)) or m < 0 or m > 600
+                           for m in s["minutes"])]
+        wind_ok = not wind_bad
+        wind_note = None
+    gate("wind_widget_sane", wind_ok,
+         {"note": wind_note, "samples": [s["text"][:120]
+                                         for s in wind["samples"]],
+          "bad": wind_bad})
 
     # -- gate 5: taste rules ------------------------------------------------
     sub = []

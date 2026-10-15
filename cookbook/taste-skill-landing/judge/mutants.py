@@ -81,13 +81,25 @@ def main():
     patch(os.path.join(d, HTML),
           ' alt="Three loop ribbons of different lengths drawn on paper">', ">")
 
-    # 8. gradient button (gate 5.7: no_gradients)
+    # 8. wind-widget sign bug (gate 7: wind_widget_sane)
+    # Reintroduces the original sign error: the saving is computed as an
+    # ordered difference (second direction minus first, no min/max), so
+    # for some winds the widget prints a negative saving.
+    d = clone("wind_sign_bug")
+    js = os.path.join(d, "assets", "js", "main.js")
+    patch(js,
+          "    var best = Math.min(times[0], times[1]);\n"
+          "    var worst = Math.max(times[0], times[1]);",
+          "    var best = times[0];\n"
+          "    var worst = times[1];")
+
+    # 9. gradient button (gate 5.7: no_gradients)
     d = clone("gradient_button")
     append(os.path.join(d, CSS),
            "\n/* mutant */\na.button { background-image: "
            "linear-gradient(90deg, #0E6E54, #2FA07C) !important; }\n")
 
-    print(f"Created 8 mutants in {BAD}")
+    print(f"Created 9 mutants in {BAD}")
 
 
 if __name__ == "__main__":

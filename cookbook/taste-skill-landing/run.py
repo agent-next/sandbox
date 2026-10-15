@@ -54,21 +54,36 @@ def step(name, fn, *args, timeout=120, capture=False):
 
 
 def grade_in_sandbox(sid, name, artifact, ref, timings):
-    """Grade one artifact inside the sandbox; return its verdict dict."""
+    """Grade one artifact inside the sandbox; return (rc, verdict).
+
+    rc is grade.sh's own exit code, recovered through a JSON envelope so
+    that `cat /tmp/verdict.json` cannot mask it. Contract: grade.sh exits
+    0 only when every gate passes; run.py checks rc AND the verdict the
+    same way for both artifacts.
+    """
     rc, out, timings[name] = step(
         name,
         sbx, "exec", sid, "--timeout", "600", "--",
         "bash", "-c",
         f"cd repo/{DEMO_DIR} && bash judge/grade.sh {artifact} "
         f"--seed 42 --json /tmp/verdict.json >/tmp/grade.log 2>&1; "
-        f"cat /tmp/verdict.json",
+        f"gr=$?; "
+        f'printf \'{{"grade_rc": %d, "verdict": \' "$gr"; '
+        f'cat /tmp/verdict.json 2>/dev/null || printf \'{{"error": '
+        f'"no verdict JSON produced"}}\'; printf \'}}\n\'',
         timeout=630, capture=True)
+    grade_rc = None
     try:
-        verdict = json.loads(out[out.index("{"):])
+        envelope = json.loads(out[out.index("{"):])
+        grade_rc = envelope.get("grade_rc")
+        verdict = envelope.get("verdict") or {}
     except (ValueError, json.JSONDecodeError):
         verdict = {"all_gates_passed": False,
                    "error": "no verdict JSON produced"}
-    return rc, verdict
+    # The sbx exec transport rc is not the grader's rc; grade_rc is the
+    # contract. If the envelope is missing (transport failure), fall back
+    # to the transport rc so a dead sandbox still fails the step.
+    return (grade_rc if grade_rc is not None else rc), verdict
 
 
 def main():
@@ -122,19 +137,35 @@ def main():
                 failed = "selftest.sh"
 
         if not failed:
+            # Contract (matches judge/README): grade.sh exits 0 only if
+            # every gate passes. The good site must give rc 0 AND a
+            # passing verdict.
             rc, verdicts["good"] = grade_in_sandbox(
                 sid, "grade good/site", "examples/good/site",
                 args.ref, timings)
-            if rc != 0 or not verdicts["good"].get("all_gates_passed"):
+            failed_gates = [g["gate"] for g in
+                            verdicts["good"].get("gates", [])
+                            if not g["passed"]]
+            ok = (rc == 0
+                  and verdicts["good"].get("all_gates_passed") is True
+                  and not failed_gates)
+            if not ok:
                 failed = "grade good/site"
 
         if not failed:
             # The baseline is the same brief built WITHOUT the skill rules;
-            # it must FAIL at least one gate — that contrast is the demo.
+            # it must give rc != 0 AND at least one failed gate — that
+            # contrast is the demo.
             rc, verdicts["baseline"] = grade_in_sandbox(
                 sid, "grade baseline/site", "examples/baseline/site",
                 args.ref, timings)
-            if rc == 0 or verdicts["baseline"].get("all_gates_passed"):
+            failed_gates = [g["gate"] for g in
+                            verdicts["baseline"].get("gates", [])
+                            if not g["passed"]]
+            ok = (rc != 0
+                  and verdicts["baseline"].get("all_gates_passed") is False
+                  and failed_gates)
+            if not ok:
                 failed = "grade baseline/site (expected to fail some gates)"
 
         print("\n[run] ======== verdicts ========", flush=True)

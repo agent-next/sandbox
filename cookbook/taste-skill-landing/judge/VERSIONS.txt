@@ -1,4 +1,4 @@
-# recorded by judge/setup.sh at 2026-10-14T23:32:20+00:00
+# recorded by judge/setup.sh at 2026-10-15T00:57:59+00:00
 playwright: 1.63.0 (pip, --require-hashes judge/requirements.txt)
 chromium: 153.0.8010.12 (/home/user/.cache/ms-playwright, build pinned by playwright 1.63.0)
 axe-core: 4.10.3 (npm tarball, sha256 0f2b4d7dcdf7d1219df8d1959ad68e565f51d14c3f0d88bb71cd59abeb956292)

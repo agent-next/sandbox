@@ -73,22 +73,31 @@ else
 fi
 
 echo ""
-echo "[selftest] No-skill baseline (expected FAIL, informational):"
+echo "[selftest] No-skill baseline (MUST exit non-zero — the grader's"
+echo "[selftest] exit-code contract: any failed gate => grade.sh rc != 0):"
+BASE_OK=0
 if [[ -d "$BASELINE" ]]; then
     if "$SCRIPT_DIR/grade.sh" "$BASELINE" --seed "$SEED" --json "$OUT/baseline.json" \
             >"$OUT/baseline.log" 2>&1; then
-        echo "[selftest]   baseline/site  PASSED all gates (expected to fail some!)"
+        echo "[selftest]   baseline/site  exit 0 (CONTRACT BROKEN: a failing site must exit non-zero)"
     else
-        echo "[selftest]   baseline/site  fails: $(failed_gates "$OUT/baseline.json")"
+        FAILS="$(failed_gates "$OUT/baseline.json")"
+        if [[ "$FAILS" == "?" ]]; then
+            echo "[selftest]   baseline/site  exit non-zero but no verdict JSON"
+        else
+            echo "[selftest]   baseline/site  exit != 0, fails: $FAILS"
+            BASE_OK=1
+        fi
     fi
 else
-    echo "[selftest]   baseline/site  missing — skipped"
+    echo "[selftest]   baseline/site  missing — skipped (not asserted)"
+    BASE_OK=1
 fi
 
 echo ""
 echo "[selftest] Known-bad mutants (must FAIL):"
 MUTANTS=(low_contrast fixed_container missing_section console_error
-         default_font tiny_taps img_no_alt gradient_button)
+         default_font tiny_taps img_no_alt wind_sign_bug gradient_button)
 KILLED=0; TOTAL=0; SURVIVED=()
 for m in "${MUTANTS[@]}"; do
     d="$BAD/$m"
@@ -117,11 +126,12 @@ echo ""
 echo "[selftest] ============================================"
 echo "[selftest] good passed     : $GOOD_OK"
 echo "[selftest] determinism     : $DET_OK"
+echo "[selftest] baseline fails  : $BASE_OK (contract: rc != 0 + verdict JSON)"
 echo "[selftest] mutants killed  : $KILLED/$TOTAL ($RATE%)"
 [[ ${#SURVIVED[@]} -gt 0 ]] && echo "[selftest] survived       : ${SURVIVED[*]}"
 echo "[selftest] ============================================"
 
-[[ $GOOD_OK -eq 1 && $DET_OK -eq 1 && $RATE -ge 90 ]] && {
+[[ $GOOD_OK -eq 1 && $DET_OK -eq 1 && $BASE_OK -eq 1 && $RATE -ge 90 ]] && {
     echo "[selftest] SUCCESS"; exit 0; }
 echo "[selftest] FAILURE"
 exit 1

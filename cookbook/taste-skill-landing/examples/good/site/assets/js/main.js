@@ -5,32 +5,49 @@
 
   var form = document.getElementById("wind-form");
   var out = document.getElementById("wind-result");
-  var STATIONARY_MINUTES = 100; // 40 km at 24 km/h, still air
 
-  // Same loop, two ways round. The long leg carries the wind one way only.
+  // The wind model, stated plainly:
+  //   - the rider's still-air cruise speed is 24 km/h;
+  //   - the loop is 40 km: 16 km across the wind, 12 km straight into or
+  //     with it, 12 km diagonal;
+  //   - a tailwind adds up to half its speed to the rider (drafting,
+  //     bearing, rolling resistance all eat the rest); a headwind takes
+  //     its full speed off the rider's air speed (air drag is quadratic,
+  //     so a headwind hurts more than a tailwind helps);
+  //   - alignment in [-1, 1] is the cosine between the rider's heading
+  //     and the direction the wind blows TO (tailwind positive);
+  //   - ground speed = still-air speed + (alignment >= 0 ? 0.5 : 1.0)
+  //     * alignment * wind speed, floored at 8 km/h so the rider always
+  //     makes progress;
+  //   - riding the same loop the other way round flips every alignment's
+  //     sign but leaves the still-air time of 100 minutes unchanged.
+  // Time per leg = distance / ground speed, in minutes. The saving is
+  // slow-direction minus fast-direction, so it is never negative and
+  // never exceeds the still-air time.
   function windMinutes(speed, dir) {
-    // Tailwind fractions per leg, by compass origin of the wind.
-    // Loop: 16 km crosswind legs, 12 km into/out-of the wind, 12 km diagonal.
-    var leg1 = { E: 0.0, NE: 0.5, N: 0.87, SE: -0.5, S: -0.87, SW: -0.5, W: 0.0, NW: 0.5 };
-    var leg2 = { E: 1.0, NE: 0.5, N: 0.0, SE: 0.5, S: 0.0, SW: -0.5, W: -1.0, NW: -0.5 };
-    var leg3 = { E: 0.0, NE: -0.5, N: -0.87, SE: 0.5, S: 0.87, SW: 0.5, W: 0.0, NW: -0.5 };
+    // Alignment per leg for the anticlockwise direction, by compass
+    // origin of the wind (E wind blows TO the west, and so on). For the
+    // opposite origin each sign flips, so opposite winds mirror each other.
+    var leg1 = { E: 0.0, NE: 0.5, N: 0.87, NW: 0.5, W: 0.0, SW: -0.5, S: -0.87, SE: -0.5 };
+    var leg2 = { E: 1.0, NE: 0.5, N: 0.0, NW: -0.5, W: -1.0, SW: -0.5, S: 0.0, SE: 0.5 };
+    var leg3 = { E: 0.0, NE: -0.5, N: -0.87, NW: -0.5, W: 0.0, SW: 0.5, S: 0.87, SE: 0.5 };
     var legs = [[16, leg1[dir]], [12, leg2[dir]], [12, leg3[dir]]];
-    var best = 0, worst = 0, rider = 24;
-    for (var i = 0; i < 2; i++) { // two ways round
-      var t = 0;
+    var rider = 24;
+    var times = [0, 0];
+    for (var way = 0; way < 2; way++) { // the same legs, both ways round
+      var sign = way === 0 ? 1 : -1;
       for (var j = 0; j < legs.length; j++) {
-        var leg = legs[(j + i) % legs.length];
-        var ground = rider + (i === 0 ? 1 : -1) * leg[1] * speed;
-        if (ground < 6) { ground = 6; }
-        t += leg[0] / ground * 60;
+        var a = sign * legs[j][1];
+        var effect = a >= 0 ? 0.5 * a : a; // tailwind helps half, headwind costs full
+        var ground = rider + effect * speed;
+        if (ground < 8) { ground = 8; }
+        times[way] += legs[j][0] / ground * 60;
       }
-      if (i === 0) { best = t; } else { worst = t; }
     }
-    var diff = worst - best;
-    return { best: t0(best), diff: diff };
+    var best = Math.min(times[0], times[1]);
+    var worst = Math.max(times[0], times[1]);
+    return { best: best, diff: worst - best };
   }
-
-  function t0(m) { return m; }
 
   function fmt(m) { return Math.round(m); }
 
