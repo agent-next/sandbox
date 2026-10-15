@@ -1421,6 +1421,71 @@ def test_cancelled_run_disappears_but_only_its_owned_sandbox_is_reclaimed(monkey
     assert reclaimed["poll_delay_s"] == 0.2 and reclaimed["delay_s"] == 3.0
 
 
+def test_job_started_and_cancelled_between_polls_reclaims_only_its_owned_runner():
+    clock, registered, jobs, killed = Clock(), [], [], []
+
+    def handler(req):
+        if req.url.path.endswith("/actions/runners"):
+            return httpx.Response(200, json={"runners": registered})
+        if req.url.path.endswith("/runs"):
+            runs = [{"id": 7}] if jobs and req.url.params["status"] == "cancelled" else []
+            return httpx.Response(200, json={"workflow_runs": runs})
+        assert req.url.path.endswith("/7/jobs")
+        return httpx.Response(200, json={"jobs": jobs})
+
+    demand = rest_demand(clock, handler)
+    pool = make_pool(demand.gh, clock, warm=2, maximum=2, demand=demand)
+    pool.tick()
+    assert not demand.tracked  # no poll observes the job queued or running
+    a, b = live(pool)
+    for i, slot in enumerate((a, b), 1):
+        registered.append({"id": i, "name": slot.name, "status": "online", "busy": True})
+        slot.runner_id, slot.sandbox_id = i, "sandbox-" + slot.name
+        slot.kill = lambda s=slot: killed.append(s.name)
+    cancelled = {"id": 1, "status": "completed", "conclusion": "cancelled",
+                 "runner_name": a.name, "runner_id": a.runner_id}
+    jobs.extend([
+        cancelled,
+        {**cancelled, "id": 2, "runner_name": "sbx-foreign"},
+        {**cancelled, "id": 3, "runner_name": b.name, "runner_id": 999},
+        {**cancelled, "id": 4, "runner_name": b.name, "runner_id": b.runner_id,
+         "status": "in_progress", "conclusion": None},
+    ])
+    for _ in range(4):
+        clock.now = demand.next_poll
+        pool.tick()
+    assert killed == [a.name], "discover cancellations even when no poll saw the active run"
+    assert a.retiring and not b.retiring
+
+
+def test_cancel_discovery_pages_past_old_runs_without_fetching_their_jobs(monkeypatch):
+    clock, calls, cancelled = Clock(), [], []
+    monkeypatch.setattr(runners.time, "time", lambda: 1792022403.0)
+
+    def handler(req):
+        calls.append(req)
+        if req.url.path.endswith("/runs"):
+            if req.url.params["status"] != "cancelled":
+                runs = []
+            elif req.url.params["page"] == "1":
+                runs = [{"id": i, "updated_at": "2020-01-01T00:00:00Z"} for i in range(100)]
+            else:
+                # An old workflow rerun can complete now, beyond the first page.
+                runs = [{"id": 700, "created_at": "2020-01-01T00:00:00Z",
+                         "updated_at": "2026-10-15T00:00:03Z"}]
+            return httpx.Response(200, json={"workflow_runs": runs})
+        assert req.url.path.endswith("/700/jobs")
+        return httpx.Response(200, json={"jobs": [
+            {"id": 7, "status": "completed", "conclusion": "cancelled"},
+        ]})
+
+    demand = rest_demand(clock, handler)
+    demand.poll(lambda repo, job: cancelled.append(job["id"]))
+    assert cancelled == [7], "discover recent cancellations even for old workflow reruns"
+    assert sum(req.url.path.endswith("/jobs") for req in calls) == 1
+    assert not demand.tracked
+
+
 def test_reclaim_does_not_claim_a_failed_kill_and_retries_the_cancel(capsys):
     clock, gh = Clock(), FakeGitHub()
     job = {"id": 1, "status": "completed", "conclusion": "cancelled",
