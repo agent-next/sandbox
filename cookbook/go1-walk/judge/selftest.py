@@ -75,10 +75,17 @@ report['stderr'] = p.stderr
     if len(names) < 6 or any(not all(c.isalnum() or c == "-" for c in n)
                              for n in names):
         raise RuntimeError("invalid mutant inventory")
-    results = {"mutants": {}, "timing": {}, "seeds": seeds}
+    results = {"mutants": {}, "timing": {}, "seeds": seeds, "ok": False}
+
+    def save_results():
+        results["timing"]["wall_s"] = round(time.monotonic() - t0, 3)
+        with open(out_json, "w") as fh:
+            json.dump(results, fh, indent=2, sort_keys=True)
+
     for i in range(2):
         v = checked_verdict(G.grade_on_lease(lease, good, seeds, 64, 500, 1.0))
         results[f"good_run{i+1}"] = v
+        save_results()
         m = v.get("measured", {})
         print(f"selftest: good {i+1} {'PASS' if v['ok'] else 'FAIL'} "
               f"fwd={m.get('mean_forward_mps')} m/s "
@@ -100,15 +107,14 @@ report['stderr'] = p.stderr
         failed = [n for n, g in v["gates"].items() if not g["pass"]]
         killed += bool(failed)
         results["mutants"][name] = {"verdict": v, "failed_gates": failed}
+        save_results()
         print(f"selftest: {name}: {'KILLED' if failed else 'SURVIVED'} "
               f"({', '.join(failed)}; "
               f"fwd={v['measured']['mean_forward_mps']})", flush=True)
     rate = killed / len(names)
     results.update(killed=killed, total=len(names), kill_rate=rate,
                    ok=rate >= 0.9 and killed == len(names))
-    results["timing"]["wall_s"] = round(time.monotonic() - t0, 3)
-    with open(out_json, "w") as fh:
-        json.dump(results, fh, indent=2, sort_keys=True)
+    save_results()
     print(f"selftest: kill rate {killed}/{len(names)} = {rate:.0%}; "
           f"{'PASS' if results['ok'] else 'FAIL'}", flush=True)
     return results

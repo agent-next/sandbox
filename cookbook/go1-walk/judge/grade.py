@@ -143,6 +143,9 @@ def request(key, method, path, body=None, timeout=900):
                                                500 <= exc.code < 600):
                 if isinstance(error, dict) and "failed" in str(error.get("message", "")):
                     return exc.code, error
+                if method == "POST" and path == "/sandboxes":
+                    print(f"GPU lease busy (HTTP {exc.code}); waiting for a free seat",
+                          file=sys.stderr, flush=True)
                 last = exc
                 time.sleep(min(5 * (attempt + 1), 30))
                 continue
@@ -183,6 +186,8 @@ class Lease:
             # a 409 means the slots are busy — retry briefly
             wait = float(os.environ.get("GO1_LEASE_WAIT_S", "300"))
             if st == 409 and time.monotonic() - t0 < wait:
+                print("GPU lease create: no free seat; retrying in 20 s",
+                      file=sys.stderr, flush=True)
                 time.sleep(20)
                 continue
             die(f"GPU lease create: HTTP {st}; check GPU access "
