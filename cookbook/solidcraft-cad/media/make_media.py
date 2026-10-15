@@ -99,13 +99,14 @@ def cmd_data(work: Path):
     print("media: renders + parametric sweep done")
 
     verdicts = {"good": grade(GOOD, work / "good.json")}
-    for fn in mut.MUTANTS:
-        d = copy.deepcopy(good)
+    csg = json.loads((DEMO / "examples/good/design-csg.json").read_text())
+    for base, fn in [(good, f) for f in mut.MUTANTS] + [(csg, f) for f in mut.CSG_MUTANTS]:
+        d = copy.deepcopy(base)
         fn(d["commands"])
         s = work / f"m_{fn.__name__}.json"
         s.write_text(json.dumps(d))
         verdicts[fn.__name__] = grade(s, work / f"v_{fn.__name__}.json")
-    print("media: good + 12 mutants graded")
+    print(f"media: good + {len(verdicts) - 1} mutants graded")
 
     replay = []
     for label, bugs in REPLAY:
@@ -259,10 +260,19 @@ def cmd_frames():
             fig.text(0.04, 0.885, sub, fontsize=17, color=MUTED)
         return fig
 
-    def image(fig, path, rect):
+    def image(fig, path, rect, crop=None):
+        img = mpimg.imread(path)
+        if crop:  # (top, bottom, left, right) as fractions of the render
+            h, w = img.shape[:2]
+            img = img[int(crop[0] * h):int(crop[1] * h), int(crop[2] * w):int(crop[3] * w)]
         ax = fig.add_axes(rect)
-        ax.imshow(mpimg.imread(path))
+        ax.imshow(img)
         ax.axis("off")
+
+    fig = canvas("Agent-built CAD part: PASS, 8/8 gates",
+                 "SolidCraft built it in a sandbox; OpenCascade re-measured the delivered STEP")
+    image(fig, RENDERS / "final_iso.png", [0.18, 0.0, 0.64, 0.86])
+    emit(fig, 2.5)
 
     fig = canvas("Parametric CAD in a disposable sandbox",
                  "An agent writes a SolidCraft script; OpenCascade re-measures what SolidCraft delivers")
@@ -280,7 +290,7 @@ def cmd_frames():
     for n, cap in STAGES:
         fig = canvas("SolidCraft builds the design script", cap)
         image(fig, RENDERS / f"stage{n}.png", [0.2, 0.02, 0.6, 0.84])
-        emit(fig, 2.5)
+        emit(fig, 2)
 
     fig = canvas("Delivered part", "solidcraft-cli snapshot: iso, top and front views")
     for i, v in enumerate(("iso", "top", "front")):
@@ -291,7 +301,8 @@ def cmd_frames():
     for s in sweep:
         fig = canvas("Parametric: change thickness, the whole part rebuilds",
                      "front view; volume reported by solidcraft-cli eval for each value")
-        image(fig, RENDERS / f"sweep_{s['thickness_mm']}.png", [0.04, 0.05, 0.6, 0.8])
+        # the front view leaves the part small in the middle; crop to it (same crop every frame)
+        image(fig, RENDERS / f"sweep_{s['thickness_mm']}.png", [0.02, 0.1, 0.62, 0.7], crop=(0.38, 0.62, 0.12, 0.88))
         fig.text(0.67, 0.6, f"thickness = {s['thickness_mm']:.1f} mm", fontsize=34, color=ACCENT, weight="bold")
         fig.text(0.67, 0.5, f"V = {s['solidcraft_volume_mm3']:.1f} mm³", fontsize=28, color=INK)
         fig.text(0.67, 0.43, f"ΔV = {s['solidcraft_volume_mm3'] - vol0:+.1f} mm³", fontsize=28, color=INK)
@@ -316,12 +327,14 @@ def cmd_frames():
             fig.text(0.55, 0.8 - i * 0.065, f"{m:.3g}  (limit {lim:g})", fontsize=24, color=INK)
         emit(fig, 2.2)
 
-    fig = plt.figure(figsize=(19.2, 10.8))
-    draw_loop(fig, verdicts, replay)
-    emit(fig, 7)
-    fig = plt.figure(figsize=(19.2, 10.8))
-    draw_result(fig, good)
-    emit(fig, 5)
+    for name, secs in (("loop.png", 6), ("result.png", 4)):  # the published figures, full frame
+        fig = plt.figure(figsize=(19.2, 10.8))
+        image(fig, MEDIA / name, [0.0, 0.05, 1.0, 0.9])
+        emit(fig, secs)
+    fig = canvas("Run it yourself", "one command: creates a sandbox, installs the tools, grades, kills the sandbox")
+    fig.text(0.06, 0.6, "python3 cookbook/solidcraft-cad/run.py", fontsize=40, family="monospace", color=ACCENT)
+    fig.text(0.06, 0.45, "github.com/agent-next/sandbox", fontsize=30, color=INK)
+    emit(fig, 3)
     (out / "tmp.png").unlink()
     print(f"media: {k} frames ({k / 30:.1f} s)")
 

@@ -1,0 +1,71 @@
+[
+ {
+  "step": "draft",
+  "mistakes_left": [
+   "boss_height",
+   "hole_off_pcd",
+   "literal_thickness"
+  ],
+  "passed": false,
+  "gates": {
+   "build": true,
+   "occt_shape": false,
+   "volume": false,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": false,
+   "stl": true
+  }
+ },
+ {
+  "step": "fix boss height",
+  "mistakes_left": [
+   "hole_off_pcd",
+   "literal_thickness"
+  ],
+  "passed": false,
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": false,
+   "mass": true,
+   "cross_check": true,
+   "parametric": false,
+   "stl": true
+  }
+ },
+ {
+  "step": "move hole onto PCD",
+  "mistakes_left": [
+   "literal_thickness"
+  ],
+  "passed": false,
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": false,
+   "stl": true
+  }
+ },
+ {
+  "step": "use the thickness\nparameter",
+  "mistakes_left": [],
+  "passed": true,
+  "gates": {
+   "build": true,
+   "occt_shape": true,
+   "volume": true,
+   "features": true,
+   "mass": true,
+   "cross_check": true,
+   "parametric": true,
+   "stl": true
+  }
+ }
+]

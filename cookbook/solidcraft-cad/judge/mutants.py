@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Write known-bad single-edit mutants of a good design.json.
 
-Usage: mutants.py <good design.json> <out dir>
+Usage: mutants.py <examples/good dir> <out dir>
+
+MUTANTS edit design.json (sketch + extrude); CSG_MUTANTS edit design-csg.json
+(boxes and cylinders, whose rotated cylinders SolidCraft exports as B-spline
+faces), so the judge's B-spline cylinder recognition is power-tested too.
 
 Each mutant is one plausible modelling mistake an agent could make; the
 self-test requires the judge to reject every one of them.
@@ -88,22 +92,36 @@ def file_export(cmds):
     cmds.append({"command": "file.export", "params": {"path": "../../escape.step"}})
 
 
+def csg_bore_shifted(cmds):
+    tool = next(c for c in cmds if c["params"].get("body_name") == "BoreTool")
+    tool["params"]["base"] = [0.3, 0, 0]
+
+
+def csg_corner_missing(cmds):
+    i = next(i for i, c in enumerate(cmds) if c["command"] == "solid.combine"
+             and c["params"].get("tools") == ["CornerNE"])
+    del cmds[i]
+    cmds.append({"command": "solid.remove", "params": {"bodies": ["CornerNE"]}})
+
+
+CSG_MUTANTS = [csg_bore_shifted, csg_corner_missing]
 MUTANTS = [hole_small, hole_off_pcd, hole_rotated, hole_missing, hole_extra, bore_missing,
            too_thick, boss_height, no_fillet, literal_thickness, broken_command, file_export]
 
 
 def main() -> int:
-    good = json.loads(Path(sys.argv[1]).read_text())
-    out = Path(sys.argv[2])
+    good_dir, out = Path(sys.argv[1]), Path(sys.argv[2])
     out.mkdir(parents=True, exist_ok=True)
-    for fn in MUTANTS:
-        d = copy.deepcopy(good)
-        fn(d["commands"])
-        if d == good:
-            print(f"mutants: {fn.__name__} made no change", file=sys.stderr)
-            return 1
-        (out / f"{fn.__name__}.json").write_text(json.dumps(d, indent=1) + "\n")
-        print(f"mutants: wrote {fn.__name__}")
+    for src, fns in (("design.json", MUTANTS), ("design-csg.json", CSG_MUTANTS)):
+        good = json.loads((good_dir / src).read_text())
+        for fn in fns:
+            d = copy.deepcopy(good)
+            fn(d["commands"])
+            if d == good:
+                print(f"mutants: {fn.__name__} made no change", file=sys.stderr)
+                return 1
+            (out / f"{fn.__name__}.json").write_text(json.dumps(d, indent=1) + "\n")
+            print(f"mutants: wrote {fn.__name__}")
     return 0
 
 

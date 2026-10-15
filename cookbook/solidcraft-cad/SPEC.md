@@ -74,7 +74,7 @@ artifact is copied to a temp dir and built there; the judge tree and
 | **build** | valid JSON; only allowed commands; `solidcraft-cli run design.json --out part.step --out part.stl` exits 0 (a failing timeline feature fails the run) and both files are non-empty |
 | **occt_shape** | OCCT reads `part.step`: exactly 1 solid, `BRepCheck_Analyzer` valid, bounding box within **0.01 mm** of the analytic box |
 | **volume** | OCCT volume within **0.2 %** of the analytic V |
-| **features** | from the STEP's cylindrical faces (Z axis; concave = hole, convex = boss/fillet): exactly 1 centre bore Ø22 ± 0.02 running z 0..T+H; exactly N = 4 bolt holes, Ø ± **0.02 mm**, centres on the PCD ± **0.05 mm**, angular spacing 90° ± **0.1°**, each through the plate, edge distance ≥ 5 mm; boss Ø32 ± 0.02 spanning z T..T+H ± 0.01; exactly 4 convex R5 corner fillets |
+| **features** | from the STEP's cylindrical faces with a Z axis — exact cylinders, or B-spline faces whose sampled normals are horizontal and whose points fit one circle to 1e-4 mm (concave = hole, convex = boss/fillet): exactly 1 centre bore Ø22 ± 0.02 running z 0..T+H; exactly N = 4 bolt holes, Ø ± **0.02 mm**, centres on the PCD ± **0.05 mm**, angular spacing 90° ± **0.1°**, each through the plate, edge distance ≥ 5 mm; boss Ø32 ± 0.02 spanning z T..T+H ± 0.01; exactly 4 convex R5 corner fillets |
 | **mass** | OCCT volume × 2.70 g/cm³ ≤ 52 g |
 | **cross_check** | `solidcraft-cli eval` reports 1 body whose volume and area agree with OCCT within **0.1 %** and centre of mass within **0.01 mm** (both kernels must agree) |
 | **parametric** | the judge sets `thickness` to T + 2 mm in a copy of the script and rebuilds: 1 solid, OCCT volume change within **0.2 %** of ΔV and top face at T + 2 + H ± 0.01 mm (a frozen or literal-dimension design fails) |
@@ -94,13 +94,19 @@ makes no random choices.
    used only in `cross_check`, which requires the two kernels to agree.
 3. **Mesh check**: the STL is checked by a stdlib edge-manifold test and an
    independent volume integral.
-4. **Self-test**: `judge/selftest.sh` grades the known-good design (must
-   pass) and 12 single-edit mutants from `judge/mutants.py` (each must fail):
-   hole Ø3.1, one hole 0.28 mm off the PCD, one hole rotated 3°, a missing
-   hole, an extra hole, missing bore, plate 7.5 mm (mass/box), boss 4 mm,
-   square corners, thickness written as a literal, a misspelled command, and
-   a `file.export` that tries to write outside the work dir. Kill rate must be
-   ≥ 90 %; same-seed grades must be byte-identical outside `timing`.
+4. **Self-test**: `judge/selftest.sh` grades every known-good design in
+   `examples/good/` (must pass): `design.json` (sketch + extrude) and
+   `design-csg.json` (boxes and cylinders combined, written by the independent
+   reproducing agent; SolidCraft exports its rotated cylinders as B-spline
+   faces, which the features gate fits as circles). It then grades 14
+   single-edit mutants from `judge/mutants.py` (each must fail): hole Ø3.1,
+   one hole 0.28 mm off the PCD, one hole rotated 3°, a missing hole, an extra
+   hole, missing bore, plate 7.5 mm (mass/box), boss 4 mm, square corners,
+   thickness written as a literal, a misspelled command, a `file.export` that
+   tries to write outside the work dir, and on the CSG design a bore moved
+   0.3 mm off centre (same volume: only the B-spline feature check can see it)
+   and a missing corner round. Kill rate must be ≥ 90 %; same-seed grades
+   must be byte-identical outside `timing`.
 
 Tolerances: two fresh-sandbox runs and an independent reproduction must give
 the same pass/fail per gate and the same key numbers to 6 significant figures

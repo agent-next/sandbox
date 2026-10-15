@@ -28,7 +28,7 @@ for g in "$DEMO"/examples/good/*.json; do
     fi
 done
 
-python3 -I "$JDIR/mutants.py" "$GOOD" "$work/mutants" > "$work/mutants.log"
+python3 -I "$JDIR/mutants.py" "$DEMO/examples/good" "$work/mutants" > "$work/mutants.log"
 cat "$work/mutants.log"
 
 total=0
