@@ -32,7 +32,8 @@ PARTS = {
 RPC_PORT = 9875
 
 
-def wait_rpc_port(host="127.0.0.1", port=RPC_PORT, timeout_s=180):
+def wait_rpc_port(host="127.0.0.1", port=RPC_PORT, timeout_s=180,
+                  log_path="/tmp/freecad.log"):
     """Wait for the FreeCAD RPC addon to accept connections on its port."""
     deadline = time.time() + timeout_s
     while time.time() < deadline:
@@ -41,6 +42,15 @@ def wait_rpc_port(host="127.0.0.1", port=RPC_PORT, timeout_s=180):
                 return True
         except OSError:
             time.sleep(2)
+    # Not up in time: show why FreeCAD did not start (or did not auto-start
+    # the addon) before failing.
+    try:
+        with open(log_path, "r", errors="replace") as f:
+            tail = "".join(f.readlines()[-25:])
+    except OSError:
+        tail = "(no %s; FreeCAD may have failed before creating it)" % log_path
+    print("FATAL: FreeCAD RPC addon is not listening on port %d after %d s.\n"
+          "Tail of %s:\n%s" % (port, timeout_s, log_path, tail), file=sys.stderr)
     return False
 
 
@@ -73,8 +83,6 @@ def main():
     args = ap.parse_args()
 
     if not wait_rpc_port(timeout_s=args.rpc_wait_s):
-        print("FATAL: FreeCAD RPC addon is not listening on port %d" % RPC_PORT,
-              file=sys.stderr)
         return 2
 
     client = McpStdioClient(

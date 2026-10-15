@@ -115,10 +115,14 @@ def main():
             "FREECAD_DIR=$HOME/freecad-1.0.1\n"
             "xvfb-run -a -s \"-screen 0 1280x1024x24\" "
             "$FREECAD_DIR/usr/bin/freecad > /tmp/freecad.log 2>&1 &\n"
+            "sleep 2\n"
+            "pgrep -f \"$FREECAD_DIR/usr/bin/freecad\" > /dev/null "
+            "|| { echo 'FATAL: FreeCAD GUI exited at startup:'; "
+            "tail -25 /tmp/freecad.log; exit 1; }\n"
             "MCP=$HOME/.venvs/freecad-mcp/bin/freecad-mcp\n"
             "python3 driver/drive_freecad.py --mcp-command $MCP "
             " --freecadcmd $FREECAD_DIR/usr/bin/freecadcmd\n"
-            "pkill -f freecad || true\n"
+            "pkill -f \"$FREECAD_DIR/usr/bin/freecad\" || true\n"
             "echo DRIVE_DONE\n" % {"demo": DEMO_DIR})
         r = in_sandbox(script, timeout_s=1800)
         if r.returncode != 0 or "DRIVE_DONE" not in r.stdout:
