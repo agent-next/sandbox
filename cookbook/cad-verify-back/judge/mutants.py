@@ -11,9 +11,12 @@ part.py or by post-processing the good exports:
   bore_off           - central bore 0.5 mm oversize
   boss_missing       - no raised boss (flat plate); volume + bbox + dxf fail
   scale_inch_mm      - whole part scaled x25.4 (inch/mm confusion)
+  stl_flipped_facet  - good solid, but one STL facet's winding reversed
   stl_not_watertight - good solid, but one triangle dropped from the STL
   dxf_missing_hole   - good solid, one circle missing from the DXF
   edge_violation     - bolt circle moved so a hole violates min_edge
+  tangential_hole_drift - one bolt hole moved 0.5 mm along the pitch
+                       circle (STEP and DXF agree, radial error stays 0)
 
 Usage:
     python3 mutants.py <good_dir> <out_dir>
@@ -29,7 +32,8 @@ import sys
 
 MUTANTS = [
     "wrong_bolt_count", "wrong_pcd", "bore_off", "boss_missing",
-    "scale_inch_mm", "stl_not_watertight", "dxf_missing_hole", "edge_violation",
+    "scale_inch_mm", "stl_flipped_facet", "stl_not_watertight",
+    "dxf_missing_hole", "edge_violation", "tangential_hole_drift",
 ]
 
 
@@ -79,6 +83,73 @@ def drop_one_triangle(stl_in, stl_out):
         f.write(data[:80])
         f.write(struct.pack("<I", n - 1))
         f.write(data[84 + 50:])
+
+
+def flip_one_facet(stl_in, stl_out):
+    """Binary STL: swap the vertex order of facet 0 (reversed winding).
+
+    The mesh stays watertight topologically (same triangles) but the
+    flipped facet makes the winding inconsistent and turns its volume
+    contribution negative.
+    """
+    with open(stl_in, "rb") as f:
+        data = bytearray(f.read())
+    n = struct.unpack_from("<I", data, 80)[0]
+    if len(data) != 84 + 50 * n:
+        raise SystemExit("mutants: expected a binary STL from the good build")
+    # facet record: normal (3 floats) + 3 vertex floats; swap vertices 0 and 2
+    base = 84  # facet 0
+    v0 = data[base + 12: base + 24]
+    v2 = data[base + 36: base + 48]
+    data[base + 12: base + 24] = v2
+    data[base + 36: base + 48] = v0
+    with open(stl_out, "wb") as f:
+        f.write(bytes(data))
+
+
+def build_drifted_part(spec, out_dir, hole_index, arc_mm):
+    """Good part with ONE bolt hole slid `arc_mm` along the pitch circle.
+
+    The moved hole stays exactly on the PCD (radial error 0), so only the
+    angular-spacing gate catches it. STEP, STL and DXF all show the same
+    drifted geometry, so no export-level gate can catch it either.
+    """
+    import cadquery as cq
+    import ezdxf
+    L, W, T = spec["plate_l"], spec["plate_w"], spec["plate_t"]
+    bore, boss_od, boss_h = spec["bore_d"], spec["boss_od"], spec["boss_h"]
+    n, d, pcd = spec["bolt_n"], spec["bolt_d"], spec["pcd"]
+    r = pcd / 2.0
+
+    def angle(i):
+        a = 2 * math.pi * i / n
+        if i == hole_index:
+            a += arc_mm / r
+        return a
+
+    plate = cq.Workplane("XY").box(L, W, T, centered=(True, True, False))
+    if boss_h > 0:
+        plate = plate.faces(">Z").workplane().circle(boss_od / 2).extrude(boss_h)
+    plate = plate.faces(">Z").workplane().circle(bore / 2).cutThruAll()
+    for i in range(n):
+        cyl = (cq.Workplane("XY").workplane(offset=-1.0)
+               .center(r * math.cos(angle(i)), r * math.sin(angle(i)))
+               .circle(d / 2).extrude(T + 2.0))
+        plate = plate.cut(cyl)
+    cq.exporters.export(plate, os.path.join(out_dir, "part.step"))
+    cq.exporters.export(plate, os.path.join(out_dir, "part.stl"),
+                        tolerance=0.01, angularTolerance=0.05,
+                        exportType=cq.exporters.ExportTypes.STL)
+    doc = ezdxf.new("R2010", setup=False)
+    msp = doc.modelspace()
+    msp.add_lwpolyline([(L / 2, W / 2), (-L / 2, W / 2),
+                        (-L / 2, -W / 2), (L / 2, -W / 2)], close=True)
+    msp.add_circle((0, 0), bore / 2)
+    if boss_h > 0:
+        msp.add_circle((0, 0), boss_od / 2)
+    for i in range(n):
+        msp.add_circle((r * math.cos(angle(i)), r * math.sin(angle(i))), d / 2)
+    doc.saveas(os.path.join(out_dir, "part.dxf"))
 
 
 def main():
@@ -149,6 +220,10 @@ def main():
     build_part(sc, d)
 
     # --- export-level mutants: good solid, broken mesh / drawing ------------
+    s, d = sp("stl_flipped_facet")
+    build_part(s, d)
+    flip_one_facet(os.path.join(d, "part.stl"), os.path.join(d, "part.stl"))
+
     s, d = sp("stl_not_watertight")
     build_part(s, d)
     drop_one_triangle(os.path.join(d, "part.stl"), os.path.join(d, "part.stl"))
@@ -165,6 +240,10 @@ def main():
             msp.delete_entity(c)
             break
     doc.saveas(os.path.join(d, "part.dxf"))
+
+    # --- tangential drift: one hole 0.5 mm along the PCD, STEP and DXF agree
+    s, d = sp("tangential_hole_drift")
+    build_drifted_part(s, d, hole_index=2, arc_mm=0.5)
 
     print("\n".join(MUTANTS))
 
