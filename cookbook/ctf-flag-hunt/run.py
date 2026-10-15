@@ -63,6 +63,11 @@ def step(name: str, fn) -> subprocess.CompletedProcess:
     return proc
 
 
+def short_step(sid: str, name: str, cmd: str) -> subprocess.CompletedProcess:
+    """A step that must finish inside one exec stream (one short command)."""
+    return step(name, lambda: sh(sid, cmd))
+
+
 def detached(sid: str, name: str, cmd: str, log: str) -> None:
     """Start `cmd` detached in the sandbox; its output goes to $log.
 
