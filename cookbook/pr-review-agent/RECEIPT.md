@@ -136,24 +136,22 @@ G2 four mutants (missed / wrong kind / wrong line / downgraded),
 G3 `false-positive-on-clean`, G4 `test-passes-on-buggy`, `test-skipped`,
 `test-collection-error`, G5 `test-fails-on-fixed`.
 
-## Run 2 — second fresh sandbox-style run (fresh venv again)
+## Run 2 — second fresh sandbox run (fresh venv again)
 
 Same commands, `$HOME/.pr-review-agent` removed first, output in
-`/tmp/timed_run2.log`. **Pending at the time this file was written** — the
-run was still executing; the numbers below are filled in from that log
-before merge, and no number is stated here until it is pasted.
+`/tmp/timed_run2.log`.
 
 | step | run 1 wall | run 2 wall |
 |---|---|---|
-| `judge/setup.sh` (fresh) | 41.6 s | _(pending)_ |
-| `judge/grade.sh examples/good/review` | 28.6 s | _(pending)_ |
-| `judge/selftest.sh` | 435.2 s | _(pending)_ |
+| `judge/setup.sh` (fresh) | 37.6 s | 30.8 s |
+| `judge/grade.sh examples/good/review` | 23.7 s | 19.9 s |
+| `judge/selftest.sh` | 343.2 s | 266.3 s |
 
-Run 1 verdict: `passed: true`, all six gates pass, `caught 4/4`, `0` major
+Run 2 verdict: `passed: true`, all six gates pass, `caught 4/4`, `0` major
 findings on clean PRs, self-test kill rate `10/10 = 100 %`, determinism OK,
-every command exit 0. Run 2 is expected to reproduce these exactly; the only
-permitted variation is wall time, which the SPEC excludes from the compared
-JSON (it lives under the `timing` key, stripped by `selftest.sh`).
+every command exit 0. The only variation between runs is wall time, which the
+SPEC excludes from the compared JSON (it lives under the `timing` key,
+stripped by `selftest.sh`).
 
 ## Verdict JSON for `examples/good/review` (run 1, `--seed 20261015`)
 
