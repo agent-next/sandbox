@@ -78,9 +78,15 @@ class Controller:
   to the model's 5 ms as needed) and calls `compute_ctrl` once per control
   step (5 ms). The controller sees the *full* simulator state through
   `data` — this is a simulation demo, not a hardware estimator demo.
+- `model` and `data` are **read-only** for the artifact: it must not write
+  `qpos`/`qvel`/`xfrc_applied`/`qfrc_applied`, `data.time`, or any `model`
+  field (masses, ranges, friction, gravity, damping). The judge snapshots
+  state and model before each `compute_ctrl` call and fails the run on any
+  mutation — e.g. zeroing `xfrc_applied` to cancel the push.
 - The controller may not write files, open sockets, read the filesystem
-  outside its own directory, or import anything but the Python stdlib,
-  `numpy` and `mujoco`. The runner enforces this with a file-access audit.
+  outside its own directory, spawn processes, or import `ctypes`. Imports
+  are limited to the Python stdlib, `numpy` and `mujoco`. The runner
+  enforces this with a file-access audit plus per-step tamper checks.
 
 ## Non-goals
 
@@ -126,8 +132,12 @@ independent oracles:
    vertical contact impulse on the feet at the queried static instant
    must equal total weight `m·g` within 2 %. This pins down mass,
    gravity and contact normals without trusting the artifact.
-4. **Checksums of `judge/`** before and after the run, plus the
-   file-access audit, so the artifact cannot rewrite its own exam.
+4. **Checksums of `judge/`** before and after the run (in `grade.py` and
+   again in `grade.sh`, catching even `atexit`-time edits), plus the
+   file-access audit and per-step state/model tamper snapshots. Every
+   simulator, numpy and builtins entry point the judge uses after the
+   import is bound beforehand, so monkeypatching `np.max`,
+   `mujoco.mj_step`, `json.dumps` or `sys.exit` cannot blind the gates.
 
 ## Gates
 
@@ -147,7 +157,7 @@ exit code 0. `P` = measured value, `R` = rule.
 | 7 | `push` | same signals over t ∈ [5.0, 10) s, push applied t ∈ [5.0, 5.2) s | `stand` rules hold for all t in the window *and* |roll|,|pitch| ≤ 5° by t = 7.0 s and held to t = 10 s |
 | 8 | `limits` | `qpos`, `qvel`, `ctrl`, `actuator_force` over the run | no hinge beyond its [range] by more than 1e-3 rad; no |ctrl| beyond `ctrlrange`; no |applied actuator force| beyond `ctrlrange` by more than 1 N·m |
 | 9 | `effort` | reported, not gated | energy ´∫|τ·q̇|dt`, peak |τ|, RMS |τ| per joint; always `verdict:"info"` |
-| 10 | `integrity` | sha256 of every file under `judge/`, audit hook log | identical before vs after; zero forbidden `open`/`connect` events from the artifact |
+| 10 | `integrity` | sha256 of every file under `judge/`, audit hook log, state/model snapshots, `sys.modules` | identical before vs after; zero forbidden `open`/`connect`/write/exec events; no state or model mutation; no `ctypes` |
 
 Numeric constants. `grade.sh` takes only `--seed` and `--json` on the
 command line; the values below live in `judge/params.json` (and are copied
@@ -207,6 +217,8 @@ compared with `m·g`.
 | `wrong_joint_order` | `order = order[::-1]` in the index map | `stand` |
 | `no_balance` | balance term line deleted | `push` |
 | `clamp_1pct` | `u = np.clip(u, -0.01*lim, 0.01*lim)` | `stand` |
+| `cancels_push` | `d.xfrc_applied[:] = 0.0` inside `compute_ctrl` | `stand`/`push`/`limits` (tamper check → `artifact_error`) |
+| `zero_torque` | `u = np.zeros_like(u)` (oracle: must fall) | `stand` |
 
 Every mutant must fail at least one gate. `judge/selftest.sh` reports the
 kill rate split into physics kills (a `stand`/`push`/`limits` gate fired)
@@ -224,3 +236,8 @@ the physics kill rate to be at least 90 %.
   force at a known body. A pass does not certify the same controller
   against pushes it has not seen.
 - One initial pose, one push. The gates are a spec, not a coverage claim.
+- The judge and the artifact share a CPython process. The bound-entry-point
+  guards, audit hook and tamper snapshots catch ordinary cheating
+  (monkeypatching, push cancellation, limit widening); a fully adversarial
+  artifact would need real process isolation, which is a stated non-goal.
+  This is a demo judge, not a security boundary.

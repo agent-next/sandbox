@@ -8,6 +8,7 @@ passes.
 """
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import sys
@@ -19,15 +20,70 @@ import numpy as np
 
 PHYSICS_GATES = ("stand", "push", "limits")
 
+# Bound before the artifact is imported: the artifact runs inside this
+# process and could monkeypatch modules or builtins to blind the gates.
+# Everything the judge relies on after the import is captured here.
+_MJ_STEP = mujoco.mj_step
+_MJ_FWD = mujoco.mj_forward
+_MJ_CF = mujoco.mj_contactForce
+_MJ_NAME = mujoco.mj_id2name
+_IMPORT = importlib.import_module
+_WALK = os.walk
+_WFLAGS = (os.O_WRONLY | os.O_RDWR | os.O_CREAT
+           | os.O_APPEND | os.O_TRUNC)
+_OP_JOIN = os.path.join
+_OP_REL = os.path.relpath
+_OP_ABS = os.path.abspath
+_OP_DIR = os.path.dirname
+_OP_BASE = os.path.basename
+_OP_SPLITEXT = os.path.splitext
+_SHA256 = hashlib.sha256
+_JSON_DUMP = json.dump
+_JSON_DUMPS = json.dumps
+_SYS_EXIT = sys.exit
+_TIME = time.time
+_NP_ABS = np.abs
+_NP_MAX = np.max
+_NP_MAXIMUM = np.maximum
+_NP_SUM = np.sum
+_NP_SQRT = np.sqrt
+_NP_ZEROS = np.zeros
+_NP_ASARRAY = np.asarray
+_NP_ARRAYEQ = np.array_equal
+_NP_DEG = np.degrees
+_NP_ATAN2 = np.arctan2
+_NP_ASIN = np.arcsin
+_NP_CLIP = np.clip
+_OBJ_BODY = mujoco.mjtObj.mjOBJ_BODY
+_B_OPEN = open
+_B_PRINT = print
+_B_ALL = all
+_B_ANY = any
+_B_MAX = max
+_B_MIN = min
+_B_ABS = abs
+_B_BOOL = bool
+_B_FLOAT = float
+_B_INT = int
+_B_LEN = len
+_B_RANGE = range
+_B_ROUND = round
+_B_SET = set
+_B_SORTED = sorted
+_B_ZIP = zip
+_B_ISINSTANCE = isinstance
+
 
 def sha256_dir(path):
-    h = hashlib.sha256()
-    for root, _dirs, files in sorted(os.walk(path)):
-        for f in sorted(files):
-            fp = os.path.join(root, f)
-            h.update(fp.encode())
-            with open(fp, "rb") as fh:
-                h.update(hashlib.sha256(fh.read()).digest())
+    """Order-independent content hash of a directory (relative paths, so
+    the checksum is stable across checkouts)."""
+    h = _SHA256()
+    for root, _dirs, files in _B_SORTED(_WALK(path)):
+        for f in _B_SORTED(files):
+            fp = _OP_JOIN(root, f)
+            h.update(_OP_REL(fp, path).encode())
+            with _B_OPEN(fp, "rb") as fh:
+                h.update(_SHA256(fh.read()).digest())
     return h.hexdigest()
 
 
@@ -59,8 +115,8 @@ def parse_urdf(path):
 
 def quat_roll_pitch(q):
     w, x, y, z = q
-    roll = np.arctan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y))
-    pitch = np.arcsin(np.clip(2 * (w * y - z * x), -1.0, 1.0))
+    roll = _NP_ATAN2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y))
+    pitch = _NP_ASIN(_NP_CLIP(2 * (w * y - z * x), -1.0, 1.0))
     return roll, pitch
 
 
@@ -109,33 +165,35 @@ class ReferenceHold:
 def sim_loop(model, data, params, ctrl_fn, record):
     waist = model.body(params["push_body"]).id
     dt_ctrl = params["dt_ctrl"]
-    nsub = int(round(dt_ctrl / model.opt.timestep))
-    steps = int(round(params["t_total"] / dt_ctrl))
-    for _ in range(steps):
+    nsub = _B_INT(_B_ROUND(dt_ctrl / params["dt_phys"]))
+    steps = _B_INT(_B_ROUND(params["t_total"] / dt_ctrl))
+    for _ in _B_RANGE(steps):
         t = data.time
+        data.ctrl[:] = ctrl_fn(t)
+        # applied after ctrl_fn: the artifact holds live `data` and must not
+        # be able to cancel or redirect the push inside compute_ctrl
         if params["push_t0"] <= t < params["push_t1"]:
             data.xfrc_applied[waist, 1] = params["push_force"]
         else:
             data.xfrc_applied[waist, :] = 0.0
-        data.ctrl[:] = ctrl_fn(t)
-        for _ in range(nsub):
-            mujoco.mj_step(model, data)
-        mujoco.mj_forward(model, data)
+        for _ in _B_RANGE(nsub):
+            _MJ_STEP(model, data)
+        _MJ_FWD(model, data)
         record(data)
 
 
-def contact_fz_feet(model, data, foot_ids, f6):
+def contact_fz_feet(model, data, geom_bodyid, foot_ids, f6):
     """Total vertical contact force on the feet; also floor-contact bodies."""
     fz = 0.0
-    touched = set()
-    for ci in range(data.ncon):
+    touched = _B_SET()
+    for ci in _B_RANGE(data.ncon):
         con = data.contact[ci]
-        b1, b2 = int(model.geom_bodyid[con.geom1]), int(model.geom_bodyid[con.geom2])
+        b1, b2 = _B_INT(geom_bodyid[con.geom1]), _B_INT(geom_bodyid[con.geom2])
         if (b1 == 0) != (b2 == 0):
             other = b2 if b1 == 0 else b1
-            mujoco.mj_contactForce(model, data, ci, f6)
+            _MJ_CF(model, data, ci, f6)
             if other in foot_ids:
-                fz += abs(f6[0] * con.frame[2])
+                fz += _B_ABS(f6[0] * con.frame[2])
             else:
                 touched.add(other)
     return fz, touched
@@ -175,13 +233,17 @@ def main():
         if not art_active[0]:
             return
         if event == "open":
-            if not isinstance(args_tuple[0], str):
+            if not _B_ISINSTANCE(args_tuple[0], str):
                 return  # fd-based opens carry no path
             path = args_tuple[0]
-            if not any(path.startswith(p) for p in allowed):
+            flags = args_tuple[2] if _B_LEN(args_tuple) > 2 else 0
+            if flags & _WFLAGS:
+                violations.append(f"open-for-write {path}")  # may not write
+            elif not _B_ANY(path.startswith(p) for p in allowed):
                 violations.append(f"open {path}")
         elif event in ("socket.connect", "socket.getaddrinfo", "socket.bind",
-                       "subprocess.Popen", "os.system"):
+                       "subprocess.Popen", "os.system", "os.exec",
+                       "os.posix_spawn", "os.spawn", "os.fork"):
             violations.append(f"{event} {args_tuple[:2]}")
 
     sys.addaudithook(audit)
@@ -190,7 +252,7 @@ def main():
     model = mujoco.MjModel.from_xml_path(args.scene)
     model.opt.timestep = 0.0005  # fixed physics step; control at dt_ctrl
     data = mujoco.MjData(model)
-    mujoco.mj_forward(model, data)
+    _MJ_FWD(model, data)
     gate("model_loads",
          model.nq == 31 and model.nv == 30 and model.nu == 24,
          "pass" if (model.nq, model.nv, model.nu) == (31, 30, 24) else "fail",
@@ -282,10 +344,11 @@ def main():
 
     foot_ids = {int(model.body(n).id) for n in params["foot_bodies"]}
     base_id = int(model.body(params["base_body"]).id)
+    geom_bodyid = model.geom_bodyid.copy()  # snapshot: shared live state
 
     # ---- gate 5: gravity statics oracle (artifact not involved) -----------
     hold_data = mujoco.MjData(model)
-    mujoco.mj_forward(model, hold_data)
+    _MJ_FWD(model, hold_data)
     feet_x = [hold_data.xpos[i] for i in sorted(foot_ids)]
     support = 0.5 * (feet_x[0] + feet_x[1])
     gap = 9.0
@@ -299,13 +362,13 @@ def main():
     hold_data.qpos[1] += support[1] - com0[1]
     hold_data.qpos[2] -= gap
     hold_data.qvel[:] = 0.0
-    mujoco.mj_forward(model, hold_data)
+    _MJ_FWD(model, hold_data)
     hold = ReferenceHold(model, hold_data, params)
     mg = float(model.body_mass.sum()) * abs(model.opt.gravity[2])
     probe = {"best": None}  # (max|qvel|, fz, t)
 
     def hold_record(d):
-        fz, _ = contact_fz_feet(model, d, foot_ids, f6)
+        fz, _ = contact_fz_feet(model, d, geom_bodyid, foot_ids, f6)
         v = float(np.abs(d.qvel).max())
         cur = (v, fz, d.time)
         if probe["best"] is None or v < probe["best"][0]:
@@ -324,118 +387,174 @@ def main():
 
     # ---- gates 6-9: the judged trajectory with the artifact ---------------
     judge_hash_before = sha256_dir(args.judge_dir)
-    sys.path.insert(0, os.path.abspath(os.path.dirname(args.artifact)))
+    sys.path.insert(0, _OP_ABS(_OP_DIR(args.artifact)))
+    sys.dont_write_bytecode = True  # no .pyc cache writes during grading
+    # gate inputs snapshotted before artifact code runs: it shares this
+    # process and could write into the live model views to widen its own
+    # limits
+    jnt_lo = model.jnt_range[1:, 0].copy()
+    jnt_hi = model.jnt_range[1:, 1].copy()
+    ctrl_lim = model.actuator_ctrlrange[:, 1].copy()
     art_active[0] = True
+    art_err = None
+
+    def snap_state():
+        return (data.qpos.copy(), data.qvel.copy(), data.time,
+                    data.xfrc_applied.copy(), data.qfrc_applied.copy())
+
+    def state_ok(pre):
+        return (_NP_ARRAYEQ(data.qpos, pre[0])
+                and _NP_ARRAYEQ(data.qvel, pre[1])
+                and data.time == pre[2]
+                and _NP_ARRAYEQ(data.xfrc_applied, pre[3])
+                and _NP_ARRAYEQ(data.qfrc_applied, pre[4]))
+
+    model0 = (model.opt.gravity.copy(), model.opt.timestep,
+              model.body_mass.copy(), model.dof_damping.copy(),
+              model.jnt_range.copy(), model.actuator_ctrlrange.copy(),
+              model.geom_friction.copy(), model.geom_bodyid.copy())
+
+    def model_ok():
+        return (_NP_ARRAYEQ(model.opt.gravity, model0[0])
+                and model.opt.timestep == model0[1]
+                and _NP_ARRAYEQ(model.body_mass, model0[2])
+                and _NP_ARRAYEQ(model.dof_damping, model0[3])
+                and _NP_ARRAYEQ(model.jnt_range, model0[4])
+                and _NP_ARRAYEQ(model.actuator_ctrlrange, model0[5])
+                and _NP_ARRAYEQ(model.geom_friction, model0[6])
+                and _NP_ARRAYEQ(model.geom_bodyid, model0[7]))
+
+    pre_mods = _B_SET(sys.modules)  # ctypes is loaded by the deps already
     try:
-        import importlib
-        mod_name = os.path.splitext(os.path.basename(args.artifact))[0]
-        mod = importlib.import_module(mod_name)
+        mod_name = _OP_SPLITEXT(_OP_BASE(args.artifact))[0]
+        mod = _IMPORT(mod_name)
+        pre = snap_state()
         ctrl = mod.Controller(model, data, params)
-        z0 = float(data.xpos[base_id][2])
+        # read-only contract: state and model must be untouched
+        if not state_ok(pre) or not model_ok():
+            raise ValueError("artifact modified simulator state or model")
+        z0 = _B_FLOAT(data.xpos[base_id][2])
         traj = {"zmin": z0, "tilt": 0.0, "tilt_t": 0.0, "push_tilt": 0.0,
                 "recover_tilt": None, "bad": None, "q_over": 0.0,
                 "ctrl_over": 0.0, "force_over": 0.0, "energy": 0.0,
-                "tau_peak": 0.0, "tau_rms": None, "tau_sq": np.zeros(24)}
+                "tau_peak": 0.0, "tau_rms": None, "tau_sq": _NP_ZEROS(24)}
 
         def art_record(d):
             roll, pitch = quat_roll_pitch(d.xquat[base_id])
-            tilt = max(abs(roll), abs(pitch))
-            traj["zmin"] = min(traj["zmin"], float(d.xpos[base_id][2]))
+            tilt = _B_MAX(_B_ABS(roll), _B_ABS(pitch))
+            traj["zmin"] = _B_MIN(traj["zmin"], _B_FLOAT(d.xpos[base_id][2]))
             if tilt > traj["tilt"]:
                 traj["tilt"], traj["tilt_t"] = tilt, d.time
             if d.time >= params["push_t0"]:
-                traj["push_tilt"] = max(traj["push_tilt"], tilt)
+                traj["push_tilt"] = _B_MAX(traj["push_tilt"], tilt)
                 if d.time >= params["push_t0"] + params["push_recover_s"]:
                     if traj["recover_tilt"] is None:
                         traj["recover_tilt"] = tilt
                     else:
-                        traj["recover_tilt"] = max(traj["recover_tilt"], tilt)
-            fz, touched = contact_fz_feet(model, d, foot_ids, f6)
+                        traj["recover_tilt"] = _B_MAX(traj["recover_tilt"], tilt)
+            fz, touched = contact_fz_feet(model, d, geom_bodyid, foot_ids, f6)
             if touched and traj["bad"] is None:
-                names = {int(b): mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, b)
+                names = {_B_INT(b): _MJ_NAME(model, _OBJ_BODY, b)
                          for b in touched}
-                traj["bad"] = (round(d.time, 3), sorted(names.values()))
+                traj["bad"] = (_B_ROUND(d.time, 3), _B_SORTED(names.values()))
             q = d.qpos[7:]
-            lo, hi = model.jnt_range[1:, 0], model.jnt_range[1:, 1]
-            traj["q_over"] = max(traj["q_over"],
-                                 float(np.max(np.maximum(q - hi, lo - q))))
-            lim = model.actuator_ctrlrange[:, 1]
-            traj["ctrl_over"] = max(traj["ctrl_over"],
-                                    float(np.max(np.abs(d.ctrl) - lim)))
-            traj["force_over"] = max(
+            traj["q_over"] = _B_MAX(
+                traj["q_over"],
+                _B_FLOAT(_NP_MAX(_NP_MAXIMUM(q - jnt_hi, jnt_lo - q))))
+            traj["ctrl_over"] = _B_MAX(
+                traj["ctrl_over"],
+                _B_FLOAT(_NP_MAX(_NP_ABS(d.ctrl) - ctrl_lim)))
+            traj["force_over"] = _B_MAX(
                 traj["force_over"],
-                float(np.max(np.abs(d.actuator_force) - lim)))
-            traj["energy"] += float(np.sum(
-                np.abs(d.actuator_force) * np.abs(d.qvel[6:]))) * params["dt_ctrl"]
-            traj["tau_peak"] = max(traj["tau_peak"],
-                                   float(np.abs(d.actuator_force).max()))
+                _B_FLOAT(_NP_MAX(_NP_ABS(d.actuator_force) - ctrl_lim)))
+            traj["energy"] += _B_FLOAT(_NP_SUM(
+                _NP_ABS(d.actuator_force) * _NP_ABS(d.qvel[6:]))) * params["dt_ctrl"]
+            traj["tau_peak"] = _B_MAX(
+                traj["tau_peak"], _B_FLOAT(_NP_ABS(d.actuator_force).max()))
             traj["tau_sq"] += d.actuator_force ** 2
 
         def art_ctrl(t):
-            u = np.asarray(ctrl.compute_ctrl(t), dtype=float)
+            if not model_ok():
+                raise ValueError("artifact modified model parameters")
+            pre = snap_state()
+            u = _NP_ASARRAY(ctrl.compute_ctrl(t), dtype=float)
             if u.shape != (24,):
-                raise ValueError(f"compute_ctrl returned shape {u.shape}, want (24,)")
+                raise ValueError(
+                    f"compute_ctrl returned shape {u.shape}, want (24,)")
+            if not state_ok(pre):
+                raise ValueError("artifact modified simulator state")
             return u
 
         sim_loop(model, data, params, art_ctrl, art_record)
+    except Exception as exc:  # an artifact that crashes fails, with a verdict
+        art_err = f"{type(exc).__name__}: {exc}"
     finally:
         art_active[0] = False
         judge_hash_after = sha256_dir(args.judge_dir)
 
-    n_steps = int(round(params["t_total"] / params["dt_ctrl"]))
-    traj["tau_rms"] = float(np.sqrt(traj["tau_sq"].sum() / n_steps))
+    if art_err is not None:
+        for g in ("stand", "push", "limits"):
+            gate(g, False, "fail", artifact_error=art_err)
+        gate("effort", True, "info", note="artifact raised; not measured")
+    else:
+        n_steps = _B_INT(_B_ROUND(params["t_total"] / params["dt_ctrl"]))
+        traj["tau_rms"] = _B_FLOAT(_NP_SQRT(traj["tau_sq"].sum() / n_steps))
 
-    stand_ok = (traj["zmin"] >= params["pelvis_frac"] * z0
-                and traj["tilt"] <= params["stand_tilt_rad"]
-                and traj["bad"] is None)
-    gate("stand", stand_ok, "pass" if stand_ok else "fail",
-         z0_m=round(z0, 4), zmin_m=round(traj["zmin"], 4),
-         z_floor_m=round(params["pelvis_frac"] * z0, 4),
-         max_tilt_deg=round(float(np.degrees(traj["tilt"])), 3),
-         tilt_limit_deg=round(float(np.degrees(params["stand_tilt_rad"])), 2),
-         worst_tilt_at_s=round(traj["tilt_t"], 3),
-         nonfoot_floor_contact=traj["bad"])
+        stand_ok = (traj["zmin"] >= params["pelvis_frac"] * z0
+                    and traj["tilt"] <= params["stand_tilt_rad"]
+                    and traj["bad"] is None)
+        gate("stand", stand_ok, "pass" if stand_ok else "fail",
+             z0_m=_B_ROUND(z0, 4), zmin_m=_B_ROUND(traj["zmin"], 4),
+             z_floor_m=_B_ROUND(params["pelvis_frac"] * z0, 4),
+             max_tilt_deg=_B_ROUND(_B_FLOAT(_NP_DEG(traj["tilt"])), 3),
+             tilt_limit_deg=_B_ROUND(_B_FLOAT(_NP_DEG(params["stand_tilt_rad"])), 2),
+             worst_tilt_at_s=_B_ROUND(traj["tilt_t"], 3),
+             nonfoot_floor_contact=traj["bad"])
 
-    push_ok = (stand_ok and traj["push_tilt"] <= params["stand_tilt_rad"]
-               and traj["recover_tilt"] is not None
-               and traj["recover_tilt"] <= params["push_tilt_rad"])
-    gate("push", push_ok, "pass" if push_ok else "fail",
-         window_s=[params["push_t0"], params["t_total"]],
-         max_tilt_in_window_deg=round(float(np.degrees(traj["push_tilt"])), 3),
-         recover_from_s=round(params["push_t0"] + params["push_recover_s"], 3),
-         max_tilt_after_recovery_deg=round(
-             float(np.degrees(traj["recover_tilt"]))
-             if traj["recover_tilt"] is not None else -1.0, 3),
-         recover_limit_deg=round(float(np.degrees(params["push_tilt_rad"])), 2))
+        push_ok = (stand_ok and traj["push_tilt"] <= params["stand_tilt_rad"]
+                   and traj["recover_tilt"] is not None
+                   and traj["recover_tilt"] <= params["push_tilt_rad"])
+        gate("push", push_ok, "pass" if push_ok else "fail",
+             window_s=[params["push_t0"], params["t_total"]],
+             max_tilt_in_window_deg=_B_ROUND(_B_FLOAT(_NP_DEG(traj["push_tilt"])), 3),
+             recover_from_s=_B_ROUND(params["push_t0"] + params["push_recover_s"], 3),
+             max_tilt_after_recovery_deg=_B_ROUND(
+                 _B_FLOAT(_NP_DEG(traj["recover_tilt"]))
+                 if traj["recover_tilt"] is not None else -1.0, 3),
+             recover_limit_deg=_B_ROUND(_B_FLOAT(_NP_DEG(params["push_tilt_rad"])), 2))
 
-    limits_ok = (traj["q_over"] <= params["q_tol"]
-                 and traj["ctrl_over"] <= params["ctrl_tol"]
-                 and traj["force_over"] <= params["effort_tol"])
-    gate("limits", limits_ok, "pass" if limits_ok else "fail",
-         worst_qpos_over_range_rad=round(traj["q_over"], 6),
-         q_tol_rad=params["q_tol"],
-         worst_ctrl_over_limit_nm=round(traj["ctrl_over"], 6),
-         worst_force_over_limit_nm=round(traj["force_over"], 6))
+        limits_ok = (traj["q_over"] <= params["q_tol"]
+                     and traj["ctrl_over"] <= params["ctrl_tol"]
+                     and traj["force_over"] <= params["effort_tol"])
+        gate("limits", limits_ok, "pass" if limits_ok else "fail",
+             worst_qpos_over_range_rad=_B_ROUND(traj["q_over"], 6),
+             q_tol_rad=params["q_tol"],
+             worst_ctrl_over_limit_nm=_B_ROUND(traj["ctrl_over"], 6),
+             worst_force_over_limit_nm=_B_ROUND(traj["force_over"], 6))
 
-    gate("effort", True, "info",
-         mechanical_energy_j=round(traj["energy"], 3),
-         peak_tau_nm=round(traj["tau_peak"], 3),
-         rms_tau_nm=round(traj["tau_rms"], 3))
+        gate("effort", True, "info",
+             mechanical_energy_j=_B_ROUND(traj["energy"], 3),
+             peak_tau_nm=_B_ROUND(traj["tau_peak"], 3),
+             rms_tau_nm=_B_ROUND(traj["tau_rms"], 3))
 
     # ---- gate 10: integrity ------------------------------------------------
-    integ_ok = judge_hash_before == judge_hash_after and not violations
+    ctypes_used = _B_ANY((m == "ctypes" or m.startswith("ctypes."))
+                         and m not in pre_mods
+                         for m in sys.modules)  # ctypes escapes the audit
+    integ_ok = (judge_hash_before == judge_hash_after
+                and not violations and not ctypes_used)
     gate("integrity", integ_ok, "pass" if integ_ok else "fail",
          judge_sha256_before=judge_hash_before[:16],
          judge_sha256_after=judge_hash_after[:16],
-         artifact_violations=violations)
+         artifact_violations=violations, ctypes_loaded=ctypes_used)
 
-    verdict["all_pass"] = all(g["pass"] for g in verdict["gates"].values())
-    verdict["timing"] = {"grade_wall_s": round(time.time() - t_wall0, 2)}
-    out = json.dumps(verdict, indent=1, sort_keys=True)
+    verdict["all_pass"] = _B_ALL(g["pass"] for g in verdict["gates"].values())
+    verdict["timing"] = {"grade_wall_s": _B_ROUND(_TIME() - t_wall0, 2)}
+    out = _JSON_DUMPS(verdict, indent=1, sort_keys=True)
     if args.json:
-        with open(args.json, "w") as fh:
+        with _B_OPEN(args.json, "w") as fh:
             fh.write(out + "\n")
-    print(out)
+    _B_PRINT(out)
     return 0 if verdict["all_pass"] else 1
 
 
@@ -445,4 +564,4 @@ def sysconfig_stdlib():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _SYS_EXIT(main())

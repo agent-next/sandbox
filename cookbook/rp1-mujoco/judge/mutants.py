@@ -38,6 +38,12 @@ EDITS = [
     ("zero_torque",
      "        u = np.clip(u, -self.lim, self.lim)",
      "        u = np.zeros_like(u)"),
+    # cheat mutant: zero the applied push through the live data handle --
+    # the judge's state-tamper check must catch it, not the physics
+    ("cancels_push",
+     "    def compute_ctrl(self, t):\n        d = self.data\n",
+     "    def compute_ctrl(self, t):\n        d = self.data\n"
+     "        d.xfrc_applied[:] = 0.0\n"),
 ]
 
 
