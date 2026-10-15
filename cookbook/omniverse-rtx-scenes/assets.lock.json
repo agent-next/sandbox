@@ -1,0 +1,428 @@
+{
+  "Props/general/Cardbox_A2/Cardbox_A2.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A2/Cardbox_A2.usd",
+    "sha256": "adbc9341534882dac03166ca6b07ca4bac07cf29c6c0c9ca75776da5899c81b9",
+    "bytes": 28626,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A2/Cardbox_A2_physics.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A2/Cardbox_A2_physics.usd",
+    "sha256": "b14dde6996e6f8358fad8f5b7b7731244be1ed1f3a5118e0e15587eb69e190a6",
+    "bytes": 1054,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A2/materials/textures/T_Cardbox_A2_Albedo_1.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A2/materials/textures/T_Cardbox_A2_Albedo_1.png",
+    "sha256": "69ca2e0d62161cfd6ee982c5074e27a7ae2cd6cc14d82244ef8e402044728956",
+    "bytes": 3611102,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A2/materials/textures/T_Cardbox_A2_Normal_1.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A2/materials/textures/T_Cardbox_A2_Normal_1.png",
+    "sha256": "3e069e2ec04780e404d129ac25b142d0cc158b520394f9f957c4a851341c9887",
+    "bytes": 2478525,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A2/materials/textures/T_Cardbox_A2_ORM_1.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A2/materials/textures/T_Cardbox_A2_ORM_1.png",
+    "sha256": "8553e225da88f9aea8c1ff9d0b0d7eecb06de67971ef0c5acf75e4fc3babaaff",
+    "bytes": 2854690,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A3/Cardbox_A3.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A3/Cardbox_A3.usd",
+    "sha256": "ed2535920edee74e8ef47fd4c911c5217ccdd9f3eee73ca885a014a1e989ed80",
+    "bytes": 28626,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A3/Cardbox_A3_physics.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A3/Cardbox_A3_physics.usd",
+    "sha256": "84bdf656158ef5854342a66bd5dc84c35c3a44bb182cf2f32d84fef92c9bf747",
+    "bytes": 1054,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A3/materials/textures/T_Cardbox_A3_Albedo_1.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A3/materials/textures/T_Cardbox_A3_Albedo_1.png",
+    "sha256": "4cd77c21c8d028f7295af6bec655f303507fcf82106fd31c43dfecf03f3008b3",
+    "bytes": 3649555,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A3/materials/textures/T_Cardbox_A3_Normal_1.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A3/materials/textures/T_Cardbox_A3_Normal_1.png",
+    "sha256": "726d1cce1848e6bcdbf864fa542554d76cbde19d14ae35c2010b3dfc407e3454",
+    "bytes": 2484520,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Cardbox_A3/materials/textures/T_Cardbox_A3_ORM_1.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Cardbox_A3/materials/textures/T_Cardbox_A3_ORM_1.png",
+    "sha256": "34d3f2f02b654674952ccd7ae7d156ebf9ec0f5f1df480404ca8619457f18c2c",
+    "bytes": 2853976,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/FlatBox_A12_56x56x20cm_PR_NVD_01.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/FlatBox_A12_56x56x20cm_PR_NVD_01.usd",
+    "sha256": "fe68e54052eacca8a363f1f6edd8f01576a6edadee5ecfaae07a4736878cf1c1",
+    "bytes": 428084,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/FlatBox_A12_56x56x20cm_PR_NVD_01_physics.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/FlatBox_A12_56x56x20cm_PR_NVD_01_physics.usd",
+    "sha256": "941ad2fc81401430ead8c9d66aa3cfbd8c674e1afcfe4d33298f3555b95aeda0",
+    "bytes": 1165,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/M_FlatBox_Cardboard_01.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/M_FlatBox_Cardboard_01.mdl",
+    "sha256": "37ef98be98fa721077f6bfd75c1b037dded3d2dc7c5bcca4b1753a67735f30bc",
+    "bytes": 1768,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/M_FlatBox_Decal_01.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/M_FlatBox_Decal_01.mdl",
+    "sha256": "d77c2fc89bf5e7f3c113b455abfdf1613e4b7f4fa6eda9d8116805d5f6cac1f3",
+    "bytes": 1897,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/M_FlatBox_Decal_01/T_FlatBox_A01_Trim_Normal.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/M_FlatBox_Decal_01/T_FlatBox_A01_Trim_Normal.png",
+    "sha256": "9e5dbcbf9afb61fc997f9f5627084ba2f6a7832bcb1a06712490303e217cc2ec",
+    "bytes": 361307,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/M_FlatBox_Decal_01/T_FlatBox_A01_Trim_ORM.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/M_FlatBox_Decal_01/T_FlatBox_A01_Trim_ORM.png",
+    "sha256": "2b8946e804b2669fd233ca8dcf922178fd5660c8c989640b2aad10699865ca78",
+    "bytes": 479751,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/M_FlatBox_Decal_01/T_FlatBox_A01_Trim_Opacity.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/M_FlatBox_Decal_01/T_FlatBox_A01_Trim_Opacity.png",
+    "sha256": "abacfe8e03c115bcbb0f57db9ea8405b20092178083de001a729b7d35a79e43c",
+    "bytes": 62922,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/T_FlatBox_A01_Tile_Albedo.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/T_FlatBox_A01_Tile_Albedo.png",
+    "sha256": "8fdce819afed09c8c33881f1685bf34a95a1f47b07f199448dc567d9dd0ba62c",
+    "bytes": 1609903,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/T_FlatBox_A01_Tile_Normal.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/T_FlatBox_A01_Tile_Normal.png",
+    "sha256": "baf8f49572832c8839e8e646c43dd96371651dcde6805838511f0dff57f5f521",
+    "bytes": 1671192,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/T_FlatBox_A01_Tile_ORM.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/T_FlatBox_A01_Tile_ORM.png",
+    "sha256": "5c028f45dd6be5aecffebc01471336c984f767311382e03151ce793856686bca",
+    "bytes": 946708,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/T_FlatBox_A01_Trim_Albedo.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/materials/textures/T_FlatBox_A01_Trim_Albedo.png",
+    "sha256": "097f5f3732d4fb6f92c74740e4dcf14659e2b40bdce6b3ed2666c44c23b62aa1",
+    "bytes": 662561,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/LongBox_A11_11x26x10xcm_PR_NVD_01.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/LongBox_A11_11x26x10xcm_PR_NVD_01.usd",
+    "sha256": "3fb150f05bfbb20e1af96809411750e9710504cbf5d8b6c4b5d330559d394d4b",
+    "bytes": 551269,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/LongBox_A11_11x26x10xcm_PR_NVD_01_physics.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/LongBox_A11_11x26x10xcm_PR_NVD_01_physics.usd",
+    "sha256": "cde4ddba1791be503325af8c601530d9c170863abce07cf991d5adf908d55552",
+    "bytes": 1160,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/M_LongBox_Cardboard_01.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/M_LongBox_Cardboard_01.mdl",
+    "sha256": "a34fa12982db159ff123fc3de221499fce1cc39d205a3620fe13f457683623d0",
+    "bytes": 1768,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/M_LongBox_Decal_01.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/M_LongBox_Decal_01.mdl",
+    "sha256": "7c515a6fbeb8fe0907b34ca798a24d28a3589329be704aed2a1f3b7d9d3cd0b9",
+    "bytes": 1840,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Tile_Albedo.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Tile_Albedo.png",
+    "sha256": "8fdce819afed09c8c33881f1685bf34a95a1f47b07f199448dc567d9dd0ba62c",
+    "bytes": 1609903,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Tile_Normal.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Tile_Normal.png",
+    "sha256": "baf8f49572832c8839e8e646c43dd96371651dcde6805838511f0dff57f5f521",
+    "bytes": 1671192,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Tile_ORM.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Tile_ORM.png",
+    "sha256": "5c028f45dd6be5aecffebc01471336c984f767311382e03151ce793856686bca",
+    "bytes": 946708,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Trim_Albedo.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Trim_Albedo.png",
+    "sha256": "097f5f3732d4fb6f92c74740e4dcf14659e2b40bdce6b3ed2666c44c23b62aa1",
+    "bytes": 662561,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Trim_Normal.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Trim_Normal.png",
+    "sha256": "9e5dbcbf9afb61fc997f9f5627084ba2f6a7832bcb1a06712490303e217cc2ec",
+    "bytes": 361307,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Trim_ORM.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Trim_ORM.png",
+    "sha256": "2b8946e804b2669fd233ca8dcf922178fd5660c8c989640b2aad10699865ca78",
+    "bytes": 479751,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Trim_Opacity.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/materials/textures/T_LongBox_A01_Trim_Opacity.png",
+    "sha256": "abacfe8e03c115bcbb0f57db9ea8405b20092178083de001a729b7d35a79e43c",
+    "bytes": 62922,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Pallet_A1/Pallet_A1.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Pallet_A1/Pallet_A1.usd",
+    "sha256": "e2daf9a345758e11de17ab96791a8a8ea5ba20daefc70b28e79c18e521837b80",
+    "bytes": 88021,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Pallet_A1/Pallet_A1_physics.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Pallet_A1/Pallet_A1_physics.usd",
+    "sha256": "d66db18b995209f586435cf6964a625b0dc0f31cc3b7e1cdb3639ca65366b064",
+    "bytes": 1053,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Pallet_A1/materials/textures/T_Pallet_A1_Albedo.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Pallet_A1/materials/textures/T_Pallet_A1_Albedo.png",
+    "sha256": "7ea41b5b405ec6a115ae68d61c1911c50c507cff1d0c500797850f5b0eeeecec",
+    "bytes": 5915406,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Pallet_A1/materials/textures/T_Pallet_A1_Normal.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Pallet_A1/materials/textures/T_Pallet_A1_Normal.png",
+    "sha256": "6f4baf3f88bc82cdceb09ef648366a2901039fbfb6c95c48f6889d25137da7d7",
+    "bytes": 3815179,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/Pallet_A1/materials/textures/T_Pallet_A1_ORM.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/Pallet_A1/materials/textures/T_Pallet_A1_ORM.png",
+    "sha256": "b5fee96c46b1f2d9e2d7459690ae7e6da643225a8b0c656d52206b10ce3a5a17",
+    "bytes": 3156209,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/RackLongEmpty_A1.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/RackLongEmpty_A1.usd",
+    "sha256": "a791443e1588c7b238325468789a4d008eb61e21b453cae6f518c64fb4babdb9",
+    "bytes": 2157867,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/RackLongEmpty_A1_physics.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/RackLongEmpty_A1_physics.usd",
+    "sha256": "29526d6f8091933919904124768d9d0022737b2346654174e047dd811d46f39f",
+    "bytes": 3784,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Albedo.1001.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Albedo.1001.png",
+    "sha256": "1f3b1ee631115cd2ffe389442c1b6f5e0041becbc865b38f01cea5a2c9e6ec44",
+    "bytes": 3161069,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Albedo.1002.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Albedo.1002.png",
+    "sha256": "0b3c783cb03ab77943730160b78b7fac621e4fa552631bbd126794e59d765252",
+    "bytes": 1581868,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Albedo.1003.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Albedo.1003.png",
+    "sha256": "e0c01a4ba682ee2bf4cda07e11baa5152fe53b98294ef3e08328d574b4a5f50e",
+    "bytes": 2195053,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Normal.1001.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Normal.1001.png",
+    "sha256": "9e3bd93830222341e2c8c212ef1b782b1f1650391018a843396e7714d8cc2e95",
+    "bytes": 2928843,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Normal.1002.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Normal.1002.png",
+    "sha256": "9ecaf8e47a51aea09a77ab45d1440e20095306fa3624db46d68c15473da2d6c9",
+    "bytes": 3513699,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Normal.1003.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_Normal.1003.png",
+    "sha256": "8d3c25f625366abb09686c5478092b0231e19c0974c539ab8b355ff803f98c7e",
+    "bytes": 63451,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_ORM.1001.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_ORM.1001.png",
+    "sha256": "9aeaec1344f78d91f2c9b8a8ddf013391fe35a9b750cd3dbc44e4ba244ad430e",
+    "bytes": 4202012,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_ORM.1002.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_ORM.1002.png",
+    "sha256": "aae6964b5267c79efd87aaf1ef097ec9adf414f0bdcb6d556b05e0122f21e4d4",
+    "bytes": 2951843,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_ORM.1003.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/RackLongEmpty_A1/materials/textures/T_Rack_A1_ORM.1003.png",
+    "sha256": "9988e4cf51cdae795cb3a1015335eabff89aadef23b0e938258efc24e1a3bf20",
+    "bytes": 2482068,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/SM_MetalStainlessTable_A03_01.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/SM_MetalStainlessTable_A03_01.usd",
+    "sha256": "a159199a3bed98e91af8da6b2d16d25f170d0c1f01f67307b8452a35ff81d42b",
+    "bytes": 578334,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/SM_MetalStainlessTable_A03_01_physics.usd": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/SM_MetalStainlessTable_A03_01_physics.usd",
+    "sha256": "b3f95c68ae5c78dd5c9736a2df21878e0f7b378fa7ec1d5a1259bb8c033aa299",
+    "bytes": 1107,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/materials/Plastic_Black_A.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/materials/Plastic_Black_A.mdl",
+    "sha256": "c55a192652601a7ad3dccef12c07a553c1ee54fa8a398a07554c77f0a00bd676",
+    "bytes": 1702,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/materials/Steel_A.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/materials/Steel_A.mdl",
+    "sha256": "49e6711f02070cfad4acfeb3042fbcbf005be11adb7232f27f53c88d6d258366",
+    "bytes": 544,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Plastic_Black_A/T_Plastic_Black_A_Albedo.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Plastic_Black_A/T_Plastic_Black_A_Albedo.png",
+    "sha256": "00ad88d4a87014911c9bbbf554544621595c44313197a5d2004a7df340f69cdd",
+    "bytes": 839417,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Plastic_Black_A/T_Plastic_Black_A_Normal.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Plastic_Black_A/T_Plastic_Black_A_Normal.png",
+    "sha256": "531220b1e6d692b3f6f72a31f73c36cf9fe4a233a195e350156afaac81b5abf2",
+    "bytes": 750316,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Plastic_Black_A/T_Plastic_Black_A_ORM.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Plastic_Black_A/T_Plastic_Black_A_ORM.png",
+    "sha256": "86a06701c6898c5d0026c92432c01a06ca43b34eb37f08376b9746f0ffa8b6b5",
+    "bytes": 844997,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Steel_A/T_Steel_A1_Albedo.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Steel_A/T_Steel_A1_Albedo.png",
+    "sha256": "e0719e8c3c19fb31c4254b93d671939be59ba9e0b55409608b502cea17d0c834",
+    "bytes": 1088183,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Steel_A/T_Steel_A1_Normal.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Steel_A/T_Steel_A1_Normal.png",
+    "sha256": "e77d827725cac762bc9e6d8c5b169c9dd5ca1ac7ea80ce3bb8849f0f2dcb2a7b",
+    "bytes": 596312,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Steel_A/T_Steel_A1_ORM.png": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/general/SM_MetalStainlessTable_A03_01/materials/textures/Steel_A/T_Steel_A1_ORM.png",
+    "sha256": "39b0ec860ba5e5f945787792c90f1d03382dba4188db3b6a2c4fbe0c46de89d3",
+    "bytes": 898809,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "Props/skies/Clear/evening_road_01_4k.hdr": {
+    "url": "https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01/resolve/main/Props/skies/Clear/evening_road_01_4k.hdr",
+    "sha256": "35fb4a0a1beab5322d924f1840447689dab41aefc2b081fe250297a1e1e34313",
+    "bytes": 25365606,
+    "license": "CC-BY-4.0 (NVIDIA Physical AI SimReady Warehouse OpenUDS Dataset v1.1.0, 2025-05-18, https://huggingface.co/datasets/nvidia/PhysicalAI-SimReady-Warehouse-01)"
+  },
+  "mdl/OmniPBR_ClearCoat.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/main/CT_injection_system_a01/simready_usd/source_assets/OmniPBR_ClearCoat.mdl",
+    "sha256": "d84c5ba482561c0eaea2e0c5b607358af549e36cd921773462f92dbc4f32cbc3",
+    "bytes": 29789,
+    "license": "BSD-3-Clause (c) 2022 NVIDIA Corporation; simready-assets dataset"
+  },
+  "mdl/OmniPBRBase.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/main/CT_injection_system_a01/simready_usd/source_assets/OmniPBRBase.mdl",
+    "sha256": "a8fd9fe174e91892e94d06da90ba453a124024c2ce2c033be9d82c9e2f76a3b7",
+    "bytes": 19369,
+    "license": "BSD-3-Clause (c) 2022 NVIDIA Corporation; simready-assets dataset"
+  },
+  "mdl/OmniPBR.mdl": {
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/main/CT_injection_system_a01/simready_usd/source_assets/OmniPBR.mdl",
+    "sha256": "6e6b3acbccd236e21a6c29964a431d2a53e77251cc6b8b1bc975eb1c62da1781",
+    "bytes": 16010,
+    "license": "BSD-3-Clause (c) 2022 NVIDIA Corporation; simready-assets dataset"
+  },
+  "ur10/ur10.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/ur10.usd",
+    "sha256": "09df566f1c8548cc9c7d0c80ed679a2b3ff347ff11c6456549032e85e9a8502c",
+    "bytes": 14659,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  },
+  "ur10/Props/ur10_base.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_base.usd",
+    "sha256": "8be25f2440920c638d136c570ba5a97f29f463d3ce1f858b90f0a77870241734",
+    "bytes": 180707,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  },
+  "ur10/Props/ur10_shoulder.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_shoulder.usd",
+    "sha256": "0388d4a8a1d4c97f3508b54a9c0603e6d6f3652667c031da7480c945ad7d1cb1",
+    "bytes": 1966902,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  },
+  "ur10/Props/ur10_upper_arm.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_upper_arm.usd",
+    "sha256": "613f09ad2322212de5b9228af15e876fece9f1fc782ab0f108d9d9f5fc306e3b",
+    "bytes": 3651868,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  },
+  "ur10/Props/ur10_forearm.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_forearm.usd",
+    "sha256": "ca4b872d4fc4d69dcdcc9855cf7a89f9ffe6e36cde4b37448c5c9af1504158a3",
+    "bytes": 3627293,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  },
+  "ur10/Props/ur10_wrist_1.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_1.usd",
+    "sha256": "3f6592b9c4d943d5b11f113ce416216f858ea73ced1f800f2ce5b131bd937537",
+    "bytes": 2000099,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  },
+  "ur10/Props/ur10_wrist_2.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_2.usd",
+    "sha256": "968dad984174143eefbb658950fd2f2268ed3385828d9b67672f79a8ad755399",
+    "bytes": 1811467,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  },
+  "ur10/Props/ur10_wrist_3.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_3.usd",
+    "sha256": "5083a4f4243865396621937d6a59fb445aef0cadfef439b2a53696bb27292f8a",
+    "bytes": 119256,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  },
+  "ur10/Props/Materials/material_library.usd": {
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/Materials/material_library.usd",
+    "sha256": "dfc3f95b0e1ecfa9d70d3707bf4f8f376e0161cba70164c1d2af3f5d86239c97",
+    "bytes": 3678,
+    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+  }
+}

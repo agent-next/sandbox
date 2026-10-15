@@ -1,0 +1,197 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+    framesPerSecond = 30
+    startTimeCode = 0
+    endTimeCode = 360
+)
+
+def Xform "World"
+{
+    def PhysicsScene "PhysicsScene"
+    {
+        uniform token physics:simulationOwner = ""
+    }
+    def DomeLight "SkyDome"
+    {
+        asset inputs:texture:file = @./assets/Props/skies/Clear/evening_road_01_4k.hdr@
+        float inputs:intensity = 0.9
+    }
+    def RectLight "Key"
+    {
+        color3f inputs:color = (1.0, 0.97, 0.92)
+        float inputs:intensity = 6.0
+        float inputs:width = 2.2
+        float inputs:height = 1.2
+        float3 xformOp:translate = (2.0, 3.0, 1.8)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def RectLight "Fill"
+    {
+        color3f inputs:color = (0.8, 0.88, 1.0)
+        float inputs:intensity = 1.2
+        float inputs:width = 2
+        float inputs:height = 1
+        float3 xformOp:translate = (-1.6, 2.2, -1.4)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def Xform "Ground"
+    {
+        def Cube "GroundPlane"
+        {
+            float3[] extent = [(-10, -0.02, -10), (10, 0.02, 10)]
+            double size = 20
+            color3f[] primvars:displayColor = [(0.1, 0.1, 0.12)]
+        }
+    }
+    def Xform "Table"
+    {
+        double3 xformOp:translate = (0, 0, 0.4)
+        double3 xformOp:scale = (0.01, 0.01, 0.01)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+        def "TableAsset" (
+            prepend references = @./assets/Props/general/SM_MetalStainlessTable_A03_01/SM_MetalStainlessTable_A03_01.usd@
+        )
+        {
+            float3 xformOp:rotateXYZ = (-90, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+        }
+    }
+    def Xform "Robot"
+    {
+        double3 xformOp:translate = (1.1, 0.034, 0.4)
+        float3 xformOp:rotateXYZ = (0, -120, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+        def Xform "UR10Tilt"
+        {
+            float3 xformOp:rotateXYZ = (-90, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+            def "UR10" (
+                prepend references = @./assets/ur10/ur10.usd@
+            )
+            {
+            }
+        }
+    }
+    def Xform "PropBox1"
+    {
+        double3 xformOp:translate = (-0.25, 0.95, 0.15)
+        float3 xformOp:rotateXYZ = (0, 15, 0)
+        double3 xformOp:scale = (0.01, 0.01, 0.01)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        def "BoxAsset" (
+            prepend references = @./assets/Props/general/FlatBox_A12_56x56x20cm_PR_NVD_01/FlatBox_A12_56x56x20cm_PR_NVD_01.usd@
+        )
+        {
+            float3 xformOp:rotateXYZ = (-90, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+        }
+    }
+    def Xform "PropBox2"
+    {
+        double3 xformOp:translate = (0.32, 1.11, -0.12)
+        float3 xformOp:rotateXYZ = (0, -25, 0)
+        double3 xformOp:scale = (0.01, 0.01, 0.01)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        def "BoxAsset" (
+            prepend references = @./assets/Props/general/Cardbox_A2/Cardbox_A2.usd@
+        )
+        {
+            float3 xformOp:rotateXYZ = (-90, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+        }
+    }
+    def Xform "PropBox3"
+    {
+        double3 xformOp:translate = (0.05, 0.90, -0.35)
+        float3 xformOp:rotateXYZ = (0, 60, 0)
+        double3 xformOp:scale = (0.01, 0.01, 0.01)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        def "BoxAsset" (
+            prepend references = @./assets/Props/general/LongBox_A11_11x26x10xcm_PR_NVD_01/LongBox_A11_11x26x10xcm_PR_NVD_01.usd@
+        )
+        {
+            float3 xformOp:rotateXYZ = (-90, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+        }
+    }
+    def Xform "Turntable"
+    {
+        float3 xformOp:rotateXYZ.timeSamples = {
+            0: (0.0, 0.0, 0.0),
+            6: (0.0, 6.0, 0.0),
+            12: (0.0, 12.0, 0.0),
+            18: (0.0, 18.0, 0.0),
+            24: (0.0, 24.0, 0.0),
+            30: (0.0, 30.0, 0.0),
+            36: (0.0, 36.0, 0.0),
+            42: (0.0, 42.0, 0.0),
+            48: (0.0, 48.0, 0.0),
+            54: (0.0, 54.0, 0.0),
+            60: (0.0, 60.0, 0.0),
+            66: (0.0, 66.0, 0.0),
+            72: (0.0, 72.0, 0.0),
+            78: (0.0, 78.0, 0.0),
+            84: (0.0, 84.0, 0.0),
+            90: (0.0, 90.0, 0.0),
+            96: (0.0, 96.0, 0.0),
+            102: (0.0, 102.0, 0.0),
+            108: (0.0, 108.0, 0.0),
+            114: (0.0, 114.0, 0.0),
+            120: (0.0, 120.0, 0.0),
+            126: (0.0, 126.0, 0.0),
+            132: (0.0, 132.0, 0.0),
+            138: (0.0, 138.0, 0.0),
+            144: (0.0, 144.0, 0.0),
+            150: (0.0, 150.0, 0.0),
+            156: (0.0, 156.0, 0.0),
+            162: (0.0, 162.0, 0.0),
+            168: (0.0, 168.0, 0.0),
+            174: (0.0, 174.0, 0.0),
+            180: (0.0, 180.0, 0.0),
+            186: (0.0, 186.0, 0.0),
+            192: (0.0, 192.0, 0.0),
+            198: (0.0, 198.0, 0.0),
+            204: (0.0, 204.0, 0.0),
+            210: (0.0, 210.0, 0.0),
+            216: (0.0, 216.0, 0.0),
+            222: (0.0, 222.0, 0.0),
+            228: (0.0, 228.0, 0.0),
+            234: (0.0, 234.0, 0.0),
+            240: (0.0, 240.0, 0.0),
+            246: (0.0, 246.0, 0.0),
+            252: (0.0, 252.0, 0.0),
+            258: (0.0, 258.0, 0.0),
+            264: (0.0, 264.0, 0.0),
+            270: (0.0, 270.0, 0.0),
+            276: (0.0, 276.0, 0.0),
+            282: (0.0, 282.0, 0.0),
+            288: (0.0, 288.0, 0.0),
+            294: (0.0, 294.0, 0.0),
+            300: (0.0, 300.0, 0.0),
+            306: (0.0, 306.0, 0.0),
+            312: (0.0, 312.0, 0.0),
+            318: (0.0, 318.0, 0.0),
+            324: (0.0, 324.0, 0.0),
+            330: (0.0, 330.0, 0.0),
+            336: (0.0, 336.0, 0.0),
+            342: (0.0, 342.0, 0.0),
+            348: (0.0, 348.0, 0.0),
+            354: (0.0, 354.0, 0.0),
+            360: (0.0, 360.0, 0.0),
+        }
+        uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
+        def Camera "Camera"
+        {
+            double3 xformOp:translate = (0, 1.9, 3.6)
+            float3 xformOp:rotateXYZ = (-14.0, -0.0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
+            float2 clippingRange = (0.05, 500)
+            float focalLength = 35
+            float horizontalAperture = 36
+            float verticalAperture = 20.25
+        }
+    }
+}

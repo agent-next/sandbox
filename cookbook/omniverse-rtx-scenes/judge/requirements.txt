@@ -1,0 +1,25 @@
+# Pinned toolchain for physx-drop-test (Linux x86_64, CPython 3.10-3.13).
+# Installed by judge/setup.sh with `pip install --require-hashes`, so every
+# wheel below is verified against its sha256.  No ranges, no "latest";
+# every release is older than two weeks at pin time (2026-10-15):
+#   ovphysx 0.6.3              released 2026-09-16
+#   ovstage 0.2.0.377349       released 2026-09-08 (exact pin of ovphysx 0.6.3)
+#   newton-usd-schemas 0.5.0   released 2026-08-14
+#   warp-lang 1.17.0           released 2026-08-31
+#   numpy 2.2.6                released 2025-05-17
+#   packaging 23.2             released 2023-10-01
+ovphysx==0.6.3 \
+    --hash=sha256:21cbe1877b91bdce6951e4f3ac5fd1845b99d567bb4dd742df51a5b0c081eeb5
+ovstage==0.2.0.377349 \
+    --hash=sha256:092a34c0054664b90a32c07209647bd02e6f774a705295d8c460813940153f5b
+newton-usd-schemas==0.5.0 \
+    --hash=sha256:edb559522474855fc03e6f395e0702b11074a13fe1c2ed9cce63fbb06516b342
+warp-lang==1.17.0 \
+    --hash=sha256:47cd93636828dd16e55eeb4e77a0e3547b5fb0f383000a3d228629df68f28fd8
+numpy==2.2.6 \
+    --hash=sha256:fc7b73d02efb0e18c000e9ad8b83480dfcd5dfd11065997ed4c6747470ae8915 \
+    --hash=sha256:ba10f8411898fc418a521833e014a77d3ca01c15b0c6cdcce6a0d2897e6dbbdf \
+    --hash=sha256:fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249 \
+    --hash=sha256:1bc23a79bfabc5d056d106f9befb8d50c31ced2fbc70eedb8155aec74a45798f
+packaging==23.2 \
+    --hash=sha256:8c491190033a9af7e1d931d0b5dacc2ef47509b34dd0de67ed209b5203fc88c7
