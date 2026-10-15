@@ -228,7 +228,56 @@ proven on both paths.
 - No GPU call anywhere fails: Warp warns `Could not find or load the NVIDIA
   CUDA driver` and runs on the cpu device.
 
-## B. GPU lease path
+## C. Which path the demo should use
+
+**The demo runs on the GPU lease.** The CPU path is the fallback and the
+tolerance, not the target, and the numbers say why:
+
+| | CPU sandbox (2 vCPU, this round) | GPU lease (RTX 5090 slice) |
+| --- | --- | --- |
+| hello_world | 5.5 steps/s | (B3) |
+| cable (VBD + arm) | 1.55 steps/s | (B3) |
+| towel (VBD sheet) | 0.073 steps/s | (B3) |
+| a 60-step towel fold | **~14 min** of stepping | (B3) |
+| cost of getting started | `uv sync`, ~2 min | **~32 min** of uploading |
+
+The reason is the grade loop, not one run. The demo's judge re-simulates the
+scene for every `params.json` an agent proposes, and the agent proposes many.
+At 0.073 steps/s a single 60-step towel rollout is ~14 minutes on CPU, so a
+20-iteration search is ~5 hours — outside the demo's whole budget. On the
+slice it has to be seconds, and B3 measures whether it is.
+
+The reason it is *close* is the fixed cost. The lease has no network, so the
+payload has to be uploaded through exec calls at the rate measured in B2b
+(~20–35 s/MB), and the two payloads that matter cost:
+
+- **93 MB** — ship `mujoco 3.12`, `mujoco-warp 3.12`, `newton 1.6`, `numpy
+  2.2.6` and a rebuilt `robosimstudio` on top of the lease's own warp/jax:
+  **~32 min**, once per lease.
+- **33 MB** — ship only what the lease lacks (`robosimstudio`, `viser`,
+  `pyroki`, `jaxls`, `yourdfpy`, `robot-descriptions`, the jax helpers) and
+  run on the lease's native `warp 1.13` / `jax 0.7.2` / `mujoco 3.8.1`:
+  **~19 min**.
+
+So the demo's design follows: **one lease, many grade calls.** The wheelhouse
+is uploaded once at the top of `run.py`, and every rollout the agent asks for
+afterwards costs only exec time. That is the same argument the standard makes
+for a disposable sandbox, and it is the reason the numbers above are recorded
+per *phase* (upload / install / first-kernel-compile / stepping) rather than
+as one wall time.
+
+**What the pending platform work would change.** A `robotsim` GPU template
+with RSS baked in (Python 3.12, newton 1.6.1) removes the entire upload phase:
+the 32 minutes above become zero, and the demo's fixed cost drops to lease
+create plus the ~25 s Warp kernel cold-compile. A `PUT
+/sandboxes/{id}/files/{path}` route (405 today, measured in B2b) does the same
+for any wheel the template does not carry — it would make the payload a file
+transfer instead of base64-in-a-code-string, which is where the 21.7 s/MB
+comes from. Neither is live, so **nothing in this demo depends on either**:
+`judge/lease.py` uploads through exec and installs with `pip --no-index`, and
+it will simply get faster if the template lands.
+
+
 
 ### B1. Wheelhouse (the lease lacks everything RSS pins)
 
