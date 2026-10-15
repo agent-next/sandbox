@@ -34,14 +34,18 @@ EDIT = [
      "    with torch.no_grad():\n        out = model(frames)\n    return out.clamp(0.0, 1.0)",
      "    with torch.no_grad():\n        out = model(frames)\n    return out.clamp(0.0, 1.0).flip(0)"),
     ("identity_model",
-     "    model = RRDBNet()\n    model.eval()\n    return model",
-     "    model = RRDBNet()\n    model.eval()\n    return model  # weights never loaded: identity-init cheat"),
+     "    params = checkpoint.get(\"params_ema\", checkpoint)\n"
+     "    model.load_state_dict(params, strict=True)",
+     "    params = checkpoint.get(\"params_ema\", checkpoint)\n"
+     "    pass  # load_state_dict skipped: identity-init cheat"),
     ("pass_through",
      "    with torch.no_grad():\n        out = model(frames)\n    return out.clamp(0.0, 1.0)",
      "    return frames.repeat_interleave(4, dim=2).repeat_interleave(4, dim=3)"),
     ("mute_model",
-     "        x5 = self.c5(torch.cat((x, x1, x2, x3, x4), 1))\n        return x5 * 0.2 + x",
-     "        x5 = self.c5(torch.cat((x, x1, x2, x3, x4), 1))\n        return x  # RRDB body muted to a no-op"),
+     "        x5 = self.conv5(torch.cat((x, x1, x2, x3, x4), 1))\n"
+     "        return x5 * 0.2 + x",
+     "        x5 = self.conv5(torch.cat((x, x1, x2, x3, x4), 1))\n"
+     "        return x  # RRDB body muted to a no-op"),
 ]
 
 

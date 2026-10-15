@@ -135,11 +135,11 @@ ground-truth upscaled data shipped in the repo.
 
 ### Sampling and reproducibility
 
-- The clip is `data/clip/original.mp4` (5 s, 1920×1080, 30 fps, 150
+- The clip is `data/clip/original.mp4` (10 s, 1920×1080, 60 fps, 600
   frames, H.264, no audio), taken from a cite-able public-domain source
-  and committed (about 3 MB; under the 1 MB-per-mesh/size guidance this is
-  a video, not a mesh, and it is the demo's input data — see
-  Deviations).
+  and committed (~1 MB, under the repo's 5 MB per-file limit; the 67 MB
+  weights are not committed — setup.sh downloads and sha256-verifies
+  them).
 - Frames sampled: with `--seed S`, sample `--frames N` (default 3) frames
   at deterministic indices `(k * stride + S) % total_frames` for k in
   range(N), so different seeds sample different frames and the default
@@ -160,9 +160,12 @@ ground-truth upscaled data shipped in the repo.
 - SSIM uses a standard 11×11 Gaussian window (σ=1.5), C1=(0.01·L)²,
   C2=(0.03·L)² with L=1.0, computed per channel and averaged, on the
   quantised frames, with `valid`-style padding at the borders.
-- All metric computation is float32, single-threaded (`torch.set_num_threads(1)`),
-  so `--json` output is byte-identical between two runs with the same seed
-  except the `timing` key.
+- All metric computation is float32 with a **fixed** thread count
+  (`torch.set_num_threads(min(8, cpu_count))`, set once per process, never
+  adaptive), so `--json` output is byte-identical between two runs with the
+  same seed in the same sandbox except the `timing` key. (A single thread
+  would need minutes per graded frame on a sandbox CPU; the standard allows
+  fixed thread counts where results depend on it.)
 
 ## Acceptance oracle
 
@@ -233,7 +236,7 @@ requires:
 `--version` output of each tool. Every pinned release predates 2026-10-01
 (the demo was built on 2026-10-15, so nothing from the last two weeks).
 `setup.sh` is idempotent and refuses unsupported platforms (x86-64 Linux,
-CPython 3.10–3.13).
+CPython 3.11–3.13; numpy 2.4.3 publishes no cp310 wheel).
 
 The judge needs no CUDA. The GPU is used by the artifact's own heavy
 inference (the lead's GPU run below), not by grading: the judge always runs
@@ -241,7 +244,8 @@ on CPU, which is what makes it runnable by everyone.
 
 ## GPU path (the lead's run)
 
-The heavy step — running the model over 150 frames of 1080p — runs on a
+The heavy step — running the model over a 150-frame stretch (2.5 s at
+60 fps) of the 1080p clip — runs on a
 GPU slice lease created over the REST API, exactly the pattern in
 `cookbook/small-gpu/run.py` and `cookbook/gpu-kernel/run.py`:
 

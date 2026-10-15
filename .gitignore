@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .coverage
+cookbook/gpu-video-upscale/data/weights/*.pth
+cookbook/gpu-video-upscale/judge/VERSIONS.txt
+cookbook/gpu-video-upscale/judge/mutants/
+cookbook/gpu-video-upscale/media/master/
