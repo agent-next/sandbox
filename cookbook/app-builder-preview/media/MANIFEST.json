@@ -42,7 +42,7 @@
  },
  "source_data": {
   "flow_screenshots": "media/data/shots/<flow>.png (captured by judge/grade.sh --shots while grading)",
-  "grade_good": "media/data/grade_good.json (sha256 be0179057137a470d8b24eda3254e519b3c055336419786c3c419e5ec0872369)",
+  "grade_good": "media/data/grade_good.json (sha256 d569cafed51e75c8942f1774efd881b5b266788daec2b3599e7833cca0367912)",
   "mutants": "media/data/mutants/*.json (one verdict per mutant)",
   "replay": "media/data/replay.json (sha256 760a620d677bd7d7e81ee2a4829d98563c139d3db87ca6071fe01db67fe939e4)",
   "selftest": "media/data/selftest.json (sha256 b79f45c128eb5d4d61a197a0b0da4abeec3132f24711cd34b82694ada1182187)"
