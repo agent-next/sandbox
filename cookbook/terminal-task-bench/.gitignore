@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+# generated fixture trees (fixtures/*/work/, expected.json) are produced
+# from a seed by fixtures/make_fixtures.py and never committed
+fixtures/*/work/
+fixtures/*/expected.json
+media/master/
+media/frames/
+media/.venv/

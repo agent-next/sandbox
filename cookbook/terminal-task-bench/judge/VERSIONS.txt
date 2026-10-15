@@ -1,0 +1,8 @@
+# terminal-task-bench judge: versions installed by judge/setup.sh
+# (Linux x86_64)
+python3 3.12.15
+git 2.39.5
+sqlite3 3.40.1
+sqlite3 debian package: 3.40.1-2+deb12u2
+bash 5.2.15(1)-release
+tar 1.34
