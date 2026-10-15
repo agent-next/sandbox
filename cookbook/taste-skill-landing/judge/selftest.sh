@@ -2,9 +2,11 @@
 # judge/selftest.sh — prove the judge can fail.
 #   - the known-good site passes every gate
 #   - the same seed twice gives a byte-identical verdict (except 'timing')
+#   - the no-skill baseline exits non-zero AND yields a verdict JSON
+#     (the exit-code contract: any failed gate => grade.sh rc != 0)
 #   - every scripted mutant fails at least one gate  -> kill rate >= 90 %
-#   - the no-skill baseline fails (informational: the before/after story)
-# Exit non-zero unless good passes, determinism holds and kill rate >= 90 %.
+# Exit non-zero unless good passes, determinism holds, the baseline fails
+# the right way, and kill rate >= 90 %.
 
 set -euo pipefail
 

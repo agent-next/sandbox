@@ -104,14 +104,24 @@ headless (no CPU throttling), at widths **375, 768 and 1440 px**
   `critical` or `serious`: **0** (equivalent of the brief's "Lighthouse
   accessibility >= 90" target; Deviation logged in RECEIPT.md).
 
+### Gate 7 — wind widget sanity (brief hero: "the honest time saved")
+- The rendered `#wind-result` text is read at the default slider position,
+  at the slider's `min` and `max`, and at every `#wind-dir` option.
+- Every `N minutes` figure must be an integer in **[0, 600]**: a negative
+  or NaN minute value, or a widget that renders no figure, fails the gate.
+- A page with no `#wind-speed`/`#wind-result` widget passes with a note
+  (the baseline has none; the widget is a good-site feature).
+
 ## Mutants (judge self-test)
 
 `judge/mutants.py` single-edits the good site; each must fail >= 1 gate:
 `low_contrast` (ink lightened), `fixed_container` (1200 px min-width body),
 `missing_section` (pricing removed), `console_error` (stray script),
 `default_font` (Times/serif), `tiny_taps` (nav/button padding shrunk),
-`img_no_alt` (alt stripped), `gradient_button` (CSS appended). Kill rate
->= 90 % required (8/8 expected). `examples/baseline/site` is graded as a
+`img_no_alt` (alt stripped), `wind_sign_bug` (wind saving computed as an
+ordered difference, so some wind directions print a negative saving),
+`gradient_button` (CSS appended). Kill rate
+>= 90 % required (9/9 expected). `examples/baseline/site` is graded as a
 known-bad reference row (expected to fail several gates) but is not in the
 kill-rate denominator.
 
@@ -119,8 +129,18 @@ kill-rate denominator.
 
 Nothing passes because "the page renders": every gate is a count or ratio
 measured by the judge from the live DOM (console/requests, scrollWidth,
-computed color/background-color pairs, font sets, computed geometry), a
-machine-readable brief contract, or a pinned third-party oracle (axe-core).
+computed color/background-color pairs, font sets, computed geometry,
+rendered widget text), a machine-readable brief contract, or a pinned
+third-party oracle (axe-core).
+
+**Exit-code contract.** `grade.sh` exits 0 only when every gate passes;
+any failed gate exits 1 and still writes the verdict JSON (exit 2 is a
+harness/integrity error, not a verdict). `selftest.sh` asserts the
+contract: the no-skill baseline must exit non-zero *and* leave a readable
+verdict. `run.py` checks both channels the same way for the two artifacts
+it grades: the good site must return rc 0 + `all_gates_passed: true`, the
+baseline rc != 0 + `all_gates_passed: false` + >= 1 failed gate.
+
 `judge/selftest.sh` proves each gate can fail: good passes, every mutant
 fails, two grades at the same seed are byte-identical outside `timing`, and
 `judge/` checksums are unchanged by grading.

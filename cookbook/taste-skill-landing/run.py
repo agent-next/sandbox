@@ -137,9 +137,9 @@ def main():
                 failed = "selftest.sh"
 
         if not failed:
-            # Contract (matches judge/README): grade.sh exits 0 only if
-            # every gate passes. The good site must give rc 0 AND a
-            # passing verdict.
+            # Contract (matches SPEC.md): grade.sh exits 0 only if every
+            # gate passes. The good site must give rc 0 AND a passing
+            # verdict.
             rc, verdicts["good"] = grade_in_sandbox(
                 sid, "grade good/site", "examples/good/site",
                 args.ref, timings)

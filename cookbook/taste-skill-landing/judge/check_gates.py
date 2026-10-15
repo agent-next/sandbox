@@ -12,6 +12,9 @@ Loads the artifact in pinned headless Chromium (Playwright 1.63.0) at 375,
   gate 4  brief             every brief.md section present + brand ground
   gate 5  taste rules       14 sub-checks, each citing the skill rule
   gate 6  axe-core          zero critical/serious violations at 1440/375
+  gate 7  wind widget       the hero widget's "N minutes" figures are all
+                            non-negative integers at every slider position
+                            and direction probed
 
 Writes one JSON verdict; exit 0 only if every gate passes. Nothing in the
 verdict depends on wall time or environment: two runs at the same seed are
@@ -163,28 +166,41 @@ COLLECT_JS = r"""
 """
 
 # Wind-widget probe: read the rendered #wind-result text at the default
-# slider position and two others, and extract every "N minutes" figure.
-# Returns {present, samples:[{speed, text}], minutes:[...] }.
+# slider position and two others, then at every direction option, and
+# extract every "N minutes" figure (NaN/Infinity serialise as null).
+# Returns {present, samples:[{speed, dir, text, minutes}]}.
 WIND_JS = r"""
 async () => {
   const speed = document.getElementById('wind-speed');
+  const dir = document.getElementById('wind-dir');
   const out = document.getElementById('wind-result');
-  if (!speed || !out) return {present: false, samples: [], minutes: []};
+  if (!speed || !out) return {present: false, samples: []};
   const read = () => {
     const text = out.textContent || '';
-    const mins = [...text.matchAll(/(-?\d+)\s*minutes/g)]
-      .map(m => parseInt(m[1], 10));
-    return {speed: speed.value, text: text, minutes: mins};
+    const mins = [...text.matchAll(/(-?\d+|NaN|Infinity)\s*minutes/g)]
+      .map(m => m[1] === 'NaN' || m[1] === 'Infinity'
+                ? NaN : parseInt(m[1], 10));
+    return {speed: speed.value, dir: dir ? dir.value : '',
+            text: text, minutes: mins};
   };
-  const samples = [];
-  samples.push(read());                    // default slider position
-  for (const v of [speed.min, speed.max]) { // two other positions
-    speed.value = v;
-    speed.dispatchEvent(new Event('input', {bubbles: true}));
+  const set = (el, v) => {
+    el.value = v;
+    el.dispatchEvent(new Event('input', {bubbles: true}));
+  };
+  const home = speed.value;
+  const samples = [read()];                  // default slider position
+  for (const v of [speed.min, speed.max]) {  // two other positions
+    set(speed, v);
     samples.push(read());
   }
-  return {present: true, samples: samples,
-          minutes: samples.flatMap(s => s.minutes)};
+  set(speed, home);                          // back to default speed
+  if (dir) {                                 // every compass direction
+    for (const o of dir.options) {
+      set(dir, o.value);
+      samples.push(read());
+    }
+  }
+  return {present: true, samples: samples};
 }
 """
 
@@ -389,26 +405,6 @@ def main():
          {"sections": sec_detail, "ground_want": ground_want,
           "ground_got": ground_hex})
 
-    # -- gate 7: wind widget sanity ---------------------------------------
-    # The brief hero asks for "the honest time saved": the rendered widget
-    # text is read at the default slider position and at the slider's min
-    # and max, and every "N minutes" figure must be a sane count.
-    wind = data[1440].get("wind", {"present": False, "samples": [],
-                                   "minutes": []})
-    if not wind["present"]:
-        wind_ok, wind_bad, wind_note = True, [], "no wind widget on the page"
-    else:
-        wind_bad = [{"sample": s["text"][:120], "minutes": s["minutes"]}
-                    for s in wind["samples"]
-                    if any((not isinstance(m, int)) or m < 0 or m > 600
-                           for m in s["minutes"])]
-        wind_ok = not wind_bad
-        wind_note = None
-    gate("wind_widget_sane", wind_ok,
-         {"note": wind_note, "samples": [s["text"][:120]
-                                         for s in wind["samples"]],
-          "bad": wind_bad})
-
     # -- gate 5: taste rules ------------------------------------------------
     sub = []
 
@@ -522,6 +518,30 @@ def main():
          {"critical_or_serious": axe,
           "note": "axe-core 4.10.3, the Lighthouse-accessibility equivalent "
                   "(see RECEIPT.md Deviations)"})
+
+    # -- gate 7: wind widget sanity ---------------------------------------
+    # The brief hero asks for "the honest time saved": the rendered widget
+    # text is read at the default slider position, at the slider's min and
+    # max, and at every direction option. Every "N minutes" figure must be
+    # an integer count in [0, 600] — a negative or NaN saving, or a widget
+    # that renders no figure at all, fails the gate.
+    wind = data[1440].get("wind", {"present": False, "samples": []})
+    if not wind["present"]:
+        wind_ok, wind_bad, wind_note = True, [], "no wind widget on the page"
+    else:
+        wind_bad = [{"sample": s["text"][:120], "minutes": s["minutes"]}
+                    for s in wind["samples"]
+                    if not s["minutes"]
+                    or any(not isinstance(m, int) or m < 0 or m > 600
+                           for m in s["minutes"])]
+        wind_ok = not wind_bad
+        wind_note = None
+    gate("wind_widget_sane", wind_ok,
+         {"note": wind_note,
+          "samples": [{"speed": s["speed"], "dir": s.get("dir", ""),
+                       "text": s["text"][:120]}
+                      for s in wind["samples"]],
+          "bad": wind_bad})
 
     verdict = {
         "artifact": os.path.basename(artifact.rstrip("/")),

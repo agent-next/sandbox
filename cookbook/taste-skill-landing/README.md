@@ -37,14 +37,16 @@ show the difference the skill makes (measured below).
 | all brief sections present | **pass** | pass |
 | taste rules (14 measurable skill rules) | **pass 14/14** | **FAIL 11/14** |
 | axe-core 4.10.3, 0 critical/serious | **pass** | **FAIL** |
+| wind widget minutes sane (no negative/NaN) | **pass** | pass (no widget) |
 | **verdict** | **ALL GATES PASS** | **FAILS** |
 
 Judge self-test: known-good passes, determinism holds (two grades at the
-same seed byte-identical outside `timing`), and **8/8 (100 %) known-bad
-mutants killed** — each a single edit (low contrast, fixed-width container,
-missing section, console error, default Times font, tiny tap targets,
-image without alt, gradient button). Full transcript in
-[RECEIPT.md](RECEIPT.md).
+same seed byte-identical outside `timing`), the no-skill baseline exits
+non-zero with a readable verdict (the exit-code contract), and **9/9
+(100 %) known-bad mutants killed** — each a single edit (low contrast,
+fixed-width container, missing section, console error, default Times font,
+tiny tap targets, image without alt, wind-widget sign bug, gradient
+button). Full transcript in [RECEIPT.md](RECEIPT.md).
 
 ### Media
 
@@ -56,9 +58,11 @@ Chromium) of `examples/good/site` — see [`media/make_frames.py`](media/make_fr
 | ![site at 375 px](media/site-375.png) | ![site at 768 px](media/site-768.png) | ![site at 1440 px](media/site-1440.png) |
 
 Scroll capture frames: [`media/scroll-00.png`](media/scroll-00.png) …
-[`media/scroll-09.png`](media/scroll-09.png). The final `demo.mp4` is
-produced by a later media task; `media/make_media.sh` will regenerate it
-from these frames.
+[`media/scroll-09.png`](media/scroll-09.png). [`media/demo.mp4`](media/demo.mp4)
+is a ~30 s step-through of the same frames with the verdict captions;
+`media/make_media.sh` regenerates it (and the gitignored lossless master)
+from the frames, and [`media/MANIFEST.json`](media/MANIFEST.json) records
+the source command and sha256 of every media file.
 
 ## Ask your agent
 
@@ -86,9 +90,14 @@ python3 cookbook/taste-skill-landing/run.py          # add --ref <branch> or --k
 runs `judge/setup.sh`, `judge/selftest.sh`, then grades
 `examples/good/site` and `examples/baseline/site` with the same judge,
 prints both verdict JSONs, and kills the sandbox (verifying via
-`sbx list` that the id is gone) unless `--keep` is given. It exits
-non-zero on any failure and names the sandbox id if cleanup could not be
-confirmed.
+`sbx list` that the id is gone) unless `--keep` is given. The grader's
+contract is that `grade.sh` exits 0 only when every gate passes: `run.py`
+therefore expects the good site to return exit 0 **and**
+`all_gates_passed: true`, and the baseline to return a non-zero exit
+**and** `all_gates_passed: false` with at least one failed gate — the
+before/after contrast *is* the demo. `run.py` itself exits 0 on that
+honest happy path and non-zero on any failure, naming the sandbox id if
+cleanup could not be confirmed.
 
 ## In-sandbox / no API key (run directly inside any Debian 12 box)
 
@@ -100,7 +109,7 @@ run the judge steps directly without `SBX_API_KEY` or `run.py`:
 # 1. Install the pinned judge toolchain (~1 min; needs sudo for apt)
 bash cookbook/taste-skill-landing/judge/setup.sh
 
-# 2. Prove the judge can fail (good passes, 8/8 mutants killed, ~1 min)
+# 2. Prove the judge can fail (good passes, 9/9 mutants killed, ~1 min)
 bash cookbook/taste-skill-landing/judge/selftest.sh
 
 # 3. Grade an artifact (one JSON verdict; 0 exit = every gate passed)
@@ -118,8 +127,9 @@ bash cookbook/taste-skill-landing/judge/grade.sh \
 - No subjective beauty score: only taste-skill rules that are
   machine-measurable from computed styles/geometry are gates; the rest
   stay in the skill. [SPEC.md](SPEC.md) lists every gate and its citation.
-- Media: full-page screenshots at 375/768/1440 px plus 10 scroll frames;
-  the summary video is produced by a separate media pass.
+- Media: full-page screenshots at 375/768/1440 px, 10 scroll frames and a
+  ~30 s captioned `demo.mp4`, all regenerable via `media/make_frames.py`
+  and `media/make_media.sh` (see `media/MANIFEST.json`).
 
 ## Credits
 
