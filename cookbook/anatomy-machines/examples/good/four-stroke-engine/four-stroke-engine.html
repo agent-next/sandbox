@@ -6,55 +6,58 @@
 <title>Four-stroke engine — anatomy figure</title>
 <style>
   :root {
-    --paper: #f6f3ec; --card: #fffdf7; --ink: #2a2520; --faint: #8d8577;
-    --line: #d8d2c4; --accent: #b3402a; --steel: #2b6a9e; --bronze: #a0622d;
+    --ink: #2b2d33; --gold: #c9a227;
+    --bg-a: #191b22; --bg-b: #23262f; --panel: #262932; --line: #383c47;
+    --text: #e8e4da; --faint: #9a9489;
   }
   * { box-sizing: border-box; margin: 0; }
-  body { background: var(--paper); color: var(--ink);
-         font: 15px/1.45 "Iowan Old Style", Georgia, serif; padding: 24px; }
-  .card { background: var(--card); border: 1px solid var(--line);
-          border-radius: 10px; padding: 18px 20px; max-width: 1180px;
-          margin: 0 auto; }
+  body { background: linear-gradient(180deg, var(--bg-a), var(--bg-b) 55%, #171921);
+         color: var(--text); font: 15px/1.45 Georgia, "DejaVu Serif", serif;
+         padding: 24px; min-height: 100vh; }
+  .card { background: var(--panel); border: 1px solid var(--line);
+          border-radius: 12px; padding: 20px 24px; max-width: 1360px;
+          margin: 0 auto; box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
   header { display: flex; justify-content: space-between; align-items: baseline;
            border-bottom: 1px solid var(--line); padding-bottom: 10px; }
-  h1 { font-size: 21px; font-weight: 600; letter-spacing: .2px; }
-  .fig-no { color: var(--faint); font: 13px/1 ui-monospace, monospace; }
-  .stage { display: flex; gap: 18px; margin-top: 14px; }
-  canvas { background: #fbf9f2; border: 1px solid var(--line); border-radius: 6px;
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: .4px; color: var(--gold); }
+  .fig-no { color: var(--faint); font: 13px/1 ui-monospace, "DejaVu Sans Mono", monospace; }
+  .stage { display: flex; gap: 18px; margin-top: 16px; }
+  canvas { background: transparent; border-radius: 8px;
            touch-action: none; cursor: grab; display: block; }
   canvas:active { cursor: grabbing; }
   .hint { color: var(--faint); font-size: 12.5px; margin-top: 6px; }
   aside { width: 300px; flex: none; display: flex; flex-direction: column; }
   .parts { list-style: none; padding: 0; margin: 0 0 12px; overflow-y: auto;
-           max-height: 388px; border: 1px solid var(--line); border-radius: 6px;
-           background: #fdfbf5; }
-  .parts li { padding: 5px 12px; border-bottom: 1px solid var(--line);
+           max-height: 860px; border: 1px solid var(--line); border-radius: 8px;
+           background: #1f222b; }
+  .parts li { padding: 6px 12px; border-bottom: 1px solid var(--line);
               cursor: pointer; user-select: none; font-size: 14px; }
   .parts li:last-child { border-bottom: none; }
-  .parts li:hover { background: #f1ecdf; }
-  .parts li.selected { background: #f3ddd6; color: var(--accent); font-weight: 600; }
-  [data-part-info] { border: 1px solid var(--line); border-radius: 6px;
-                     background: #fdfbf5; padding: 12px 14px; min-height: 108px; }
-  [data-part-info] h2 { font-size: 15px; margin-bottom: 6px; color: var(--accent); }
-  [data-part-info] p { font-size: 13.5px; color: #4c463d; }
+  .parts li:hover { background: #2d313c; }
+  .parts li.selected { background: #4d422c; color: #ffd970; font-weight: 600; }
+  [data-part-info] { border: 1px solid var(--line); border-radius: 8px;
+                     background: transparent; padding: 14px 16px; min-height: 112px; }
+  [data-part-info] h2 { font-size: 16px; margin-bottom: 6px; color: var(--gold); }
+  [data-part-info] p { font-size: 13.5px; color: #c9c3b6; }
   .tooltip { position: fixed; pointer-events: none; background: var(--ink);
              color: #f6f3ec; font: 12px/1.3 ui-monospace, monospace;
              padding: 3px 7px; border-radius: 4px; display: none; z-index: 5; }
+  html.capture .tooltip { display: none !important; }
   .readout { margin-top: 10px; color: var(--faint);
-             font: 12px/1.4 ui-monospace, monospace; }
+             font: 12px/1.4 ui-monospace, "DejaVu Sans Mono", monospace; }
 </style>
 </head>
 <body>
 <div class="card">
   <header>
     <h1 data-machine="four-stroke-engine">Four-stroke engine</h1>
-    <div class="fig-no">Fig 1 · single cylinder · Otto cycle · wireframe</div>
+    <div class="fig-no">Fig 1 · single cylinder · Otto cycle · shaded solid</div>
   </header>
   <div class="stage">
     <div>
-      <canvas id="fig" width="760" height="520" aria-label="Isometric wireframe of a four-stroke engine"></canvas>
+      <canvas id="fig" width="860" height="1010" aria-label="Isometric shaded-solid figure of a four-stroke engine"></canvas>
       <div class="hint">Drag to orbit · ←/→ turn the camera · click a part in the list to inspect it</div>
-      <div class="readout" id="readout">azimuth 35° · elevation 22° · 17 parts</div>
+      <div class="readout" id="readout">azimuth 35° · elevation 22° · assembled · 17 parts</div>
     </div>
     <aside>
       <ul class="parts" id="parts"></ul>
@@ -68,39 +71,52 @@
 <script>
 "use strict";
 // ---------------------------------------------------------------------------
-// Anatomy-style isometric wireframe figure of a single-cylinder four-stroke
-// engine. Raw WebGL 1, no dependencies: the parts are plain line primitives
-// in engine coordinates (mm, Y up, crankshaft axis along Z), the camera is
-// an orthographic orbit the user drags.
+// Anatomy-style exploded solid figure of a single-cylinder four-stroke
+// engine. Raw WebGL 1, no dependencies: every part is a small triangle mesh
+// (revolve/ruled sweeps around the engine's own axes) in engine coordinates
+// (mm, Y up, crankshaft axis along Z), lit by a key + fill + hemisphere rig
+// and drawn with a signed-distance outline pass. The camera is an
+// orthographic orbit the user drags; an optional explode factor p in [0,1]
+// spreads the parts along the assembly axis for the showcase modes
+// (?explode / ?turntable / ?labels / ?capture).
 // ---------------------------------------------------------------------------
 
 const PARTS = [
-  { id: "piston", name: "Piston", family: "bronze", desc: "Slides in the cylinder; combustion pressure pushes it down the bore on the power stroke." },
-  { id: "piston-rings", name: "Piston rings", family: "bronze", desc: "Seal the gap between piston and cylinder wall so the pressure stays above the piston." },
-  { id: "piston-pin", name: "Piston pin", family: "bronze", desc: "Hinge between the piston and the connecting rod, letting the rod swing as the crank turns." },
-  { id: "connecting-rod", name: "Connecting rod", family: "bronze", desc: "Converts the piston's straight stroke into rotation at the crank pin." },
-  { id: "crankshaft", name: "Crankshaft", family: "bronze", desc: "Turns the rod's push into shaft torque; its crank pin rides at a 55 mm radius." },
-  { id: "flywheel", name: "Flywheel", family: "bronze", desc: "Heavy disc that stores energy from the power stroke and keeps the crank turning between fires." },
+  { id: "piston", name: "Piston", family: "alu", desc: "Slides in the cylinder; combustion pressure pushes it down the bore on the power stroke." },
+  { id: "piston-rings", name: "Piston rings", family: "brass", desc: "Seal the gap between piston and cylinder wall so the pressure stays above the piston." },
+  { id: "piston-pin", name: "Piston pin", family: "steel", desc: "Hinge between the piston and the connecting rod, letting the rod swing as the crank turns." },
+  { id: "connecting-rod", name: "connecting rod", family: "steel", desc: "Converts the piston's straight stroke into rotation at the crank pin." },
+  { id: "crankshaft", name: "Crankshaft", family: "steelBlue", desc: "Turns the rod's push into shaft torque; its crank pin rides at a 55 mm radius." },
+  { id: "flywheel", name: "Flywheel", family: "graphite", desc: "Heavy disc that stores energy from the power stroke and keeps the crank turning between fires." },
   { id: "crankcase", name: "Crankcase", family: "graphite", desc: "Encloses and supports the crankshaft, and carries the main bearings and the oil." },
-  { id: "cylinder", name: "Cylinder", family: "graphite", desc: "Precision bore that guides the piston through all four strokes of the cycle." },
-  { id: "cylinder-head", name: "Cylinder head", family: "graphite", desc: "Caps the top of the cylinder; it carries the valves, the ports and the spark plug." },
+  { id: "cylinder", name: "Cylinder", family: "graphite", desc: "Cast-iron barrel with a precision bore that guides the piston through all four strokes of the cycle." },
+  { id: "cylinder-head", name: "Cylinder head", family: "castal", desc: "Caps the top of the cylinder; it carries the valves, the ports and the spark plug." },
   { id: "combustion-chamber", name: "Combustion chamber", family: "accent", desc: "Volume between piston crown and head where the compressed charge is burned." },
   { id: "intake-valve", name: "Intake valve", family: "steel", desc: "Opens on the intake stroke to let the fresh air-fuel mixture into the cylinder." },
   { id: "exhaust-valve", name: "Exhaust valve", family: "steel", desc: "Opens on the exhaust stroke to release the burnt gases from the cylinder." },
-  { id: "valve-spring", name: "Valve spring", family: "steel", desc: "Closes its valve the moment the cam lobe passes, keeping the valve on its cam." },
-  { id: "camshaft", name: "Camshaft", family: "steel", desc: "Rotates at half crank speed and times each valve opening with its lobes." },
-  { id: "spark-plug", name: "Spark plug", family: "steel", desc: "Ignites the compressed charge with a spark near the end of the compression stroke." },
-  { id: "intake-manifold", name: "Intake manifold", family: "green", desc: "Duct that feeds the air-fuel mixture from the throttle to the intake port." },
-  { id: "exhaust-manifold", name: "Exhaust manifold", family: "green", desc: "Duct that collects the burnt gases from the exhaust port and leads them away." },
+  { id: "valve-spring", name: "Valve spring", family: "steelBlue", desc: "Closes its valve the moment the cam lobe passes, keeping the valve on its cam." },
+  { id: "camshaft", name: "Camshaft", family: "steelBlue", desc: "Rotates at half crank speed and times each valve opening with its lobes." },
+  { id: "spark-plug", name: "Spark plug", family: "alu", desc: "Ignites the compressed charge with a spark near the end of the compression stroke." },
+  { id: "intake-manifold", name: "Intake manifold", family: "intake", desc: "Duct that feeds the air-fuel mixture from the throttle to the intake port." },
+  { id: "exhaust-manifold", name: "Exhaust manifold", family: "manifold", desc: "Duct that collects the burnt gases from the exhaust port and leads them away." },
 ];
 
-const FAMILY_COLOR = {
-  graphite: [0.29, 0.27, 0.30], bronze: [0.63, 0.38, 0.18],
-  steel: [0.17, 0.42, 0.62], green: [0.20, 0.50, 0.36],
-  accent: [0.70, 0.25, 0.16],
+// -- materials: albedo, specular tint, specular power, whether an exploded  --
+// -- part draws its translucent "home box" at the assembled position --------
+const MATERIALS = {
+  graphite:   { col: [0.49, 0.46, 0.44], spec: 0.16, shin: 14, box: false }, // cast iron
+  castal:     { col: [0.62, 0.63, 0.66], spec: 0.24, shin: 18, box: false }, // cast aluminium
+  alu:        { col: [0.76, 0.77, 0.80], spec: 0.50, shin: 42, box: true  }, // machined alloy
+  brass:      { col: [0.83, 0.67, 0.32], spec: 0.46, shin: 48, box: true  }, // brass / bronze
+  steel:      { col: [0.70, 0.73, 0.78], spec: 0.55, shin: 56, box: true  }, // polished steel
+  steelBlue:  { col: [0.48, 0.54, 0.62], spec: 0.42, shin: 36, box: true  }, // blued steel
+  manifold:   { col: [0.53, 0.41, 0.33], spec: 0.18, shin: 14, box: true  }, // cast exhaust
+  intake:     { col: [0.60, 0.62, 0.66], spec: 0.26, shin: 22, box: true  }, // cast intake
+  accent:     { col: [0.72, 0.29, 0.20], spec: 0.26, shin: 20, box: true  }, // paint, red oxide
 };
-const HOVER_TINT = 0.72;      // darken factor when hovered
-const SELECT_COLOR = [0.62, 0.10, 0.08];
+for (const p of PARTS) p.mat = MATERIALS[p.family];
+const HOVER_TINT = 0.30;      // lighten factor when hovered
+const SELECT_COLOR = [0.85, 0.66, 0.18];
 
 // -- geometry helpers (all return flat arrays of segment endpoints) --------
 function circle(r, y, cx, cz, seg) {
