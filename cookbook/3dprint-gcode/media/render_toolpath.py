@@ -27,12 +27,14 @@ BED_X, BED_Y = 250.0, 210.0
 PART_TOP = 15.0            # bracket height
 
 # camera/view defaults (fit the 40x20x15 part with skirt on the 250x210 bed)
-VIEW_AZIMUTH = -58.0
-VIEW_ELEVATION = 24.0
-ZOOM = 2.6
+# bracket bbox 20..60 x 20..40 x 0..15 mm (STL min corner 20,20 per make_stl.py)
+TARGET = (40.0, 30.0, 7.5)   # bracket centre
+VIEW_AZIMUTH = -58.0         # degrees around +Z, from +X axis
+VIEW_ELEVATION = 24.0        # degrees above the bed plane
+VIEW_DIST = 150.0            # camera distance from the target (mm)
 
 
-def bead_mesh(trace, radius=LINE_WIDTH / 2.0, sides=6, layer subset=None):
+def bead_mesh(trace, radius=LINE_WIDTH / 2.0, sides=6, layer_subset=None):
     """Tube beads for extruding moves. Returns (PolyData, per-vertex layer_z).
 
     layer_subset: iterable of layer indices to keep (None = all). Moves are
@@ -144,11 +146,17 @@ def add_bed(pl):
         pl.add_mesh(pv.Line(p0, p1), color="#5b6472", line_width=1.5)
 
 
-def camera_part(pl, azimuth=VIEW_AZIMUTH, elevation=VIEW_ELEVATION, zoom=ZOOM):
-    pl.camera_position = "iso"
-    pl.camera.azimuth = azimuth
-    pl.camera.elevation = elevation
-    pl.camera.zoom(zoom)
+def camera_part(pl, azimuth=VIEW_AZIMUTH, elevation=VIEW_ELEVATION,
+                dist=VIEW_DIST, target=TARGET):
+    """Deterministic camera: position = target + dist along the az/el ray."""
+    import math
+    az = math.radians(azimuth)
+    el = math.radians(elevation)
+    pl.camera.focal_point = target
+    pl.camera.position = (target[0] + dist * math.cos(el) * math.cos(az),
+                         target[1] + dist * math.cos(el) * math.sin(az),
+                         target[2] + dist * math.sin(el))
+    pl.camera.view_up = (0.0, 0.0, 1.0)
 
 
 def render_frame(trace, out_path, layer_upto=None, show_stl=False,
