@@ -132,8 +132,110 @@ merely out of taste.
 [`media/make_frames.py`](media/make_frames.py) (Playwright 1.63.0 /
 Chromium 153), committed 2026-10-14 in commit `0956bd0` ("real browser
 frames of the taste-skill good site"). Sizes 44–280 KB each, all real
-browser output (nothing synthesized). The summary `demo.mp4` is produced
-by a later media task, not this one.
+browser output (nothing synthesized). `demo.mp4` and `MANIFEST.json`
+arrived with the Hardening pass below.
+
+## Hardening — 2026-10-15 (this sandbox, toolchain from the run above)
+
+Two defects found by the lead's acceptance run were fixed and re-proven:
+
+1. **Exit-code contract.** `grade.sh` now exits 0 only when every gate
+   passes (any failed gate → rc 1 with the verdict JSON still written).
+   `run.py` recovers the grader's rc through a JSON envelope and checks rc
+   AND the verdict identically for both artifacts (good: rc 0 +
+   `all_gates_passed`; baseline: rc != 0 + ≥ 1 failed gate). `selftest.sh`
+   asserts a failing site exits non-zero and leaves a readable verdict.
+2. **Wind-widget content.** The hero widget printed negative savings
+   ("saves you -103 minutes"). `main.js` now computes both directions and
+   returns `worst - best` under a stated model (still-air 24 km/h; tailwind
+   adds half the wind speed, headwind costs the full wind; 8 km/h floor),
+   so the saving is always ≥ 0 and ≤ the still-air time. New gate
+   `wind_widget_sane` reads the rendered `#wind-result` text at three
+   slider positions and every wind direction and fails on any negative,
+   NaN or missing "N minutes" figure; the `wind_sign_bug` mutant
+   reintroduces the ordered difference and is killed by it.
+
+`bash judge/selftest.sh` — exit 0, 67 s, kill rate 100 % (9/9):
+
+```
+$ time bash judge/selftest.sh
+[selftest] Regenerating mutants...
+Created 9 mutants in /home/user/w/cookbook/taste-skill-landing/examples/bad
+
+[selftest] Known-good site (must PASS):
+[selftest]   good/site  PASS
+
+[selftest] Determinism (same seed twice, verdict minus 'timing'):
+[selftest]   identical
+
+[selftest] No-skill baseline (MUST exit non-zero — the grader's
+[selftest] exit-code contract: any failed gate => grade.sh rc != 0):
+[selftest]   baseline/site  exit != 0, fails: no_overflow,contrast_aa,no_default_fonts,type_scale_max_5,spacing_scale_4px,alt_text,tap_targets_44px,no_gradients,no_shadows_at_rest,no_thin_rules,no_index_numbering,running_text_16px,image_floor_4,axe_a11y
+
+[selftest] Known-bad mutants (must FAIL):
+[selftest]   low_contrast  killed (failed: contrast_aa,axe_a11y)
+[selftest]   fixed_container  killed (failed: no_overflow)
+[selftest]   missing_section  killed (failed: brief_sections)
+[selftest]   console_error  killed (failed: clean_load)
+[selftest]   default_font  killed (failed: no_default_fonts)
+[selftest]   tiny_taps  killed (failed: tap_targets_44px)
+[selftest]   img_no_alt  killed (failed: alt_text,axe_a11y)
+[selftest]   wind_sign_bug  killed (failed: wind_widget_sane)
+[selftest]   gradient_button  killed (failed: no_gradients)
+
+[selftest] ============================================
+[selftest] good passed     : 1
+[selftest] determinism     : 1
+[selftest] baseline fails  : 1 (contract: rc != 0 + verdict JSON)
+[selftest] mutants killed  : 9/9 (100%)
+[selftest] ============================================
+[selftest] SUCCESS
+
+real    1m6.721s
+EXIT=0
+```
+
+`judge/grade.sh` — good exit **0** (6.5 s), baseline exit **1** (4.5 s):
+
+```
+$ bash judge/grade.sh examples/good/site --seed 42 --json /tmp/verdict-good.json
+[grade] artifact : .../examples/good/site
+[grade] exit code: 0 (0 = all gates passed)   # 7/7 pass, incl. wind_widget_sane
+$ bash judge/grade.sh examples/baseline/site --seed 42 --json /tmp/verdict-baseline.json
+[grade] artifact : .../examples/baseline/site
+[grade] exit code: 1 (0 = all gates passed)   # fails no_overflow, contrast_aa,
+                                              # taste_rules, axe_a11y
+```
+
+The good site's widget now renders, at 18 km/h west: *"the 40 km loop
+flips to 92 minutes one way round, 160 the other — the wind saves you 68
+minutes if you ride it the right way."* (Every direction × slider
+position probed by gate 7 is in the verdict's `wind_widget_sane.detail`.)
+
+`python3 run.py` end-to-end — **exit 0**. This sandbox has no
+`SBX_API_KEY`, so `run.py` was driven through a thin local `sbx` shim
+(`sbx exec` runs the command locally); clone at the pushed ref
+`sbx/demo-taste-skill-landing-hm`, selftest (76 s, 9/9 kills), both
+grades and the verdict/exit-code checks all ran for real — only the
+sandbox transport was mocked:
+
+```
+[run] git clone --depth 1 -b sbx/demo-taste-skill-landing-hm    2.0s  exit=0
+[run] judge/setup.sh                      0.7s  exit=0   (warm toolchain)
+[run] judge/selftest.sh                  76.1s  exit=0   (9/9, baseline rc != 0)
+[run] grade good/site                     6.8s  exit=0   ALL GATES PASS
+[run] grade baseline/site                 6.6s  exit=0   FAILS 4/7 (rc != 0)
+[run] confirmed: sbx-shim-5571 is gone
+RUNPY_EXIT=0
+```
+
+Media was regenerated from the fixed site
+(`media/site-375/768/1440.png`, `scroll-00..09.png`) and `demo.mp4`
+(30.4 s, 1920×1080, H.264 crf 18 +faststart, 788 KiB; lossless master in
+gitignored `media/master/`) now builds via
+[`media/make_media.sh`](media/make_media.sh), which re-grades both sites
+for the verdict captions; per-file sha256 in
+[`media/MANIFEST.json`](media/MANIFEST.json).
 
 ## Deviations
 
