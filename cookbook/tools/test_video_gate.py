@@ -280,9 +280,10 @@ def test_cli_exit_2_on_non_video(tmp_path):
 
 
 # --- committed demos: the known-fail baseline ----------------------------------
-# These videos predate the gate; the test records where each one stands
-# (do NOT assert pass). New demos must pass, and old ones are expected to
-# fail while they are re-cut to the standard.
+# These videos predate the gate and are expected to fail while they are re-cut
+# to the standard. Every other committed demo must pass. Remove a name from
+# KNOWN_FAIL once its re-cut passes; never add one.
+KNOWN_FAIL = {"cfd-openfoam", "fea-calculix", "firmware-qemu", "gpu-kernel", "plc-st", "spice-filter"}
 
 
 def test_committed_demo_baseline():
@@ -290,6 +291,7 @@ def test_committed_demo_baseline():
     assert demos, "no committed cookbook/*/media/demo.mp4 found"
     header = f"{'demo':<20} {'gate':<6} failed checks"
     print("\n" + header + "\n" + "-" * len(header))
+    must_pass = []
     for demo in demos:
         verdict = video_gate.judge(str(demo))
         for check in verdict["checks"]:  # well-formed even for known fails
@@ -297,4 +299,15 @@ def test_committed_demo_baseline():
         name = demo.parent.parent.name
         gate = "PASS" if verdict["passed"] else "FAIL"
         print(f"{name:<20} {gate:<6} {', '.join(verdict['failed']) or '-'}")
+        if name not in KNOWN_FAIL and not verdict["passed"]:
+            must_pass.append(f"{name}: {', '.join(verdict['failed'])}")
     print("-" * len(header))
+    assert not must_pass, "demos outside the known-fail baseline must pass: " + "; ".join(must_pass)
+
+
+def test_non_square_pixels_judged_by_display_aspect(good, tmp_path):
+    wide = tmp_path / "wide.mp4"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(good), "-c", "copy", "-aspect", "32:9",
+                    "-movflags", "+faststart", str(wide)], check=True)
+    verdict = video_gate.judge(str(wide))
+    assert verdict["failed"] == ["aspect_ratio"]
