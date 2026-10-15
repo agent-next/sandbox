@@ -10,9 +10,20 @@ library, no composition -- so the judge never depends on a single stack:
   grade_engine.py fails the grade if the two disagree on any number.
 
 An artifact that somehow influenced the USD machinery feeding the oracle
-could not also change what this parser reads, and vice versa.  It also
-checks the properties directly, so a forged fact on either side surfaces
-as a gate error or a cross-check mismatch.
+(most importantly by composing in external layers) could not also change
+what this parser reads, and vice versa.  Composed-in geometry would make
+the pxr oracle pass while the text parser -- which only ever reads the
+artifact's own layer -- still sees nothing, so every quantity it derives
+is of the artifact itself and a `subLayers` reference is rejected outright.
+It also cross-checks every number it shares with the oracle, so a forged
+fact on either side surfaces as a gate error.
+
+The parser deliberately does not implement USD composition, instancing or
+subLayers: this artifact is a single self-contained ASCII USD layer.  The
+tokenizer handles the pxr-exported ASCII layout (def/over prims with a
+trailing `( metadata )`, `type[] name = [...] ( attrMetadata )` values,
+`rel` bindings and root-layer metadata) as generic balanced chunks, so it
+is not tied to any one generator's spacing.
 """
 from __future__ import annotations
 
@@ -30,51 +41,130 @@ XCHECK_DEV_TOL = 1e-6           # |norm|-1 deviation
 XCHECK_BBOX_TOL = 1e-4          # cm
 
 _FLOAT = re.compile(r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?")
-_DEF = re.compile(r'^\s*(def|over)\s+([A-Za-z_]\w*)\s+"([^"]+)"')
-_ATTR = re.compile(r"^\s*(?:(?:prepend|append|reorder|order|delete)\s+)?"
-                   r"([A-Za-z_][\w]*)\[\]\s+([A-Za-z_][\w:.]*)\s*=")
-_REL = re.compile(r"^\s*(?:(?:prepend|append|delete)\s+)?rel\s+"
-                  r"([A-Za-z_][\w:.]*)\s*=\s*(.+)$")
-_META = re.compile(r'^\s*([A-Za-z_][\w]*)\s*=\s*(.+?)\s*$')
+_DEF = re.compile(r"^(def|over)\s+([A-Za-z_]\w*)\s+\"([^\"]+)\"")
+_ATTR = re.compile(r"^(?:([A-Za-z_]\w*)\[\])?\s*"
+                   r"([A-Za-z_][\w:.]*)\s*=")
+_REL = re.compile(r"^rel\s+([A-Za-z_][\w:.]*)\s*=\s*(.+)$")
+_META = re.compile(r"^\s*(?:(?:prepend|append|delete|reorder|order)\s+)?"
+                   r"([A-Za-z_][\w]*)\s*=\s*(.+?)\s*$")
 _PATH = re.compile(r"<([^>]+)>")
 _QUOTED = re.compile(r'^"([^"]*)"$')
 
 
-def _statements(text):
-    """Yield logical statements: bracket-balanced runs of lines.
+def _strip_comment(line: str) -> str:
+    """Cut a trailing //-free '#' comment, keeping '#' inside strings."""
+    in_str = False
+    for i, ch in enumerate(line):
+        if ch == '"':
+            in_str = not in_str
+        elif ch == "#" and not in_str:
+            return line[:i]
+    return line
 
-    Comments and the '#usda' magic line are dropped; a statement is
-    complete once its [ ] / ( ) nesting is balanced (outside strings).
+
+def _chunks(text: str):
+    """Yield logical chunks: balanced ()/[] units; {} braces at depth 0.
+
+    pxr's ASCII export keeps a value and its `( metadata )` block on one
+    logical statement (possibly across lines), so a chunk ends only when
+    ()/[] nesting returns to zero at end-of-line.  `{` and `}` become
+    their own chunks at depth 0 (prim scope delimiters).
     """
-    buf = []
+    buf: list[str] = []
     depth = 0
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not depth and (not stripped or stripped.startswith("#")):
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch == "#":
+            while i < n and text[i] != "\n":
+                i += 1
             continue
-        buf.append(line)
-        in_str = False
-        for ch in line:
-            if ch == '"':
-                in_str = not in_str
-            elif not in_str and ch in "[(":
-                depth += 1
-            elif not in_str and ch in "])":
-                depth -= 1
-        if depth <= 0:
-            depth = 0
-            yield "\n".join(buf)
-            buf = []
-    if buf:
-        yield "\n".join(buf)
+        if ch == '"':
+            j = i + 1
+            while j < n:
+                if text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == '"':
+                    break
+                j += 1
+            buf.append(text[i:j + 1])
+            i = j + 1
+            continue
+        if ch in "([":
+            depth += 1
+            buf.append(ch)
+            i += 1
+            continue
+        if ch in ")]":
+            depth -= 1
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == "\n":
+            if depth == 0:
+                s = "".join(buf).strip()
+                if s:
+                    yield s
+                buf = []
+            else:
+                buf.append("\n")        # keep line breaks inside ()/[] blocks
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    s = "".join(buf).strip()
+    if s:
+        yield s
 
 
-def _numbers(value, as_int=False):
+def _wrap_meta(text: str) -> dict:
+    """Parse a balanced `( key = value ... )` block (for def/attr metadata)."""
+    out = {}
+    inner = text.strip()
+    if inner.startswith("(") and inner.endswith(")"):
+        inner = inner[1:-1]
+    for line in inner.splitlines():
+        mm = _META.match(line.strip())
+        if mm:
+            key, value = mm.group(1), mm.group(2)
+            if key == "apiSchemas":
+                out[key] = re.findall(r'"([^"]+)"', value)
+            elif key == "interpolation":
+                sm = _QUOTED.match(value.strip())
+                out[key] = sm.group(1) if sm else None
+    return out
+
+
+def _split_attr_meta(rest: str) -> tuple[str, dict]:
+    """Split `value ( attrMetadata )` into (value, metadata dict).
+
+    A `type[] name = [...] ( ... )` value's metadata block sits after the
+    closing brace of the array, so it is the outermost trailing `( ... )`.
+    """
+    rest = rest.strip()
+    if not rest.endswith(")"):
+        return rest, {}
+    depth = 0
+    for k in range(len(rest) - 1, -1, -1):
+        ch = rest[k]
+        if ch == ")":
+            depth += 1
+        elif ch == "(":
+            depth -= 1
+            if depth == 0:
+                meta = _wrap_meta(rest[k:])
+                return rest[:k].strip(), meta
+    return rest, {}
+
+
+def _numbers(value: str, as_int: bool = False):
     pat = re.compile(r"[-+]?\d+") if as_int else _FLOAT
     return [float(t) if not as_int else int(t) for t in pat.findall(value)]
 
 
-def _triples(value):
+def _triples(value: str):
     nums = _numbers(value)
     if len(nums) % 3:
         nums = nums[: len(nums) - len(nums) % 3]
@@ -91,7 +181,6 @@ class Mesh:
         self.normals_interpolation = None
         self.extent = None
         self.binding = None
-        self.api_schemas = []
 
     def fact(self):
         corners = sum(self.counts)
@@ -154,82 +243,97 @@ def _cross(a, b):
 
 
 def parse_usda(path):
-    """Parse a .usda layer into metadata, prims and mesh attributes."""
+    """Parse a self-contained .usda layer into metadata, prims and meshes."""
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
 
     out = {"layer_metadata": {}, "sub_layers": [], "meshes": {},
-           "materials": set(), "api_schemas": {}}
-    stack = []          # open prim names
-    meshes = {}         # prim path -> Mesh
+           "materials": set(), "api_schemas": {}, "root_prims": []}
+    stack: list[str] = []
+    root_depth_children: set[str] = set()
+    layer_metadata = {}
+    pending_meta = None                # ("attr" | "prim", path) for stray blocks
     current_mesh = None
-    pending_meta = None     # ("layer" | "prim" path | "attr" name)
-    layer_meta_done = False
 
-    for stmt in _statements(text):
-        joined = "\n".join(l for l in stmt.splitlines() if l.strip())
-        m = _DEF.match(joined)
+    for chunk in _chunks(text):
+        stripped = chunk.strip()
+        # comment-only chunk (may appear after strip)
+        if not stripped:
+            continue
+
+        m = _DEF.match(stripped)
         if m:
-            stack.append(m.group(3))
-            body = joined[m.end():].strip()
+            kind, dtype, name = m.groups()
+            stack.append(name)
+            top_level = len(stack) == 1
+            path = "/" + "/".join(stack)
             current_mesh = None
-            pending_meta = ("prim", "/" + "/".join(stack))
-            if body == "{}":                       # empty prim, one line
+            pending_meta = ("prim", path)
+            if dtype == "Material":
+                out["materials"].add(path)
+            if top_level:
+                out["root_prims"].append(name)
+            body = stripped[m.end():].strip()
+            if body.startswith("("):                  # def-level metadata
+                meta = _wrap_meta(body)
+                if "apiSchemas" in meta:
+                    out["api_schemas"][path] = meta["apiSchemas"]
+                pending_meta = ("prim", path)
+            elif body == "{}":                        # empty prim, one line
                 stack.pop()
                 pending_meta = None
-            elif body == "{":
-                pass                               # children follow
-            elif body:
+            elif body and body != "{":
                 raise ValueError("unexpected def body: %r" % body[:60])
             continue
-        if joined.startswith("}"):
-            for _ in joined.replace(" ", ""):
+
+        if stripped == "{":
+            continue
+
+        if stripped.startswith("}"):
+            for _ in stripped.replace(" ", ""):
                 if stack:
-                    popped = stack.pop()
+                    stack.pop()
             current_mesh = None
             continue
 
-        if joined.startswith("("):
-            inner = joined.strip()[1:-1]
-            target = pending_meta
-            pending_meta = None
-            if target is None:
-                continue
-            kind, ref = target
-            for meta_line in inner.splitlines():
-                mm = _META.match(meta_line)
-                if not mm:
-                    continue
-                key, value = mm.group(1), mm.group(2)
-                if kind == "layer":
-                    out["layer_metadata"][key] = value
+        if stripped.startswith("("):
+            # stray metadata block: the layer block is handled only when the
+            # stack is empty; attribute metadata is inlined in _ATTR chunks.
+            if not stack:
+                for meta_line in stripped[1:-1].splitlines():
+                    mm = _META.match(meta_line.strip())
+                    if not mm:
+                        continue
+                    key, value = mm.group(1), mm.group(2)
+                    layer_metadata[key] = value
                     if key == "subLayers":
                         out["sub_layers"] = re.findall(r"@([^@]+)@", value)
-                elif kind == "prim":
-                    if key == "apiSchemas":
-                        out["api_schemas"][ref] = re.findall(
-                            r'"([^"]+)"', value)
-                elif kind == "attr" and current_mesh is not None:
-                    if key == "interpolation":
-                        sm = _QUOTED.match(value)
-                        if sm:
-                            current_mesh.normals_interpolation = sm.group(1)
             continue
 
-        if not stack:                                  # layer-level scalar
-            mm = _META.match(joined)
+        if not stack:
+            mm = _META.match(stripped)
             if mm:
-                out["layer_metadata"][mm.group(1)] = mm.group(2)
+                layer_metadata[mm.group(1)] = mm.group(2)
             continue
 
-        m = _ATTR.match(joined)
-        if m:
-            name = m.group(2)
-            value = joined[m.end():].strip()
-            prim_path = "/" + "/".join(stack)
-            mesh = meshes.setdefault(prim_path, Mesh(prim_path))
+        prim_path = "/" + "/".join(stack)
+
+        rm = _REL.match(stripped)
+        if rm:
+            name = rm.group(1)
+            if name.startswith("material:binding"):
+                mesh = out["meshes"].setdefault(prim_path, Mesh(prim_path))
+                targets = _PATH.findall(rm.group(2))
+                mesh.binding = "<%s>" % targets[0] if targets else None
+                current_mesh = mesh
+            continue
+
+        am = _ATTR.match(stripped)
+        if am:
+            name = am.group(2)
+            value, attrmeta = _split_attr_meta(stripped[am.end():])
+            mesh = out["meshes"].setdefault(prim_path, Mesh(prim_path))
             current_mesh = mesh
-            pending_meta = ("attr", name)
             if name == "points":
                 mesh.points = _triples(value)
             elif name == "faceVertexCounts":
@@ -238,30 +342,14 @@ def parse_usda(path):
                 mesh.indices = _numbers(value, as_int=True)
             elif name == "normals":
                 mesh.normals = _triples(value)
+                mesh.normals_interpolation = attrmeta.get("interpolation")
             elif name == "extent":
                 nums = _numbers(value)
                 if len(nums) == 6:
                     mesh.extent = (tuple(nums[:3]), tuple(nums[3:]))
             continue
 
-        m = _REL.match(joined)
-        if m:
-            name = m.group(1)
-            if name.startswith("material:binding"):
-                prim_path = "/" + "/".join(stack)
-                mesh = meshes.setdefault(prim_path, Mesh(prim_path))
-                targets = _PATH.findall(m.group(2))
-                mesh.binding = "<%s>" % targets[0] if targets else None
-                current_mesh = mesh
-            continue
-
-        # anything else (uniform token ..., kind, ...) resets attr metadata
-        pending_meta = None
-
-    for path, mesh in meshes.items():
-        # only def Mesh prims count (an over Mesh carries no geometry here)
-        out["meshes"][path] = mesh
-    out["materials"] = {p for p in out.get("_def_paths", set())}
+    out["layer_metadata"] = layer_metadata
     return out
 
 
@@ -289,8 +377,7 @@ def check_asset(path):
         errors.append("upAxis = %r != 'Y'" % upaxis)
     if "defaultPrim" not in meta:
         errors.append("defaultPrim not authored on the root layer")
-    elif default_prim is None or ("/" + default_prim) not in doc["meshes"] \
-            and not _root_prim_exists(doc, default_prim):
+    elif default_prim is None or not _root_prim_exists(doc, default_prim):
         errors.append("defaultPrim /%s does not resolve to a prim"
                       % default_prim)
 
@@ -308,7 +395,7 @@ def check_asset(path):
     if colliders == 0:
         errors.append("no prim carries UsdPhysics.CollisionAPI")
 
-    materials = _material_paths(path)
+    materials = doc["materials"]
     mesh_facts = {}
     for mid in sorted(meshes):
         mesh = meshes[mid]
@@ -331,7 +418,6 @@ def check_asset(path):
                           % (mid, fact["zero_area_faces"], AREA_TOL))
         if not mesh.binding or mesh.binding.strip("<>") not in materials:
             errors.append("%s: no computable bound material" % mid)
-            fact["bound_material"] = None
         if mesh.extent is None:
             errors.append("%s: extent not authored" % mid)
         else:
@@ -351,33 +437,11 @@ def check_asset(path):
     return errors, facts
 
 
-def _material_paths(path):
-    """Paths of def Material prims, from a second light pass."""
-    with open(path, encoding="utf-8") as fh:
-        text = fh.read()
-    stack, out = [], []
-    for stmt in _statements(text):
-        joined = stmt.strip()
-        m = _DEF.match(joined)
-        if m:
-            stack.append(m.group(3))
-            body = joined[m.end():].strip()
-            if m.group(2) == "Material":
-                out.append("/" + "/".join(stack))
-            if body == "{}":
-                stack.pop()
-        elif joined.startswith("}"):
-            for _ in joined.replace(" ", ""):
-                if stack:
-                    stack.pop()
-    return set(out)
-
-
 def _root_prim_exists(doc, name):
-    # defaultPrim must name a root-level prim; mesh paths cover the meshes,
-    # so this only needs to accept any def at the top level
-    return any(p == "/" + name or p.startswith("/" + name + "/")
-               for p in list(doc["meshes"]) + list(doc["api_schemas"]))
+    # defaultPrim must name a root-level prim with children or own geometry
+    return name in doc["root_prims"] or \
+        any(p == "/" + name or p.startswith("/" + name + "/")
+            for p in list(doc["meshes"]) + list(doc["api_schemas"]))
 
 
 def _scalar(text):

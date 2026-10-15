@@ -42,14 +42,17 @@ MUTANT_IDS = {
     "zero_face": "D3", "unbind": "D4", "no_defaultprim": "D5",
     "no_extent": "D6", "delete_band": "cheat", "scale_points": "cheat",
     "short_normals": "cheat", "no_collision": "cheat",
+    "sublayer_cheat": "cheat",
 }
 MUTANT_ORDER = ["no_normals", "mpu_1", "upaxis_z", "zero_face", "unbind",
                 "no_defaultprim", "no_extent", "delete_band",
-                "scale_points", "short_normals", "no_collision"]
-GATE_ORDER = ["validator", "oracle", "geometry"]
+                "scale_points", "short_normals", "no_collision",
+                "sublayer_cheat"]
+GATE_ORDER = ["validator", "oracle", "geometry", "recount"]
 GATE_LABEL = {"validator": "gate 1\nNVIDIA validator",
               "oracle": "gate 2\nusd-core oracle",
-              "geometry": "gate 3\ngeometry kept"}
+              "geometry": "gate 3\ngeometry kept",
+              "recount": "gate 4\nclean-room text recount"}
 
 
 def die(msg):
@@ -91,8 +94,9 @@ def load_verdict(name):
         "gates.validator.validator_status",
         "gates.oracle.passed", "gates.oracle.errors",
         "gates.geometry.passed", "gates.geometry.errors",
+        "gates.recount.passed", "gates.recount.errors",
         "facts.oracle.meshes", "facts.oracle.colliders",
-        "facts.geometry",
+        "facts.geometry", "facts.crosscheck",
     )
     for mesh in need(v, "facts", "oracle", "meshes").values():
         for key in ("points", "face_corners", "zero_area_faces",
@@ -101,6 +105,9 @@ def load_verdict(name):
     for fact in need(v, "facts", "geometry").values():
         for key in ("points", "bbox_dev_cm"):
             need(fact, key)
+    need(v, "facts", "crosscheck", "passed")
+    for key in ("recount", "recount_geometry"):
+        need(v, "facts", key)
     return v
 
 

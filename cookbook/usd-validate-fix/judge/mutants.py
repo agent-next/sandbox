@@ -17,6 +17,12 @@ survive any formatting change of the good asset:
                        ("fix" the unit error by moving geometry)
   short_normals        drop one normal (count no longer matches topology)
   no_collision         strip the physics collider
+  sublayer_cheat       write no geometry at all: an empty root layer that
+                       borrows the good asset through subLayers = @abs path@.
+                       pxr composes it, so the validator and the pxr oracle
+                       see the good stage -- only the clean-room text
+                       recount (which reads the artifact's own layer) sees
+                       the cheat.
 
 Usage (run with the venv python, needs pxr):
   python -I judge/mutants.py <good.usda> <outdir>
@@ -102,6 +108,19 @@ def edit_no_collision(stage):
             UsdPhysics.CollisionAPI)
 
 
+def edit_sublayer_cheat(stage):
+    # Replace the entire root layer's contents with nothing but a subLayers
+    # reference to the good asset's absolute path.  pxr follows the
+    # reference, so gates 1-3 (validator + pxr oracle) see the complete
+    # good stage; only the clean-room text recount sees the empty layer.
+    good = os.path.abspath(os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "examples", "good", "traffic_cone_fixed.usda"))
+    layer = stage.GetRootLayer()
+    layer.rootPrims.clear()
+    layer.subLayerPaths.append(good)
+
+
 MUTANTS = [
     ("no_normals", edit_no_normals),
     ("mpu_1", edit_mpu_1),
@@ -114,6 +133,7 @@ MUTANTS = [
     ("scale_points", edit_scale_points),
     ("short_normals", edit_short_normals),
     ("no_collision", edit_no_collision),
+    ("sublayer_cheat", edit_sublayer_cheat),
 ]
 
 

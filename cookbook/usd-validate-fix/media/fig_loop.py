@@ -96,7 +96,7 @@ def main():
                                          facecolor=GOOD, linewidth=0))
             left.text(0.345, y, "✓", fontsize=11, color="#ffffff",
                       fontweight="bold", ha="center", va="center")
-            left.text(0.382, y, "passed all 3 gates", fontsize=11.5,
+            left.text(0.382, y, "passed all 4 gates", fontsize=11.5,
                       color=INK_2, va="center")
             left.text(0.600, y, "PASS", fontsize=11.5, color=GOOD,
                       va="center", fontweight="bold")
@@ -167,7 +167,7 @@ def main():
                fontweight="bold", va="top")
     y -= 0.075
     for text, value, ok in (
-            ("known-good artifact passed", "all 3 gates", True),
+            ("known-good artifact passed", "all 4 gates", True),
             ("mutants graded", "%d" % total, True),
             ("survived the judge", "%d" % (total - killed),
              (total - killed) == 0),
@@ -193,7 +193,8 @@ def main():
     mutants = [r for r in rows if r[0] not in ("good", "broken")]
     for gate, label in (("validator", "NVIDIA nvidia_usd_validate"),
                         ("oracle", "independent usd-core oracle"),
-                        ("geometry", "invariance vs the original")):
+                        ("geometry", "invariance vs the original"),
+                        ("recount", "clean-room text recount")):
         caught = sum(1 for r in mutants if r[2] == gate)
         right.text(0.0, y, GATE_LABEL[gate].replace("\n", " · "),
                    fontsize=11.5, color=INK, va="center", fontweight="bold")

@@ -1,6 +1,10 @@
 {
  "artifact": "<mutant>/delete_band.usda",
  "facts": {
+  "crosscheck": {
+   "errors": [],
+   "passed": true
+  },
   "geometry": {
    "/TrafficCone/Base": {
     "bbox_dev_cm": 0.0,
@@ -61,6 +65,66 @@
    "metersPerUnit": 0.01,
    "upAxis": "Y"
   },
+  "recount": {
+   "colliders": 1,
+   "defaultPrim": "TrafficCone",
+   "meshes": {
+    "/TrafficCone/Base": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -18.0,
+       -18.0,
+       0.0
+      ],
+      [
+       18.0,
+       18.0,
+       4.0
+      ]
+     ],
+     "face_corners": 24,
+     "max_normal_dev": 1.6e-08,
+     "normals": 24,
+     "normals_interpolation": "faceVarying",
+     "points": 8,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "</TrafficCone/Looks/OrangePlastic>",
+     "extent": [
+      [
+       -13.0,
+       -12.363734,
+       4.0
+      ],
+      [
+       13.0,
+       12.363734,
+       58.0
+      ]
+     ],
+     "face_corners": 60,
+     "max_normal_dev": 3.4e-08,
+     "normals": 60,
+     "normals_interpolation": "faceVarying",
+     "points": 20,
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 0.01,
+   "upAxis": "Y"
+  },
+  "recount_geometry": {
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 0.0,
+    "points": 8
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   }
+  },
   "validator": {
    "issues_by_severity": {},
    "rules_not_passing": [],
@@ -80,6 +144,12 @@
    "errors": [],
    "passed": true
   },
+  "recount": {
+   "errors": [
+    "Mesh prim paths differ from the original: artifact ['/TrafficCone/Base', '/TrafficCone/Body'] vs original ['/TrafficCone/Band', '/TrafficCone/Base', '/TrafficCone/Body']"
+   ],
+   "passed": false
+  },
   "validator": {
    "errors": [],
    "issues_by_severity": {},
@@ -92,9 +162,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.042,
-  "oracle_s": 2.986,
-  "total_s": 7.285,
-  "validator_s": 4.256
+  "geometry_s": 0.004,
+  "oracle_s": 0.348,
+  "recount_s": 0.013,
+  "total_s": 1.564,
+  "validator_s": 1.199
  }
 }
