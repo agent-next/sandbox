@@ -4,23 +4,23 @@
     "what_it_shows": "Key figure: the known-good panel's real 1280x720 headless render with the judge's measured widget bboxes and content region, plus the pixel gate's swatch chart (measured median RGB vs the judge's \u00b1tol mask around the analytic sRGB target) and the PASS stamp with the real determinism sha256.",
     "command": "media/.venv/bin/python -I media/make_figures.py",
     "source_data": "media/data/render.png, media/data/facts.json, media/data/grade_good.json, judge/reference.json",
-    "sha256": "2803b7b3a1c904fb1e72f1e983696c0e11be20bc9d1d4878707060d9c9a5d2ac",
-    "generated_at_commit": "a937914"
+    "sha256": "394f3292a7de95b70786bdd3f8e6169d94d909268fb0f180c49c51a38e288580",
+    "generated_at_commit": "66953d3"
   },
   {
     "file": "media/loop.png",
     "what_it_shows": "Agent loop: a scripted replay of real judge verdicts in the order a fixing agent meets the failures (build error, pixel mismatch, nondeterminism, then the known-good PASS), and the self-test kill table \u2014 one row per mutant with the gate(s) the judge failed it on, kill rate from the real selftest run.",
     "command": "media/.venv/bin/python -I media/make_figures.py",
     "source_data": "media/data/grade_good.json, media/data/mutants.json, media/data/selftest.txt",
-    "sha256": "5510a4cdbd25524995cac1c4e83a5e269d98efaba18f20bdee365524fef27150",
-    "generated_at_commit": "a937914"
+    "sha256": "07fda1ea16ef5007ddcfc890759875be931c2e8058c4245f53621ef36c2705e7",
+    "generated_at_commit": "66953d3"
   },
   {
     "file": "media/demo.mp4",
     "what_it_shows": "20-60 s, 1920x1080 @ 30 fps H.264 walkthrough of the same real judge outputs: title card with the verdict and determinism sha256, the real render, the measured widget bboxes (widget_tree gate), the PASS stamp (pixels + determinism gates), the swatch pixel-gate chart, the agent-loop replay, and the kill table. Encoded with -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart from a lossless -crf 0 master (media/master/, git-ignored).",
     "command": "media/.venv/bin/python -I media/make_video.py",
     "source_data": "media/data/* (all five files: render.png, facts.json, grade_good.json, mutants.json, selftest.txt)",
-    "sha256": "2382935b5a5401b96a217d233c6507d2b43913d8f70a9f3a6db4fc3ec85d2631",
-    "generated_at_commit": "a937914"
+    "sha256": "e29ca378f60c7a0345c65cafe8a03b395a3c3ed5330c84e4773c302ac3c81d03",
+    "generated_at_commit": "66953d3"
   }
 ]

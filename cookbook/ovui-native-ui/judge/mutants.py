@@ -54,8 +54,8 @@ MUTANTS = {
     # missing checkbox: the widget tree loses a required type (an empty
     # Label builds fine, so the widget-tree gate has to catch it)
     "missing_checkbox": (
-        "checkbox = ui.CheckBox(",
-        'checkbox = ui.Label("",'),
+        "checkbox = ui.CheckBox(\n                width=ui.Pixel(CHECKBOX_W), height=ui.Pixel(CHECKBOX_H))",
+        'checkbox = ui.Label("")'),
     # missing swatch: the widget tree loses a required type
     "missing_swatch": (
         "ui.ColorWidget(\n                *SWATCH_RGBA,",

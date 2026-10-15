@@ -8,9 +8,11 @@
     "swatch",
     "window"
   ],
+  "_window_live": true,
   "button": {
     "computed_height": 28.0,
     "computed_width": 140.0,
+    "live": true,
     "screen_position_x": 434.0,
     "screen_position_y": 356.0,
     "text": "Apply",
@@ -19,6 +21,7 @@
   "checkbox": {
     "computed_height": 22.0,
     "computed_width": 140.0,
+    "live": true,
     "screen_position_x": 434.0,
     "screen_position_y": 328.0,
     "type": "CheckBox"
@@ -26,6 +29,7 @@
   "slider1": {
     "computed_height": 24.0,
     "computed_width": 268.0,
+    "live": true,
     "max": 10.0,
     "min": 0.0,
     "screen_position_x": 466.0,
@@ -35,6 +39,7 @@
   "slider2": {
     "computed_height": 24.0,
     "computed_width": 268.0,
+    "live": true,
     "max": 20.0,
     "min": 0.0,
     "screen_position_x": 466.0,
@@ -44,6 +49,7 @@
   "slider3": {
     "computed_height": 24.0,
     "computed_width": 268.0,
+    "live": true,
     "max": 50.0,
     "min": 0.0,
     "screen_position_x": 466.0,
@@ -59,12 +65,14 @@
     ],
     "computed_height": 24.0,
     "computed_width": 140.0,
+    "live": true,
     "screen_position_x": 434.0,
     "screen_position_y": 298.0,
     "type": "ColorWidget"
   },
   "window": {
     "height": 360.0,
+    "live": true,
     "position_x": 430.0,
     "position_y": 180.0,
     "title": "Tool Panel",

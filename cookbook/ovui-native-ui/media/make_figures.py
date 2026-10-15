@@ -114,7 +114,7 @@ def draw_render_overlay(ax, show_bboxes=True, pass_stamp=True,
         # apart, so the labels never stack on each other or on the region
         # caption (the render's own widgets are only ~24 px tall).
         for name, f in facts.items():
-            if name in ("window", "_ref_names"):
+            if name in ("window", "_ref_names", "_window_live"):
                 continue
             x, y = f["screen_position_x"], f["screen_position_y"]
             w, h = f["computed_width"], f["computed_height"]

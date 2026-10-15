@@ -15,11 +15,57 @@
           "button_ok": false,
           "checkbox_ok": false,
           "ref_names_missing": [],
+          "refs_live": false,
           "sliders_distinct": false,
           "sliders_ok": false,
           "swatch_color_ok": false,
-          "swatch_size_ok": false,
+          "swatch_size_ok": true,
           "swatch_type_ok": false,
+          "window_ok": false
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "error": "window rect missing from facts"
+        },
+        "gate": "pixels",
+        "ok": false
+      },
+      {
+        "facts_match": true,
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "6c72adcf63e7aff7",
+        "shots_match": true
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "empty_window": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "refs_live": true,
+          "sliders_distinct": true,
+          "sliders_ok": true,
+          "swatch_color_ok": true,
+          "swatch_size_ok": false,
+          "swatch_type_ok": true,
           "window_ok": true
         },
         "gate": "widget_tree",
@@ -27,38 +73,83 @@
       },
       {
         "detail": {
-          "rects_missing": [
+          "bbox_mismatch": [
             "slider1",
             "slider2",
             "slider3",
             "swatch",
             "checkbox",
             "button"
-          ]
+          ],
+          "bg_lum": 69.0,
+          "overflow": [],
+          "rects_missing": [],
+          "swatch": "empty interior"
         },
         "gate": "pixels",
         "ok": false
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": true,
-        "sha256": "6d6fe7b04806f192"
+        "sha256": "6d6fe7b04806f192",
+        "shots_match": true
       }
     ],
     "pass": false,
     "seed": 1234
   },
-  "empty_window": {
-    "error": "render 1 failed",
-    "exit": 1,
-    "log": "standalone::init: headless Vulkan mode enabled\nstandalone::init: injecting VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json\nVulkanBackend: selected device: \"llvmpipe (LLVM 15.0.6, 256 bits)\" (vendorID=0x10005, type=CPU (software renderer))\nVulkanBackend: device does not support VK_KHR_external_semaphore_fd, CUDA interop disabled\nVulkanBackend: initialized successfully (1280x720, offscreen)\nHeadlessVulkanPlatform: loaded font <tools>/venv/lib/python3.12/site-packages/omni/ui/resources/fonts/NotoSans-Regular.ttf\nVulkanBackend: ImGui Vulkan backend initialized\nHeadlessVulkanPlatform: initialized (1280x720)\nstandalone::init: initialized successfully (1280x720)\nTraceback (most recent call last):\n  File \"<demo>/judge/render.py\", line 115, in <module>\n    main()\n  File \"<demo>/judge/render.py\", line 111, in main\n    json.dump(result[\"facts\"], f, indent=2, sort_keys=True)\n              ~~~~~~^^^^^^^^^\nKeyError: 'facts'\nTask exception was never retrieved\nfuture: <Task finished name='Task-1' coro=<main.<locals>._main() done, defined at <demo>/judge/render.py:90> exception=IndexError('list index out of range')>\nTraceback (most recent call last):\n  File \"<demo>/judge/render.py\", line 91, in _main\n    built = build()\n            ^^^^^^^\n  File \"<scratch>/panel.py\", line 49, in build_panel\n    \"slider1\": sliders[0],\n               ~~~~~~~^^^\nIndexError: list index out of range\n",
-    "pass": false
-  },
   "missing_checkbox": {
-    "error": "render 1 failed",
     "exit": 1,
-    "log": "standalone::init: headless Vulkan mode enabled\nstandalone::init: injecting VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json\nVulkanBackend: selected device: \"llvmpipe (LLVM 15.0.6, 256 bits)\" (vendorID=0x10005, type=CPU (software renderer))\nVulkanBackend: device does not support VK_KHR_external_semaphore_fd, CUDA interop disabled\nVulkanBackend: initialized successfully (1280x720, offscreen)\nHeadlessVulkanPlatform: loaded font <tools>/venv/lib/python3.12/site-packages/omni/ui/resources/fonts/NotoSans-Regular.ttf\nVulkanBackend: ImGui Vulkan backend initialized\nHeadlessVulkanPlatform: initialized (1280x720)\nstandalone::init: initialized successfully (1280x720)\nTraceback (most recent call last):\n  File \"<demo>/judge/render.py\", line 115, in <module>\n    main()\n  File \"<demo>/judge/render.py\", line 111, in main\n    json.dump(result[\"facts\"], f, indent=2, sort_keys=True)\n              ~~~~~~^^^^^^^^^\nKeyError: 'facts'\nTask exception was never retrieved\nfuture: <Task finished name='Task-1' coro=<main.<locals>._main() done, defined at <demo>/judge/render.py:90> exception=TypeError('__init__(): incompatible constructor arguments. The following argument types are supported:\\n    1. omni.ui._ui.Label(arg0: str, **kwargs)\\n\\nInvoked with: kwargs: width=140.000000px, height=22.000000px')>\nTraceback (most recent call last):\n  File \"<demo>/judge/render.py\", line 91, in _main\n    built = build()\n            ^^^^^^^\n  File \"<scratch>/panel.py\", line 42, in build_panel\n    checkbox = ui.Label(\n               ^^^^^^^^^\nTypeError: __init__(): incompatible constructor arguments. The following argument types are supported:\n    1. omni.ui._ui.Label(arg0: str, **kwargs)\n\nInvoked with: kwargs: width=140.000000px, height=22.000000px\n",
-    "pass": false
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": false,
+          "ref_names_missing": [],
+          "refs_live": true,
+          "sliders_distinct": true,
+          "sliders_ok": true,
+          "swatch_color_ok": true,
+          "swatch_size_ok": true,
+          "swatch_type_ok": true,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [
+            "checkbox",
+            "button"
+          ],
+          "error": "no background band inside the window",
+          "overflow": [],
+          "rects_missing": []
+        },
+        "gate": "pixels",
+        "ok": false
+      },
+      {
+        "facts_match": true,
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "cd21922136c2e0d1",
+        "shots_match": true
+      }
+    ],
+    "pass": false,
+    "seed": 1234
   },
   "missing_slider": {
     "exit": 1,
@@ -76,6 +167,7 @@
           "button_ok": true,
           "checkbox_ok": true,
           "ref_names_missing": [],
+          "refs_live": true,
           "sliders_distinct": false,
           "sliders_ok": false,
           "swatch_color_ok": true,
@@ -117,9 +209,11 @@
         "ok": true
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": true,
-        "sha256": "0ec93ad8937e8a21"
+        "sha256": "0ec93ad8937e8a21",
+        "shots_match": true
       }
     ],
     "pass": false,
@@ -141,6 +235,7 @@
           "button_ok": true,
           "checkbox_ok": true,
           "ref_names_missing": [],
+          "refs_live": true,
           "sliders_distinct": true,
           "sliders_ok": true,
           "swatch_color_ok": false,
@@ -182,9 +277,11 @@
         "ok": false
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": true,
-        "sha256": "4c6aee12861d6bb2"
+        "sha256": "4c6aee12861d6bb2",
+        "shots_match": true
       }
     ],
     "pass": false,
@@ -206,6 +303,7 @@
           "button_ok": true,
           "checkbox_ok": true,
           "ref_names_missing": [],
+          "refs_live": true,
           "sliders_distinct": true,
           "sliders_ok": true,
           "swatch_color_ok": true,
@@ -247,9 +345,11 @@
         "ok": true
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": false,
-        "sha256": "8b5aead8fdb5eede"
+        "sha256": "c8a8cbe29a5c7e04",
+        "shots_match": false
       }
     ],
     "pass": false,
@@ -271,6 +371,7 @@
           "button_ok": true,
           "checkbox_ok": true,
           "ref_names_missing": [],
+          "refs_live": true,
           "sliders_distinct": true,
           "sliders_ok": true,
           "swatch_color_ok": true,
@@ -316,9 +417,11 @@
         "ok": false
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": true,
-        "sha256": "c0506f9706a7e5fa"
+        "sha256": "c0506f9706a7e5fa",
+        "shots_match": true
       }
     ],
     "pass": false,
@@ -340,6 +443,7 @@
           "button_ok": false,
           "checkbox_ok": true,
           "ref_names_missing": [],
+          "refs_live": true,
           "sliders_distinct": true,
           "sliders_ok": true,
           "swatch_color_ok": true,
@@ -381,9 +485,11 @@
         "ok": true
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": true,
-        "sha256": "a39b895382674255"
+        "sha256": "a39b895382674255",
+        "shots_match": true
       }
     ],
     "pass": false,
@@ -405,6 +511,7 @@
           "button_ok": true,
           "checkbox_ok": true,
           "ref_names_missing": [],
+          "refs_live": true,
           "sliders_distinct": false,
           "sliders_ok": false,
           "swatch_color_ok": true,
@@ -446,9 +553,11 @@
         "ok": true
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": true,
-        "sha256": "0d8e03dcb161d859"
+        "sha256": "0d8e03dcb161d859",
+        "shots_match": true
       }
     ],
     "pass": false,
@@ -470,6 +579,7 @@
           "button_ok": true,
           "checkbox_ok": true,
           "ref_names_missing": [],
+          "refs_live": true,
           "sliders_distinct": true,
           "sliders_ok": true,
           "swatch_color_ok": false,
@@ -511,9 +621,11 @@
         "ok": false
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": true,
-        "sha256": "b80a9720892ad1d8"
+        "sha256": "b80a9720892ad1d8",
+        "shots_match": true
       }
     ],
     "pass": false,
@@ -535,6 +647,7 @@
           "button_ok": true,
           "checkbox_ok": true,
           "ref_names_missing": [],
+          "refs_live": true,
           "sliders_distinct": true,
           "sliders_ok": true,
           "swatch_color_ok": true,
@@ -578,9 +691,11 @@
         "ok": false
       },
       {
+        "facts_match": true,
         "gate": "determinism",
         "ok": true,
-        "sha256": "28fa66b8e930b02e"
+        "sha256": "28fa66b8e930b02e",
+        "shots_match": true
       }
     ],
     "pass": false,

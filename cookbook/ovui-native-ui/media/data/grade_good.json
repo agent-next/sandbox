@@ -13,6 +13,7 @@
         "button_ok": true,
         "checkbox_ok": true,
         "ref_names_missing": [],
+        "refs_live": true,
         "sliders_distinct": true,
         "sliders_ok": true,
         "swatch_color_ok": true,
@@ -54,9 +55,11 @@
       "ok": true
     },
     {
+      "facts_match": true,
       "gate": "determinism",
       "ok": true,
-      "sha256": "0d8e03dcb161d859"
+      "sha256": "0d8e03dcb161d859",
+      "shots_match": true
     }
   ],
   "pass": true,
