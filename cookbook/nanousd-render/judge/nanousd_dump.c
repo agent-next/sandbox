@@ -10,9 +10,11 @@
  *   {"error": "..."} if the stage does not open, else a stage record:
  *   {"prims":[{"path":..,"type":..,"defined":0|1,"xform":[16 doubles],
  *              "xform_ok":0|1,"attribs":{name:{"type":..,"value":..}}}]}
- * attribs includes ALL attributes (schema fallback + authored); the judge
- * distinguishes authored values by cross-referencing its own text scan.
- * Local transforms are nanousd_get_local_transform() at time 0.
+ * prims is the FLAT list nanousd_nprims() returns (nanousd's traversal
+ * enumerates every prim in the stage); no children key.
+ * attribs holds only the judge-probed attribute names that return a
+ * readable value; local transforms are nanousd_get_local_transform()
+ * at time 0.
  *
  * Part of the judge; built by judge/setup.sh against the pinned nanousd.
  */
@@ -185,12 +187,6 @@ static void dump_prim(NanousdPrim prim, int* first) {
     }
     printf("}}");
     *first = 0;
-    int nc = nanousd_nchildren(prim);
-    for (int c = 0; c < nc; c++) {
-        NanousdPrim ch = nanousd_child(prim, c);
-        dump_prim(ch, first);
-        nanousd_freeprim(ch);
-    }
 }
 
 int main(int argc, char** argv) {

@@ -163,10 +163,13 @@ build_drivers() {
     mkdir -p "$out"
     log "compiling judge C drivers"
     # nanousd_dump: stage -> JSON through the pinned nanousd C API
-    cc -O2 -std=c11 \
+    # (nanousdapi is C++ -> link with g++; it dlopen()s the backend itself,
+    #  pulling libnanousd.so via -Wl,--no-as-needed per its own link rule)
+    g++ -O2 -std=c++17 -x c++ \
         -I"$nanousd_src/include" \
         "$JUDGE_DIR/nanousd_dump.c" \
-        -L"$nanousd_bld" -lnanousdapi \
+        -L"$nanousd_bld" -Wl,--no-as-needed -lnanousdapi -Wl,--as-needed \
+        -ldl \
         -o "$out/nanousd_dump"
 
     # render_once: renderer's public viewer.h API -> raw RGBA (judge.py
