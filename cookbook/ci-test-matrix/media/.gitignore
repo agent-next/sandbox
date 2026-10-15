@@ -9,3 +9,6 @@ frames_check/
 selftest.log
 *.mp4
 *.png
+
+# agent scratch (mutant checkouts, logs) -- regenerated, never commit
+scratch/
