@@ -27,9 +27,21 @@ SEED="20261015"
 
 [ -x "$VENV/bin/nvidia_usd_validate" ] || { echo "make_media: judge venv missing -- run 'bash judge/setup.sh' first" >&2; exit 1; }
 command -v ffmpeg >/dev/null 2>&1 || { echo "make_media: ffmpeg missing" >&2; exit 1; }
-"$PY" -c 'import matplotlib' >/dev/null 2>&1 || { echo "make_media: python3 lacks matplotlib" >&2; exit 1; }
 
-echo "[media] matplotlib $("$PY" -c 'import matplotlib; print(matplotlib.__version__)')"
+# The figure/video scripts need matplotlib+numpy, which the judge venv
+# does not carry (it holds only the pinned judge wheels).  They run from
+# MPLPY, a separate git-ignored venv at media/.venv, built here when
+# missing so `bash media/make_media.sh` works on a fresh host.  Judge
+# tools that need pxr keep using $PY (the judge venv).
+MPLPY="$MEDIA_DIR/.venv/bin/python"
+if [ ! -x "$MPLPY" ] || ! "$MPLPY" -c 'import matplotlib, numpy' >/dev/null 2>&1; then
+    echo "[media] creating plotting venv media/.venv (matplotlib+numpy, pinned)"
+    python3 -m venv "$MEDIA_DIR/.venv"
+    "$MEDIA_DIR/.venv/bin/pip" install --disable-pip-version-check --quiet \
+        matplotlib==3.11.2 numpy==2.5.4
+fi
+
+echo "[media] matplotlib $("$MPLPY" -c 'import matplotlib; print(matplotlib.__version__)')"
 echo "[media] ffmpeg $(ffmpeg -version | head -1 | awk '{print $3}')"
 
 # --- 1. replay: self-test + good + mutants ---
@@ -75,12 +87,12 @@ cp "$REPLAY/selftest_output.txt" "$MEDIA_DIR/data/selftest_output.txt"
 
 # --- 4. figures ---
 echo "=== 4. figures ==="
-"$PY" -I "$MEDIA_DIR/fig_result.py"
-"$PY" -I "$MEDIA_DIR/fig_loop.py"
+"$MPLPY" -I "$MEDIA_DIR/fig_result.py"
+"$MPLPY" -I "$MEDIA_DIR/fig_loop.py"
 
 # --- 5. video ---
 echo "=== 5. video (frames -> lossless master -> web encode) ==="
-"$PY" -I "$MEDIA_DIR/make_video.py"
+"$MPLPY" -I "$MEDIA_DIR/make_video.py"
 
 # --- 6. manifest + result.json + storyboard + review ---
 echo "=== 6. manifest + result.json + storyboard + review ==="
