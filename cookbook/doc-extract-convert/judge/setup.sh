@@ -42,7 +42,10 @@ if [ "${#need_install[@]}" -gt 0 ]; then
     # user needs a world-writable dir), sha256-check every .deb that arrives
     # against judge/package-sha256.txt, then install exactly the checked files.
     cachedir="$(mktemp -d)"
-    trap 'sudo rm -rf "$cachedir"' EXIT
+    # Both sections clean up on EXIT; append rather than overwrite so the
+    # apt trap is not silently cancelled by the wheel section's trap.
+    _cleanup() { rm -rf "$cachedir" "${_wheel_dir:-}"; }
+    trap _cleanup EXIT
     mkdir "$cachedir/partial"
     chmod -R 777 "$cachedir"
     sudo apt-get --yes --no-install-recommends --download-only \
@@ -76,7 +79,7 @@ if python3 -c "import PIL; import sys; sys.exit(0 if PIL.__version__ == '11.3.0'
     echo "[setup] Pillow 11.3.0 already installed"
 else
     wheel_dir="$(mktemp -d)"
-    trap "rm -rf $wheel_dir" EXIT
+    _wheel_dir="$wheel_dir"           # also removed by the EXIT trap
     pip download --no-deps --only-binary=:all: -q -d "$wheel_dir" "Pillow==11.3.0"
 
     wheel=$(ls "$wheel_dir"/pillow-11.3.0-*.whl)
