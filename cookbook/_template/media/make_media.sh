@@ -13,8 +13,7 @@
 #
 # demo.mp4 is rendered with the Remotion template: write media/props.json
 # (shape: cookbook/tools/remotion/README.md), then
-#   render_demo_video.sh media/props.json media/demo.mp4
-#   (i.e. bash ../../tools/remotion/render_demo_video.sh media/props.json media/demo.mp4)
+#   bash ../../tools/remotion/render.sh media/props.json media/demo.mp4
 # The script validates the props, renders 1920x1080/30fps H.264, and fails
 # if the video gate fails.
 #

@@ -11,6 +11,9 @@ clips plus the `media/result.json` numbers — into an animated
 bash cookbook/tools/remotion/render.sh media/props.json media/demo.mp4
 ```
 
+Remotion is pinned to **4.0.532** (published 2026-10-01, the newest 4.0.x at
+least 14 days before 2026-10-15; `npm view remotion time`). Node >= 22.
+
 `render.sh` validates the props, copies every referenced clip into
 `public/staged/`, renders the `Demo` composition (1920×1080, 30 fps,
 H.264 yuv420p, CRF 18), remuxes with `+faststart`, re-encodes at a higher
