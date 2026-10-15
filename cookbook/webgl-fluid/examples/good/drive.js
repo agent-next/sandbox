@@ -23,6 +23,10 @@
         }
         if (k === s.probe.frame)
             T.splat(s.probe.x, s.probe.y, s.probe.dx, s.probe.dy, s.probe.rgb);
+        // Stationary decay patch: zero velocity, dye only — its boxed mass
+        // decays purely by DENSITY_DISSIPATION (gate 5's oracle).
+        if (k === s.decay.frame)
+            T.splat(s.decay.x, s.decay.y, 0.0, 0.0, s.decay.rgb);
         if (k === s.aim.frame)
             T.splat(s.aim.x, s.aim.y, s.aim.dx, s.aim.dy, s.aim.rgb);
         T.frame(s.dt);

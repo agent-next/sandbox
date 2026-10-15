@@ -1,0 +1,6 @@
+# toolchain + generated files (see DEMO-STANDARD.md "Size")
+judge/vendor/
+examples/bad/
+media/master/
+__pycache__/
+*.pyc

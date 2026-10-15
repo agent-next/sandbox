@@ -48,18 +48,28 @@ function startServer(sceneDir) {
         { prefix: '/up/', dir: UPSTREAM_DIR },
         { prefix: '/driver/', dir: DRIVER_DIR },
         { prefix: '/scene/', dir: sceneDir },
+        // Upstream requests assets (LDR_LLL1_0.png) relative to the page,
+        // which lives under /driver/: fall back to the upstream dir.
+        { prefix: '/driver/', dir: UPSTREAM_DIR },
     ];
     const server = http.createServer((req, res) => {
         try {
             let rel = decodeURIComponent(req.url.split('?')[0]);
-            const root = roots.find((r) => rel.startsWith(r.prefix));
-            if (!root) { res.writeHead(404); return res.end(); }
-            rel = rel.slice(root.prefix.length);
             if (rel.includes('..')) { res.writeHead(403); return res.end(); }
-            const p = path.join(root.dir, rel);
-            if (!fs.existsSync(p) || !fs.statSync(p).isFile()) {
-                res.writeHead(404); return res.end();
+            if (rel === '/favicon.ico' || rel === '/driver/favicon.ico') {
+                res.writeHead(204); return res.end();
             }
+            let p = null;
+            for (const r of roots) {
+                if (!rel.startsWith(r.prefix)) continue;
+                const cand = path.join(r.dir,
+                                       rel.slice(r.prefix.length));
+                if (fs.existsSync(cand) && fs.statSync(cand).isFile()) {
+                    p = cand;
+                    break;
+                }
+            }
+            if (!p) { res.writeHead(404); return res.end(); }
             res.writeHead(200, {
                 'Content-Type':
                     types[path.extname(p)] || 'application/octet-stream',
@@ -150,14 +160,17 @@ async function runOnce(page, driveJs) {
             'window.__WFS_CONSOLE__.errors');
 
         if (stash > 0) {
-            blob.stash_indices = Array.from({ length: stash },
-                                            (_, i) => i);
+            const pick = idxs.length ? idxs
+                : Array.from({ length: stash }, (_, i) => i);
+            blob.stash_indices = pick;
             blob.raw_frames = await page.evaluate(
-                (n) => window.__WFS__.exportFrames(
-                    Array.from({ length: n }, (_, i) => i)), stash);
+                (ix) => window.__WFS__.exportFrames(ix), pick);
         }
         blob.console_errors = await page.evaluate(
             'window.__WFS_CONSOLE__.errors');
+        // Browser-side console errors (resource 404s, uncaught errors) do
+        // not pass through the page's console.error wrapper — merge them.
+        blob.console_errors = blob.console_errors.concat(consoleErrors);
         blob.ok = how1 === 'result' && how2 === 'result' &&
                   !!(blob.run1 && blob.run2);
         if (!blob.ok)

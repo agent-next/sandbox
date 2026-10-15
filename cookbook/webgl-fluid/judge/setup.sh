@@ -48,6 +48,8 @@ UPSTREAM_BASE="https://raw.githubusercontent.com/PavelDoGreat/WebGL-Fluid-Simula
 SCRIPT_SHA256="291d86de38ea23b8fb63d1879afeea77e9a4556900bbd67e13bc1d5ea007ce4e"
 DATGUI_SHA256="27976ca8ac2e125de97163455131890e8686ed2afc2007cd5524080b7d53ef7b"
 LICENSE_SHA256="1be448ae1212de2bee77b4cf851ab0acea0a7f7f32d21cd73095dd94dc173f66"
+# 64x64 sunrays lookup texture; script.js requests it relative to the page
+LDR_SHA256="140c55bd97c21b9b22008d7054b492333fec67fbfc1a1b266e5b0209b647eed4"
 
 # ---------------------------------------------------------------------------
 
@@ -107,8 +109,8 @@ export PATH="$PREFIX/node/bin:$PATH"
 hash -r
 
 # ---------------------------------------------------------------------------
-# 3. playwright-core (into judge/vendor/node_modules, so run_scene.cjs has
-#    zero-install deps resolved by Node's own module lookup)
+# 3. playwright-core (into judge/vendor/node_modules; run_scene.cjs finds
+#    it through NODE_PATH, which judge/grade.sh exports)
 # ---------------------------------------------------------------------------
 VENDOR="$SCRIPT_DIR/vendor"
 if [[ ! -d "$VENDOR/node_modules/playwright-core" ]]; then
@@ -159,13 +161,14 @@ mkdir -p "$UP"
 fetch "${UPSTREAM_BASE}/script.js"      "$UP/script.js"      "$SCRIPT_SHA256"
 fetch "${UPSTREAM_BASE}/dat.gui.min.js" "$UP/dat.gui.min.js" "$DATGUI_SHA256"
 fetch "${UPSTREAM_BASE}/LICENSE"        "$UP/LICENSE"        "$LICENSE_SHA256"
+fetch "${UPSTREAM_BASE}/LDR_LLL1_0.png" "$UP/LDR_LLL1_0.png" "$LDR_SHA256"
 
 # ---------------------------------------------------------------------------
 # 6. Record what is actually installed.
 # ---------------------------------------------------------------------------
 {
     echo "# What judge/setup.sh actually installed (tool-reported versions)"
-    echo "# reproduce: bash judge/setup.sh && bash judge/versions.sh > judge/VERSIONS.txt"
+    echo "# reproduce: bash judge/setup.sh (writes this file at the end)"
     echo
     echo "\$ node --version"
     "$PREFIX/node/bin/node" --version
@@ -178,7 +181,8 @@ fetch "${UPSTREAM_BASE}/LICENSE"        "$UP/LICENSE"        "$LICENSE_SHA256"
         "require('$VENDOR/node_modules/playwright-core/package.json').version"
     echo
     echo "# upstream: PavelDoGreat/WebGL-Fluid-Simulation @ $UPSTREAM_SHA"
-    sha256sum "$UP"/script.js "$UP"/dat.gui.min.js "$UP"/LICENSE
+    sha256sum "$UP"/script.js "$UP"/dat.gui.min.js "$UP"/LICENSE \
+              "$UP"/LDR_LLL1_0.png
     echo
     echo "# apt: chromium runtime libraries"
     for p in libnss3 libatk-bridge2.0-0 libcups2 libgbm1 libasound2; do

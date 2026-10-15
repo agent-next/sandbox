@@ -91,7 +91,12 @@ A directory with exactly three files:
   1.0), `VELOCITY_DISSIPATION`, `PRESSURE`, `PRESSURE_ITERATIONS`,
   `CURL`, `SPLAT_RADIUS`, `SPLAT_FORCE`;
 - `probe`: one calibration splat fired alone at frame `probe.frame` with
-  velocity `(dx, dy)`, declaring `trackFrames`;
+  velocity `(dx, dy)`, a `box` rect that contains its dye for the whole
+  window (the judge tracks the centroid inside it), and `trackFrames`;
+- `decay`: one stationary splat (zero velocity) at frame `decay.frame`,
+  with a `box` rect the judge reads its mass from — the dissipation
+  oracle: a dye patch nothing flows through loses mass only via
+  `DENSITY_DISSIPATION`. `trackFrames` declares the window;
 - `obstacles`: axis-aligned rects `{x0, y0, x1, y1}` in normalized coords
   (y up, same convention as splats), non-empty;
 - `aim`: one splat fired at the obstacles from outside them;
@@ -123,11 +128,16 @@ mass of frame k, `c[k] = (cx, cy)` its centroid, in normalized coords, y up.
    `<= 0.5%` of that frame's total mass. (The judge computes the rectangle
    mask itself from `config.json`; the artifact's shader enforcement is what
    must keep it clean.)
-5. **Dye dissipates as configured.** Over the probe window
-   (`p` to `p + trackFrames`, no splats inside): every step
-   `m[k+1] <= 1.001 * m[k]` (monotone within quantization noise), and the
-   measured per-frame decay `(m[p+track]/m[p])^(1/track)` lies within
-   `[0.75, 1.25]` of the configured `exp(-dt * DENSITY_DISSIPATION)`.
+5. **Dye dissipates as configured.** Over the decay window
+   (`decay.frame` to `decay.frame + decay.trackFrames`, no splats inside
+   the decay box): every step `dm[k+1] <= 1.001 * dm[k]` (monotone within
+   quantization noise) where `dm` is the mass inside `decay.box`, the
+   measured per-frame decay `(dm[end]/dm[start])^(1/track)` lies within
+   `[0.75, 1.25]` of the configured `exp(-dt * DENSITY_DISSIPATION)`, and
+   the declared `DENSITY_DISSIPATION` is inside the artifact-contract
+   range `[0.5, 2.0]`. (Total dye mass is not a valid oracle: a moving
+   splat's mass can *grow* briefly as the flow stretches it, a known
+   semi-Lagrangian artefact.)
 6. **No NaN, no blank frames.** Every captured frame in both runs:
    `mass >= 0.5` (not blank) and `nan == false` (no non-finite value in the
    float dye readback; when the implementation cannot read floats, the
@@ -166,7 +176,7 @@ Kill rate must be >= 90%; each mutant is a single edit of the good artifact:
 
 | mutant | edit | must fail |
 |---|---|---|
-| `velocity_flip` | probe `dy` sign flipped in `drive.js` | gate 3 |
+| `velocity_flip` | probe velocity sign flipped in `drive.js` | gate 3 |
 | `obstacles_ignored` | `setMaskProgram` call removed from `drive.js` | gate 4 |
 | `dissipation_zero` | `config.DENSITY_DISSIPATION` set to 0 in `config.json` | gate 5 |
 | `nan_inject` | one splat given a NaN velocity in `drive.js` | gate 6 |

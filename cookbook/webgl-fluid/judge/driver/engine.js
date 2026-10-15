@@ -10,6 +10,8 @@
 //   __WFS__.setMaskProgram(src)  compile the artifact's obstacle shader
 //   __WFS__.splat(x, y, dx, dy, rgb)  one dye+velocity splat (upstream units)
 //   __WFS__.frame(dt)      step(dt) -> apply obstacle mask -> capture frame
+//                          (records hash, mass, centroid, per-obstacle
+//                          mass, decay-box mass, nonblank count, NaN flag)
 //   __WFS__.finish()       seal the run (window.__WFS_RESULT__)
 //   __WFS__.resetAll()     zero every FBO, clear the frame log
 //   __WFS__.exportFrames(idx)  base64 RGBA of stashed raw frames (media)
@@ -183,7 +185,11 @@
         gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
 
         var mass = 0, wsum = 0, cx = 0, cy = 0, nonblank = 0;
-        var inside = st.scene.obstacles.map(function () { return 0; });
+        var inside = (st.scene.obstacles || []).map(function () { return 0; });
+        var db = st.scene.decay && st.scene.decay.box;
+        var decayMass = 0;
+        var tb = st.scene.probe && st.scene.probe.box;
+        var twsum = 0, tcx = 0, tcy = 0;
         for (var row = 0; row < H; row++) {
             var v = (row + 0.5) / H;
             for (var col = 0; col < W; col++) {
@@ -204,14 +210,25 @@
                     if (u >= ob.x0 && u <= ob.x1 && v >= ob.y0 && v <= ob.y1)
                         inside[o] += mean;
                 }
+                if (db && u >= db.x0 && u <= db.x1 && v >= db.y0 && v <= db.y1)
+                    decayMass += mean;
+                if (tb && u >= tb.x0 && u <= tb.x1 && v >= tb.y0 && v <= tb.y1) {
+                    twsum += mean;
+                    tcx += u * mean;
+                    tcy += v * mean;
+                }
             }
         }
         var f = {
             hash: sha256hex(buf),
             mass: mass / 255,
+            decayMass: decayMass / 255,
             nonblank: nonblank,
             cx: wsum > 0 ? cx / wsum / W : null,
             cy: wsum > 0 ? cy / wsum / H : null,
+            tcx: twsum > 0 ? tcx / twsum : null,
+            tcy: twsum > 0 ? tcy / twsum : null,
+            trackMass: twsum / 255,
             inside: inside.map(function (m) { return m / 255; }),
             nan: false,
         };
@@ -296,7 +313,11 @@
         scene: function () { return st.scene; },
         frag: function () { return st.fragSrc; },
         setMaskProgram: setMaskProgram,
-        splat: function (x, y, dx, dy, rgb) { splat(x, y, dx, dy, rgb); },
+        splat: function (x, y, dx, dy, rgb) {
+            // upstream splat() wants a {r,g,b} object; the artifact
+            // declares colours as [r,g,b] arrays.
+            splat(x, y, dx, dy, { r: rgb[0], g: rgb[1], b: rgb[2] });
+        },
         frame: frame,
         finish: finish,
         resetAll: function () {
@@ -324,10 +345,10 @@
 
     st.ready = (async function () {
         try {
-            var cfgRes = await fetch('scene/config.json');
+            var cfgRes = await fetch('/scene/config.json');
             if (!cfgRes.ok) throw new Error('config.json: HTTP ' + cfgRes.status);
             st.scene = await cfgRes.json();
-            var fragRes = await fetch('scene/obstacle.frag');
+            var fragRes = await fetch('/scene/obstacle.frag');
             if (!fragRes.ok) throw new Error('obstacle.frag: HTTP ' + fragRes.status);
             st.fragSrc = await fragRes.text();
 

@@ -1,5 +1,5 @@
 # What judge/setup.sh actually installed (tool-reported versions)
-# reproduce: bash judge/setup.sh && bash judge/versions.sh > judge/VERSIONS.txt
+# reproduce: bash judge/setup.sh (writes this file at the end)
 
 $ node --version
 v20.19.5
