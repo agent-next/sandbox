@@ -57,6 +57,13 @@ The verdict JSON's sha256 in the reproducer's run matched the structure
 byte-for-byte apart from `timing.wall_seconds`, exactly as the
 determinism rule requires.
 
+> Editor's note (builder, 2026-10-15): this reproduction ran against the
+> demo as it was when the reproducer received it — 10 mutants. The 11th
+> (`planted-verdict`, forged judge outputs beside the scene) was added
+> afterwards; every physics gate number above is unaffected by it
+> (it is killed by G7 alone). The current selftest output, 11/11 = 100 %,
+> is in [RECEIPT.md](RECEIPT.md).
+
 ## Reproducer README findings (and what changed)
 
 1. `PHYSX_DROP_TEST_VENV` was honored by `setup.sh` but undocumented — the
