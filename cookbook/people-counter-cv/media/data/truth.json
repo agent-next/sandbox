@@ -1,0 +1,415 @@
+{
+  "actors": [
+    {
+      "id": 0,
+      "kind": "pedestrian",
+      "lane_y": 62,
+      "segments": [
+        [
+          1.775,
+          -30,
+          80.97
+        ]
+      ]
+    },
+    {
+      "id": 1,
+      "kind": "pedestrian",
+      "lane_y": 102,
+      "segments": [
+        [
+          3.273,
+          -30,
+          80.05
+        ]
+      ]
+    },
+    {
+      "id": 2,
+      "kind": "pedestrian",
+      "lane_y": 142,
+      "segments": [
+        [
+          8.183,
+          -30,
+          79.33
+        ]
+      ]
+    },
+    {
+      "id": 3,
+      "kind": "pedestrian",
+      "lane_y": 182,
+      "segments": [
+        [
+          9.733,
+          -30,
+          81.17
+        ]
+      ]
+    },
+    {
+      "id": 4,
+      "kind": "pedestrian",
+      "lane_y": 62,
+      "segments": [
+        [
+          14.566,
+          -30,
+          79.65
+        ]
+      ]
+    },
+    {
+      "id": 5,
+      "kind": "pedestrian",
+      "lane_y": 102,
+      "segments": [
+        [
+          15.064,
+          -30,
+          64.27
+        ]
+      ]
+    },
+    {
+      "id": 6,
+      "kind": "pedestrian",
+      "lane_y": 222,
+      "segments": [
+        [
+          16.955,
+          -30,
+          69.14
+        ]
+      ]
+    },
+    {
+      "id": 7,
+      "kind": "pedestrian",
+      "lane_y": 142,
+      "segments": [
+        [
+          18.464,
+          -30,
+          66.18
+        ]
+      ]
+    },
+    {
+      "id": 8,
+      "kind": "pedestrian",
+      "lane_y": 182,
+      "segments": [
+        [
+          20.882,
+          -30,
+          80.85
+        ]
+      ]
+    },
+    {
+      "id": 9,
+      "kind": "pedestrian",
+      "lane_y": 62,
+      "segments": [
+        [
+          23.955,
+          -30,
+          75.2
+        ]
+      ]
+    },
+    {
+      "id": 10,
+      "kind": "pedestrian",
+      "lane_y": 102,
+      "segments": [
+        [
+          26.556,
+          670,
+          -73.82
+        ]
+      ]
+    },
+    {
+      "id": 11,
+      "kind": "pedestrian",
+      "lane_y": 222,
+      "segments": [
+        [
+          27.68,
+          670,
+          -56.76
+        ]
+      ]
+    },
+    {
+      "id": 12,
+      "kind": "pedestrian",
+      "lane_y": 142,
+      "segments": [
+        [
+          31.24,
+          670,
+          -86.29
+        ]
+      ]
+    },
+    {
+      "id": 13,
+      "kind": "pedestrian",
+      "lane_y": 182,
+      "segments": [
+        [
+          32.974,
+          670,
+          -92.8
+        ]
+      ]
+    },
+    {
+      "id": 14,
+      "kind": "pedestrian",
+      "lane_y": 62,
+      "segments": [
+        [
+          34.214,
+          670,
+          -87.9
+        ]
+      ]
+    },
+    {
+      "id": 15,
+      "kind": "pedestrian",
+      "lane_y": 102,
+      "segments": [
+        [
+          36.639,
+          670,
+          -87.25
+        ]
+      ]
+    },
+    {
+      "id": 16,
+      "kind": "pedestrian",
+      "lane_y": 142,
+      "segments": [
+        [
+          39.952,
+          670,
+          -75.78
+        ]
+      ]
+    },
+    {
+      "id": 17,
+      "kind": "pedestrian",
+      "lane_y": 222,
+      "segments": [
+        [
+          40.612,
+          670,
+          -57.65
+        ]
+      ]
+    },
+    {
+      "id": 18,
+      "kind": "pedestrian",
+      "lane_y": 262,
+      "segments": [
+        [
+          3.0,
+          -30,
+          51.47
+        ],
+        [
+          13.297,
+          500.0,
+          -71.92
+        ]
+      ]
+    },
+    {
+      "id": 19,
+      "kind": "pedestrian",
+      "lane_y": 302,
+      "segments": [
+        [
+          2.0,
+          -30,
+          63.03
+        ],
+        [
+          6.998,
+          285.01,
+          -63.03
+        ]
+      ]
+    },
+    {
+      "id": 20,
+      "kind": "pedestrian",
+      "lane_y": 342,
+      "segments": [
+        [
+          6.0,
+          670,
+          -69.13
+        ],
+        [
+          10.39,
+          366.51,
+          69.13
+        ]
+      ]
+    },
+    {
+      "id": 21,
+      "kind": "pedestrian",
+      "lane_y": 302,
+      "segments": [
+        [
+          20.0,
+          -30,
+          60.0
+        ],
+        [
+          25.633,
+          308.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "id": 22,
+      "kind": "pedestrian",
+      "lane_y": 342,
+      "segments": [
+        [
+          26.0,
+          670,
+          -60.0
+        ],
+        [
+          31.633,
+          332.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "id": 23,
+      "kind": "vehicle",
+      "lane_y": 28,
+      "segments": [
+        [
+          11.308,
+          30,
+          130.0
+        ]
+      ]
+    },
+    {
+      "id": 24,
+      "kind": "vehicle",
+      "lane_y": 28,
+      "segments": [
+        [
+          30.083,
+          -30,
+          -120.0
+        ]
+      ]
+    }
+  ],
+  "counts": {
+    "east": 11,
+    "west": 9
+  },
+  "events": [
+    {
+      "dir": "east",
+      "t": 6.0971
+    },
+    {
+      "dir": "east",
+      "t": 7.6453
+    },
+    {
+      "dir": "east",
+      "t": 9.8
+    },
+    {
+      "dir": "east",
+      "t": 12.5953
+    },
+    {
+      "dir": "east",
+      "t": 14.0453
+    },
+    {
+      "dir": "west",
+      "t": 15.8
+    },
+    {
+      "dir": "east",
+      "t": 18.9608
+    },
+    {
+      "dir": "east",
+      "t": 20.5097
+    },
+    {
+      "dir": "east",
+      "t": 22.0174
+    },
+    {
+      "dir": "east",
+      "t": 23.7522
+    },
+    {
+      "dir": "east",
+      "t": 25.2112
+    },
+    {
+      "dir": "east",
+      "t": 28.6095
+    },
+    {
+      "dir": "west",
+      "t": 31.2972
+    },
+    {
+      "dir": "west",
+      "t": 33.8457
+    },
+    {
+      "dir": "west",
+      "t": 35.2957
+    },
+    {
+      "dir": "west",
+      "t": 36.7457
+    },
+    {
+      "dir": "west",
+      "t": 38.1957
+    },
+    {
+      "dir": "west",
+      "t": 40.6503
+    },
+    {
+      "dir": "west",
+      "t": 44.5707
+    },
+    {
+      "dir": "west",
+      "t": 46.6823
+    }
+  ]
+}

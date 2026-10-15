@@ -1,0 +1,59 @@
+{
+  "artifact": "counter.py",
+  "demo": "people-counter-cv",
+  "gates": {
+    "agreement": {
+      "metrics": {
+        "max_time_dev_s": 0.001,
+        "paired": 20,
+        "reference_counts": {
+          "east": 11,
+          "west": 9
+        },
+        "unpaired_artifact": 0,
+        "unpaired_reference": 0
+      },
+      "pass": true,
+      "problems": []
+    },
+    "csv_shape": {
+      "pass": true,
+      "problems": [],
+      "rows": 20
+    },
+    "oracle": {
+      "metrics": {
+        "artifact_counts": {
+          "east": 11,
+          "west": 9
+        },
+        "count_err": {
+          "east": 0,
+          "west": 0
+        },
+        "direction_accuracy": 1.0,
+        "matched": 20,
+        "precision": 1.0,
+        "recall": 1.0,
+        "time_mae_s": 0.0072,
+        "time_max_dev_s": 0.0153,
+        "truth_counts": {
+          "east": 11,
+          "west": 9
+        }
+      },
+      "pass": true,
+      "problems": []
+    },
+    "run": {
+      "pass": true,
+      "problems": []
+    },
+    "structure": {
+      "pass": true,
+      "problems": []
+    }
+  },
+  "judge_intact": true,
+  "seed": 0
+}

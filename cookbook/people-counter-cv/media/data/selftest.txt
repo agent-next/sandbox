@@ -1,0 +1,16 @@
+selftest: generating mutants
+selftest: grading known-good
+selftest: known-good: PASS
+selftest: mutant line_shifted: killed (gate: oracle)
+selftest: mutant width_filter_off: killed (gate: oracle)
+selftest: mutant direction_flip: killed (gate: oracle)
+selftest: mutant threshold_high: killed (gate: oracle)
+selftest: mutant presence_counting: killed (gate: oracle)
+selftest: mutant missing_clip: killed (gate: run)
+selftest: mutant hardcoded_truth: killed (gate: structure)
+selftest: mutant fps_wrong: killed (gate: oracle)
+selftest: mutant reverse_order: killed (gate: csv_shape)
+selftest: kill rate: 9/9 = 100%
+selftest: determinism check (two grades of the good artifact)
+selftest: determinism: OK
+selftest: ok

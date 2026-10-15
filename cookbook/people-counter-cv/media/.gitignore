@@ -1,0 +1,9 @@
+out/
+__pycache__/
+.venv/
+.tools/
+work/
+master/
+data/video.avi
+data/frames/
+data/versions.txt
