@@ -1,0 +1,4 @@
+# Lossless master frames/encodes and the plotting venv stay out of git
+# (DEMO-STANDARD.md: the -crf 0 master is written but git-ignored).
+master/
+.venv/

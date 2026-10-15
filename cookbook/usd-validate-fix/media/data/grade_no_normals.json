@@ -1,0 +1,138 @@
+{
+ "artifact": "<mutant>/no_normals.usda",
+ "facts": {
+  "geometry": {
+   "/TrafficCone/Band": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   },
+   "/TrafficCone/Base": {
+    "bbox_dev_cm": 0.0,
+    "points": 8
+   },
+   "/TrafficCone/Body": {
+    "bbox_dev_cm": 0.0,
+    "points": 20
+   }
+  },
+  "oracle": {
+   "colliders": 1,
+   "defaultPrim": "TrafficCone",
+   "meshes": {
+    "/TrafficCone/Band": {
+     "bound_material": "/TrafficCone/Looks/WhitePlastic",
+     "extent": [
+      [
+       -13.8,
+       -13.12458,
+       30.0
+      ],
+      [
+       13.8,
+       13.12458,
+       44.0
+      ]
+     ],
+     "face_corners": 40,
+     "max_normal_dev": 0.0,
+     "normals": null,
+     "points": 20,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Base": {
+     "bound_material": "/TrafficCone/Looks/OrangePlastic",
+     "extent": [
+      [
+       -18.0,
+       -18.0,
+       0.0
+      ],
+      [
+       18.0,
+       18.0,
+       4.0
+      ]
+     ],
+     "face_corners": 24,
+     "max_normal_dev": 0.0,
+     "normals": null,
+     "points": 8,
+     "zero_area_faces": 0
+    },
+    "/TrafficCone/Body": {
+     "bound_material": "/TrafficCone/Looks/OrangePlastic",
+     "extent": [
+      [
+       -13.0,
+       -12.363734,
+       4.0
+      ],
+      [
+       13.0,
+       12.363734,
+       58.0
+      ]
+     ],
+     "face_corners": 60,
+     "max_normal_dev": 0.0,
+     "normals": null,
+     "points": 20,
+     "zero_area_faces": 0
+    }
+   },
+   "metersPerUnit": 0.01,
+   "upAxis": "Y"
+  },
+  "validator": {
+   "issues_by_severity": {
+    "FAILURE": 3
+   },
+   "rules_not_passing": [
+    "NormalsExistChecker"
+   ],
+   "validator_exit": 1,
+   "validator_status": "FAIL"
+  }
+ },
+ "failed_gate": "validator",
+ "gates": {
+  "geometry": {
+   "errors": [],
+   "passed": true
+  },
+  "oracle": {
+   "errors": [
+    "/TrafficCone/Base: normals not authored",
+    "/TrafficCone/Body: normals not authored",
+    "/TrafficCone/Band: normals not authored"
+   ],
+   "passed": false
+  },
+  "validator": {
+   "errors": [
+    "nvidia_usd_validate exited 1",
+    "validator status 'FAIL' != 'PASS'",
+    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
+    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
+    "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop "
+   ],
+   "issues_by_severity": {
+    "FAILURE": 3
+   },
+   "passed": false,
+   "rules_not_passing": [
+    "NormalsExistChecker"
+   ],
+   "validator_exit": 1,
+   "validator_status": "FAIL"
+  }
+ },
+ "passed": false,
+ "seed": 0,
+ "timing": {
+  "geometry_s": 0.019,
+  "oracle_s": 0.954,
+  "total_s": 5.692,
+  "validator_s": 4.716
+ }
+}
