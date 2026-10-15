@@ -105,8 +105,8 @@ def main() -> int:
 
     rng = random.Random(args.seed)
     rows = gen_prices(rng, N_DAYS)
-    vols = gen_volume(rng, N_DAYS, rows, days)
     days = daterange(N_DAYS)
+    vols = gen_volume(rng, N_DAYS, rows, days)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8", newline="\n") as fh:
