@@ -79,7 +79,7 @@ def main() -> int:
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
                          "git", "clone", "--depth", "1", "-b", args.ref,
-                         REPO, CLONE_DIR))
+                         REPO, CLONE_DIR, timeout=360))
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
