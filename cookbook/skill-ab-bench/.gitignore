@@ -1,3 +1,14 @@
 # Bench scratch: packages are built into a temp dir; never commit them.
 __pycache__/
 *.pyc
+
+# media/replay/: a full working copy of judge/ made by media/replay_judge.sh
+# (three judge mutants graded against examples/good).  It is a scratch tree,
+# not a source: replay_judge.sh deletes its tempdir and rewrites it, so the
+# committed copy was a stale duplicate of judge/.  Nothing regenerates it.
+media/replay/
+
+# Lossless per-slot clips and the lossless master the web encode is cut
+# from (DEMO-STANDARD: make_media.sh writes them, git ignores them).
+media/clips/
+media/master/
