@@ -17,7 +17,7 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 
-def render_step(sid, command, budget=7200):
+def render_step(sid, command, budget=18000):
     """Launch once; reattach bounded read-only probes after lost transport."""
     start = time.monotonic()
     prefix = f"/tmp/studio-media-{os.urandom(6).hex()}"
@@ -133,7 +133,7 @@ def main():
     sid = args.sandbox
     try:
         if not sid:
-            sid = runner.create(180)
+            sid = runner.create(360)
             print(f"media sandbox={sid}", flush=True)
             runner.remote_step(sid, "snapshot", runner.snapshot(), 120)
             upload(sid, MEDIA / "render.py", runner.REMOTE + "/media/render.py")

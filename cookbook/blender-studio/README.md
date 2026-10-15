@@ -92,7 +92,7 @@ To regenerate the full-resolution still, turntable and video:
 sh media/make_media.sh
 ```
 
-This creates another fresh sandbox with a 180-minute media-only timeout (a lifetime: status polls do not extend it), runs self-test, renders the actual scene
+This creates another fresh sandbox with a 360-minute media-only timeout (a lifetime: status polls do not extend it), runs self-test, renders the actual scene
 and 48 turntable poses at 1920×1080, downloads only render evidence, deletes the sandbox,
 then builds figures and a lossless master plus the H.264 web clip with
 FFmpeg 5.1.9-0+deb12u1 and Pillow 10.2.0. These are the versions in an
