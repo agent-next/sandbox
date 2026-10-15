@@ -13,12 +13,14 @@ Usage: run.py [--ref GIT_REF] [--keep] [--timeout-min N]
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 REPO = "https://github.com/agent-next/sandbox"
 DEMO = "cookbook/__NAME__"
@@ -36,6 +38,60 @@ def sbx_exec(sid, command, step_timeout=900):
                         "--", "bash", "-lc", command],
                        capture_output=True, text=True)
     return p.stdout + p.stderr, p.returncode, time.time() - t0
+
+
+def _gates_from_verdict(verdict):
+    """Map the grade JSON's gates (dict or list shape) to result gates."""
+    raw = verdict.get("gates", {})
+    items = raw.items() if isinstance(raw, dict) else (
+        (g.get("name", f"gate {i}"), g) for i, g in enumerate(raw))
+    gates = []
+    for name, g in items:
+        g = g if isinstance(g, dict) else {}
+        gates.append({
+            "name": str(name),
+            "pass": bool(g.get("pass", g.get("passed", False))),
+            "measured": g.get("measured", g.get("detail", "")),
+            "threshold": g.get("threshold", g.get("tolerance", "")),
+        })
+    return gates or [{"name": "TODO", "pass": False,
+                      "measured": "", "threshold": ""}]
+
+
+def write_result_manifest(verdict, ok, commit):
+    """Refresh media/result.json from the grade JSON (schema:
+    cookbook/tools/result.schema.json). The manifest feeds the in-chat
+    result card, the demo gallery and the storyboard — keep headline,
+    numbers and the ask_agent prompt in sync with README/RECEIPT.
+    `commit` is the sandbox clone's HEAD the numbers were produced at."""
+    tool = Path(__file__).resolve().parents[1] / "tools" / "result.py"
+    spec = importlib.util.spec_from_file_location("cookbook_result", tool)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    demo_dir = Path(__file__).resolve().parent
+    out = demo_dir / "media" / "result.json"
+    mod.write_result(
+        out,
+        demo=demo_dir.name,
+        headline="TODO: one sentence naming the measured hero result.",
+        verdict="PASS" if ok else "FAIL",
+        gates=_gates_from_verdict(verdict),
+        numbers=[{"label": "TODO: hero number", "value": "TODO", "unit": "",
+                  "source": "TODO: command or receipt line"}],
+        hero={"kind": "image", "path": "media/result.png",
+              "caption": "TODO: what the hero frame shows"},
+        gallery=[
+            {"kind": "image", "path": "media/loop.png",
+             "caption": "agent loop + self-test kill rate"},
+            {"kind": "video", "path": "media/demo.mp4",
+             "poster": "media/result.png", "caption": "demo video"},
+        ],
+        launch={"command": f"python3 cookbook/{demo_dir.name}/run.py",
+                "ask_agent": "TODO: the README \"Ask your agent\" prompt"},
+        receipt="RECEIPT.md",
+        sandbox_commit=commit if len(commit) == 40 else "0" * 40,
+    )
+    return out
 
 
 def main():
@@ -73,6 +129,10 @@ def main():
             return out
 
         step("clone", f"git clone --depth 1 -b {args.ref} {REPO} /tmp/repo")
+        # The numbers are produced by the clone's judge, so the manifest
+        # records the clone's commit — not the caller's local HEAD.
+        out = step("clone-commit", "git -C /tmp/repo rev-parse HEAD")
+        commit = out.split()[-1] if out.split() else ""
         d = f"/tmp/repo/{DEMO}"
         step("setup", f"cd {d} && bash judge/setup.sh")
         selftest_out = step("selftest", f"cd {d} && bash judge/selftest.sh")
@@ -83,6 +143,8 @@ def main():
         verdict = json.loads(out[out.index("{"):])
         print(json.dumps(verdict, indent=2))
         ok = verdict.get("verdict") == "PASS"
+        manifest = write_result_manifest(verdict, ok, commit)
+        print(f"manifest: {manifest}")
         print(f"verdict: {verdict.get('verdict')}")
         sys.exit(0 if ok else 1)
     finally:

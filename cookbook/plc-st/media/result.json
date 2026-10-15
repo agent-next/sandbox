@@ -1,0 +1,118 @@
+{
+  "demo": "plc-st",
+  "headline": "The agent's IEC 61131-3 tank controller keeps the level inside its safe band through all 8 scenarios and latches the emergency stop within one scan; 6/6 mutants are killed.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "cycle",
+      "pass": true,
+      "measured": "level 15.0-85.0 cm over 12000 scans",
+      "threshold": ">= 2 autocycles; level <= 94; no pump < 15"
+    },
+    {
+      "name": "overflow_guard",
+      "pass": true,
+      "measured": "level 70.0-88.0 cm over 12000 scans",
+      "threshold": "level <= 94 with high_ls forced 0"
+    },
+    {
+      "name": "dry_run",
+      "pass": true,
+      "measured": "level 10.0-85.0 cm over 12000 scans",
+      "threshold": "pump never on below 15"
+    },
+    {
+      "name": "dry_interlock_fault",
+      "pass": true,
+      "measured": "level 15.0-85.0 cm over 12000 scans",
+      "threshold": "no pump < 15 with low_ls forced 0"
+    },
+    {
+      "name": "lowsw_false_trip",
+      "pass": true,
+      "measured": "level 62.5-85.0 cm over 12000 scans",
+      "threshold": "pump off within 200 scans of the trip"
+    },
+    {
+      "name": "estop",
+      "pass": true,
+      "measured": "level 40.0-48.0 cm over 12000 scans",
+      "threshold": "all actuators off within 1 scan and latched"
+    },
+    {
+      "name": "recovery",
+      "pass": true,
+      "measured": "level 15.0-85.0 cm over 12000 scans",
+      "threshold": "idle during estop; resumes autocycle after"
+    },
+    {
+      "name": "random_faults",
+      "pass": true,
+      "measured": "level 40.0-55.2 cm over 12000 scans",
+      "threshold": "no pump < 15; never pump+inlet; level <= 94"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "scenarios passed",
+      "value": "8/8",
+      "unit": "",
+      "source": "RECEIPT.md:145"
+    },
+    {
+      "label": "max level over all scenarios",
+      "value": 88.02,
+      "unit": "cm",
+      "source": "RECEIPT.md:149"
+    },
+    {
+      "label": "min level over all scenarios",
+      "value": 10.0,
+      "unit": "cm",
+      "source": "RECEIPT.md:150"
+    },
+    {
+      "label": "mutants killed",
+      "value": "6/6",
+      "unit": "",
+      "source": "RECEIPT.md:147"
+    },
+    {
+      "label": "kill rate",
+      "value": 100,
+      "unit": "%",
+      "source": "RECEIPT.md:148"
+    },
+    {
+      "label": "grade wall time",
+      "value": 5,
+      "unit": "s",
+      "source": "RECEIPT.md:153"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "Max/min level per scenario for the known-good controller; design cap (94 cm), high switch (85 cm) and dry band (15 cm) drawn as reference lines."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "which scenario catches each of the six single-edit mutants"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "the level trace of the judged controller under fault scenarios"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/plc-st/run.py",
+    "ask_agent": "In a sandbox, build the IEC 61131-3 Structured Text tank controller for\n`cookbook/plc-st` from scratch. Read `SPEC.md` first, then write your own\n`tank_ctrl.st` (program + configuration) using the pinned MATIEC toolchain\nfrom `judge/setup.sh`. Iterate with `bash judge/selftest.sh` and\n`bash judge/grade.sh your_tank_ctrl.st --json /tmp/v.json` until the judge\npasses every gate and your controller is not one of the six known-bad\nsingle-edit mutants. Show me the final verdict JSON and the key numbers\n(max/min level, kill rate). Do not modify anything under `judge/`."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "90087b272603afbda483e495ff363aacdec618e5",
+  "schema": "agent-next/result@1"
+}
