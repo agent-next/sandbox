@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 import mujoco
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+from OpenGL import GL
 
 HERE = Path(__file__).resolve().parent
 DEMO = HERE.parent
@@ -16,6 +17,7 @@ DATA = HERE / "data"
 WHITE, INK, MUTED, GREEN, ORANGE = "#f4f8fb", "#172e40", "#526777", "#087852", "#a94e0d"
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+GRAPHICS = {}
 
 
 def sha(path):
@@ -137,6 +139,10 @@ class Replay:
                                    scene_option=self.option)
         self.renderer.scene.flags[mujoco.mjtRndFlag.mjRND_SHADOW] = True
         image = Image.fromarray(self.renderer.render())
+        if not GRAPHICS:
+            GRAPHICS.update({name: GL.glGetString(value).decode() for name, value in
+                             (("vendor", GL.GL_VENDOR), ("renderer", GL.GL_RENDERER),
+                              ("version", GL.GL_VERSION))})
         assert_state(self.data.qpos, state, "post-render qpos")
         self.checked += 1
         return image
@@ -281,6 +287,7 @@ def main():
             replay.close()
     report = {"frames": 900, "duration_s": 30, "width": 1920, "height": 1080,
               "fps": 30, "backend": os_backend(),
+              "graphics": GRAPHICS,
               "state_checks": {f"{n}-{s}": r.checked for (n, s), r in replays.items()},
               "episode_selection": "episode 0, fixed before grading",
               "model_sha256": sha(DEMO / "model/go1_meshless.xml"),

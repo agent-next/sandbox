@@ -63,6 +63,10 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(video["duration_s"], 30)
         self.assertLess(video["bytes"], 8_000_000)
         self.assertGreaterEqual(sum(manifest["render"]["state_checks"].values()), 1806)
+        self.assertTrue(manifest["render"]["graphics"]["renderer"])
+        for name, digest in manifest["source_sha256"].items():
+            self.assertEqual(hashlib.sha256((HERE.parent / name).read_bytes()).hexdigest(),
+                             digest, f"changed media input: {name}")
         for name, row in manifest["files"].items():
             self.assertEqual(hashlib.sha256((HERE / name).read_bytes()).hexdigest(),
                              row["sha256"], f"stale media/source: {name}")
@@ -70,6 +74,9 @@ class MediaTests(unittest.TestCase):
             with Image.open(HERE / name) as image:
                 self.assertGreaterEqual(image.width, 1200)
                 self.assertAlmostEqual(image.info["dpi"][0], 200, delta=.1)
+        raw = (HERE / "demo.mp4").read_bytes()
+        self.assertLess(raw.index(b"moov"), raw.index(b"mdat"))
+        self.assertIn(b"qp=0", (HERE / "master/demo.mp4").read_bytes()[:10000])
 
 
 if __name__ == "__main__":

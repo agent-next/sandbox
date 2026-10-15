@@ -39,6 +39,16 @@ def main():
                   "master": "media/master/demo.mp4 (ignored, CRF 0)",
                   "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart"},
         "files": {}}
+    inputs = ["env.py", "judge/_eval.py", "judge/grade.py", "judge/selftest.py",
+              "judge/mutants.py", "model/go1_meshless.xml",
+              "examples/good/policy.npz", "examples/good/step0.npz",
+              "examples/good/short.npz", "examples/good/reward-flipped.npz",
+              "examples/good/train_config.json", "examples/good/curve.json",
+              "examples/good/loop.json", "media/collect.py", "media/render.py",
+              "media/manifest.py", "media/make_media.sh", "media/requirements.lock"]
+    inputs.extend(f"media/data/{name}-{seed}.npz"
+                  for name in ("trained", "untrained") for seed in (101, 202, 303))
+    manifest["source_sha256"] = {name: sha(HERE.parent / name) for name in inputs}
     sources = {
         "result.png": ("Six real 3D states, trained versus untrained, with per-seed judge limits",
                        ["data/trained.json", "data/untrained.json", "data/*.npz"]),
