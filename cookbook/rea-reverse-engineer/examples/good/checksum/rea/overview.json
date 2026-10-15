@@ -8,7 +8,7 @@
     },
     "format": "elf",
     "architecture": "x86_64",
-    "local_path": "/home/user/w/cookbook/rea-reverse-engineer/targets/checksum"
+    "local_path": "<sandbox>/cookbook/rea-reverse-engineer/targets/checksum"
   },
   "provider": {
     "id": "rea-workflow",
