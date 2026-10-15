@@ -8,6 +8,8 @@ runner against 10 hostile and 5 benign snippets — and always kills the
 sandbox afterwards, confirming it is gone.
 
     python3 cookbook/untrusted-code-isolation/run.py [--ref main] [--keep]
+                                           [--report-json OUT.json]
+                                           [--artifacts DIR]
 
 Needs the `sbx` CLI (pip install
 "git+https://github.com/agent-next/sandbox#subdirectory=cli") and
@@ -190,6 +192,9 @@ def main():
                     help="leave the sandbox up and print its id")
     ap.add_argument("--report-json", metavar="PATH",
                     help="write the verdict JSON here")
+    ap.add_argument("--artifacts", metavar="DIR",
+                    help="fetch each step's log from the sandbox into DIR "
+                         "before it is killed (for RECEIPT.md and media)")
     args = ap.parse_args()
 
     total0 = time.monotonic()
@@ -230,6 +235,20 @@ def main():
                 die("step %s failed in sandbox %s (exit %d); log tail:\n%s"
                     % (name, sbx_id, rc, log[-1200:]))
 
+        if args.artifacts:
+            os.makedirs(args.artifacts, exist_ok=True)
+            for name, _cmd, prefix in steps:
+                try:
+                    log = read_remote_file(sbx_id, prefix + ".log",
+                                           "%s log" % name, timeout=90)
+                except SystemExit:
+                    log = ""
+                with open(os.path.join(args.artifacts, "%s.log" % name),
+                          "w") as fh:
+                    fh.write(log)
+            print("artifacts: step logs saved to %s" % args.artifacts,
+                  flush=True)
+
         raw = read_remote_file(sbx_id, "/tmp/verdict.json", "verdict JSON")
         try:
             verdict = json.loads(raw)
@@ -250,6 +269,9 @@ def main():
         with open(args.report_json, "w") as fh:
             json.dump(verdict, fh, indent=2, sort_keys=True)
         print("wrote verdict JSON: %s" % args.report_json)
+    if args.artifacts:
+        with open(os.path.join(args.artifacts, "verdict.json"), "w") as fh:
+            json.dump(verdict, fh, indent=2, sort_keys=True)
 
     ok = all(g.get("pass") for g in verdict.get("gates", {}).values()) \
         and verdict.get("judge_intact", False)
