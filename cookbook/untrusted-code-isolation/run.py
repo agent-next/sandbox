@@ -35,6 +35,11 @@ stream is the casualty):
   sandbox is reported gone only when `sbx list` actually answers and the
   id is absent. A failed kill or an unreadable list is a non-zero exit
   naming the sandbox id — never a "confirmed gone" we did not confirm.
+
+Transport errors (`ConnectError: Error reading content`, the 503
+"gateway is restarting", connection resets) are retried with backoff in
+both directions of every call — the CLI prints them on either stream, and
+a retry must not depend on which one a given error lands on.
 """
 
 import argparse
@@ -53,6 +58,26 @@ POLL_INTERVAL = 15
 RETRIES = 6
 RETRY_BACKOFF = 5.0
 
+# Transient transport failures. The gateway restarts under load and answers
+# 503 "gateway is restarting" while it does; the SDK's exec stream dies with
+# "ConnectError: Error reading content" when the restart lands mid-stream.
+# Both are worth a backoff-and-retry, and neither is a verdict about the
+# command that was running: the retry must happen above the step, not in it.
+TRANSIENT = ("gateway is restarting", "ConnectError", "Error reading content",
+             "Gateway Timeout", "Bad Gateway", "Connection reset",
+             "Connection refused", "timed out", "SSLError")
+
+
+def transient(proc):
+    """True when a failed sbx call looks like a transport blip, not a result.
+
+    The CLI prints errors to stderr but a few reach stdout, and a
+    stdout-captured call puts the command's own output in stdout too, so
+    both streams are searched.
+    """
+    blob = (proc.stdout or "") + (proc.stderr or "")
+    return any(mark in blob for mark in TRANSIENT)
+
 
 def die(msg, code=1):
     print("run.py: %s" % msg, file=sys.stderr)
@@ -67,20 +92,21 @@ def need_sbx():
         die("no API key: export SBX_API_KEY (or E2B_API_KEY)")
 
 
-def run(step, *args, timeout=None, capture=False):
+def run(step, *args, timeout=None):
     """One local sbx call (create / kill / list); transport errors retry."""
     t0 = time.monotonic()
     last = None
     for attempt in range(1, RETRIES + 1):
-        proc = subprocess.run(list(args), capture_output=capture, text=True,
+        proc = subprocess.run(list(args), capture_output=True, text=True,
                               timeout=timeout and timeout + 60)
         last = proc
-        err = proc.stderr or ""
-        if proc.returncode == 0 or "gateway is restarting" not in err:
+        if proc.returncode == 0 or not transient(proc):
             break
         wait = RETRY_BACKOFF * attempt
-        print("  [%s] gateway restarting; attempt %d/%d, retry in %.0f s"
-              % (step, attempt, RETRIES, wait), flush=True)
+        print("  [%s] transport blip (%s); attempt %d/%d, retry in %.0f s"
+              % (step, (proc.stderr or proc.stdout or "").strip().splitlines()
+                 [-1][:80] if (proc.stderr or proc.stdout or "").strip()
+                 else "unknown", attempt, RETRIES, wait), flush=True)
         time.sleep(wait)
     dt = time.monotonic() - t0
     status = "ok" if last.returncode == 0 else "exit %d" % last.returncode
@@ -99,7 +125,10 @@ def shq(text):
 def sbx_exec(sbx_id, timeout, cmd):
     """One short `sbx exec`, retried through gateway restarts.
 
-    Returns (proc, attempts); the caller decides what exit codes mean.
+    Returns (proc, attempts); the caller decides what exit codes mean. A
+    retried call's partial output is discarded: the caller re-runs the whole
+    command, which is why every command here is idempotent (a read, a
+    no-op rm, an append of one status line).
     """
     last = None
     for attempt in range(1, RETRIES + 1):
@@ -107,12 +136,13 @@ def sbx_exec(sbx_id, timeout, cmd):
             ["sbx", "exec", sbx_id, "--timeout", str(timeout), "--"] + cmd,
             capture_output=True, text=True, timeout=timeout + 60)
         last = proc
-        err = proc.stderr or ""
-        if "gateway is restarting" not in err:
+        if proc.returncode == 0 or not transient(proc):
             return proc, attempt
         wait = RETRY_BACKOFF * attempt
-        print("  [exec] gateway restarting; attempt %d/%d, retry in %.0f s"
-              % (attempt, RETRIES, wait), flush=True)
+        print("  [exec] transport blip (%s); attempt %d/%d, retry in %.0f s"
+              % ((proc.stderr or proc.stdout or "").strip().splitlines()
+                 [-1][:80] if (proc.stderr or proc.stdout or "").strip()
+                 else "unknown", attempt, RETRIES, wait), flush=True)
         time.sleep(wait)
     return last, RETRIES
 
@@ -121,12 +151,15 @@ def detached_step(sbx_id, name, cmd, log_path, status_path, timeout):
     """Run a long step detached in the sandbox; poll its status file.
 
     The command is started with `setsid nohup ... &` and the exec returns
-    immediately; the step writes its exit status to `status_path` when it
+    immediately; the step appends its exit status to `status_path` when it
     finishes. The driver polls with short execs, so a gateway restart
-    costs one retried poll, not the step.
+    costs one retried poll, not the step. The driver deletes the status
+    file before the step starts; if a poll ever finds more than one line
+    in it, a previous step with the same path is still writing and the
+    poll fails loudly instead of guessing.
     """
     t0 = time.monotonic()
-    inner = "%s >%s 2>&1; echo $? >%s" % (
+    inner = "%s >>%s 2>&1; echo $? >>%s" % (
         " ".join(shq(part) for part in cmd), shq(log_path), shq(status_path))
     start = "setsid sh -c %s </dev/null >/dev/null 2>&1 &" % shq(inner)
     proc, attempts = sbx_exec(sbx_id, 120, ["sh", "-c", start])
@@ -145,11 +178,18 @@ def detached_step(sbx_id, name, cmd, log_path, status_path, timeout):
                             "cat %s 2>/dev/null || echo running"
                             % shq(status_path)])
         out = (proc.stdout or "").strip()
+        if out.count("\n") > 1:
+            die("%s poll in sandbox %s: status file holds %d lines (%r); "
+                "a previous step may still be writing — read %s"
+                % (name, sbx_id, out.count("\n") + 1, out[:100], log_path))
         if out and out != "running":
             dt = time.monotonic() - t0
             print("  [%s] finished: exit %s (%.0f s)" % (name, out, dt),
                   flush=True)
             return int(out), dt
+        if time.monotonic() - t0 > timeout:
+            die("%s exceeded %d s in sandbox %s; it may still be running — "
+                "read %s" % (name, timeout, sbx_id, log_path))
         print("  [%s] still running (%.0f s elapsed)"
               % (name, time.monotonic() - t0), flush=True)
         if time.monotonic() - t0 > timeout:
@@ -170,15 +210,19 @@ def read_remote_file(sbx_id, path, what, timeout=60):
 def kill_and_confirm(sbx_id):
     """Kill the sandbox and confirm it is gone, or fail loudly.
 
-    A kill that cannot be confirmed is a non-zero exit naming the id —
-    the caller must never report a cleanup it did not see.
+    `sbx kill` answers "not found" after the sandbox is already gone, so
+    either exit code counts as killed; what may never be claimed is the
+    confirmation. That comes only from a later `sbx list` that succeeds
+    and does not contain the id — a list that cannot be read is an
+    unconfirmed cleanup and exits non-zero naming the id (a restart blip
+    is absorbed by run()'s retries; what survives them is real).
     """
-    proc, _ = run("kill", "sbx", "kill", sbx_id, timeout=120, capture=True)
-    if proc.returncode != 0:
+    proc, _ = run("kill", "sbx", "kill", sbx_id, timeout=120)
+    if proc.returncode != 0 and not transient(proc):
         die("sbx kill %s failed (exit %d)\n%s"
             % (sbx_id, proc.returncode, (proc.stderr or "").strip()[-800:]), 2)
     time.sleep(2.0)
-    proc, _ = run("list", "sbx", "list", timeout=60, capture=True)
+    proc, _ = run("list", "sbx", "list", timeout=60)
     if proc.returncode != 0:
         die("cleanup not confirmed: sbx list failed (exit %d); sandbox %s "
             "may still be live — kill it with: sbx kill %s\n%s"
@@ -206,7 +250,7 @@ def main():
     total0 = time.monotonic()
     need_sbx()
     proc, _ = run("create", "sbx", "create", "--timeout-min", "30",
-                  timeout=120, capture=True)
+                  timeout=120)
     if proc.returncode != 0:
         die("sbx create failed: %s" % (proc.stderr or "").strip())
     sbx_id = proc.stdout.strip().splitlines()[-1]
@@ -232,7 +276,11 @@ def main():
         )
         for name, cmd, prefix in steps:
             status_path = prefix + ".status"
-            sbx_exec(sbx_id, 60, ["sh", "-c", "rm -f %s" % shq(status_path)])
+            proc, _ = sbx_exec(sbx_id, 60,
+                               ["sh", "-c", "rm -f %s" % shq(status_path)])
+            if proc.returncode != 0 and not transient(proc):
+                die("could not clear %s in sandbox %s before %s (exit %d)"
+                    % (status_path, sbx_id, name, proc.returncode))
             rc, _ = detached_step(sbx_id, name, cmd, prefix + ".log",
                                   status_path, STEP_TIMEOUTS[name])
             if rc != 0:
