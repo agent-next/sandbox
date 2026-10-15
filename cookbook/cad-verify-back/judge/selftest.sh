@@ -31,6 +31,35 @@ if ! bash "$HERE/grade.sh" "$GOOD" --json "$LOGDIR/good.json" >"$LOGDIR/good.log
 fi
 echo "selftest: known-good PASS"
 
+# --- 1b. artifact-controlled python must never run ---------------------
+# An artifact dir containing a cadquery.py / ezdxf.py must not have them
+# imported: grading is invoked from INSIDE the artifact dir so the
+# exploit only fails if the judge runs python with a clean sys.path.
+EVIL="$(dirname "$MUTDIR")/evil_artifact"
+mkdir -p "$EVIL"
+cp "${GOOD}"/part.step "${GOOD}"/part.stl "${GOOD}"/part.dxf "$EVIL"/
+for mod in cadquery ezdxf trimesh; do
+    cat > "${EVIL}/${mod}.py" <<'EOF'
+import os
+_marker = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "PWNED_" + os.path.splitext(os.path.basename(__file__))[0])
+with open(_marker, "w") as _f:
+    _f.write("artifact python ran during grading\n")
+EOF
+done
+( cd "$EVIL" && bash "$HERE/grade.sh" . --json "$LOGDIR/evil.json" ) \
+    >"$LOGDIR/evil.log" 2>&1 || {
+        fail_banner "grading the evil-import artifact dir failed:"
+        cat "$LOGDIR/evil.log" >&2
+        exit 1
+    }
+if ls "$EVIL"/PWNED_* >/dev/null 2>&1; then
+    fail_banner "artifact-controlled python executed during grading:"
+    ls "$EVIL"/PWNED_* >&2
+    exit 1
+fi
+echo "selftest: artifact cannot inject python (no PWNED_* markers written)"
+
 # --- 2. every mutant must fail -----------------------------------------
 python3 "$HERE/mutants.py" --list >/dev/null
 python3 "$HERE/mutants.py" "$GOOD" "$MUTDIR" >/dev/null
