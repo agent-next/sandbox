@@ -1,7 +1,7 @@
 # Storyboard (written before cutting the video)
 
 Master: 1920×1080, 30 fps, 30 seconds. All scene imagery comes from Cycles CPU
-rendered frames of the graded scene, seed 17. Captions use >=64 px type.
+rendered frames of the graded scene, seed 17. Video captions use >=64 px type.
 Background panels and cropping are presentation only, never substitute geometry.
 
 | seconds | frame content | source / command | burned-in caption |

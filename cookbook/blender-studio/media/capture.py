@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import shlex
-import sys
 import time
 
 MEDIA = Path(__file__).resolve().parent
