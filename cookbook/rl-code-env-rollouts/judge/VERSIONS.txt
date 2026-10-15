@@ -1,0 +1,35 @@
+# VERSIONS.txt -- recorded by judge/setup.sh
+# One entry per tool this demo depends on: the pinned version and the
+# sha256 the download was verified against, then the tool's own
+# --version output as installed.
+
+python3 3.12.15 (host interpreter that built the venv)
+
+gymnasium 1.3.0 (PyPI wheel, MIT License)
+  url    : https://pypi.org/project/gymnasium/1.3.0/
+  sha256 : 6b8c159a8540dcbcb221722d7efda24d78ebbcbc3bd2ea1c2611aa2a34471fc2
+  venv   : /home/user/.rl-code-env-rollouts/venv
+
+numpy 2.2.6 (PyPI wheel, BSD-3-Clause)
+  wheel  : numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+  sha256 : fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249
+
+cloudpickle 3.1.2 (BSD-3-Clause)
+  sha256 : 9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a
+
+typing-extensions 4.14.1 (PSF-2.0)
+  sha256 : d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76
+
+farama-notifications 0.0.6 (MIT License)
+  sha256 : f84839188efa1ce5bb361c2a84881b2dc2c0d0d7fb661ff00421820170930935
+
+pip freeze (the venv as installed):
+  cloudpickle==3.1.2
+  Farama-Notifications==0.0.6
+  gymnasium==1.3.0
+  numpy==2.2.6
+  typing_extensions==4.14.1
+
+host tools used by the judge (standard library only):
+  python3 : Python 3.12.15
+  bash    : 5.2.15(1)-release

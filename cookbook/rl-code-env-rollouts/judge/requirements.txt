@@ -1,0 +1,23 @@
+# Pinned wheels for the judge's environment.  Every version is exact and
+# every download is sha256-checked by judge/setup.sh before it is installed.
+#
+# gymnasium is the API the artifact must satisfy (SPEC.md "The environment
+# contract"); the rest are its own runtime dependencies, pinned so the venv is
+# reproducible rather than whatever pip resolves today.
+#
+# gymnasium 1.3.0 was released 2026-04-22, comfortably outside the two-week
+# recency window the demo standard requires.
+#
+#   gymnasium           MIT License
+#   numpy               BSD-3-Clause
+#   cloudpickle         BSD-3-Clause
+#   typing-extensions   PSF-2.0
+#   farama-notifications MIT License
+#
+# (the `#sha256:` lines are the pins setup.sh verifies; they are not pip
+# `--hash` options because the wheels are platform-specific for numpy)
+gymnasium==1.3.0
+numpy==2.2.6
+cloudpickle==3.1.2
+typing-extensions==4.14.1
+farama-notifications==0.0.6
