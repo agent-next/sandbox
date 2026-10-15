@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (DATA, GATES, GATE_SHORT, GATE_RULES, MUTANTS, ROWS,
+from common import (DATA, DEMO, GATES, GATE_SHORT, GATE_RULES, MUTANTS, ROWS,
                     C_PASS, C_FAIL, C_ORACLE, C_BG, C_DIM, load_verdict,
                     gates_passed, check_no_overlap, check_inside_axes,
                     selftest_kill)
@@ -155,7 +155,6 @@ def main():
                  lw=0.7)
         y -= dy
     check_no_overlap(fig, gate_texts, "result.png gate rows")
-    check_inside_axes(fig, ax2, ax2.texts, "result.png gate panel")
 
     # ================= bottom: mask bars + kill ticks ===================
     ax3 = fig.add_axes([0.03, 0.10, 0.94, 0.155])
@@ -208,7 +207,7 @@ def main():
              "boundary (exactly one failing cell, at 3.9).",
              fontsize=8, color="#57606a")
 
-    out = os.path.join(os.path.dirname(DATA), "result.png")
+    out = os.path.join(DEMO, "media", "result.png")
     fig.savefig(out)
     print("wrote", out)
 

@@ -363,12 +363,7 @@ def scene_selftest(D, n):
             off = (1 - ease(since / 3.0))
         else:
             off = 0.0
-        shifted = [None] * int(round(off * 44)) if False else None
-        # emulate the sub-line scroll by padding with a blank sliver
-        if off > 0:
-            shown = shown + [("", TERM_FG, False)]
-        term_lines = shown
-        terminal_frame(c, term_lines, cursor_on=(f // 15) % 2 == 0)
+        terminal_frame(c, shown, cursor_on=(f // 15) % 2 == 0)
         # kill counter HUD
         nk = min(nk, killed)
         if f > last + 4:
