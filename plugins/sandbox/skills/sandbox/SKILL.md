@@ -71,10 +71,20 @@ cloud, not on the user's machine.
   the live catalog, then `sandbox_create` with a GPU template (`gpu`,
   `gpu-lease-v06`, `mujoco` or `kernel`) and `vram_gb` (default 4, range
   0.5–32). GPU sandboxes support `sandbox_exec` and `sandbox_kill`, consume
-  separate GPU credit, and have a hard VRAM cap. They cannot pause, expose
-  preview URLs, or use the files tools. `timeout_min` is validated but is
+  separate GPU credit, and have a hard VRAM cap. They cannot expose preview
+  URLs or use the files tools. Through the `sbx gpu` CLI (below) a lease
+  can also pause and resume between jobs (`suspend_mode:"none"` templates
+  such as the JAX `mujoco` one refuse pause). `timeout_min` is validated but is
   not applied (`timeout_min_applied: false`): kill them explicitly when
   done. Their maximum lease age appears as `end_at` in `sandboxes_list`.
+- **GPU recipe with the `sbx` CLI** (key needs a GPU grant):
+  ```bash
+  id=$(sbx gpu create --vram 4)            # prints gl-... ; add --template NAME (sbx gpu templates)
+  sbx gpu exec "$id" -c 'import torch; print(torch.cuda.get_device_name(0))'
+  sbx gpu exec "$id" --code job.py --json   # report dict + meters; exit 1 if the job raised
+  sbx gpu pause "$id"; sbx gpu resume "$id" # free the GPU between jobs
+  sbx gpu kill "$id"                        # always; `sbx gpu info "$id"` shows billed_s
+  ```
 - **Preview URLs are public by default.** Anyone with
   `https://<port>-<sandbox-id>.sbx.agent-next.com` can reach the port, with
   no sign-in, and it answers 502 after the sandbox is killed. Do not serve
