@@ -8,7 +8,9 @@
 # 4. judge/ checksums are unchanged after everything.
 #
 # Prints the kill rate; exits non-zero unless good passes, every mutant is
-# killed and determinism holds.
+# killed and determinism holds. A missing or ungeneratable known-good example
+# is a hard error (the judge has nothing to prove itself against) — this
+# script never treats that as "0 mutants, 0% kill rate, pass".
 
 set -eu
 
@@ -17,10 +19,32 @@ GOOD="$HERE/../examples/good/batch"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-echo "selftest: generating mutants"
-MUT="$WORK/mutants"
 PY="$HOME/.venvs/gpu-image-gen/bin/python"
 [ -x "$PY" ] || { echo "selftest: judge venv missing; run judge/setup.sh first" >&2; exit 2; }
+
+if [ ! -d "$GOOD" ]; then
+    echo "selftest: known-good example missing: $GOOD" >&2
+    echo "selftest: render one first (run.py --render, or any agent run); the" >&2
+    echo "selftest: judge cannot be self-tested against nothing" >&2
+    exit 1
+fi
+
+failed_gates() {  # failed_gates <json> -> comma list of gates that failed
+    "$PY" - "$1" <<'EOF'
+import json, sys
+try:
+    v = json.load(open(sys.argv[1]))
+except Exception:
+    print("unparseable verdict")
+    raise SystemExit(0)
+gates = v.get("gates", {})
+print(",".join(k for k, g in gates.items()
+               if isinstance(g, dict) and not g.get("pass")) or "?")
+EOF
+}
+
+echo "selftest: generating mutants"
+MUT="$WORK/mutants"
 "$PY" "$HERE/mutants.py" "$GOOD" "$MUT" > "$WORK/names.txt"
 
 JUDGE_SUM_BEFORE=$(cd "$HERE" && find . -type f | sort | xargs sha256sum | sha256sum)
@@ -37,23 +61,22 @@ killed=0
 total=0
 fails=""
 while read -r name; do
+    [ -n "$name" ] || continue
     total=$((total + 1))
     if bash "$HERE/grade.sh" "$MUT/$name" --json "$WORK/$name.json" >/dev/null 2>&1; then
         fails="$fails $name"
         echo "selftest: mutant $name: SURVIVED (judge did not kill it)" >&2
     else
         killed=$((killed + 1))
-        gate=$("$PY" - "$WORK/$name.json" <<'EOF'
-import json, sys
-v = json.load(open(sys.argv[1]))
-gates = v.get("gates", {})
-failed = [k for k, g in gates.items() if isinstance(g, dict) and not g.get("pass")]
-print(",".join(failed) or "?")
-EOF
-)
+        gate=$(failed_gates "$WORK/$name.json")
         echo "selftest: mutant $name: killed (gate: $gate)"
     fi
 done < "$WORK/names.txt"
+
+if [ "$total" -eq 0 ]; then
+    echo "selftest: mutants.py produced no mutants" >&2
+    exit 1
+fi
 
 rate=$("$PY" -c "print(f'{$killed / $total * 100:.0f}')")
 echo "selftest: kill rate: $killed/$total = ${rate}%"

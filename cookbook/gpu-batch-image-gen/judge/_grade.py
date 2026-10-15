@@ -196,7 +196,11 @@ def main():
         import open_clip
         ckpt = os.path.join(os.environ.get("GPU_IMAGE_GEN_WEIGHTS",
                                            os.path.expanduser("~/.gpu-image-gen-weights")),
-                            "open_clip_model.safetensors")
+                            "ViT-B-32.pt")
+        # The file is OpenAI's own checkpoint; open_clip loads it directly
+        # (it never re-imports it), so the judge oracle is the weights OpenAI
+        # shipped. create_model_and_transforms(..., pretrained=<file path>)
+        # matches no tag, falls through to os.path.isfile, and loads exactly.
         model, _, preprocess = open_clip.create_model_and_transforms(
             CLIP_TAG, pretrained=ckpt)
         model.eval()
