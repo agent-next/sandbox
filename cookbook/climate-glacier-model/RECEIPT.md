@@ -19,11 +19,11 @@ system package is touched, so "fresh" means exactly "no venv".
 
 ## A confirming run at the final code
 
-The two runs below were made after the timeout fix (commit `31b2677`). Later
-commits changed only how `run.py` reports (`e1a3204`: echo a step's output
-even when it fails) and documentation (`0ab3c9d`, `bb6f021`, `8f2a786`);
-neither touches the judge or the artifact. A fresh run at the final HEAD
-(`8f2a786`) reproduced the same result exactly:
+The two runs below were made after the timeout fix (commit `31b2677`). Every
+commit after it touches only how `run.py` reports (`e1a3204`: echo a step's
+output even when it fails) or documentation — never the judge or the
+artifact. A fresh run at the final code on this branch reproduced the same
+result exactly:
 
 ```text
 run: [   2.7s] sbx create --timeout-min 30 -> exit 0
