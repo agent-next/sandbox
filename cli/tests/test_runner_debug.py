@@ -171,6 +171,34 @@ def test_github_matches_runner_across_run_and_job_pages():
     assert any("filter=all" in call and "page=2" in call for call in calls)
 
 
+@pytest.mark.parametrize("discover_repos", [False, True])
+@pytest.mark.parametrize("history", ["runs", "jobs"])
+def test_github_job_lookup_shares_budget_across_repositories(monkeypatch, discover_repos, history):
+    now, calls = [0.0], []
+    monkeypatch.setattr(runners.time, "monotonic", lambda: now[0])
+    repos = ["acme/noise", "acme/app"]
+
+    def handler(req):
+        calls.append(req.url.path)
+        now[0] += 1
+        if req.url.path == "/orgs/acme/repos":
+            return httpx.Response(200, json=[{"full_name": repo} for repo in repos])
+        if req.url.path.endswith("/runs"):
+            count = 100 if history == "runs" and "/acme/noise/" in req.url.path else 1
+            return httpx.Response(200, json={
+                "workflow_runs": [{"id": n, "head_sha": "a" * 40} for n in range(count)],
+            })
+        jobs = [job()] if "/acme/app/" in req.url.path else (
+            [{"runner_name": "other"}] * 100 if history == "jobs" else []
+        )
+        return httpx.Response(200, json={"jobs": jobs})
+
+    gh = runners.GitHub("<FAKE>", "orgs/acme", client=httpx.Client(
+        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
+    assert gh.job("sbx-test", [] if discover_repos else repos) == job()
+    assert len(calls) <= 5
+
+
 def test_github_waits_for_terminal_conclusion(monkeypatch):
     responses = [job(conclusion=None), job()]
     monkeypatch.setattr(runners.time, "sleep", lambda s: None)
