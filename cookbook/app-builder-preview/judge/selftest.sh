@@ -4,12 +4,12 @@
 # 1. the known-good example passes grade.sh;
 # 2. every scripted mutant of it fails at least one gate;
 # 3. grading is deterministic: two runs of the good artifact produce
-#    byte-identical verdicts (the `timing` key is excluded — wall times
-#    are inherently noisy);
+#    byte-identical verdicts (the `timing` key is excluded - wall times are
+#    inherently noisy);
 # 4. judge/ checksums are unchanged after everything.
 #
-# Prints the kill rate; exits non-zero unless good passes, every mutant is
-# killed and determinism holds.
+# Prints the kill rate; exits non-zero unless the good app passes, every
+# mutant is killed, determinism holds and judge/ is untouched.
 
 set -eu
 
@@ -17,6 +17,10 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 GOOD="$HERE/../examples/good/app"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
+
+sha() { find "$HERE" -type f ! -name '*.pyc' ! -path '*__pycache__*' \
+        -exec sha256sum {} + | sort -k2; }
+sha > "$WORK/sha_before"
 
 echo "selftest: generating mutants"
 MUT="$WORK/mutants"
@@ -35,7 +39,8 @@ total=0
 fails=""
 while read -r name; do
     total=$((total + 1))
-    if bash "$HERE/grade.sh" "$MUT/$name" --json "$WORK/$name.json" >/dev/null 2>&1; then
+    if bash "$HERE/grade.sh" "$MUT/$name" --json "$WORK/$name.json" \
+            >/dev/null 2>&1; then
         fails="$fails $name"
         echo "selftest: mutant $name: SURVIVED (judge did not kill it)" >&2
     else
@@ -71,6 +76,15 @@ then
     echo "selftest: determinism: OK"
 else
     echo "selftest: determinism FAILED (two runs differ beyond timing)" >&2
+    exit 1
+fi
+
+sha > "$WORK/sha_after"
+if cmp -s "$WORK/sha_before" "$WORK/sha_after"; then
+    echo "selftest: judge/ checksums unchanged"
+else
+    echo "selftest: judge/ CHANGED during grading:" >&2
+    diff "$WORK/sha_before" "$WORK/sha_after" >&2 || true
     exit 1
 fi
 

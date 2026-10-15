@@ -26,6 +26,21 @@ import time
 REPO = "https://github.com/agent-next/sandbox"
 DEMO_DIR = "cookbook/app-builder-preview"
 STEP_TIMEOUTS = {"clone": 300, "setup": 900, "selftest": 900, "grade": 900}
+GATES = ("structure", "build", "serve", "flows", "hygiene")
+
+# Everything cookbook/DEMO-STANDARD.md requires of this demo, checked in
+# the clone before anything is installed: a file missing on the ref is a
+# demo bug, and the run must fail loudly there, not pass quietly.
+LAYOUT = [
+    "README.md", "SPEC.md", "REPRODUCE.md", "RECEIPT.md", "run.py",
+    "judge/setup.sh", "judge/grade.sh", "judge/selftest.sh",
+    "judge/mutants.py", "judge/spec.json", "judge/VERSIONS.txt",
+    "judge/ref_app/src/App.jsx", "judge/ref_app/package.json",
+    "examples/good/app/package.json", "examples/good/app/package-lock.json",
+    "examples/good/app/src/App.jsx",
+    "media/result.png", "media/loop.png", "media/demo.mp4",
+    "media/MANIFEST.json", "media/make_media.sh",
+]
 
 
 def die(msg, code=1):
@@ -83,6 +98,15 @@ def main():
 
         exec_step("clone", ["git", "clone", "--depth", "1", "-b", args.ref,
                             REPO, "sandbox"])
+        proc, _ = run("layout", "sbx", "exec", sbx_id, "--timeout", "60",
+                      "--", "python3", "-c",
+                      "import os,sys\nbase=sys.argv[1]\nmissing=[p for p in "
+                      "sys.argv[2:] if not os.path.isfile(os.path.join(base,p))]\n"
+                      "print(' '.join(missing))\nsys.exit(1 if missing else 0)",
+                      f"sandbox/{DEMO_DIR}", *LAYOUT, capture=True)
+        if proc.returncode != 0:
+            die(f"demo layout incomplete on ref {args.ref!r}, missing: "
+                f"{proc.stdout.strip()}")
         exec_step("setup", ["bash", f"sandbox/{DEMO_DIR}/judge/setup.sh"])
         exec_step("selftest", ["bash", f"sandbox/{DEMO_DIR}/judge/selftest.sh"])
         exec_step("grade", ["bash", f"sandbox/{DEMO_DIR}/judge/grade.sh",
@@ -115,8 +139,11 @@ def main():
             json.dump(verdict, fh, indent=2, sort_keys=True)
         print(f"wrote verdict JSON: {args.report_json}")
 
-    ok = all(g.get("pass") for g in verdict.get("gates", {}).values()) \
-        and verdict.get("judge_intact", False)
+    gates = verdict.get("gates", {})
+    missing = [g for g in GATES if g not in gates]
+    ok = (not missing
+          and all(gates.get(g, {}).get("pass") for g in GATES)
+          and verdict.get("judge_intact", False))
     print(f"\napp-builder-preview demo: {'PASS' if ok else 'FAIL'}")
     for name, g in sorted(verdict.get("gates", {}).items()):
         print(f"  gate {name}: {'pass' if g.get('pass') else 'FAIL'}")

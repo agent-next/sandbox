@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
-"""Generate known-bad artifacts for the self-test by single edits of the good one.
+"""Generate the known-bad artifacts for the self-test from the good one.
 
-Each mutant is a full copy of the good app (examples/good/app) with exactly
-one scripted edit; the self-test expects every mutant to fail at least one
-gate (SPEC.md). The edits are the realistic ways a generated app goes wrong:
-a delete handler that removes the wrong item, a route that is never matched
-(the app renders nothing), stats that count done items twice, persistence
-removed, a console.error on mount, a renamed element id, and a build that
-cannot produce dist/.
+Each mutant is a full copy of examples/good/app with exactly one scripted
+edit. The edits are the realistic ways a generated app goes wrong; SPEC.md
+names which gate kills each one. selftest.sh grades the good app (must
+pass) and every mutant (each must fail at least one gate).
+
+    python3 judge/mutants.py <out-dir>      # prints one mutant name per line
+
+The good app ships no spec.json of its own: the judge copies judge/spec.json
+into public/ before building, so the artifact must read the spec at runtime.
 """
 
 import os
 import shutil
 import sys
 
-SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                   "..", "examples", "good", "app")
+HERE = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.join(HERE, "..", "examples", "good", "app")
 
 # (name, relative-file, must-exist-literal, replacement)
 EDIT = [
@@ -25,20 +27,12 @@ EDIT = [
      "    setTodos(prev => prev.filter(t => t.id !== id))\n"
      "  }",
      "  function deleteTodo(id) {\n"
-     "    setTodos(prev => {\n"
-     "      const i = prev.findIndex(t => t.id === id)\n"
-     "      return prev.filter((_, j) => j === i)\n"
-     "    })\n"
+     "    setTodos(prev => prev.filter((_, j) => j !== 0))\n"
      "  }"),
-    ("missing_route",
+    ("stats_wrong_span",
      "src/App.jsx",
-     "  if (!spec) return <div id=\"root-loading\">loading…</div>",
-     "  if (!spec) return <div id=\"root-loading\">loading…</div>\n"
-     "  if (spec.routes.indexOf(window.location.pathname + 'x') < 0) return null"),
-    ("stats_off_by_one",
-     "src/App.jsx",
-     "  const total = todos.length",
-     "  const total = todos.length + todos.filter(t => t.done).length"),
+     "        <div><dt>total</dt><dd id={ids['stats-total']}>{total}</dd></div>",
+     "        <div><dt>total</dt><dd id={ids['stats-total']}>{done}</dd></div>"),
     ("no_persist",
      "src/App.jsx",
      "  useEffect(() => {\n"
@@ -73,8 +67,9 @@ EDIT = [
 
 
 def main():
-    out_dir = sys.argv[1] if len(sys.argv) > 1 else \
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "mutants")
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: mutants.py <out-dir>")
+    out_dir = sys.argv[1]
     names = []
     for name, relpath, old, new in EDIT:
         dst = os.path.join(out_dir, name)
@@ -84,14 +79,11 @@ def main():
                                                       "__pycache__"))
         path = os.path.join(dst, relpath)
         with open(path) as fh:
-            mutant = fh.read()
-        if old not in mutant:
+            text = fh.read()
+        if old not in text:
             raise SystemExit(f"mutant {name}: edit anchor not found in {relpath}")
-        mutant = mutant.replace(old, new, 1)
-        if mutant == old and old in mutant:
-            pass
         with open(path, "w") as fh:
-            fh.write(mutant)
+            fh.write(text.replace(old, new, 1))
         names.append(name)
     print("\n".join(names))
 

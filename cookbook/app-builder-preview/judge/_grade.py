@@ -2,12 +2,16 @@
 """Judge driver for the app-builder-preview demo. Invoked by grade.sh; see SPEC.md.
 
 Grades a copied artifact (the artifact under test never touches judge/):
-  gate 1 structure   - size, byte-compile, react-based, reads spec.json at runtime
+  gate 1 structure   - size, react-based, reads spec.json at runtime
   gate 2 build       - npm ci + npm run build exit 0, dist/index.html produced
   gate 3 serve       - vite preview serves dist/ on localhost, GET / returns 200
   gate 4 flows       - 6 scripted browser flows asserting exact DOM state
   gate 5 hygiene     - dist under 250 KiB, zero console errors, reference-build
                        cross-check agreement
+
+Every flow starts from a fresh browser context (clean localStorage), so the
+expected numbers in SPEC.md hold per flow. The element ids the judge drives
+come from judge/spec.json - never from the artifact.
 
 Prints one JSON verdict on stdout; exit 0 only if every gate passes.
 """
@@ -18,20 +22,41 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
+from contextlib import contextmanager
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.join(os.path.expanduser("~"), ".tools", "app-builder-preview")
+BROWSERS = os.path.join(TOOLS, "pw-browsers")
+NPM_CACHE = os.path.join(TOOLS, "npm-cache")
+CHROME_REV = "1243"
 
 MAX_PKG_BYTES = 64 * 1024
 MAX_APP_BYTES = 32 * 1024
 BUILD_TIMEOUT_S = 300
 SERVE_TIMEOUT_S = 30
-FLOW_TIMEOUT_S = 120
 MAX_DIST_BYTES = 250 * 1024
+
+APP_PORT = 5317
+REF_PORT = 5318
+
+# The 6 scripted flows. Each entry: (name, todo texts added, zero-based item
+# indexes to toggle, index to delete or None, filter to click or None,
+# reload after steps). Assertions and expected numbers live in drive_flows.
+FLOWS = [
+    ("add", ["buy milk", "walk dog", "read book"], [], None, None, False),
+    ("complete", ["task a", "task b"], [0], None, None, False),
+    ("delete", ["buy milk", "walk dog", "read book"], [], 1, None, False),
+    ("filter", ["a1", "a2", "a3"], [0], None, "active", False),
+    ("persist", ["p1", "p2"], [0], None, None, True),
+    ("stats", ["s1", "s2", "s3", "s4", "s5"], [0, 1], 2, None, False),
+]
+
 
 # ---------------------------------------------------------------- helpers
 
@@ -56,16 +81,101 @@ def check_shas(judge_dir):
 def node_env():
     env = os.environ.copy()
     env["PATH"] = os.path.join(TOOLS, "node", "bin") + ":" + env.get("PATH", "")
-    env["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(TOOLS, "pw-browsers")
+    env["npm_config_cache"] = NPM_CACHE
     return env
 
 
-def run_node(cmd, cwd=None, timeout=None, capture=True):
+def run_node(cmd, cwd=None, timeout=None):
     """Run a node/npm command with the pinned toolchain. Returns (rc, out, err)."""
-    env = node_env()
-    proc = subprocess.run(cmd, cwd=cwd, capture_output=capture, text=True,
-                          timeout=timeout, env=env)
+    proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                          timeout=timeout, env=node_env())
     return proc.returncode, proc.stdout or "", proc.stderr or ""
+
+
+def require_browser():
+    """Point Playwright at the judge-installed browsers (never the image's
+    read-only /opt/ms-playwright) and fail loudly if setup.sh has not run."""
+    marker = os.path.join(BROWSERS, f"chromium-{CHROME_REV}",
+                          "INSTALLATION_COMPLETE")
+    if not os.path.isfile(marker):
+        print("grade.sh: judge chromium missing; run judge/setup.sh first",
+              file=sys.stderr)
+        raise SystemExit(2)
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = BROWSERS
+
+
+def free_port(preferred):
+    """The preferred port if it is free, else an ephemeral one."""
+    import socket
+    for port in (preferred, 0):
+        with socket.socket() as s:
+            try:
+                s.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            return s.getsockname()[1]
+    raise RuntimeError("no free localhost port")
+
+
+@contextmanager
+def serve(app_dir, preferred_port):
+    """Serve app_dir/dist with vite preview; yields the port it bound."""
+    port = free_port(preferred_port)
+    cmd = ["npx", "--no-install", "vite", "preview",
+           "--port", str(port), "--strictPort"]
+    # own process group: npx spawns vite as a child, and only killing the
+    # whole group frees the port for the next gate
+    proc = subprocess.Popen(cmd, cwd=app_dir, env=node_env(),
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            start_new_session=True)
+    try:
+        deadline = time.monotonic() + SERVE_TIMEOUT_S
+        last_err = None
+        while time.monotonic() < deadline:
+            if proc.poll() is not None:
+                raise RuntimeError(f"vite preview exited rc {proc.returncode}")
+            try:
+                with urllib.request.urlopen(f"http://localhost:{port}/",
+                                            timeout=2) as resp:
+                    if resp.status == 200:
+                        break
+            except Exception as exc:
+                last_err = exc
+                time.sleep(0.5)
+        else:
+            raise RuntimeError(f"vite preview not serving within "
+                               f"{SERVE_TIMEOUT_S} s: {last_err}")
+        yield port
+    finally:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.wait(timeout=10)
+
+
+def provision_spec(app_dir, judge_dir):
+    """The judge owns the neutral spec: it drops judge/spec.json where the
+    build will publish it as /spec.json.
+
+    A public/ directory in the artifact would shadow the judge's copy, so
+    it is refused rather than merged - the artifact must not ship one.
+    """
+    if os.path.isdir(os.path.join(app_dir, "public")):
+        raise RuntimeError("app ships a public/ directory; the judge "
+                           "provisions spec.json itself")
+    pub = os.path.join(app_dir, "public")
+    os.makedirs(pub, exist_ok=True)
+    shutil.copyfile(os.path.join(judge_dir, "spec.json"),
+                    os.path.join(pub, "spec.json"))
 
 
 # ---------------------------------------------------------------- gate 1
@@ -102,24 +212,24 @@ def gate_structure(app_dir):
         if not re.search(r"import\s+.*\bfrom\s+['\"]react['\"]", text) and \
            "from 'react'" not in text and 'from "react"' not in text:
             problems.append("App.jsx does not import react")
-        if not re.search(r"fetch\s*\(\s*['\"]/?spec\.json", text):
+        if not (re.search(r"['\"]/spec\.json['\"]", text)
+                and "fetch(" in text):
             problems.append("App.jsx does not read spec.json at runtime "
-                            "(fetch of /spec.json not found)")
+                            "(no fetch of /spec.json found)")
 
     return {"pass": not problems, "problems": problems}
 
 
-# ---------------------------------------------------------------- gates 2-5 (browser)
+# ---------------------------------------------------------------- gates 2-5
 
 
 def gate_build(app_dir):
-    rc, out, err = run_node(["npm", "ci"], cwd=app_dir,
-                              timeout=BUILD_TIMEOUT_S)
+    rc, out, err = run_node(["npm", "ci"], cwd=app_dir, timeout=BUILD_TIMEOUT_S)
     if rc != 0:
         return {"pass": False,
                 "problems": [f"npm ci exited {rc}: {(err or out)[-300:]}"]}
     rc, out, err = run_node(["npm", "run", "build"], cwd=app_dir,
-                              timeout=BUILD_TIMEOUT_S)
+                            timeout=BUILD_TIMEOUT_S)
     if rc != 0:
         return {"pass": False,
                 "problems": [f"npm run build exited {rc}: {(err or out)[-300:]}"]}
@@ -127,329 +237,251 @@ def gate_build(app_dir):
     if not os.path.isfile(dist_html):
         return {"pass": False,
                 "problems": ["dist/index.html missing after build"]}
-    return {"pass": True, "problems": [],
-            "dist_html": dist_html,
-            "dist_bytes": sum(
-                os.path.getsize(os.path.join(root, f))
-                for root, _, files in os.walk(os.path.join(app_dir, "dist"))
-                for f in files)}
+    return {"pass": True, "problems": []}
+
+
+def dist_bytes(app_dir):
+    return sum(os.path.getsize(os.path.join(root, f))
+               for root, _, files in os.walk(os.path.join(app_dir, "dist"))
+               for f in files)
 
 
 def gate_serve(app_dir):
-    """Start vite probe, verify GET / returns 200 with root div, stop it."""
-    env = node_env()
-    port = 5199
-    cmd = ["npx", "vite", "preview", "--port", str(port), "--strictPort"]
-    proc = subprocess.Popen(cmd, cwd=app_dir, env=env,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True)
     try:
-        deadline = time.monotonic() + SERVE_TIMEOUT_S
-        while time.monotonic() < deadline:
-            if proc.poll() is not None:
-                out = ""
-                try:
-                    out = proc.stdout.read() or ""
-                except Exception:
-                    pass
-                return {"pass": False,
-                        "problems": [f"vite preview exited early "
-                                     f"(rc {proc.returncode}): {out[-300:]}"]}
-            try:
-                import urllib.request
-                with urllib.request.urlopen(
-                        f"http://localhost:{port}/", timeout=2) as resp:
-                    if resp.status != 200:
-                        return {"pass": False,
-                                "problems": [f"GET / returned {resp.status}"]}
-                    body = resp.read().decode("utf-8", "replace")
-                    if 'id="root"' not in body and "id='root'" not in body:
-                        return {"pass": False,
-                                "problems": ["GET / body has no #root div"]}
-                    return {"pass": True, "problems": [], "port": port}
-            except Exception:
-                time.sleep(0.5)
-        return {"pass": False,
-                "problems": [f"vite preview did not serve within "
-                             f"{SERVE_TIMEOUT_S} s"]}
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=10)
+        with serve(app_dir, APP_PORT) as port:
+            with urllib.request.urlopen(
+                    f"http://localhost:{port}/", timeout=5) as resp:
+                if resp.status != 200:
+                    return {"pass": False,
+                            "problems": [f"GET / returned {resp.status}"]}
+                body = resp.read().decode("utf-8", "replace")
+                if 'id="root"' not in body and "id='root'" not in body:
+                    return {"pass": False,
+                            "problems": ["GET / body has no #root div"]}
+                return {"pass": True, "problems": [], "port": port}
+    except RuntimeError as exc:
+        return {"pass": False, "problems": [str(exc)]}
 
 
-def gate_flows(app_dir, seed):
-    """Drive Playwright through 6 flows, asserting exact DOM state."""
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError as exc:
-        return {"pass": False,
-                "problems": [f"playwright not importable: {exc}"]}
+def drive_flows(port, ids, shots_dir=None):
+    """Drive the 6 scripted flows, each from a fresh browser context.
 
-    problems = []
+    Returns (flows, console_errors) where flows[name] = {pass, problems,
+    state} and state is the observed final DOM state used both for the
+    assertions here and for the reference cross-check.
+    """
+    from playwright.sync_api import sync_playwright
+
     flows = {}
-    port = 5299
     console_errors = []
 
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            ctx = browser.new_context()
-            page = ctx.new_page()
-            page.on("console", lambda msg: (
-                console_errors.append(msg.text)
-                if msg.type == "error" else None))
-            page.on("pageerror", lambda err: console_errors.append(str(err)))
+    def snapshot(page):
+        items = []
+        for li in page.query_selector_all(f"#{ids['todo-list']} > li"):
+            if not li.is_visible():
+                continue
+            text_el = li.query_selector(f"#{ids['todo-text']}")
+            items.append({
+                "text": text_el.inner_text() if text_el else None,
+                "done": "done" in (li.get_attribute("class") or "").split(),
+            })
 
-            page.goto(f"http://localhost:{port}/", wait_until="networkidle")
+        def stat(name):
+            el = page.query_selector(f"#{ids[name]}")
+            return el.inner_text().strip() if el else None
 
-            ids = {}
+        active_filter = None
+        for f in ("all", "active", "done"):
+            btn = page.query_selector(f"#{ids['filter-' + f]}")
+            if btn and "active" in (btn.get_attribute("class") or "").split():
+                active_filter = f
+        inp = page.query_selector(f"#{ids['todo-input']}")
+        return {"items": items,
+                "stats": {"total": stat("stats-total"),
+                          "active": stat("stats-active"),
+                          "done": stat("stats-done")},
+                "active_filter": active_filter,
+                "input_value": inp.input_value() if inp else None}
 
-            def get_id(name):
-                if name not in ids:
-                    el = page.query_selector(f"[data-judge-id='{name}']")
-                    if el is None:
-                        el = page.query_selector(f"#{name}")
-                    if el is None:
-                        ids[name] = None
-                    else:
-                        ids[name] = el.get_attribute("id")
-                return ids[name]
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        try:
+            for name, texts, toggles, delete, filt, reload in FLOWS:
+                problems = []
+                ctx = browser.new_context(viewport={"width": 1280,
+                                                    "height": 800})
+                page = ctx.new_page()
+                page.on("console", lambda msg: (
+                    console_errors.append(f"[{name}] {msg.text}")
+                    if msg.type == "error" else None))
+                page.on("pageerror", lambda err: (
+                    console_errors.append(f"[{name}] {err}")))
+                try:
+                    page.goto(f"http://localhost:{port}/",
+                              wait_until="networkidle")
+                    page.wait_for_selector(f"#{ids['todo-input']}",
+                                           timeout=15000)
 
-            def click(jid):
-                el = page.query_selector(f"#{get_id(jid)}")
-                el.click()
+                    for t in texts:
+                        page.fill(f"#{ids['todo-input']}", t)
+                        page.click(f"#{ids['todo-add']}")
+                    lis = page.query_selector_all(
+                        f"#{ids['todo-list']} > li")
+                    for i in toggles:
+                        lis[i].query_selector(
+                            f"#{ids['todo-toggle']}").click()
+                    if delete is not None:
+                        lis = page.query_selector_all(
+                            f"#{ids['todo-list']} > li")
+                        lis[delete].query_selector(
+                            f"#{ids['todo-delete']}").click()
+                    if filt is not None:
+                        page.click(f"#{ids['filter-' + filt]}")
+                    if reload:
+                        page.reload(wait_until="networkidle")
+                        page.wait_for_selector(f"#{ids['todo-input']}",
+                                               timeout=15000)
+                    state = snapshot(page)
 
-            def type_input(jid, text):
-                el = page.query_selector(f"#{get_id(jid)}")
-                el.fill(text)
+                    # ---- assertions (exact DOM equality; SPEC.md table)
+                    def expect(cond, msg):
+                        if not cond:
+                            problems.append(msg)
 
-            def add_todo(text):
-                type_input("todo-input", text)
-                click("todo-add")
+                    if name == "add":
+                        expect([i["text"] for i in state["items"]] == texts,
+                               f"items {[i['text'] for i in state['items']]} "
+                               f"!= {texts}")
+                        expect(state["input_value"] == "",
+                               "input not cleared after add")
+                        expect(state["stats"]["total"] == "3",
+                               f"stats-total {state['stats']['total']} != 3")
+                    elif name == "complete":
+                        expect(state["items"][0]["done"] is True,
+                               "first item lacks 'done' class")
+                        expect(state["stats"]["active"] == "1",
+                               f"stats-active {state['stats']['active']} != 1")
+                        expect(state["stats"]["done"] == "1",
+                               f"stats-done {state['stats']['done']} != 1")
+                        expect(state["stats"]["total"] == "2",
+                               f"stats-total {state['stats']['total']} != 2")
+                    elif name == "delete":
+                        expect([i["text"] for i in state["items"]] ==
+                               ["buy milk", "read book"],
+                               f"remaining {[i['text'] for i in state['items']]} "
+                               f"!= ['buy milk', 'read book']")
+                        expect(state["stats"]["total"] == "2",
+                               f"stats-total {state['stats']['total']} != 2")
+                    elif name == "filter":
+                        expect(len(state["items"]) == 2,
+                               f"{len(state['items'])} visible li != 2")
+                        expect(all(not i["done"] for i in state["items"]),
+                               "a done item is visible under filter-active")
+                        expect(state["active_filter"] == "active",
+                               f"active filter button is "
+                               f"{state['active_filter']}, not 'active'")
+                    elif name == "persist":
+                        expect(len(state["items"]) == 2,
+                               f"{len(state['items'])} li after reload != 2")
+                        expect(state["items"][0]["done"] is True,
+                               "first item lost its done class after reload")
+                        expect(state["stats"]["total"] == "2",
+                               f"stats-total {state['stats']['total']} != 2")
+                    elif name == "stats":
+                        expect(state["stats"] == {"total": "4",
+                                                 "active": "2",
+                                                 "done": "2"},
+                               f"stats {state['stats']} != "
+                               f"{{'total': '4', 'active': '2', 'done': '2'}}")
 
-            def visible_items():
-                return page.query_selector_all(f"#{get_id('todo-list')} > li")
-
-            def item_classes(item):
-                return (item.get_attribute("class") or "").split()
-
-            def item_text(item):
-                el = item.query_selector(f"#{get_id('todo-text')}")
-                return el.inner_text() if el is not None else ""
-
-            # --- flow 1: add
-            f1 = []
-            try:
-                add_todo("buy milk")
-                add_todo("walk dog")
-                add_todo("read book")
-                items = visible_items()
-                if len(items) != 3:
-                    f1.append(f"expected 3 li, got {len(items)}")
-                texts = [item_text(i) for i in items]
-                if texts != ["buy milk", "walk dog", "read book"]:
-                    f1.append(f"texts {texts} != expected")
-                inp = page.query_selector(f"#{get_id('todo-input')}")
-                if inp.input_value() != "":
-                    f1.append("input not cleared")
-                st = page.query_selector(f"#{get_id('stats-total')}")
-                if st.inner_text() != "3":
-                    f1.append(f"stats-total {st.inner_text()} != 3")
-            except Exception as exc:
-                f1.append(f"flow crashed: {exc}")
-            flows["add"] = {"pass": not f1, "problems": f1}
-
-            # --- flow 2: complete
-            f2 = []
-            try:
-                add_todo("task a")
-                add_todo("task b")
-                items = visible_items()
-                if len(items) < 2:
-                    f2.append("fewer than 2 items after add")
-                else:
-                    btn = items[0].query_selector(f"#{get_id('todo-toggle')}")
-                    btn.click()
-                    items2 = visible_items()
-                    cls = item_classes(items2[0])
-                    if "done" not in cls:
-                        f2.append(f"first li class '{' '.join(cls)}' lacks 'done'")
-                    sa = page.query_selector(f"#{get_id('stats-active')}")
-                    sd = page.query_selector(f"#{get_id('stats-done')}")
-                    if sa.inner_text() != "1":
-                        f2.append(f"stats-active {sa.inner_text()} != 1")
-                    if sd.inner_text() != "1":
-                        f2.append(f"stats-done {sd.inner_text()} != 1")
-            except Exception as exc:
-                f2.append(f"flow crashed: {exc}")
-            flows["complete"] = {"pass": not f2, "problems": f2}
-
-            # --- flow 3: delete
-            f3 = []
-            try:
-                for t in ("x1", "x2", "x3"):
-                    add_todo(t)
-                items = visible_items()
-                if len(items) < 3:
-                    f3.append("fewer than 3 items after add")
-                else:
-                    btn = items[1].query_selector(f"#{get_id('todo-delete')}")
-                    btn.click()
-                    items2 = visible_items()
-                    if len(items2) != 2:
-                        f3.append(f"expected 2 li after delete, got {len(items2)}")
-                    texts = [item_text(i) for i in items2]
-                    if texts != ["buy milk", "read book"]:
-                        f3.append(f"remaining texts {texts} != "
-                                  f"['buy milk', 'read book']")
-                    st = page.query_selector(f"#{get_id('stats-total')}")
-                    if st.inner_text() != "5":
-                        f3.append(f"stats-total {st.inner_text()} != 5 "
-                                  f"(3 added, 1 deleted, from 3 prior)")
-            except Exception as exc:
-                f3.append(f"flow crashed: {exc}")
-            flows["delete"] = {"pass": not f3, "problems": f3}
-
-            # --- flow 4: filter
-            f4 = []
-            try:
-                click("filter-active")
-                items = visible_items()
-                if len(items) != 3:
-                    f4.append(f"expected 3 visible li (3 active), got {len(items)}")
-                for it in items:
-                    if "done" in item_classes(it):
-                        f4.append("done item visible under filter-active")
-                fa = page.query_selector(f"#{get_id('filter-active')}")
-                cls = item_classes(fa)
-                if "active" not in cls:
-                    f4.append(f"filter-active class '{' '.join(cls)}' lacks 'active'")
-            except Exception as exc:
-                f4.append(f"flow crashed: {exc}")
-            flows["filter"] = {"pass": not f4, "problems": f4}
-
-            # --- flow 5: persist
-            f5 = []
-            try:
-                click("filter-all")
-                add_todo("p1")
-                add_todo("p2")
-                items = visible_items()
-                # toggle the last one (a p-task)
-                btn = items[-1].query_selector(f"#{get_id('todo-toggle')}")
-                btn.click()
-                page.reload(wait_until="networkidle")
-                items2 = visible_items()
-                if len(items2) < 2:
-                    f5.append(f"fewer than 2 li after reload: {len(items2)}")
-                else:
-                    # find the p2 item
-                    p2 = [i for i in items2 if item_text(i) == "p2"]
-                    if not p2:
-                        f5.append("p2 item missing after reload")
-                    elif "done" not in item_classes(p2[0]):
-                        f5.append("p2 lost its done class after reload")
-                st = page.query_selector(f"#{get_id('stats-total')}")
-                # total: 3 (buy milk, walk dog, read book) + 1 x-remainder +
-                # x1,x2,x3 minus x2 + p1,p2 = 3 + 1 + 2 + 2 = 8? compute:
-                # flow1: 3; flow2: +2 = 5; flow3: +3 -1 = 7;
-                # flow5: +2 = 9
-                if st.inner_text() != "9":
-                    f5.append(f"stats-total {st.inner_text()} != 9")
-            except Exception as exc:
-                f5.append(f"flow crashed: {exc}")
-            flows["persist"] = {"pass": not f5, "problems": f5}
-
-            # --- flow 6: stats
-            f6 = []
-            try:
-                # add 5, toggle 2, delete 1
-                for t in ("s1", "s2", "s3", "s4", "s5"):
-                    add_todo(t)
-                items = visible_items()
-                if len(items) < 5:
-                    f6.append("fewer than 5 items")
-                else:
-                    for idx in (0, 1):
-                        btn = items[idx].query_selector(f"#{get_id('todo-toggle')}")
-                        btn.click()
-                    items = visible_items()
-                    btn = items[0].query_selector(f"#{get_id('todo-delete')}")
-                    btn.click()
-                st = page.query_selector(f"#{get_id('stats-total')}")
-                sa = page.query_selector(f"#{get_id('stats-active')}")
-                sd = page.query_selector(f"#{get_id('stats-done')}")
-                # 9 prior + 5 added = 14, minus 1 deleted = 13 total;
-                # done: x1? no. done items: read book's group...
-                # after flows: done = [read book, task a, p2] = 3, plus s1, s2
-                # toggled = 5 done; active = 13 - 5 = 8
-                if st.inner_text() != "13":
-                    f6.append(f"stats-total {st.inner_text()} != 13")
-                if sa.inner_text() != "8":
-                    f6.append(f"stats-active {sa.inner_text()} != 8")
-                if sd.inner_text() != "5":
-                    f6.append(f"stats-done {sd.inner_text()} != 5")
-            except Exception as exc:
-                f6.append(f"flow crashed: {exc}")
-            flows["stats"] = {"pass": not f6, "problems": f6}
-
+                    if shots_dir:
+                        os.makedirs(shots_dir, exist_ok=True)
+                        page.screenshot(
+                            path=os.path.join(shots_dir, f"{name}.png"))
+                except Exception as exc:
+                    problems.append(f"flow crashed: {type(exc).__name__}: "
+                                    f"{exc}")
+                    state = None
+                finally:
+                    ctx.close()
+                flows[name] = {"pass": not problems, "problems": problems,
+                               "state": state}
+        finally:
             browser.close()
-    except Exception as exc:
-        problems.append(f"browser session failed: {exc}")
-        return {"pass": False, "problems": problems, "flows": flows,
-                "console_errors": console_errors}
-
-    all_pass = all(f["pass"] for f in flows.values())
-    return {"pass": all_pass, "problems": problems, "flows": flows,
-            "console_errors": console_errors, "seed": seed}
+    return flows, console_errors
 
 
-def gate_hygiene(app_dir, seed, flows_result):
+def gate_flows(app_dir, ids, shots_dir=None):
+    try:
+        with serve(app_dir, APP_PORT) as port:
+            flows, console_errors = drive_flows(port, ids, shots_dir)
+    except RuntimeError as exc:
+        return {"pass": False, "problems": [str(exc)], "flows": {},
+                "states": {}, "console_errors": []}
+    all_pass = all(f["pass"] for f in flows.values()) and bool(flows)
+    return {"pass": all_pass, "problems": [],
+            "flows": {k: {"pass": v["pass"], "problems": v["problems"]}
+                      for k, v in flows.items()},
+            "states": {k: v["state"] for k, v in flows.items()},
+            "console_errors": console_errors}
+
+
+def run_reference(judge_dir, ids):
+    """Build the judge-controlled reference app and drive it through the
+    same 6 flows; return (ok, states, problems)."""
+    ref_src = os.path.join(judge_dir, "ref_app")
+    work = tempfile.mkdtemp(prefix="appbuilder-ref-")
+    try:
+        ref_dir = os.path.join(work, "ref")
+        shutil.copytree(ref_src, ref_dir, ignore=shutil.ignore_patterns(
+            "node_modules", "dist", "__pycache__"))
+        provision_spec(ref_dir, judge_dir)
+        g = gate_build(ref_dir)
+        if not g["pass"]:
+            return False, None, [f"reference build failed: {g['problems']}"]
+        try:
+            with serve(ref_dir, REF_PORT) as port:
+                flows, errors = drive_flows(port, ids)
+        except RuntimeError as exc:
+            return False, None, [f"reference serve failed: {exc}"]
+        problems = []
+        for name, f in flows.items():
+            if not f["pass"]:
+                problems.append(f"reference flow {name}: {f['problems']}")
+        if errors:
+            problems.append(f"reference console errors: {errors[:3]}")
+        if problems:
+            return False, None, problems
+        return True, {k: v["state"] for k, v in flows.items()}, []
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def gate_hygiene(app_dir, ids, flows_result):
     problems = []
-    dist_bytes = sum(
-        os.path.getsize(os.path.join(root, f))
-        for root, _, files in os.walk(os.path.join(app_dir, "dist"))
-        for f in files)
-    if dist_bytes > MAX_DIST_BYTES:
-        problems.append(f"dist {dist_bytes} B > {MAX_DIST_BYTES} B")
+    nbytes = dist_bytes(app_dir)
+    if nbytes > MAX_DIST_BYTES:
+        problems.append(f"dist {nbytes} B > {MAX_DIST_BYTES} B")
 
     console_errors = flows_result.get("console_errors", [])
     if console_errors:
         problems.append(f"{len(console_errors)} console error(s): "
                         f"{console_errors[:3]}")
 
-    # reference cross-check: the judge's own spec-faithful app must produce
-    # the same final DOM state as the artifact. We rebuild the reference
-    # from judge/spec.json and compare final stats after the same 6 flows.
-    # (Implemented as a build + serve + flow replay against judge/ref_app/.)
-    ref_ok, ref_problems = run_reference_check(seed)
+    ref_ok, ref_states, ref_problems = run_reference(HERE, ids)
     if not ref_ok:
         problems.append(f"reference cross-check failed: {ref_problems}")
+    else:
+        states = flows_result.get("states", {})
+        for name, *_ in FLOWS:
+            if states.get(name) != ref_states.get(name):
+                problems.append(
+                    f"reference disagreement on flow {name}: "
+                    f"artifact {states.get(name)} vs reference "
+                    f"{ref_states.get(name)}")
 
     return {"pass": not problems, "problems": problems,
-            "dist_bytes": dist_bytes, "console_errors": console_errors}
-
-
-# ---------------------------------------------------------------- reference app
-
-def run_reference_check(seed):
-    """Build and drive the judge-controlled reference app; return final
-    DOM stats to compare against the artifact's."""
-    ref_dir = os.path.join(HERE, "ref_app")
-    if not os.path.isdir(ref_dir):
-        return True, []  # reference app not present; cross-check is advisory
-    try:
-        g = gate_build(ref_dir)
-        if not g["pass"]:
-            return False, g["problems"]
-        g = gate_flows(ref_dir, seed)
-        return g["pass"], g["problems"]
-    except Exception as exc:
-        return False, [str(exc)]
+            "dist_bytes": nbytes, "console_errors": console_errors}
 
 
 # ---------------------------------------------------------------- main
@@ -461,9 +493,19 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--json", dest="json_out")
     ap.add_argument("--judge-dir")
+    ap.add_argument("--shots", dest="shots_dir", metavar="DIR",
+                    help="save one screenshot per flow here")
     args = ap.parse_args()
 
+    require_browser()
+
     judge_dir = os.path.abspath(args.judge_dir or HERE)
+    with open(os.path.join(judge_dir, "spec.json")) as fh:
+        elements = json.load(fh)["elements"]
+    # The element names in spec.json are the DOM ids the judge drives; the
+    # values are descriptions for the agent, never selectors.
+    ids = {name: name for name in elements}
+
     sha_before = check_shas(judge_dir)
     app_dir = os.path.abspath(args.artifact)
 
@@ -480,52 +522,50 @@ def main():
         shutil.copytree(app_dir, copied,
                         ignore=shutil.ignore_patterns("node_modules", "dist"))
 
-        # ---- gate 1: structure
-        g1 = gate_structure(copied)
-        verdict["gates"]["structure"] = g1
-        if not g1["pass"]:
-            rc = 1
+        def record(name, result):
+            nonlocal rc
+            verdict["gates"][name] = result
+            if not result["pass"]:
+                rc = 1
 
-        # ---- gate 2: build
+        t0 = time.monotonic()
+        try:
+            provision_spec(copied, judge_dir)
+            record("structure", gate_structure(copied))
+        except RuntimeError as exc:
+            record("structure", {"pass": False, "problems": [str(exc)]})
+        verdict["timing"]["structure_s"] = round(time.monotonic() - t0, 1)
+
         if rc == 0:
             t0 = time.monotonic()
-            g2 = gate_build(copied)
+            record("build", gate_build(copied))
             verdict["timing"]["build_s"] = round(time.monotonic() - t0, 1)
-            verdict["gates"]["build"] = g2
-            if not g2["pass"]:
-                rc = 1
 
-        # ---- gate 3: serve
         if rc == 0:
             t0 = time.monotonic()
-            g3 = gate_serve(copied)
+            record("serve", gate_serve(copied))
             verdict["timing"]["serve_s"] = round(time.monotonic() - t0, 1)
-            verdict["gates"]["serve"] = g3
-            if not g3["pass"]:
-                rc = 1
 
-        # ---- gate 4: flows
         if rc == 0:
             t0 = time.monotonic()
-            g4 = gate_flows(copied, args.seed)
+            g4 = gate_flows(copied, ids, args.shots_dir)
             verdict["timing"]["flows_s"] = round(time.monotonic() - t0, 1)
             verdict["gates"]["flows"] = {
                 "pass": g4["pass"], "problems": g4["problems"]}
-            verdict["flows"] = g4.get("flows", {})
+            verdict["flows"] = g4["flows"]
+            verdict["states"] = g4["states"]
             if not g4["pass"]:
                 rc = 1
 
-        # ---- gate 5: hygiene
         if rc == 0:
             t0 = time.monotonic()
-            g5 = gate_hygiene(copied, args.seed, g4)
+            g5 = gate_hygiene(copied, ids, g4)
             verdict["timing"]["hygiene_s"] = round(time.monotonic() - t0, 1)
             verdict["gates"]["hygiene"] = g5
             if not g5["pass"]:
                 rc = 1
 
-        sha_after = check_shas(judge_dir)
-        verdict["judge_intact"] = sha_before == sha_after
+        verdict["judge_intact"] = check_shas(judge_dir) == sha_before
         if not verdict["judge_intact"]:
             rc = 1
     finally:

@@ -1,11 +1,12 @@
 #!/bin/sh
 # Grade an app-builder-preview artifact. See SPEC.md for the gates.
 #
-#   judge/grade.sh <artifact-app-dir> [--seed N] [--json out.json]
+#   judge/grade.sh <artifact-app-dir> [--seed N] [--json out.json] [--shots DIR]
 #
 # Exits 0 only if every gate passes; prints one JSON verdict on stdout.
 # Delegates to judge/_grade.py, which runs the artifact from a copy in a
-# fresh temp dir and checksums judge/ before and after.
+# fresh temp dir, drives it from judge/spec.json, and checksums judge/
+# before and after.
 
 set -eu
 
