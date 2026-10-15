@@ -107,7 +107,8 @@ class GitHub:
     def check_repo(self, repo: str) -> None:
         self._check(self.http.get(f"/repos/{repo}"), f"read repo {repo}")
 
-    def get(self, path: str, params: dict | None = None, *, resource: str = "demand"):
+    def get(self, path: str, params: dict | None = None, *, resource: str = "demand",
+            missing_ok: bool = False):
         """Isolate demand/control errors; only explicit rate limits back off all reads."""
         after, failures = self.read_backoffs.get(resource, (0.0, 0))
         if self.clock() < max(self.read_after, after):
@@ -123,6 +124,10 @@ class GitHub:
                 self.read_backoffs.pop(resource, None)
                 self.cache.move_to_end(key)
                 return cached[1]
+            if resp.status_code == 404 and missing_ok:
+                self.read_backoffs.pop(resource, None)
+                self.cache.pop(key, None)
+                return None
             data = self._check(resp, "poll").json()
         except (httpx.HTTPError, RunnerError, ValueError):
             failures += 1
@@ -193,8 +198,12 @@ class GitHub:
         for repo, run_id in sorted(tracked):
             page, complete = 1, True
             while True:
-                jobs = self.get(f"/repos/{repo}/actions/runs/{run_id}/jobs",
-                                {"per_page": 100, "page": page})["jobs"]
+                data = self.get(f"/repos/{repo}/actions/runs/{run_id}/jobs",
+                                {"per_page": 100, "page": page}, missing_ok=True)
+                if data is None:  # a deleted run must not poison every future poll
+                    complete = True
+                    break
+                jobs = data["jobs"]
                 for job in jobs:
                     complete = complete and job["status"] == "completed"
                     yield repo, job
