@@ -1,0 +1,77 @@
+{
+  "iterations": [
+    {
+      "artifact": "wrong_element_id",
+      "console_errors": 0,
+      "failed_gates": [
+        "flows"
+      ],
+      "failing_flows": [
+        "add",
+        "delete"
+      ],
+      "iteration": 1,
+      "passed": false
+    },
+    {
+      "artifact": "stats_wrong_span",
+      "console_errors": 0,
+      "failed_gates": [
+        "flows"
+      ],
+      "failing_flows": [
+        "add",
+        "complete",
+        "delete",
+        "persist",
+        "stats"
+      ],
+      "iteration": 2,
+      "passed": false
+    },
+    {
+      "artifact": "broken_delete",
+      "console_errors": 0,
+      "failed_gates": [
+        "flows"
+      ],
+      "failing_flows": [
+        "delete",
+        "stats"
+      ],
+      "iteration": 3,
+      "passed": false
+    },
+    {
+      "artifact": "console_error",
+      "console_errors": 7,
+      "failed_gates": [
+        "hygiene"
+      ],
+      "failing_flows": [],
+      "iteration": 4,
+      "passed": false
+    },
+    {
+      "artifact": "no_persist",
+      "console_errors": 0,
+      "failed_gates": [
+        "flows"
+      ],
+      "failing_flows": [
+        "persist"
+      ],
+      "iteration": 5,
+      "passed": false
+    },
+    {
+      "artifact": "good",
+      "console_errors": 0,
+      "failed_gates": [],
+      "failing_flows": [],
+      "iteration": 6,
+      "passed": true
+    }
+  ],
+  "note": "scripted fixing replay in the order a fixing agent would meet the failures; not a recorded live trace"
+}

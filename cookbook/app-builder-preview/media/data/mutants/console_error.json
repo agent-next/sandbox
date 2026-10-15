@@ -1,0 +1,202 @@
+{
+  "artifact": "console_error",
+  "demo": "app-builder-preview",
+  "flows": {
+    "add": {
+      "pass": true,
+      "problems": []
+    },
+    "complete": {
+      "pass": true,
+      "problems": []
+    },
+    "delete": {
+      "pass": true,
+      "problems": []
+    },
+    "filter": {
+      "pass": true,
+      "problems": []
+    },
+    "persist": {
+      "pass": true,
+      "problems": []
+    },
+    "stats": {
+      "pass": true,
+      "problems": []
+    }
+  },
+  "gates": {
+    "build": {
+      "pass": true,
+      "problems": []
+    },
+    "flows": {
+      "pass": true,
+      "problems": []
+    },
+    "hygiene": {
+      "console_errors": [
+        "[add] todo-stats: mount diagnostic",
+        "[complete] todo-stats: mount diagnostic",
+        "[delete] todo-stats: mount diagnostic",
+        "[filter] todo-stats: mount diagnostic",
+        "[persist] todo-stats: mount diagnostic",
+        "[persist] todo-stats: mount diagnostic",
+        "[stats] todo-stats: mount diagnostic"
+      ],
+      "dist_bytes": 224340,
+      "pass": false,
+      "problems": [
+        "7 console error(s): ['[add] todo-stats: mount diagnostic', '[complete] todo-stats: mount diagnostic', '[delete] todo-stats: mount diagnostic']"
+      ]
+    },
+    "serve": {
+      "pass": true,
+      "port": 5317,
+      "problems": []
+    },
+    "structure": {
+      "pass": true,
+      "problems": []
+    }
+  },
+  "judge_intact": true,
+  "seed": 0,
+  "states": {
+    "add": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": false,
+          "text": "buy milk"
+        },
+        {
+          "done": false,
+          "text": "walk dog"
+        },
+        {
+          "done": false,
+          "text": "read book"
+        }
+      ],
+      "stats": {
+        "active": "3",
+        "done": "0",
+        "total": "3"
+      }
+    },
+    "complete": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": true,
+          "text": "task a"
+        },
+        {
+          "done": false,
+          "text": "task b"
+        }
+      ],
+      "stats": {
+        "active": "1",
+        "done": "1",
+        "total": "2"
+      }
+    },
+    "delete": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": false,
+          "text": "buy milk"
+        },
+        {
+          "done": false,
+          "text": "read book"
+        }
+      ],
+      "stats": {
+        "active": "2",
+        "done": "0",
+        "total": "2"
+      }
+    },
+    "filter": {
+      "active_filter": "active",
+      "input_value": "",
+      "items": [
+        {
+          "done": false,
+          "text": "a2"
+        },
+        {
+          "done": false,
+          "text": "a3"
+        }
+      ],
+      "stats": {
+        "active": "2",
+        "done": "1",
+        "total": "3"
+      }
+    },
+    "persist": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": true,
+          "text": "p1"
+        },
+        {
+          "done": false,
+          "text": "p2"
+        }
+      ],
+      "stats": {
+        "active": "1",
+        "done": "1",
+        "total": "2"
+      }
+    },
+    "stats": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": true,
+          "text": "s1"
+        },
+        {
+          "done": true,
+          "text": "s2"
+        },
+        {
+          "done": false,
+          "text": "s4"
+        },
+        {
+          "done": false,
+          "text": "s5"
+        }
+      ],
+      "stats": {
+        "active": "2",
+        "done": "2",
+        "total": "4"
+      }
+    }
+  },
+  "timing": {
+    "build_s": 3.4,
+    "flows_s": 13.0,
+    "hygiene_s": 15.5,
+    "serve_s": 1.6,
+    "structure_s": 0.0
+  }
+}

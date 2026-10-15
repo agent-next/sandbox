@@ -1,0 +1,195 @@
+{
+  "artifact": "stats_wrong_span",
+  "demo": "app-builder-preview",
+  "flows": {
+    "add": {
+      "pass": false,
+      "problems": [
+        "stats-total 0 != 3"
+      ]
+    },
+    "complete": {
+      "pass": false,
+      "problems": [
+        "stats-total 1 != 2"
+      ]
+    },
+    "delete": {
+      "pass": false,
+      "problems": [
+        "stats-total 0 != 2"
+      ]
+    },
+    "filter": {
+      "pass": true,
+      "problems": []
+    },
+    "persist": {
+      "pass": false,
+      "problems": [
+        "stats-total 1 != 2"
+      ]
+    },
+    "stats": {
+      "pass": false,
+      "problems": [
+        "stats {'total': '2', 'active': '2', 'done': '2'} != {'total': '4', 'active': '2', 'done': '2'}"
+      ]
+    }
+  },
+  "gates": {
+    "build": {
+      "pass": true,
+      "problems": []
+    },
+    "flows": {
+      "pass": false,
+      "problems": []
+    },
+    "serve": {
+      "pass": true,
+      "port": 5317,
+      "problems": []
+    },
+    "structure": {
+      "pass": true,
+      "problems": []
+    }
+  },
+  "judge_intact": true,
+  "seed": 0,
+  "states": {
+    "add": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": false,
+          "text": "buy milk"
+        },
+        {
+          "done": false,
+          "text": "walk dog"
+        },
+        {
+          "done": false,
+          "text": "read book"
+        }
+      ],
+      "stats": {
+        "active": "3",
+        "done": "0",
+        "total": "0"
+      }
+    },
+    "complete": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": true,
+          "text": "task a"
+        },
+        {
+          "done": false,
+          "text": "task b"
+        }
+      ],
+      "stats": {
+        "active": "1",
+        "done": "1",
+        "total": "1"
+      }
+    },
+    "delete": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": false,
+          "text": "buy milk"
+        },
+        {
+          "done": false,
+          "text": "read book"
+        }
+      ],
+      "stats": {
+        "active": "2",
+        "done": "0",
+        "total": "0"
+      }
+    },
+    "filter": {
+      "active_filter": "active",
+      "input_value": "",
+      "items": [
+        {
+          "done": false,
+          "text": "a2"
+        },
+        {
+          "done": false,
+          "text": "a3"
+        }
+      ],
+      "stats": {
+        "active": "2",
+        "done": "1",
+        "total": "1"
+      }
+    },
+    "persist": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": true,
+          "text": "p1"
+        },
+        {
+          "done": false,
+          "text": "p2"
+        }
+      ],
+      "stats": {
+        "active": "1",
+        "done": "1",
+        "total": "1"
+      }
+    },
+    "stats": {
+      "active_filter": "all",
+      "input_value": "",
+      "items": [
+        {
+          "done": true,
+          "text": "s1"
+        },
+        {
+          "done": true,
+          "text": "s2"
+        },
+        {
+          "done": false,
+          "text": "s4"
+        },
+        {
+          "done": false,
+          "text": "s5"
+        }
+      ],
+      "stats": {
+        "active": "2",
+        "done": "2",
+        "total": "2"
+      }
+    }
+  },
+  "timing": {
+    "build_s": 3.1,
+    "flows_s": 13.4,
+    "serve_s": 1.1,
+    "structure_s": 0.0
+  }
+}
