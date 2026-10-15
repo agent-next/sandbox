@@ -7,3 +7,7 @@ scenes/*/mdl/
 scenes/out/
 __pycache__/
 *.pyc
+
+# local scratch (probe scripts, bundles, downloads) — never committed
+scratch/
+out/
