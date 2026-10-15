@@ -93,8 +93,7 @@ def numeric_rows(verdict, policy):
          1.10 * float(policy["fsize_bytes"]) / (1024.0 * 1024.0),
          "largest file left, MiB"),
         ("stdout flood",
-         (runs.get("huge_stdout", {}).get("stdout_bytes") or 0)
-         / (1024.0 * 1024.0),
+         (measured.get("huge_stdout_stdout_bytes") or 0) / (1024.0 * 1024.0),
          1.05 * float(policy["output_cap_bytes"]) / (1024.0 * 1024.0),
          "stdout captured, MiB"),
         ("eternal sleep",
@@ -123,110 +122,114 @@ def parse_selftest(text):
     return good, mutants, (rate.group(1) if rate else "?")
 
 
+def _fmt(value):
+    """A short, honest number for an axis annotation."""
+    if abs(value) >= 10:
+        return "%.0f" % value
+    if abs(value) >= 1:
+        return "%.1f" % value
+    return "%.2f" % value
+
+
 def draw_result(fig, verdict, policy, rows, stage=1.0, show_effects=True):
     """The containment figure. `stage` animates bar growth (0..1)."""
     fig.clf()
-    grid = fig.add_gridspec(1, 5)
-    ax = fig.add_subplot(grid[0, :3])
+    ax = fig.add_axes([0.20, 0.13, 0.44, 0.75])
     labels = [r[0] for r in rows][::-1]
-    ratios = [min(r[1] / r[2], 1.6) * stage for r in rows][::-1]
-    ys = range(len(rows))
+    full = [min(r[1] / r[2], 1.6) for r in rows][::-1]
+    ratios = [f * stage for f in full]
+    ys = list(range(len(rows)))
     passed = [r[1] <= r[2] for r in rows][::-1]
-    ax.barh(list(ys), ratios, height=0.62,
+    ax.barh(ys, ratios, height=0.6,
             color=[BLUE if p else VERMILLION for p in passed])
-    ax.axvline(1.0, color=VERMILLION, lw=2.5, ls="--")
-    ax.text(1.0, len(rows) - 0.28, " judge bound", color=VERMILLION,
-            fontsize=15, va="center", weight="bold")
-    ax.set_yticks(list(ys))
-    ax.set_yticklabels(labels, fontsize=17)
-    ax.set_xlim(0, 1.6)
+    ax.axvline(1.0, color=VERMILLION, lw=2.2, ls="--")
+    ax.set_yticks(ys)
+    ax.set_yticklabels(labels, fontsize=13.5)
+    ax.set_xlim(0, 1.62)
     ax.set_xticks([0, 0.5, 1.0, 1.5])
-    ax.set_xlabel("measured effect / judge bound  (pass at ≤ 1.0)",
-                  fontsize=15, color=INK)
-    for y, (label, got, bound, unit), r, p in zip(ys, rows[::-1], ratios,
-                                                  passed):
-        ax.text(min(r + 0.03, 1.58), y,
-                "%.2g / %.2g %s" % (got, bound, unit), fontsize=12.5,
-                va="center", color=INK,
-                ha="right" if r > 1.45 else "left")
-    ax.set_title("Hostile snippets: measured containment vs the judge's bounds",
-                 fontsize=19, color=INK, weight="bold", loc="left", pad=14)
-    ax.tick_params(colors=INK)
+    ax.tick_params(colors=INK, labelsize=12)
+    ax.set_xlabel("measured effect / judge bound   (pass at ≤ 1.0)",
+                  fontsize=12.5, color=INK)
+    ax.text(1.0, len(rows) - 0.45, "judge bound", color=VERMILLION,
+            fontsize=11, va="bottom", ha="center", weight="bold")
+    for y, (label, got, bound, unit), r in zip(ys, rows[::-1], ratios):
+        ax.text(min(r + 0.03, 1.60), y + 0.02,
+                "%s / %s  %s" % (_fmt(got), _fmt(bound), unit),
+                fontsize=10.5, va="center", color=INK,
+                ha="right" if r > 1.12 else "left")
+    fig.text(0.02, 0.965, "Hostile snippets: measured effect vs the "
+             "judge's bound", fontsize=15, color=INK, weight="bold",
+             va="top")
 
-    ax2 = fig.add_subplot(grid[0, 3:])
-    ax2.axis("off")
     if show_effects:
-        rows_txt = []
-        for name in EFFECT_ORDER:
+        fig.text(0.68, 0.905, "Effect gates (binary)", fontsize=12.5,
+                 weight="bold", color=INK, va="top")
+        y = 0.84
+        for i, name in enumerate(EFFECT_ORDER):
             run = verdict.get("runs", {}).get(name, {})
             ok = bool(run.get("pass"))
-            rows_txt.append("%-20s %-7s %-10s %s"
-                            % (GATE_LABEL[name], run.get("verdict", "?"),
-                               run.get("reason", "?"),
-                               "pass" if ok else "FAIL"))
-        body = "\n".join(rows_txt)
-        ax2.text(0.0, 0.97, "Effect gates (binary)", fontsize=17,
-                 weight="bold", color=INK, va="top")
-        ax2.text(0.0, 0.90, "snippet             verdict reason     effect",
-                 fontsize=12.5, color="#666666", va="top", family="monospace")
-        ax2.text(0.0, 0.83, body, fontsize=13.5, color=INK, va="top",
-                 family="monospace", linespacing=1.75)
-        for i, name in enumerate(EFFECT_ORDER):
-            ok = bool(verdict.get("runs", {}).get(name, {}).get("pass"))
-            ax2.text(-0.06, 0.83 - 0.062 * i, "✔" if ok else "✘",
-                     fontsize=15, color=GREEN if ok else VERMILLION,
-                     va="top", weight="bold", transform=ax2.transAxes,
-                     clip_on=False)
-        ax2.text(0.0, 0.30, "\n".join(EFFECT_TEXT[name] for name in
-                                      EFFECT_ORDER),
-                 fontsize=11.5, color="#666666", va="top", style="italic",
-                 linespacing=1.9)
+            fig.text(0.685, y, "✔" if ok else "✘", fontsize=13,
+                     color=GREEN if ok else VERMILLION, va="center",
+                     weight="bold")
+            fig.text(0.715, y, "%s — %s" % (GATE_LABEL[name],
+                                            run.get("reason", "?")),
+                     fontsize=10, color=INK, va="center")
+            y -= 0.055
+        fig.text(0.685, y - 0.02, "scored from effects the runner",
+                 fontsize=9.5, color="#666666", style="italic", va="top")
+        fig.text(0.685, y - 0.055, "does not control:",
+                 fontsize=9.5, color="#666666", style="italic", va="top")
+        fig.text(0.685, y - 0.105, "\n".join(EFFECT_TEXT[n] for n in
+                                             EFFECT_ORDER),
+                 fontsize=9.5, color="#666666", style="italic", va="top",
+                 linespacing=1.6)
     return fig
 
 
 def draw_loop(fig, verdict, good, mutants, rate, stage=1.0):
     fig.clf()
-    grid = fig.add_gridspec(1, 2, width_ratios=[3, 2])
-    ax = fig.add_subplot(grid[0, 0])
+    ax = fig.add_axes([0.10, 0.28, 0.54, 0.54])
     names = [m[0].replace("_", "\n") for m in mutants]
     vals = [(1.0 if m[1] else 0.0) * stage for m in mutants]
     ax.bar(range(len(mutants)), vals, color=[BLUE if m[1] else VERMILLION
-                                             for m in mutants])
-    ax.axhline(0.9, color=VERMILLION, lw=2.5, ls="--")
-    ax.text(len(mutants) - 0.4, 0.935, "required kill rate ≥ 90%",
-            color=VERMILLION, fontsize=14, ha="right", weight="bold")
+                                             for m in mutants], width=0.7)
+    ax.axhline(0.9, color=VERMILLION, lw=2.0, ls="--")
+    ax.text(len(mutants) - 0.5, 0.86, "required kill rate ≥ 90%",
+            color=VERMILLION, fontsize=10, ha="right", weight="bold",
+            bbox=dict(facecolor="white", edgecolor="none", pad=1.0))
     ax.set_xticks(range(len(mutants)))
-    ax.set_xticklabels(names, fontsize=9.5, rotation=55, ha="right")
-    ax.set_ylim(0, 1.12)
+    ax.set_xticklabels(names, fontsize=8.5, rotation=45, ha="right")
+    ax.set_ylim(0, 1.08)
     ax.set_yticks([0, 1])
-    ax.set_yticklabels(["survived", "killed"], fontsize=13)
-    ax.set_title("Self-test: single-edit mutants of the good runner "
-                 "(kill rate %s)" % rate, fontsize=16, color=INK,
-                 weight="bold", loc="left", pad=10)
+    ax.set_yticklabels(["survived", "killed"], fontsize=11.5)
     ax.tick_params(colors=INK)
+    fig.text(0.03, 0.955, "Self-test: single-edit mutants of the good runner",
+             fontsize=14.5, weight="bold", color=INK, va="top")
+    fig.text(0.03, 0.90, "kill rate %s" % rate, fontsize=11.5,
+             color="#666666", va="top")
 
-    ax2 = fig.add_subplot(grid[0, 1])
-    ax2.axis("off")
+    fig.text(0.72, 0.955, "Judge gates", fontsize=14.5, weight="bold",
+             color=INK, va="top")
+    fig.text(0.72, 0.90, "known-good runner: %s" % ("PASS" if good
+                                                    else "FAIL"),
+             fontsize=11.5, color="#666666", va="top")
     gates = sorted(verdict.get("gates", {}).items())
-    ax2.text(0.0, 0.97, "Judge gates, known-good runner",
-             fontsize=16, weight="bold", color=INK, va="top")
-    for i, (name, g) in enumerate(gates):
+    y = 0.80
+    for name, g in gates:
         ok = bool(g.get("pass")) and stage >= 1.0
-        ax2.text(0.02, 0.86 - 0.115 * i, "✔" if ok else "✘",
-                 fontsize=18, color=GREEN if ok else VERMILLION, va="top",
+        fig.text(0.725, y, "✔" if ok else "✘", fontsize=13,
+                 color=GREEN if ok else VERMILLION, va="center",
                  weight="bold")
-        ax2.text(0.14, 0.865 - 0.115 * i, name, fontsize=16, color=INK,
-                 va="top", family="monospace")
+        fig.text(0.755, y, name, fontsize=11.5, color=INK, va="center")
         note = ""
         if name == "containment" and g.get("total"):
             note = "%d/%d contained" % (g.get("contained", 0), g.get("total"))
         if name == "benign" and g.get("total"):
             note = "%d/%d exact" % (g.get("matched", 0), g.get("total"))
         if note:
-            ax2.text(0.62, 0.865 - 0.115 * i, note, fontsize=13,
-                     color="#666666", va="top")
-    ax2.text(0.0, 0.13, "known-good: %s" % ("PASS" if good else "FAIL"),
-             fontsize=14, color=INK, va="top", family="monospace")
+            fig.text(0.86, y, note, fontsize=9.5, color="#666666",
+                     va="center")
+        y -= 0.072
     return fig
 
 
@@ -279,7 +282,7 @@ def main():
     rows = numeric_rows(verdict, policy)
     good, mutants, rate = parse_selftest(selftest)
 
-    fig = plt.figure(figsize=(9.6, 5.4))
+    fig = plt.figure(figsize=(10.0, 5.6))
     if mode == "stills":
         draw_result(fig, verdict, policy, rows)
         fig.savefig(os.path.join(HERE, "result.png"), dpi=200,

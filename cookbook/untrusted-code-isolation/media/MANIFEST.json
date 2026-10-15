@@ -1,0 +1,35 @@
+{
+  "artifacts_from": "/tmp/uci-fake",
+  "demo": "untrusted-code-isolation",
+  "files": {
+    "demo.mp4": {
+      "command": "media/make_media.sh /tmp/uci-fake",
+      "sha256": "d2ff49f0ccc49a228b07e2ccc6622f9e6e3090110767269c9b8f2e59999192b9",
+      "shows": "Step-through: containment bars growing to their measured ratios against the pass line, the effect gates, the mutant kill rate and the final verdict.",
+      "source_data": [
+        "verdict.json",
+        "selftest.log",
+        "judge/policy.json"
+      ]
+    },
+    "loop.png": {
+      "command": "media/make_media.sh /tmp/uci-fake",
+      "sha256": "1201bc61547abc2a5222c47c5c1f0393e7080fa4197a4ac87282f81af96c72d2",
+      "shows": "Self-test kill results for the 10 single-edit mutants with the required 90% kill-rate line, and the five gate results for the known-good runner.",
+      "source_data": [
+        "selftest.log (mutant kill lines, kill rate)",
+        "verdict.json (gates)"
+      ]
+    },
+    "result.png": {
+      "command": "media/make_media.sh /tmp/uci-fake",
+      "sha256": "c888751c79ed31a2a9d92d63fc398771038e138e1f8d96f0b2d22509217a35db",
+      "shows": "Measured containment of the 6 numerically bounded hostile snippets against the judge's bounds (pass line at 1.0), plus the 4 binary effect gates.",
+      "source_data": [
+        "verdict.json (runs, measured, gates.containment.effects)",
+        "judge/policy.json (bounds)"
+      ]
+    }
+  },
+  "generated_by": "media/make_media.sh"
+}
