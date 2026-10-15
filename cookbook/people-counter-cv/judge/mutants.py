@@ -34,9 +34,14 @@ EDIT = [
                 if (tr.armed and tr.age >= MIN_TRACK_FRAMES
                         and tr.px is not None
                         and (tr.px - line_x) * (tr.x - line_x) <= 0
-                        and tr.px != tr.x):''',
-     '''                if (tr.age == MIN_TRACK_FRAMES
-                        and abs(tr.x - line_x) < 30):'''),
+                        and tr.px != tr.x):
+                    f = (line_x - tr.px) / (tr.x - tr.px)
+                    t = (k - 1 + f) / fps
+                    d_east = 1 if tr.x > tr.px else 0''',
+     '''                if (tr.age >= MIN_TRACK_FRAMES
+                        and abs(tr.x - line_x) < 30):
+                    t = (k - 1) / fps
+                    d_east = 1 if tr.x > line_x else 0'''),
     ("missing_clip",
      '    cap = cv2.VideoCapture(vid["file"])',
      '    cap = cv2.VideoCapture(vid["file"] + ".missing")'),

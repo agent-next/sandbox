@@ -1,0 +1,131 @@
+{
+  "demo": "people-counter-cv",
+  "note": "every iteration graded for real by judge/grade.sh; drafts regenerated from the good counter by examples/loop.py",
+  "iterations": [
+    {
+      "iteration": 1,
+      "draft": "iter1_no_hysteresis_no_exclusivity",
+      "change": "first working draft: edge-triggered crossing with no re-arm hysteresis and no per-blob claim exclusivity - centroid jitter at the line read as a second crossing (21 events, the last one duplicated)",
+      "passed": false,
+      "gates": {
+        "csv_shape": true,
+        "oracle": false,
+        "run": true,
+        "structure": true
+      },
+      "oracle": {
+        "truth_counts": {
+          "east": 11,
+          "west": 9
+        },
+        "artifact_counts": {
+          "east": 11,
+          "west": 10
+        },
+        "count_err": {
+          "east": 0,
+          "west": 1
+        },
+        "matched": 20,
+        "recall": 1.0,
+        "precision": 0.9524,
+        "time_mae_s": 0.0072,
+        "time_max_dev_s": 0.0153
+      },
+      "failed_gates": [
+        "oracle"
+      ],
+      "judge_intact": true
+    },
+    {
+      "iteration": 2,
+      "draft": "iter2_no_hysteresis",
+      "change": "tracks now claim blobs exclusively, but crossings still have no re-arm hysteresis - the duplicate survived (still 21 events)",
+      "passed": false,
+      "gates": {
+        "csv_shape": true,
+        "oracle": false,
+        "run": true,
+        "structure": true
+      },
+      "oracle": {
+        "truth_counts": {
+          "east": 11,
+          "west": 9
+        },
+        "artifact_counts": {
+          "east": 11,
+          "west": 10
+        },
+        "count_err": {
+          "east": 0,
+          "west": 1
+        },
+        "matched": 20,
+        "recall": 1.0,
+        "precision": 0.9524,
+        "time_mae_s": 0.0072,
+        "time_max_dev_s": 0.0153
+      },
+      "failed_gates": [
+        "oracle"
+      ],
+      "judge_intact": true
+    },
+    {
+      "iteration": 3,
+      "draft": "iter3_wrong_hysteresis",
+      "change": "re-count gated on distance from the x where the last event fired - which is always the line itself, so the genuine double-crosser's return crossing was suppressed (19 events)",
+      "passed": false,
+      "gates": {
+        "csv_shape": true,
+        "oracle": false,
+        "run": true,
+        "structure": true
+      },
+      "oracle": {
+        "truth_counts": {
+          "east": 11,
+          "west": 9
+        },
+        "artifact_counts": {
+          "east": 11,
+          "west": 8
+        },
+        "count_err": {
+          "east": 0,
+          "west": -1
+        },
+        "matched": 19,
+        "recall": 0.95,
+        "precision": 1.0,
+        "time_mae_s": 0.0072,
+        "time_max_dev_s": 0.0153
+      },
+      "failed_gates": [
+        "oracle"
+      ],
+      "judge_intact": true
+    },
+    {
+      "iteration": 4,
+      "draft": "good",
+      "change": "hysteresis re-arms only once the track has travelled RECROSS_HYST_PX clear of the line: jitter cannot re-count, a genuine turn-around still can - all 20 truth events, no phantoms",
+      "passed": true,
+      "gates": {
+        "structure": true,
+        "run": true,
+        "csv_shape": true,
+        "oracle": true,
+        "agreement": true
+      },
+      "oracle": {
+        "matched": 20,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "failed_gates": [],
+      "judge_intact": true
+    }
+  ]
+}

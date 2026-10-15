@@ -38,8 +38,9 @@ RUN_TIMEOUT_S = 300
 
 # oracle tolerances (SPEC.md)
 COUNT_ERR_MAX = 1          # per direction
-RECALL_MIN = 0.95
-PRECISION_MIN = 0.95
+RECALL_MIN = 0.98          # with 20 truth events: zero misses allowed
+PRECISION_MIN = 0.98       # and zero phantoms - a counter must not
+                           # double-count or invent crossings
 TIME_MAE_MAX_S = 0.15
 TIME_MAX_DEV_S = 0.30
 PAIR_WINDOW_S = 0.50       # truth/artifact pairing window
