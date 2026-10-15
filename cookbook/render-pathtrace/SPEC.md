@@ -1,4 +1,4 @@
-# Material studio, CPU path tracing
+# Material studio, GPU path tracing
 
 ## Goal and artifact
 
@@ -7,10 +7,14 @@ OpenPBR materials on a plane, lit by rect/sphere lights and a constant or
 procedural environment. A fixed, trusted browser harness renders linear HDR
 with [MuTracer](https://github.com/pissang/mutracer) 0.1.1 (MIT).
 No executable artifact code, imported models, textures, network render assets,
-denoising, media production, or GPU performance claims are in scope.
+denoising, or media production are in scope.
 
-The driver supports `--backend cpu|gpu`. Both use WebGPU; CPU explicitly selects
-SwiftShader. GPU leases are future work, not an acceptance prerequisite.
+The runner defaults to `--backend gpu`: a fresh `browser` GPU lease, offline
+MuTracer and NumPy installation, and full Chromium on a verified NVIDIA WebGPU
+adapter. Software or unidentified adapters fail. `--backend cpu` explicitly
+selects SwiftShader and remains a documented, failing diagnostic alternative.
+The caller verifies npm SHA-512 plus SHA-256 and the NumPy wheel SHA-256 before
+upload. The offline setup rechecks both packages before installation.
 
 ## Acceptance oracle
 
@@ -47,14 +51,15 @@ JavaScript. Seed defaults to 17 and can be overridden with `--seed`.
    tone-mapped channel >=1 at most 0.10. Relative RMS noise in the fixed
    foreground floor patch, measured between independent seeded buffers and
    divided by sqrt(2) and mean floor luminance, <=0.15.
-   Resolution 64–128 pixels per side; final spp 16–64; entire grade <600 s.
+   Resolution 64–512 pixels per side; final spp 16–256; entire grade <600 s.
    Three to five spheres and at least three distinct sphere materials,
    one floor; camera outside all spheres. Budgets fail before rendering.
 
-The G5 limits above are initial engineering targets. Before claiming acceptance,
-record measured good-scene values and freeze any justified adjustments here.
-The low resolution is deliberate: this runs headless on two CPU cores with
-about 3 GB RAM and software WebGPU.
+The final scene uses 512×512 and 128 spp. The G5 image thresholds retain the
+engineering targets above; acceptance requires measured good-scene values in
+`RECEIPT.md`. The GPU budget increase does not loosen any photometric threshold.
+The acceptance resolution is independent of adapter detection. A real HDR
+render, rather than an adapter smoke, is required for every physical gate.
 
 ## Judge self-test and reproducibility
 
@@ -62,9 +67,12 @@ Single-edit mutants: baseColor=1.6, undeclared floor emission, light intensity
 x100, spp=1, camera inside a sphere, NaN material parameter, over-budget
 resolution. Require all mutants rejected and kill rate >=90%.
 Repeat grading with the same seed and compare complete verdicts after removing
-only `timing`. Two fresh CPU sandbox receipts are required. Cross-sandbox G1,
+only `timing`. Two fresh GPU lease receipts are required. Cross-lease G1,
 G2 and G5 means must agree within 1e-4 and G3 slope within 1e-4 for the same
 browser/adapter versions; timing may vary.
+The final linear HDR buffer must be byte-identical across the two leases;
+otherwise report both hashes and measured numeric differences without claiming
+cross-lease determinism.
 
 Independent reproduction by another model family is a pre-merge requirement;
 unavailable reproduction must be marked not done, never inferred.
