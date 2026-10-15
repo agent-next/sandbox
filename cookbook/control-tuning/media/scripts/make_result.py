@@ -169,7 +169,7 @@ leg = axm.legend(handles=handles, loc="upper left",
                  bbox_to_anchor=(0.02, 0.81), fontsize=10,
                  frameon=True, facecolor=c.SURFACE, edgecolor=c.GRID)
 leg.get_texts()[0].set_color(c.INK2)
-axm.text(0.02, 0.87, "every dot must sit left of / below its red limit",
+axm.text(0.02, 0.87, "dots must sit left of / below the red limits",
          transform=axm.transAxes, fontsize=9.5, color=c.CRIT, va="top")
 
 fig.suptitle("LQR cart-pole under the judge's spec envelope - all gates pass",
