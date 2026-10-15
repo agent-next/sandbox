@@ -24,13 +24,20 @@ trap 'rm -rf "$tmp"' EXIT
 
 python3 - "$tmp/cam.bin" <<'PY'
 import struct, sys
-view = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,-5,1]   # column-major, eye at z=+5
-proj = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0]
+# The pinned renderer expects the caller's 4x4 matrices as COLUMN-MAJOR
+# flat arrays: flat[c*4 + r] = M[r][c].  Verified against the renderer's
+# own headless render on llvmpipe -- the row-major byte layout draws
+# nothing (a flat image with ok=1), so this layout is load-bearing.
+# Eye at z=+5 looking down -Z, identity view -> translation at index 11.
+view = [1,0,0,0,  0,1,0,0,  0,0,1,0,  0,0,0,1]
+view[11] = -5.0
 f = 1.0 / __import__("math").tan(__import__("math").radians(45.0) / 2)
-aspect = 640 / 480
-proj[0] = f / aspect; proj[5] = f
-proj[10] = -(100 + 0.1) / (100 - 0.1); proj[11] = -1.0
-proj[14] = -(2 * 100 * 0.1) / (100 - 0.1)
+proj = [0] * 16
+proj[0]  = f / (640 / 480)                  # M[0][0]
+proj[5]  = f                               # M[1][1]
+proj[10] = -(100 + 0.1) / (100 - 0.1)       # M[2][2]
+proj[11] = -(2 * 100 * 0.1) / (100 - 0.1)   # M[2][3]
+proj[14] = -1.0                            # M[3][2] -> w = -z
 buf = struct.pack("<39f", *(view + proj + [0, 0, 5] + [640, 480, 0, 0]))
 open(sys.argv[1], "wb").write(buf)
 PY
