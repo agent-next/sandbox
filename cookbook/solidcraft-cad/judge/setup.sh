@@ -40,8 +40,10 @@ import sys
 assert (3, 12) <= sys.version_info[:2] <= (3, 13), sys.version
 PY
 
-if [ -x "$VENV/bin/python" ] && "$VENV/bin/python" -c "import OCP, matplotlib" 2>/dev/null; then
-    echo "setup: judge venv already present (skipping pip)"
+# Reuse a venv only if it was installed from this exact requirements.txt.
+REQ_SHA="$(sha256sum "$JDIR/requirements.txt" | cut -d' ' -f1)"
+if [ -x "$VENV/bin/python" ] && [ "$(cat "$VENV/.requirements.sha256" 2>/dev/null)" = "$REQ_SHA" ]; then
+    echo "setup: judge venv already installed from this requirements.txt (skipping pip)"
 else
     if ! python3 -m venv "$VENV" 2>/dev/null; then
         # Debian ships venv separately; make sure apt actually has package lists.
@@ -54,6 +56,7 @@ else
         python3 -m venv "$VENV"
     fi
     "$VENV/bin/pip" install -q --disable-pip-version-check --no-cache-dir --require-hashes -r "$JDIR/requirements.txt"
+    echo "$REQ_SHA" > "$VENV/.requirements.sha256"
 fi
 # OCP needs libGL/libX11 at import time on minimal images.
 if ! "$VENV/bin/python" -c "from OCP.STEPControl import STEPControl_Reader" 2>/dev/null; then

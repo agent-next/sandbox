@@ -15,6 +15,7 @@ Prints one JSON verdict; exits 0 only if every gate passes.  See SPEC.md.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import os
@@ -37,6 +38,9 @@ ALLOWED_PREFIXES = ("sketch.", "solid.", "construct.", "parameters.change", "par
                     "timeline.", "material.assign", "appearance.assign", "body.rename",
                     "edit.undo", "edit.redo", "document.units", "select.")
 DENIED = {"sketch.insert_dxf", "sketch.insert_svg", "sketch.export_dxf"}
+# sketch.text / sketch.edit_text take an installed font family or a font *file*;
+# only the family form is allowed.
+FONT_FILE_CHARS = ("/", "\\", "~", "%", ":")
 
 GATES = ["build", "occt_shape", "volume", "features", "mass", "cross_check", "parametric", "stl"]
 
@@ -50,7 +54,9 @@ TOL = {
     "com_mm": 0.01,
     "param_rel": 0.002,
     "stl_rel": 0.005,
+    "probe_mm": 0.01,  # wall probes sit this far either side of each fitted cylinder
 }
+PROBE_LEVELS, PROBE_ANGLES = 12, 36
 
 
 def r6(x: float) -> float:
@@ -106,7 +112,28 @@ def check_commands(design: dict) -> str | None:
             return f"command {i} has no 'command' string"
         if name in DENIED or not name.startswith(ALLOWED_PREFIXES):
             return f"command {i} '{name}' is not allowed in a graded design (see SPEC.md)"
+        err = check_params(c.get("params"))
+        if err:
+            return f"command {i} '{name}': {err}"
     return None
+
+
+def check_params(v) -> str | None:
+    """Walk nested params: commands embedded in them (e.g. a timeline edit)
+    obey the same allowlist, and a font may not be a file path."""
+    if isinstance(v, list):
+        return next((e for e in map(check_params, v) if e), None)
+    if not isinstance(v, dict):
+        return None
+    if "command" in v:
+        err = check_commands({"commands": [v]})
+        if err:
+            return f"nested {err}"
+    font = v.get("font")
+    if isinstance(font, str) and (any(ch in font for ch in FONT_FILE_CHARS)
+                                  or font.lower().endswith((".ttf", ".otf", ".ttc"))):
+        return f"font {font!r} is a file path; name an installed font family instead"
+    return next((e for e in map(check_params, (x for k, x in v.items() if k != "command")) if e), None)
 
 
 def solidcraft(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -131,6 +158,7 @@ def occt_measure(step: Path) -> dict:
     from OCP.BRepAdaptor import BRepAdaptor_Surface
     from OCP.BRepBndLib import BRepBndLib
     from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.BRepClass3d import BRepClass3d_SolidClassifier
     from OCP.BRepGProp import BRepGProp, BRepGProp_Face
     from OCP.BRepTools import BRepTools
     from OCP.Bnd import Bnd_Box
@@ -138,7 +166,7 @@ def occt_measure(step: Path) -> dict:
     from OCP.GProp import GProp_GProps
     from OCP.IFSelect import IFSelect_RetDone
     from OCP.STEPControl import STEPControl_Reader
-    from OCP.TopAbs import TopAbs_FACE, TopAbs_SOLID
+    from OCP.TopAbs import TopAbs_FACE, TopAbs_IN, TopAbs_OUT, TopAbs_SOLID
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopoDS import TopoDS
     from OCP.gp import gp_Pnt, gp_Vec
@@ -165,7 +193,7 @@ def occt_measure(step: Path) -> dict:
 
     # Cylindrical faces with a Z axis, merged by (centre, radius): a hole or
     # bore can be split into several faces by seams and boolean steps.
-    cyl: dict[tuple, dict] = {}
+    cyl: list[dict] = []
     ex = TopExp_Explorer(shape, TopAbs_FACE)
     while ex.More():
         face = TopoDS.Face(ex.Current())
@@ -175,16 +203,35 @@ def occt_measure(step: Path) -> dict:
             x, y, r, concave = found
             fb = Bnd_Box()
             BRepBndLib.Add_s(face, fb)
-            z0, z1 = fb.CornerMin().Z(), fb.CornerMax().Z()
-            key = (round(x, 3), round(y, 3), round(r, 3), concave)
-            e = cyl.setdefault(key, {"x": x, "y": y, "r": r, "concave": concave, "z0": z0, "z1": z1})
-            e["z0"], e["z1"] = min(e["z0"], z0), max(e["z1"], z1)
+            add_cylinder(cyl, x, y, r, concave, fb.CornerMin().Z(), fb.CornerMax().Z())
         ex.Next()
+
+    clf = BRepClass3d_SolidClassifier(shape)
+
+    def classify(pts):
+        """'in' / 'out' / 'on' for each (x, y, z): is the point in material?"""
+        states = []
+        for x, y, z in pts:
+            clf.Perform(gp_Pnt(x, y, z), 1e-7)
+            st = clf.State()
+            states.append("in" if st == TopAbs_IN else "out" if st == TopAbs_OUT else "on")
+        return states
 
     return {"solids": solids, "valid": bool(BRepCheck_Analyzer(shape).IsValid()),
             "volume": vp.Mass(), "area": sp.Mass(), "com": [com.X(), com.Y(), com.Z()],
             "bbox_min": [lo.X(), lo.Y(), lo.Z()], "bbox_max": [hi.X(), hi.Y(), hi.Z()],
-            "cylinders": sorted(cyl.values(), key=lambda e: (e["r"], e["x"], e["y"]))}
+            "cylinders": sorted(cyl, key=lambda e: (e["r"], e["x"], e["y"])), "classify": classify}
+
+
+def add_cylinder(cyl: list, x, y, r, concave, z0, z1, tol=1e-3) -> None:
+    """Merge a face into the cylinder it continues (same centre and radius to
+    `tol`), else start a new one.  The z span is only a summary: the wall
+    probes in features() check that material really surrounds the whole span."""
+    for e in cyl:
+        if e["concave"] == concave and max(abs(e["x"] - x), abs(e["y"] - y), abs(e["r"] - r)) <= tol:
+            e["z0"], e["z1"] = min(e["z0"], z0), max(e["z1"], z1)
+            return
+    cyl.append({"x": x, "y": y, "r": r, "concave": concave, "z0": z0, "z1": z1})
 
 
 def z_cylinder(face, surf, cyl_type, plane_type, BRepTools, BRepGProp_Face, gp_Pnt, gp_Vec):
@@ -228,10 +275,16 @@ def z_cylinder(face, surf, cyl_type, plane_type, BRepTools, BRepGProp_Face, gp_P
 
 
 def fit_circle(pts):
-    """Least-squares circle x^2 + y^2 + D x + E y + F = 0 (Kasa); None if degenerate."""
+    """Least-squares circle x^2 + y^2 + D x + E y + F = 0 (Kasa); None if degenerate.
+    Solved in coordinates centred on the points' mean and scaled to unit size,
+    so a short arc far from the origin stays well conditioned."""
+    mx, my = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+    sc = max(math.hypot(x - mx, y - my) for x, y in pts)
+    if sc == 0:
+        return None
     A = [[0.0] * 3 for _ in range(3)]
     b = [0.0] * 3
-    for x, y in pts:
+    for x, y in (((x - mx) / sc, (y - my) / sc) for x, y in pts):
         row, rhs = (x, y, 1.0), -(x * x + y * y)
         for i in range(3):
             b[i] += row[i] * rhs
@@ -253,14 +306,16 @@ def fit_circle(pts):
     D, E, F = sol
     cx, cy = -D / 2, -E / 2
     rr = cx * cx + cy * cy - F
-    return (cx, cy, math.sqrt(rr)) if rr > 0 else None
+    return (mx + sc * cx, my + sc * cy, sc * math.sqrt(rr)) if rr > 0 else None
 
 
 # --------------------------------------------------------------------- STL --
 
 def stl_check(path: Path) -> dict:
-    """Binary or ASCII STL: closed 2-manifold with consistent orientation, and
-    its divergence-theorem volume."""
+    """Binary or ASCII STL: closed 2-manifold with consistent orientation (every
+    directed edge used once and its reverse once; around every vertex the
+    triangles form one fan; no degenerate triangle), and its
+    divergence-theorem volume."""
     data = path.read_bytes()
     tris = []
     n = struct.unpack_from("<I", data, 80)[0] if len(data) >= 84 else -1
@@ -273,14 +328,31 @@ def stl_check(path: Path) -> dict:
                for ln in data.decode("ascii", "replace").splitlines() if ln.strip().startswith("vertex")]
         tris = [tuple(pts[i:i + 3]) for i in range(0, len(pts) - 2, 3)]
     directed: dict[tuple, int] = {}
-    vol = 0.0
+    link: dict[tuple, dict] = {}  # vertex -> {next vertex: following vertex} around it
+    vol, degenerate = 0.0, 0
     for a, b, c in tris:
         vol += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0])
                 + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6.0
+        u = [b[i] - a[i] for i in range(3)]
+        w = [c[i] - a[i] for i in range(3)]
+        if u[1] * w[2] - u[2] * w[1] == 0 and u[2] * w[0] - u[0] * w[2] == 0 and u[0] * w[1] - u[1] * w[0] == 0:
+            degenerate += 1
         for e in ((a, b), (b, c), (c, a)):
             directed[e] = directed.get(e, 0) + 1
+        for v, p, q in ((a, b, c), (b, c, a), (c, a, b)):
+            link.setdefault(v, {})[p] = q
     bad = sum(1 for e, k in directed.items() if k != 1 or directed.get((e[1], e[0])) != 1)
-    return {"triangles": len(tris), "bad_edges": bad, "volume": abs(vol)}
+    bad_vertices = 0
+    for fan in link.values():  # one cycle through every neighbour, or the vertex is pinched
+        start = cur = next(iter(fan))
+        for steps in range(1, len(fan) + 1):
+            cur = fan.get(cur)
+            if cur is None or cur == start:
+                break
+        if cur != start or steps != len(fan):
+            bad_vertices += 1
+    return {"triangles": len(tris), "bad_edges": bad, "bad_vertices": bad_vertices,
+            "degenerate": degenerate, "volume": abs(vol)}
 
 
 # ------------------------------------------------------------------- gates --
@@ -343,8 +415,10 @@ def grade(design_path: Path, spec: dict, seed: int) -> dict:
 
         s = stl_check(stl)
         srel = abs(s["volume"] - m["volume"]) / m["volume"]
-        done("stl", s["bad_edges"] == 0 and s["triangles"] > 0 and srel <= TOL["stl_rel"],
+        done("stl", s["bad_edges"] == s["bad_vertices"] == s["degenerate"] == 0 and s["triangles"] > 0
+             and srel <= TOL["stl_rel"],
              triangles=s["triangles"], non_manifold_edges=s["bad_edges"],
+             non_manifold_vertices=s["bad_vertices"], degenerate_triangles=s["degenerate"],
              stl_volume_mm3=r6(s["volume"]), rel_dev_vs_step=r6(srel), limit_rel=TOL["stl_rel"])
     return finish(gates, timing, seed)
 
@@ -383,6 +457,11 @@ def features(m: dict, spec: dict) -> tuple[bool, dict]:
         problems.append(f"bolt hole spacing off by {ang_dev:.3f} deg")
     if bolts and edge < spec["min_edge_distance"]:
         problems.append(f"edge distance {edge:.3f} < {spec['min_edge_distance']}")
+    # the pattern's phase too: every nominal centre (first hole at first_angle_deg) has a hole
+    pos_dev = max((min(math.hypot(c["x"] - x, c["y"] - y) for c in bolts) for x, y in hole_centres(spec)),
+                  default=0.0) if bolts else float("nan")
+    if bolts and pos_dev > TOL["pcd_mm"]:
+        problems.append(f"bolt pattern off its nominal positions by {pos_dev:.3f} mm")
     for c in bolts:
         if c["z0"] > TOL["bbox_mm"] or c["z1"] < T - TOL["bbox_mm"]:
             problems.append("a bolt hole does not go through the plate")
@@ -399,14 +478,63 @@ def features(m: dict, spec: dict) -> tuple[bool, dict]:
     corners = [c for c in bosses if c not in boss and abs(c["r"] - r) <= TOL["diameter_mm"]]
     if len(corners) != 4:
         problems.append(f"expected 4 corner fillets of R{r}, found {len(corners)}")
+    else:
+        hx, hy = spec["plate"]["length"] / 2 - r, spec["plate"]["width"] / 2 - r
+        if max(min(math.hypot(c["x"] - sx * hx, c["y"] - sy * hy) for c in corners)
+               for sx in (1, -1) for sy in (1, -1)) > TOL["pcd_mm"]:
+            problems.append("corner fillets are not at the plate's corners")
+
+    probes = failed = 0
+    if not problems:  # every feature found: now check the walls really are there
+        probes, failed, where = wall_probes(m["classify"], spec, bore[0], bolts, boss[0], corners)
+        if failed:
+            problems.append(f"{failed}/{probes} wall probes found the wrong side of a wall, first: {where}")
 
     return not problems, {
         "bolt_holes": len(bolts), "bolt_diameter_max_dev_mm": r6(d_dev),
         "pcd_max_dev_mm": r6(pcd_dev), "spacing_max_dev_deg": r6(ang_dev),
+        "position_max_dev_mm": r6(pos_dev) if bolts else None,
+        "wall_probes": probes, "wall_probes_failed": failed,
         "min_edge_distance_mm": r6(edge) if bolts else None,
         "bore_diameter_mm": r6(bore_d) if bore_d else None,
         "boss_height_mm": r6(boss_h) if boss_h is not None else None,
         "corner_fillets": len(corners), "problems": problems}
+
+
+def wall_probes(classify, spec: dict, bore: dict, bolts: list, boss: dict, corners: list):
+    """Classify points TOL['probe_mm'] either side of every found cylinder over
+    the depth the spec requires: material must be on one side and none on the
+    other, all the way round and all the way through.  This catches what face
+    summaries miss: a web blocking a hole, a wall that bulges between the
+    samples that recognised it, faces of unrelated patches merged into one."""
+    T, H, d = spec["plate"]["thickness"], spec["boss"]["height"], TOL["probe_mm"]
+    rings = []  # (label, cylinder, radius, z0, z1, from_deg, to_deg, expected state)
+    rings += [("bore", bore, bore["r"] - d, 0, T + H, 0, 360, "out"),
+              ("bore wall", bore, bore["r"] + d, 0, T + H, 0, 360, "in")]
+    for i, c in enumerate(bolts):
+        rings += [(f"bolt hole {i}", c, c["r"] - d, 0, T, 0, 360, "out"),
+                  (f"bolt hole {i} wall", c, c["r"] + d, 0, T, 0, 360, "in")]
+    rings += [("boss", boss, boss["r"] - d, T, T + H, 0, 360, "in"),
+              ("outside the boss", boss, boss["r"] + d, T, T + H, 0, 360, "out")]
+    for c in corners:  # the quarter of the circle that faces outward
+        a = math.degrees(math.atan2(math.copysign(1, c["y"]), math.copysign(1, c["x"])))
+        rings += [("corner", c, c["r"] - d, 0, T, a - 45, a + 45, "in"),
+                  ("outside a corner", c, c["r"] + d, 0, T, a - 45, a + 45, "out")]
+    pts, want = [], []
+    for label, c, rad, z0, z1, a0, a1, state in rings:
+        for k in range(PROBE_LEVELS):
+            z = z0 + (z1 - z0) * (k + 0.5) / PROBE_LEVELS
+            for i in range(PROBE_ANGLES):
+                a = math.radians(a0 + (a1 - a0) * (i + 0.5) / PROBE_ANGLES)
+                pts.append((c["x"] + rad * math.cos(a), c["y"] + rad * math.sin(a), z))
+                want.append((label, state))
+    got = classify(pts)
+    bad = [(w, p) for w, p, g in zip(want, pts, got) if g != w[1]]
+    where = None
+    if bad:
+        (label, state), p = bad[0]
+        where = f"{label} at ({p[0]:.2f}, {p[1]:.2f}, {p[2]:.2f}) should be {'material' if state == 'in' else 'empty'}"
+    return len(pts), len(bad), where
 
 
 def cross_check(work: Path, m: dict) -> tuple[bool, dict]:
@@ -428,17 +556,16 @@ def cross_check(work: Path, m: dict) -> tuple[bool, dict]:
 
 
 def parametric(design: dict, work: Path, spec: dict, base_volume: float) -> tuple[bool, dict]:
+    """Set the parameter after the last command (so a design that defines or
+    renames it any way still gets it), rebuild, and grade the rebuilt part
+    against the spec at the new value: one valid solid, the whole bounding
+    box, every feature with its wall probes, and the volume change."""
     name, delta = spec["parametric"]["parameter"], spec["parametric"]["delta"]
     T = spec["plate"]["thickness"]
-    edits = 0
-    for c in design["commands"]:
-        p = c.get("params") or {}
-        if c["command"] in ("parameters.change", "parameters.add") and p.get("name") == name:
-            p["expression"] = f"{T + delta} mm"
-            edits += 1
-    if edits == 0:
-        return False, {"reason": f"no parameters.change/add for '{name}' in the design"}
-    (work / "edited.json").write_text(json.dumps(design))
+    edited = copy.deepcopy(design)
+    edited["commands"].append({"command": "parameters.change",
+                               "params": {"name": name, "expression": f"{T + delta} mm"}})
+    (work / "edited.json").write_text(json.dumps(edited))
     step, _, err = build(work / "edited.json", work, "edited")
     if err:
         return False, {"reason": f"rebuild with {name}={T + delta} failed: {err}"}
@@ -446,15 +573,20 @@ def parametric(design: dict, work: Path, spec: dict, base_volume: float) -> tupl
         e = occt_measure(step)
     except Exception as exc:  # noqa: BLE001
         return False, {"reason": f"OCCT re-import of the rebuilt part failed: {exc}"}
-    want = analytic(spec, T + delta)
+    spec2 = copy.deepcopy(spec)
+    spec2["plate"]["thickness"] = T + delta
+    want = analytic(spec2)
     got_d, want_d = e["volume"] - base_volume, want["volume"] - analytic(spec)["volume"]
     rel = abs(got_d - want_d) / abs(want_d)
-    zdev = abs(e["bbox_max"][2] - want["bbox_max"][2])
-    ok = e["solids"] == 1 and rel <= TOL["param_rel"] and zdev <= TOL["bbox_mm"]
-    return ok, {"parameter": name, "new_value_mm": T + delta, "solids": e["solids"],
+    bdev = max(abs(a - b) for a, b in zip(e["bbox_min"] + e["bbox_max"], want["bbox_min"] + want["bbox_max"]))
+    feat_ok, feat = features(e, spec2)
+    ok = e["solids"] == 1 and e["valid"] and rel <= TOL["param_rel"] and bdev <= TOL["bbox_mm"] and feat_ok
+    return ok, {"parameter": name, "new_value_mm": T + delta, "solids": e["solids"], "valid": e["valid"],
                 "volume_delta_mm3": r6(got_d), "analytic_delta_mm3": r6(want_d), "rel_dev": r6(rel),
-                "top_z_mm": r6(e["bbox_max"][2]), "expected_top_z_mm": r6(want["bbox_max"][2]),
-                "limit_rel": TOL["param_rel"]}
+                "bbox_max_dev_mm": r6(bdev), "top_z_mm": r6(e["bbox_max"][2]),
+                "expected_top_z_mm": r6(want["bbox_max"][2]), "features_ok": feat_ok,
+                "problems": [f"rebuilt part: {p}" for p in feat["problems"]],
+                "wall_probes": feat["wall_probes"], "limit_rel": TOL["param_rel"]}
 
 
 def finish(gates: dict, timing: dict, seed: int) -> dict:

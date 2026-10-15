@@ -86,9 +86,31 @@ def detached(sid: str, name: str, cmd: str, timeout: float) -> subprocess.Comple
                 if out.returncode == 0:
                     break
                 time.sleep(5)
+            else:
+                return subprocess.CompletedProcess(name, 1, "", f"{name} exited {status} but its output "
+                                                   f"could not be fetched: {out.stderr}")
             rc = int(status) if status.isdigit() else 1
             return subprocess.CompletedProcess(name, rc, out.stdout, out.stderr)
     return subprocess.CompletedProcess(name, 1, "", f"{name} did not finish within {timeout:.0f} s")
+
+
+def kill_confirmed(sid: str, attempts: int = 5) -> bool:
+    """Kill the sandbox, then require a successful `sbx list` without it.
+    A failed listing (e.g. a 503 while the gateway restarts) proves nothing,
+    so it is retried; True only on a readable listing that lacks the id."""
+    for i in range(attempts):
+        try:
+            killed = sbx("kill", sid, timeout=180)
+            if killed.returncode != 0:
+                print(f"run: WARNING kill exit {killed.returncode}: {killed.stderr.strip()[-200:]}",
+                      file=sys.stderr)
+            listing = sbx("list", timeout=120)
+        except subprocess.TimeoutExpired:
+            listing = None
+        if listing is not None and listing.returncode == 0 and sid not in listing.stdout:
+            return True
+        time.sleep(15 * (i + 1))
+    return False
 
 
 def main() -> int:
@@ -163,19 +185,9 @@ def main() -> int:
                 print(f"run: --keep: sandbox {sid} left running "
                      "(remember: sbx kill when done)", flush=True)
             else:
-                try:
-                    killed = sbx("kill", sid, timeout=180)
-                    if killed.returncode != 0:
-                        print(f"run: WARNING kill exit {killed.returncode}",
-                              file=sys.stderr)
-                    listing = sbx("list", timeout=120)
-                except subprocess.TimeoutExpired:
-                    print(f"run: FAILED cleanup: sbx kill/list timed out; "
-                          f"run sbx kill {sid}", file=sys.stderr)
-                    sys.exit(1)
-                if sid in (listing.stdout or ""):
-                    print(f"run: FAILED cleanup: sandbox {sid} still live; "
-                          "run sbx kill for this id", file=sys.stderr)
+                if not kill_confirmed(sid):
+                    print(f"run: FAILED cleanup: could not confirm sandbox {sid} "
+                          "is gone; run sbx kill for this id", file=sys.stderr)
                     sys.exit(1)
                 print(f"run: killed and confirmed gone: {sid}", flush=True)
     return 1 if fail else 0
