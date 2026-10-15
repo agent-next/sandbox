@@ -442,9 +442,9 @@ class Replayer:
         dr.text((px1 - dr.textlength(tl, font=f_s), y0 + ph - pad_b + 4),
                 tl, font=f_s, fill=MUTED)
         # limit tag
-        dr.text((X(info["limit"]) - 4, py0 + 4),
+        dr.text((X(info["limit"]) + 6, py0 + 4),
                 f"limit {info['limit']:.0f} s", font=f_s, fill=CRIT,
-                anchor="ra")
+                anchor="la")
 
     def close(self):
         self.renderer.close()

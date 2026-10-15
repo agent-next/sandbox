@@ -18,14 +18,18 @@
   <visual>
     <global offwidth="1920" offheight="1080" fovy="55"/>
     <quality shadowsize="4096" offsamples="4"/>
-    <rgba fog="0 0 0 1"/>
+    <headlight ambient="0.32 0.32 0.34" diffuse="0.18 0.18 0.18" specular="0 0 0"/>
+    <map znear="0.01" zfar="60" haze="0.25"/>
     <scale forcewidth="0.05" contactwidth="0.05"/>
   </visual>
 
   <asset>
     <texture name="sky" type="skybox" builtin="gradient"
              rgb1="0.955 0.965 0.98" rgb2="0.78 0.82 0.87" width="256" height="256"/>
-    <material name="floor_mat" rgba="0.90 0.89 0.87 1"
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.86 0.86 0.84"
+             rgb2="0.80 0.80 0.78" width="512" height="512" mark="edge"
+             markrgb="0.70 0.70 0.68"/>
+    <material name="floor_mat" texture="grid" texrepeat="40 40" texuniform="false"
               specular="0.05" shininess="0.05" reflectance="0"/>
     <material name="cart_mat" rgba="0.165 0.47 0.84 1" specular="0.25" shininess="0.35"/>
     <material name="pole_mat" rgba="0.22 0.21 0.20 1" specular="0.35" shininess="0.5"/>
@@ -36,15 +40,14 @@
   </asset>
 
   <worldbody>
-    <light name="key" pos="1.8 -2.2 3.4" dir="-0.45 0.55 -0.85"
-           directional="false" diffuse="1.0 1.0 1.0" specular="0.4 0.4 0.4"
-           ambient="0.42 0.42 0.45" castshadow="true"
-           attenuation="0.4 0.02 0.005"/>
-    <light name="fill" pos="-2.0 1.6 2.6" dir="0.5 -0.4 -0.75"
-           directional="false" diffuse="0.45 0.46 0.50" specular="0 0 0"
-           castshadow="false" attenuation="0.5 0.03 0.01"/>
+    <light name="key" pos="1.5 -2.0 4.0" dir="-0.35 0.45 -0.82"
+           directional="true" diffuse="0.62 0.62 0.60" specular="0.25 0.25 0.25"
+           castshadow="true"/>
+    <light name="fill" pos="-2.0 1.6 3.0" dir="0.45 -0.35 -0.82"
+           directional="true" diffuse="0.22 0.23 0.26" specular="0 0 0"
+           castshadow="false"/>
 
-    <geom name="floor" type="plane" pos="0 0 -0.02" size="8 8 0.02"
+    <geom name="floor" type="plane" pos="0 0 -0.02" size="20 20 0.02"
           material="floor_mat"/>
 
     <!-- rail along x -->
