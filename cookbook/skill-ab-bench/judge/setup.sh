@@ -108,6 +108,7 @@ fi
 # The corpus and the reference answers are generated, not hand-kept: fail
 # here, loudly, if the checked-in files have drifted from their generators.
 echo "setup: checking the generated corpus and reference answers"
+python3 -I "$JDIR/gen_inputs.py" --check
 python3 -I "$JDIR/gen_reference.py" --check
 
 echo "setup: tool versions"

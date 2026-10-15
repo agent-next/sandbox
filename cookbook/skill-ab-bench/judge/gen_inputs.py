@@ -146,7 +146,12 @@ def _corpus() -> dict[str, dict]:
     }
 
 
+def _render(tasks: list[dict]) -> str:
+    return json.dumps({"tasks": tasks}, indent=2, sort_keys=True) + "\n"
+
+
 def main() -> int:
+    check = "--check" in sys.argv[1:]
     corpus = _corpus()
     tasks = []
     for tid, kind, prompt, diff, note in TASK_TABLE:
@@ -186,7 +191,16 @@ def main() -> int:
     assert len(hard) == 12, f"expected 12 hard tasks, got {len(hard)}: {hard}"
     assert len(easy) == 4, f"expected 4 easy tasks, got {len(easy)}: {easy}"
 
-    OUT.write_text(json.dumps({"tasks": tasks}, indent=2, sort_keys=True) + "\n")
+    text = _render(tasks)
+    if check:
+        current = OUT.read_text(encoding="utf-8") if OUT.is_file() else ""
+        if current != text:
+            print("gen_inputs: judge/tasks.json is stale; run "
+                  "judge/gen_inputs.py", file=sys.stderr)
+            return 1
+        print(f"gen_inputs: judge/tasks.json is up to date ({len(tasks)} tasks)")
+        return 0
+    OUT.write_text(text, encoding="utf-8")
     print(f"gen_inputs: wrote {OUT} ({len(tasks)} tasks, {len(hard)} hard: "
           f"{', '.join(hard)})")
     for t in tasks:
