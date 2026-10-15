@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -87,7 +89,9 @@ def main() -> int:
 
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
-    scratch = outdir / "packages"
+    # The packages are scratch, and they must never land inside the artifact
+    # directory: the artifact holds exactly one file, results.json (SPEC.md).
+    scratch = Path(tempfile.mkdtemp(prefix="skill-ab-bench-pkgs-"))
     packages = gen_skill.build(scratch)
 
     tasks = _load_tasks()
@@ -129,6 +133,7 @@ def main() -> int:
     out.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n",
                    encoding="utf-8")
 
+    shutil.rmtree(scratch, ignore_errors=True)
     wall = time.perf_counter() - t0
     n = len(records)
     counts = {a: sum(1 for r in records if r[a]["passed"]) for a in arm_names}

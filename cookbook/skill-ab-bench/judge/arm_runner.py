@@ -21,6 +21,10 @@ import sys
 import time
 from pathlib import Path
 
+# Loading the skill package must not leave a __pycache__ behind: the package
+# is an artifact on the desk, and a stray .pyc would make two runs of the
+# bench differ on disk for no experimental reason.
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import arms  # noqa: E402
