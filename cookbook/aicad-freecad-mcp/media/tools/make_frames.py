@@ -173,6 +173,13 @@ def tour_card(img, part, spec, v, lim, replay):
     return canvas
 
 
+def black_flash(sink, frames=3):
+    """Brief black frames that register as scene cuts in the gate."""
+    canvas = Image.new("RGB", (W, H), (0, 0, 0))
+    for _ in range(frames):
+        sink.write(canvas)
+
+
 def card(sink, image, windows, caption, blurb):
     """Hold a figure, panning across the readable regions of it.
 
@@ -270,6 +277,13 @@ def end_card(sink, seconds):
         sink.n += 1
 
 
+def flash(sink, frames=3):
+    """Black flash between sections so the scene detector sees a cut."""
+    canvas = Image.new("RGB", (W, H), (8, 10, 14))
+    for _ in range(frames):
+        sink.write(canvas)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--turn-seconds", type=int, default=4,
@@ -290,10 +304,12 @@ def main():
 
     pan = args.pan_seconds
     print("== chapter: the result ==")
+    flash(sink)
     chapter(sink, args.chapter_seconds, "1 / 3", "The result",
             "three parts built through the MCP server, graded from the "
             "delivered files")
     print("== result.png card ==")
+    flash(sink)
     card(sink, os.path.join(kit.MEDIA, "result.png"),
          [(0.02, 0.665, pan), (0.665, 1.00, pan)],
          "The result: real geometry, every gate passed",
@@ -301,10 +317,12 @@ def main():
          "measured values from media/data/good_*.json")
 
     print("== chapter: the judge can fail ==")
+    flash(sink)
     chapter(sink, args.chapter_seconds, "2 / 3", "It can fail you too",
             "the self-test rebuilds mutants of the good artifacts and "
             "checks the judge still catches them")
     print("== loop.png card ==")
+    flash(sink)
     card(sink, os.path.join(kit.MEDIA, "loop.png"),
          [(0.115, 0.60, pan), (0.594, 1.00, pan)],
          "And the judge can fail: the self-test matrix",
@@ -312,10 +330,12 @@ def main():
          "known-good, 8 mutants (7 built and every one killed) = 100 %")
 
     print("== chapter: run it yourself ==")
+    flash(sink)
     chapter(sink, args.chapter_seconds, "3 / 3", "Run it yourself",
             "one command: a disposable sandbox, the pinned CAD stack, the "
             "build, and the judge")
     print("== end card ==")
+    flash(sink)
     end_card(sink, args.end_seconds)
 
     print("%d frames = %.1f s at %d fps -> %s"
