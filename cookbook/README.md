@@ -17,7 +17,6 @@ and the command to run it. Entries are added only after they pass review.
 | [plc-st](plc-st/README.md) | Compile an IEC 61131-3 Structured Text tank controller with MATIEC and grade it against a simulated plant in 8 scenarios (overflow, dry run, E-stop, recovery, random faults); 6/6 mutants caught, independently reproduced. |
 | [firmware-qemu](firmware-qemu/README.md) | Build bare-metal Cortex-M3 firmware (UART shell, ring buffer, CRC-32) and grade it in QEMU over a real UART session: 8 gates incl. a zlib CRC oracle; 14/14 mutants caught, independently reproduced. |
 | [img2threejs-showcase](img2threejs-showcase/README.md) | Build the img2threejs procedural Three.js gallery in parallel 4 vCPU / 16 GB sandboxes and render all 32 demos headless: 29 fully rendered on CPU-only WebGL, every verdict checked against positive/negative controls and by eye. |
-| [code-interpreter-charts](code-interpreter-charts/README.md) | Have an LLM code interpreter analyse two pinned public CO₂ datasets in a sandbox (pandas + matplotlib) and grade its five answers and three charts against an independent `csv`+`statistics` oracle: 12/12 mutants caught. |
 
 The first three prompts passed review as demo videos. They have not been
 re-run from this repo, so treat them as starting points, not guarantees.
