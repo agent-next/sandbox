@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 # P3 primes: count primes p with lo <= p <= hi.
-# Uses GNU coreutils `factor` (one invocation, C speed): for n >= 2 the
-# first field after the colon is n itself iff n is prime.
+# One GNU coreutils `factor` invocation reads the whole range from stdin
+# (C speed): for n >= 2 it prints "n: f1 f2 ...", so n is prime iff the
+# line has exactly two fields (n and a single factor).
 set -euo pipefail
 read -r lo hi
-count=0
-for ((i = lo; i <= hi; i++)); do
-    if ((i >= 2)); then
-        # factor prints "n: f1 f2 ..."; a prime has exactly one factor.
-        fields=$(factor "$i" | tr ' ' '\n' | wc -l)
-        if ((fields == 2)); then
-            count=$((count + 1))
-        fi
-    fi
-done
-echo "$count"
+start=$((lo < 2 ? 2 : lo))
+if ((hi < start)); then
+    echo 0
+    exit 0
+fi
+seq "$start" "$hi" | factor -- 2>/dev/null | awk 'NF == 2 { n++ } END { print n + 0 }'

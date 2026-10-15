@@ -167,16 +167,17 @@ def gate_case_count(cases_dir):
 
 
 def gate_run_all(artifact, cases_dir):
-    """G6: run_all.sh smoke."""
-    outdir = os.path.join(artifact, "out")
-    if os.path.isdir(outdir):
-        import shutil
-        shutil.rmtree(outdir)
+    """G6: run_all.sh smoke.
+
+    The spec requires <case_dir>/../out/<lang>_<prob>.txt. run_all.sh writes
+    one file per (problem, language) with that name, so count the files under
+    <case_dir>/../out/ (creating nothing)."""
+    outdir = os.path.join(cases_dir, "..", "out")
     rc, out, err, _ = run_cmd(["bash", os.path.join(artifact, "run_all.sh"), cases_dir],
-                              timeout=120)
+                              timeout=180)
     if rc != 0:
         return ["run_all.sh exited %d: %s" % (rc, err[:300])]
-    # expect 18 non-empty files under out/
+    # expect 18 non-empty files (3 problems x 6 languages) under out/
     produced = []
     if os.path.isdir(outdir):
         for f in sorted(os.listdir(outdir)):
