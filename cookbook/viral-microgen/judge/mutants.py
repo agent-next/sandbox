@@ -100,18 +100,46 @@ def _gif_frames(path: str):
     return [Image.fromarray(f["rgb"], "RGB") for f in frames], loop
 
 
-def _save_gif(frames, path: str, duration: int, loop: int = 0) -> None:
-    pal = frames[0].convert("P", palette=Image.ADAPTIVE, colors=5)
-    rest = [f.convert("P", palette=Image.ADAPTIVE, colors=5) for f in frames[1:]]
-    pal.save(path, save_all=True, append_images=rest, duration=duration,
-             loop=loop, optimize=False)
+def _good_palette(good: str) -> list[tuple[int, int, int]]:
+    """The good GIF's 5 colours, in a stable order."""
+    frames, _ = J.read_gif_frames(os.path.join(good, "ball.gif"))
+    cols = set()
+    for f in frames:
+        cols |= set(J.frame_colours(f))
+    return sorted(cols)
+
+
+def _to_paletted(im: Image.Image, pal: list[tuple[int, int, int]]):
+    """Map an RGB frame onto the given palette (nearest colour, exact set)."""
+    a = np.asarray(im.convert("RGB"), dtype=np.int32)
+    p = np.array(pal, dtype=np.int32)
+    flat = a.reshape(-1, 3)
+    d = ((flat[:, None, :] - p[None, :, :]) ** 2).sum(axis=2)
+    idx = d.argmin(axis=1).astype(np.uint8).reshape(a.shape[:2])
+    out = Image.fromarray(idx, mode="P")
+    out.putpalette(bytes(c for rgb in pal for c in rgb))
+    return out
+
+
+def _save_gif(frames, path: str, duration: int, loop: int = 0,
+              pal: list[tuple[int, int, int]] | None = None) -> None:
+    """Save frames as a GIF on an exact palette, so a mutant only breaks the
+    one property it is meant to break."""
+    if pal is None:
+        pal = sorted({tuple(int(c) for c in v)
+                      for f in frames
+                      for v in np.unique(np.asarray(f), axis=0)})
+    imgs = [_to_paletted(f, pal) for f in frames]
+    imgs[0].save(path, save_all=True, append_images=imgs[1:],
+                 duration=duration, loop=loop, optimize=False)
 
 
 def mut_static_one_frame(good: str, out: str, seed: int) -> str:
     """Negative control: a single static frame, no motion to measure."""
     d = _fresh(good, out, "gif_static_one_frame")
     frames, _ = _gif_frames(os.path.join(good, "ball.gif"))
-    _save_gif(frames[:1], os.path.join(d, "ball.gif"), duration=60)
+    _save_gif(frames[:1], os.path.join(d, "ball.gif"), duration=60,
+              pal=_good_palette(good))
     return d
 
 
@@ -119,7 +147,8 @@ def mut_too_few_frames(good: str, out: str, seed: int) -> str:
     """24 frames: an animation, but shorter than the 48-frame minimum."""
     d = _fresh(good, out, "gif_too_few_frames")
     frames, _ = _gif_frames(os.path.join(good, "ball.gif"))
-    _save_gif(frames[:24], os.path.join(d, "ball.gif"), duration=60)
+    _save_gif(frames[:24], os.path.join(d, "ball.gif"), duration=60,
+              pal=_good_palette(good))
     return d
 
 
@@ -129,25 +158,38 @@ def mut_six_colours(good: str, out: str, seed: int) -> str:
     frames, _ = _gif_frames(os.path.join(good, "ball.gif"))
     dr = ImageDraw.Draw(frames[3])
     dr.rectangle([2, 2, 40, 40], fill=(255, 0, 255))
-    _save_gif(frames, os.path.join(d, "ball.gif"), duration=60)
+    pal = _good_palette(good) + [(255, 0, 255)]
+    _save_gif(frames, os.path.join(d, "ball.gif"), duration=60, pal=pal)
     return d
 
 
 def mut_flat_ball(good: str, out: str, seed: int) -> str:
-    """The ball slides along the floor: motion, but never bounces."""
+    """The ball slides along the floor: motion, but never bounces.
+
+    The scene keeps the good artifact's full 5-colour set (background, floor,
+    floor edge, ball trail, ball) so the only property this mutant breaks is
+    the bounce geometry.
+    """
     d = _fresh(good, out, "gif_flat_ball")
     frames, _ = _gif_frames(os.path.join(good, "ball.gif"))
+    bg, ball, floor = (24, 26, 38), (235, 87, 87), (242, 201, 76)
+    edge, trail = (60, 110, 200), (86, 207, 165)
     out_frames = []
     for i, f in enumerate(frames):
-        im = Image.new("RGB", f.size, (24, 26, 38))
+        im = Image.new("RGB", f.size, bg)
         dr = ImageDraw.Draw(im)
         dr.rectangle([0, f.size[1] - 40, f.size[0] - 1, f.size[1] - 1],
-                     fill=(242, 201, 76))
+                     fill=floor)
+        dr.line([0, f.size[1] - 40, f.size[0] - 1, f.size[1] - 40],
+                fill=edge, width=3)
         cx = 40 + 3 * i
         cy = f.size[1] - 1 - 16
-        dr.ellipse([cx - 16, cy - 16, cx + 16, cy + 16], fill=(235, 87, 87))
+        # a trail blob in the fifth colour, as in the good artifact
+        dr.ellipse([cx - 24, cy - 12, cx - 12, cy], fill=trail)
+        dr.ellipse([cx - 16, cy - 16, cx + 16, cy + 16], fill=ball)
         out_frames.append(im)
-    _save_gif(out_frames, os.path.join(d, "ball.gif"), duration=60)
+    _save_gif(out_frames, os.path.join(d, "ball.gif"), duration=60,
+              pal=_good_palette(good))
     return d
 
 
@@ -155,7 +197,8 @@ def mut_finite_loop(good: str, out: str, seed: int) -> str:
     """The animation plays once instead of looping forever."""
     d = _fresh(good, out, "gif_finite_loop")
     frames, _ = _gif_frames(os.path.join(good, "ball.gif"))
-    _save_gif(frames, os.path.join(d, "ball.gif"), duration=60, loop=1)
+    _save_gif(frames, os.path.join(d, "ball.gif"), duration=60, loop=1,
+              pal=_good_palette(good))
     return d
 
 

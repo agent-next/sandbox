@@ -68,19 +68,22 @@ key.
    `nframes/22050 >= 20.0 s`. Any structural failure fails the gate (a file
    that cannot be parsed is not a WAV).
 2. **shepard_property** — the oracle is an analytic fit to the measured
-   instantaneous frequency trajectory:
-   - the trajectory is estimated by short-window pitch tracking (autocorrelation
-     of 4096-sample Hann-windowed frames at 1024-sample hop), giving
-     `f(t_i) > 0` at every hop;
-   - `log2(f)` against `t` is least-squares fitted: the trajectory must be
-     rising (`slope > 0`), monotone in the fitted sense (`R^2 >= 0.995`), and
-     span `log2(f_max/f_min) >= 3.0` octaves, so the tone genuinely "rises
-     forever";
-   - the Shepard identity `f_end >= f_start * 0.95` with
-     `log2(f_end/f_start)` an integer number of octaves within
-     `0.020 oct` (`OCTAVE_TOL_OCT`) — after rising through the octave
-     stack the tone returns to the pitch class it started on (this is
-     the property a plain steady tone or a plain sweep fails);
+   chroma trajectory.  A Shepard tone's partials are octave-spaced, so they
+   all sit at the same chroma `r(t) mod 1`; the judge measures that chroma
+   and fits a line to it:
+   - per 4096-sample Hann-windowed frame (1024-sample hop), the power
+     spectrum's log2 frequencies are folded modulo one octave (reference
+     40 Hz) onto a 180-bin circular histogram, and the chroma is the
+     power-weighted circular mean of the bins around the peak;
+   - the folded chroma is unwrapped into a rising trajectory `r(t_i)` and
+     least-squares fitted: the trajectory must be rising (`slope > 0`),
+     linear in the fitted sense (`R^2 >= 0.995`), and span
+     `r(t_end) - r(0) >= 3.0` octaves, so the tone genuinely "rises forever";
+   - the Shepard identity: the fitted glide at the file boundaries spans an
+     integer number of octaves within `0.020 oct` (`OCTAVE_TOL_OCT`), so
+     after rising through the octave stack the tone ends on the pitch class
+     it started on (this is the property a plain steady tone or a plain
+     sweep fails);
    - the spectrum of the whole file must show the Shepard signature: split into
      8 neighbour octave bands, the band energies must be unimodal with the
      maximum in one of the middle bands (2..6), and

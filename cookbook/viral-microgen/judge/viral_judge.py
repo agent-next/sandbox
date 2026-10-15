@@ -592,6 +592,7 @@ def grade(art: str, seed: int) -> dict:
         failed = [g for g in GATES if not gates[g]["passed"]]
         verdict["gates"] = gates
         verdict["passed"] = not failed
+        verdict["failed_gates"] = failed
         verdict["failed_gate"] = failed[0] if failed else None
         verdict["reason"] = ("all gates passed" if not failed
                              else "; ".join(f"{g}: {gates[g]['reason']}"

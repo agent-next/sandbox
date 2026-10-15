@@ -37,16 +37,44 @@ PY
 python3 "$JDIR/mutants.py" "$GOOD" "$work/mutants" --seed "$SEED" > "$work/mutants.log"
 cat "$work/mutants.log"
 
+# Every mutant must also be killed by the gate it is aimed at, so a gate that
+# fires for the wrong reason cannot inflate the kill rate.
+python3 - "$work/mutants/mutants.json" "$work" <<'PY'
+import json, os, sys
+idx = json.load(open(sys.argv[1]))
+work = sys.argv[2]
+wrong = []
+for m in idx:
+    p = os.path.join(work, m["name"] + ".json")
+    if not os.path.exists(p):
+        continue
+    v = json.load(open(p))
+    if v.get("passed"):
+        continue                      # survived: already reported above
+    gates = v.get("failed_gates") or []
+    want = m["expected_gate"]
+    if want is None:
+        ok = not gates                # structural mutant: validation failure
+    else:
+        ok = want in gates
+    if not ok:
+        wrong.append(f"{m['name']}: expected {want or 'validation'}, "
+                     f"got {gates or 'validation'}")
+print(f"selftest: expected-gate check {len(idx) - len(wrong)}/{len(idx)}")
+if wrong:
+    for w in wrong:
+        print(f"selftest: WRONG GATE {w}", file=sys.stderr)
+    sys.exit(1)
+PY
+
 total=0
 killed=0
-survived=0
 for m in "$work"/mutants/*/; do
     name="$(basename "$m")"
     total=$((total + 1))
     if bash "$JDIR/grade.sh" "$m" --seed "$SEED" --json "$work/$name.json" \
             >/dev/null 2>&1; then
         echo "selftest: SURVIVED  $name (the judge let it pass!)"
-        survived=$((survived + 1))
     else
         gate="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('failed_gate') or 'validation')" "$work/$name.json" 2>/dev/null || echo '?')"
         echo "selftest: killed    $name (gate: $gate)"
