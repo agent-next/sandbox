@@ -79,10 +79,10 @@ Measured wall times (2 vCPU, ~4 GB, Debian bookworm, the sandbox's own shell):
 
 | step | wall |
 | --- | --- |
-| `judge/setup.sh` (sqlite3 already present) | ~0.4 s |
-| `judge/setup.sh` (fresh, downloads both pinned debs) | ~1.8 s |
-| `judge/selftest.sh` (good + 10 mutants + determinism) | ~47 s |
-| `judge/grade.sh examples/good` | ~2.2 s |
+| `judge/setup.sh` (sqlite3 already present) | ~0.7 s |
+| `judge/setup.sh` (fresh, downloads both pinned debs) | ~3.0 s |
+| `judge/selftest.sh` (good + 10 mutants + determinism) | ~40-50 s |
+| `judge/grade.sh examples/good` | ~4 s |
 
 ## Ask your agent
 
