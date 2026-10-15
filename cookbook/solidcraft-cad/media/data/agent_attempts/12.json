@@ -1,0 +1,170 @@
+{
+ "commands": [
+  {
+   "command": "document.units",
+   "params": {
+    "units": "mm"
+   }
+  },
+  {
+   "command": "parameters.add",
+   "params": {
+    "name": "thickness",
+    "expression": "6 mm",
+    "unit": "mm"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XY",
+    "name": "PlateOutline"
+   }
+  },
+  {
+   "command": "sketch.rectangle.rounded",
+   "params": {
+    "p0": [
+     -30,
+     -25
+    ],
+    "p1": [
+     30,
+     25
+    ],
+    "radius": 5
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     0,
+     0
+    ],
+    "diameter": 22
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     15.5,
+     15.5
+    ],
+    "diameter": 3.4
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     -15.5,
+     15.5
+    ],
+    "diameter": 3.4
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     -15.5,
+     -15.5
+    ],
+    "diameter": 3.4
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     15.5,
+     -15.5
+    ],
+    "diameter": 3.4
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.extrude",
+   "params": {
+    "sketch": "PlateOutline",
+    "distance": "thickness",
+    "profiles": [
+     {
+      "point": [
+       20,
+       0
+      ]
+     }
+    ],
+    "operation": "new",
+    "body_name": "MotorAdapter"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XY",
+    "offset": "thickness",
+    "name": "BossRing"
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     0,
+     0
+    ],
+    "diameter": 32
+   }
+  },
+  {
+   "command": "sketch.circle.center",
+   "params": {
+    "center": [
+     0,
+     0
+    ],
+    "diameter": 22
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.extrude",
+   "params": {
+    "sketch": "BossRing",
+    "distance": 3,
+    "profiles": [
+     {
+      "point": [
+       14,
+       0
+      ]
+     }
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "material.assign",
+   "params": {
+    "bodies": [
+     "MotorAdapter"
+    ],
+    "material": "Aluminum"
+   }
+  }
+ ]
+}

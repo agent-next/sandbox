@@ -1,0 +1,18 @@
+<!doctype html><title>ctl-pos</title><body style="margin:0;background:#000">
+<canvas id="c" width="800" height="600"></canvas>
+<script>
+// Known-positive control: a WebGL vertex-coloured triangle fan through the same GL path as the demos.
+const gl = document.getElementById("c").getContext("webgl");
+const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+const p = gl.createProgram();
+gl.attachShader(p, sh(gl.VERTEX_SHADER, "attribute vec2 a;attribute vec3 c;varying vec3 v;void main(){v=c;gl_Position=vec4(a,0,1);}"));
+gl.attachShader(p, sh(gl.FRAGMENT_SHADER, "precision mediump float;varying vec3 v;void main(){gl_FragColor=vec4(v,1);}"));
+gl.linkProgram(p); gl.useProgram(p);
+const d = [0, 0, 1, 1, 1];
+for (let i = 0; i <= 12; i++) { const t = i / 12 * 6.2832; d.push(Math.cos(t) * .9, Math.sin(t) * .9, (Math.sin(t) + 1) / 2, (Math.cos(t) + 1) / 2, i / 12); }
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW);
+const a = gl.getAttribLocation(p, "a"), c = gl.getAttribLocation(p, "c");
+gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 20, 0);
+gl.enableVertexAttribArray(c); gl.vertexAttribPointer(c, 3, gl.FLOAT, false, 20, 8);
+gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_FAN, 0, 14);
+</script>

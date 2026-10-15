@@ -1,0 +1,278 @@
+{
+ "commands": [
+  {
+   "command": "document.units",
+   "params": {
+    "units": "mm"
+   }
+  },
+  {
+   "command": "parameters.add",
+   "params": {
+    "name": "thickness",
+    "expression": "6 mm",
+    "unit": "mm"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XY",
+    "name": "PlateOutline"
+   }
+  },
+  {
+   "command": "sketch.line",
+   "params": {
+    "points": [
+     [
+      -25,
+      -25
+     ],
+     [
+      25,
+      -25
+     ]
+    ]
+   }
+  },
+  {
+   "command": "sketch.arc.center_point",
+   "params": {
+    "center": [
+     25,
+     -20
+    ],
+    "start": [
+     25,
+     -25
+    ],
+    "end": [
+     30,
+     -20
+    ]
+   }
+  },
+  {
+   "command": "sketch.line",
+   "params": {
+    "points": [
+     [
+      30,
+      -20
+     ],
+     [
+      30,
+      20
+     ]
+    ]
+   }
+  },
+  {
+   "command": "sketch.arc.center_point",
+   "params": {
+    "center": [
+     25,
+     20
+    ],
+    "start": [
+     30,
+     20
+    ],
+    "end": [
+     25,
+     25
+    ]
+   }
+  },
+  {
+   "command": "sketch.line",
+   "params": {
+    "points": [
+     [
+      25,
+      25
+     ],
+     [
+      -25,
+      25
+     ]
+    ]
+   }
+  },
+  {
+   "command": "sketch.arc.center_point",
+   "params": {
+    "center": [
+     -25,
+     20
+    ],
+    "start": [
+     -25,
+     25
+    ],
+    "end": [
+     -30,
+     20
+    ]
+   }
+  },
+  {
+   "command": "sketch.line",
+   "params": {
+    "points": [
+     [
+      -30,
+      20
+     ],
+     [
+      -30,
+      -20
+     ]
+    ]
+   }
+  },
+  {
+   "command": "sketch.arc.center_point",
+   "params": {
+    "center": [
+     -25,
+     -20
+    ],
+    "start": [
+     -30,
+     -20
+    ],
+    "end": [
+     -25,
+     -25
+    ]
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.extrude",
+   "params": {
+    "sketch": "PlateOutline",
+    "distance": "thickness",
+    "operation": "new",
+    "body_name": "MotorAdapter",
+    "name": "Plate"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 32,
+    "height": "thickness + 3 mm",
+    "base": [
+     0,
+     0,
+     0
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BossStock"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 22,
+    "height": "thickness + 3 mm",
+    "base": [
+     0,
+     0,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "CenterBore"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltNE"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltNW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltSW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltSE"
+   }
+  },
+  {
+   "command": "material.assign",
+   "params": {
+    "bodies": [
+     "MotorAdapter"
+    ],
+    "material": "Aluminum"
+   }
+  }
+ ]
+}

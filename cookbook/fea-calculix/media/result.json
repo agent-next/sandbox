@@ -1,0 +1,94 @@
+{
+  "demo": "fea-calculix",
+  "headline": "The agent's cantilever beam holds sigma 138.2 <= 166.7 MPa and tip deflection 7.72 <= 10 mm at 5652 g while matching Euler-Bernoulli within 3 %.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "verification",
+      "pass": true,
+      "measured": "reference beam vs Euler-Bernoulli: deflection +0.41 %, stress -0.74 %",
+      "threshold": "<= 3 %"
+    },
+    {
+      "name": "convergence",
+      "pass": true,
+      "measured": "mesh 4 vs 2 mm: deflection 0.23 %, stress 0.50 %",
+      "threshold": "<= 2 %"
+    },
+    {
+      "name": "spec_limits",
+      "pass": true,
+      "measured": "sigma 138.2 MPa; tip deflection 7.72 mm",
+      "threshold": "sigma <= 166.7 MPa; delta <= L/100 = 10 mm"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "sigma_wall",
+      "value": 138.241,
+      "unit": "MPa",
+      "source": "RECEIPT.md:129"
+    },
+    {
+      "label": "tip deflection",
+      "value": 7.7221,
+      "unit": "mm",
+      "source": "RECEIPT.md:130"
+    },
+    {
+      "label": "mass",
+      "value": 5652.0,
+      "unit": "g",
+      "source": "RECEIPT.md:131"
+    },
+    {
+      "label": "EB deflection error (ref beam)",
+      "value": "+0.41",
+      "unit": "%",
+      "source": "RECEIPT.md:126"
+    },
+    {
+      "label": "EB stress error (ref beam)",
+      "value": "-0.74",
+      "unit": "%",
+      "source": "RECEIPT.md:127"
+    },
+    {
+      "label": "mesh convergence (deflection / stress)",
+      "value": "0.23 % / 0.50 %",
+      "unit": "",
+      "source": "RECEIPT.md:128"
+    },
+    {
+      "label": "mutant kill rate",
+      "value": "9/9 (100%)",
+      "unit": "",
+      "source": "RECEIPT.md:86"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "Deformed mesh coloured by von Mises (allowable on the colour bar), mesh convergence, and the Euler-Bernoulli comparison."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "agent-loop replay and the mutant x gate self-test matrix"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "the real displacement field ramped 0-1000 N, then each mutant's failing gate"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/fea-calculix/run.py",
+    "ask_agent": "Clone https://github.com/agent-next/sandbox into this sandbox and run\n`bash cookbook/fea-calculix/judge/setup.sh` (installs CalculiX `ccx` and\ngmsh under `~/tools/bin`). Design the lightest cantilever beam for the\nspec in `SPEC.md`: produce `artifact/design.json` (`L`, `b`, `h`,\n`mesh_size` in mm) and `artifact/beam.inp` (deck contract in SPEC.md \u2014\ninclude `mesh.inc`, clamp `NFIX`, apply 250 N downward on each `NLOAD`\ncorner node, request `U` and `S` output). Then run\n`judge/grade.sh artifact` and iterate until it prints `\"PASS\"`."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "ec187e4809eadf26726007d08e7b904c33a487a0",
+  "schema": "agent-next/result@1"
+}

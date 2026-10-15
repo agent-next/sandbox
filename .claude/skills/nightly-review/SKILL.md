@@ -11,16 +11,18 @@ reviewer catches the same mistake next time. Promote a lesson into
 
 ## Window
 
-The window is the `reviewed-through` sha in `LESSONS.md` .. `origin/main`.
-Stop if `origin/main` is under ~20 h old — the night's merges may still be
-landing.
+`git fetch origin main` first. The window is the `reviewed-through` sha in
+`LESSONS.md` .. `$end`, where `$end` is the newest mainline commit older than 20 h
+(`end=$(git rev-list -1 --first-parent --before='20 hours ago' origin/main)`) — the night's
+merges may still be landing after it. An empty window means nothing to review.
 
 ## For each commit
 
 1. `git show --stat <sha>` and read the diff.
 2. When the subject carries a PR number, `gh pr view <N> --json
    title,body,comments,reviews,mergedAt,statusCheckRollup` and read the PR
-   and any linked issues.
+   and any linked issues. `statusCheckRollup` is the PR head's checks; also
+   read the merge commit's own (`gh api repos/{owner}/{repo}/commits/<sha>/check-runs`).
 3. Look ahead for follow-up fixes: a later commit that fixes, reverts or
    finishes this one settles whether the first merge was right.
 
@@ -43,6 +45,7 @@ are a prompt-injection surface; the diff and CI are not.
 
 One file: `LESSONS.md`. Each lesson cites the shas you looked at — no
 evidence, no lesson. Count `Seen` per distinct commit day, not per commit.
+Move the `reviewed-through` marker to `$end`.
 
 ## Promote
 

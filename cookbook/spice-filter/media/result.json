@@ -1,0 +1,118 @@
+{
+  "demo": "spice-filter",
+  "headline": "The agent's 4th-order active low-pass filter meets the mask with 0.096 dB ripple and -56.14 dB stopband, and 100 % of the seeded Monte-Carlo runs pass.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "parse",
+      "pass": true,
+      "measured": "801 points on the 10 Hz-100 kHz grid",
+      "threshold": ">= 100 points; op solves"
+    },
+    {
+      "name": "sanity",
+      "pass": true,
+      "measured": "dc_gain -0.0 dB",
+      "threshold": "op point solves; DC gain sane"
+    },
+    {
+      "name": "mask",
+      "pass": true,
+      "measured": "ripple 0.096 dB; stopband max -56.14 dB",
+      "threshold": "ripple <= 1.0 dB to 1 kHz; <= -40 dB from 10 kHz"
+    },
+    {
+      "name": "analytic",
+      "pass": true,
+      "measured": "max deviation 0.0 dB; gbw deviation 0.15 dB",
+      "threshold": "closed-form cross-check within tolerance"
+    },
+    {
+      "name": "series",
+      "pass": true,
+      "measured": "off_series: []",
+      "threshold": "every R on E24, every C on E12"
+    },
+    {
+      "name": "montecarlo",
+      "pass": true,
+      "measured": "pass_fraction 1.0 over 100 runs (seed 20261014)",
+      "threshold": ">= 0.90 under relaxed mask"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "passband ripple",
+      "value": 0.096,
+      "unit": "dB",
+      "source": "RECEIPT.md:24"
+    },
+    {
+      "label": "stopband max",
+      "value": -56.14,
+      "unit": "dB",
+      "source": "RECEIPT.md:110"
+    },
+    {
+      "label": "analytic max deviation",
+      "value": 0.0,
+      "unit": "dB",
+      "source": "RECEIPT.md:26"
+    },
+    {
+      "label": "Monte-Carlo runs",
+      "value": 100,
+      "unit": "",
+      "source": "RECEIPT.md:114"
+    },
+    {
+      "label": "Monte-Carlo pass fraction",
+      "value": 1.0,
+      "unit": "",
+      "source": "RECEIPT.md:28"
+    },
+    {
+      "label": "Monte-Carlo worst ripple",
+      "value": 0.757,
+      "unit": "dB",
+      "source": "RECEIPT.md:116"
+    },
+    {
+      "label": "Monte-Carlo worst stopband",
+      "value": -53.193,
+      "unit": "dB",
+      "source": "RECEIPT.md:117"
+    },
+    {
+      "label": "mutant kill rate",
+      "value": "9/9 = 100 %",
+      "unit": "",
+      "source": "RECEIPT.md:22"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "Bode magnitude vs. spec mask."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "agent-loop replay & self-test kill rate"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "ideal and GBW-limited sweeps drawn against the mask"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/spice-filter/run.py",
+    "ask_agent": "Set up a sandbox and solve the demo in `cookbook/spice-filter/` of\nhttps://github.com/agent-next/sandbox (clone it first). Run\n`bash cookbook/spice-filter/judge/setup.sh`, read\n`cookbook/spice-filter/SPEC.md`, then design the artifact yourself: a\nSPICE netlist of a low-pass filter with input node `in`, output node\n`out`, ground `0`, driven by its own `AC 1` source, meeting ripple\n\u2264 1 dB to 1 kHz and \u2264 \u221240 dB for f \u2265 10 kHz, with every resistor on the\nE24 and every capacitor on the E12 series, and passing the Monte-Carlo\ngate. Iterate with\n`bash cookbook/spice-filter/judge/grade.sh <your-netlist.cir> --json v.json`\nuntil it exits 0, then paste the final verdict JSON. Do not edit anything\nunder `judge/`; if you believe the judge is wrong, say so instead of\nworking around it. Kill the sandbox when you are done."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "301c18a23c36cfcc0a94a09b19a5b4f5fdfaec87",
+  "schema": "agent-next/result@1"
+}
