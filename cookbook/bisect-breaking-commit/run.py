@@ -67,6 +67,14 @@ PLANTED_INDEX = 25          # must match fixture/make_fixture.py
 TRANSIENT = ("503", "bad gateway", "temporarily", "connection reset",
              "connection refused", "timeout occurred", "405",
              "method not allowed")
+# The same REST API the `sbx` CLI resolves (E2B_API_URL / E2B_DOMAIN are
+# honoured exactly as the CLI resolves them).  GET /sandboxes/<id> is how a
+# kill is actually verified (404 = gone); DELETE /sandboxes/<id> is the
+# second kill route when `sbx kill` keeps failing.
+API_BASE = (os.environ.get("E2B_API_URL") or
+            "https://api." + os.environ.get("E2B_DOMAIN",
+                                           "sbx.agent-next.com")).rstrip("/")
+KILL_BACKOFF = (5, 15, 30, 45, 60, 60, 60)
 
 
 def scrub(text: str) -> str:
@@ -75,6 +83,23 @@ def scrub(text: str) -> str:
         if value:
             text = text.replace(value, "[redacted]")
     return text
+
+
+def api_sandbox(sid: str, method: str) -> tuple[int | None, str]:
+    """One REST call on /sandboxes/<id> with the run's key.  Returns
+    (http status or None on transport failure, scrubbed detail).  The key is
+    never echoed; server bodies are not printed (they could echo
+    credentials)."""
+    key = os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY") or ""
+    req = urllib.request.Request(f"{API_BASE}/sandboxes/{sid}", method=method,
+                                 headers={"X-API-Key": key})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return resp.status, f"HTTP {resp.status}"
+    except urllib.error.HTTPError as exc:
+        return exc.code, f"HTTP {exc.code}"
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return None, scrub(f"{type(exc).__name__}: {exc}")
 
 
 def sbx(*args, timeout=120):
@@ -112,19 +137,41 @@ class CleanupError(RuntimeError):
     pass
 
 
-def kill_with_backoff(sid: str, what: str) -> None:
-    """Kill one sandbox this run created, retrying through the 405 settle
-    window a busy sandbox answers kills with for a couple of minutes after
-    its execs (observed; clears well inside this window)."""
-    backoff = (5, 15, 30, 45, 60, 60, 60)
-    for attempt, sleep_s in enumerate(backoff, start=1):
+def kill_sandbox(sid: str, what: str) -> None:
+    """Kill one sandbox this run created; raise CleanupError only if every
+    route refused for the whole backoff window.
+
+    `sbx kill` is the primary route.  A sandbox can refuse kills with a
+    transient 405 for minutes after heavy execs (observed in acceptance:
+    every attempt for ~5 min failed while the sandbox stayed listed), so the
+    retries are paced across that window and each round re-checks the
+    sandbox's actual state over the REST API — a 404 means the kill landed
+    (or raced a timeout) and nothing further is needed.  From the second
+    round on, the REST DELETE is the second route.  A refused kill or a lost
+    reply is never treated as success here either way: `confirm_gone` still
+    checks `sbx list` before the run may exit 0.
+    """
+    attempts: list[str] = []
+    for attempt, sleep_s in enumerate(KILL_BACKOFF, start=1):
         rc, out = sbx("kill", sid, timeout=180)
         if rc == 0:
             return
-        if attempt == len(backoff):
-            raise CleanupError(f"could not kill sandbox {sid} ({what}): "
-                               f"rc={rc} {out.strip()}")
+        attempts.append(f"sbx kill rc={rc}: {out.strip()[-200:]}")
+        state, detail = api_sandbox(sid, "GET")
+        if state == 404:
+            return
+        attempts.append(f"GET after kill: {detail}")
+        if attempt >= 2:
+            dstatus, ddetail = api_sandbox(sid, "DELETE")
+            if dstatus in (200, 204, 404):
+                return
+            attempts.append(f"REST DELETE: {ddetail}")
+            if api_sandbox(sid, "GET")[0] == 404:
+                return
         time.sleep(sleep_s)
+    raise CleanupError(f"could not kill sandbox {sid} ({what}) after "
+                       f"{len(KILL_BACKOFF)} rounds:\n  "
+                       + "\n  ".join(attempts[-6:]))
 
 
 def confirm_gone(ids: dict[str, str]) -> list[str]:
@@ -370,7 +417,7 @@ def main():
 
         def _kill_sweep(i: int) -> None:
             try:
-                kill_with_backoff(ids[i], f"commit {i}")
+                kill_sandbox(ids[i], f"commit {i}")
             except CleanupError as exc:
                 kill_failures.append(str(exc))
 
@@ -495,7 +542,7 @@ def main():
             to_kill = sorted(created.items())
             for what, sid in to_kill:
                 try:
-                    kill_with_backoff(sid, what)
+                    kill_sandbox(sid, what)
                 except CleanupError as exc:
                     cleanup_failures.append(str(exc))
             cleanup_failures += confirm_gone(created)
