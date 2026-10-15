@@ -52,6 +52,11 @@ STEP_TIMEOUTS = {
 
 API = "https://api.sbx.agent-next.com"
 
+# A transport blip on `sbx create` (a dropped tunnel, a 429) is retried
+# with backoff before the whole run is called off (LESSONS.md, 616b07c):
+# the sandbox id is only taken from a returncode 0.
+CREATE_ATTEMPTS = 3
+
 # A transport blip (tunnel error, connection reset, a 5xx/429 from the
 # gateway) is not a verdict on the command — the CLI may have failed
 # before the request was even sent. These are retried with backoff
