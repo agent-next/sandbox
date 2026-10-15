@@ -68,12 +68,56 @@ Key numbers from the verdict JSON (seed 42):
 | SSIM (All), render 1 vs 2 | 1.0 | ≥ 0.995 |
 | PSNR, render 1 vs 2 | 100.0 dB (identical streams; see Deviations) | ≥ 40 dB |
 
-### `judge/selftest.sh`
+### `judge/selftest.sh` (kill rate 8/8; determinism fixed afterwards)
 
-(pending: the self-test run is in flight at receipt-writing time; its
-output — exit code, kill rate, per-mutant failed gates, wall time — is
-pasted here when it completes. Per the standard, no pass is claimed
-without pasted output.)
+```
+[selftest] Known-good example (must PASS):
+[selftest]   good  PASS  (336s)
+
+[selftest] Determinism check (same seed twice, verdict JSON except 'timing'):
+[selftest]   good  NON-DETERMINISTIC
+
+[selftest] Known-bad mutants (must FAIL):
+[selftest]   wrong-duration     killed (failed gates: 0,1,2,3,4,5,6, 0s)
+[selftest]   missing-beat       killed (failed gates: 3,5,6, 245s)
+[selftest]   black-gap          killed (failed gates: 4,6, 277s)
+[selftest]   wrong-resolution   killed (failed gates: 2,3,6, 147s)
+[selftest]   off-brand-colors   killed (failed gates: 5,6, 212s)
+[selftest]   broken-js          killed (failed gates: 3,5,6, 207s)
+[selftest]   frozen-video       killed (failed gates: 4,6, 107s)
+[selftest]   nondeterministic   killed (failed gates: 6, 310s)
+
+[selftest] ============================================
+[selftest] good example passed : 1/1
+[selftest] determinism         : 0/1 identical
+[selftest] mutants killed      : 8/8 (100%)
+[selftest] ============================================
+[selftest] FAIL: verdict JSON not deterministic at seed 42
+[selftest] FAILURE
+
+real    37m20.061s
+```
+
+The determinism failure was real and reproducible: the verdict recorded
+the per-grade mktemp scratch path as `artifact`
+(`/tmp/hf-judge.XXXXXX/case` vs a different one on the re-run), so the
+two same-seed verdicts differed outside `timing`. Fixed in commit
+`d2ed439` (`check_gates.py` now records only the basename). The
+determinism check was then re-run against the fixed judge:
+
+```
+$ bash judge/grade.sh examples/good --json /tmp/det-run1.json --seed 42   # exit 0
+$ bash judge/grade.sh examples/good --json /tmp/det-run2.json --seed 42   # exit 0
+$ python3 -c 'import json,sys
+a=json.load(open("/tmp/det-run1.json")); b=json.load(open("/tmp/det-run2.json"))
+a.pop("timing"); b.pop("timing")
+print("identical" if a==b else "DIFFER")'
+identical
+```
+
+The verdict `artifact` field now reads `case` (the grade scratch copy's
+basename) in both runs; the two same-seed verdicts are byte-identical
+outside `timing` and both renders again passed every gate.
 
 ### `run.py` checks (builder sandbox cannot create sandboxes)
 
@@ -108,10 +152,15 @@ $ bash -n judge/setup.sh && bash -n judge/grade.sh && bash -n judge/selftest.sh
   to 5 dB) so two grades of equivalent renders give byte-identical JSON
   outside the `timing` key; the self-test's determinism check verifies
   exactly that.
-- **Second fresh-sandbox run:** (not done here — the run.py end-to-end
-  pass in a second sandbox is the lead's final check; this receipt
-  records the command outputs the builder could produce from inside the
-  build sandbox, where `sbx create` is unavailable).
+- **Second fresh-sandbox run:** (not done: a builder sandbox cannot run
+  `sbx create`, so a second *fresh* sandbox can only be driven by
+  `run.py` from outside, which is the lead's end-to-end check. This
+  receipt records everything runnable from inside one fresh sandbox:
+  cold `setup.sh`, `grade.sh` of the good example, `selftest.sh`, and
+  the determinism re-check after the basename fix). Note the package
+  downloads and `apt` layers of a second run share the same pinned
+  sha256-checked artifacts, so gate numbers are expected identical — the
+  quantised verdict grid makes them byte-identical by construction.
 - **REPRODUCE.md** (independent reproduction by a different agent
   following README.md alone) is required by `cookbook/DEMO-STANDARD.md`
   before merge and is deliberately not written by the builder.
