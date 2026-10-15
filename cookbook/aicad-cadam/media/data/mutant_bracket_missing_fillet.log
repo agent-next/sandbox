@@ -1,0 +1,88 @@
+{
+ "case": "bracket",
+ "gates": [
+  {
+   "detail": "openscad 2021.01 exit 0",
+   "gate": "scad_export",
+   "passed": true
+  },
+  {
+   "gate": "stl_matches_scad",
+   "limit_mm3": 24.172,
+   "measured_mm3": 0.0,
+   "passed": true
+  },
+  {
+   "gate": "stl_watertight",
+   "passed": true
+  },
+  {
+   "gate": "stl_winding",
+   "passed": true
+  },
+  {
+   "gate": "bbox",
+   "limit_mm": 0.05,
+   "measured_max_dev_mm": 0.0,
+   "passed": true
+  },
+  {
+   "analytic_mm3": 24171.681,
+   "gate": "volume_stl",
+   "limit": 0.005,
+   "measured_mm3": 23862.452,
+   "passed": false,
+   "rel": 0.013
+  },
+  {
+   "gate": "xor_reference",
+   "limit_mm3": 241.717,
+   "measured_mm3": 309.3,
+   "passed": false,
+   "ref_volume_mm3": 24171.747
+  },
+  {
+   "detail": "BRepCheck_Analyzer on re-imported STEP",
+   "gate": "step_reimport",
+   "passed": true
+  },
+  {
+   "gate": "volume_step",
+   "limit_analytic": 0.005,
+   "limit_stl": 0.01,
+   "measured_mm3": 24171.681,
+   "passed": false,
+   "rel_vs_analytic": 0.0,
+   "rel_vs_stl": 0.013
+  },
+  {
+   "expected_radii": [
+    4.0,
+    6.0
+   ],
+   "gate": "cyl_faces",
+   "measured_radii": [
+    4.0,
+    6.0
+   ],
+   "passed": true,
+   "tol_mm": 0.05
+  },
+  {
+   "gate": "planar_min_wall",
+   "limit_mm": 2.0,
+   "measured_mm": Infinity,
+   "passed": true
+  },
+  {
+   "detail": "bracket fillets covered by cyl_faces radii",
+   "gate": "case_features",
+   "passed": true
+  }
+ ],
+ "passed": false,
+ "seed": 0,
+ "timing": {
+  "total_s": 3.397
+ }
+}

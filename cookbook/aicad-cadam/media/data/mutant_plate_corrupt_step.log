@@ -1,0 +1,80 @@
+{
+ "case": "plate",
+ "gates": [
+  {
+   "detail": "openscad 2021.01 exit 0",
+   "gate": "scad_export",
+   "passed": true
+  },
+  {
+   "gate": "stl_matches_scad",
+   "limit_mm3": 34.53,
+   "measured_mm3": 0.0,
+   "passed": true
+  },
+  {
+   "gate": "stl_watertight",
+   "passed": true
+  },
+  {
+   "gate": "stl_winding",
+   "passed": true
+  },
+  {
+   "gate": "bbox",
+   "limit_mm": 0.05,
+   "measured_max_dev_mm": 0.0,
+   "passed": true
+  },
+  {
+   "analytic_mm3": 34529.558,
+   "gate": "volume_stl",
+   "limit": 0.005,
+   "measured_mm3": 34531.108,
+   "passed": true,
+   "rel": 0.0
+  },
+  {
+   "gate": "xor_reference",
+   "limit_mm3": 345.3,
+   "measured_mm3": 1.193,
+   "passed": true,
+   "ref_volume_mm3": 34529.959
+  },
+  {
+   "detail": "STEP reader status IFSelect_ReturnStatus.IFSelect_RetFail",
+   "gate": "step_reimport",
+   "passed": false
+  },
+  {
+   "detail": "STEP unreadable",
+   "gate": "volume_step",
+   "passed": false
+  },
+  {
+   "detail": "STEP unreadable",
+   "gate": "cyl_faces",
+   "passed": false
+  },
+  {
+   "detail": "STEP unreadable",
+   "gate": "planar_min_wall",
+   "passed": false
+  },
+  {
+   "bolt_circle_r": [],
+   "bolt_count": 0,
+   "bore_ligament_mm": -1.0,
+   "edge_ligament_mm": -1.0,
+   "gate": "case_features",
+   "limit_mm": 2.0,
+   "passed": false,
+   "spacing_deg": []
+  }
+ ],
+ "passed": false,
+ "seed": 0,
+ "timing": {
+  "total_s": 19.997
+ }
+}

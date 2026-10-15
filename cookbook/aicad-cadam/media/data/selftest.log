@@ -1,0 +1,39 @@
+[selftest] Regenerating mutants...
+[mutants] bushing_bore_d12_to_15 <- bushing (part.scad, part.stl)
+[mutants] bushing_inch_scale <- bushing (part.scad, part.stl)
+[mutants] bushing_missing_flange <- bushing (part.scad, part.stl)
+[mutants] plate_bolt_d6_to_7 <- plate (part.scad, part.stl)
+[mutants] plate_bolt_circle_r24_to_27 <- plate (part.scad, part.stl)
+[mutants] plate_hole_count_6_to_5 <- plate (drawing.scad, drawing.dxf)
+[mutants] bracket_missing_fillet <- bracket (part.scad, part.stl)
+[mutants] bracket_fillet_r6_to_3 <- bracket (part.scad, part.stl)
+[mutants] bushing_flipped_facet <- bushing (part.stl)
+[mutants] bracket_nonwatertight <- bracket (part.stl)
+[mutants] plate_corrupt_step <- plate (part.step)
+[mutants] 11 mutants in /home/user/w/cookbook/aicad-cadam/examples/bad
+
+[selftest] Known-good cases (must PASS):
+[selftest]   good/bushing  PASS  (15s)
+[selftest]   good/plate  PASS  (59s)
+[selftest]   good/bracket  PASS  (10s)
+
+[selftest] Determinism (same case twice, verdict JSON minus 'timing'):
+[selftest]   bushing  deterministic
+
+[selftest] Known-bad mutants (must FAIL):
+[selftest]   bracket_fillet_r6_to_3  killed (failed: volume_stl)
+[selftest]   bracket_missing_fillet  killed (failed: volume_stl,xor_reference,volume_step)
+[selftest]   bracket_nonwatertight  killed (failed: stl_watertight,volume_stl,volume_step)
+[selftest]   bushing_bore_d12_to_15  killed (failed: volume_stl,xor_reference,volume_step)
+[selftest]   bushing_flipped_facet  killed (failed: stl_winding,volume_stl,volume_step)
+[selftest]   bushing_inch_scale  killed (failed: bbox,volume_stl,xor_reference,volume_step)
+[selftest]   bushing_missing_flange  killed (failed: bbox,volume_stl,xor_reference,volume_step)
+[selftest]   plate_bolt_circle_r24_to_27  killed (failed: xor_reference)
+[selftest]   plate_bolt_d6_to_7  killed (failed: volume_stl,xor_reference,volume_step)
+[selftest]   plate_corrupt_step  killed (failed: step_reimport,volume_step,cyl_faces,planar_min_wall,case_features)
+[selftest]   plate_hole_count_6_to_5  killed (failed: dxf_features)
+
+[selftest] ============================================
+[selftest] good cases passed : 3/3
+[selftest] kill rate         : 11/11 (100 %)
+[selftest] ============================================

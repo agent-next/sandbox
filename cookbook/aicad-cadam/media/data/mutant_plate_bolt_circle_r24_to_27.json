@@ -1,0 +1,154 @@
+{
+ "case": "plate",
+ "gates": [
+  {
+   "detail": "openscad 2021.01 exit 0",
+   "gate": "scad_export",
+   "passed": true
+  },
+  {
+   "gate": "stl_matches_scad",
+   "limit_mm3": 34.53,
+   "measured_mm3": 0.0,
+   "passed": true
+  },
+  {
+   "gate": "stl_watertight",
+   "passed": true
+  },
+  {
+   "gate": "stl_winding",
+   "passed": true
+  },
+  {
+   "gate": "bbox",
+   "limit_mm": 0.05,
+   "measured_max_dev_mm": 0.0,
+   "passed": true
+  },
+  {
+   "analytic_mm3": 34529.558,
+   "gate": "volume_stl",
+   "limit": 0.005,
+   "measured_mm3": 34531.107,
+   "passed": true,
+   "rel": 0.0
+  },
+  {
+   "gate": "xor_reference",
+   "limit_mm3": 345.3,
+   "measured_mm3": 1653.573,
+   "passed": false,
+   "ref_volume_mm3": 34529.959
+  },
+  {
+   "detail": "BRepCheck_Analyzer on re-imported STEP",
+   "gate": "step_reimport",
+   "passed": true
+  },
+  {
+   "gate": "volume_step",
+   "limit_analytic": 0.005,
+   "limit_stl": 0.01,
+   "measured_mm3": 34529.558,
+   "passed": true,
+   "rel_vs_analytic": 0.0,
+   "rel_vs_stl": 0.0
+  },
+  {
+   "expected_radii": [
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    10.0
+   ],
+   "gate": "cyl_faces",
+   "measured_radii": [
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    10.0
+   ],
+   "passed": true,
+   "tol_mm": 0.05
+  },
+  {
+   "gate": "planar_min_wall",
+   "limit_mm": 2.0,
+   "measured_mm": Infinity,
+   "passed": true
+  },
+  {
+   "bolt_circle_r": [
+    24.0,
+    24.0,
+    24.0,
+    24.0,
+    24.0,
+    24.0
+   ],
+   "bolt_count": 6,
+   "bore_ligament_mm": 11.0,
+   "edge_ligament_mm": 3.0,
+   "gate": "case_features",
+   "limit_mm": 2.0,
+   "passed": true,
+   "spacing_deg": [
+    60.0,
+    60.0,
+    60.0,
+    60.0,
+    60.0,
+    60.0
+   ]
+  },
+  {
+   "audit_errors": 0,
+   "gate": "dxf_valid",
+   "passed": true,
+   "regenerated_lines": 900,
+   "shipped_lines": 900
+  },
+  {
+   "bolt_circle_r": [
+    24.0,
+    24.0,
+    24.0,
+    24.0,
+    24.0,
+    24.0
+   ],
+   "bore_count": 1,
+   "gate": "dxf_features",
+   "hole_count": 6,
+   "hole_radii": [
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    3.0,
+    3.0
+   ],
+   "passed": true,
+   "spacing_deg": [
+    60.0,
+    60.0,
+    60.0,
+    60.0,
+    60.0,
+    60.0
+   ]
+  }
+ ],
+ "passed": false,
+ "seed": 0,
+ "timing": {
+  "total_s": 43.892
+ }
+}
