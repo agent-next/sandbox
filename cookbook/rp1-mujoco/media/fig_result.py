@@ -13,9 +13,10 @@ Panels B-E  the judge's own per-step trace of the good controller, each
            D vertical foot contact force / m*g      (zero-torque oracle's
              statics, fz = 1.003; the oracle's own run is gate 5)
            E peak joint torque vs the 70.6 N*m ankle limit (limits gate)
-Every number drawn comes from media/data/trace.csv (the real trace) or
-data/verdicts/good.json (the real verdict); the script raises if any
-source is missing or a plotted aggregate disagrees with the verdict text.
+Every number drawn comes from media/data/traces/good/trace.csv.gz (the
+real trace) or data/verdicts/good.json (the real verdict); the script
+raises if any source is missing or a plotted aggregate disagrees with the
+verdict text.
 200 dpi, colour scheme from the cookbook dataviz palette (series blue,
 status good/fail green/red with text labels).
 """
@@ -37,7 +38,7 @@ MEDIA = os.path.dirname(os.path.abspath(__file__))
 DEMO = os.path.dirname(MEDIA)
 OUT = os.path.join(MEDIA, "result.png")
 VERDICT = os.path.join(MEDIA, "data", "verdicts", "good.json")
-TRACE = os.path.join(MEDIA, "data", "traces", "good", "trace.csv")
+TRACE = os.path.join(MEDIA, "data", "traces", "good", "trace.csv.gz")
 SCENE = os.path.join(MEDIA, "work", "scene", "mjcf", "rp1_flat.xml")
 
 BLUE = "#2a78d6"     # series 1 (validated)
@@ -208,7 +209,8 @@ def main():
     cap = fig.text(
         0.008, 0.055,
         "every series: the judge's per-step trace of the good controller "
-        "(data/traces/good/trace.csv, grade.sh --trace), no re-simulation.  "
+        "(data/traces/good/trace.csv.gz, grade.sh --trace), "
+        "no re-simulation.  "
         "green dashed = gate pass line;  red band = the 30 N push;  limits: "
         "judge/params.json via SPEC.md.",
         fontsize=7.2, va="bottom", ha="left", color=SUB, rotation=90)

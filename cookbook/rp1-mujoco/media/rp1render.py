@@ -1,13 +1,14 @@
 """Shared headless MuJoCo renderer for the rp1-mujoco media.
 
 Renders the real RP1 humanoid from the judge's own per-step trace
-(media/data/traces/<name>/trace.csv, written by `grade.sh --trace`) at the
+(media/data/traces/<name>/trace.csv.gz, written by `grade.sh --trace`) at the
 exact state the judge graded.  EGL is the pinned backend (mujoco 3.14.0
 ships its own EGL loader; libEGL_mesa is the system driver).  OSMesa is
 the fallback.  Nothing here re-simulates: every frame is a pose read out
 of the judge's trace file.
 """
 import csv
+import gzip
 import os
 
 os.environ.setdefault("MUJOCO_GL", "egl")
@@ -30,7 +31,10 @@ class Trace:
                 f"missing trace {path} -- run media/collect_data.sh "
                 "(grade.sh --trace) first")
         self.path = path
-        with open(path, newline="") as fh:
+        # traces are stored gzipped (a raw trace.csv is ~1 MB per run; the
+        # repo keeps no file over 1 MB except the demo media)
+        opener = gzip.open if path.endswith(".gz") else open
+        with opener(path, "rt", newline="") as fh:
             rows = list(csv.reader(fh))
         self.header = rows[0]
         if len(self.header) != TAU0 + 24:

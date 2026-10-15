@@ -4,7 +4,9 @@
 #
 #   data/verdicts/<name>.json   grade.sh --json for known-good, the 8
 #                               mutants and the replay intermediate
-#   data/traces/<name>/trace.csv  grade.sh --trace of the same runs
+#   data/traces/<name>/trace.csv.gz  grade.sh --trace of the same runs
+#                                (gzipped: ~1 MB each raw, and the repo
+#                                keeps no file over 1 MB but the media)
 #                                (known-good, the video's mutants and the
 #                                replay intermediate)
 #   data/selftest.txt           the judge self-test's own output
@@ -70,6 +72,14 @@ grade sign_flip_knee   "$MEDIA/work/mutants/controller_sign_flip_knee.py"
 grade wrong_joint_order "$MEDIA/work/mutants/controller_wrong_joint_order.py"
 grade clamp_1pct   "$MEDIA/work/mutants/controller_clamp_1pct.py"
 grade cancels_push "$MEDIA/work/mutants/controller_cancels_push.py"
+
+# --- gzip the traces ---------------------------------------------------------
+# grade.sh writes trace.csv (~1 MB per 10 s run); the repo keeps no file
+# over 1 MB except the demo media, so the traces are stored gzipped
+# (lossless -- the readers in rp1render.py / make_video.py open .gz).
+for t in "$MEDIA"/data/traces/*/trace.csv; do
+    [ -f "$t" ] && gzip -9 -f "$t"
+done
 
 # --- self-test ---------------------------------------------------------------
 echo "== selftest =="

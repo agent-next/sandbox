@@ -3,7 +3,7 @@
 
 Every frame is a real headless MuJoCo render of the pinned RP1 scene,
 loaded with the exact state the judge recorded at that instant
-(media/data/traces/<name>/trace.csv, written by `grade.sh --trace`, seed
+(media/data/traces/<name>/trace.csv.gz, written by `grade.sh --trace`, seed
 20261014).  Nothing is re-simulated and no number is invented.
 
 The frames are expensive (software rasterisation), so make_video.py runs
@@ -46,11 +46,17 @@ def shots():
                     elevation=_lerp(-8, 2, f), lookat_z=0.84)
 
     def episode(i, n):
-        """The judged episode around the push, sim t = 3.8 .. 9.8 s."""
+        """The judged episode around the push, sim t = 3.8 .. 9.8 s.
+
+        The camera sweep is as wide as the turntable's (60 deg over the
+        slot) so the shot carries real motion even while the robot only
+        leans -- a slow dolly alone measures below the video gate's
+        moving-frame floor.
+        """
         f = i / max(n - 1, 1)
-        return dict(t=_lerp(3.8, 9.8, f), azimuth=_lerp(124, 146, f),
-                    distance=_lerp(2.80, 2.50, f),
-                    elevation=_lerp(-7, -2, f), lookat_z=0.86)
+        return dict(t=_lerp(3.8, 9.8, f), azimuth=_lerp(96, 156, f),
+                    distance=_lerp(3.05, 2.40, f),
+                    elevation=_lerp(-9, 1, f), lookat_z=0.86)
 
     def fall(i, n):
         """The zero-torque mutant collapsing, sim t = 0 .. 2 s (slowed)."""
@@ -70,7 +76,7 @@ def main():
     shot, first, count = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
     trace_name, n_total, spec = shots()[shot]
     trace = rp1render.Trace(os.path.join(
-        MEDIA, "data", "traces", trace_name, "trace.csv"))
+        MEDIA, "data", "traces", trace_name, "trace.csv.gz"))
     rend = rp1render.Renderer(os.path.join(
         MEDIA, "work", "scene", "mjcf", "rp1_flat.xml"), width=W, height=H)
 

@@ -7,7 +7,7 @@ Frames are composited with Pillow and piped to ffmpeg; the video is
 
 Every robot frame is a real headless MuJoCo render of the pinned RP1
 scene, loaded with the exact state the judge recorded at that instant
-(media/data/traces/<name>/trace.csv, written by `grade.sh --trace`, seed
+(media/data/traces/<name>/trace.csv.gz, written by `grade.sh --trace`, seed
 20261014) -- nothing is re-simulated.  Every number on screen is read from
 a trace column or from a verdict JSON in media/data/verdicts/.  The 3D
 frames are produced by vid_render.py (slow software rasterisation), so
@@ -83,9 +83,9 @@ def verdict(name):
 
 
 def trace_cols(name):
-    """(t, pelvis z, tilt) from the judge's own trace CSV."""
-    p = need(os.path.join(TRACES, name, "trace.csv"))
-    a = np.loadtxt(p, delimiter=",", skiprows=1)
+    """(t, pelvis z, tilt) from the judge's own trace CSV (gzipped)."""
+    p = need(os.path.join(TRACES, name, "trace.csv.gz"))
+    a = np.loadtxt(p, delimiter=",", skiprows=1)   # np.loadtxt reads .gz
     return a[:, 0], a[:, 3], a[:, 10]
 
 
