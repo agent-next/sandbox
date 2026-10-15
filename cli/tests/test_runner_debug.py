@@ -251,6 +251,46 @@ def test_github_retries_matching_job_until_terminal_or_deadline(monkeypatch, ter
     assert "/repos/acme/app/actions/jobs/123" in calls
 
 
+@pytest.mark.parametrize("visible_after", [6, 58, None])
+@pytest.mark.parametrize("visibility", ["runs", "jobs"])
+def test_github_retries_job_discovery_until_match_or_deadline(monkeypatch, visibility, visible_after):
+    now, calls, sleeps = [0.0], [], []
+    monkeypatch.setattr(runners.time, "monotonic", lambda: now[0])
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        now[0] += seconds
+
+    monkeypatch.setattr(runners.time, "sleep", sleep)
+
+    def handler(req):
+        calls.append(req.url.path)
+        assert 0 < req.extensions["timeout"]["read"] <= min(30, 60 - now[0])
+        now[0] += 0.1
+        visible = visible_after is not None and now[0] >= visible_after
+        if req.url.path.endswith("/runs"):
+            runs = [{"id": 9}] if visibility == "jobs" or visible else []
+            return httpx.Response(200, json={"workflow_runs": runs})
+        return httpx.Response(200, json={"jobs": [job()] if visible else []})
+
+    gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
+        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
+    result, error = None, None
+    try:
+        result = gh.job("sbx-test", [])
+    except cli.SbxError as exc:
+        error = str(exc)
+    if visible_after is None:
+        assert error and "lookup timed out" in error, "missing jobs must exhaust the lookup budget"
+        assert now[0] == pytest.approx(60), "job discovery must retry until the deadline"
+    else:
+        assert error is None, f"job discovery stopped before the job became visible: {error}"
+        assert result == job()
+        assert visible_after <= now[0] < 60
+    assert calls.count("/repos/acme/app/actions/runs") > 3
+    assert sleeps and all(0 < seconds <= 2 for seconds in sleeps)
+
+
 def test_keep_failed_parser_default_and_explicit_cap():
     parser = cli.build_parser()
     argv = ["runners", "serve", "--repo", "acme/app", "--snapshot", "base"]
