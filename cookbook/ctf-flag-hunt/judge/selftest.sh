@@ -27,23 +27,9 @@ fi
 python3 -I "$JDIR/mutants.py" "$GOOD" "$work/mutants" > "$work/mutants.log"
 cat "$work/mutants.log"
 
-# The mutant set must cover every SPEC-claimed gate at least once.
-python3 -I - "$work/mutants.log" <<'PY' || exit 1
-import re
-import sys
-
-gates = set(re.findall(r"\(gate: (\w+)\)", open(sys.argv[1]).read()))
-need = {"flags", "oracle", "negative_control", "blast_radius", "build"}
-missing = need - gates
-if missing:
-    print(f"selftest: mutant gates missing coverage of: "
-          f"{','.join(sorted(missing))}", file=sys.stderr)
-    raise SystemExit(1)
-print(f"selftest: mutant gate coverage {len(gates)}: {','.join(sorted(gates))}")
-PY
-
 total=0
 killed=0
+gates_hit=""
 for m in "$work"/mutants/*/; do
     name="$(basename "$m")"
     total=$((total + 1))
@@ -52,9 +38,24 @@ for m in "$work"/mutants/*/; do
     else
         gate="$(python3 -I -c "import json,sys;print(json.load(open(sys.argv[1])).get('failed_gate','?'))" "$work/$name.json" 2>/dev/null || echo '?')"
         echo "selftest: killed    $name (gate: $gate)"
+        gates_hit="$gates_hit $gate"
         killed=$((killed + 1))
     fi
 done
+
+# Every SPEC-claimed gate must be exercised by at least one killed mutant.
+python3 -I - "$gates_hit" <<'PY' || exit 1
+import sys
+
+gates = set(sys.argv[1].split())
+need = {"flags", "oracle", "negative_control", "blast_radius", "build"}
+missing = need - gates
+if missing:
+    print(f"selftest: mutant gates missing coverage of: "
+          f"{','.join(sorted(missing))}", file=sys.stderr)
+    raise SystemExit(1)
+print(f"selftest: mutant gate coverage {len(gates)}: {','.join(sorted(gates))}")
+PY
 
 rate="$(python3 -I -c "print(f'{$killed/$total:.0%}' if $total else 'n/a')")"
 echo "selftest: kill rate $killed/$total = $rate"

@@ -21,13 +21,18 @@ else
     echo "setup: downloading gcc-12 $GCC_PKG_VERSION from Debian pool"
     tmpdir="$(mktemp -d)"
     trap 'rm -rf "$tmpdir"' EXIT
-    curl -fsSL -o "$tmpdir/gcc-12.deb" "$GCC_URL"
+    curl -fsSL -o "$tmpdir/gcc-12.deb" "$GCC_URL" \
+        || { echo "setup: download failed: $GCC_URL" >&2; exit 1; }
+    echo "setup: download done, checking sha256"
     echo "$GCC_SHA256  $tmpdir/gcc-12.deb" | sha256sum -c - || {
         echo "setup: sha256 mismatch on gcc-12.deb" >&2
         exit 1
     }
     # apt resolves the runtime dependencies the .deb declares.
-    sudo apt-get update -qq
+    echo "setup: apt-get update"
+    sudo apt-get update -qq \
+        || { echo "setup: apt-get update failed" >&2; exit 1; }
+    echo "setup: apt-get install gcc-12 (quiet: no output until done)"
     sudo apt-get install -y -qq "$tmpdir/gcc-12.deb"
     actual="$(installed)"
     if [ "$actual" != "$GCC_PKG_VERSION" ]; then
