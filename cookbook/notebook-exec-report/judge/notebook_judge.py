@@ -64,7 +64,9 @@ def run_notebook(dest: Path, nb_path: Path) -> dict:
 
     dest.mkdir(parents=True, exist_ok=True)
     shutil.copy2(nb_path, dest / "analysis.ipynb")
-    (dest / "_out" / "figures").mkdir(parents=True, exist_ok=True)
+    # the dataset sits next to the artifact; the notebook writes its outputs
+    # to _out/ next to itself, which is where the judge looks for them.
+    shutil.copy2(nb_path.parent / "dataset.csv", dest / "dataset.csv")
 
     nb = read(str(dest / "analysis.ipynb"), as_version=4)
     code_cells = [c for c in nb.cells if c.cell_type == "code"]
