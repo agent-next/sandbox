@@ -2,7 +2,7 @@
   "name": "video-edit-mlt-demo-video",
   "private": true,
   "scripts": {
-    "render": "remotion render src/index.ts Demo ../master/remotion.mp4 --props=../work/props.json --codec=h264 --crf=1 --concurrency=2"
+    "render": "remotion render src/index.ts Demo ../master/remotion.mp4 --props=../work/props.json --codec=h264 --crf=1"
   },
   "dependencies": {
     "@remotion/cli": "4.0.531",
