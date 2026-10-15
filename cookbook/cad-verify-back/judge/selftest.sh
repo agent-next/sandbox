@@ -62,7 +62,8 @@ echo "selftest: artifact cannot inject python (no PWNED_* markers written)"
 
 # --- 2. every mutant must fail -----------------------------------------
 python3 "$HERE/mutants.py" --list >/dev/null
-python3 "$HERE/mutants.py" "$GOOD" "$MUTDIR" >/dev/null
+PASSDIR="$(dirname "$MUTDIR")/passcases"
+python3 "$HERE/mutants.py" "$GOOD" "$MUTDIR" "$PASSDIR" >/dev/null
 
 nmut=0
 killed=0
@@ -112,6 +113,27 @@ EOF
         grep '^    FAILED' <<<"$first" || true
         killed=$((killed + 1))
     fi
+done
+
+# --- 2b. every pass-case must pass --------------------------------------
+# near-miss artifacts that are inside tolerance (4-LINE rectangle, outline
+# shifted 0.005 mm) must not be rejected: a judge that fails good parts is
+# as broken as one that passes bad ones
+for p in "$PASSDIR"/*/; do
+    name="$(basename "$p")"
+    if ! bash "$HERE/grade.sh" "$p" --json "$LOGDIR/${name}.json" \
+            >"$LOGDIR/${name}.log" 2>&1; then
+        fail_banner "pass-case REJECTED: $name (a correct artifact failed)"
+        python3 - "$LOGDIR/${name}.json" <<'EOF' >&2
+import json, sys
+v = json.load(open(sys.argv[1]))
+for k, g in v.get("gates", {}).items():
+    if not g.get("pass"):
+        print(f"  FAILED {k}: {g.get('error', '?')[:120]}")
+EOF
+        exit 1
+    fi
+    echo "selftest: pass-case PASS: $name"
 done
 
 rate=0

@@ -17,11 +17,21 @@ part.py or by post-processing the good exports:
   edge_violation     - bolt circle moved so a hole violates min_edge
   tangential_hole_drift - one bolt hole moved 0.5 mm along the pitch
                        circle (STEP and DXF agree, radial error stays 0)
+  dxf_outline_bowtie - good solid, outline redrawn as a closed LWPOLYLINE
+                       with crossed vertex order (self-crossing)
+  dxf_outline_bulge  - good solid, outline redrawn as an LWPOLYLINE whose
+                       straight edges are replaced by bulged arcs
+
+PASS_CASES (written to <pass_out> when given; must PASS every gate):
+  dxf_outline_lines  - the spec rectangle drawn as 4 LINE entities
+  dxf_outline_shift  - the spec outline shifted by 0.005 mm (inside the
+                       documented 0.01 mm corner tolerance)
 
 Usage:
-    python3 mutants.py <good_dir> <out_dir>
+    python3 mutants.py <good_dir> <mutants_out> [pass_out]
 
-Writes <out_dir>/<name>/{part.py,spec.json,part.step,part.stl,part.dxf}.
+Writes <mutants_out>/<name>/{spec.json,part.step,part.stl,part.dxf} for
+each mutant, and <pass_out>/<name>/... for each pass-case.
 """
 import json
 import math
@@ -34,6 +44,11 @@ MUTANTS = [
     "wrong_bolt_count", "wrong_pcd", "bore_off", "boss_missing",
     "scale_inch_mm", "stl_flipped_facet", "stl_not_watertight",
     "dxf_missing_hole", "edge_violation", "tangential_hole_drift",
+    "dxf_outline_bowtie", "dxf_outline_bulge",
+]
+
+PASS_CASES = [
+    "dxf_outline_lines", "dxf_outline_shift",
 ]
 
 
@@ -152,21 +167,53 @@ def build_drifted_part(spec, out_dir, hole_index, arc_mm):
     doc.saveas(os.path.join(out_dir, "part.dxf"))
 
 
+def rewrite_dxf_outline(dxf_path, mode, dx=0.0, dy=0.0):
+    """Replace the good DXF's closed LWPOLYLINE outline.
+
+    mode "bowtie": same four corners in crossed order (self-crossing quad)
+    mode "bulge":  the same four corners but bulged (curved) edges
+    mode "lines":  the rectangle redrawn as 4 separate LINE entities
+    mode "shift":  the rectangle redrawn shifted by (dx, dy)
+    """
+    import ezdxf
+    doc = ezdxf.readfile(dxf_path)
+    msp = doc.modelspace()
+    closed = [p for p in msp.query("LWPOLYLINE") if p.closed]
+    pts = [v[:2] for v in closed[0].get_points("xy")]
+    for p in closed:
+        msp.delete_entity(p)
+    if mode == "bowtie":
+        msp.add_lwpolyline([pts[0], pts[2], pts[1], pts[3]], close=True)
+    elif mode == "bulge":
+        msp.add_lwpolyline([(x, y, 0.5) for x, y in pts],
+                           format="xyb", close=True)
+    elif mode == "lines":
+        for i in range(4):
+            msp.add_line(pts[i], pts[(i + 1) % 4])
+    elif mode == "shift":
+        msp.add_lwpolyline([(x + dx, y + dy) for x, y in pts], close=True)
+    else:
+        raise SystemExit(f"rewrite_dxf_outline: unknown mode {mode!r}")
+    doc.saveas(dxf_path)
+
+
 def main():
     if "--list" in sys.argv:
         print("\n".join(MUTANTS))
         sys.exit(0)
-    if len(sys.argv) != 3:
-        print("usage: mutants.py <good_dir> <out_dir>", file=sys.stderr)
+    if len(sys.argv) not in (3, 4):
+        print("usage: mutants.py <good_dir> <mutants_out> [pass_out]",
+              file=sys.stderr)
         sys.exit(2)
     good_dir, out_dir = sys.argv[1], sys.argv[2]
+    pass_dir = sys.argv[3] if len(sys.argv) == 4 else None
     spec0 = json.load(open(os.path.join(good_dir, "spec.json")))
     os.makedirs(out_dir, exist_ok=True)
 
-    def sp(name, **over):
+    def sp(name, root=None, **over):
         s = dict(spec0)
         s.update(over)
-        d = os.path.join(out_dir, name)
+        d = os.path.join(root or out_dir, name)
         os.makedirs(d, exist_ok=True)
         json.dump(s, open(os.path.join(d, "spec.json"), "w"), indent=2)
         return s, d
@@ -244,6 +291,27 @@ def main():
     # --- tangential drift: one hole 0.5 mm along the PCD, STEP and DXF agree
     s, d = sp("tangential_hole_drift")
     build_drifted_part(s, d, hole_index=2, arc_mm=0.5)
+
+    # --- DXF outline mutants: good solid, broken outline drawing ---------
+    s, d = sp("dxf_outline_bowtie")
+    build_part(s, d)
+    rewrite_dxf_outline(os.path.join(d, "part.dxf"), "bowtie")
+
+    s, d = sp("dxf_outline_bulge")
+    build_part(s, d)
+    rewrite_dxf_outline(os.path.join(d, "part.dxf"), "bulge")
+
+    # --- pass-cases: must survive every gate ------------------------------
+    if pass_dir is not None:
+        os.makedirs(pass_dir, exist_ok=True)
+        s, d = sp("dxf_outline_lines", root=pass_dir)
+        build_part(s, d)
+        rewrite_dxf_outline(os.path.join(d, "part.dxf"), "lines")
+
+        s, d = sp("dxf_outline_shift", root=pass_dir)
+        build_part(s, d)
+        rewrite_dxf_outline(os.path.join(d, "part.dxf"), "shift",
+                            dx=0.005, dy=0.005)
 
     print("\n".join(MUTANTS))
 
