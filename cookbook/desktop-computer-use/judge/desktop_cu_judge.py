@@ -305,11 +305,18 @@ class Desktop:
             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
             start_new_session=True)
         # wait for the Calc window, reporting what the desktop was doing
-        # instead of only the timeout (a silent 30 s wait tells no one why)
+        # instead of only the timeout (a silent 30 s wait tells no one why).
+        # The VCL's class is "libreoffice" (checked against Debian's
+        # libreoffice-calc 7.4 on Xvfb): the frame "input.csv - LibreOffice
+        # Calc" is class libreoffice/libreoffice-calc, and only the frame is
+        # visible -- VCL ImplGetDefaultWindow (class "libreoffice") is a
+        # 1024x768 override-redirect sibling, so search --onlyvisible picks
+        # the document window.
         deadline = time.monotonic() + SOFFICE_READY_S
         last_windows = None
         while time.monotonic() < deadline:
-            r = sh(["xdotool", "search", "--class", "soffice"], timeout=10,
+            r = sh(["xdotool", "search", "--onlyvisible", "--class",
+                    "libreoffice"], timeout=10,
                   env={**os.environ, "DISPLAY": self.display})
             if r.returncode == 0 and r.stdout.strip():
                 time.sleep(1.0)   # let it settle/repaint

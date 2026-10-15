@@ -42,11 +42,14 @@ def key(keys, delay=0.05):
     time.sleep(delay)
 
 
-def search_window(pattern, timeout=45):
-    """Return the X window id matching pattern, waiting for it to appear."""
+def search_window(pattern, winname=None, timeout=45):
+    """Return the X window id matching class pattern (and name), waiting."""
+    cmd = ["xdotool", "search", "--class", pattern]
+    if winname:
+        cmd += ["--name", winname]
     deadline = time.time() + timeout
     while time.time() < deadline:
-        r = run(["xdotool", "search", "--class", pattern], timeout=15)
+        r = run(cmd, timeout=15)
         ids = [line for line in r.stdout.splitlines() if line.strip()]
         if ids:
             return ids[0]
@@ -107,10 +110,13 @@ def main():
     n = n_data_rows()
     print(f"actions: fixture has {n} data rows", flush=True)
 
-    # wait for Calc's own window (not the oosplash splash frame), then
-    # focus and raise it on the real display; XTEST input goes to the
-    # focused window, so the frame must own keyboard focus first
-    wid = search_window("libreoffice")
+    # wait for Calc's own window, then focus and raise it on the real
+    # display; XTEST input goes to the focused window, so the document
+    # frame must own keyboard focus first.  The VCL class is "libreoffice"
+    # and only the document frame is named "LibreOffice" -- VCL
+    # ImplGetDefaultWindow is a same-class 1024x768 sibling, and the splash
+    # never lingers once the frame is up, so class+name is the precise key.
+    wid = search_window("libreoffice", "LibreOffice")
     print(f"actions: Calc window id {wid}", flush=True)
 
     activate(wid)
