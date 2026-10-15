@@ -44,6 +44,21 @@ class MediaTests(unittest.TestCase):
                 capture.render_step("sandbox-test", "render-command")
         self.assertEqual(remote.call_count, 5)
 
+    def test_render_recovery_counts_consecutive_failures(self):
+        pending = json.dumps({"done": False, "code": None, "log": ""})
+        blip = [RuntimeError("gateway is restarting"), pending]
+        replies = [""] + blip * 4 + [json.dumps({"done": True, "code": 0, "log": "MEDIA_DONE"})]
+        with patch.object(capture.runner, "sbx", side_effect=replies), \
+                patch.object(capture.time, "sleep"):
+            capture.render_step("sandbox-test", "render-command")
+
+    def test_render_reattaches_after_unparseable_status(self):
+        replies = ["", "", json.dumps({"done": True, "code": 0, "log": "MEDIA_DONE"})]
+        with patch.object(capture.runner, "sbx", side_effect=replies) as remote, \
+                patch.object(capture.time, "sleep"):
+            capture.render_step("sandbox-test", "render-command")
+        self.assertEqual(remote.call_count, 3)
+
     def test_render_does_not_retry_permanent_errors_or_launch(self):
         for replies in ([RuntimeError("gateway is restarting")],
                         ["", RuntimeError("sandbox not found")]):
