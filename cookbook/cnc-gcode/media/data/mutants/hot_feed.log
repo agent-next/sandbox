@@ -1,0 +1,152 @@
+grade: FAIL (gates: process)
+{
+  "demo": "cnc-gcode",
+  "artifact": "media/data/mutants/hot_feed.py",
+  "seed": 20261014,
+  "randomness": "none (deterministic judge; seed recorded but unused)",
+  "gates": {
+    "artifact": {
+      "pass": true,
+      "bad_imports": [],
+      "imports": [
+        "argparse",
+        "json",
+        "math"
+      ],
+      "cam_exit": 0,
+      "cam_stderr_tail": "",
+      "nc_bytes": 5751
+    },
+    "units": {
+      "pass": true,
+      "g20_lines": [],
+      "first_g21_line": 3
+    },
+    "program": {
+      "pass": true,
+      "has_g21": true,
+      "has_g90": true,
+      "has_g17": true,
+      "m3_line": 4,
+      "first_feed_line": 7,
+      "m5_line": 258,
+      "last_feed_line": 255,
+      "feed_moves": 183
+    },
+    "envelope": {
+      "pass": true,
+      "first_violation": null,
+      "moves": 250
+    },
+    "stepdown": {
+      "pass": true,
+      "max_axial_mm": 2.0,
+      "limit_mm": 2.0,
+      "worst_move_line": 7
+    },
+    "stepover": {
+      "pass": true,
+      "max_spacing_mm": 2.5,
+      "limit_mm": 3.0,
+      "tolerance_mm": 0.05,
+      "worst_move_line": 18,
+      "exempt_first_pass_moves": 36
+    },
+    "process": {
+      "pass": false,
+      "chip_load_mm_per_tooth": [
+        0.125,
+        0.5
+      ],
+      "limits": [
+        0.02,
+        0.2
+      ],
+      "spindle_moves_out_of_band": 0,
+      "feed_moves_out_of_band": 141,
+      "spindle_rpm": 8000
+    },
+    "rapid_safety": {
+      "pass": true,
+      "rapids_below_safe_z": 0,
+      "max_rapid_hit_mm": 0.0,
+      "tolerance_mm": 0.01,
+      "worst_move_line": null
+    },
+    "residual": {
+      "pass": true,
+      "residual_cells": 0,
+      "residual_area_mm2": 0.0,
+      "worst_residual_mm": 0.0,
+      "tolerance_mm": 0.05,
+      "unreachable_allowance_cells": 0
+    },
+    "gouge": {
+      "pass": true,
+      "gouge_cells": 0,
+      "gouged_area_mm2": 0.0,
+      "worst_gouge_mm": 0.0,
+      "tolerance_mm": 0.01
+    },
+    "simulator_selfcheck": {
+      "pass": true,
+      "line_slot_widths_mm": [
+        6.0,
+        6.0,
+        6.0,
+        6.0,
+        6.0
+      ],
+      "circle_slot_widths_mm": [
+        5.9569,
+        5.9819,
+        5.9569,
+        5.9819,
+        5.9569,
+        5.9819,
+        5.9569,
+        5.9819
+      ],
+      "expected_mm": 6.0,
+      "tolerance_mm": 0.05
+    },
+    "reference": {
+      "pass": true,
+      "ref_exit": 0,
+      "ref_units_mm": true,
+      "ref_tool": "LinuxCNC rs274 2.9.0~pre1+git20230208.f1270d6ed7-1+deb12u2",
+      "tolerance_mm": 0.001,
+      "feeds_diff": 0,
+      "rapids_diff": 0,
+      "arcs_diff": 0,
+      "z_max_diff_mm": 0.0,
+      "z_min_diff_mm": 0.0,
+      "bbox_diff_mm": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "summary": {
+    "nc_lines": 258,
+    "moves": 250,
+    "cutting_moves": 174,
+    "cells_cleared": 713592,
+    "area_cleared_mm2": 1783.98,
+    "stock_removed_mm3": 10703.9,
+    "max_axial_engagement_mm": 2.0,
+    "max_pass_spacing_mm": 2.5,
+    "worst_residual_mm": 0.0,
+    "worst_gouge_mm": 0.0
+  },
+  "timing": {
+    "cam_s": 0.06,
+    "simulate_s": 0.74,
+    "selfcheck_s": 0.12,
+    "reference_s": 0.04,
+    "total_s": 1.27
+  },
+  "pass": false
+}

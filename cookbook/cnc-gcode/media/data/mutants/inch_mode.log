@@ -1,0 +1,26 @@
+grade: FAIL (gates: units)
+{
+  "gates": {
+    "artifact": {
+      "pass": true,
+      "bad_imports": [],
+      "imports": [
+        "argparse",
+        "json",
+        "math"
+      ],
+      "cam_exit": 0,
+      "cam_stderr_tail": "",
+      "nc_bytes": 5718
+    },
+    "units": {
+      "pass": false,
+      "g20_lines": [
+        3
+      ],
+      "first_g21_line": null,
+      "error": "line 3: G20 inch mode -- the job is specified in millimetres (G21)"
+    }
+  },
+  "pass": false
+}

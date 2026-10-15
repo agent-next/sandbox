@@ -1,0 +1,37 @@
+{
+  "demo": "cnc-gcode",
+  "artifact": "examples/good/cam.py",
+  "seed": 20261014,
+  "grid_mm": 0.05,
+  "stock": {
+    "x_mm": 80.0,
+    "y_mm": 60.0,
+    "z_mm": 25.0
+  },
+  "tool": {
+    "type": "flat end mill",
+    "diameter_mm": 6.0,
+    "flutes": 2
+  },
+  "limits": {
+    "max_stepdown_mm": 2.0,
+    "max_stepover_mm": 3.0,
+    "spindle_rpm": 8000,
+    "spindle_rpm_tolerance": 0.05,
+    "chip_load_mm_per_tooth": [
+      0.02,
+      0.2
+    ],
+    "feed_mm_per_min": [
+      300.0,
+      2500.0
+    ]
+  },
+  "safe_z_mm": 5.0,
+  "n_moves": 250,
+  "n_events": 174,
+  "grid_shape": [
+    1200,
+    1600
+  ]
+}
