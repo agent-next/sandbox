@@ -36,7 +36,7 @@ seconds — measured ~6.5–9 min end-to-end (slower when the shared GPU node is
 fresh lease cold-compiles the Warp kernels once (~86–120 s, reported as setup
 time) and each grade — the good
 config and every mutant — runs real simulations (good ~145–211 s; mutants
-≤ ~1 s when the structure/cost gates reject them, up to ~90 s for the three
+≤ ~1 s when the structure/cost gates reject them, up to ~125 s for the three
 sim-running mutants). These ranges cover the two builder runs in
 [RECEIPT.md](RECEIPT.md#key-numbers-side-by-side) (86.3/96.5 s cold compile,
 145/163 s good grade) and the [acceptance log](media/data/gpu-run.log)

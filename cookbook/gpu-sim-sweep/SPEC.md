@@ -54,11 +54,12 @@ passes `nconmax`/`njmax` to `mujoco_warp.put_data`. `settle_steps`,
 The config also bounds how much work a grade can ask for — the **cost
 gate** below — so a single grade is a bounded job, not an open-ended one.
 The aggregate cap is ≈100M world-steps (the good config is 13.0M); on the
-4 GiB slice every mutant measured ≤ ~105 s of grade time (the five
+4 GiB slice every mutant measured ≤ ~125 s of grade time (the five
 structure/cost-failing mutants are rejected in ~1 s, before any sim runs),
-the good grade's ~145–169 s includes the one-time ~86–105 s cold Warp
-compile on a fresh lease (see [RECEIPT.md](RECEIPT.md#key-numbers-side-by-side)
-and the [acceptance log](media/data/gpu-run.log)), and the per-grade
+the good grade's ~145–211 s includes the one-time ~86–120 s cold Warp
+compile on a fresh lease (see [RECEIPT.md](RECEIPT.md#key-numbers-side-by-side),
+the [acceptance log](media/data/gpu-run.log) and the busy-node
+[reproduction](REPRODUCE.md)), and the per-grade
 subprocess/exec timeouts (210–360 s, see
 `run.py`) cap even the worst legal config far below the 600 s at which the
 platform drops an exec reply.
@@ -106,7 +107,7 @@ rc=1 "graded and failed".
    two engines diverge 0.008 rad over 800 steps — float32 accumulation;
    mutants measured at 0.067–131 rad or explode.)
 6. **throughput** — measured top-nworld aggregate steps/s ≥ floor ×
-   measured CPU steps/s (default floor 4×; measured ×15.6–29.9 on the 4 GiB
+   measured CPU steps/s (default floor 4×; measured ×15.6–25.8 on the 4 GiB
    lease across builder, lead and reproduction runs on a shared node, see
    RECEIPT.md and REPRODUCE.md). Reported in the verdict as `top_steps_per_s`,
    `cpu_steps_per_s`, `speedup`.
@@ -189,8 +190,9 @@ GET /sandboxes/{id} → 404 (or phase=dead)
 
 The lease image already has Python 3.13, mujoco 3.8.1, mujoco-warp 3.8.1,
 warp-lang 1.13.0, numpy 1.26.4 on an RTX 5090 slice (cc 12.0); no pip
-needed. Warp kernels cold-compile ~86–105 s per fresh lease:
+needed. Warp kernels cold-compile ~86–120 s per fresh lease:
 86.3/96.5 s in [RECEIPT.md](RECEIPT.md#key-numbers-side-by-side) and
-104.945 s in the [acceptance log](media/data/gpu-run.log). This is reported
+104.945 s in the [acceptance log](media/data/gpu-run.log), 119.5 s in the
+busy-node [reproduction](REPRODUCE.md). This is reported
 as setup time under `timing.cold_compile_s`, not sim time; later grades
 run warm from the kernel cache.
