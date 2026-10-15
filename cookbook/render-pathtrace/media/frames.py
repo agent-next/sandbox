@@ -34,7 +34,7 @@ def job(seed, wheel):
     wheel_env = (f'os.environ["SBX_RENDER_NUMPY_WHEEL"] = str(out/{wheel!r})\n'
                  if wheel else "")
     return run.isolate(f"""
-import os, pathlib, subprocess, tarfile
+import json, os, pathlib, subprocess, tarfile
 out = pathlib.Path(OUTPUT_DIR)
 job = out / "job"
 job.mkdir(exist_ok=True)
@@ -51,6 +51,7 @@ for label, command in (("setup", ["sh", "judge/setup.sh"]),
     report["steps"].append({{"step": label, "exit": result.returncode}})
     if result.returncode:
         break
+(out/"job-result.json").write_text(json.dumps({{"result": {{"ok": True, "report": report}}}})+"\\n")
 """)
 
 
@@ -99,8 +100,14 @@ def main():
             raise RuntimeError(f"frames job failed; see logs in {args.output}")
     finally:
         if sid:
-            run.request(key, "DELETE", f"/sandboxes/{sid}")
-            status, _ = run.request(key, "GET", f"/sandboxes/{sid}")
+            try:
+                run.request(key, "DELETE", f"/sandboxes/{sid}")
+            except Exception:
+                print(f"DELETE reply lost for {sid}; confirming with GET", flush=True)
+            try:
+                status, _ = run.request(key, "GET", f"/sandboxes/{sid}")
+            except Exception as exc:
+                raise RuntimeError(f"cleanup unconfirmed for {sid}") from exc
             if status != 404:
                 raise RuntimeError(f"cleanup unconfirmed for {sid}: GET HTTP {status}")
             print(f"cleanup confirmed: {sid}; GET 404", flush=True)
