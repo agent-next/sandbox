@@ -1,0 +1,62 @@
+{
+  "sign-flip": {
+    "target": "validation",
+    "isolated": false,
+    "desc": "gate 1: Q weight < 0"
+  },
+  "too-aggressive": {
+    "target": "s1_tau_demand_max_Nm",
+    "isolated": false,
+    "desc": "gate 3: |\u03c4| demand > 1 N\u00b7m"
+  },
+  "too-sluggish": {
+    "target": "s2_x_settle_s",
+    "isolated": false,
+    "desc": "gate 3/4: misses settling"
+  },
+  "degenerate-r-torque": {
+    "target": "s1_tau_demand_max_Nm",
+    "isolated": false,
+    "desc": "gate 3: |\u03c4| demand > 1 N\u00b7m"
+  },
+  "degenerate-r-force": {
+    "target": "s1_F_demand_max_N",
+    "isolated": false,
+    "desc": "gate 3: |F| demand > 10 N"
+  },
+  "nan-weight": {
+    "target": "validation",
+    "isolated": false,
+    "desc": "gate 1: NaN weight"
+  },
+  "wrong-type": {
+    "target": "validation",
+    "isolated": false,
+    "desc": "gate 1: type \u2260 \"lqr\""
+  },
+  "wrong-shape": {
+    "target": "validation",
+    "isolated": false,
+    "desc": "gate 1: Q length 3"
+  },
+  "pm-fail": {
+    "target": "pm_force_deg",
+    "isolated": true,
+    "desc": "gate 5: PM < 45\u00b0 only"
+  },
+  "gm-fail": {
+    "target": "gm_force_db",
+    "isolated": true,
+    "desc": "gate 5: GM < 6 dB only"
+  },
+  "weak-feedback": {
+    "target": "design_stable",
+    "isolated": false,
+    "desc": "gate 2: poles too slow"
+  },
+  "mc-marginal": {
+    "target": "mc_pass_fraction",
+    "isolated": true,
+    "desc": "gate 6: Monte-Carlo < 95 %"
+  }
+}
