@@ -54,7 +54,8 @@ PLANTED_INDEX = 25          # must match fixture/make_fixture.py
 # command this script issues: creates leak nothing we can name, execs are
 # idempotent, killing an already-gone sandbox is not an error)
 TRANSIENT = ("503", "bad gateway", "temporarily", "connection reset",
-             "connection refused", "timeout occurred")
+             "connection refused", "timeout occurred", "405",
+             "method not allowed")
 
 
 def scrub(text: str) -> str:
@@ -102,14 +103,15 @@ class CleanupError(RuntimeError):
 
 def kill_and_confirm(sid: str, what: str) -> None:
     """Kill one sandbox this run created and confirm via sbx list."""
-    for attempt in (1, 2):
+    backoff = (5, 15, 30)          # a kill right after an exec can 405 briefly
+    for attempt, sleep_s in enumerate(backoff, start=1):
         rc, out = sbx("kill", sid, timeout=180)
         if rc == 0:
             break
-        if attempt == 2:
+        if attempt == len(backoff):
             raise CleanupError(f"could not kill sandbox {sid} ({what}): "
                                f"rc={rc} {out.strip()}")
-        time.sleep(5)
+        time.sleep(sleep_s)
     rc, listing = sbx("list", timeout=120)
     if rc != 0:
         raise CleanupError(f"sandbox {sid} ({what}): sbx list failed "
@@ -215,30 +217,35 @@ def _indent(text: str) -> str:
 
 def negative_control_cmd() -> str:
     """The same sweep on the reverted fixture, inside the utility sandbox:
-    it must report 'no regression in range', never a commit SHA."""
-    return ("cd repo/{demo} && "
-            "python3 -I fixture/make_fixture.py /tmp/fixture-rev "
-            "--revert-planted >&2 && "
-            "python3 -I - <<'PY'\n"
-            "import concurrent.futures, json, subprocess, tempfile\n"
-            "FIRST, LAST = 20, 30\n"
-            "def one(i):\n"
-            "    with tempfile.TemporaryDirectory() as td:\n"
-            "        c = td + '/c'\n"
-            "        subprocess.run(['git','clone','-q','/tmp/fixture-rev', c],"
-            "check=True)\n"
-            "        subprocess.run(['git','-C',c,'checkout','-q',"
-            "'HEAD~%d' % (30-i)], check=True)\n"
-            "        p = subprocess.run(['python3','test_suite.py'], cwd=c)\n"
-            "        return i, p.returncode == 0\n"
-            "with concurrent.futures.ThreadPoolExecutor(LAST-FIRST+1) as ex:\n"
-            "    res = dict(ex.map(one, range(FIRST, LAST+1)))\n"
-            "bad = [i for i in sorted(res) if not res[i]]\n"
-            "print('NEGCTRL_BEGIN')\n"
-            "print(json.dumps({'report': 'no regression in range' if not bad "
-            "else 'first failing commit: index %d' % bad[0]}))\n"
-            "print('NEGCTRL_END')\n"
-            "PY").format(demo=DEMO_DIR)
+    it must report 'no regression in range', never a commit SHA.
+
+    The heredoc body contains dict-literal braces, so DEMO_DIR is spliced
+    with replace(), never str.format()."""
+    tmpl = (
+        "cd repo/@DEMO@ && "
+        "python3 -I fixture/make_fixture.py /tmp/fixture-rev "
+        "--revert-planted >&2 && "
+        "python3 -I - <<'PY'\n"
+        "import concurrent.futures, json, subprocess, tempfile\n"
+        "FIRST, LAST = 20, 30\n"
+        "def one(i):\n"
+        "    with tempfile.TemporaryDirectory() as td:\n"
+        "        c = td + '/c'\n"
+        "        subprocess.run(['git','clone','-q','/tmp/fixture-rev', c],"
+        "check=True)\n"
+        "        subprocess.run(['git','-C',c,'checkout','-q',"
+        "'HEAD~%d' % (30-i)], check=True)\n"
+        "        p = subprocess.run(['python3','test_suite.py'], cwd=c)\n"
+        "        return i, p.returncode == 0\n"
+        "with concurrent.futures.ThreadPoolExecutor(LAST-FIRST+1) as ex:\n"
+        "    res = dict(ex.map(one, range(FIRST, LAST+1)))\n"
+        "bad = [i for i in sorted(res) if not res[i]]\n"
+        "print('NEGCTRL_BEGIN')\n"
+        "print(json.dumps({'report': 'no regression in range' if not bad "
+        "else 'first failing commit: index %d' % bad[0]}))\n"
+        "print('NEGCTRL_END')\n"
+        "PY")
+    return tmpl.replace("@DEMO@", DEMO_DIR)
 
 
 def grade_cmd(report_b64: str) -> str:
@@ -272,8 +279,7 @@ def main():
     created: dict[str, str] = {}      # every sandbox this run created
     timings: dict[str, float] = {}
     util_sid: str | None = None
-    report: dict = {}
-    verdict: dict | None = None
+    failed = False
 
     try:
         # --- 1. one sandbox per suspect commit, in parallel -----------------
@@ -395,6 +401,12 @@ def main():
             print(f"[run]   {k:<26} {timings[k]:>8.2f}s", flush=True)
         print("[run] PASS", flush=True)
 
+    except SystemExit:
+        raise
+    except BaseException as exc:
+        failed = True
+        print(f"\n[run] FAILED: {type(exc).__name__}: {exc}",
+              file=sys.stderr, flush=True)
     finally:
         # Always kill what we created (workers already killed their own;
         # a re-kill of a gone sandbox is not an error), then confirm each
@@ -411,13 +423,15 @@ def main():
                 except CleanupError as exc:
                     cleanup_failures.append(str(exc))
             if cleanup_failures:
+                failed = True
                 print("[run] ERROR: cleanup could not be confirmed —\n  "
                       + "\n  ".join(cleanup_failures), file=sys.stderr,
                       flush=True)
-                sys.exit(1)
-            print(f"[run] confirmed: all {len(to_kill)} sandboxes this run "
-                  "created are gone (`sbx list` shows none of their ids)",
-                  flush=True)
+            elif to_kill:
+                print(f"[run] confirmed: all {len(to_kill)} sandboxes this "
+                      "run created are gone (`sbx list` shows none of their "
+                      "ids)", flush=True)
+    sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":
