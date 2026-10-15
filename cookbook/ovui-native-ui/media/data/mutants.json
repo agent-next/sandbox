@@ -1,0 +1,587 @@
+{
+  "baked_png": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": false,
+          "checkbox_ok": false,
+          "ref_names_missing": [],
+          "sliders_distinct": false,
+          "sliders_ok": false,
+          "swatch_color_ok": false,
+          "swatch_size_ok": false,
+          "swatch_type_ok": false,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "rects_missing": [
+            "slider1",
+            "slider2",
+            "slider3",
+            "swatch",
+            "checkbox",
+            "button"
+          ]
+        },
+        "gate": "pixels",
+        "ok": false
+      },
+      {
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "6d6fe7b04806f192"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "empty_window": {
+    "error": "ll last):\\n  File \\\"/home/user/w/cookbook/ovui-native-ui/judge/render.py\\\", line 91, in _main\\n    built = build()\\n            ^^^^^^^\\n  File \\\"/tmp/tmp.9V8zaSYMH1/panel.py\\\", line 49, in build_panel\\n    \\\"slider1\\\": sliders[0],\\n               ~~~~~~~^^^\\nIndexError: list index out of range\\n\"}\n",
+    "exit": 1,
+    "pass": null
+  },
+  "missing_checkbox": {
+    "error": "y\\\", line 42, in build_panel\\n    checkbox = ui.Label(\\n               ^^^^^^^^^\\nTypeError: __init__(): incompatible constructor arguments. The following argument types are supported:\\n    1. omni.ui._ui.Label(arg0: str, **kwargs)\\n\\nInvoked with: kwargs: width=140.000000px, height=22.000000px\\n\"}\n",
+    "exit": 1,
+    "pass": null
+  },
+  "missing_slider": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "sliders_distinct": false,
+          "sliders_ok": false,
+          "swatch_color_ok": true,
+          "swatch_size_ok": true,
+          "swatch_type_ok": true,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [],
+          "bg_lum": 69.0,
+          "button_face_lum": 41.0,
+          "button_text_px": 127,
+          "overflow": [],
+          "rects_missing": [],
+          "swatch_median": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "swatch_ok": true,
+          "swatch_std": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "swatch_target": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "title_px": 328,
+          "undrawn": []
+        },
+        "gate": "pixels",
+        "ok": true
+      },
+      {
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "0ec93ad8937e8a21"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "missing_swatch": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "sliders_distinct": true,
+          "sliders_ok": true,
+          "swatch_color_ok": false,
+          "swatch_size_ok": true,
+          "swatch_type_ok": false,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [],
+          "bg_lum": 69.0,
+          "button_face_lum": 41.0,
+          "button_text_px": 127,
+          "overflow": [],
+          "rects_missing": [],
+          "swatch_median": [
+            69.0,
+            69.0,
+            69.0
+          ],
+          "swatch_ok": false,
+          "swatch_std": [
+            22.485,
+            22.485,
+            22.485
+          ],
+          "swatch_target": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "title_px": 328,
+          "undrawn": []
+        },
+        "gate": "pixels",
+        "ok": false
+      },
+      {
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "4c6aee12861d6bb2"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "nondeterministic": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "sliders_distinct": true,
+          "sliders_ok": true,
+          "swatch_color_ok": true,
+          "swatch_size_ok": true,
+          "swatch_type_ok": true,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": true
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [],
+          "bg_lum": 69.0,
+          "button_face_lum": 41.0,
+          "button_text_px": 127,
+          "overflow": [],
+          "rects_missing": [],
+          "swatch_median": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "swatch_ok": true,
+          "swatch_std": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "swatch_target": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "title_px": 328,
+          "undrawn": []
+        },
+        "gate": "pixels",
+        "ok": true
+      },
+      {
+        "gate": "determinism",
+        "ok": false,
+        "sha256": "584cf5be1af46416"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "swatch_overflow": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "sliders_distinct": true,
+          "sliders_ok": true,
+          "swatch_color_ok": true,
+          "swatch_size_ok": false,
+          "swatch_type_ok": true,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [
+            "swatch"
+          ],
+          "bg_lum": 69.0,
+          "button_face_lum": 41.0,
+          "button_text_px": 127,
+          "overflow": [
+            "swatch"
+          ],
+          "rects_missing": [],
+          "swatch_median": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "swatch_ok": false,
+          "swatch_std": [
+            7.524,
+            35.267,
+            72.265
+          ],
+          "swatch_target": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "title_px": 328,
+          "undrawn": []
+        },
+        "gate": "pixels",
+        "ok": false
+      },
+      {
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "c0506f9706a7e5fa"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "wrong_button_text": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": false,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "sliders_distinct": true,
+          "sliders_ok": true,
+          "swatch_color_ok": true,
+          "swatch_size_ok": true,
+          "swatch_type_ok": true,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [],
+          "bg_lum": 69.0,
+          "button_face_lum": 41.0,
+          "button_text_px": 101,
+          "overflow": [],
+          "rects_missing": [],
+          "swatch_median": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "swatch_ok": true,
+          "swatch_std": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "swatch_target": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "title_px": 328,
+          "undrawn": []
+        },
+        "gate": "pixels",
+        "ok": true
+      },
+      {
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "a39b895382674255"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "wrong_range": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "sliders_distinct": false,
+          "sliders_ok": false,
+          "swatch_color_ok": true,
+          "swatch_size_ok": true,
+          "swatch_type_ok": true,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [],
+          "bg_lum": 69.0,
+          "button_face_lum": 41.0,
+          "button_text_px": 127,
+          "overflow": [],
+          "rects_missing": [],
+          "swatch_median": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "swatch_ok": true,
+          "swatch_std": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "swatch_target": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "title_px": 328,
+          "undrawn": []
+        },
+        "gate": "pixels",
+        "ok": true
+      },
+      {
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "0d8e03dcb161d859"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "wrong_swatch_color": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "sliders_distinct": true,
+          "sliders_ok": true,
+          "swatch_color_ok": false,
+          "swatch_size_ok": true,
+          "swatch_type_ok": true,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [],
+          "bg_lum": 69.0,
+          "button_face_lum": 41.0,
+          "button_text_px": 127,
+          "overflow": [],
+          "rects_missing": [],
+          "swatch_median": [
+            230.0,
+            51.0,
+            26.0
+          ],
+          "swatch_ok": false,
+          "swatch_std": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "swatch_target": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "title_px": 328,
+          "undrawn": []
+        },
+        "gate": "pixels",
+        "ok": false
+      },
+      {
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "b80a9720892ad1d8"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  },
+  "wrong_swatch_size": {
+    "exit": 1,
+    "gates": [
+      {
+        "gate": "rendered_png",
+        "ok": true,
+        "size": [
+          1280,
+          720
+        ]
+      },
+      {
+        "detail": {
+          "button_ok": true,
+          "checkbox_ok": true,
+          "ref_names_missing": [],
+          "sliders_distinct": true,
+          "sliders_ok": true,
+          "swatch_color_ok": true,
+          "swatch_size_ok": false,
+          "swatch_type_ok": true,
+          "window_ok": true
+        },
+        "gate": "widget_tree",
+        "ok": false
+      },
+      {
+        "detail": {
+          "bbox_mismatch": [
+            "swatch"
+          ],
+          "bg_lum": 69.0,
+          "button_face_lum": 41.0,
+          "button_text_px": 127,
+          "overflow": [],
+          "rects_missing": [],
+          "swatch_median": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "swatch_ok": true,
+          "swatch_std": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "swatch_target": [
+            51.0,
+            128.0,
+            230.0
+          ],
+          "title_px": 328,
+          "undrawn": []
+        },
+        "gate": "pixels",
+        "ok": false
+      },
+      {
+        "gate": "determinism",
+        "ok": true,
+        "sha256": "28fa66b8e930b02e"
+      }
+    ],
+    "pass": false,
+    "seed": 1234
+  }
+}
