@@ -42,12 +42,12 @@ MUTANTS = {
     ),
     "no-ground-collision": (
         "ground has no PhysicsCollisionAPI (bodies fall through)",
+        '    def Cube "Ground" (\n'
         '        prepend apiSchemas = ["PhysicsCollisionAPI", "MaterialBindingAPI"]\n'
-        "        rel material:binding:physics = </World/DropMaterial>\n"
-        "        double size = 1",
+        "    )",
+        '    def Cube "Ground" (\n'
         '        prepend apiSchemas = ["MaterialBindingAPI"]\n'
-        "        rel material:binding:physics = </World/DropMaterial>\n"
-        "        double size = 1",
+        "    )",
     ),
     "spawn-inside-ground": (
         "box spawned at y=0.05, inside the ground plane",

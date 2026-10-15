@@ -21,7 +21,7 @@ installed) that no one wants on a workstation; a disposable sandbox with
 - Rendering or visualization (later task adds `media/`).
 - GPU simulation, articulations, joints, deformables, CCD.
 - Contact-force or impulse measurement (positions/velocities only).
-- OpenREPRODUCE.md (a different agent writes that after merge, per standard).
+- `REPRODUCE.md` and `media/` (a later task adds both, per the standard).
 
 ## The artifact
 
@@ -83,7 +83,7 @@ count, CPU, single-threaded PhysX (`num_threads = 1`), no randomness (a
 
 | # | Gate | Rule | Body |
 |---|------|------|------|
-| G1 | loads | ovstage populates the scene without error, both dynamic bodies present | — |
+| G1 | loads | both dynamic bodies sampled every step, mass read back within 0.1 % of the authored value | both |
 | G2 | free fall | ≤ 1 % rel (+0.5 mm) vs z0 − g t²/2 on all pre-contact samples | both |
 | G3 | contact time | within 1 frame (4.17 ms) of sqrt(2 Δh/g) | both |
 | G4 | resting height | within 1 mm of 0.10 m after settle | both |
@@ -95,7 +95,8 @@ count, CPU, single-threaded PhysX (`num_threads = 1`), no randomness (a
 Single-edit mutants of the good scene, each must fail ≥ 1 gate:
 
 1. `gravity-flip` — gravity direction `(0, 1, 0)` → fails G2 (rises) / G3.
-2. `mass-zero` — `physics:mass = 0` → body has degenerate mass, fails G2/G5.
+2. `mass-zero` — `physics:mass = 0` → PhysX substitutes a default-density
+   mass instead of failing to load; fails G1 (mass read back ≠ authored 4.0).
 3. `no-rigidbody` — drop `PhysicsRigidBodyAPI` from Box → never moves, G2.
 4. `no-ground-collision` — remove `PhysicsCollisionAPI` from ground → falls
    through, G3/G4.
@@ -118,11 +119,15 @@ E(t)      = m g y(t) + ½ m v(t)²   (monotone non-increasing with e ≤ 1)
 
 ## Toolchain (pinned, sha256-checked)
 
-- `ovphysx` 0.6.4.72118723 (PyPI wheel, manylinux 2_35 x86_64) — NVIDIA
-  Omniverse PhysX headless CPU SDK; https://github.com/NVIDIA-Omniverse/PhysX
+- `ovphysx` 0.6.3 (PyPI wheel, manylinux x86_64, released 2026-09-16) —
+  NVIDIA Omniverse PhysX headless CPU SDK;
+  https://github.com/NVIDIA-Omniverse/PhysX.  The newest wheel
+  (0.6.4.72118723, 2026-10-09) is too new to pin: nothing published in the
+  two weeks before 2026-10-15 may be used.
 - `newton-usd-schemas` 0.5.0 (PyPI) — Newton USD schema registration.
-- Transitively pinned by the ovphysx wheel: `ovstage` 0.2.1.385922,
-  `warp-lang`, `numpy`. Exact versions + sha256 recorded in
-  `judge/requirements.txt` and `judge/VERSIONS.txt`.
+- Exact pins of the ovphysx dependency wheel and transitives (`ovstage`
+  0.2.0.377349, `warp-lang` 1.17.0, `numpy` 2.2.6, `packaging` 23.2), all
+  sha256-recorded in `judge/requirements.txt`; `judge/VERSIONS.txt`
+  records what `setup.sh` actually installed.
 - Python 3.10+ from the sandbox image; pinned exact versions, nothing from
   "latest", nothing published in the last two weeks.

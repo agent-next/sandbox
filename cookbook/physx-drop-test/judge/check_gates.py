@@ -12,7 +12,8 @@ closed-form Newtonian mechanics computed here, from first principles:
 Nothing in this file consults PhysX; the simulator only supplies samples.
 Gates (SPEC.md):
 
-  G1 loads         — both bodies sampled for every step, mass > 0 read back
+  G1 loads         — both bodies sampled for every step, mass read back
+                     within 0.1% of the authored value
   G2 freefall      — pre-contact samples match a free-fall parabola with
                      |g_fit - 9.81| <= 1% and residuals <= 1% + 0.5 mm
   G3 contact time  — first contact within 1 frame (1/240 s) of t_c
@@ -45,6 +46,7 @@ E_REST = 0.50             # authored restitution
 M_BOX = 4.0               # authored masses (kg)
 M_BALL = 1.0
 
+MASS_TOL = 1e-3          # G1: body mass must be within 0.1% of the spec
 FF_REL_TOL = 0.01        # G2: 1% relative (+0.5 mm absolute floor)
 FF_G_TOL = 0.01          # G2: fitted gravity within 1% of 9.81
 REST_ABS_TOL = 0.001     # G4: 1 mm
@@ -184,12 +186,17 @@ def gate_energy(y, vy, mass):
 def check_body(name, y, vy, mass_expected, meta, apply_bounce):
     gates = {}
     y0 = float(y[0])
-    # G1 pre: body sampled at every step with plausible mass
-    g1 = (len(y) == STEPS and meta.get("mass", 0.0) > 0.0)
+    # G1: body sampled at every step, and the mass PhysX actually
+    # constructed matches the spec's authored mass (catches "mass = 0"
+    # falling back to a default-density mass, and a wrong-mass scene).
+    m_read = meta.get("mass")
+    mass_ok = (m_read is not None
+               and abs(m_read - mass_expected) <= MASS_TOL * mass_expected)
+    g1 = len(y) == STEPS and mass_ok
     gates["G1_loads"] = {
         "passed": bool(g1),
         "detail": {"steps_sampled": int(len(y)),
-                   "mass_kg": meta.get("mass"),
+                   "mass_kg": m_read,
                    "mass_expected_kg": mass_expected},
     }
     if not g1:
