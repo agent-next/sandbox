@@ -77,7 +77,7 @@ coordinates, so the analytic footprint is computed directly from
 | `max_print_time_s` | 5400 | print time ceiling (90 min) |
 | `pla_density_g_cm3` | 1.24 | material density for the mass check |
 | `volume_band_frac` | 0.30 | half-width of the analytic deposited-volume band |
-| `skirt_allowance_mm3` | 2500 | ad-hoc mm^3 allowed on top of the model for skirt/priming |
+| `skirt_allowance_mm3` | 300 | mm^3 allowed on top of the model for skirt/priming |
 | `time_band_frac` | 0.25 | tolerance between judge- and slicer-estimated print time |
 
 ## Acceptance oracle

@@ -61,10 +61,12 @@ class Machine:
         self.extr_moves = []           # (z, x0,y0, x1,y1, dE, feed)
         self.travel_moves = []
         self.layer_first_z = []        # ordered Z values at which extrusion starts
-        self.e_total = 0.0             # sum of positive dE (deposited filament mm)
+        self.e_total = 0.0             # sum of positive dE (gross extrusion)
+        self.e_consumed = 0.0          # signed sum of dE: net filament consumed
         self.nozzle_cmds = []          # (seq, temp)
         self.bed_cmds = []             # (seq, temp)
         self.first_extrude_seq = None
+        self.last_extrude_seq = None
         self.seq = 0
         self.errors = []
 
@@ -138,10 +140,12 @@ class Machine:
             dist = abs(de)
         if self.feed > 0:
             self.time_s += dist / self.feed * 60.0
+        self.e_consumed += de
         if de > 0:
             self.e_total += de
             if self.first_extrude_seq is None:
                 self.first_extrude_seq = self.seq
+            self.last_extrude_seq = self.seq
             self.extr_moves.append((z1, x0, y0, x1, y1, de, self.feed))
             if not self.layer_first_z or z1 > self.layer_first_z[-1][0] + 0.05:
                 self.layer_first_z.append((z1, self.seq))
@@ -221,8 +225,11 @@ def slice_segments(tris, z):
         pts = []
         for p, q in ((a, b), (b, c), (c, a)):
             z0, z1 = p[2] - z, q[2] - z
-            if (z0 < 0) == (z1 < 0):
-                t = z0 / (z0 - z1)
+            if (z0 < 0) != (z1 < 0):
+                den = z0 - z1
+                if den == 0:
+                    continue
+                t = z0 / den
                 pts.append((p[0] + (q[0] - p[0]) * t,
                             p[1] + (q[1] - p[1]) * t))
             elif z0 == 0:
@@ -240,6 +247,23 @@ def slice_segments(tris, z):
             segs.append((uniq[0], uniq[1]))
             segs.append((uniq[1], uniq[2]))
     return segs
+
+
+def height_index(tris, zbins):
+    """Bucket triangles into unit-z bins so a slice scan only walks the
+    triangles whose z-range brackets the plane (typically 30x fewer)."""
+    idx = [[] for _ in range(zbins + 2)]
+    for t in tris:
+        lo = max(0, int(min(p[2] for p in t)))
+        hi = min(zbins, int(max(p[2] for p in t)) + 1)
+        for b in range(lo, hi + 1):
+            idx[b].append(t)
+    return idx
+
+
+def slice_segments_bucketed(bucket, z):
+    """slice_segments over one z-bucket from height_index()."""
+    return slice_segments(bucket, z)
 
 
 def rasterize(segs, bbox, pitch):
@@ -337,17 +361,21 @@ def expected_deposit(tris, bbox, layer_zs, layer_hs, pitch, wall_loops,
     (x0, y0, z0), (x1, y1, z1) = bbox
     shell_cells = max(1, int(round(wall_loops * line_width / pitch)))
     n = len(layer_zs)
+    hidx = height_index(tris, int(math.ceil(z1)))
     total = 0.0
     for idx, (z, lh) in enumerate(zip(layer_zs, layer_hs)):
         zmid = z - 0.5 * lh
         if zmid <= z0 or zmid >= z1:
             continue
-        segs = slice_segments(tris, zmid)
+        segs = slice_segments(hidx[min(int(zmid), len(hidx) - 1)], zmid)
         inside, nx, ny = rasterize(segs, bbox, pitch)
         area = len(inside) * pitch * pitch
         solid = idx < solid_layers_bottom or idx >= n - solid_layers_top
-        fill = 1.0 if solid else shell_fraction(inside, shell_cells) \
-            + (1 - shell_fraction(inside, shell_cells)) * infill
+        if solid:
+            fill = 1.0
+        else:
+            sf = shell_fraction(inside, shell_cells)
+            fill = sf + (1.0 - sf) * infill
         total += area * lh * fill
     return total
 

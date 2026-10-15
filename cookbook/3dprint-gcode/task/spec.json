@@ -20,6 +20,6 @@
   "max_print_time_s": 5400,
   "pla_density_g_cm3": 1.24,
   "volume_band_frac": 0.30,
-  "skirt_allowance_mm3": 2500.0,
+  "skirt_allowance_mm3": 300.0,
   "time_band_frac": 0.25
 }
