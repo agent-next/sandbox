@@ -23,8 +23,6 @@ def same_verdict(a, b):
     a, b = copy.deepcopy(a), copy.deepcopy(b)
     a.pop("timing", None)
     b.pop("timing", None)
-    a.pop("traces", None)
-    b.pop("traces", None)
     return a == b
 
 
@@ -58,7 +56,7 @@ report['rc'] = p.returncode
 report['names'] = p.stdout.split()
 report['stderr'] = p.stderr
 """
-    result = lease.exec(code, 120)
+    result = lease.exec(code, 600)
     rep = result.get("report") or {}
     if result.get("ok") is not True or rep.get("rc") != 0:
         raise RuntimeError("mutant generation failed: " + str(rep))
@@ -82,22 +80,18 @@ report['stderr'] = p.stderr
         raise RuntimeError("same-seed verdict JSON differs outside timing")
     print("selftest: byte-identical verdicts outside timing", flush=True)
     killed = 0
-    # Remote files are fetched as data, then shipped to the unchanged judge.
-    import tempfile
-    with tempfile.TemporaryDirectory(prefix="go1-selftest-") as tmp:
-        for name in names:
-            path = os.path.join(tmp, "policy.npz")
-            data = lease.fetch_file(f"~/go1mutants/mutants/{name}/policy.npz")
-            with open(path, "wb") as fh:
-                fh.write(data)
-            mass = 2.0 if name == "mass2x" else 1.0
-            v = checked_verdict(G.grade_on_lease(lease, tmp, seeds, 64, 500, mass))
-            failed = [n for n, g in v["gates"].items() if not g["pass"]]
-            killed += bool(failed)
-            results["mutants"][name] = {"verdict": v, "failed_gates": failed}
-            print(f"selftest: {name}: {'KILLED' if failed else 'SURVIVED'} "
-                  f"({', '.join(failed)}; "
-                  f"fwd={v['measured']['mean_forward_mps']})", flush=True)
+    for name in names:
+        mass = 2.0 if name == "mass2x" else 1.0
+        # Only copy NPZ data into a fresh judge-controlled evaluation input.
+        remote = f"~/go1mutants/mutants/{name}/policy.npz"
+        v = checked_verdict(G.grade_on_lease(lease, good, seeds, 64, 500, mass,
+                                           remote_policy=remote))
+        failed = [n for n, g in v["gates"].items() if not g["pass"]]
+        killed += bool(failed)
+        results["mutants"][name] = {"verdict": v, "failed_gates": failed}
+        print(f"selftest: {name}: {'KILLED' if failed else 'SURVIVED'} "
+              f"({', '.join(failed)}; "
+              f"fwd={v['measured']['mean_forward_mps']})", flush=True)
     rate = killed / len(names)
     results.update(killed=killed, total=len(names), kill_rate=rate,
                    ok=rate >= 0.9 and killed == len(names))

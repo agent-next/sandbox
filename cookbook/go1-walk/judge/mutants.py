@@ -57,6 +57,17 @@ def main():
         with np.load(os.path.join(good, filename), allow_pickle=False) as z:
             put(name, {k: np.asarray(z[k]) for k in z.files})
 
+    # An additional truly untrained network with deliberately broad initial
+    # weights. Distinct from the PPO step-0 mean policy, which can stand.
+    a = dict(base)
+    for k in a:
+        if k.startswith(("w", "b")):
+            a[k] = rng.normal(0.0, 0.3, a[k].shape).astype(np.float32)
+    a["__meta__"] = np.frombuffer(json.dumps({
+        "trained_iters": 0, "initialization": "normal(0, 0.3)",
+        "seed": 20260707}).encode(), dtype=np.uint8)
+    put("random-init", a)
+
     # 2. zero-output: final layer zeroed -> actions pinned at 0 -> stand still
     a = dict(base)
     a[f"w{li}"] = np.zeros_like(a[f"w{li}"])

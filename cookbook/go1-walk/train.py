@@ -232,7 +232,8 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
     n_envs = cfg["num_envs"]
     env = E.Go1Batch(n_envs, seed=cfg["seed"], mass_scale=cfg["mass_scale"],
                      episode_steps=cfg["episode_steps"],
-                     reward=cfg["reward"], cmd_vx=cfg["cmd_vx"])
+                     reward=cfg["reward"], cmd_vx=cfg["cmd_vx"],
+                     cmd_yaw=cfg.get("cmd_yaw", [-0.3, 0.3]))
     env.rollout_steps = cfg["rollout_steps"]
     env.reset_all()
     # stagger episode counters so resets decorrelate
@@ -244,9 +245,12 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
     env.step(torch.zeros(n_envs, E.N_JOINTS, device=env.qpos.device))
     torch.cuda.synchronize()
     compile_s = time.monotonic() - tc
+    warmup_times = [round(compile_s, 3)]
     env.reset_all()
+    env.ep_step = torch.arange(n_envs, device=env.qpos.device) % cfg["episode_steps"]
     eval_env = None
     curve, walk_evals, hits = [], [], 0
+    best_score, best_iter = float("-inf"), 0
     t_train = 0.0
     done_it = 0
     if resume and os.path.exists(resume):
@@ -255,6 +259,8 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
         done_it = sd["iter"]
         curve, walk_evals = sd["curve"], sd["walk_evals"]
         hits, t_train = sd["hits"], sd["train_wall_s"]
+        warmup_times = sd.get("warmup_times", []) + warmup_times
+        best_score, best_iter = sd.get("best_score", float("-inf")), sd.get("best_iter", 0)
         env.gen.set_state(sd["env_gen"].cpu())
         log(f"resumed at iteration {done_it} "
             f"(+{time.time() - t0:.0f}s restore)")
@@ -267,6 +273,8 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
                     "curve": curve, "walk_evals": walk_evals,
                     "hits": hits,
                     "train_wall_s": t_train + (time.time() - t_start),
+                    "warmup_times": warmup_times,
+                    "best_score": best_score, "best_iter": best_iter,
                     "env_gen": env.gen.get_state()}, state_path)
         status = {"finished": finished, "it": done_it,
                   "env_steps": steps_per_it * done_it,
@@ -309,9 +317,14 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
             ev = evaluate(eval_env, lambda o: ppo.actor(o), 500)
             walk_evals.append({"it": done_it, **ev})
             log(f"walk check it {done_it}: {ev}")
+            if ev["upright"] >= 0.95 and ev["forward_mps"] > best_score:
+                best_score, best_iter = ev["forward_mps"], done_it
+                save_policy(ppo.actor, os.path.join(out, "best.npz"),
+                            {"trained_iters": done_it, "seed": cfg["seed"],
+                             "selection_seed": 4242})
             hits = hits + 1 if ev["forward_mps"] >= cfg["walk_mps"] \
                 and ev["upright"] >= 0.95 else 0
-            if hits >= 2 and done_it >= cfg["min_iters"]:
+            if hits >= cfg.get("walk_checks", 2) and done_it >= cfg["min_iters"]:
                 break
     train_wall = t_train + time.time() - t_start
     status = save_state(True)
@@ -323,13 +336,20 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
             "config_sha256": hashlib.sha256(
                 json.dumps(cfg, sort_keys=True).encode()).hexdigest()}
     save_policy(ppo.actor, os.path.join(out, "policy.npz"), meta)
+    if best_iter:
+        import shutil
+        shutil.copyfile(os.path.join(out, "best.npz"), os.path.join(out, "policy.npz"))
     summary = {"iters": done_it, "env_steps": steps_per_it * done_it,
                "train_wall_s": round(train_wall, 1),
-               "total_wall_s": round(time.time() - t0, 1),
+               "last_chunk_wall_s": round(time.time() - t0, 1),
                "steps_per_s": round(steps_per_it * done_it / train_wall),
                "walk_evals": walk_evals, "curve": curve,
                "reward_end": curve[-1]["mean_reward"]}
     summary["kernel_warmup_s"] = round(compile_s, 3)
+    summary["kernel_warmup_per_chunk_s"] = warmup_times
+    summary["kernel_warmup_total_s"] = round(sum(warmup_times), 3)
+    summary["selected_checkpoint_it"] = best_iter or done_it
+    summary["selection_seed"] = 4242
     summary["torch_peak_allocated_bytes"] = torch.cuda.max_memory_allocated()
     summary["torch_peak_reserved_bytes"] = torch.cuda.max_memory_reserved()
     with open(os.path.join(out, "curve.json"), "w") as fh:

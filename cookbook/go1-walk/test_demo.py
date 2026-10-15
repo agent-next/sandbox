@@ -9,6 +9,7 @@ import tempfile
 import types
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 import numpy as np
 
@@ -52,6 +53,7 @@ class RegressionTests(unittest.TestCase):
         obj.home_q = array([0, .9, -1.8] * 4)
         obj.home_ctrl = obj.home_q.copy()
         obj.cmd_vlo, obj.cmd_vhi = .4, 1.0
+        obj.cmd_ylo, obj.cmd_yhi = -.3, .3
         obj._randn = lambda *shape: np.zeros(shape)
         obj._rand = lambda *shape: np.zeros(shape)
         obj._reset_idx(array([0, 2]))
@@ -90,13 +92,16 @@ class RegressionTests(unittest.TestCase):
                             "training wall time must be elapsed seconds, not an epoch timestamp")
             self.assertGreater(summary["steps_per_s"], 1)
 
-    def test_determinism_ignores_only_timing_and_trace_transport(self):
+    def test_determinism_ignores_only_timing(self):
         v = {"ok": True, "gates": {"g1": {"pass": True, "value": .8}},
              "timing": {"wall_s": 1}}
         same = json.loads(json.dumps(v))
         same["timing"]["wall_s"] = 2
         self.assertTrue(selftest.same_verdict(v, same))
         same["gates"]["g1"]["value"] += .000001
+        self.assertFalse(selftest.same_verdict(v, same))
+        same = json.loads(json.dumps(v))
+        same["traces"] = {"101": "different"}
         self.assertFalse(selftest.same_verdict(v, same))
 
     def test_judge_errors_do_not_count_as_mutant_kills(self):
@@ -124,6 +129,31 @@ class RegressionTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "gl-test"):
                 lease.delete()
         self.assertEqual(lease.id, "gl-test")
+
+    def test_ambiguous_post_is_not_resent(self):
+        body = io.BytesIO(b'{"message":"gateway reply lost"}')
+        error = HTTPError("https://api.sbx.agent-next.com/sandboxes",
+                          502, "bad gateway", {}, body)
+        with patch.object(grade, "urlopen", side_effect=error) as open_url, \
+                patch.object(grade.time, "sleep"):
+            status, _ = grade.request("test-only", "POST", "/sandboxes", {})
+        self.assertEqual(status, 502)
+        self.assertEqual(open_url.call_count, 1,
+                         "an ambiguous POST must not be blindly resent")
+
+    def test_invalid_id_never_becomes_a_cleanup_url(self):
+        lease = grade.Lease("test-only")
+        with patch.object(grade, "request", return_value=
+                (201, {"sandboxID": "gl-1/../../admin"})) as request, \
+                patch("sys.stderr", io.StringIO()):
+            with self.assertRaises(SystemExit):
+                lease.__enter__()
+            self.assertIsNone(lease.id,
+                              "an invalid lease id must never become a cleanup target")
+            lease.delete()
+        self.assertEqual(request.call_count, 1,
+                         "cleanup must never request an unvalidated lease id")
+        self.assertIsNone(lease.id)
 
 
 if __name__ == "__main__":

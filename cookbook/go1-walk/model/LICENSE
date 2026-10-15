@@ -1,14 +1,3 @@
-The model file go1_meshless.xml is derived from unitree_go1/ in the MuJoCo
-Menagerie (https://github.com/google-deepmind/mujoco_menagerie), commit
-d7b481bac63d3d600ab404ee74f7474c5efe8a67. The upstream licence for the
-contents of unitree_go1/ is the BSD 3-Clause License below; visual meshes
-and cameras were stripped and every collision geom was inlined as a
-primitive, with dynamics unchanged.
-
-================================================================================
-License for contents in the directory 'unitree_go1/'
-================================================================================
-
 BSD 3-Clause License
 
 Copyright (c) 2016-2022 HangZhou YuShu TECHNOLOGY CO.,LTD. ("Unitree Robotics")

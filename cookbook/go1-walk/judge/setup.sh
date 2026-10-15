@@ -38,16 +38,15 @@ if [ -x "$VENV/bin/python" ] && "$VENV/bin/python" -c \
     'import numpy; assert numpy.__version__ == "2.2.6"' 2>/dev/null; then
     echo "setup.sh: venv already provides numpy 2.2.6"
 else
-    echo "setup.sh: creating venv at $VENV"
+    echo 'setup.sh: creating $HOME/.venvs/go1-walk'
     python3 -m venv "$VENV"
-    "$VENV/bin/pip" install --quiet --upgrade "pip==25.0.1"
     "$VENV/bin/pip" install --quiet --require-hashes -r requirements.lock
 fi
 
 {
     echo "# local side ($(date -u +%Y-%m-%d))"
     echo "python3 $(python3 --version 2>&1 | awk '{print $2}')"
-    echo "venv $VENV:"
+    echo 'venv $HOME/.venvs/go1-walk:'
     "$VENV/bin/pip" list --format=freeze
     echo "lease stack (asserted by _eval.py at grade time):"
     echo "  warp-lang 1.13.0"
@@ -58,4 +57,4 @@ fi
     echo "  GPU: RTX 5090 slice, 4 GiB VRAM"
 } > VERSIONS.txt
 
-echo "setup.sh: ok (numpy venv at $VENV; grading runs on the GPU lease)"
+echo 'setup.sh: rc=0 (pinned local NumPy; lease stack asserted before training and grading)'

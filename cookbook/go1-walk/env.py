@@ -72,16 +72,18 @@ class Go1Batch:
     def __init__(self, n_envs: int, seed: int = 0, mass_scale: float = 1.0,
                  episode_steps: int = 500, xml_path: str = MODEL_XML,
                  reward: dict | None = None, cmd_vx=(0.4, 1.0),
-                 auto_reset: bool = True):
+                 auto_reset: bool = True, cmd_yaw=(-0.3, 0.3)):
         import mujoco
         import mujoco_warp as mjw
         import torch
         import warp as wp
 
-        self.mjw, self.torch = mjw, torch
+        self.mjw, self.torch, self.wp = mjw, torch, wp
+        self.sim_graph = None
         self.n, self.episode_steps = n_envs, episode_steps
         self.rw = {**REWARD_DEFAULTS, **(reward or {})}
         self.cmd_vlo, self.cmd_vhi = cmd_vx
+        self.cmd_ylo, self.cmd_yhi = cmd_yaw
         mjm = make_mjmodel(mass_scale, xml_path)
         mjm.opt.timestep = SIM_DT
         mjd = mujoco.MjData(mjm)
@@ -157,7 +159,7 @@ class Go1Batch:
         self.cmd[idx, 0] = self.cmd_vlo + (self.cmd_vhi - self.cmd_vlo) \
             * self._rand(idx.numel())
         self.cmd[idx, 1] = 0.0
-        self.cmd[idx, 2] = -0.3 + 0.6 * self._rand(idx.numel())
+        self.cmd[idx, 2] = self.cmd_ylo + (self.cmd_yhi - self.cmd_ylo) * self._rand(idx.numel())
 
     def reset_all(self):
         self._reset_idx(torch.arange(self.n, device=self.qpos.device))
@@ -170,10 +172,10 @@ class Go1Batch:
             [0.0, 0.0, -1.0], device=quat.device).expand(quat.shape[0], 3))
         return torch.cat((
             grav,                       # 3
-            self.qvel[:, 3:6],          # gyro (body frame) 3
+            self.qvel[:, 3:6] * 0.25,   # scaled gyro (body frame) 3
             self.cmd,                   # 3
             self.qpos[:, 7:19] - self.home_q,   # 12
-            self.qvel[:, 6:18],         # 12
+            self.qvel[:, 6:18] * 0.05,  # scaled joint velocity 12
             self.last_act,              # 12
         ), -1)
 
@@ -185,8 +187,14 @@ class Go1Batch:
         self.last_act = act.clone()
         target = self.home_ctrl + ACT_SCALE * act
         self.ctrl[:] = torch.clamp(target, self.ctrl_lo, self.ctrl_hi)
-        for _ in range(DECIM):
-            self.mjw.step(self.m, self.d)
+        if self.sim_graph is None:
+            # Capture fixed-shape physics once, rather than launching each
+            # substep's kernels from Python at every control step.
+            with self.wp.ScopedCapture() as capture:
+                for _ in range(DECIM):
+                    self.mjw.step(self.m, self.d)
+            self.sim_graph = capture.graph
+        self.wp.capture_launch(self.sim_graph)
         self.ep_step += 1
 
         quat = self.qpos[:, 3:7]

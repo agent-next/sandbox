@@ -73,6 +73,8 @@ def main():
     ap.add_argument("--config", type=Path, default=HERE / "examples/good/train_config.json")
     ap.add_argument("--iters", type=int)
     ap.add_argument("--chunk-s", type=int, default=90)
+    ap.add_argument("--backup-checkpoints", action="store_true",
+                    help="also download a policy after every training chunk")
     ap.add_argument("--keep", action="store_true")
     ap.add_argument("--skip-train", type=Path, metavar="ARTIFACT_DIR")
     ap.add_argument("--selftest", action="store_true", help="self-test is already the default")
@@ -85,19 +87,29 @@ def main():
         ap.error("--iters must be positive")
     if a.vram < 1 or a.vram > 32:
         ap.error("--vram must be in 1..32")
+    if not 1 <= a.chunk_s <= 420:
+        ap.error("--chunk-s must be in 1..420")
     key = os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")
     if not key:
         G.die("export SBX_API_KEY (or E2B_API_KEY)")
     a.outdir.mkdir(parents=True, exist_ok=True)
     a.outdir = a.outdir.resolve()
     artifact = a.skip_train.resolve() if a.skip_train else a.outdir
+    if not a.no_selftest:
+        required = ["reward-flipped.npz"] if not a.skip_train else [
+            "policy.npz", "step0.npz", "short.npz", "reward-flipped.npz"]
+        for name in required:
+            directory = artifact if a.skip_train else HERE / "examples/good"
+            if not (directory / name).is_file():
+                ap.error(f"self-test requires {directory.name}/{name}; "
+                         "regenerate the documented known-good artifact first")
     cfg = json.loads(a.config.read_text())
     if a.iters:
         cfg["iters"] = a.iters
     if not a.skip_train:
         (a.outdir / "train_config.json").write_text(json.dumps(cfg, indent=2) + "\n")
     total0 = time.monotonic()
-    timing = {}
+    timing = {"grade_completed": False}
     lease = G.Lease(key, a.vram)
     sid = None
     rc = 1
@@ -123,10 +135,13 @@ def main():
                 st = rep["status"]
                 print(f"training chunk {chunk}: rc=0 it={st['it']} "
                       f"reward={st['mean_reward']} train_wall={st['train_wall_s']} s "
+                      f"kernel_warmup={st['kernel_warmup_s']} s "
+                      f"torch_peak_reserved={st['torch_peak_reserved_bytes']} bytes "
                       f"walk_evals={st['walk_evals']}", flush=True)
                 (a.outdir / "progress.json").write_text(json.dumps(st, indent=2) + "\n")
-                (a.outdir / "policy.npz").write_bytes(
-                    lease.fetch_file("~/go1job/out/policy.npz"))
+                if a.backup_checkpoints:
+                    (a.outdir / "policy.npz").write_bytes(
+                        lease.fetch_file("~/go1job/out/policy.npz"))
                 if st["finished"]:
                     break
             else:
@@ -142,7 +157,7 @@ def main():
                                              if k != "curve"}, sort_keys=True), flush=True)
             # This is a separately trained, real reward-sign counterfactual.
             negative = HERE / "examples/good/reward-flipped.npz"
-            if negative.exists():
+            if not a.no_selftest:
                 (a.outdir / negative.name).write_bytes(negative.read_bytes())
         if not a.no_selftest:
             t = time.monotonic()
@@ -155,6 +170,7 @@ def main():
         rep = G.grade_on_lease(lease, str(artifact), a.seeds, 64, 500, 1.0,
                                trace=a.trace)
         verdict = checked_verdict(rep)
+        timing["grade_completed"] = True
         timing["grade_s"] = round(time.monotonic() - t, 3)
         (a.outdir / "verdict.json").write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n")
         print("grade: rc=" + str(rep["rc"]) + f", {timing['grade_s']} s", flush=True)
@@ -173,6 +189,7 @@ def main():
         timing["cleanup_s"] = round(time.monotonic() - t, 3)
         timing["total_s"] = round(time.monotonic() - total0, 3)
         (a.outdir / "timing.json").write_text(json.dumps(timing, indent=2) + "\n")
+        (a.outdir / "lease-events.json").write_text(json.dumps(lease.events, indent=2) + "\n")
         print(f"total: {timing['total_s']} s; rc={rc}", flush=True)
     return rc
 

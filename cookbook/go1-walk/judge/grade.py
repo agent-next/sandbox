@@ -18,6 +18,7 @@ import base64
 import json
 import os
 import sys
+import threading
 import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -30,6 +31,7 @@ JOB = """
 import base64, hashlib, json, os, subprocess, sys, time
 FILES = __PAYLOAD__
 ARGS = __ARGS__
+POLICY_SOURCE = __REMOTE_POLICY__
 ROOT = os.path.expanduser('~/go1judge')
 os.makedirs(os.path.join(ROOT, 'model'), exist_ok=True)
 os.chdir(ROOT)
@@ -39,6 +41,9 @@ for name, b64 in FILES.items():
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, name), 'wb') as fh:
         fh.write(base64.b64decode(b64))
+if POLICY_SOURCE is not None:
+    import shutil
+    shutil.copyfile(os.path.expanduser(POLICY_SOURCE), 'policy.npz')
 for m in ('env', '_eval'):
     sys.modules.pop(m, None)
 protected = [n for n in FILES if n != 'policy.npz']
@@ -78,7 +83,7 @@ def request(key, method, path, body=None, timeout=900):
                 headers={"X-API-Key": key, "Content-Type": "application/json"})
     last = None
     error = None
-    for attempt in range(5):
+    for attempt in range(12 if method == "POST" else 5):
         try:
             with urlopen(r, timeout=timeout) as resp:
                 raw = resp.read()
@@ -89,12 +94,16 @@ def request(key, method, path, body=None, timeout=900):
                 error = json.loads(raw) if raw else None
             except ValueError:
                 error = None
-            # 409 = exec slot busy, 5xx = transient gateway blip
-            if exc.code == 409 or 500 <= exc.code < 600:
+            # A lost POST reply is ambiguous: never resend an operation
+            # that could have created a lease or already executed code.
+            capacity = (exc.code == 503 and isinstance(error, dict) and
+                        str(error.get("message", "")).startswith("GPU plane at capacity"))
+            if exc.code == 409 or capacity or (method in ("GET", "DELETE") and
+                                               500 <= exc.code < 600):
                 if isinstance(error, dict) and "failed" in str(error.get("message", "")):
                     return exc.code, error
                 last = exc
-                time.sleep(5 * (attempt + 1))
+                time.sleep(min(5 * (attempt + 1), 30))
                 continue
             return exc.code, error
     return last.code, error
@@ -111,6 +120,9 @@ class Lease:
     def __init__(self, key, vram_gb=4):
         self.key, self.vram_gb = key, vram_gb
         self.id = None
+        self.events = []
+        self._stop = threading.Event()
+        self._heartbeat = None
 
     def __enter__(self):
         t0 = time.monotonic()
@@ -128,17 +140,42 @@ class Lease:
                 continue
             die(f"GPU lease create: HTTP {st}; check GPU access "
                 "and capacity")
-        self.id = created["sandboxID"]
-        if not check_lease_id(self.id):
-            die(f"GPU create returned unexpected lease id {self.id!r}")
+        sid = created.get("sandboxID")
+        if not check_lease_id(sid):
+            die("GPU create returned an invalid lease id; no unvalidated "
+                "cleanup URL was requested. Inspect your owned inventory.")
+        self.id = sid
+        self._heartbeat = threading.Thread(target=self._watch, daemon=True)
+        self._heartbeat.start()
         return self
 
+    def _watch(self):
+        """Keep observing only our lease while long calls are in flight."""
+        while not self._stop.wait(15):
+            sid = self.id
+            if sid is None:
+                return
+            try:
+                status, body = request(self.key, "GET", f"/sandboxes/{sid}",
+                                       timeout=20)
+                self.events.append({"kind": "heartbeat", "status": status,
+                                    "phase": (body or {}).get("phase")
+                                    if isinstance(body, dict) else None})
+            except Exception:
+                self.events.append({"kind": "heartbeat", "status": "transport_error"})
+
     def exec(self, code, timeout_s=600):
+        t0 = time.monotonic()
         st, r = request(self.key, "POST", f"/sandboxes/{self.id}/exec",
                         {"code": code, "timeout_s": timeout_s},
                         timeout=timeout_s + 60)
+        self.events.append({"kind": "exec", "status": st,
+                            "wall_s": round(time.monotonic()-t0, 3)})
         if st != 200 or not isinstance(r, dict):
-            die(f"GPU exec: HTTP {st}; {r}")
+            message = "capacity unavailable" if isinstance(r, dict) and \
+                str(r.get("message", "")).startswith("GPU plane at capacity") \
+                else "no confirmed execution result"
+            die(f"GPU exec: HTTP {st}; {message}")
         return r.get("result") or {}
 
     def fetch_file(self, remote_path, chunk=524288):
@@ -165,6 +202,9 @@ class Lease:
         return False
 
     def delete(self):
+        self._stop.set()
+        if self._heartbeat is not None:
+            self._heartbeat.join(timeout=1)
         if not self.id:
             return
         for attempt in range(5):
@@ -189,14 +229,16 @@ class Lease:
 
 
 def grade_on_lease(lease, artifact, seeds, episodes, steps, mass_scale,
-                   extra_files=None, timeout_s=600, trace=False):
+                   extra_files=None, timeout_s=600, trace=False,
+                   remote_policy=None):
     """Ship the judge payload and run _eval.py. Returns the report dict."""
     files = {
         "env.py": os.path.join(DEMO, "env.py"),
         "_eval.py": os.path.join(HERE, "_eval.py"),
         "go1_meshless.xml": os.path.join(DEMO, "model", "go1_meshless.xml"),
-        "policy.npz": os.path.join(artifact, "policy.npz"),
     }
+    if remote_policy is None:
+        files["policy.npz"] = os.path.join(artifact, "policy.npz")
     if extra_files:
         files.update(extra_files)
     payload = {}
@@ -209,7 +251,7 @@ def grade_on_lease(lease, artifact, seeds, episodes, steps, mass_scale,
     if trace:
         args += ["--trace-dir", "traces"]
     code = JOB.replace("__PAYLOAD__", repr(payload)).replace(
-        "__ARGS__", repr(args))
+        "__ARGS__", repr(args)).replace("__REMOTE_POLICY__", repr(remote_policy))
     res = lease.exec(code, timeout_s)
     rep = res.get("report") or {}
     if res.get("ok") is not True:

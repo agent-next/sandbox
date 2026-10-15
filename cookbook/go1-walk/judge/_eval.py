@@ -13,6 +13,7 @@ import json
 import os
 import sys
 import time
+import zipfile
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -46,6 +47,11 @@ def load_policy(path):
     import numpy as np
     import torch
 
+    if os.path.getsize(path) > 1_048_576:
+        raise ValueError("checkpoint exceeds 1 MiB")
+    with zipfile.ZipFile(path) as archive:
+        if sum(info.file_size for info in archive.infolist()) > 4_194_304:
+            raise ValueError("expanded checkpoint exceeds 4 MiB")
     with np.load(path, allow_pickle=False) as z:
         n = sum(k.startswith("w") for k in z.files)
         if not 1 <= n <= 8:
@@ -110,12 +116,14 @@ def evaluate(policy, seed, episodes, steps, mass_scale=1.0, trace=None):
     last = np.zeros((episodes, 12))
     command = np.tile([1.0, 0.0, 0.0], (episodes, 1))
     saturated, samples, peak_ratio = 0, 0, 0.0
-    recorded = {"qpos": [qpos.copy()], "qvel": [qvel.copy()],
-                "alive": [alive.copy()]} if trace else None
+    initial_qpos = qpos.copy()
+    # Episode zero is selected before simulation, never after seeing results.
+    recorded = {"qpos": [qpos[:1].copy()], "qvel": [qvel[:1].copy()],
+                "alive": [alive[:1].copy()]} if trace else None
     for _ in range(steps):
-        obs = np.column_stack((gravity(qpos[:, 3:7]), qvel[:, 3:6],
+        obs = np.column_stack((gravity(qpos[:, 3:7]), qvel[:, 3:6] * 0.25,
                                command, qpos[:, 7:] - home,
-                               qvel[:, 6:], last))
+                               qvel[:, 6:] * 0.05, last))
         action = policy(obs)
         if action.shape != (episodes, 12) or not np.isfinite(action).all():
             raise ValueError("non-finite or wrongly shaped actions")
@@ -140,7 +148,7 @@ def evaluate(policy, seed, episodes, steps, mass_scale=1.0, trace=None):
             gravity(qpos[:, 3:7])[:, 2] <= FALL_GZ)
         if recorded is not None:
             for key, value in (("qpos", qpos), ("qvel", qvel), ("alive", alive)):
-                recorded[key].append(value.copy())
+                recorded[key].append(value[:1].copy())
     forward = (qpos[:, 0] - start_x) / (steps * CTRL_DT)
     metrics = {"forward_mps": round(float(forward.mean()), 6),
                "min_forward_mps": round(float(forward.min()), 6),
@@ -151,6 +159,8 @@ def evaluate(policy, seed, episodes, steps, mass_scale=1.0, trace=None):
         np.savez_compressed(trace, **{k: np.asarray(v) for k, v in recorded.items()},
                             seed=seed, sim_dt=SIM_DT, control_dt=CTRL_DT,
                             mass_scale=mass_scale,
+                            episode=0, initial_qpos=initial_qpos,
+                            final_qpos=qpos, final_alive=alive,
                             model_sha256=sha256(MODEL),
                             metrics=json.dumps(metrics, sort_keys=True))
     return metrics
