@@ -23,7 +23,7 @@
     },
     "result.png": {
       "command": "media/make_media.sh /tmp/uci-run1",
-      "sha256": "7cddde01e1d0a41a7a412ffd644bd92bc533ce603867dcc9788ba5459d7e40fb",
+      "sha256": "36a092b8777ec0a0ee114a7c8c418ac88a583f74e71a1a2b956848896740f034",
       "shows": "Measured containment of the 6 numerically bounded hostile snippets against the judge's bounds (pass line at 1.0), plus the 4 binary effect gates.",
       "source_data": [
         "verdict.json (runs, measured, gates.containment.effects)",
