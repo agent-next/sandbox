@@ -1,0 +1,10 @@
+#usda 1.0
+(
+    defaultPrim = "TrafficCone"
+    metersPerUnit = 0.01
+    subLayers = [
+        @/home/user/w/cookbook/usd-validate-fix/examples/good/traffic_cone_fixed.usda@
+    ]
+    upAxis = "Y"
+)
+

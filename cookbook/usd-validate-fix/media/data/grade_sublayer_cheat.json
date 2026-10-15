@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/sublayer_cheat.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/sublayer_cheat.usda",
  "facts": {
   "crosscheck": {
    "errors": [
@@ -143,10 +143,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.004,
-  "oracle_s": 0.308,
-  "recount_s": 0.005,
-  "total_s": 1.76,
-  "validator_s": 1.442
+  "geometry_s": 0.007,
+  "oracle_s": 1.21,
+  "recount_s": 0.024,
+  "total_s": 3.797,
+  "validator_s": 2.553
  }
 }

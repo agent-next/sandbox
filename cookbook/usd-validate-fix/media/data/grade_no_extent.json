@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/no_extent.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/no_extent.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -164,10 +164,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.004,
-  "oracle_s": 0.352,
-  "recount_s": 0.021,
-  "total_s": 1.442,
-  "validator_s": 1.064
+  "geometry_s": 0.003,
+  "oracle_s": 0.53,
+  "recount_s": 0.012,
+  "total_s": 3.102,
+  "validator_s": 2.556
  }
 }

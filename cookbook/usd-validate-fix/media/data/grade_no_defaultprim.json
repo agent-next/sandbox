@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/no_defaultprim.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/no_defaultprim.usda",
  "facts": {
   "crosscheck": {
    "errors": [
@@ -227,10 +227,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.003,
-  "oracle_s": 0.31,
-  "recount_s": 0.014,
-  "total_s": 1.412,
-  "validator_s": 1.084
+  "geometry_s": 0.006,
+  "oracle_s": 0.658,
+  "recount_s": 0.021,
+  "total_s": 3.016,
+  "validator_s": 2.331
  }
 }

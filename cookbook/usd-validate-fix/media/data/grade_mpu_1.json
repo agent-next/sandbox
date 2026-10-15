@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/mpu_1.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/mpu_1.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -212,10 +212,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.003,
-  "oracle_s": 0.393,
-  "recount_s": 0.011,
-  "total_s": 1.759,
-  "validator_s": 1.351
+  "geometry_s": 0.008,
+  "oracle_s": 0.379,
+  "recount_s": 0.027,
+  "total_s": 3.164,
+  "validator_s": 2.749
  }
 }
