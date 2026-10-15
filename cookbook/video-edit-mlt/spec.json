@@ -1,0 +1,38 @@
+{
+  "schema": "video-edit-mlt/1",
+  "format": {
+    "width": 1280,
+    "height": 720,
+    "fps_num": 25,
+    "fps_den": 1,
+    "frames": 225,
+    "vcodec": "h264",
+    "acodec": "aac",
+    "sample_rate": 48000,
+    "channels": 2
+  },
+  "edl": [
+    {"out": [0, 99],   "clip": "a", "in": 0},
+    {"out": [100, 124], "blend": {"a_in": 100, "b_in": 0}},
+    {"out": [125, 199], "clip": "b", "in": 25},
+    {"out": [200, 224], "clip": "c", "in": 50}
+  ],
+  "logo": {
+    "file": "assets/logo.png",
+    "rect": [1100, 620, 160, 80],
+    "frames": [0, 99]
+  },
+  "audio": {
+    "music_hz": 220,
+    "voice_windows": [[1.0, 2.0], [5.0, 6.0]],
+    "duck_db": 8.0,
+    "lufs": -16.0,
+    "lufs_tol": 1.0,
+    "true_peak_dbtp": -1.0
+  },
+  "sources": {
+    "a": {"file": "assets/clip_a.mp4", "frames": 150, "clip_id": 0, "rgb": [200, 40, 40]},
+    "b": {"file": "assets/clip_b.mp4", "frames": 150, "clip_id": 1, "rgb": [40, 170, 60]},
+    "c": {"file": "assets/clip_c.mp4", "frames": 150, "clip_id": 2, "rgb": [60, 90, 210]}
+  }
+}
