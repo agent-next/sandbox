@@ -1,0 +1,51 @@
+{
+  "pass": false,
+  "gates": {
+    "G0": {
+      "pass": true
+    },
+    "G1": {
+      "pass": false,
+      "detail": "37/40 tests pass; failing: lui sra srai "
+    },
+    "G2": {
+      "pass": false,
+      "detail": "   G2: MISMATCH program seed=90210270633 reg x14: ISS=0xfffae6a5 DUT=0x000ae6a5"
+    },
+    "G3": {
+      "pass": true,
+      "detail": "6/6 trap tests pass"
+    },
+    "G4": {
+      "pass": false,
+      "detail": "9 failing runs over 3 latency seeds"
+    },
+    "G5": {
+      "pass": true,
+      "detail": "synth+P&R ok: lut4=12989 ff=77 fmax=29.94 MHz",
+      "lut4": 12989,
+      "ff": 77,
+      "fmax_mhz": 29.94
+    },
+    "G6": {
+      "pass": true,
+      "detail": "cpi=1.3096 (24168 cycles / 18454 insns); checksum 0xef65efa0 == ISS",
+      "cpi": 1.3096,
+      "cycles": 24168,
+      "insns": 18454,
+      "checksum": "0xef65efa0",
+      "checksum_ok": true
+    }
+  },
+  "lut4": 12989,
+  "ff": 77,
+  "fmax_mhz": 29.94,
+  "cpi": 1.3096,
+  "seed": 90210,
+  "wall_seconds": 2324,
+  "tool_versions": {
+    "verilator": "Verilator 5.053 devel rev v5.052-222-gd234caafc (mod)",
+    "yosys": "Yosys 0.69+154 (git sha1 30d62572e-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+    "nextpnr": "\"nextpnr-ecp5\" -- Next Generation Place and Route (Version nextpnr-0.11.1-34-gc4fbb55a)"
+  }
+}
