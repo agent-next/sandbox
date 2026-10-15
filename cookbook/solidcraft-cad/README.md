@@ -21,7 +21,7 @@ Your machine stays clean, and the graded artifact is one small JSON file.
 
 ![Independent agent run and self-test kill rate](media/loop.png)
 
-[▶ demo.mp4](media/demo.mp4): 50 s. The video steps through the spec, then
+[▶ demo.mp4](media/demo.mp4): 55 s. The video steps through the spec, then
 SolidCraft building the part step by step, the delivered views, a live
 `thickness` sweep (each frame a real SolidCraft rebuild), the judge verdict and
 the agent loop (1920×1080, H.264).

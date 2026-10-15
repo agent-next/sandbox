@@ -9,19 +9,19 @@
    "shows": "Delivered part (SolidCraft render) + every judge pass rule as measured/limit, pass line at 1",
    "command": "bash media/make_media.sh (make_media.py figures)",
    "source": "data/verdicts.json",
-   "sha256": "621aa643ebb5393a7ce5e2678fa08c5ac6eac57664ab7ee8f30bdffab138e7c4"
+   "sha256": "4c1e3f1d0da89e28efe939d66b86821637b2e393152b169c0357a820dfc4d94c"
   },
   "loop.png": {
    "shows": "Independent agent's 12 designs: gates passed as recorded vs re-graded by this judge + self-test kills",
    "command": "bash media/make_media.sh (make_media.py figures)",
    "source": "data/agent_run.json, data/agent_run_recorded.json, data/agent_attempts/, data/verdicts.json",
-   "sha256": "e172c390d903cfc1490388699820c9a3f89417a6b866586300ca133ea8f2bcc5"
+   "sha256": "5d0a093e21952f324c1d54b723b617a605803d810a8d64122bee0cf0e8dfca72"
   },
   "demo.mp4": {
    "shows": "Spec -> SolidCraft build stages -> delivered views -> parametric sweep -> judge verdict -> loop",
    "command": "bash media/make_media.sh (make_media.py frames + ffmpeg crf 0 master -> crf 18 web)",
    "source": "data/*.json, data/renders/*.png",
-   "sha256": "af16ec20b40fc42ae3f94244581285e5a72ab722273ae6789da4c4d9a6f608e2"
+   "sha256": "af8e8dcc58c2b6240593d12d038bf7d12c81bfa5c9721280f9c010461d78a0e9"
   },
   "data/renders": {
    "shows": "SolidCraft snapshot PNGs used by the figures and video",

@@ -158,10 +158,10 @@ def draw_result(fig, v: dict):
     ax.set_xlim(FLOOR / 10, 300)
     ax.set_yticks(list(y))
     ax.set_yticklabels([r[0] for r in rows], fontsize=10)
-    ax.set_xlabel("measured deviation / pass limit (log scale; < 1 passes)", fontsize=10)
-    ax.set_title("8 gates, 12 checks on the delivered STEP/STL (OCCT 8.0.1)", fontsize=12)
+    ax.set_xlabel("measured value or deviation / pass limit (log scale; < 1 passes)", fontsize=10)
+    ax.set_title("12 numeric checks, labelled by their gate (build: pass/fail)", fontsize=12)
     for yi, r in zip(y, ratios):
-        ax.text(min(r * 1.6, 3), yi, "≤ 1e-12 (exact)" if r <= FLOOR else f"{r:.1e}",
+        ax.text(1.5 if r > 1e-3 else r * 1.6, yi, "≤ 1e-12 (exact)" if r <= FLOOR else f"{r:.1e}",
                 va="center", fontsize=8, color=INK)
     ok = v["passed"]
     fig.suptitle(f"solidcraft-cad — verdict: {'PASS' if ok else 'FAIL'}  "
@@ -175,7 +175,7 @@ def draw_loop(fig, verdicts: dict, agent: list):
     x = [int(a["attempt"]) for a in agent]
     then = [sum(1 for g in GATES if a["recorded_gates"].get(g)) for a in agent]
     now = [sum(1 for g in GATES if a["gates"].get(g)) for a in agent]
-    ax.plot(x, then, "-o", color=BAD, lw=2, ms=8, label="graded by the judge it had (features gate too narrow)")
+    ax.plot([i - 0.12 for i in x], then, "-o", color=BAD, lw=2, ms=8, label="graded by the judge it had (features gate too narrow)")
     ax.plot(x, now, "--s", color=ACCENT, lw=2, ms=7, label="same designs, fixed judge (this commit)")
     ax.axhline(len(GATES), color=OK, ls=":", lw=2)
     ax.text(1, len(GATES) + 0.2, f"pass = all {len(GATES)} gates", color=OK, fontsize=10)
@@ -258,6 +258,15 @@ def cmd_frames():
             fig.text(0.04, 0.885, sub, fontsize=17, color=MUTED)
         return fig
 
+    def chapter(n: int, title: str, sub: str):
+        # a dark card between light slides: marks the chapter (and gives the
+        # video gate a real scene cut)
+        fig = plt.figure(figsize=(19.2, 10.8), facecolor=INK)
+        fig.text(0.06, 0.56, f"{n} / 4", fontsize=34, color=MUTED)
+        fig.text(0.06, 0.44, title, fontsize=60, weight="bold", color="white")
+        fig.text(0.06, 0.34, sub, fontsize=26, color="#d0d0d0")
+        emit(fig, 1.2)
+
     def image(fig, path, rect, crop=None):
         img = mpimg.imread(path)
         if crop:  # (top, bottom, left, right) as fractions of the render
@@ -285,6 +294,7 @@ def cmd_frames():
         fig.text(0.06, 0.74 - i * 0.08, ln, fontsize=30, color=INK)
     emit(fig, 4)
 
+    chapter(1, "Build", "SolidCraft runs the agent's command script, step by step")
     for n, cap in STAGES:
         fig = canvas("SolidCraft builds the design script", cap)
         image(fig, RENDERS / f"stage{n}.png", [0.2, 0.02, 0.6, 0.84])
@@ -296,6 +306,7 @@ def cmd_frames():
         image(fig, RENDERS / f"final_{v}.png", [0.0 + i * 0.335, 0.02, 0.33, 0.84], crop=(0.15, 0.85, 0.1, 0.9))
     emit(fig, 4)
 
+    chapter(2, "Parametric", "change one parameter, the whole part rebuilds")
     vol0 = sweep[0]["solidcraft_volume_mm3"]
     for s in sweep:
         fig = canvas("Parametric: change thickness, the whole part rebuilds",
@@ -317,10 +328,11 @@ def cmd_frames():
         fig.text(0.06, 0.74 - i * 0.12, ln, fontsize=36, color=INK)
     emit(fig, 4)
 
+    chapter(3, "Judge", "OpenCascade re-measures the delivered STEP and STL")
     rows = checks(good)
     for upto in (4, 8, len(rows)):
         fig = canvas("Judge verdict: 8 gates, 12 numeric checks",
-                     "gate: check — OpenCascade 8.0.1 measurement vs analytic values from spec.json")
+                     "each row: gate: check (7 gates have numeric checks; build is pass/fail) — OCCT 8.0.1 vs spec.json")
         for i, (lab, m, lim) in enumerate(rows[:upto]):
             okr = m <= lim
             fig.text(0.05, 0.81 - i * 0.07, ("PASS  " if okr else "FAIL  ") + lab, fontsize=26,
@@ -328,6 +340,7 @@ def cmd_frames():
             fig.text(0.62, 0.81 - i * 0.07, f"{m:.3g}  (limit {lim:g})", fontsize=26, color=INK)
         emit(fig, 2.2)
 
+    chapter(4, "Agent loop", "a real independent agent, and broken designs the judge rejects")
     for name, secs in (("loop.png", 6), ("result.png", 4)):  # the published figures, full frame
         fig = plt.figure(figsize=(19.2, 10.8))
         image(fig, MEDIA / name, [0.0, 0.05, 1.0, 0.9])
