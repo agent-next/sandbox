@@ -39,6 +39,11 @@ read from the environment.
 | `sbx exec ID [--timeout S] -- COMMAND...` | Run a command. One argument is a shell line; several are quoted and joined. Put `--` before the command so its own options (`ls -l`) are not read as `sbx` options. Exits with the command's exit code. |
 | `sbx list` | List the live sandboxes held by your key (id, template, start time). |
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |
+| `sbx gpu create [--vram GiB] [--template NAME] [--class C]` | Start a GPU lease and print its id (`gl-...`). Needs a key with a GPU grant. |
+| `sbx gpu exec ID (--code FILE \| -c SRC) [--timeout S]` | Run Python source on the lease; prints the job's stdout, exits 1 if the job fails. `--json` prints the full reply with `report` and meters. `--timeout` (default 120, max 3600) is a hard wall: an overrun kills the lease. |
+| `sbx gpu pause ID` / `sbx gpu resume ID` | Release the GPU between jobs (state is kept) and take a seat again. A paused lease still counts toward your lease cap. |
+| `sbx gpu kill ID` | Destroy the lease and confirm it is gone. |
+| `sbx gpu templates` / `sbx gpu info ID` | List GPU templates; show a lease's phase, slice and billing meters. |
 | `sbx runners image` | Bake a GitHub Actions runner snapshot (runner + Docker) and print its id. |
 | `sbx runners serve ...` | Serve GitHub Actions jobs from a warm pool of disposable sandboxes (see below). |
 | `sbx runners debug JOB [--exec CMD]` | Restore a failed job's snapshot and print access commands. `--list` lists retained jobs; `--delete JOB` deletes a snapshot. |
@@ -54,6 +59,23 @@ sandboxes instead pause at expiry and resume on the next exec or files call.
 Always kill what you create: a forgotten running sandbox holds one of your
 concurrent slots and consumes credit until it is killed or its idle timeout
 expires.
+
+## GPU leases
+
+```bash
+id=$(sbx gpu create --vram 4)
+sbx gpu exec "$id" -c 'import torch; print(torch.cuda.get_device_name(0))'
+sbx gpu pause "$id"; sbx gpu resume "$id"     # optional: free the GPU between jobs
+sbx gpu info "$id"                            # billed_s and the other meters
+sbx gpu kill "$id"
+```
+
+Every `gpu` verb takes `--json`. Failures print one line with a hint and exit
+non-zero: 402 no GPU credit, 403 no GPU access on this key, 409 conflict (job
+failed, job already running, lease cap), 429/503 busy or at capacity (the line
+carries the `Retry-After` seconds). A job that raises exits 1 with the error
+tail; the lease survives. Jobs run with no network access. Always `kill` what
+you create.
 
 ## GitHub Actions runners
 

@@ -173,7 +173,7 @@ def test_kill_accepts_dead_phase(api, capsys):
 def test_kill_unconfirmed_is_an_error(api, capsys):
     api.on("DELETE", "/sandboxes/gl-1a-1", 204)
     api.on("GET", "/sandboxes/gl-1a-1", 200, {"phase": "resident"})
-    assert cli.main(["gpu", "kill", "gl-1a-1"]) == 1
+    assert cli.main(["gpu", "kill", "gl-1a-1"]) == 2
     assert "not confirmed" in capsys.readouterr().err
 
 

@@ -405,6 +405,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("sandbox_id")
     p.set_defaults(func=cmd_kill)
 
+    from . import gpu
+
+    gpu.register(sub, _Parser)
+
     p = sub.add_parser("runners", help="serve GitHub Actions jobs from disposable sandboxes")
     rsub = p.add_subparsers(dest="runners_cmd", required=True, parser_class=_Parser)
     r = rsub.add_parser("image", help="bake a runner snapshot (actions/runner + Docker) and print its id")
