@@ -222,7 +222,7 @@ python3 --version
     echo "$(ffmpeg -version | sed -n 1p)"
     echo "$(ffprobe -version | sed -n 1p)"
     echo "$(espeak-ng --version)"
-    echo "whisper.cpp ${WHISPER_SHA} ($("$PREFIX/whisper-cli" --help 2>&1 | sed -n 2p))"
+    echo "whisper.cpp ${WHISPER_SHA}"
     echo "cmake $("$BIN/cmake" --version | sed -n 1p)"
     echo "python3 $(python3 --version | awk '{print $2}')"
     echo "model ${MODEL_FILE} sha256 921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f"

@@ -14,8 +14,9 @@
 #   <out>/captions.vtt
 #
 # Deterministic: fixed encoder settings, fixed keyframe grid, fixed whisper
-# decode parameters. The seed only selects a caption wording variant and is
-# unused by the default (seed 0) path.
+# decode parameters, so the output is byte-stable for any seed. --seed is
+# accepted and validated for the interface SPEC.md describes, and a pipeline
+# that introduces randomness (a wording variant, say) would branch on it.
 set -euo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -3,7 +3,7 @@
 ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers
 ffprobe version 5.1.9-0+deb12u1 Copyright (c) 2007-2026 the FFmpeg developers
 eSpeak NG text-to-speech: 1.51  Data at: /usr/lib/x86_64-linux-gnu/espeak-ng-data
-whisper.cpp 0c7be696371069e0baa2515ed7aa08d5a5473aa6 (usage: /home/user/.vtp-tools/bin/whisper-cli [options] file0 file1 ...)
+whisper.cpp 0c7be696371069e0baa2515ed7aa08d5a5473aa6
 cmake cmake version 4.4.4
 python3 3.12.15
 model ggml-tiny.en.bin sha256 921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f
