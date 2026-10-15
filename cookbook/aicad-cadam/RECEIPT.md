@@ -176,6 +176,27 @@ gate is order-insensitive and the JSON is rounded to 1e-3.)
   exit 0 — which is the receipt above. The lead runs `run.py` itself
   end-to-end before merge.)
 
+## Fresh-clone verification (2026-10-15, post-push)
+
+A second pass re-verified the pushed branch from cold start: fresh
+`git clone --depth 1 -b sbx/demo-aicad-cadam`, `rm -rf ~/.venvs/aicad`,
+then the exact command sequence `run.py` sends to `sbx exec`:
+
+```
+bash judge/setup.sh     -> exit 0,  35 s (apt lists fetched from empty,
+                            openscad deb downloaded + sha256 verified + installed,
+                            venv rebuilt from hash-pinned wheels)
+bash judge/selftest.sh  -> exit 0, 134 s; good 3/3, kill rate 11/11 (100 %),
+                            bushing deterministic; every mutant failed the
+                            same gates as the runs above
+bash judge/grade.sh examples/good/{bushing,plate,bracket} --json ...
+                        -> exit 0, exit 0, exit 0; 5 s / 16 s / 3 s,
+                            passed=true for all three
+```
+
+All numbers match the receipt runs above (only wall times differ, and
+pip's upgrade notice says 25.0.1 here vs 25.0 there — cosmetic).
+
 ## Deviations
 
 - `media/` (screenshots, diagram) — (not done: this task excludes
