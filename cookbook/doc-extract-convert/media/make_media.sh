@@ -105,13 +105,14 @@ echo "== figures =="
 echo "== video frames =="
 "$PY" "$MEDIA/make_video.py"
 
-LIST="$MEDIA/frames/list.txt"
-[ -s "$LIST" ] || die "no video frames produced"
+ls "$MEDIA"/frames/f*.png >/dev/null 2>&1 || die "no video frames produced"
+NFRAMES=$(ls "$MEDIA"/frames/f*.png | wc -l)
+[ "$NFRAMES" -ge 600 ] || die "only $NFRAMES frames (20 s at 30 fps is the floor)"
 
 mkdir -p "$MEDIA/master"
 echo "== lossless master (crf 0) =="
-ffmpeg -y -loglevel error -f concat -safe 0 -i "$LIST" \
-    -r 30 -c:v libx264 -crf 0 -preset slow -pix_fmt yuv420p \
+ffmpeg -y -loglevel error -framerate 30 -i "$MEDIA/frames/f%05d.png" \
+    -c:v libx264 -crf 0 -preset slow -pix_fmt yuv420p \
     "$MEDIA/master/demo-master.mp4" || die "master encode failed"
 
 echo "== web encode demo.mp4 =="

@@ -110,18 +110,16 @@ def main():
          "A judge whose kill rate fell below 90 % would fail its own "
          "self-test."])
 
-    out = []
-    for i, im in enumerate(frames):
-        # hold every frame for HOLD seconds
-        p = os.path.join(FRAMES, "f%04d.png" % i)
-        im.save(p)
-        out.append(p)
-    with open(os.path.join(FRAMES, "list.txt"), "w") as f:
-        for p in out:
-            for _ in range(int(HOLD * FPS)):
-                f.write(p + "\n")
-    n = int(HOLD * FPS * len(frames))
-    print("[media] %d frames, %d encoded frames, %.1f s at %d fps"
+    # Write each held frame as its own numbered file: the image2 demuxer
+    # then encodes exactly HOLD seconds per frame at a fixed frame rate.
+    # (The concat demuxer collapses repeated `file` entries of one image,
+    # which silently turned 27 s into four frames.)
+    n = 0
+    for im in frames:
+        for _ in range(int(HOLD * FPS)):
+            im.save(os.path.join(FRAMES, "f%05d.png" % n))
+            n += 1
+    print("[media] %d stills held into %d frames, %.1f s at %d fps"
           % (len(frames), n, n / float(FPS), FPS))
 
 
