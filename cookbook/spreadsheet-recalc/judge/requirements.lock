@@ -1,0 +1,10 @@
+# spreadsheet-recalc judge toolchain — pinned with sha256 hashes.
+# Installed by judge/setup.sh into $HOME/.venvs/spreadsheet-recalc via
+# pip --require-hashes. Hashes are the real sha256 of the wheels as
+# downloaded from PyPI (verified 2026-10-15).
+#
+# openpyxl 3.1.5 (py2.py3-none-any) + its only runtime dep et_xmlfile 2.0.0.
+openpyxl==3.1.5 \
+    --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2
+et_xmlfile==2.0.0 \
+    --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa

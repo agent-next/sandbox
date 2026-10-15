@@ -8,9 +8,16 @@ GOOD="$HERE/../examples/good/dcf_model.xlsx"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
+# Use the interpreter that has openpyxl: the venv setup.sh created, else
+# $PYTHON, else python3. mutants.py and the gate-name helper both import it.
+PY="${PYTHON:-python3}"
+if [ -x "$HOME/.venvs/spreadsheet-recalc/bin/python" ]; then
+    PY="$HOME/.venvs/spreadsheet-recalc/bin/python"
+fi
+
 echo "selftest: generating mutants..."
 MUT="$WORK/mutants"
-python3 "$HERE/mutants.py" "$MUT" > "$WORK/names.txt"
+"$PY" "$HERE/mutants.py" "$MUT" > "$WORK/names.txt"
 
 # 1. Known-good must pass
 echo "selftest: grading known-good..."

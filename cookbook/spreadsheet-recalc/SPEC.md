@@ -156,22 +156,30 @@ above 5 %, while absorbing floating-point noise from LibreOffice.
 ## Acceptance oracle
 
 The judge never trusts the artifact's own computed values as ground
-truth. Correctness is decided by the closed-form DCF formula:
+truth. Correctness is decided by the closed-form DCF formula evaluated
+at the **reference parameters** (the known-good workbook's inputs):
 
 ```
-NPV(r) = I + sum_{t=1}^{3} FCF_t / (1+r)^t
+NPV(r) = I_ref + sum_{t=1}^{3} FCF_ref_t / (1+r)^t
 ```
 
-where I = `Assumptions!B2` (initial investment, negative),
-FCF_t = `Projections!G{row}` (free cash flow for year t),
-r = discount rate.
+where I_ref = -10000 and FCF_ref = (4000, 5000, 6000) — the NOPAT
+values the good workbook produces — and r is the discount rate under
+test.
 
-The judge reads I and FCF_t from the recalculated workbook (so the
-agent's numbers feed the oracle), computes the closed form in Python
-float arithmetic, and compares against the workbook's computed NPV.
+The judge writes r into a working copy, lets LibreOffice recalculate
+the workbook's own formulas, reads the computed `Valuation!B2`, and
+compares it against this closed form in Python float arithmetic. A
+workbook whose formulas implement the discounting correctly passes
+regardless of the rate written into `Assumptions!B3`; a workbook whose
+cash flows, exponents, or initial investment diverge from the
+reference produces an NPV that misses the closed form and fails.
 
 This is an **analytic solution** — no reference tool needed. The
 closed form is exact for the simple 3-year DCF with no terminal value.
+The reference parameters are what make the known-bad mutants
+distinguishable: e.g. `wrong_cashflow` changes a free-cash-flow input,
+so the workbook's computed NPV no longer matches the closed form.
 
 ## Known-bad examples (self-test)
 

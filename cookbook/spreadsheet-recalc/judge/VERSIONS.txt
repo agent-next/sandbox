@@ -1,6 +1,7 @@
 # spreadsheet-recalc judge: versions installed by judge/setup.sh
-# (Linux x86_64, 2026-10-15T02:51:41Z)
+# (Linux x86_64, 2026-10-15T06:31:21Z)
 openpyxl 3.1.5
+et_xmlfile 2.0.0
 libreoffice LibreOffice 7.4.7.2 40(Build:2)
 libreoffice-calc debian package: 4:7.4.7-1+deb12u14
 python3 3.12.15

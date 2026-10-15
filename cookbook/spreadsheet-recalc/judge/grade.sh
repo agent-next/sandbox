@@ -11,7 +11,18 @@
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
-PY="${PYTHON:-python3}"
+
+# Resolve the interpreter: prefer the pinned venv created by setup.sh,
+# then $PYTHON, then python3. run.py invokes each script as a separate
+# sbx exec, so PYTHON cannot be relied on to persist across steps.
+VENV_PY="$HOME/.venvs/spreadsheet-recalc/bin/python"
+if [ -n "${PYTHON:-}" ] && command -v "$PYTHON" >/dev/null 2>&1; then
+    PY="$PYTHON"
+elif [ -x "$VENV_PY" ]; then
+    PY="$VENV_PY"
+else
+    PY=python3
+fi
 
 if ! command -v libreoffice >/dev/null 2>&1; then
     echo "grade.sh: libreoffice not found; run judge/setup.sh first" >&2

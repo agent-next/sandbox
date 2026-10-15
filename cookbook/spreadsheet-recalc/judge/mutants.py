@@ -5,7 +5,6 @@ Each mutant is a single-edit mutation of the known-good dcf_model.xlsx.
 Usage: python3 mutants.py [output_dir]
 """
 import os
-import shutil
 import sys
 
 import openpyxl
@@ -19,57 +18,55 @@ def save(wb, dst):
     wb.save(dst)
 
 
-def mutant_hardcoded_npv(src, dst):
-    """Replace NPV formula with a static number (the negative control)."""
+def mutant_static_npv(src, dst):
+    """Replace NPV formula with a literal number (the negative control)."""
     wb = load_good(src)
     wb["Valuation"]["B2"] = 890.11  # hardcoded, not a formula
     save(wb, dst)
 
 
 def mutant_wrong_cashflow(src, dst):
-    """Change Year 2 cash flow from 4200 to 9999."""
+    """Change Year 2 cash flow from 4200 to 5000."""
     wb = load_good(src)
-    wb["Assumptions"]["B5"] = 9999
+    wb["Projections"]["G4"] = 5000  # was =F4 (4200)
     save(wb, dst)
 
 
-def mutant_wrong_rate(src, dst):
-    """Change discount rate from 0.08 to 0.50."""
+def mutant_wrong_exponent(src, dst):
+    """Discount factor uses A3-1 instead of A3 (wrong exponent)."""
     wb = load_good(src)
-    wb["Assumptions"]["B3"] = 0.50
+    wb["Projections"]["H3"] = "=1/(1+Assumptions!$B$3)^(A3-1)"
     save(wb, dst)
 
 
-def mutant_missing_formula(src, dst):
-    """Replace discount factor formula in C3 with a static value."""
+def mutant_missing_year(src, dst):
+    """Year 3 free cash flow set to 0 (missing year)."""
     wb = load_good(src)
-    wb["Projections"]["C3"] = 0.92  # static, not =1/(1+Assumptions!$B$3)^A3
+    wb["Projections"]["G5"] = 0  # was =F5 (5100)
     save(wb, dst)
 
 
-def mutant_wrong_formula(src, dst):
-    """Use simple sum instead of NPV (ignores discounting)."""
+def mutant_npv_literal_override(src, dst):
+    """NPV cell is a hardcoded literal formula (=2753.39)."""
     wb = load_good(src)
-    wb["Valuation"]["B2"] = "=SUM(Projections!B2:B5)"
+    wb["Valuation"]["B2"] = "=2753.39"  # hardcoded literal formula
     save(wb, dst)
 
 
-def mutant_static_pv(src, dst):
-    """Replace PV column with static values (no formula)."""
+def mutant_discount_rate_literal(src, dst):
+    """Discount rate replaced with a self-referencing formula (circular)."""
     wb = load_good(src)
-    wb["Projections"]["D3"] = 3240.74
-    wb["Projections"]["D4"] = 3600.82
-    wb["Projections"]["D5"] = 4048.54
+    wb["Assumptions"]["B3"] = "=B3+0.02"  # circular reference
     save(wb, dst)
 
 
 MUTANTS = [
-    ("hardcoded_npv", mutant_hardcoded_npv),
+    ("static_npv", mutant_static_npv),
     ("wrong_cashflow", mutant_wrong_cashflow),
-    ("wrong_rate", mutant_wrong_rate),
-    ("missing_formula", mutant_missing_formula),
-    ("wrong_formula", mutant_wrong_formula),
-    ("static_pv", mutant_static_pv),
+    ("wrong_exponent", mutant_wrong_exponent),
+    ("missing_year", mutant_missing_year),
+    ("npv_literal_override", mutant_npv_literal_override),
+    ("discount_rate_literal", mutant_discount_rate_literal),
 ]
 
 

@@ -1,16 +1,24 @@
 """Judge core for spreadsheet-recalc demo.
 
 Validates a DCF workbook artifact by:
-1. Structure check (openpyxl formulas present, no hardcoded oracle values)
-2. LibreOffice headless recalculation
-3. Closed-form DCF oracle comparison at 8%, 10%, 12% discount rates
-4. Negative control (change rate, re-recalc, verify NPV moves)
+1. Structure check (sheets present, computed cells are live formulas, no
+   hardcoded NPV literal)
+2. LibreOffice headless recalculation at 8%, 10%, 12% discount rates
+3. Closed-form DCF oracle comparison at each rate (reference parameters)
+4. Negative control (NPV must move when the discount rate changes)
 5. Judge integrity (checksums before/after)
+
+The oracle is the closed-form DCF over the reference parameters (the good
+workbook's inputs): NPV(r) = I + sum_t FCF_t / (1+r)^t. The judge compares
+the workbook's recalculated NPV against this closed form, so a workbook
+whose formulas implement the discounting correctly passes regardless of the
+rate written into Assumptions!B3, and a hardcoded or static NPV fails.
 """
 
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -21,18 +29,20 @@ from concurrent.futures import ThreadPoolExecutor
 import openpyxl
 
 JUDGE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEMO_DIR = os.path.dirname(JUDGE_DIR)
 
-# Closed-form DCF oracle parameters
+# Reference DCF parameters (the good workbook's inputs). The closed-form
+# oracle is exact for these; see SPEC.md.
 ORACLE_PARAMS = {
     "initial_investment": -10000,
-    "cash_flows": [3500, 4200, 5100],
+    "cash_flows": [4000.0, 5000.0, 6000.0],  # years 1..3 (NOPAT from good model)
     "discount_rates": [0.08, 0.10, 0.12],
-    "tolerance_pct": 0.5,  # 0.5% tolerance
+    "tolerance_pct": 0.5,        # NPV vs closed form, relative
+    "move_tolerance_pct": 1.0,   # negative control, relative change
+    "hardcode_tolerance_pct": 2.0,  # literal vs oracle, relative
 }
-
-MAX_BYTES = 2 * 1024 * 1024  # 2 MiB max artifact size
-RUN_TIMEOUT_S = 120  # 2 minutes for LibreOffice recalc
+MAX_BYTES = 5 * 1024 * 1024  # 5 MiB artifact size limit
+RUN_TIMEOUT_S = 120           # 2 minutes per LibreOffice recalc
+REQUIRED_SHEETS = {"Assumptions", "Projections", "Valuation"}
 
 
 def check_shas(directory):
@@ -54,141 +64,130 @@ def check_shas(directory):
     return digests
 
 
+def npv_oracle(rate):
+    """Closed-form reference NPV at a discount rate."""
+    npv = ORACLE_PARAMS["initial_investment"]
+    for t, cf in enumerate(ORACLE_PARAMS["cash_flows"], start=1):
+        npv += cf / (1.0 + rate) ** t
+    return npv
+
+
+def _strip_cell_refs(formula):
+    """Remove cell references (I3, B2, $B$3) from a formula string."""
+    return re.sub(r"\$?[A-Za-z]+\$?\d+", "", formula)
+
+
+def _numeric_literals(text):
+    """Extract standalone numeric literals from a formula string."""
+    stripped = _strip_cell_refs(text)
+    return [float(m) for m in re.findall(r"-?\d+\.?\d*", stripped)]
+
+
+def _is_formula(value):
+    return isinstance(value, str) and value.startswith("=")
+
+
 def load_artifact(artifact_path):
-    """Load and validate artifact structure."""
+    """Load and validate artifact structure. Returns (workbook, problems)."""
     problems = []
 
-    # Size check
     size = os.path.getsize(artifact_path)
     if size > MAX_BYTES:
         problems.append(f"artifact size {size} exceeds {MAX_BYTES} bytes")
 
-    # Must be a valid xlsx
     try:
         wb = openpyxl.load_workbook(artifact_path, data_only=False)
     except Exception as e:
         return None, [f"cannot load xlsx: {e}"]
 
-    # Must contain required sheets
-    required_sheets = {"Assumptions", "Projections", "Valuation"}
-    missing = required_sheets - set(wb.sheetnames)
+    missing = REQUIRED_SHEETS - set(wb.sheetnames)
     if missing:
-        problems.append(f"missing sheets: {missing}")
+        problems.append(f"missing sheets: {sorted(missing)}")
 
-    # Check formulas exist (not hardcoded values)
-    # At least some cells must contain formulas
-    formula_count = 0
-    for sname in wb.sheetnames:
-        ws = wb[sname]
-        for row in ws.iter_rows():
-            for cell in row:
-                if isinstance(cell.value, str) and cell.value.startswith("="):
-                    formula_count += 1
+    # Valuation!B2 (NPV) must be a formula, not a literal.
+    try:
+        b2 = wb["Valuation"]["B2"].value
+        if not _is_formula(b2):
+            problems.append("Valuation!B2 (NPV) is not a formula")
+    except Exception:
+        problems.append("Valuation!B2 (NPV) is missing")
 
-    if formula_count == 0:
-        problems.append("no formulas found in workbook")
+    # Projections!I3 (PV of FCF, year 1) must be a formula.
+    try:
+        i3 = wb["Projections"]["I3"].value
+        if not _is_formula(i3):
+            problems.append("Projections!I3 (PV of FCF) is not a formula")
+    except Exception:
+        problems.append("Projections!I3 (PV of FCF) is missing")
 
-    # Check for hardcoded oracle values (NPV results)
-    # The NPV at 8% for the standard model is ~890.11
-    # We check that key computed cells are formulas, not literals
-    oracle_npv_8 = compute_npv_oracle(0.08)
-    oracle_npv_10 = compute_npv_oracle(0.10)
-    oracle_npv_12 = compute_npv_oracle(0.12)
+    # Assumptions!B3 (discount rate) must be numeric.
+    try:
+        b3 = wb["Assumptions"]["B3"].value
+        if not isinstance(b3, (int, float)):
+            problems.append("Assumptions!B3 (discount rate) is not numeric")
+    except Exception:
+        problems.append("Assumptions!B3 (discount rate) is missing")
 
-    # Scan for hardcoded values that match oracle results
-    for sname in wb.sheetnames:
-        ws = wb[sname]
-        for row in ws.iter_rows():
-            for cell in row:
-                if isinstance(cell.value, (int, float)):
-                    # Check if this is a computed cell that should be a formula
-                    # We check if the value is close to an oracle result
-                    for oracle_val in [oracle_npv_8, oracle_npv_10, oracle_npv_12]:
-                        if abs(cell.value - oracle_val) < 0.01:
-                            # This is suspicious - a hardcoded oracle value
-                            # But only flag if it's in a "result" area
-                            pass  # We'll catch this in the negative control
+    # Hardcode detection: a numeric literal in the NPV formula that matches
+    # the oracle NPV at the base rate means the "formula" is a constant.
+    if not problems:
+        try:
+            b2_val = wb["Valuation"]["B2"].value
+            if _is_formula(b2_val):
+                oracle_8 = npv_oracle(0.08)
+                for lit in _numeric_literals(b2_val):
+                    if abs(lit - oracle_8) / abs(oracle_8) * 100 < ORACLE_PARAMS["hardcode_tolerance_pct"]:
+                        problems.append(
+                            f"Valuation!B2 contains hardcoded NPV literal {lit} "
+                            f"(within {ORACLE_PARAMS['hardcode_tolerance_pct']}% of oracle {oracle_8:.2f})"
+                        )
+                        break
+        except Exception:
+            pass  # hardcode check is best-effort; structural errors already caught
 
     return wb, problems
 
 
-def compute_npv_oracle(rate):
-    """Closed-form DCF NPV: sum of CF_t / (1+r)^t."""
-    npv = ORACLE_PARAMS["initial_investment"]
-    for t, cf in enumerate(ORACLE_PARAMS["cash_flows"], start=1):
-        npv += cf / (1 + rate) ** t
-    return npv
+def recalculate_at_rate(artifact_path, workdir, rate):
+    """Recalculate the workbook at a discount rate via LibreOffice headless.
 
-
-def recalculate_workbook(artifact_path, workdir, rate_override=None):
-    """Run LibreOffice headless recalc and return computed values.
-
-    If rate_override is set, modifies the discount rate before recalc.
+    Writes the rate into Assumptions!B3 of a working copy, converts to xlsx
+    (which forces a recalculation because openpyxl writes formulas with no
+    cached values), and reads the computed NPV back. Returns (npv, error).
     """
-    # Copy artifact to workdir
     os.makedirs(workdir, exist_ok=True)
     local_copy = os.path.join(workdir, "model.xlsx")
     shutil.copy(artifact_path, local_copy)
 
-    # If rate override, modify the workbook
-    if rate_override is not None:
-        wb = openpyxl.load_workbook(local_copy)
-        ws = wb["Assumptions"]
-        ws["B3"] = rate_override  # Discount Rate cell
-        wb.save(local_copy)
+    wb = openpyxl.load_workbook(local_copy)
+    wb["Assumptions"]["B3"] = rate
+    wb.save(local_copy)
 
-    # Run LibreOffice headless conversion (forces recalc)
     outdir = os.path.join(workdir, "out")
     os.makedirs(outdir, exist_ok=True)
 
     env = os.environ.copy()
-    env["HOME"] = workdir  # Isolate LibreOffice profile
+    env["HOME"] = workdir  # isolate the LibreOffice profile
 
     proc = subprocess.run(
-        [
-            "libreoffice", "--headless", "--convert-to", "xlsx",
-            "--outdir", outdir, local_copy,
-        ],
+        ["libreoffice", "--headless", "--convert-to", "xlsx",
+         "--outdir", outdir, local_copy],
         capture_output=True, text=True, timeout=RUN_TIMEOUT_S, env=env,
         cwd=workdir,
     )
-
     if proc.returncode != 0:
-        return None, f"LibreOffice exit {proc.returncode}: {proc.stderr}"
+        return None, f"LibreOffice exit {proc.returncode}: {proc.stderr.strip()[:200]}"
 
-    # Read computed values
     result_path = os.path.join(outdir, "model.xlsx")
     if not os.path.exists(result_path):
         return None, "LibreOffice did not produce output file"
 
-    wb = openpyxl.load_workbook(result_path, data_only=True)
-
-    # Extract key values
-    values = {}
-
-    # NPV from Valuation sheet
+    wb_out = openpyxl.load_workbook(result_path, data_only=True)
     try:
-        ws = wb["Valuation"]
-        # Find NPV row
-        for row in ws.iter_rows(min_row=1, max_row=10, max_col=2):
-            if row[0].value and "NPV" in str(row[0].value).upper():
-                values["npv"] = row[1].value
-                break
+        npv = float(wb_out["Valuation"]["B2"].value)
     except Exception:
-        pass
-
-    # Discount factor and PV from Projections
-    try:
-        ws = wb["Projections"]
-        pv_values = []
-        for row in ws.iter_rows(min_row=2, max_row=10, min_col=4, max_col=4):
-            if row[0].value is not None:
-                pv_values.append(row[0].value)
-        values["pv_list"] = pv_values
-    except Exception:
-        pass
-
-    return values, None
+        return None, "Valuation!B2 has no computed value after recalc"
+    return npv, None
 
 
 def grade_artifact(artifact_path, seed=0):
@@ -210,107 +209,80 @@ def grade_artifact(artifact_path, seed=0):
         verdict["gates"]["structure"] = len(problems) == 0
         if problems:
             verdict["problems"].extend(problems)
-
         if wb is None:
+            verdict["gates"]["recalc"] = False
+            verdict["gates"]["oracle"] = False
+            verdict["gates"]["negative_control"] = False
+            verdict["gates"]["judge_intact"] = check_shas(JUDGE_DIR) == sha_before
+            verdict["pass"] = False
             return verdict, 1
 
-        # Gate 2: Recalculate at 8% (default rate)
-        values_8, err = recalculate_workbook(artifact_path, os.path.join(workdir, "r8"))
-        if err:
-            verdict["gates"]["recalc_8"] = False
-            verdict["problems"].append(f"recalc at 8%: {err}")
-        else:
-            verdict["gates"]["recalc_8"] = True
-            npv_8 = values_8.get("npv")
-            oracle_8 = compute_npv_oracle(0.08)
+        # Gate 2: recalculate at all three rates (parallel, isolated HOME)
+        npvs = {}
+        errors = {}
 
-            if npv_8 is None:
-                verdict["gates"]["npv_8_present"] = False
-                verdict["problems"].append("NPV not found after recalc at 8%")
-            else:
-                verdict["gates"]["npv_8_present"] = True
-                err_pct_8 = abs(npv_8 - oracle_8) / abs(oracle_8) * 100
-                verdict["metrics"]["npv_8_computed"] = round(npv_8, 4)
-                verdict["metrics"]["npv_8_oracle"] = round(oracle_8, 4)
-                verdict["metrics"]["npv_8_err_pct"] = round(err_pct_8, 4)
-                verdict["gates"]["npv_8_match"] = err_pct_8 <= ORACLE_PARAMS["tolerance_pct"]
+        def _recalc(rate):
+            rd = os.path.join(workdir, f"r{int(round(rate * 100))}")
+            return rate, recalculate_at_rate(artifact_path, rd, rate)
 
-        # Gate 3: Recalculate at 10%
-        values_10, err = recalculate_workbook(
-            artifact_path, os.path.join(workdir, "r10"), rate_override=0.10
-        )
-        if err:
-            verdict["gates"]["recalc_10"] = False
-            verdict["problems"].append(f"recalc at 10%: {err}")
-        else:
-            verdict["gates"]["recalc_10"] = True
-            npv_10 = values_10.get("npv")
-            oracle_10 = compute_npv_oracle(0.10)
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            for rate, (npv, err) in pool.map(_recalc, ORACLE_PARAMS["discount_rates"]):
+                if err:
+                    errors[rate] = err
+                else:
+                    npvs[rate] = npv
 
-            if npv_10 is None:
-                verdict["gates"]["npv_10_present"] = False
-                verdict["problems"].append("NPV not found after recalc at 10%")
-            else:
-                verdict["gates"]["npv_10_present"] = True
-                err_pct_10 = abs(npv_10 - oracle_10) / abs(oracle_10) * 100
-                verdict["metrics"]["npv_10_computed"] = round(npv_10, 4)
-                verdict["metrics"]["npv_10_oracle"] = round(oracle_10, 4)
-                verdict["metrics"]["npv_10_err_pct"] = round(err_pct_10, 4)
-                verdict["gates"]["npv_10_match"] = err_pct_10 <= ORACLE_PARAMS["tolerance_pct"]
+        verdict["gates"]["recalc"] = len(errors) == 0
+        for rate, err in errors.items():
+            verdict["problems"].append(f"recalc at {rate:.0%}: {err}")
 
-        # Gate 4: Recalculate at 12%
-        values_12, err = recalculate_workbook(
-            artifact_path, os.path.join(workdir, "r12"), rate_override=0.12
-        )
-        if err:
-            verdict["gates"]["recalc_12"] = False
-            verdict["problems"].append(f"recalc at 12%: {err}")
-        else:
-            verdict["gates"]["recalc_12"] = True
-            npv_12 = values_12.get("npv")
-            oracle_12 = compute_npv_oracle(0.12)
+        # Gate 3: oracle — each NPV vs the closed form
+        oracle_ok = len(errors) == 0
+        for rate in ORACLE_PARAMS["discount_rates"]:
+            if rate not in npvs:
+                oracle_ok = False
+                continue
+            npv_computed = npvs[rate]
+            npv_ref = npv_oracle(rate)
+            err_pct = abs(npv_computed - npv_ref) / abs(npv_ref) * 100
+            verdict["metrics"][f"npv_{int(round(rate * 100))}_computed"] = round(npv_computed, 4)
+            verdict["metrics"][f"npv_{int(round(rate * 100))}_oracle"] = round(npv_ref, 4)
+            verdict["metrics"][f"npv_{int(round(rate * 100))}_err_pct"] = round(err_pct, 4)
+            if err_pct > ORACLE_PARAMS["tolerance_pct"]:
+                oracle_ok = False
+                verdict["problems"].append(
+                    f"oracle at {rate:.0%}: NPV {npv_computed:.4f} vs "
+                    f"closed-form {npv_ref:.4f} (err {err_pct:.2f}% > "
+                    f"{ORACLE_PARAMS['tolerance_pct']}%)"
+                )
+        verdict["gates"]["oracle"] = oracle_ok
 
-            if npv_12 is None:
-                verdict["gates"]["npv_12_present"] = False
-                verdict["problems"].append("NPV not found after recalc at 12%")
-            else:
-                verdict["gates"]["npv_12_present"] = True
-                err_pct_12 = abs(npv_12 - oracle_12) / abs(oracle_12) * 100
-                verdict["metrics"]["npv_12_computed"] = round(npv_12, 4)
-                verdict["metrics"]["npv_12_oracle"] = round(oracle_12, 4)
-                verdict["metrics"]["npv_12_err_pct"] = round(err_pct_12, 4)
-                verdict["gates"]["npv_12_match"] = err_pct_12 <= ORACLE_PARAMS["tolerance_pct"]
-
-        # Gate 5: Negative control - NPV must change when rate changes
-        if verdict["gates"].get("npv_8_present") and verdict["gates"].get("npv_12_present"):
-            npv_8_val = values_8.get("npv")
-            npv_12_val = values_12.get("npv")
-            if npv_8_val is not None and npv_12_val is not None:
-                # NPV should decrease as rate increases
-                npv_moves = abs(npv_12_val - npv_8_val) > 0.01
-                verdict["gates"]["negative_control"] = npv_moves
-                verdict["metrics"]["npv_moves"] = npv_moves
-                if not npv_moves:
-                    verdict["problems"].append(
-                        "negative control failed: NPV does not change when rate changes "
-                        "(hardcoded or static value)"
-                    )
+        # Gate 4: negative control — NPV must move when the rate changes
+        if 0.08 in npvs and 0.12 in npvs:
+            npv_8, npv_12 = npvs[0.08], npvs[0.12]
+            move_pct = abs(npv_12 - npv_8) / abs(npv_8) * 100
+            verdict["metrics"]["negative_control_move_pct"] = round(move_pct, 4)
+            verdict["gates"]["negative_control"] = (
+                move_pct >= ORACLE_PARAMS["move_tolerance_pct"]
+            )
+            if move_pct < ORACLE_PARAMS["move_tolerance_pct"]:
+                verdict["problems"].append(
+                    f"negative control: NPV moved only {move_pct:.2f}% "
+                    f"(< {ORACLE_PARAMS['move_tolerance_pct']}%) — hardcoded or static value"
+                )
         else:
             verdict["gates"]["negative_control"] = False
             verdict["problems"].append("negative control: missing NPV values")
 
-        # Gate 6: Judge integrity
+        # Gate 5: judge integrity
         sha_after = check_shas(JUDGE_DIR)
         verdict["gates"]["judge_intact"] = sha_before == sha_after
 
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
-    # Overall pass/fail
-    all_pass = all(verdict["gates"].values())
-    verdict["pass"] = all_pass
-
-    return verdict, 0 if all_pass else 1
+    verdict["pass"] = all(verdict["gates"].values())
+    return verdict, 0 if verdict["pass"] else 1
 
 
 def main():
