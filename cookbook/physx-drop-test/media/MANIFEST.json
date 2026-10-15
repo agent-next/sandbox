@@ -1,0 +1,46 @@
+{
+  "files": [
+    {
+      "path": "result.png",
+      "description": "Measured PhysX trajectory against the analytic oracle with the judge's pass lines drawn on (free fall + contact gate, bounce apex gate, energy gate).",
+      "command": "python3 media/make_figures.py",
+      "source_data": "judge_runs/traces/good/traj.npz, judge_runs/verdicts/good.json",
+      "sha256": "TODO"
+    },
+    {
+      "path": "loop.png",
+      "description": "The agent loop replayed (each iteration a real grade.sh verdict) plus the per-mutant gate matrix (kill rate 10/10 = 100%).",
+      "command": "python3 media/make_figures.py",
+      "source_data": "judge_runs/verdicts/good.json, judge_runs/mutants/<name>.json",
+      "sha256": "TODO"
+    },
+    {
+      "path": "demo.mp4",
+      "description": "42 s, 1920×1080 @ 30 fps: the drop, the bounce, a sped-up real selftest.sh run, the verdict and the kill matrix. Machine-gated with cookbook/tools/video_gate.py; blind-judged in media/REVIEW.json.",
+      "command": "python3 media/make_media.sh",
+      "source_data": "judge_runs/traces/good/traj.npz, judge_runs/verdicts/good.json",
+      "sha256": "TODO"
+    },
+    {
+      "path": "STORYBOARD.md",
+      "description": "The planned storyboard as a filled-in slot table (what fills the frame, the source data/command for each shot, the caption text) written before the video is cut; the video is judged against it.",
+      "command": "cat > media/STORYBOARD.md",
+      "source_data": "media/STORYBOARD.md",
+      "sha256": "TODO"
+    },
+    {
+      "path": "REVIEW.json",
+      "description": "The two blind judge verdicts on media/demo.mp4 (see Review panel in DEMO-STANDARD.md).",
+      "command": "video_review_prompt.md → two vision models → media/REVIEW.json",
+      "source_data": "media/demo.mp4",
+      "sha256": "TODO"
+    },
+    {
+      "path": "MANIFEST.json",
+      "description": "For each file: what it shows, the command that produced it, the source data file, sha256.",
+      "command": "cat > media/MANIFEST.json",
+      "source_data": "media/MANIFEST.json",
+      "sha256": "TODO"
+    }
+  ]
+}
