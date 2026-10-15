@@ -1,0 +1,103 @@
+{
+  "file": "demo.mp4",
+  "passed": true,
+  "failed": [],
+  "checks": [
+    {
+      "name": "width",
+      "measured": 1920,
+      "threshold": ">= 1920",
+      "pass": true
+    },
+    {
+      "name": "height",
+      "measured": 1080,
+      "threshold": ">= 1080",
+      "pass": true
+    },
+    {
+      "name": "aspect_ratio",
+      "measured": 1.7778,
+      "threshold": "16:9 +/- 1%",
+      "pass": true
+    },
+    {
+      "name": "duration_s",
+      "measured": 25.0,
+      "threshold": "25-60 s",
+      "pass": true
+    },
+    {
+      "name": "fps",
+      "measured": 30.0,
+      "threshold": "29.969-30.001",
+      "pass": true
+    },
+    {
+      "name": "codec",
+      "measured": "h264",
+      "threshold": "== h264",
+      "pass": true
+    },
+    {
+      "name": "pix_fmt",
+      "measured": "yuv420p",
+      "threshold": "== yuv420p",
+      "pass": true
+    },
+    {
+      "name": "size_mib",
+      "measured": 6.7012,
+      "threshold": "<= 8 MiB",
+      "pass": true
+    },
+    {
+      "name": "faststart",
+      "measured": "moov@32 mdat@9892",
+      "threshold": "moov atom before mdat",
+      "pass": true
+    },
+    {
+      "name": "first_frame_luma_mean",
+      "measured": 120.8376,
+      "threshold": ">= 20",
+      "pass": true
+    },
+    {
+      "name": "first_frame_luma_std",
+      "measured": 96.0183,
+      "threshold": ">= 12",
+      "pass": true
+    },
+    {
+      "name": "first_frame_not_solid",
+      "measured": 248,
+      "threshold": ">= 8 (luma max-min)",
+      "pass": true
+    },
+    {
+      "name": "scene_cuts_per_10s",
+      "measured": 1.2,
+      "threshold": ">= 0.8",
+      "pass": true
+    },
+    {
+      "name": "motion_fraction",
+      "measured": 0.5457,
+      "threshold": ">= 0.2 (frames with YDIF >= 1, before the last 2 s)",
+      "pass": true
+    },
+    {
+      "name": "endcard_static",
+      "measured": 0.0001,
+      "threshold": "<= 0.5 (mean YDIF, last 2 s)",
+      "pass": true
+    },
+    {
+      "name": "audio",
+      "measured": "absent",
+      "threshold": "optional",
+      "pass": true
+    }
+  ]
+}

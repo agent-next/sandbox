@@ -1,0 +1,19 @@
+{
+  "source_commit": "602f4d60c5879e39f9dbc04f1a460d7240ef7351",
+  "source_sha256": {
+    "run.py": "a74d9cf3570a29bc4c11e2abd4bde7b175194151b649127891a85c5ad444065f",
+    "judge/VERSIONS.txt": "3a7c7c77de8edf667bfc85664f5221e4ff358e89b3a080c514ee061509232533",
+    "judge/_grade.py": "3c6c313c98b3f656e4f53125cbc0b6d6cde1149a7af6de6a488e0e52736dd290",
+    "judge/engine.py": "820f3d6a5fcbf29ea125a8f2e0f28b0ba5b53468d474f573953e24275cc939ee",
+    "judge/grade.sh": "b2a569bf11b4f45b28412a248ff44549e020bcf89b3b3fb6328cebc005d6b7e2",
+    "judge/mutants.py": "009df3367b9c197c70931132ee7da56b04ceb5ff720080b7e145e2f3a86a2aa4",
+    "judge/record_lease.py": "b90b9599a82411e6134834ef98648b4017ef7f4ed0fa515b440b42b054f50185",
+    "judge/requirements.lock": "80dc8fa40177b317f03a25d28cf44f782d5d3fc500f708e0689c55fb00ce97e4",
+    "judge/selftest.sh": "9a6c32fd527a58c315d2a3b14b162f9c02eb79f53bbaf7f548cba70f61182262",
+    "judge/setup.sh": "1eea25793dbca7ba4b141e938ceb9c57843b63df4c4d068e467d744385d7a296",
+    "judge/version-table.json": "70db3544777e714db901496f6fc9cae5e66e0c1beabc4063006c9704a42a6cc4",
+    "examples/good/loop.json": "0caf0a2709e7a48eda22296bc1ff54de468128cb4ba47a572b4b90edcf16625d",
+    "examples/good/params.json": "dffe4b56c93757d7417b9f3941a6eadc01e40cd43e57768507d1c6f1eca0dfc2"
+  },
+  "note": "Exact grading inputs; media and documentation may be committed later."
+}

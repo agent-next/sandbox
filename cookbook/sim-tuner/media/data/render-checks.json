@@ -1,0 +1,9 @@
+{
+  "rendered_frames_checked": 1980,
+  "qpos_tolerance": 1e-09,
+  "qvel_tolerance": 1e-09,
+  "interpolation": false,
+  "source": "trajectories.npz captured during CPU grading",
+  "timestep_s": 0.002,
+  "duration_s": 25
+}

@@ -1,0 +1,57 @@
+{
+  "video_sha256": "0370f4e0efdd9189f8b26d493ac7fab556c277baea33a6819df9ab4453ca3b20",
+  "method": "Blind 4 fps chronological frame-sequence review, plus seven full-size stills; not native video playback. No README or source context.",
+  "passed": false,
+  "native_video_panel_complete": false,
+  "judges": [
+    {
+      "requested_model": "claude-opus-5-5",
+      "family": "Anthropic",
+      "passed": false,
+      "raw": {
+        "frame0_what": "The finished result appears in the first frame. It is a three-panel 3D physics view labeled DEFAULT (orange cube with an offset purple ghost), TUNED (teal cube almost exactly overlapping its purple ghost) and HIDDEN TRUTH (a purple cube) on a checkerboard floor. Above the panels is the headline 'Fit 5 physics values. Match unseen motion.' Below them are per-panel gap readouts and a large green 'PASS: tuned error 0.02206 < 0.025 limit' line.",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0.0,
+        "on_screen_text": "Fit 5 physics values. Match unseen motion. | DEFAULT | TUNED | HIDDEN TRUTH | Target gap: 0.750 cm (later 6.978 cm) | Target gap: 0.001 cm (later 0.004 cm) | Purple ghost = target | PASS: tuned error 0.02206 < 0.025 limit | Unseen test 3/4 / t = 0.134 s / 1x replay loop / purple = target | Actuation: watch the arm settle. | Unseen test 1/4 / t = ... / 1x replay loop / purple = target | An unseen command. The same tuned rig. | Unseen test 2/4 / t = ... / 1x replay loop / purple = target | Fit five numbers. Match unseen motion. | PASS 0.02206 < 0.025 held-out error | Judge rejected all 18 broken fits. CPU / GPU agree. | Run the real judge. Keep the result. | python3 cookbook/sim-tuner/run.py",
+        "understandable_muted": true,
+        "visual_quality_1_10": 6,
+        "wow_1_10": 4,
+        "clarity_1_10": 6,
+        "why": "The clip opens on the result, and the large text stays crisp at full size. A muted viewer can tell that a tuned simulation matches a hidden target and passed a numeric threshold. However, the motion is barely visible: very short replay loops show cubes and arms that hardly move, the default, tuned and truth arm panels look nearly the same, and the cubes in the wide shots are tiny, so the visual proof depends on reading numbers rather than seeing a difference. Purple is used for both the hidden truth and the ghost, the error number has no unit, and terms like 'judge' and '18 broken fits' are unexplained jargon.",
+        "fixes": [
+          "Pick unseen tests where the default parameters fail visibly (for example, the cube slides far off target or the arm overshoots and oscillates), and play them long enough or slowed down so the viewer sees default diverge while tuned tracks the truth.",
+          "Add motion trails or path traces for the default, tuned and truth objects so the gap shows up as shapes, not just as a cm readout.",
+          "Zoom in or crop the wide arm-and-cube shots. The cubes are only a few pixels wide and will be unreadable on a phone. Consider a single overlaid view instead of three small panels.",
+          "Use one color convention: the HIDDEN TRUTH object and the 'purple ghost' target are both purple, which makes it unclear which is which.",
+          "Give the PASS error a unit or plain meaning (for example, 'average position error 2.2 cm, limit 2.5 cm') so it connects to the cm gap readouts.",
+          "Rewrite 'Judge rejected all 18 broken fits. CPU / GPU agree.' in plain words, such as 'The checker also caught 18 deliberately wrong fits; CPU and GPU runs give the same answer.'",
+          "Make the 'Actuation: watch the arm settle' segment show settling that you can actually see. In the sampled frames, the three arms look nearly identical, so there is nothing to watch.",
+          "Remove the t = ... s timestamp and the '1x replay loop' text from the caption line to cut clutter, and keep only the test number.",
+          "End on the command together with its real terminal output showing PASS, so the closing card proves the result instead of only stating it."
+        ]
+      }
+    },
+    {
+      "requested_model": "gemini-3.1-pro-preview",
+      "family": "Google",
+      "passed": false,
+      "raw": {
+        "frame0_what": "A three-panel split screen showing a physics simulation of a swinging arm, labeled DEFAULT, TUNED, and HIDDEN TRUTH, with the tuned simulation perfectly matching a purple ghost target while the default fails.",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0.0,
+        "on_screen_text": "Fit 5 physics values. Match unseen motion. | DEFAULT | TUNED | HIDDEN TRUTH | Target gap: 6.978 cm | Target gap: 0.004 cm | Purple ghost = target | PASS: tuned error 0.02206 < 0.025 limit | Look close: default fails, tuned matches. | Actuation: watch the arm settle. | An unseen command. The same tuned rig. | Fit five numbers. Match unseen motion. | PASS 0.02206 < 0.025 held-out error | Judge rejected all 18 broken fits. CPU / GPU agree. | Run the real judge. Keep the result. | python3 cookbook/sim-tuner/run.py",
+        "understandable_muted": true,
+        "visual_quality_1_10": 7,
+        "wow_1_10": 7,
+        "clarity_1_10": 9,
+        "why": "The video opens immediately on the successful finished result, using a clear split-screen layout and explicit metrics to demonstrate that the tuned model matches the hidden truth. The annotations convey the evaluation criteria and passing outcome perfectly without sound, though some text is small.",
+        "fixes": [
+          "Reorder the unseen test scenarios to play logically (e.g., 1/4, 2/4, 3/4) instead of starting with 3/4.",
+          "Increase the font size of the bottom timeline and test details for better legibility on small screens.",
+          "Briefly specify what the 5 physics values being fit actually are to provide deeper technical context."
+        ]
+      }
+    }
+  ],
+  "disposition": "Not media-standard accepted. Keep the PR draft; do not claim a completed demo or merge readiness."
+}
