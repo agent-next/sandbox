@@ -42,6 +42,26 @@ BUILD_TIMEOUT_S = 300
 SERVE_TIMEOUT_S = 30
 MAX_DIST_BYTES = 250 * 1024
 
+# Tool output quoted into a verdict problem message must not carry the
+# per-run temp dir: two grades of the same artifact have to be
+# byte-identical apart from `timing` (selftest.sh enforces it), and
+# tempfile.mkdtemp picks a fresh name every run.
+WORKDIR_PREFIX = "appbuilder-artifact-"
+WORKDIR_RE = re.compile(r"appbuilder-(artifact|ref)-[A-Za-z0-9_]+")
+
+
+def scrub_workdirs(value):
+    """Replace every per-run scratch dir (the artifact copy and the
+    reference build) with a stable placeholder, recursively, so a verdict
+    that quotes tool output is reproducible."""
+    if isinstance(value, str):
+        return WORKDIR_RE.sub(r"appbuilder-\1-<workdir>", value)
+    if isinstance(value, list):
+        return [scrub_workdirs(v) for v in value]
+    if isinstance(value, dict):
+        return {k: scrub_workdirs(v) for k, v in value.items()}
+    return value
+
 APP_PORT = 5317
 REF_PORT = 5318
 
@@ -573,6 +593,10 @@ def main():
             rc = 1
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+
+    # strip the per-run scratch paths that tool output can quote, so two
+    # grades of the same artifact differ only in `timing`
+    verdict = scrub_workdirs(verdict)
 
     if args.json_out:
         with open(args.json_out, "w") as fh:
