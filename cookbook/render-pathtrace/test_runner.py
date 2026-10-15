@@ -13,13 +13,15 @@ class RunnerTests(unittest.TestCase):
     def args(self, path):
         return argparse.Namespace(keep=False, output=path, seed=17, skip_selftest=False)
 
-    def exercise(self, root, *, exec_failure=False, cleanup_status=404):
+    def exercise(self, root, *, exec_failure=False, cleanup_status=404, via_exec=False):
         calls = []
         def request(key, method, path, body=None):
             calls.append((method, path))
             if method == "POST" and path == "/sandboxes":
                 self.assertEqual(body["accel"]["template"], "browser")
                 return 201, b'{"sandboxID":"gl-test-1"}'
+            if method == "PUT" and path.endswith("/upload-probe") and via_exec:
+                return 405, b""
             if method == "POST":
                 if exec_failure:
                     return 409, b""
@@ -84,6 +86,12 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual((method, path), ("POST", "/sandboxes/gl-test-1/exec"))
             self.assertIn("YWJj", body["code"])
 
+    def test_put_stages_under_output_directory(self):
+        with patch.object(run, "request", return_value=(200, b"{}")) as request:
+            run.upload_part("test", "gl-test-1", "chunk", b"abc")
+            self.assertEqual(request.call_args.args[1:],
+                             ("PUT", "/sandboxes/gl-test-1/files/out/chunk", b"abc"))
+
     def test_lost_exec_reply_is_not_replayed(self):
         result = b'{"result":{"ok":true,"report":{"steps":[{"exit":0}]}}}'
         calls = []
@@ -100,6 +108,16 @@ class RunnerTests(unittest.TestCase):
         exec(run.isolate("x = 1\nreport['local_x'] = x"), namespace)
         self.assertIs(namespace["x"], canary)
         self.assertEqual(namespace["report"]["local_x"], 1)
+
+    def test_exec_fallback_staging_is_serial(self):
+        executor = run.ThreadPoolExecutor
+        with tempfile.TemporaryDirectory() as temp, \
+             patch.object(run, "upload_part"), \
+             patch.object(run, "ThreadPoolExecutor", wraps=executor) as pools:
+            self.exercise(Path(temp) / "output", via_exec=True)
+            self.assertTrue(pools.call_args_list)
+            self.assertTrue(all(call.kwargs["max_workers"] == 1
+                                for call in pools.call_args_list))
 
 
 if __name__ == "__main__":

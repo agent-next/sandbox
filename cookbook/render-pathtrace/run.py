@@ -68,7 +68,7 @@ def request(key, method, path, body=None):
         with urlopen(req, timeout=3700) as response:
             return response.status, response.read()
     except HTTPError as exc:
-        return exc.code, b""
+        return exc.code, exc.read()
 
 
 def json_request(key, method, path, body=None):
@@ -161,7 +161,11 @@ def execute(key, sid, code):
         if status == 200:
             return json.loads(data)
         if status not in (502, 503, 504, 524):
-            raise RuntimeError(f"GPU exec: HTTP {status}")
+            try:
+                detail = json.loads(data).get("message", "")
+            except ValueError:
+                detail = ""
+            raise RuntimeError(f"GPU exec: HTTP {status}: {detail}")
     except (OSError, TimeoutError):
         pass
     print("exec reply lost; waiting for the existing job, not replaying it", flush=True)
@@ -199,7 +203,7 @@ def upload_part(key, sid, name, data, via_exec=False):
                         return
             else:
                 status, _ = request(key, "PUT",
-                    f"/sandboxes/{sid}/files/{quote(name, safe='')}", data)
+                    f"/sandboxes/{sid}/files/out/{quote(name, safe='')}", data)
                 if status in (200, 201):
                     return
             raise RuntimeError(f"upload {name}: HTTP {status}")
@@ -228,7 +232,8 @@ def gpu_run(args, key):
             raise RuntimeError("invalid GPU lease id; inspect your inventory")
         receipt["sandbox_id"] = sid
         print(f"create: sandbox={sid}", flush=True)
-        status, _ = request(key, "PUT", f"/sandboxes/{sid}/files/upload-probe", b"")
+        # PUT names are workdir-relative; GET names are OUTPUT_DIR-relative.
+        status, _ = request(key, "PUT", f"/sandboxes/{sid}/files/out/upload-probe", b"")
         if status not in (200, 201, 405):
             raise RuntimeError(f"upload capability probe: HTTP {status}")
         via_exec = status == 405
@@ -236,12 +241,12 @@ def gpu_run(args, key):
         receipt["upload_method"] = "exec-base64" if via_exec else "PUT"
         print(f"upload method: {receipt['upload_method']} (PUT probe HTTP {status})", flush=True)
         chunks = {}
-        chunk_bytes = 128 * 1024
+        chunk_bytes = 1024 * 1024 if via_exec else 128 * 1024
         for name, data in uploads.items():
             count = (len(data) + chunk_bytes - 1) // chunk_bytes
             if count > 1:
                 chunks[name] = count
-            with ThreadPoolExecutor(max_workers=4) as pool:
+            with ThreadPoolExecutor(max_workers=1 if via_exec else 4) as pool:
                 futures = [
                     pool.submit(upload_part, key, sid,
                                 name + f".part-{index:04d}" if count > 1 else name,
