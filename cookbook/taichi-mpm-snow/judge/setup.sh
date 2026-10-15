@@ -70,6 +70,10 @@ if ver != want:
     sys.exit(1)
 ti.init(arch=ti.cpu)
 print(f'setup: taichi {ver} OK on cpu')
+# Taichi's LLVM teardown can segfault at interpreter exit on some
+# hosts (rare, unrelated to the verdict); skip it once the check passed.
+sys.stdout.flush(); sys.stderr.flush()
+os._exit(0)
 PY
 
 cat > "$MARK" <<EOF

@@ -46,27 +46,32 @@ def main():
     d = clone(os.path.join(BAD, 'gravity_flipped'))
     edit_params(d, lambda j: j.update(gravity=abs(j['gravity'])))
 
-    # 2. dt 20x too large -> blow-up, non-finite metrics (Gate 1)
+    # 2. dt 20x too large -> explicit integrator injects energy every
+    #    step after contact: the stability gate (E <= E0*1.15) trips on
+    #    the finite prefix tens of steps before the run goes NaN
     d = clone(os.path.join(BAD, 'dt_too_large'))
     edit_params(d, lambda j: j.update(dt=j['dt'] * 20.0))
 
     # 3. boundary condition removed -> boundary gate dies on the
-    #    finite prefix before any blow-up
+    #    finite prefix: the first row with a particle inside the dx
+    #    margin fails, steps before the run can blow up
     d = clone(os.path.join(BAD, 'no_boundary'))
     edit_py(d,
-            "if i < bound and grid_v[i, j].x < 0:",
-            "if i < 0 and grid_v[i, j].x < 0:")
+            "if pi < bound and grid_v[i, j].x < 0:",
+            "if pi < 0 and grid_v[i, j].x < 0:")
     edit_py(d,
-            "if i > n_grid - 1 - bound and grid_v[i, j].x > 0:",
-            "if i > n_grid - 1 + 999 and grid_v[i, j].x > 0:")
+            "if pi > n_grid - 1 - bound and grid_v[i, j].x > 0:",
+            "if pi > n_grid - 1 + 999 and grid_v[i, j].x > 0:")
     edit_py(d,
-            "if j < bound and grid_v[i, j].y < 0:",
-            "if j < 0 and grid_v[i, j].y < 0:")
+            "if pj < bound and grid_v[i, j].y < 0:",
+            "if pj < 0 and grid_v[i, j].y < 0:")
     edit_py(d,
-            "if j > n_grid - 1 - bound and grid_v[i, j].y > 0:",
-            "if j > n_grid - 1 + 999 and grid_v[i, j].y > 0:")
+            "if pj > n_grid - 1 - bound and grid_v[i, j].y > 0:",
+            "if pj > n_grid - 1 + 999 and grid_v[i, j].y > 0:")
 
-    # 4. P2G weight bug: drop one stencil corner -> mass not conserved
+    # 4. P2G weight bug: drop one stencil corner -> grid mass after
+    #    P2G no longer equals particle mass; the mass gate fails on the
+    #    very first metrics row
     d = clone(os.path.join(BAD, 'p2g_weight_bug'))
     edit_py(d,
             "for gj in ti.static(range(3)):\n"

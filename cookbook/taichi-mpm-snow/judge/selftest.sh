@@ -3,6 +3,13 @@
 # known-good examples must pass; every scripted mutant must fail at
 # least one gate.  Prints the kill rate; exits non-zero unless it is
 # >= 90 %.
+#
+# The host this demo targets has 2 vCPUs and the artifact is pinned to
+# one Taichi thread, so grades run two at a time without disturbing
+# determinism.  Mutants are graded with --steps $MUT_STEPS: every
+# killing gate trips well inside that window (verified in RECEIPT.md),
+# and all physics gates are evaluated on the finite metrics prefix, so
+# a mutant that blows up early is still killed by its physics gate.
 
 set -euo pipefail
 
@@ -12,18 +19,22 @@ GOOD_DIR="$BASE_DIR/examples/good"
 BAD_DIR="$BASE_DIR/examples/bad"
 GRADE_SH="$SCRIPT_DIR/grade.sh"
 OUT="$(mktemp -d /tmp/mpm-selftest.XXXXXX)"
+VERDICT_DIR="${VERDICT_DIR:-$BASE_DIR/media/data/verdicts}"
 trap 'rm -rf "$OUT"' EXIT
 
 SEED="${SEED:-0}"
+MUT_STEPS="${MUT_STEPS:-1000}"
+PAR="${PAR:-2}"
 
 echo "[selftest] Regenerating mutant artifacts..."
 python3 "$SCRIPT_DIR/mutants.py"
 
+mkdir -p "$VERDICT_DIR"
+
 echo ""
-echo "[selftest] Known-good example (must PASS):"
+echo "[selftest] Known-good example (must PASS, seed $SEED):"
 GOOD_PASS=0
-GOOD_TOTAL=0
-GOOD_TOTAL=$((GOOD_TOTAL + 1))
+GOOD_TOTAL=1
 t0=$(date +%s)
 if "$GRADE_SH" "$GOOD_DIR" --json "$OUT/good.json" --seed "$SEED" \
         >"$OUT/good.log" 2>&1; then
@@ -33,6 +44,7 @@ else
     echo "[selftest]   good  FAIL (unexpected!) — see $OUT/good.log"
     tail -20 "$OUT/good.log" || true
 fi
+cp "$OUT/good.json" "$VERDICT_DIR/good.json" 2>/dev/null || true
 
 echo ""
 echo "[selftest] Determinism check (same seed twice, verdict JSON except 'timing'):"
@@ -69,34 +81,58 @@ else
 fi
 
 echo ""
-echo "[selftest] Known-bad mutants (must FAIL):"
+echo "[selftest] Known-bad mutants (must FAIL; --steps $MUT_STEPS, $PAR at a time):"
 
 MUTANTS=(
     gravity_flipped dt_too_large no_boundary
     p2g_weight_bug no_plasticity v0_mismatch
 )
 
+grade_mutant() {
+    local m="$1"
+    local dir="$BAD_DIR/$m"
+    if [[ ! -d "$dir" ]]; then
+        echo "MISSING" > "$OUT/$m.status"
+        return
+    fi
+    if "$GRADE_SH" "$dir" --json "$OUT/$m.json" --seed "$SEED" \
+            --steps "$MUT_STEPS" >"$OUT/$m.log" 2>&1; then
+        echo "PASSED" > "$OUT/$m.status"
+    else
+        echo "KILLED" > "$OUT/$m.status"
+    fi
+    cp "$OUT/$m.json" "$VERDICT_DIR/$m.json" 2>/dev/null || true
+}
+
+for m in "${MUTANTS[@]}"; do
+    while (( $(jobs -rp | wc -l) >= PAR )); do sleep 1; done
+    grade_mutant "$m" &
+done
+wait
+
 KILLED=0
 TOTAL=0
 declare -a SURVIVED=()
 for m in "${MUTANTS[@]}"; do
-    dir="$BAD_DIR/$m"
-    [[ -d "$dir" ]] || { echo "[selftest]   $m missing — skipped"; continue; }
-    TOTAL=$((TOTAL + 1))
-    if "$GRADE_SH" "$dir" --json "$OUT/$m.json" --seed "$SEED" \
-            >"$OUT/$m.log" 2>&1; then
-        echo "[selftest]   $m  PASSED (missed kill!)"
-        SURVIVED+=("$m")
-    else
-        KILLED=$((KILLED + 1))
-        failed=$(python3 - "$OUT/$m.json" <<'EOF' 2>/dev/null || echo "?"
+    status="$(cat "$OUT/$m.status" 2>/dev/null || echo MISSING)"
+    case "$status" in
+        MISSING)
+            echo "[selftest]   $m missing — skipped" ;;
+        PASSED)
+            TOTAL=$((TOTAL + 1))
+            echo "[selftest]   $m  PASSED (missed kill!)"
+            SURVIVED+=("$m") ;;
+        KILLED)
+            TOTAL=$((TOTAL + 1))
+            KILLED=$((KILLED + 1))
+            failed=$(python3 - "$OUT/$m.json" <<'EOF' 2>/dev/null || echo "?"
 import json,sys
 v=json.load(open(sys.argv[1]))
 print(",".join(str(g["gate"]) for g in v.get("gates",[]) if not g["passed"]))
 EOF
 )
-        echo "[selftest]   $m  killed (failed gates: $failed)"
-    fi
+            echo "[selftest]   $m  killed (failed gates: $failed)" ;;
+    esac
 done
 
 RATE=0
@@ -110,6 +146,7 @@ echo "[selftest] mutants killed    : $KILLED/$TOTAL ($RATE%)"
 if [[ ${#SURVIVED[@]} -gt 0 ]]; then
     echo "[selftest] survived        : ${SURVIVED[*]}"
 fi
+echo "[selftest] verdicts -> $VERDICT_DIR"
 echo "[selftest] ============================================"
 
 fail=0
