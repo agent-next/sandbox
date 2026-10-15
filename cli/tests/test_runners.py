@@ -1629,18 +1629,18 @@ def test_conditional_reads_reuse_304_bodies_and_obey_cost_aware_interval():
         seen.add(key)
         assert "If-None-Match" not in req.headers
         if req.url.path.endswith("/runs"):
-            body = {"workflow_runs": [{"id": 1}]}  # deduplicated across queued/in_progress
+            body = {"workflow_runs": [{"id": 1}]}  # deduplicated across all run lists
         else:
             body = {"jobs": [{"id": 1, "status": "queued", "labels": ["self-hosted", "SBX"]}]}
         return httpx.Response(200, json=body, headers={"ETag": '"v1"'})
 
     demand = rest_demand(clock, handler)
-    assert demand.poll(lambda *a: None) == 1 and len(requests) == 3
-    assert demand.next_poll == clock() + 6
+    assert demand.poll(lambda *a: None) == 1 and len(requests) == 4
+    assert demand.next_poll == clock() + 8
     clock.now += 5
-    assert demand.poll(lambda *a: None) == 1 and len(requests) == 3
-    clock.now += 1
-    assert demand.poll(lambda *a: None) == 1 and len(requests) == 6
+    assert demand.poll(lambda *a: None) == 1 and len(requests) == 4
+    clock.now += 3
+    assert demand.poll(lambda *a: None) == 1 and len(requests) == 8
 
 
 def test_default_discovery_is_capped_recent_and_refreshed():

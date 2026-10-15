@@ -98,7 +98,10 @@ included in the pool's registered labels count (case-insensitively).
 it grows with request cost (roughly 1,800 reads/hour) and backs off on errors
 or rate limits. Conditional reads use ETags when GitHub supplies them.
 Cancelled jobs assigned to this process's runners are reclaimed as soon as a
-poll sees completion, without waiting for the runner to exit. `demand` events
+poll sees completion, without waiting for the runner to exit. Polls also scan
+cancelled runs, so a job that starts and is cancelled between polls is not
+missed. Recent cancellations are selected by update time, including reruns of
+older workflows; failed polls retain their cancellation window. `demand` events
 report queued count and spawn decisions; `reclaimed` reports `delay_s` since
 job completion and `poll_delay_s` since observing the cancellation.
 Idle runners are recycled after `--idle-min`; other than confirmed cancellations,

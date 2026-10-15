@@ -183,15 +183,20 @@ class GitHub:
         self._check(resp, "delete runner")
         return True
 
-    def jobs(self, repos: list[str], tracked: set[tuple[str, int]]):
-        """Active runs plus previously seen runs, even if cancellation removed them from the list."""
+    def jobs(self, repos: list[str], tracked: set[tuple[str, int]], *, cancelled_since: float = 0):
+        """Active, tracked and recently cancelled runs, including jobs missed between polls."""
         for repo in repos:
-            for status in ("queued", "in_progress"):
+            for status in ("queued", "in_progress", "cancelled"):
                 page = 1
                 while True:
                     runs = self.get(f"/repos/{repo}/actions/runs",
                                     {"status": status, "per_page": 100, "page": page})["workflow_runs"]
-                    tracked.update((repo, run["id"]) for run in runs)
+                    for run in runs:
+                        if status == "cancelled" and run.get("updated_at"):
+                            updated = datetime.fromisoformat(run["updated_at"].replace("Z", "+00:00"))
+                            if updated.timestamp() < cancelled_since:
+                                continue
+                        tracked.add((repo, run["id"]))
                     if len(runs) < 100:
                         break
                     page += 1
@@ -226,6 +231,7 @@ class RestDemand:
         self.discover = not repos
         self.next_poll, self.next_discovery, self.failures, self.backlog = 0.0, 0.0, 0, 0
         self.tracked: set[tuple[str, int]] = set()
+        self.cancelled_since = time.time() - 60
         if len(self.repos) > self.REPO_LIMIT:
             raise RunnerError(f"--watch-repo supports at most {self.REPO_LIMIT} repositories")
 
@@ -249,18 +255,21 @@ class RestDemand:
         if self.clock() < self.next_poll:
             return self.backlog
         reads = self.gh.reads
+        poll_started = time.time()
         try:
             if self.discover and self.clock() >= self.next_discovery:
                 self._discover()
                 self.next_discovery = self.clock() + 300
             count = 0
-            for repo, job in self.gh.jobs(self.repos, self.tracked):
+            for repo, job in self.gh.jobs(self.repos, self.tracked, cancelled_since=self.cancelled_since):
                 if job["status"] == "completed" and job.get("conclusion") == "cancelled":
                     # Reclaim now, not after the remaining repositories have been polled.
                     on_cancel(repo, job)
                 if job["status"] == "queued" and {x.lower() for x in job["labels"]} <= self.labels:
                     count += 1
             self.backlog, self.failures = count, 0
+            # Overlap for timestamp precision/visibility lag; don't advance on partial failures.
+            self.cancelled_since = poll_started - 60
             # Budget roughly 1,800 reads/hour, including conditional requests.
             self.next_poll = self.clock() + max(self.interval, 2 * (self.gh.reads - reads))
         except (httpx.HTTPError, RunnerError, ValueError, KeyError, TypeError) as exc:
