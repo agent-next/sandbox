@@ -99,6 +99,13 @@ def main():
         if rc != 0:
             failed = "git clone"
         else:
+            # record the exact commit graded: a receipt that names only a
+            # branch cannot be checked against a later state of that branch
+            _, sha, _ = step("git rev-parse HEAD", sbx, "exec", sid,
+                             "--timeout", "60", "--", "bash", "-c",
+                             "cd repo && git rev-parse HEAD", capture=True)
+            sha = sha.strip().splitlines()[-1].strip() if sha.strip() else "?"
+            print(f"[run] commit: {sha}", flush=True)
             rc, _, timings["setup"] = step(
                 "judge/setup.sh",
                 sbx, "exec", sid, "--timeout", "900", "--",
