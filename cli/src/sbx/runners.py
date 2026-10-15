@@ -229,7 +229,7 @@ class GitHub:
                                    params={"per_page": 100, "page": job_page, "filter": "all"})
                         jobs = self._check(resp, "list jobs for failed runner").json()["jobs"]
                         for job in jobs:
-                            if job.get("runner_name") == runner and job.get("conclusion") is not None:
+                            if job.get("runner_name") == runner:
                                 yield {**job, "repo": repo,
                                        "head_sha": job.get("head_sha") or run["head_sha"]}
                                 return
@@ -253,6 +253,14 @@ class GitHub:
                     except StopIteration:
                         continue
                     if match is not None:
+                        # Once located, poll this job directly rather than repeatedly
+                        # searching history or giving up before propagation completes.
+                        while match.get("conclusion") is None:
+                            time.sleep(min(2, max(0, deadline - time.monotonic())))
+                            resp = get(f"/repos/{match['repo']}/actions/jobs/{match['id']}")
+                            job = self._check(resp, "read job for failed runner").json()
+                            match = {**match, **job, "repo": match["repo"],
+                                     "head_sha": job.get("head_sha") or match["head_sha"]}
                         return match
                     active.append(pages)
                 searches = active
