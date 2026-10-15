@@ -2,22 +2,26 @@
 
 Real command output from two fresh sandboxes, pasted as produced. Both runs
 are the committed code on this branch, driven by
-`python3 cookbook/video-transcode-pipeline/run.py --ref <branch>` from
-outside the sandbox, on the default 2 vCPU sandbox shape.
+
+```bash
+python3 cookbook/video-transcode-pipeline/run.py --ref sbx/demo-video-transcode-pipeline-f4
+```
+
+from outside the sandbox, on the default 2 vCPU sandbox shape.
 
 ## Two fresh-sandbox runs, side by side
 
 Both sandboxes started with no toolchain at all: `judge/setup.sh` downloaded
-and verified 14 Debian packages, built whisper.cpp from the pinned SHA, and
-fetched the model, from nothing.
+and verified the pinned Debian packages, built whisper.cpp from the pinned
+SHA, and fetched the model, from nothing.
 
 | | RUN-A | RUN-B |
 |---|---|---|
-| `sbx create --timeout-min 30` | exit 0, 2.2 s | exit 0, 1.5 s |
-| `git clone --depth 1 -b <branch>` | exit 0, 4.1 s | exit 0, 3.0 s |
-| `judge/setup.sh` (fresh) | exit 0, 247.6 s | exit 0, 192.0 s |
-| `judge/selftest.sh` | exit 0, 234.4 s | exit 0, 169.9 s |
-| `judge/grade.sh examples/good` | exit 0, 21.0 s | exit 0, 25.8 s |
+| `sbx create --timeout-min 30` | exit 0, 1.8 s | exit 0, 2.4 s |
+| `git clone --depth 1 -b <branch>` | exit 0, 3.9 s | exit 0, 5.1 s |
+| `judge/setup.sh` (fresh) | exit 0, 258.2 s | exit 0, 263.1 s |
+| `judge/selftest.sh` | exit 0, 265.3 s | exit 0, 266.5 s |
+| `judge/grade.sh examples/good` | exit 0, 42.3 s | exit 0, 34.8 s |
 | kill rate | **7/7 = 100 %** | **7/7 = 100 %** |
 | verdict JSON | identical (see below) | identical |
 | `run.py` exit code | **0** | **0** |
@@ -28,23 +32,24 @@ fetched the model, from nothing.
 (the standard allows exactly that).
 
 ```
-RUN-A timing: pipeline 10.883 s, geometry 0.445 s, duration 0.229 s,
-              keyframes 0.263 s, counter 6.573 s, poster 0.359 s, captions 0.192 s
-RUN-B timing: pipeline 11.669 s, geometry 0.489 s, duration 0.224 s,
-              keyframes 0.256 s, counter 7.674 s, poster 0.360 s, captions 0.186 s
+RUN-A timing: pipeline 21.693 s, geometry 0.688 s, duration 0.281 s,
+              keyframes 0.292 s, counter 14.237 s, poster 0.578 s, captions 0.857 s
+RUN-B timing: pipeline 17.164 s, geometry 0.818 s, duration 0.301 s,
+              keyframes 0.314 s, counter 11.883 s, poster 0.583 s, captions 0.977 s
 ```
 
-The setup time differs by 56 s between the two runs (compiling whisper.cpp
-from source); everything the verdict depends on is identical.
+The setup and self-test times differ by seconds between the two runs
+(whisper.cpp compiles from source and the self-test grades eight
+pipelines); everything the verdict depends on is identical.
 
 ## RUN-A, as pasted from the terminal
 
 ```text
-run: [   2.2s] sbx create --timeout-min 30 -> exit 0
-run: sandbox 01a13fa3-0dc6-7492-9cdd-4722f68122d2
-run: [   4.1s] git clone -> exit 0
-run: [ 247.6s] judge/setup.sh -> exit 0
-run: [ 234.4s] judge/selftest.sh -> exit 0
+run: [   1.8s] sbx create --timeout-min 30 -> exit 0
+run: sandbox 01a1402e-d4e7-7bd3-85b8-551567a104e2
+run: [   3.9s] git clone -> exit 0
+run: [ 258.2s] judge/setup.sh -> exit 0
+run: [ 265.3s] judge/selftest.sh -> exit 0
 selftest: grading known-good /home/user/vtp-demo-repo/cookbook/video-transcode-pipeline/examples/good
 selftest: known-good PASSED all gates
 mutants: wrong-resolution  edit: 720p rendition scaled to 1280x960 instead of 1280x720
@@ -54,7 +59,7 @@ mutants: empty-captions  edit: captions.vtt replaced by WEBVTT plus one empty cu
 mutants: wrong-keyframe  edit: keyframe interval 8 s (KEYINT 192) instead of 4 s
 mutants: blank-poster  edit: poster.png replaced by a solid black frame
 mutants: silent-renditions  edit: renditions carry no audio stream (-an)
-mutants: wrote 7 mutants to /tmp/tmp.WLamRBeYNI/mutants
+mutants: wrote 7 mutants to /tmp/tmp.43X0k4FVi9/mutants
 selftest: killed    blank-poster (gate: poster)
 selftest: killed    dropped-segment (gate: keyframes)
 selftest: killed    empty-captions (gate: captions)
@@ -65,10 +70,10 @@ selftest: killed    wrong-resolution (gate: geometry)
 selftest: kill rate 7/7 = 100%
 selftest: determinism OK (two --seed 1 runs identical, timing excluded)
 selftest: OK
-run: [  21.0s] judge/grade.sh examples/good -> exit 0
+run: [  42.3s] judge/grade.sh examples/good -> exit 0
 { ...verdict JSON, below... }
 run: SUMMARY passed=True counter_360p=1.0 wer=0.0588 cues=6 keyframe_gaps=[4.0, 4.0, 4.0, 4.0] duration_dev=0.0213
-run: killed and confirmed gone: 01a13fa3-0dc6-7492-9cdd-4722f68122d2
+run: killed and confirmed gone: 01a1402e-d4e7-7bd3-85b8-551567a104e2
 EXIT=0
 ```
 
@@ -102,9 +107,9 @@ EXIT=0
                    "coverage": 0.9297, "wer": 0.0588, "ref_words": 17,
                    "errors": 1, "echoed_transcript": false }
   },
-  "timing": { "pipeline_s": 10.883, "geometry_s": 0.445, "duration_s": 0.229,
-              "keyframes_s": 0.263, "counter_s": 6.573, "poster_s": 0.359,
-              "captions_s": 0.192 }
+  "timing": { "pipeline_s": 21.693, "geometry_s": 0.688, "duration_s": 0.281,
+              "keyframes_s": 0.292, "counter_s": 14.237, "poster_s": 0.578,
+              "captions_s": 0.857 }
 }
 ```
 
@@ -125,7 +130,7 @@ model ggml-tiny.en.bin sha256 921e4cf86…89920b1f
 ## Criterion-by-criterion evidence
 
 1. **Pinned + sha256-checked.** `judge/setup.sh` verifies every download with
-   `sha256sum -c` before installing anything: 14 Debian `.deb` files, the
+   `sha256sum -c` before installing anything: the Debian `.deb` files, the
    whisper.cpp tarball at `0c7be696…`, the `ggml-tiny.en.bin` model, the
    DejaVu font package, and (via pip) `cmake==4.4.4`. `judge/requirements.txt`
    pins the matplotlib wheel set with `--require-hashes` for

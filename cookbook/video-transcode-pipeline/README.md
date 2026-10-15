@@ -68,11 +68,11 @@ on any failure, naming the sandbox id if cleanup cannot be confirmed.
 
 | step | wall time |
 |---|---|
-| `git clone --depth 1` | ~2 s |
-| `judge/setup.sh` (fresh: 14 packages + cmake + whisper.cpp build) | 2 m 20 s (idempotent re-run: 2 s) |
-| `judge/selftest.sh` (good + 7 mutants + determinism) | 2 m 11 s |
-| `judge/grade.sh examples/good` | 21 s (of which 14 s is the pipeline, 10 s the counter OCR) |
-| whole `run.py`, sandbox create to kill | ~7 min |
+| `git clone --depth 1` | ~4 s |
+| `judge/setup.sh` (fresh: 14 packages + cmake + whisper.cpp build) | 4 m 20 s (idempotent re-run: 2 s) |
+| `judge/selftest.sh` (good + 7 mutants + determinism) | 4 m 30 s |
+| `judge/grade.sh examples/good` | 35 s (of which 21 s is the pipeline, 14 s the counter OCR) |
+| whole `run.py`, sandbox create to kill | ~9 min 30 s |
 
 `run.py` prints a per-step timing line; the verdict carries a `timing` object.
 
