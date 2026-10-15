@@ -1,0 +1,9 @@
+# solidcraft-cad judge: versions installed by judge/setup.sh
+# (Linux x86_64)
+solidcraft-cli 0.10.1
+solidcraft release sha256 2dee82978900dab0f50d092446eef924f4fd6da99121aa6e0fa041c224ca700b
+python3 3.12.15
+cadquery-ocp==8.0.1.0.0
+matplotlib==3.11.2
+numpy==2.5.3
+vtk==9.6.2
