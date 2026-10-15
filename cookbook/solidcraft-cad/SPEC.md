@@ -30,15 +30,16 @@ rebuild the part correctly.
 "params": {...}}, ...]}`, the same commands the SolidCraft UI and MCP server
 run (`solidcraft-cli commands` lists them). Requirements:
 
-- It defines a parameter named `thickness` (`parameters.change` or
-  `parameters.add`) that drives the plate thickness and the height of
-  everything above the plate.
+- It defines a parameter named `thickness` (by `parameters.change` or
+  `parameters.add`, under that name or renamed to it) that drives the plate
+  thickness and the height of everything above the plate.
 - It only uses modelling commands: names starting `sketch.`, `solid.`,
   `construct.`, `timeline.`, `select.`, plus `parameters.change`,
   `parameters.add`, `material.assign`, `appearance.assign`, `body.rename`,
   `edit.undo`, `edit.redo`, `document.units`. File, document, import/export,
   DXF/SVG and diagnostics commands are refused before SolidCraft runs (the
-  judge does its own export).
+  judge does its own export). Commands nested inside params obey the same
+  list, and a `font` must name an installed family, never a file path.
 - Coordinates: plate centred on the origin in XY, bottom face on Z = 0, boss
   on +Z; millimetres.
 
@@ -74,11 +75,11 @@ artifact is copied to a temp dir and built there; the judge tree and
 | **build** | valid JSON; only allowed commands; `solidcraft-cli run design.json --out part.step --out part.stl` exits 0 (a failing timeline feature fails the run) and both files are non-empty |
 | **occt_shape** | OCCT reads `part.step`: exactly 1 solid, `BRepCheck_Analyzer` valid, bounding box within **0.01 mm** of the analytic box |
 | **volume** | OCCT volume within **0.2 %** of the analytic V |
-| **features** | from the STEP's cylindrical faces with a Z axis — exact cylinders, or B-spline faces whose sampled normals are horizontal and whose points fit one circle to 1e-4 mm (concave = hole, convex = boss/fillet): exactly 1 centre bore Ø22 ± 0.02 running z 0..T+H; exactly N = 4 bolt holes, Ø ± **0.02 mm**, centres on the PCD ± **0.05 mm**, angular spacing 90° ± **0.1°**, each through the plate, edge distance ≥ 5 mm; boss Ø32 ± 0.02 spanning z T..T+H ± 0.01; exactly 4 convex R5 corner fillets |
+| **features** | from the STEP's cylindrical faces with a Z axis — exact cylinders, or B-spline faces whose sampled normals are horizontal and whose points fit one circle to 1e-4 mm (concave = hole, convex = boss/fillet): exactly 1 centre bore Ø22 ± 0.02 running z 0..T+H; exactly N = 4 bolt holes, Ø ± **0.02 mm**, centres on the PCD ± **0.05 mm**, angular spacing 90° ± **0.1°**, every nominal centre (first at 45°) within **0.05 mm** of a hole, each through the plate, edge distance ≥ 5 mm; boss Ø32 ± 0.02 spanning z T..T+H ± 0.01; exactly 4 convex R5 corner fillets at the plate's corners. Then **wall probes**: OCCT classifies points 0.01 mm either side of every found cylinder (36 angles × 12 levels over the depth the spec requires; corners over their outer quarter), which must be empty inside holes and outside the boss/corners and solid on the other side, so a blocked hole or a wall that strays between samples fails |
 | **mass** | OCCT volume × 2.70 g/cm³ ≤ 52 g |
 | **cross_check** | `solidcraft-cli eval` reports 1 body whose volume and area agree with OCCT within **0.1 %** and centre of mass within **0.01 mm** (both kernels must agree) |
-| **parametric** | the judge sets `thickness` to T + 2 mm in a copy of the script and rebuilds: 1 solid, OCCT volume change within **0.2 %** of ΔV and top face at T + 2 + H ± 0.01 mm (a frozen or literal-dimension design fails) |
-| **stl** | `part.stl` is a closed, consistently oriented 2-manifold (every directed edge used once, its reverse once) and its divergence-theorem volume is within **0.5 %** of the STEP volume |
+| **parametric** | the judge appends `parameters.change thickness = T + 2 mm` to a copy of the script and rebuilds; the rebuilt part is graded against the spec at the new thickness: 1 valid solid, whole bounding box within 0.01 mm, every **features** check including the wall probes, and an OCCT volume change within **0.2 %** of ΔV (a frozen, literal-dimension or rebuild-dependent design fails) |
+| **stl** | `part.stl` is a closed, consistently oriented 2-manifold (every directed edge used once, its reverse once; the triangles round every vertex form one fan; no degenerate triangle) and its divergence-theorem volume is within **0.5 %** of the STEP volume |
 
 `--seed` is accepted and recorded for the standard's interface; the judge
 makes no random choices.
@@ -94,19 +95,26 @@ makes no random choices.
    used only in `cross_check`, which requires the two kernels to agree.
 3. **Mesh check**: the STL is checked by a stdlib edge-manifold test and an
    independent volume integral.
-4. **Self-test**: `judge/selftest.sh` grades every known-good design in
-   `examples/good/` (must pass): `design.json` (sketch + extrude) and
-   `design-csg.json` (boxes and cylinders combined, written by the independent
-   reproducing agent; SolidCraft exports its rotated cylinders as B-spline
-   faces, which the features gate fits as circles). It then grades 14
-   single-edit mutants from `judge/mutants.py` (each must fail): hole Ø3.1,
-   one hole 0.28 mm off the PCD, one hole rotated 3°, a missing hole, an extra
-   hole, missing bore, plate 7.5 mm (mass/box), boss 4 mm, square corners,
-   thickness written as a literal, a misspelled command, a `file.export` that
-   tries to write outside the work dir, and on the CSG design a bore moved
-   0.3 mm off centre (same volume: only the B-spline feature check can see it)
-   and a missing corner round. Kill rate must be ≥ 90 %; same-seed grades
-   must be byte-identical outside `timing`.
+4. **Self-test**: `judge/selftest.sh` first runs the stdlib unit tests in
+   `tests/` (circle fit on short arcs, STL manifold cases, command checks,
+   features on a modelled part, run.py cleanup under transport faults). It
+   grades every known-good design in `examples/good/` (must pass):
+   `design.json` (sketch + extrude), `design-csg.json` (boxes and cylinders
+   combined, written by the independent reproducing agent; SolidCraft exports
+   its rotated cylinders as B-spline faces, which the features gate fits as
+   circles) and `design-renamed.json` (the parameter is created as `stock`
+   and renamed to `thickness`). It then grades 18 single-edit mutants from
+   `judge/mutants.py` (each must fail): hole Ø3.1, one hole 0.28 mm off the
+   PCD, one hole rotated 3°, the whole bolt pattern turned 10° (spacing and
+   PCD intact), a missing hole, an extra hole, missing bore, plate 7.5 mm
+   (mass/box), boss 4 mm, square corners, thickness written as a literal, a
+   misspelled command, a `file.export` that tries to write outside the work
+   dir, a `sketch.text` that reads a font file outside it, and on the CSG
+   design a bore moved 0.3 mm off centre (same volume: only the B-spline
+   feature check can see it), a missing corner round, a 0.5 mm web inside
+   every bolt hole (+0.11 % volume), and a move that only happens when
+   `thickness` changes. Kill rate must be ≥ 90 %; same-seed grades must be
+   byte-identical outside `timing`.
 
 Tolerances: two fresh-sandbox runs and an independent reproduction must give
 the same pass/fail per gate and the same key numbers to 6 significant figures
