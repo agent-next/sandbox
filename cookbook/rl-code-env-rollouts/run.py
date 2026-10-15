@@ -177,21 +177,25 @@ def main():
                 "in-sandbox pipeline failed with exit %d (sandbox %s); the "
                 "sbx exec timeout is %d s -- a step killed mid-run may have "
                 "left output above" % (r.returncode, sid, EXEC_TIMEOUT_S))
-            return
-        v = verdict_summary(r.stdout)
-        if v is None:
-            failure = RuntimeError("no verdict JSON found in the exec output "
-                                   "(sandbox %s)" % sid)
-            return
-        gates = "%d/%d" % (v.get("gates_passed", 0), v.get("gates_total", 0))
-        ok = "PASS" if v.get("pass") else "FAIL"
-        print(f"rl-code-env-rollouts: verdict {ok} ({gates} gates), "
-              f"seed {v.get('seed')}", flush=True)
-        tp = (v.get("timing", {}) or {}).get("throughput")
-        if not v.get("pass"):
-            failed = sorted(k for k, g in v.get("gates", {}).items()
-                            if g.get("verdict") != "pass")
-            failure = RuntimeError("judge verdict FAIL: %s" % ", ".join(failed))
+            # No `return` here: a return inside the try skips the `raise
+            # failure` below the finally, so a failed pipeline would exit 0.
+            # Fall through and let the finally kill the sandbox first.
+        else:
+            v = verdict_summary(r.stdout)
+            if v is None:
+                failure = RuntimeError("no verdict JSON found in the exec "
+                                       "output (sandbox %s)" % sid)
+            else:
+                gates = "%d/%d" % (v.get("gates_passed", 0),
+                                   v.get("gates_total", 0))
+                ok = "PASS" if v.get("pass") else "FAIL"
+                print(f"rl-code-env-rollouts: verdict {ok} ({gates} gates), "
+                      f"seed {v.get('seed')}", flush=True)
+                if not v.get("pass"):
+                    failed = sorted(k for k, g in v.get("gates", {}).items()
+                                    if g.get("verdict") != "pass")
+                    failure = RuntimeError("judge verdict FAIL: %s"
+                                           % ", ".join(failed))
     finally:
         if keep:
             print(f"rl-code-env-rollouts: --keep; sandbox left up: {sid}",
