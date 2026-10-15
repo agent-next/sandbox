@@ -16,11 +16,11 @@ Headline numbers from `grade.sh examples/good --json` (all 14 gates pass):
 - OCCT volume 56 327.655 mm³ vs closed-form 56 327.655 mm³ (rel err 5.2×10⁻¹⁶)
 - XOR symmetric difference vs the spec-built reference solid: 0.0 mm³
   (gate G7 pass rule ≤ 1% of 56 328.18 mm³)
-- STL watertight, winding consistent, 8 104 faces; STL volume within
-  2.3×10⁻⁶ of STEP
+- STL watertight, winding consistent, 8 104 faces; STL agrees with the
+  STEP solid (volume rel err 2.3×10⁻⁶, bbox exact, XOR 3.6 mm³ ≪ 1%)
 - angular spacing max deviation 0° vs the 0.05° rule; 8 DXF circles
-- self-test kill rate **10/10**; determinism PASS (same seed → byte-identical
-  verdict)
+- self-test kill rate **15/15** plus 2/2 pass-cases; determinism PASS
+  (same seed → byte-identical verdict)
 
 
 
@@ -92,22 +92,28 @@ A known-good `part.py` is in `examples/good/` (regenerate its exports with
 - **STEP** (re-imported through OCCT): 1 valid solid (`BRepCheck_Analyzer`);
   bbox ≤ 0.01 mm from spec; volume ≤ 0.1 % from the closed-form
   `l·w·t + boss annulus − bore − bolts`; `bolt_n + 1` cylindrical
-  through-holes with diameters ≤ 0.01 mm; bolt centres on the PCD within
-  0.02 mm, evenly spaced within 0.05°; XOR symmetric-difference volume vs
-  the spec-built reference solid ≤ 1 %.
+  through-holes with diameters ≤ 0.01 mm; bolt centres on the PCD radius
+  within 0.02 mm and at the analytic PCD angles within 0.05°; XOR
+  symmetric-difference volume vs the spec-built reference solid ≤ 1 %.
 - **STL** (trimesh): watertight with consistent winding; positive (outward)
-  volume; volume within 1 % of the STEP volume.
+  volume; agrees with the STEP solid — volume within 1 %, bbox within
+  0.05 mm, XOR symmetric difference ≤ 1 % of the STEP volume.
 - **DXF** (ezdxf): `bolt_n + 2` CIRCLEs with diameters/positions to spec;
   closed rectangular outline `plate_l × plate_w` centred on the origin.
 - **Design rules**: min edge distance and min ligament ≥ spec (0.01 mm slack).
 
-The self-test (`judge/selftest.sh`) regenerates 10 single-edit mutants
+The self-test (`judge/selftest.sh`) regenerates 15 single-edit mutants
 (wrong bolt count, wrong PCD, bore +0.5 mm, boss missing, inch/mm ×25.4,
 STL with one reversed facet, STL with one dropped facet, DXF missing a
-hole, edge-distance violation, one bolt hole drifted 0.5 mm along the PCD —
-STEP and DXF agree on the drift, so only the angular-spacing gate catches
-it) and requires every one to fail at least one **named** gate — kill rate
-10/10 = 100 %. It prints every failing gate per mutant.
+hole, edge-distance violation, one bolt hole drifted 0.5 mm along the PCD
+— STEP and DXF agree on the drift, so the kill is shared between the
+angular-spacing and DXF-circle gates — a bow-tie outline, a bulged
+outline, an equal-volume box STL, and one hole 0.1 mm along the PCD with
+the DXF kept at spec positions, which must fail **only** the
+angular-spacing gate), requires every one to fail at least one **named**
+gate — kill rate 15/15 = 100 % — and re-grades pass-cases that must
+survive (a 4-LINE rectangle; the outline shifted 0.005 mm, inside the
+0.01 mm rule). It prints every failing gate per mutant.
 
 ## Third-party sources
 

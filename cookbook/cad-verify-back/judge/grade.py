@@ -325,7 +325,7 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
 
     # ---- G5: bolt centres on the PCD ------------------------------------
     with Gate(gates, "step_pcd",
-              "bolt centres on the spec PCD within 0.02 mm") as g:
+              "bolt centres on the spec PCD radius within 0.02 mm") as g:
         if centres is None:
             g.fail("skipped: no bolt centres from G4")
         r = exp["pcd_radius"]
@@ -334,33 +334,41 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
             g.fail(f"bolt centre radial error up to {max(r_errs):.4f} mm "
                    f"(> {TOL_POS}); radii="
                    f"{[round(math.hypot(x, y), 3) for x, y in centres]}")
-        # positions must also match the analytic centres
+        # absolute position vs the analytic centres is angular_spacing's
+        # (G6) job; it is reported here as evidence only
         pos_errs = []
         for (x, y) in centres:
             best = min(exp["bolt_centres"], key=lambda c: math.hypot(c[0] - x, c[1] - y))
             pos_errs.append(math.hypot(best[0] - x, best[1] - y))
-        if max(pos_errs) > TOL_POS:
-            g.fail(f"bolt centre positions off by up to {max(pos_errs):.4f} mm "
-                   f"from analytic PCD positions")
         g.ok(max_radial_err_mm=round(max(r_errs), 5),
              max_pos_err_mm=round(max(pos_errs), 5))
 
     # ---- G6: angular spacing between consecutive holes --------------------
     with Gate(gates, "angular_spacing",
-              "bolt holes evenly spaced: every step within 0.05 deg "
-              "of 360/bolt_n") as g:
+              "bolt holes at the analytic PCD angles: every absolute "
+              "angle and every consecutive step within 0.05 deg") as g:
         if centres is None:
             g.fail("skipped: no bolt centres from G4")
         angs, steps = angular_steps_deg(centres)
         want = exp["angular_step_deg"]
         dev = max(abs(s - want) for s in steps)
-        if dev > TOL_ANG:
+        exp_angs = [(math.degrees(math.atan2(y, x)) + 360.0) % 360.0
+                    for x, y in exp["bolt_centres"]]
+        # each hole's angular error to the nearest analytic position —
+        # this is also what keeps the spec's 0-deg phase enforced now
+        # that step_pcd only checks the PCD radius
+        aerr = max(
+            min(min((a - e) % 360.0, (e - a) % 360.0) for e in exp_angs)
+            for a in angs)
+        if dev > TOL_ANG or aerr > TOL_ANG:
             g.fail(f"angular steps {['%.4f' % s for s in steps]} deg vs "
-                   f"expected {want} deg; max deviation {dev:.4f} > "
-                   f"{TOL_ANG} deg")
+                   f"expected {want} deg (max deviation {dev:.4f}); "
+                   f"angles vs analytic positions off by up to "
+                   f"{aerr:.4f} deg; rule {TOL_ANG} deg")
         g.ok(angular_steps_deg=[round(s, 4) for s in steps],
              expected_step_deg=want,
-             max_deviation_deg=round(dev, 5))
+             max_deviation_deg=round(dev, 5),
+             max_angle_err_deg=round(aerr, 5))
 
     # ---- G7: XOR symmetric-difference volume vs the reference solid -------
     with Gate(gates, "step_xor",

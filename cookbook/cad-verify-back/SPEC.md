@@ -81,12 +81,12 @@ deterministic and independent of the tool that produced the artifact.
 | G2 `step_bbox` | bounding box of the re-imported solid vs spec | each dimension ≤ 0.01 mm from `plate_l × plate_w × (plate_t + boss_h)` |
 | G3 `step_volume` | OCCT volume vs closed-form analytic volume from the spec | relative error ≤ 0.1 % |
 | G4 `step_holes` | cylindrical through-holes found in the solid: central bore + `bolt_n` bolt holes, by axis position and radius, grouped from face centres with matching radii at top and bottom | count = `bolt_n + 1`; bore diameter within 0.01 mm of `bore_d`, centred within 0.01 mm; bolt diameters within 0.01 mm of `bolt_d` |
-| G5 `step_pcd` | bolt-hole centres from G4 | every centre within 0.02 mm of the PCD circle radius `pcd/2` and of the analytic PCD positions |
-| G6 `angular_spacing` | angular steps between consecutive bolt-hole centres from G4 | every step within 0.05° of `360°/bolt_n` |
+| G5 `step_pcd` | bolt-hole centres from G4 | every centre within 0.02 mm of the PCD circle radius `pcd/2` (absolute positions are reported as evidence; G6 gates them) |
+| G6 `angular_spacing` | angular positions of the bolt-hole centres from G4 | every absolute angle within 0.05° of the analytic `360°·i/bolt_n` positions, and every consecutive step within 0.05° of `360°/bolt_n` |
 | G7 `step_xor` | manifold3d boolean XOR (symmetric difference) of the tessellated re-imported solid vs a reference solid built from the spec alone | XOR volume ≤ 1 % of the reference volume |
 | G8 `stl_watertight` | STL parsed with trimesh | `is_watertight` and `is_winding_consistent` both true |
 | G9 `stl_orient` | trimesh mesh volume | positive (outward-facing facets) |
-| G10 `stl_volume` | trimesh volume of the STL mesh | within 1 % of the STEP (OCCT) volume |
+| G10 `stl_volume` | trimesh volume + geometry of the STL mesh vs the re-imported STEP solid | volume within 1 % of the STEP (OCCT) volume; bounding box within 0.05 mm of the STEP tessellation's; manifold3d XOR symmetric difference ≤ 1 % of the STEP volume |
 | G11 `dxf_circles` | DXF read with ezdxf: CIRCLE entities | exactly `bolt_n + 2` circles (bore, boss OD, bolt holes); each diameter within 0.01 mm of its spec value; centres within 0.02 mm of the analytic positions |
 | G12 `dxf_outline` | DXF outline (LINE and/or ARC entities, or one closed POLYLINE/LWPOLYLINE) | a closed rectangle `plate_l × plate_w` centred on the origin, corners within 0.01 mm |
 | G13 `design_rules` | from the STEP-derived hole geometry | min hole-edge distance ≥ `min_edge` − 0.01 mm; min ligament between adjacent holes ≥ `min_lig` − 0.01 mm |
@@ -118,11 +118,16 @@ writes these numbers into the verdict JSON so a pass can be checked by hand.
    least one gate: wrong bolt count, wrong PCD, bore diameter off by 0.5 mm,
    boss missing, inch/mm scale error (×25.4), one STL facet with reversed
    winding, non-watertight STL (one facet dropped), DXF missing a hole, hole
-   violating the edge-distance rule, and one bolt hole drifted 0.5 mm along
-   the PCD (STEP and DXF agree, radial error 0 — only the angular-spacing
-   gate catches it). The self-test prints **every** failing gate per mutant
-   and refuses a "kill" whose verdict contains only skipped gates (no gate
-   failed on its own evidence);
+   violating the edge-distance rule, one bolt hole drifted 0.5 mm along
+   the PCD (STEP and DXF agree), a bow-tie (self-crossing) outline, a
+   bulged (curved-edge) outline, an equal-volume box STL, and one bolt
+   hole 0.1 mm along the PCD with the DXF kept at spec positions
+   (`wrong_bolt_angles`, asserted to fail **only** `angular_spacing`).
+   Pass-cases must survive every gate (the rectangle drawn as 4 LINEs;
+   the outline shifted 0.005 mm, inside the 0.01 mm rule). The self-test
+   prints **every** failing gate per mutant and refuses a "kill" whose
+   verdict contains only skipped gates (no gate failed on its own
+   evidence);
 3. determinism: same seed → identical verdict JSON (except the `timing` key);
 4. kill rate must be ≥ 90 %.
 
