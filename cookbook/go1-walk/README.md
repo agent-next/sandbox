@@ -1,129 +1,163 @@
-# Go1 quadruped walking — batched MuJoCo-Warp PPO on a GPU slice
+# Train a Go1 to walk on a GPU slice
 
-An agent works on a real robot-learning problem on a disposable agent-next
-GPU lease: train a **Unitree Go1 quadruped to walk** (track a forward
-velocity command) with batched MuJoCo-Warp simulation and PPO, on a single
-4 GiB RTX 5090 VRAM slice, in minutes. The artifact the agent produces is
-a training config plus a small MLP policy checkpoint (`policy.npz`). A
-judge it cannot fool then *re-simulates* that checkpoint itself on
-held-out seeds and held-out command conditions the training never saw —
-every gated number (forward speed, fall rate, torque saturation, margin
-over a zero/random baseline, determinism) is measured by the judge's own
-MuJoCo-Warp rollouts; nothing is read back from the artifact.
-
-A GPU-slice lease helps because robot RL needs a real GPU but not a real
-workstation: the lease is a 4 GiB VRAM slice of an RTX 5090 with a fixed,
-pre-installed physics stack (warp-lang 1.13.0, mujoco 3.8.1, mujoco-warp
-3.8.1, torch 2.10.0+cu128), no network, files shipped in through the exec
-payload — including the Go1 model itself — and it is destroyed afterwards.
-The judge asserts the stack versions on the lease before simulating and
-fails closed on any drift, so the result does not depend on what happens
-to be installed locally.
+Train a Unitree Go1 quadruped from random weights with PPO and batched
+MuJoCo-Warp on a disposable **4 GiB RTX 5090 slice**. The artifact is a
+training config and a small policy checkpoint. An independent judge
+then runs the policy itself in single-threaded CPU MuJoCo on held-out
+seeds, measuring forward travel, falls and actuator torque. It ignores
+all claimed results in the artifact. A sandbox provides the pinned GPU
+stack without a workstation or a local CUDA installation, ships the
+model into a networkless lease, and destroys that lease after the run.
 
 ## One-command run
 
-From this repository's root, with Python 3.10+ (standard library only)
-and `SBX_API_KEY` exported:
+From the repository root, with Python 3.10+ and `SBX_API_KEY` exported:
 
 ```bash
 python3 cookbook/go1-walk/run.py
 ```
 
-`run.py` creates a 4 GiB VRAM-slice lease over the agent-next REST API
-(`POST /sandboxes {"accel":{"vram_gb":4,"reserve":"exec"}}`, then
-`POST /sandboxes/{id}/exec` for each job, `DELETE` + `GET`→404 in a
-`finally`), ships `env.py`/`train.py`/`judge/_eval.py`/the Go1 model as a
-base64 payload (the lease has no network), trains PPO, downloads the
-checkpoint to `cookbook/go1-walk/out/`, and grades the fresh policy on
-held-out seeds `101,202,303` — 64 episodes per seed, 500 control steps
-(10 s) each, fixed `vx = 1.0 m/s` command. It prints wall time per step
-and the gate-by-gate verdict, then destroys the lease and confirms it is
-gone.
+The runner uses standard-library REST calls, not a GPU template or a
+local physics installation. It creates a lease, validates the pinned
+image, ships the source and model, trains in resumable chunks, downloads
+the checkpoint to `cookbook/go1-walk/out/`, runs the real mutation
+self-test, grades the checkpoint, prints the verdict JSON and step wall
+times, then always deletes the lease and confirms `GET` returns 404.
+Only data files from the artifact reach the judge; no artifact code runs.
 
-Measured on this key (see RECEIPT.md for the pasted runs): lease create
-~8 s, first warp-kernel compile ~45 s inside the first job, training
-__TRAIN_WALL__ (__ITERS__ PPO iterations, __ENV_STEPS__ env steps,
-__STEPS_PER_S__ env-steps/s), held-out grading __EVAL_WALL__, end-to-end
-__TOTAL__. The trained policy walks at __FWD__ m/s mean forward speed on
-the held-out seeds (command 1.0 m/s), __FALL__ fall rate, verdict PASS.
-
-Useful flags: `--vram N` (slice size), `--iters N` (cap PPO iterations),
-`--skip-train DIR` (grade an existing artifact directory instead of
-training), `--selftest` (also grade `examples/good` plus all mutants on
-the same lease and print the kill rate), `--keep` (leave the lease up and
-print its id), `--seeds` (override the held-out seeds).
-
-To run just the judge against the committed known-good artifact:
+For a fresh lease grading the committed checkpoint without retraining:
 
 ```bash
-bash cookbook/go1-walk/judge/setup.sh      # pinned numpy venv for mutants.py
-bash cookbook/go1-walk/judge/grade.sh cookbook/go1-walk/examples/good
-bash cookbook/go1-walk/judge/selftest.sh   # good passes twice identically;
-                                           # 8/8 mutants die (measured)
+python3 cookbook/go1-walk/run.py --skip-train cookbook/go1-walk/examples/good
 ```
+
+Useful flags: `--config FILE`, `--iters N`, `--chunk-s N`, `--outdir DIR`,
+`--trace` (exact judge-scored states), `--seeds 101,202,303`,
+`--vram N`, and `--keep` (intentional cleanup opt-out).
+`--no-selftest` is for exploration only, not a complete demo run.
+`GO1_LEASE_WAIT_S` controls how long to wait for a free GPU seat (300 s
+by default). Exec replies are cached under a per-request token on the
+lease, so a lost reply can be recovered without repeating training.
+The key needs GPU access and capacity. Every API request must bypass an
+HTTP proxy that truncates long requests, for example prefix the command
+with `env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy`.
+The platform does not impose the local proxy's 600 s request cap.
+
+Measured training throughput, evaluation numbers, memory observations,
+and two fresh complete runs are recorded with raw output in
+[RECEIPT.md](RECEIPT.md). Retraining is stochastic; exact checkpoint
+reproduction and retraining are different guarantees.
+
+### Measured result
+
+The fresh training run and fresh checkpoint replay both passed:
+**0.768245 m/s**, **0/192 falls**, **7.6125%** maximum per-seed
+torque saturation, **0.769472 m/s** above the best baseline, and
+**11/11 mutants killed**. Evaluation uses seeds 101/202/303.
+
+| Step | Fresh training | Fresh checkpoint replay |
+|---|---:|---:|
+| Create lease | 3.471 s | 3.865 s |
+| Validate pinned stack | 3.134 s | 18.784 s |
+| PPO only | 486.1 s | Not retrained |
+| Final grade, including transport | 188.902 s | 472.812 s |
+| Complete run, including self-test and cleanup | 4012.310 s | 2652.438 s |
+
+PPO simulated 49,152,000 environment steps at 101,114 env-steps/s.
+PyTorch's peak reserved memory was 736,100,352 bytes, **not** total GPU
+memory. Full acceptance is much slower than training: repeated CPU
+grades, checkpoint transfer and API delays dominate these measured runs.
+Commands, intermediate failures and complete output are in
+[RECEIPT.md](RECEIPT.md).
+
+## See the simulation
+
+![Real Go1 trajectories and judge pass lines](media/result.png)
+
+[MuJoCo 3D video](media/demo.mp4) · [Training and judge loop](media/loop.png)
+
+```bash
+bash cookbook/go1-walk/media/make_media.sh
+```
+
+Media needs Linux x86-64, Python 3.12, ffmpeg, DejaVu Sans fonts and EGL
+(OSMesa fallback). It installs a SHA256-checked render environment,
+grades the checkpoints on a fresh lease, and replays **the exact states
+that were graded**, not a newly simulated or interpolated animation.
+MuJoCo renders the robot, textured floor, sky and shadows; Pillow adds
+labels and draws the training/judge-loop figure. Each video frame
+asserts qpos agreement within 1e-9. The 30 s, 1080p, 30 fps web video
+comes from an ignored lossless master. Provenance and visual inspection:
+[MANIFEST](media/MANIFEST.json), [REVIEW](media/REVIEW.md).
+The falling comparison is a genuinely untrained network with broad
+random initial weights, not the PPO step-0 mean network (which can stand).
+After a successful collection, `make_media.sh --render-only` can rebuild
+the visuals from the cached judge states without another lease. It rejects
+a changed checkpoint, model, trace hash or measured result.
 
 ## Ask your agent
 
-With the sandbox plugin installed, paste this prompt. The agent creates
-the GPU lease, ships the job, iterates on the training config, and reads
-the judge verdict itself — that loop is the demo:
+> Read `cookbook/go1-walk/SPEC.md`. Train a Go1 walking policy with the
+> shipped PPO trainer and model on a 4 GiB GPU lease. You may edit your
+> training config, but never the judge or its model. Use
+> `python3 cookbook/go1-walk/run.py --config <your-config.json>` to create
+> the networkless lease, ship the job and train. The judge independently
+> simulates the checkpoint on seeds 101, 202 and 303, which must never
+> enter training. Iterate on the policy until all five gates pass, and
+> keep every real verdict in a loop log. Run the mutation self-test.
+> Report measured velocity, fall rate, torque saturation, baseline
+> margin, training wall time and env-steps/s. Always delete every lease
+> you create and confirm GET returns 404. If a gate fails, report it
+> rather than claiming the demo works.
 
-> Create a GPU lease (`POST https://api.sbx.agent-next.com/sandboxes`
-> `{"accel":{"vram_gb":4,"reserve":"exec"}}` with header
-> `X-API-Key: $SBX_API_KEY`; run Python with
-> `POST /sandboxes/{id}/exec {"code": ..., "timeout_s": N}`; whatever the
-> code puts in a dict named `report` comes back as `result.report`; files
-> under `~` persist across execs; always `DELETE` the lease in a finally
-> and confirm `GET` returns 404). The lease has no network: ship
-> `cookbook/go1-walk/env.py`, `train.py`, `judge/_eval.py` and
-> `model/go1_meshless.xml` base64-encoded in the exec payload. Read
-> `cookbook/go1-walk/SPEC.md`: train a PPO policy for the batched Go1
-> environment (you may tune `examples/good/train_config.json` — seeds,
-> reward weights, PPO hyperparameters, iteration count) until the policy
-> passes all five gates when the judge re-simulates it on held-out seeds
-> (`python3 _eval.py --policy out/policy.npz --json verdict.json --seeds
-> 101,202,303` on the lease). The judge ignores every number your files
-> claim; only what it measures in its own simulation counts. When every
-> gate passes, report the verdict JSON and the training wall time /
-> env-steps-per-second, then delete the lease and confirm it is gone. If
-> you cannot pass a gate, say which one and what you tried, and stop.
+## The judge
 
-## What the judge checks (short form)
+It grades 64 episodes per seed, 500 control steps at 50 Hz (10 s), with
+command `(1.0, 0.0, 0.0)`. A fall freezes an episode; displacement is
+still divided by the full 10 s.
 
-`judge/_eval.py` runs on the lease: N=64 episodes per held-out seed
-(default `101,202,303`), T=500 control steps at 50 Hz, fixed command
-`(1.0, 0.0, 0.0)` m/s.
-
-| gate | rule (all measured by the judge's own simulation) |
+| Gate | Numeric acceptance rule |
 |---|---|
-| G1 forward speed | mean forward m/s over all held-out episodes >= 0.5 |
-| G2 fall rate | fraction of episodes with >= 1 fall <= 0.05 |
-| G3 torque saturation | fraction of actuator samples at >= 99% of forcerange <= 0.15 |
-| G4 beats baseline | forward m/s beats the better of zero/random policy by >= 0.30 |
-| G5 determinism | the first seed graded twice gives identical metrics |
+| G1 forward speed | Mean forward displacement / 10 s ≥ 0.5 m/s |
+| G2 falls | Episodes with any fall ≤ 5% |
+| G3 torque | Saturated live actuator samples ≤ 15%; peak torque within actuator limits |
+| G4 baseline | Beats the better zero/random-action baseline by ≥ 0.30 m/s |
+| G5 determinism | Same seed produces identical metrics |
 
-The acceptance oracle is physics itself: a quadruped cannot average
-0.5 m/s for 10 s upright under foot-only contacts unless it actually
-walks; standing still scores ~0 and a fallen robot is marked dead.
+This is a task-specification oracle, not an analytic optimal gait.
+The float64 CPU judge is intentionally independent of the float32 Warp
+training environment. Two complete grades must give byte-identical
+verdict JSON except `timing`; self-test enforces that.
 
-## Limits, stated plainly
+```bash
+bash cookbook/go1-walk/judge/setup.sh
+bash cookbook/go1-walk/judge/selftest.sh
+bash cookbook/go1-walk/judge/grade.sh cookbook/go1-walk/examples/good --json verdict.json
+```
 
-- The policy is a plain 3-hidden-layer MLP (45 obs -> 512-256-128 -> 12
-  PD position targets); it is a walking demo, not a deployable controller.
-- Training is PPO-from-scratch and seed-sensitive: some seeds stall at
-  "stand still". The shipped config walked on the measured run; the
-  trainer early-stops once two consecutive 64-episode checks exceed
-  0.8 m/s. Your run may land a different-but-passing policy.
-- The judge evaluates the shipped `policy.npz` only; it does not re-run
-  training. Retraining gives a different checkpoint (PPO is stochastic)
-  that still must pass the same gates.
-- Determinism (G5) holds bit-exact on the same lease image; it is not
-  guaranteed across a different GPU/driver/stack, which is why the judge
-  pins the stack versions.
-- Training fits the 4 GiB slice with headroom (measured peak well under
-  the cap; see RECEIPT.md). Larger `num_envs` may need `--vram 8`.
-- Media (`media/`) is a later round; the data it needs is in
-  `examples/good/loop.json` and the verdict JSONs.
+`grade.sh` prints one JSON verdict to stdout; lifecycle messages go to
+stderr. Mutants include the actual step-0 and 5%-of-budget checkpoints,
+an actually trained velocity-reward-sign counterfactual, zero/negated/
+shuffled/noisy/saturating/weak outputs, and evaluation on a 2×-mass robot.
+Crashes or stack drift never count as mutant kills.
 
-See `SPEC.md` for the full contract and `RECEIPT.md` for real pasted
-output of every command above.
+## Limits and provenance
+
+- This is a learning demo, not a hardware-ready robot controller.
+- Flat floor, foot-only contacts, crouched home pose, no terrain or
+  sim-to-real validation. Fallen bodies can penetrate the floor, so
+  evaluation stops them at the first fall.
+- Training uses seed 1 and speeds in `[0.4, 1.0]` m/s. The judge's seeds
+  are held out; 1.0 m/s is an endpoint of training, not an unseen speed.
+- The policy is a `45 → 512 → 256 → 128 → 12` ELU MLP producing clipped
+  position offsets for PD actuators. It can fail to learn a gait.
+- The requested allocation is 4 GiB. PyTorch memory counters exclude
+  Warp and driver allocations; they are not a total-VRAM measurement.
+- Model: [MuJoCo Menagerie Go1](model/README.md), pinned commit and
+  **BSD 3-Clause** licence in [model/LICENSE](model/LICENSE). Rendering
+  uses the shipped primitive 3D geometry, not downloaded meshes.
+- Pinned image: Python 3.13, MuJoCo/MuJoCo-Warp 3.8.1, Warp 1.13.0,
+  NumPy 1.26.4, PyTorch 2.10.0 with CUDA 12.8. Setup and grade fail on drift.
+
+See [SPEC.md](SPEC.md). Independent reproduction by a different agent is
+required before merge; this builder does not write `REPRODUCE.md`.

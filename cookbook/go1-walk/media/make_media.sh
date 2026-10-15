@@ -33,7 +33,7 @@ echo "== MuJoCo 3D replay ($MUJOCO_GL), Pillow labels, lossless master =="
 "$PY" "$MEDIA/render.py"
 echo "== web encode from CRF 0 master =="
 ffmpeg -y -v error -threads 2 -i "$MEDIA/master/demo.mp4" \
-    -c:v libx264 -threads 2 -crf 18 -preset slow -pix_fmt yuv420p \
+    -c:v libx264 -threads 2 -crf 18 -preset slow -tune animation -pix_fmt yuv420p \
     -movflags +faststart -map_metadata -1 -an "$MEDIA/demo.mp4"
 # Inspect decoded web frames, not only the uncompressed render inputs.
 for moment in 0 1 4 11 25 28; do

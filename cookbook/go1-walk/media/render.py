@@ -53,9 +53,9 @@ def visual_model():
     ET.SubElement(asset, "texture", name="sky", type="skybox", builtin="gradient",
                   rgb1=".2 .3 .4", rgb2=".75 .83 .88", width="256", height="1536")
     ET.SubElement(asset, "texture", name="tiles", type="2d", builtin="checker",
-                  rgb1=".48 .57 .61", rgb2=".65 .71 .73", width="256", height="256")
+                  rgb1=".52 .59 .62", rgb2=".59 .65 .67", width="256", height="256")
     ET.SubElement(asset, "material", name="ground", texture="tiles",
-                  texrepeat="2 2", texuniform="true", reflectance="0")
+                  texrepeat="1 1", texuniform="true", reflectance="0")
     world = root.find("worldbody")
     ET.SubElement(world, "light", pos="-2 -3 5", dir=".3 .4 -1",
                   diffuse=".9 .85 .75", specular=".5 .5 .5",
@@ -285,7 +285,8 @@ def video(replays):
                     index = round(frame / 30 / .02)
                     if scene in ("hook", "proof"):
                         image = view("trained", 101, index, 1920, 1080,
-                                     120 + 12 * frame / count, 1.7 if scene == "proof" else 1.45)
+                                     132 if scene == "proof" else 120 + 6*frame/count,
+                                     1.7 if scene == "proof" else 1.45)
                         if scene == "hook":
                             panel(image, (24, 18, 1350, 190))
                             text(image, (50, 32), "4 GiB → Go1 learns to walk", 64, bold=True)
@@ -319,7 +320,7 @@ def video(replays):
                     elif scene == "spec":
                         image = Image.new("RGB", (1920, 1080), WHITE)
                         image.paste(view("trained", 101, index+100, 1240, 1080,
-                                         132 + 15*frame/count), (680, 0))
+                                         140), (680, 0))
                         for y, value in ((35, "PPO → WALK"), (140, "4 GiB GPU slice"),
                                          (235, "vx = 1.0 m/s"), (330, "Held-out seeds"),
                                          (410, "101 / 202 / 303")):

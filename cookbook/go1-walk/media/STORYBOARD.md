@@ -15,5 +15,5 @@ fabricated agent conversation or terminal recording.
 
 `bash cookbook/go1-walk/media/make_media.sh` writes lossless 30 fps clips
 under ignored `media/clips/`, concatenates them into the CRF 0 master,
-and produces the CRF 18 H.264 web encode. `--render-only` uses the same
+and produces the CRF 18 H.264 animation-tuned web encode. `--render-only` uses the same
 hash-verified cached states. No plotting library is used.

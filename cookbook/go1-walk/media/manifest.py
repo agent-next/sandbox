@@ -72,7 +72,7 @@ def main():
                   "duration_s": float(probe["format"]["duration"]),
                   "bytes": video.stat().st_size,
                   "master": "media/master/demo.mp4 (ignored, CRF 0)",
-                  "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart"},
+                  "web_encode": "-crf 18 -preset slow -tune animation -pix_fmt yuv420p -movflags +faststart"},
         "files": {}}
     inputs = ["env.py", "judge/_eval.py", "judge/grade.py", "judge/selftest.py",
               "judge/mutants.py", "model/go1_meshless.xml",

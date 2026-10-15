@@ -1,0 +1,2260 @@
+{
+  "deterministic": true,
+  "good_run1": {
+    "artifact": "policy.npz",
+    "backend": "mujoco-cpu-float64",
+    "baselines": {
+      "random": {
+        "fall_rate": 1.0,
+        "forward_mps": -0.019033,
+        "min_forward_mps": -0.125432,
+        "peak_torque_ratio": 1.0,
+        "sat_frac": 0.40576
+      },
+      "zero": {
+        "fall_rate": 0.0,
+        "forward_mps": -0.001227,
+        "min_forward_mps": -0.00261,
+        "peak_torque_ratio": 0.700419,
+        "sat_frac": 0.0
+      }
+    },
+    "determinism": {
+      "a": {
+        "fall_rate": 0.0,
+        "forward_mps": 0.773951,
+        "min_forward_mps": 0.415346,
+        "peak_torque_ratio": 1.0,
+        "sat_frac": 0.076125
+      },
+      "b": {
+        "fall_rate": 0.0,
+        "forward_mps": 0.773951,
+        "min_forward_mps": 0.415346,
+        "peak_torque_ratio": 1.0,
+        "sat_frac": 0.076125
+      },
+      "identical": true,
+      "seed": 101
+    },
+    "eval": {
+      "cmd": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "episodes_per_seed": 64,
+      "mass_scale": 1.0,
+      "seeds": [
+        101,
+        202,
+        303
+      ],
+      "steps": 500
+    },
+    "gates": {
+      "g1_forward_speed": {
+        "pass": true,
+        "rule": "mean forward m/s >= 0.5",
+        "value": 0.768245
+      },
+      "g2_fall_rate": {
+        "pass": true,
+        "rule": "fall rate <= 0.05",
+        "value": 0.0
+      },
+      "g3_torque_saturation": {
+        "pass": true,
+        "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+        "value": 0.076125
+      },
+      "g4_beats_baseline": {
+        "pass": true,
+        "rule": "beats best zero/random baseline by >= 0.30 m/s",
+        "value": 0.769472
+      },
+      "g5_determinism": {
+        "pass": true,
+        "rule": "same seed gives identical metrics",
+        "value": true
+      }
+    },
+    "judge_intact": true,
+    "measured": {
+      "best_baseline_forward_mps": -0.001227,
+      "fall_rate": 0.0,
+      "max_sat_frac": 0.076125,
+      "mean_forward_mps": 0.768245,
+      "peak_torque_ratio": 1.0
+    },
+    "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+    "ok": true,
+    "policy_sha256": "fceee5a28ccf99ee3063291431634d46d587716a815bf9d37dbe1f2ea65e9f02",
+    "policy_shapes": [
+      [
+        512,
+        45
+      ],
+      [
+        256,
+        512
+      ],
+      [
+        128,
+        256
+      ],
+      [
+        12,
+        128
+      ]
+    ],
+    "runs": [
+      {
+        "fall_rate": 0.0,
+        "forward_mps": 0.773951,
+        "min_forward_mps": 0.415346,
+        "peak_torque_ratio": 1.0,
+        "policy": "under_test",
+        "sat_frac": 0.076125,
+        "seed": 101
+      },
+      {
+        "fall_rate": 0.0,
+        "forward_mps": 0.769977,
+        "min_forward_mps": 0.565536,
+        "peak_torque_ratio": 1.0,
+        "policy": "under_test",
+        "sat_frac": 0.075911,
+        "seed": 202
+      },
+      {
+        "fall_rate": 0.0,
+        "forward_mps": 0.760806,
+        "min_forward_mps": 0.545352,
+        "peak_torque_ratio": 1.0,
+        "policy": "under_test",
+        "sat_frac": 0.075922,
+        "seed": 303
+      },
+      {
+        "fall_rate": 0.0,
+        "forward_mps": -0.001227,
+        "min_forward_mps": -0.00261,
+        "peak_torque_ratio": 0.700419,
+        "policy": "zero",
+        "sat_frac": 0.0,
+        "seed": 101
+      },
+      {
+        "fall_rate": 1.0,
+        "forward_mps": -0.019033,
+        "min_forward_mps": -0.125432,
+        "peak_torque_ratio": 1.0,
+        "policy": "random",
+        "sat_frac": 0.40576,
+        "seed": 101
+      }
+    ],
+    "stack": {
+      "mujoco": "3.8.1",
+      "mujoco-warp": "3.8.1",
+      "numpy": "1.26.4",
+      "torch": "2.10.0",
+      "torch_runtime": "2.10.0+cu128",
+      "warp-lang": "1.13.0"
+    },
+    "timing": {
+      "wall_s": 91.586
+    }
+  },
+  "good_run2": {
+    "artifact": "policy.npz",
+    "backend": "mujoco-cpu-float64",
+    "baselines": {
+      "random": {
+        "fall_rate": 1.0,
+        "forward_mps": -0.019033,
+        "min_forward_mps": -0.125432,
+        "peak_torque_ratio": 1.0,
+        "sat_frac": 0.40576
+      },
+      "zero": {
+        "fall_rate": 0.0,
+        "forward_mps": -0.001227,
+        "min_forward_mps": -0.00261,
+        "peak_torque_ratio": 0.700419,
+        "sat_frac": 0.0
+      }
+    },
+    "determinism": {
+      "a": {
+        "fall_rate": 0.0,
+        "forward_mps": 0.773951,
+        "min_forward_mps": 0.415346,
+        "peak_torque_ratio": 1.0,
+        "sat_frac": 0.076125
+      },
+      "b": {
+        "fall_rate": 0.0,
+        "forward_mps": 0.773951,
+        "min_forward_mps": 0.415346,
+        "peak_torque_ratio": 1.0,
+        "sat_frac": 0.076125
+      },
+      "identical": true,
+      "seed": 101
+    },
+    "eval": {
+      "cmd": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "episodes_per_seed": 64,
+      "mass_scale": 1.0,
+      "seeds": [
+        101,
+        202,
+        303
+      ],
+      "steps": 500
+    },
+    "gates": {
+      "g1_forward_speed": {
+        "pass": true,
+        "rule": "mean forward m/s >= 0.5",
+        "value": 0.768245
+      },
+      "g2_fall_rate": {
+        "pass": true,
+        "rule": "fall rate <= 0.05",
+        "value": 0.0
+      },
+      "g3_torque_saturation": {
+        "pass": true,
+        "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+        "value": 0.076125
+      },
+      "g4_beats_baseline": {
+        "pass": true,
+        "rule": "beats best zero/random baseline by >= 0.30 m/s",
+        "value": 0.769472
+      },
+      "g5_determinism": {
+        "pass": true,
+        "rule": "same seed gives identical metrics",
+        "value": true
+      }
+    },
+    "judge_intact": true,
+    "measured": {
+      "best_baseline_forward_mps": -0.001227,
+      "fall_rate": 0.0,
+      "max_sat_frac": 0.076125,
+      "mean_forward_mps": 0.768245,
+      "peak_torque_ratio": 1.0
+    },
+    "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+    "ok": true,
+    "policy_sha256": "fceee5a28ccf99ee3063291431634d46d587716a815bf9d37dbe1f2ea65e9f02",
+    "policy_shapes": [
+      [
+        512,
+        45
+      ],
+      [
+        256,
+        512
+      ],
+      [
+        128,
+        256
+      ],
+      [
+        12,
+        128
+      ]
+    ],
+    "runs": [
+      {
+        "fall_rate": 0.0,
+        "forward_mps": 0.773951,
+        "min_forward_mps": 0.415346,
+        "peak_torque_ratio": 1.0,
+        "policy": "under_test",
+        "sat_frac": 0.076125,
+        "seed": 101
+      },
+      {
+        "fall_rate": 0.0,
+        "forward_mps": 0.769977,
+        "min_forward_mps": 0.565536,
+        "peak_torque_ratio": 1.0,
+        "policy": "under_test",
+        "sat_frac": 0.075911,
+        "seed": 202
+      },
+      {
+        "fall_rate": 0.0,
+        "forward_mps": 0.760806,
+        "min_forward_mps": 0.545352,
+        "peak_torque_ratio": 1.0,
+        "policy": "under_test",
+        "sat_frac": 0.075922,
+        "seed": 303
+      },
+      {
+        "fall_rate": 0.0,
+        "forward_mps": -0.001227,
+        "min_forward_mps": -0.00261,
+        "peak_torque_ratio": 0.700419,
+        "policy": "zero",
+        "sat_frac": 0.0,
+        "seed": 101
+      },
+      {
+        "fall_rate": 1.0,
+        "forward_mps": -0.019033,
+        "min_forward_mps": -0.125432,
+        "peak_torque_ratio": 1.0,
+        "policy": "random",
+        "sat_frac": 0.40576,
+        "seed": 101
+      }
+    ],
+    "stack": {
+      "mujoco": "3.8.1",
+      "mujoco-warp": "3.8.1",
+      "numpy": "1.26.4",
+      "torch": "2.10.0",
+      "torch_runtime": "2.10.0+cu128",
+      "warp-lang": "1.13.0"
+    },
+    "timing": {
+      "wall_s": 108.562
+    }
+  },
+  "kill_rate": 1.0,
+  "killed": 11,
+  "mutants": {
+    "mass2x": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g2_fall_rate",
+        "g3_torque_saturation",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.033373,
+            "min_forward_mps": -0.122328,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.440109
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.002603,
+            "min_forward_mps": -0.004093,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 1.0,
+            "forward_mps": 0.046558,
+            "min_forward_mps": 0.039521,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.21345
+          },
+          "b": {
+            "fall_rate": 1.0,
+            "forward_mps": 0.046558,
+            "min_forward_mps": 0.039521,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.21345
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 2.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": 0.04619
+          },
+          "g2_fall_rate": {
+            "pass": false,
+            "rule": "fall rate <= 0.05",
+            "value": 1.0
+          },
+          "g3_torque_saturation": {
+            "pass": false,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.214071
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": 0.048793
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.002603,
+          "fall_rate": 1.0,
+          "max_sat_frac": 0.214071,
+          "mean_forward_mps": 0.04619,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "fceee5a28ccf99ee3063291431634d46d587716a815bf9d37dbe1f2ea65e9f02",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 1.0,
+            "forward_mps": 0.046558,
+            "min_forward_mps": 0.039521,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.21345,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": 0.046408,
+            "min_forward_mps": 0.038933,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.214071,
+            "seed": 202
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": 0.045604,
+            "min_forward_mps": 0.039152,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.212992,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.002603,
+            "min_forward_mps": -0.004093,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.033373,
+            "min_forward_mps": -0.122328,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.440109,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 14.961
+        }
+      }
+    },
+    "negated-output": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g2_fall_rate",
+        "g3_torque_saturation",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.00806,
+            "min_forward_mps": -0.034657,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.402887
+          },
+          "b": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.00806,
+            "min_forward_mps": -0.034657,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.402887
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": -0.008108
+          },
+          "g2_fall_rate": {
+            "pass": false,
+            "rule": "fall rate <= 0.05",
+            "value": 1.0
+          },
+          "g3_torque_saturation": {
+            "pass": false,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.402887
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": -0.006881
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 1.0,
+          "max_sat_frac": 0.402887,
+          "mean_forward_mps": -0.008108,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "75998acdcdf55cbeb897dcfab923fc5a26bd87f520b9025873bdf3ed9a9d00c7",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.00806,
+            "min_forward_mps": -0.034657,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.402887,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.007621,
+            "min_forward_mps": -0.017683,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.393349,
+            "seed": 202
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.008643,
+            "min_forward_mps": -0.026381,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.396003,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 12.847
+        }
+      }
+    },
+    "noisy-weights": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g2_fall_rate",
+        "g3_torque_saturation",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.004759,
+            "min_forward_mps": -0.016466,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.432656
+          },
+          "b": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.004759,
+            "min_forward_mps": -0.016466,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.432656
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": -0.004526
+          },
+          "g2_fall_rate": {
+            "pass": false,
+            "rule": "fall rate <= 0.05",
+            "value": 1.0
+          },
+          "g3_torque_saturation": {
+            "pass": false,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.459387
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": -0.003299
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 1.0,
+          "max_sat_frac": 0.459387,
+          "mean_forward_mps": -0.004526,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "f0b15a7f46d0b18cd6c26a78a454b6e5d8d69cf73b2151160d7cda512f6d2930",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.004759,
+            "min_forward_mps": -0.016466,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.432656,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.004516,
+            "min_forward_mps": -0.020778,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.451065,
+            "seed": 202
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.004304,
+            "min_forward_mps": -0.019407,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.459387,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 11.648
+        }
+      }
+    },
+    "random-init": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g2_fall_rate",
+        "g3_torque_saturation",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.005736,
+            "min_forward_mps": -0.041478,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.271384
+          },
+          "b": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.005736,
+            "min_forward_mps": -0.041478,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.271384
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": -0.005932
+          },
+          "g2_fall_rate": {
+            "pass": false,
+            "rule": "fall rate <= 0.05",
+            "value": 1.0
+          },
+          "g3_torque_saturation": {
+            "pass": false,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.271384
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": -0.004705
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 1.0,
+          "max_sat_frac": 0.271384,
+          "mean_forward_mps": -0.005932,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "1eea981e4d736af98595dff55eb938db92b0556927337b2cbf8ebdab6b47d854",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.005736,
+            "min_forward_mps": -0.041478,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.271384,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.006216,
+            "min_forward_mps": -0.035667,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.266929,
+            "seed": 202
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.005845,
+            "min_forward_mps": -0.019543,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.248447,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 19.347
+        }
+      }
+    },
+    "reward-flipped": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 0.03125,
+            "forward_mps": -0.08518,
+            "min_forward_mps": -0.126067,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.025829
+          },
+          "b": {
+            "fall_rate": 0.03125,
+            "forward_mps": -0.08518,
+            "min_forward_mps": -0.126067,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.025829
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": -0.083633
+          },
+          "g2_fall_rate": {
+            "pass": true,
+            "rule": "fall rate <= 0.05",
+            "value": 0.026042
+          },
+          "g3_torque_saturation": {
+            "pass": true,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.025829
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": -0.082406
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 0.026042,
+          "max_sat_frac": 0.025829,
+          "mean_forward_mps": -0.083633,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "00d0d9d69b9ff72f4b607c11a3e134f88388d93484af61fc1ece245449419c73",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 0.03125,
+            "forward_mps": -0.08518,
+            "min_forward_mps": -0.126067,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.025829,
+            "seed": 101
+          },
+          {
+            "fall_rate": 0.03125,
+            "forward_mps": -0.0861,
+            "min_forward_mps": -0.131781,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.025813,
+            "seed": 202
+          },
+          {
+            "fall_rate": 0.015625,
+            "forward_mps": -0.079618,
+            "min_forward_mps": -0.128677,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.025012,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 81.22
+        }
+      }
+    },
+    "saturating": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 0.0,
+            "forward_mps": 0.013666,
+            "min_forward_mps": -0.137919,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.078954
+          },
+          "b": {
+            "fall_rate": 0.0,
+            "forward_mps": 0.013666,
+            "min_forward_mps": -0.137919,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.078954
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": -0.000924
+          },
+          "g2_fall_rate": {
+            "pass": true,
+            "rule": "fall rate <= 0.05",
+            "value": 0.0
+          },
+          "g3_torque_saturation": {
+            "pass": true,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.078954
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": 0.000303
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 0.0,
+          "max_sat_frac": 0.078954,
+          "mean_forward_mps": -0.000924,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "44ac547f7e1a8bc0f5c8955222f0bdc3abe6a545afda6fd8643a443c672edfc7",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 0.0,
+            "forward_mps": 0.013666,
+            "min_forward_mps": -0.137919,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.078954,
+            "seed": 101
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.010085,
+            "min_forward_mps": -0.12503,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.078939,
+            "seed": 202
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.006352,
+            "min_forward_mps": -0.142575,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.078948,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 83.56
+        }
+      }
+    },
+    "short-training": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g2_fall_rate",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 0.046875,
+            "forward_mps": 0.0073,
+            "min_forward_mps": 0.00203,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.003186
+          },
+          "b": {
+            "fall_rate": 0.046875,
+            "forward_mps": 0.0073,
+            "min_forward_mps": 0.00203,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.003186
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": 0.007502
+          },
+          "g2_fall_rate": {
+            "pass": false,
+            "rule": "fall rate <= 0.05",
+            "value": 0.072917
+          },
+          "g3_torque_saturation": {
+            "pass": true,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.003385
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": 0.008729
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 0.072917,
+          "max_sat_frac": 0.003385,
+          "mean_forward_mps": 0.007502,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "0327ae597ea8eeda6646af7d6f75c8d31087bc2fadfdee232358d9f64a8e4639",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 0.046875,
+            "forward_mps": 0.0073,
+            "min_forward_mps": 0.00203,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.003186,
+            "seed": 101
+          },
+          {
+            "fall_rate": 0.125,
+            "forward_mps": 0.008739,
+            "min_forward_mps": 0.002364,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.003385,
+            "seed": 202
+          },
+          {
+            "fall_rate": 0.046875,
+            "forward_mps": 0.006467,
+            "min_forward_mps": 0.002332,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.003069,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 57.311
+        }
+      }
+    },
+    "shuffled-output": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g2_fall_rate",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 0.71875,
+            "forward_mps": -0.003751,
+            "min_forward_mps": -0.02358,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.022089
+          },
+          "b": {
+            "fall_rate": 0.71875,
+            "forward_mps": -0.003751,
+            "min_forward_mps": -0.02358,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.022089
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": -0.003597
+          },
+          "g2_fall_rate": {
+            "pass": false,
+            "rule": "fall rate <= 0.05",
+            "value": 0.697917
+          },
+          "g3_torque_saturation": {
+            "pass": true,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.022089
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": -0.00237
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 0.697917,
+          "max_sat_frac": 0.022089,
+          "mean_forward_mps": -0.003597,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "8857c2d21863ec6dd3de37dee04b196d7a25d22d8944185c74d3d51fa9366f12",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 0.71875,
+            "forward_mps": -0.003751,
+            "min_forward_mps": -0.02358,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.022089,
+            "seed": 101
+          },
+          {
+            "fall_rate": 0.671875,
+            "forward_mps": -0.004621,
+            "min_forward_mps": -0.023964,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.01961,
+            "seed": 202
+          },
+          {
+            "fall_rate": 0.703125,
+            "forward_mps": -0.00242,
+            "min_forward_mps": -0.027489,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 0.021617,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 28.033
+        }
+      }
+    },
+    "untrained": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.000987,
+            "min_forward_mps": -0.002227,
+            "peak_torque_ratio": 0.802595,
+            "sat_frac": 0.0
+          },
+          "b": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.000987,
+            "min_forward_mps": -0.002227,
+            "peak_torque_ratio": 0.802595,
+            "sat_frac": 0.0
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": -0.000982
+          },
+          "g2_fall_rate": {
+            "pass": true,
+            "rule": "fall rate <= 0.05",
+            "value": 0.0
+          },
+          "g3_torque_saturation": {
+            "pass": true,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.0
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": 0.000245
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 0.0,
+          "max_sat_frac": 0.0,
+          "mean_forward_mps": -0.000982,
+          "peak_torque_ratio": 0.802595
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "5829740ffc92ab418b8440239f39c526ada1c665aa7e91c5632608c675de1f81",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.000987,
+            "min_forward_mps": -0.002227,
+            "peak_torque_ratio": 0.802595,
+            "policy": "under_test",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.000856,
+            "min_forward_mps": -0.002458,
+            "peak_torque_ratio": 0.740425,
+            "policy": "under_test",
+            "sat_frac": 0.0,
+            "seed": 202
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001104,
+            "min_forward_mps": -0.002688,
+            "peak_torque_ratio": 0.715225,
+            "policy": "under_test",
+            "sat_frac": 0.0,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 54.503
+        }
+      }
+    },
+    "weak-output": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 0.0,
+            "forward_mps": 0.005165,
+            "min_forward_mps": 0.003599,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 6.7e-05
+          },
+          "b": {
+            "fall_rate": 0.0,
+            "forward_mps": 0.005165,
+            "min_forward_mps": 0.003599,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 6.7e-05
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": 0.00514
+          },
+          "g2_fall_rate": {
+            "pass": true,
+            "rule": "fall rate <= 0.05",
+            "value": 0.0
+          },
+          "g3_torque_saturation": {
+            "pass": true,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 9.6e-05
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": 0.006367
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 0.0,
+          "max_sat_frac": 9.6e-05,
+          "mean_forward_mps": 0.00514,
+          "peak_torque_ratio": 1.0
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "fec6b5804a0069dd37d6cea7dec978e2b7dbc84b152e7c31ea0a0b06fa1e24b3",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 0.0,
+            "forward_mps": 0.005165,
+            "min_forward_mps": 0.003599,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 6.7e-05,
+            "seed": 101
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": 0.005223,
+            "min_forward_mps": 0.003439,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 9.6e-05,
+            "seed": 202
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": 0.005031,
+            "min_forward_mps": 0.003341,
+            "peak_torque_ratio": 1.0,
+            "policy": "under_test",
+            "sat_frac": 5.6e-05,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 38.28
+        }
+      }
+    },
+    "zero-output": {
+      "failed_gates": [
+        "g1_forward_speed",
+        "g4_beats_baseline"
+      ],
+      "verdict": {
+        "artifact": "policy.npz",
+        "backend": "mujoco-cpu-float64",
+        "baselines": {
+          "random": {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "sat_frac": 0.40576
+          },
+          "zero": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          }
+        },
+        "determinism": {
+          "a": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          },
+          "b": {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "sat_frac": 0.0
+          },
+          "identical": true,
+          "seed": 101
+        },
+        "eval": {
+          "cmd": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "episodes_per_seed": 64,
+          "mass_scale": 1.0,
+          "seeds": [
+            101,
+            202,
+            303
+          ],
+          "steps": 500
+        },
+        "gates": {
+          "g1_forward_speed": {
+            "pass": false,
+            "rule": "mean forward m/s >= 0.5",
+            "value": -0.001187
+          },
+          "g2_fall_rate": {
+            "pass": true,
+            "rule": "fall rate <= 0.05",
+            "value": 0.0
+          },
+          "g3_torque_saturation": {
+            "pass": true,
+            "rule": "saturation <= 0.15; torque ratio <= 1.000001",
+            "value": 0.0
+          },
+          "g4_beats_baseline": {
+            "pass": false,
+            "rule": "beats best zero/random baseline by >= 0.30 m/s",
+            "value": 4e-05
+          },
+          "g5_determinism": {
+            "pass": true,
+            "rule": "same seed gives identical metrics",
+            "value": true
+          }
+        },
+        "judge_intact": true,
+        "measured": {
+          "best_baseline_forward_mps": -0.001227,
+          "fall_rate": 0.0,
+          "max_sat_frac": 0.0,
+          "mean_forward_mps": -0.001187,
+          "peak_torque_ratio": 0.700419
+        },
+        "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+        "ok": false,
+        "policy_sha256": "4b799fdba66a8cc340e49dcd295baa182835a24a009b5445da39d0dbd5a06df7",
+        "policy_shapes": [
+          [
+            512,
+            45
+          ],
+          [
+            256,
+            512
+          ],
+          [
+            128,
+            256
+          ],
+          [
+            12,
+            128
+          ]
+        ],
+        "runs": [
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "under_test",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001044,
+            "min_forward_mps": -0.002631,
+            "peak_torque_ratio": 0.635946,
+            "policy": "under_test",
+            "sat_frac": 0.0,
+            "seed": 202
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001289,
+            "min_forward_mps": -0.002719,
+            "peak_torque_ratio": 0.658346,
+            "policy": "under_test",
+            "sat_frac": 0.0,
+            "seed": 303
+          },
+          {
+            "fall_rate": 0.0,
+            "forward_mps": -0.001227,
+            "min_forward_mps": -0.00261,
+            "peak_torque_ratio": 0.700419,
+            "policy": "zero",
+            "sat_frac": 0.0,
+            "seed": 101
+          },
+          {
+            "fall_rate": 1.0,
+            "forward_mps": -0.019033,
+            "min_forward_mps": -0.125432,
+            "peak_torque_ratio": 1.0,
+            "policy": "random",
+            "sat_frac": 0.40576,
+            "seed": 101
+          }
+        ],
+        "stack": {
+          "mujoco": "3.8.1",
+          "mujoco-warp": "3.8.1",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "torch_runtime": "2.10.0+cu128",
+          "warp-lang": "1.13.0"
+        },
+        "timing": {
+          "wall_s": 43.616
+        }
+      }
+    }
+  },
+  "ok": true,
+  "seeds": "101,202,303",
+  "timing": {
+    "wall_s": 1511.39
+  },
+  "total": 11
+}

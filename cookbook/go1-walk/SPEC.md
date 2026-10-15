@@ -10,7 +10,8 @@ held-out seeds and decides pass/fail.
 
 ## Non-goals
 
-- Rendering is not part of acceptance; media replays the judge's exact states.
+- The policy judge does not score rendering. Gallery acceptance also
+  requires the exact-state 3D media described below.
 - No sim-to-real, no terrain curriculum, no joystick yaw/lateral tracking
   beyond the sampled command ranges used in training.
 - The judge does not re-run training; it grades the produced checkpoint.
@@ -24,6 +25,8 @@ A directory containing:
 - `policy.npz` — the trained actor, saved by `train.py` (`w0..wN`, `b0..bN`
   float32 arrays for an MLP `obs(45) -> hidden -> act(12)`, ELU between
   layers, actions clipped to [-1, 1]).
+  Maximum archive size 1 MiB, expanded members 4 MiB. Layers must be finite,
+  connected, have at most 1024 units each, start at 45 and end at 12.
 
 `policy.npz` is data, not code: it is loaded with `np.load(allow_pickle=False)`
 and can only influence the verdict through the torques it produces in the
@@ -34,8 +37,13 @@ judge's own simulation.
 `env.py` (shipped by the demo, not by the artifact): MuJoCo-Warp batch sim of
 the meshless Go1, dt 0.002 s, control dt 0.02 s, 12 PD position actuators
 (kp=100, forcerange +/-23.7/35.55 N*m), 45-dim observation
-(gravity-in-body 3, gyro 3, command 3, joint pos/vel 12+12, last action 12).
+(gravity-in-body 3, gyro ×0.25 3, command 3, joint position 12,
+joint velocity ×0.05 12, last action 12).
 Only the four foot spheres collide with the floor.
+
+Short training means 5% of the configured iteration budget, not 5% of an
+early-stopped run. Checkpoint selection uses validation seed 4242,
+never one of the held-out judge seeds.
 
 ## Gates
 
@@ -43,7 +51,7 @@ The judge runs single-threaded **CPU MuJoCo** rollouts on the lease, with
 float64 state, independently of the batched Warp trainer: `N=64` episodes per held-out
 seed, `T=500` control steps (10 s) each, fixed command `(1.0, 0.0, 0.0)`,
 seeds `101,202,303` by default (`--seed` overrides). Training used seed 1
-with commands sampled from vx in [0.4, 1.0] and yaw in [-0.3, 0.3].
+with commands sampled from vx in [0.4, 1.0] and yaw fixed at zero.
 Evaluation seeds never enter training, and evaluation fixes yaw at zero.
 The 1.0 m/s command is the upper endpoint of training, not an unseen speed.
 Each episode starts at the home pose with independent Gaussian joint
@@ -69,24 +77,31 @@ sim-to-real safety or biomechanical gait quality.
 
 ## Reproduction tolerances
 
-The same checkpoint, model, seeds and pinned stack must produce
+With identical grading arguments, the same checkpoint, model, seeds and pinned stack must produce
 byte-identical verdict JSON after removing only `timing`. Self-test
 enforces this across two complete grades, as well as G5's repeated seed.
 Warp training is stochastic and can produce different checkpoints.
-Two fresh retraining runs must each pass all five gates; their raw
-numbers need not be identical. Independent checkpoint reproduction
-requires exact gate values (six-decimal reporting).
+The receipt must include a fresh complete training run and a second fresh
+complete `run.py` run replaying that checkpoint, including self-test.
+Both must pass all five gates. Independent checkpoint reproduction
+requires exact gate values (six-decimal reporting); retraining is not a
+bitwise-checkpoint guarantee.
 
 ## Media contract
 
-`--trace` records all evaluated states, including the initial state, in
-NPZ data controlled by the judge. `media/make_media.sh` grades both the
-trained and real step-0 checkpoint, fetches these states, and replays
+`--trace` records episode zero's full trajectory (chosen before simulation)
+and every episode's initial/final state and fall status in NPZ data
+controlled by the judge. `media/make_media.sh` grades both the
+trained checkpoint and an untrained random-initialization checkpoint,
+fetches these states, and replays
 them with `mujoco.Renderer`. It never interpolates or re-simulates poses.
 Every frame checks qpos within 1e-9 against that graded data. Render-only
 materials, lights and textures cannot alter the model's physics.
 The video is 1920x1080, 30 fps, 30 s, H.264 CRF 18 from a CRF 0 master,
 under 8 MB. Hero stills and training/judge-loop graphics use Pillow.
+The random-initialization network uses seed 20260707 and weights drawn
+from N(0, 0.3); it has never trained. It is not the PPO step-0 mean
+network, which the self-test also grades and which can stand still.
 
 ## Lease stack (asserted at grade time)
 
