@@ -135,6 +135,9 @@ def request(key, method, path, body=None, timeout=900):
                 error = json.loads(raw) if raw else None
             except ValueError:
                 error = None
+            if method == "POST" and path == "/sandboxes":
+                # Lease.__enter__ owns capacity retries and their deadline.
+                return exc.code, error
             # A lost POST reply is ambiguous: never resend an operation
             # that could have created a lease or already executed code.
             capacity = (exc.code == 503 and isinstance(error, dict) and
@@ -143,11 +146,8 @@ def request(key, method, path, body=None, timeout=900):
                                                500 <= exc.code < 600):
                 if isinstance(error, dict) and "failed" in str(error.get("message", "")):
                     return exc.code, error
-                if method == "POST" and path == "/sandboxes":
-                    print(f"GPU lease busy (HTTP {exc.code}); waiting for a free seat",
-                          file=sys.stderr, flush=True)
                 last = exc
-                time.sleep(min(5 * (attempt + 1), 30))
+                time.sleep(30 if exc.code in (409, 503) else min(5 * (attempt + 1), 30))
                 continue
             return exc.code, error
         except (URLError, OSError, HTTPException) as exc:
@@ -177,25 +177,35 @@ class Lease:
     def __enter__(self):
         t0 = time.monotonic()
         while True:
-            st, created = request(self.key, "POST", "/sandboxes", {
-                "timeout": 7200,
-                "accel": {"vram_gb": self.vram_gb, "reserve": "exec"}})
+            try:
+                st, created = request(self.key, "POST", "/sandboxes", {
+                    "timeout": 7200,
+                    "accel": {"vram_gb": self.vram_gb, "reserve": "exec"}})
+            except (URLError, OSError, HTTPException, ValueError):
+                die("GPU lease create reply lost or unreadable; a lease may "
+                    "have been created (orphaned). Inspect your owned sandbox "
+                    "inventory before retrying; create was not resent.")
             if st == 201 and isinstance(created, dict):
                 break
-            # the API key allows a bounded number of concurrent leases;
-            # a 409 means the slots are busy — retry briefly
             wait = float(os.environ.get("GO1_LEASE_WAIT_S", "300"))
-            if st == 409 and time.monotonic() - t0 < wait:
-                print("GPU lease create: no free seat; retrying in 20 s",
+            capacity = (st == 409 or (st == 503 and isinstance(created, dict) and
+                        str(created.get("message", "")).startswith("GPU plane at capacity")))
+            if capacity and time.monotonic() - t0 + 30 <= wait:
+                print(f"GPU lease create: HTTP {st}, no free seat; retrying in 30 s",
                       file=sys.stderr, flush=True)
-                time.sleep(20)
+                time.sleep(30)
                 continue
+            if not capacity and (st >= 500 or st in (200, 201)):
+                die(f"GPU lease create: HTTP {st}, ambiguous reply; a lease may "
+                    "have been created (orphaned). Inspect your owned sandbox "
+                    "inventory before retrying; create was not resent.")
             die(f"GPU lease create: HTTP {st}; check GPU access "
                 "and capacity")
         sid = created.get("sandboxID")
         if not check_lease_id(sid):
             die("GPU create returned an invalid lease id; no unvalidated "
-                "cleanup URL was requested. Inspect your owned inventory.")
+                "cleanup URL was requested. A lease may have been created "
+                "(orphaned). Inspect your owned sandbox inventory.")
         self.id = sid
         self._heartbeat = threading.Thread(target=self._watch, daemon=True)
         self._heartbeat.start()
@@ -243,7 +253,7 @@ class Lease:
                     st == 200 and "BlockingIOError" in str(result.get("stderr"))):
                 print(f"exec reply unavailable; recovering token {token}, "
                       f"attempt {attempt + 1}/60 (HTTP {st})", file=sys.stderr, flush=True)
-                time.sleep(min(5 * (attempt + 1), 30))
+                time.sleep(30 if st in (409, 503) else min(5 * (attempt + 1), 30))
                 continue
             die(f"GPU exec: HTTP {st}; no confirmed execution result")
         die(f"GPU exec recovery exhausted for {self.id}, token {token}")
@@ -290,13 +300,23 @@ class Lease:
                 request(self.key, "DELETE", f"/sandboxes/{self.id}", timeout=30)
             except Exception:
                 pass
-            try:
-                st, remaining = request(self.key, "GET",
-                                         f"/sandboxes/{self.id}", timeout=30)
-            except Exception:
-                st = None
-            if st == 404:
-                print(f"destroyed {self.id}; GET 404 confirmed",
+            observations = []
+            for check in range(3):
+                if check:
+                    time.sleep(15)
+                try:
+                    st, remaining = request(self.key, "GET",
+                                            f"/sandboxes/{self.id}", timeout=30)
+                except Exception:
+                    st, remaining = None, None
+                phase = remaining.get("phase") if isinstance(remaining, dict) else None
+                self.events.append({"kind": "cleanup", "status": st, "phase": phase})
+                if st != 404 and not (st == 200 and phase == "dead"):
+                    break
+                observations.append("404" if st == 404 else "phase dead")
+            if len(observations) == 3:
+                print(f"destroyed {self.id}; 3 GET checks over 30 s confirmed "
+                      f"deleted ({', '.join(observations)})",
                       file=sys.stderr, flush=True)
                 self.id = None
                 return
@@ -372,7 +392,6 @@ def main():
               "(independent CPU MuJoCo)", file=sys.stderr, flush=True)
         if a.keep:
             print(f"--keep: lease {lease.id} left running")
-            keep_id = lease.id
             lease.id = None
         verdict = rep.get("verdict")
         if verdict is None:

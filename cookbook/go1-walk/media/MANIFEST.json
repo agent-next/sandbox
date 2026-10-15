@@ -24,7 +24,7 @@
     },
     "demo.mp4": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
-      "sha256": "50f499e860e68ac79e7bb06f812f2737958eb1aba172b62432ed7a2a2d690589",
+      "sha256": "deac9b5f8d2f292bb65fa3f804f875f8757d966fa0534bf50a5d7257650d0d01",
       "source_data": [
         "data/trained.json",
         "data/untrained.json",
@@ -34,7 +34,7 @@
     },
     "loop.png": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
-      "sha256": "1273f0c4054e97a9c1dc4ab8614b497eebc7edc9315917666263f9597c9132db",
+      "sha256": "34ee3b8e9cdaac69619a2ba43e7fbba5c00bf567740b119d1fb87cf078a8b881",
       "source_data": [
         "../examples/good/curve.json",
         "../examples/good/loop.json",
@@ -44,7 +44,7 @@
     },
     "result.json": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
-      "sha256": "f9b5793d4a42e71ef314f7b7cd55658227aac156c0567a932da1141f5d11b0f8",
+      "sha256": "c992151a980edcf65fd60e1058a286358bf56187a22c6bf22ca5aabff6b195d2",
       "source_data": [
         "data/trained.json",
         "data/selftest.json",
@@ -54,7 +54,7 @@
     },
     "result.png": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
-      "sha256": "45fb3b2bcbbdacf58dd3427828575744e97e86cd2f55da15a9e35c3ab70e9dde",
+      "sha256": "93ece48a0a66879f938a5415cecfdfb6c5fbbf004f3d3897526a95f5b4156e58",
       "source_data": [
         "data/trained.json",
         "data/untrained.json",
@@ -134,11 +134,12 @@
     "examples/good/step0.npz": "5829740ffc92ab418b8440239f39c526ada1c665aa7e91c5632608c675de1f81",
     "examples/good/train_config.json": "3db0718f92953c41b577bdf79ee6ae469cc027c61001da198f90f2e3e1ca1c3f",
     "judge/_eval.py": "27e13a6910656c24c5a61e82d270a6f47b4a3fe8f7503f4e2b923283ca5df986",
-    "judge/grade.py": "8a440a04ad73eada43ceb20298807a8b40efc46975b36087636af3057debfb90",
-    "judge/mutants.py": "c5eecf5e4381cd5414e4ba5e09bc38030fa6ea5f30533611c692287e9769f27b",
-    "judge/selftest.py": "1e8fea1a8b39b3ecfe661fcda9a9bbaaccfc8c65416c2d49a906ccd7bcb8a7bf",
+    "judge/fixtures/torque-heavy.npz": "9bd882ef19c93ef5fe8e0624f779a0b08ce04422d4c8a9a1c52002ebebb0754d",
+    "judge/grade.py": "316b68eb9465a2412f09b62507456f08129b02b4648cf9774d7b5b815c4d05c2",
+    "judge/mutants.py": "c5a2ba39b6fe8bc6896aae62421bb26c96fb05d23561dac979c2f91b031c3d2b",
+    "judge/selftest.py": "642725bcb90aeef50183609220032a9569a078a00ae86a43753596ea872bcec5",
     "media/STORYBOARD.md": "e8b6734bb74d1f8444ea10665a5edb6a03a851cb1feb4d3c242590055be49d9e",
-    "media/collect.py": "fbcf391e72276fbce91276e6c1edd2bbe6483beca732334fcdbdcef8fcc2e6a7",
+    "media/collect.py": "f388331db512b4da199bb6454801cec93770a85a83df1ef408e2c572325bff97",
     "media/data/trained-101.npz": "26f8ec54c101d6835e0dd2304ab9e3b228a13668ca4ec4bbabb5914120ffeae9",
     "media/data/trained-202.npz": "8267ae46b8af5fd29a75c8beeeffc9f5e99007a305441984c9de20428385d5d8",
     "media/data/trained-303.npz": "4fd80a7eb692fd47f10326bb551164dbb8272f1a77c7508a0dfd89edb249ea44",
@@ -147,8 +148,8 @@
     "media/data/untrained-303.npz": "777598488ada6e877566a0bc37b8e1754ed4e0a473fef6af33f3040d36e24a81",
     "media/data/untrained-policy.npz": "1eea981e4d736af98595dff55eb938db92b0556927337b2cbf8ebdab6b47d854",
     "media/make_media.sh": "16d0fa509d73446b29061bb6e033ca98b54324fb7ce0e22774ade0e421af6794",
-    "media/manifest.py": "cbdf2f00671814a4359f6ce032b824cc77abdb7c990def1f1af5bdcbba73ba0e",
-    "media/render.py": "cc6d299e92b04313cc5776ff14eceaa23a2d186116e602db40c03e0940d9d744",
+    "media/manifest.py": "f83b30b5b4dc697e559b677e542e73f75752d2f3bf38ff7287b66ea252ddbafa",
+    "media/render.py": "83c949f2dda6dfda6df840cdd77659e0d18a74c8c2e198b7e2a32017b830d99f",
     "media/requirements.lock": "39c8f1ad9c5893b4f18854cafe9dd0e77372dce865793e45609db2f6a03959c7",
     "model/go1_meshless.xml": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90"
   },
@@ -159,7 +160,7 @@
     "numpy": "2.2.6"
   },
   "video": {
-    "bytes": 7262402,
+    "bytes": 7275071,
     "codec": "h264",
     "duration_s": 30.0,
     "fps": 30,

@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import time
 
@@ -67,6 +69,23 @@ def checked_exec(lease, code, timeout, step):
     return rep
 
 
+def source_provenance():
+    """Record the source actually shipped, including uncommitted edits."""
+    paths = {**SHIP, **{f"judge/{name}": HERE / "judge" / name for name in
+             ("grade.py", "selftest.py", "mutants.py", "fixtures/torque-heavy.npz")},
+             "run.py": Path(__file__).resolve()}
+    hashes = {name: hashlib.sha256(path.read_bytes()).hexdigest()
+              for name, path in paths.items()}
+    try:
+        sha = subprocess.check_output(
+            ["git", "-C", str(HERE), "rev-parse", "HEAD"], text=True).strip()
+        dirty = bool(subprocess.check_output(
+            ["git", "-C", str(HERE), "status", "--porcelain", "--", "."], text=True))
+    except (OSError, subprocess.CalledProcessError):
+        sha, dirty = None, None
+    return {"source_commit": sha, "dirty": dirty, "source_sha256": hashes}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vram", type=int, default=4)
@@ -94,6 +113,9 @@ def main():
         G.die("export SBX_API_KEY (or E2B_API_KEY)")
     a.outdir.mkdir(parents=True, exist_ok=True)
     a.outdir = a.outdir.resolve()
+    provenance = source_provenance()
+    (a.outdir / "source.json").write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")
+    print(f"source: {provenance['source_commit']}; dirty={provenance['dirty']}", flush=True)
     artifact = a.skip_train.resolve() if a.skip_train else a.outdir
     if not a.no_selftest:
         required = ["reward-flipped.npz"] if not a.skip_train else [

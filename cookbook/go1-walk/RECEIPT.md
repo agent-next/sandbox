@@ -1,8 +1,9 @@
 # Go1 walking receipt
 
 Measured on 2026-10-15. These are real jobs, not predicted results.
-Both complete `run.py` invocations exited 0, including the full mutation
-self-test, independent grade and confirmed lease deletion. Neither run
+Both historical complete `run.py` invocations exited 0, including the
+then-current mutation self-test, independent grade and immediate deletion
+check. The delayed-check revision below has not had a fresh lease run. Neither run
 used `--keep` or `--no-selftest`.
 
 ## Commands and environment
@@ -10,12 +11,10 @@ used `--keep` or `--no-selftest`.
 From the repository root, with the GPU-enabled key already exported:
 
 ```bash
-env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy \
-  GO1_LEASE_WAIT_S=7200 python3 cookbook/go1-walk/run.py \
+GO1_LEASE_WAIT_S=7200 python3 cookbook/go1-walk/run.py \
   --outdir cookbook/go1-walk/out/resume2-train
 
-env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy \
-  GO1_LEASE_WAIT_S=7200 python3 cookbook/go1-walk/run.py \
+GO1_LEASE_WAIT_S=7200 python3 cookbook/go1-walk/run.py \
   --skip-train cookbook/go1-walk/examples/good \
   --outdir cookbook/go1-walk/out/final-replay --trace
 ```
@@ -26,6 +25,23 @@ unchanged to `examples/good/`. The second used that exact policy on a
 different new lease. Training seed 1 and selection seed 4242 are distinct
 from held-out judge seeds 101/202/303. Each judge seed uses 64 episodes,
 500 control steps, a 0.002 s physics timestep and 0.02 s control timestep.
+
+### Source SHA for each historical run
+
+| Run | Equivalent source SHA (reconstructed) |
+|---|---|
+| Fresh training, gl-0626f0-9 | `672c9356f53497a9d8cf7c2434a735a2c75c8178` |
+| Fresh replay, gl-e0bca3-2 | `d2f4e776b67a70cb865c98ac1a48697bd134084d` |
+
+The original processes did not log their HEAD or dirty status, so these
+are source-code anchors, not independently recorded runtime HEADs.
+Run 1's `/6` recovery messages establish that it predates the `/60`
+change in d2f4e776. Comparing these snapshots, the evaluation, environment,
+trainer, driver, mutants, model and config are byte-identical. Changes
+affect capacity diagnostics, the retry bound/deadline and incremental
+self-test saves, not the measured policy or numeric gate rules.
+No measured number below has been replaced. New `run.py` invocations
+write `source.json` with HEAD, dirty status and shipped-source SHA256s.
 
 ## Two fresh runs
 
@@ -175,8 +191,7 @@ previous cut. The close-tracking recut below supersedes its video size,
 camera, shot timing, state-check count and web-encode setting.
 
 ```bash
-env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy \
-  GO1_LEASE_WAIT_S=7200 bash cookbook/go1-walk/media/make_media.sh
+GO1_LEASE_WAIT_S=7200 bash cookbook/go1-walk/media/make_media.sh
 bash cookbook/go1-walk/media/make_media.sh --render-only
 ```
 
@@ -284,11 +299,16 @@ second_process_exit=0
 
 ## Final lease audit
 
-The resumed worker created no new lease. It queried only the twenty
+The earlier resumed worker created no new lease. It queried only the twenty
 lease IDs recorded in this demo's development logs. Sixteen returned
 404 directly. Four returned HTTP 200 with `phase: dead`, despite the
-earlier confirmed deletions. Deleting those dead owned records again
-gave the required immediate GET 404 confirmation. No live or unrelated
+earlier immediate GET 404 checks. Deleting those dead owned records again
+gave another immediate GET 404, not proof that 404 persists. The revised
+cleanup accepts either 404 or HTTP 200 `phase: dead` in three GET checks
+15 s apart, spanning at least 30 s. A live/unknown state or transport error
+resets confirmation; failure retains the lease ID and exits nonzero.
+This is a bounded observation, not a guarantee that tombstone records
+never reappear. No live or unrelated
 sandbox was deleted.
 
 ```text
@@ -429,3 +449,76 @@ the cached judge states and ignored lossless master were retained.
   recut. The two recorded real runs above are unchanged.
 - Gemini/Opus blind rescoring was not run. The owner-provided prior
   scores are not claimed as scores for the new video.
+
+## P2/P3 review fixes, 2026-10-15
+
+- Commit the six scored trajectory archives and the random-init
+  checkpoint, previously ignored. Render-only no longer requires local
+  untracked physics data. The ignored lossless master is optional when
+  checking committed media; render-only regenerates and checks it.
+- Recover the unchanged iteration-3 checkpoint as
+  `judge/fixtures/torque-heavy.npz`, SHA256
+  `9bd882ef19c93ef5fe8e0624f779a0b08ce04422d4c8a9a1c52002ebebb0754d`.
+  Its saved iteration-3 verdict reports 0.824245 m/s, no falls and
+  0.205657 saturation. This is existing output, not a rerun.
+- Require every mutant's intended gates to fail. The torque-heavy case
+  must fail only G3, with all four other gates passing. Reject missing or
+  duplicate mutants. Save failed verdicts before checking expectations.
+  The x8 output mutant is now `clipped-output`, targeting speed, not
+  torque. Remove `mass2x` from artifact mutations and remove unused
+  `args.json` handling; every mutant uses mass scale 1.0.
+- Call the standing initialization **PPO step-0** and the falling
+  initialization **random init**. Historical JSON keys and trace
+  filenames remain unchanged to preserve recorded evidence; figure
+  labels distinguish them. Collection no longer copies a step-0 file
+  that the remote random-init policy immediately overrides.
+- Replace one immediate deletion GET with three checks spanning 30 s,
+  accepting 404 or HTTP 200 `phase: dead`. Test transient 404 followed
+  by a live record, persistent dead records, and failed confirmation.
+  No historical immediate check is claimed to be durable.
+- Warn about a potentially orphaned lease and owned-inventory inspection
+  after ambiguous create replies, including transport/JSON errors.
+  Do not blindly resend an ambiguous create. Retry explicit capacity
+  409/503 responses every 30 s. Remove the unused `keep_id` assignment.
+- Remove local-network proxy workarounds from user commands. Record
+  source SHA anchors for the two historical runs and add automatic
+  source/hash recording for future runs.
+
+### Regression power
+
+In an automatically removed temporary copy, restore only `grade.py` and
+`selftest.py` from pre-fix `2c669b0d`, retaining the new tests. The selected
+cleanup, intended-gate and missing-mutant tests fail on assertions:
+
+```text
+OLD SOURCE: 14 assertion failures; 0 errors
+AssertionError: RuntimeError not raised
+AssertionError: RuntimeError not raised : torque-heavy must fail its intended gate, not just any gate
+Ran 4 tests in 0.872s
+FAILED (failures=14)
+Regression scratch removed.
+```
+
+These tests use saved verdicts, not simulated measurements. Separate
+evaluator unit tests inject controlled metrics to prove G2, G3 and G5
+can each reject independently.
+
+### Deviations log
+
+- **No GPU rerun:** `SBX_API_KEY` was unavailable in the review-fix
+  environment. No lease was created, no live delayed deletion audit
+  was possible, and the revised self-test has not run on a fresh lease.
+  Local tests replay the saved verdicts and check the real fixture hash.
+  The media retains the recorded historical 11/11 suite, including the
+  former mass sensitivity case; it is not evidence of a new suite run.
+- **Runtime target still unmet:** the historical full runs remain
+  4012.310 s and 2652.438 s, versus the under-600-s acceptance target.
+  No fast-path claim or unmeasured replacement timing is made. Resolving
+  this requires a measured evaluator/transport performance change and
+  another complete `run.py` invocation with GPU access.
+- **Historical source uncertainty:** the two source SHAs above are
+  equivalent code snapshots reconstructed from the logs and git diff,
+  not saved runtime HEAD/dirty-state records. Future runs now save both.
+- **P1 untouched:** blind panel and independent `REPRODUCE.md` work
+  remain with the lead. No CLI matrix or current-main integration was
+  rerun for these demo-only changes.

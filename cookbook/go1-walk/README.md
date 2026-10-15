@@ -22,7 +22,8 @@ local physics installation. It creates a lease, validates the pinned
 image, ships the source and model, trains in resumable chunks, downloads
 the checkpoint to `cookbook/go1-walk/out/`, runs the real mutation
 self-test, grades the checkpoint, prints the verdict JSON and step wall
-times, then always deletes the lease and confirms `GET` returns 404.
+times, then always deletes the lease and checks `GET` three times over
+30 s. Each check must return 404 or HTTP 200 with `phase: dead`.
 Only data files from the artifact reach the judge; no artifact code runs.
 
 For a fresh lease grading the committed checkpoint without retraining:
@@ -38,10 +39,11 @@ Useful flags: `--config FILE`, `--iters N`, `--chunk-s N`, `--outdir DIR`,
 `GO1_LEASE_WAIT_S` controls how long to wait for a free GPU seat (300 s
 by default). Exec replies are cached under a per-request token on the
 lease, so a lost reply can be recovered without repeating training.
-The key needs GPU access and capacity. Every API request must bypass an
-HTTP proxy that truncates long requests, for example prefix the command
-with `env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy`.
-The platform does not impose the local proxy's 600 s request cap.
+The key needs GPU access and capacity. Capacity rejections (409 or an
+explicit capacity 503) retry every 30 s. An ambiguous create reply is not
+resent: a lease may exist, so inspect your owned inventory before retrying.
+`out/source.json` records the source commit, dirty status and shipped-file
+hashes for each new invocation.
 
 Measured training throughput, evaluation numbers, memory observations,
 and two fresh complete runs are recorded with raw output in
@@ -53,7 +55,10 @@ reproduction and retraining are different guarantees.
 The fresh training run and fresh checkpoint replay both passed:
 **0.768245 m/s**, **0/192 falls**, **7.6125%** maximum per-seed
 torque saturation, **0.769472 m/s** above the best baseline, and
-**11/11 mutants killed**. Evaluation uses seeds 101/202/303.
+**11/11 recorded bad cases rejected**. That historical suite included a
+2×-mass sensitivity check. Evaluation uses seeds 101/202/303. The revised
+artifact-only suite adds the saved G3-only policy and requires intended
+gate failures; it has not yet been rerun on a fresh lease.
 
 | Step | Fresh training | Fresh checkpoint replay |
 |---|---:|---:|
@@ -67,6 +72,7 @@ PPO simulated 49,152,000 environment steps at 101,114 env-steps/s.
 PyTorch's peak reserved memory was 736,100,352 bytes, **not** total GPU
 memory. Full acceptance is much slower than training: repeated CPU
 grades, checkpoint transfer and API delays dominate these measured runs.
+The full run does **not** meet the under-10-minute GPU acceptance target.
 Commands, intermediate failures and complete output are in
 [RECEIPT.md](RECEIPT.md).
 
@@ -94,8 +100,9 @@ exceeded 8 MB for this close-up cut). Provenance and visual inspection:
 [MANIFEST](media/MANIFEST.json), [REVIEW](media/REVIEW.md).
 The falling comparison is a genuinely untrained network with broad
 random initial weights, not the PPO step-0 mean network (which can stand).
-After a successful collection, `make_media.sh --render-only` can rebuild
-the visuals from the cached judge states without another lease. It rejects
+The small judge traces and random-init checkpoint are committed.
+`make_media.sh --render-only` can rebuild the visuals in a fresh clone
+without another lease. It rejects
 a changed checkpoint, model, trace hash or measured result.
 
 ## Ask your agent
@@ -110,7 +117,8 @@ a changed checkpoint, model, trace hash or measured result.
 > keep every real verdict in a loop log. Run the mutation self-test.
 > Report measured velocity, fall rate, torque saturation, baseline
 > margin, training wall time and env-steps/s. Always delete every lease
-> you create and confirm GET returns 404. If a gate fails, report it
+> you create and confirm 404 or phase dead in three GET checks over 30 s.
+> If a gate fails, report it
 > rather than claiming the demo works.
 
 ## The judge
@@ -139,10 +147,17 @@ bash cookbook/go1-walk/judge/grade.sh cookbook/go1-walk/examples/good --json ver
 ```
 
 `grade.sh` prints one JSON verdict to stdout; lifecycle messages go to
-stderr. Mutants include the actual step-0 and 5%-of-budget checkpoints,
+stderr. Mutants include the actual PPO step-0 and 5%-of-budget checkpoints,
 an actually trained velocity-reward-sign counterfactual, zero/negated/
-shuffled/noisy/saturating/weak outputs, and evaluation on a 2×-mass robot.
-Crashes or stack drift never count as mutant kills.
+shuffled/noisy/clipped/weak outputs, random initialization, and the real
+iteration-3 torque-heavy policy. The clipped-output mutant fails speed,
+not torque. The torque-heavy policy must fail **only G3**. Every other
+mutant must fail its named intended gates, all at mass scale 1.0; missing
+mutants, crashes and stack drift fail the self-test. Local unit tests also
+check that G2, G3 and G5 independently reject controlled bad metrics.
+The media's cached self-test is the historical suite, not a new measurement.
+Its legacy `untrained` data filenames mean **random init**; the historical
+self-test key `untrained` means **PPO step-0**, labelled distinctly in figures.
 
 ## Limits and provenance
 

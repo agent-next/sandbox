@@ -4,5 +4,4 @@ media/.tools/
 media/work/
 media/master/
 media/clips/
-media/data/*.npz
 media/data/render-model.xml

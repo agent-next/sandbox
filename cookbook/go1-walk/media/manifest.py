@@ -42,7 +42,7 @@ def result_card():
         "gallery": [{"kind": "image", "path": "media/result.png"},
                     {"kind": "image", "path": "media/loop.png"}],
         "launch": {"command": "python3 cookbook/go1-walk/run.py",
-                   "ask_agent": "Read cookbook/go1-walk/SPEC.md. Train the Go1 on a 4 GiB GPU lease, pass every independent judge gate and the mutation self-test, then delete the lease and confirm GET 404."},
+                   "ask_agent": "Read cookbook/go1-walk/SPEC.md. Train the Go1 on a 4 GiB GPU lease, pass every independent judge gate and the mutation self-test, then delete the lease and confirm 404 or phase dead with 3 GET checks over 30 s."},
         "receipt": "RECEIPT.md",
         "sandbox_commit": subprocess.check_output(
             ["git", "-C", str(HERE.parent), "rev-parse", "HEAD"], text=True).strip()}
@@ -75,7 +75,8 @@ def main():
                   "web_encode": "-crf 22 -preset slow -tune animation -pix_fmt yuv420p -movflags +faststart"},
         "files": {}}
     inputs = ["env.py", "judge/_eval.py", "judge/grade.py", "judge/selftest.py",
-              "judge/mutants.py", "model/go1_meshless.xml",
+              "judge/mutants.py", "judge/fixtures/torque-heavy.npz",
+              "model/go1_meshless.xml",
               "examples/good/policy.npz", "examples/good/step0.npz",
               "examples/good/short.npz", "examples/good/reward-flipped.npz",
               "examples/good/train_config.json", "examples/good/curve.json",

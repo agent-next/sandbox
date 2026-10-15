@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Generate known-bad go1-walk artifacts as single-edit mutants of the
-known-good one. numpy + stdlib only (no torch needed).
+"""Generate known-bad artifacts: policy edits and real training
+counterfactuals. numpy + stdlib only (no torch needed).
 
     python3 mutants.py examples/good /tmp/go1-mutants
 
-Each mutant is a directory containing policy.npz; mutants that also need a
-non-default judge condition carry an args.json {"extra_args": [...]} which
-selftest.py appends to the grade call. Prints the mutant names to stdout.
+Each mutant is a directory containing policy.npz. All are graded under the
+same conditions as the good artifact. Prints the mutant names to stdout.
 """
 
 from __future__ import annotations
@@ -24,14 +23,11 @@ def load(path):
     return {k: np.asarray(z[k]) for k in z.files}
 
 
-def save(dst, arrays, args=None, src_cfg=None):
+def save(dst, arrays, src_cfg=None):
     os.makedirs(dst, exist_ok=True)
     np.savez(os.path.join(dst, "policy.npz"), **arrays)
     if src_cfg and os.path.exists(src_cfg):
         shutil.copy(src_cfg, os.path.join(dst, "train_config.json"))
-    if args:
-        with open(os.path.join(dst, "args.json"), "w") as fh:
-            json.dump({"extra_args": args}, fh)
 
 
 def last_layer_idx(a):
@@ -46,12 +42,12 @@ def main():
     rng = np.random.default_rng(20260707)
     names = []
 
-    def put(name, arrays, args=None):
-        save(os.path.join(outroot, name), arrays, args, cfg)
+    def put(name, arrays):
+        save(os.path.join(outroot, name), arrays, cfg)
         names.append(name)
 
     # Real training counterfactuals, not synthetic claims about training.
-    for name, filename in (("untrained", "step0.npz"),
+    for name, filename in (("ppo-step0", "step0.npz"),
                            ("short-training", "short.npz"),
                            ("reward-flipped", "reward-flipped.npz")):
         with np.load(os.path.join(good, filename), allow_pickle=False) as z:
@@ -94,11 +90,12 @@ def main():
             a[k] = (a[k] + rng.normal(0.0, 0.2, a[k].shape)).astype(np.float32)
     put("noisy-weights", a)
 
-    # 6. saturating: final layer x8 -> actions railed at +-1 -> torque hits cap
+    # Clipped actions do not imply excessive measured torque saturation.
+    # This x8 output mutant is rejected for speed, not for G3.
     a = dict(base)
     a[f"w{li}"] = a[f"w{li}"] * 8.0
     a[f"b{li}"] = a[f"b{li}"] * 8.0
-    put("saturating", a)
+    put("clipped-output", a)
 
     # 7. weak-output: final layer x0.15 -> tiny PD offsets -> barely moves
     a = dict(base)
@@ -106,8 +103,14 @@ def main():
     a[f"b{li}"] = a[f"b{li}"] * 0.15
     put("weak-output", a)
 
-    # 8. heavy-robot: the good policy graded against a 2x-mass Go1
-    put("mass2x", dict(base), args=["--mass-scale", "2.0"])
+    # Real iteration-3 policy: walks without falls but fails only G3.
+    # Copy the checkpoint byte-for-byte, retaining its recorded SHA256.
+    dst = os.path.join(outroot, "torque-heavy")
+    os.makedirs(dst, exist_ok=True)
+    shutil.copyfile(os.path.join(os.path.dirname(__file__), "fixtures",
+                                 "torque-heavy.npz"),
+                    os.path.join(dst, "policy.npz"))
+    names.append("torque-heavy")
 
     print(" ".join(names))
 

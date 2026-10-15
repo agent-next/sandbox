@@ -32,6 +32,20 @@ SHOTS = {
 }
 
 
+def policy_label(name):
+    # Keep recorded filenames/keys intact; distinguish the two initializations.
+    return {"untrained": "RANDOM INIT", "ppo-step0": "PPO STEP-0",
+            "trained": "TRAINED"}[name]
+
+
+def mutant_label(name):
+    # The cached self-test predates the reviewed suite. Do not relabel its
+    # 2x-mass sensitivity check as an artifact mutation or invent a new run.
+    return {"untrained": policy_label("ppo-step0"),
+            "saturating": "clipped-output",
+            "mass2x": "2x mass (sensitivity)"}.get(name, name)
+
+
 def replay_index(scene, frame, first_fall=None):
     if scene == "fall":
         assert first_fall is not None
@@ -211,7 +225,7 @@ def result(replays):
             frame = replay.frame(round(moment / .02), 800, 410)
             tile = Image.new("RGB", (800, 550), WHITE)
             tile.paste(frame, (0, 58))
-            text(tile, (20, 12), f"{name.upper()} / seed {seed} / t={moment:.1f} s", 27, bold=True)
+            text(tile, (20, 12), f"{policy_label(name)} / seed {seed} / t={moment:.1f} s", 27, bold=True)
             text(tile, (20, 475), readout(replay)[0], 25)
             text(tile, (20, 512), readout(replay)[1] + ("  PASS" if name == "trained" else "  FAIL"),
                  25, GREEN if name == "trained" else ORANGE, True)
@@ -258,15 +272,15 @@ def loop():
              f"{m['mean_forward_mps']:.3f} m/s • falls {m['fall_rate']:.1%} • "
              f"{'PASS' if v['ok'] else 'FAIL'}", 26)
     rate = test["kill_rate"]
-    text(image, (1190, 205), f"Self-test: {test['killed']}/{test['total']} = {rate:.0%} killed",
+    text(image, (1190, 205), f"Recorded self-test: {test['killed']}/{test['total']} = {rate:.0%}",
          36, GREEN, True)
-    text(image, (1190, 275), "Pass line: >= 90%; every shipped mutant fails", 27)
+    text(image, (1190, 275), "Historical suite; includes the 2x-mass stress test", 27)
     draw.rectangle((1190, 330, 2290, 365), fill="#dbe4e9")
     draw.rectangle((1190, 330, 1190+1100*rate, 365), fill=GREEN)
     draw.line((1190+1100*.9, 312, 1190+1100*.9, 385), fill=INK, width=4)
     for i, (name, row) in enumerate(test["mutants"].items()):
         y = 425 + i*95
-        text(image, (1190, y), name, 28, bold=True)
+        text(image, (1190, y), mutant_label(name), 28, bold=True)
         gates = ", ".join(g.split("_")[0].upper() for g in row["failed_gates"])
         text(image, (1740, y), "KILLED: " + gates, 25, GREEN)
     text(image, (60, image.height - 85),
@@ -341,7 +355,7 @@ def video(replays):
                         heading(image, "Learned from random weights.",
                                 f"{curve['train_wall_s']:.1f} s PPO training  •  4 GiB GPU slice")
                     elif scene == "fall":
-                        heading(image, "Before training: it falls.",
+                        heading(image, "Random init: it falls.",
                                 f"Random weights  •  {replay.metrics['fall_rate']:.0%} falls in the judge", ORANGE)
                     elif scene.startswith("walk-"):
                         heading(image, "After training: it keeps walking." if seed == 202
@@ -366,8 +380,8 @@ def video(replays):
                             text(image, (1340, y+57), value, 38, GREEN)
                     elif scene == "selftest":
                         end_background = image.copy()
-                        heading(image, f"Judge failed all {test['total']} deliberately",
-                                "broken policies. A bad walk cannot bluff a PASS.")
+                        heading(image, f"Judge rejected all {test['total']} bad cases.",
+                                "Recorded policies and a 2x-mass stress test.")
                         panel(image, (32, 915, 1888, 1045))
                         text(image, (64, 922), f"{test['killed']}/{test['total']} failed the test", 42, GREEN, True)
                         for i, row in enumerate(test["mutants"].values()):

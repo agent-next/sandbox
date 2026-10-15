@@ -1,6 +1,8 @@
 """Regression tests, with generated arrays and no GPU/API calls."""
 
 import base64
+import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -20,6 +22,11 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "judge"))
 import grade
 import selftest
+import mutants
+
+MUTANT_NAMES = ("ppo-step0", "short-training", "reward-flipped", "random-init",
+                "zero-output", "negated-output", "shuffled-output", "noisy-weights",
+                "clipped-output", "weak-output", "torque-heavy")
 
 
 class Array(np.ndarray):
@@ -122,8 +129,7 @@ class RegressionTests(unittest.TestCase):
     def test_failed_good_grade_is_retained_for_the_loop_log(self):
         lease = Mock()
         lease.exec.return_value = {"ok": True, "report": {
-            "rc": 0, "names": ["untrained", "short-training", "reward-flipped",
-                              "zero-output", "noisy-weights", "mass2x"]}}
+            "rc": 0, "names": list(MUTANT_NAMES)}}
         verdict = {"ok": False, "measured": {"mean_forward_mps": .4},
                    "gates": {"g1_forward_speed": {"pass": False, "value": .4}}}
         with tempfile.TemporaryDirectory() as tmp:
@@ -154,7 +160,94 @@ class RegressionTests(unittest.TestCase):
                 (Path(tmp) / name).write_bytes(b"x" * 750_000)
             with self.assertRaisesRegex(RuntimeError, "invalid mutant inventory"):
                 selftest.selftest_on_lease(lease, tmp, str(Path(tmp) / "result.json"))
-        self.assertEqual(lease.exec.call_count, 6)
+        self.assertEqual(lease.exec.call_count, 7)
+
+    def test_mutants_change_artifacts_not_judge_conditions(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(sys, "argv", ["mutants.py", str(HERE / "examples/good"), tmp]), \
+                patch("sys.stdout", io.StringIO()) as output:
+            mutants.main()
+            self.assertEqual(output.getvalue().split(), list(MUTANT_NAMES))
+            self.assertFalse(list(Path(tmp).rglob("args.json")),
+                             "artifact mutants must not alter judge conditions")
+            recorded = json.loads((HERE / "examples/good/loop.json").read_text())
+            verdict = recorded["iterations"][2]["verdict"]
+            fixture = Path(tmp) / "torque-heavy/policy.npz"
+            self.assertEqual(hashlib.sha256(fixture.read_bytes()).hexdigest(),
+                             verdict["policy_sha256"],
+                             "G3-only fixture must reuse the measured iteration-3 policy")
+            self.assertEqual([g for g, row in verdict["gates"].items() if not row["pass"]],
+                             ["g3_torque_saturation"])
+
+    def run_recorded_selftest(self, change=None, names=MUTANT_NAMES):
+        """Exercise the whole self-test with saved verdicts, never fake a sim."""
+        test = json.loads((HERE / "media/data/selftest.json").read_text())
+        history = json.loads((HERE / "examples/good/loop.json").read_text())
+        aliases = {"ppo-step0": "untrained", "clipped-output": "saturating"}
+
+        def evaluate(lease, good, seeds, episodes, steps, mass, **kw):
+            self.assertEqual((episodes, steps, mass), (64, 500, 1.0),
+                             "every mutant must use the good artifact's judge conditions")
+            if kw.get("remote_policy"):
+                name = kw["remote_policy"].split("/")[-2]
+                verdict = copy.deepcopy(history["iterations"][2]["verdict"]
+                    if name == "torque-heavy" else
+                    test["mutants"][aliases.get(name, name)]["verdict"])
+                if change:
+                    change(name, verdict)
+            else:
+                verdict = copy.deepcopy(test["good_run1"])
+            return {"rc": 0 if verdict["ok"] else 1, "verdict": verdict}
+
+        lease = Mock()
+        lease.exec.return_value = {"ok": True, "report": {"rc": 0, "names": list(names)}}
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(grade, "grade_on_lease", side_effect=evaluate), \
+                patch("sys.stdout", io.StringIO()):
+            output = Path(tmp) / "selftest.json"
+            try:
+                return selftest.selftest_on_lease(lease, str(HERE / "examples/good"), str(output))
+            except RuntimeError:
+                self.assertFalse(json.loads(output.read_text())["ok"])
+                raise
+
+    def test_selftest_accepts_recorded_intended_gate_kills(self):
+        result = self.run_recorded_selftest()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["total"], len(MUTANT_NAMES))
+        self.assertEqual(result["mutants"]["torque-heavy"]["failed_gates"],
+                         ["g3_torque_saturation"])
+
+    def test_selftest_rejects_unintended_gate_kills_for_every_mutant(self):
+        for target in MUTANT_NAMES:
+            with self.subTest(mutant=target):
+                def change(name, verdict):
+                    if name == target:
+                        # G1 kills everything except that it is not the intended
+                        # fall/torque gate, and G4 still kills the slow mutants.
+                        for gate, row in verdict["gates"].items():
+                            row["pass"] = gate != "g4_beats_baseline"
+                        verdict["ok"] = False
+                with self.assertRaisesRegex(RuntimeError, "intended gates did not fail",
+                    msg=f"{target} must fail its intended gate, not just any gate"):
+                    self.run_recorded_selftest(change)
+
+    def test_torque_mutant_must_fail_only_g3(self):
+        def change(name, verdict):
+            if name == "torque-heavy":
+                verdict["gates"]["g1_forward_speed"]["pass"] = False
+        with self.assertRaisesRegex(RuntimeError, "must fail only g3"):
+            self.run_recorded_selftest(change)
+
+    def test_selftest_cannot_silently_drop_torque_coverage(self):
+        with self.assertRaisesRegex(RuntimeError, "invalid mutant inventory"):
+            # Inventory is checked before any result is written.
+            lease = Mock()
+            lease.exec.return_value = {"ok": True, "report": {
+                "rc": 0, "names": list(MUTANT_NAMES[:-1])}}
+            with tempfile.TemporaryDirectory() as tmp:
+                selftest.selftest_on_lease(lease, str(HERE / "examples/good"),
+                                          str(Path(tmp) / "selftest.json"))
 
     def test_checkpoint_transfer_bounds_report_size(self):
         data = b"x" * 70_000
@@ -248,17 +341,73 @@ class RegressionTests(unittest.TestCase):
             selftest.checked_verdict({"rc": 2, "verdict":
                 {"ok": False, "error": "stack drift", "gates": {}}})
 
-    def test_cleanup_requires_404_not_dead_phase(self):
+    def test_g2_g3_and_g5_independently_reject_bad_metrics(self):
+        # Unit-level evaluator faults, not measured policies or fresh grades.
+        fake_torch = types.SimpleNamespace(set_num_threads=lambda n: None)
+        evaluator = module("gate_eval", HERE / "judge/_eval.py", fake_torch)
+        good = {"forward_mps": .8, "min_forward_mps": .7,
+                "fall_rate": 0.0, "sat_frac": .1, "peak_torque_ratio": 1.0}
+        baseline = {**good, "forward_mps": 0.0}
+        for intended in ("g2_fall_rate", "g3_torque_saturation", "g5_determinism"):
+            with self.subTest(gate=intended):
+                first, repeat = dict(good), dict(good)
+                if intended == "g2_fall_rate":
+                    first["fall_rate"] = repeat["fall_rate"] = .1
+                elif intended == "g3_torque_saturation":
+                    first["sat_frac"] = repeat["sat_frac"] = .2
+                else:
+                    repeat["min_forward_mps"] = .6
+                with patch.dict(sys.modules, {"torch": fake_torch}), \
+                        patch.object(sys, "argv", ["_eval.py", "--policy",
+                            str(HERE / "examples/good/policy.npz"), "--seeds", "101"]), \
+                        patch.object(evaluator, "MODEL", str(HERE / "model/go1_meshless.xml")), \
+                        patch.object(evaluator, "check_stack", return_value=({}, [])), \
+                        patch.object(evaluator, "load_policy", return_value=(object(), [])), \
+                        patch.object(evaluator, "evaluate",
+                                     side_effect=[first, repeat, baseline, baseline]), \
+                        patch.object(evaluator, "emit") as emit:
+                    self.assertEqual(evaluator.main(), 1)
+                verdict = emit.call_args.args[0]
+                self.assertNotIn("error", verdict)
+                self.assertEqual([g for g, row in verdict["gates"].items()
+                                  if not row["pass"]], [intended],
+                                 f"{intended} must reject independently of all other gates")
+
+    def test_cleanup_accepts_404_or_dead_only_after_delayed_checks(self):
         lease = grade.Lease("test-only")
         lease.id = "gl-test"
-        replies = [(204, None), (200, {"phase": "dead"}),
-                   (204, None), (404, None)]
+        replies = [(204, None), (404, None), (200, {"phase": "dead"}), (404, None)]
         with patch.object(grade, "request", side_effect=replies) as request, \
-                patch.object(grade.time, "sleep"), \
+                patch.object(grade.time, "sleep") as sleep, \
                 patch("sys.stderr", io.StringIO()):
             lease.delete()
         self.assertEqual(request.call_count, 4)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [15, 15],
+                         "cleanup needs 3 GET checks spanning at least 30 seconds")
         self.assertIsNone(lease.id)
+
+    def test_cleanup_does_not_trust_a_transient_404(self):
+        lease = grade.Lease("test-only")
+        lease.id = "gl-test"
+        replies = [(204, None), (404, None), (200, {"phase": "running"})]
+        with patch.object(grade, "request", side_effect=
+                          replies + [(200, {"phase": "running"})] * 20), \
+                patch.object(grade.time, "sleep"), patch("sys.stderr", io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "cleanup unconfirmed for gl-test"):
+                lease.delete()
+        self.assertEqual(lease.id, "gl-test",
+                         "a transient 404 must not clear the cleanup target")
+
+    def test_cleanup_accepts_a_persistent_dead_record(self):
+        lease = grade.Lease("test-only")
+        lease.id = "gl-test"
+        with patch.object(grade, "request", side_effect=[
+                (204, None), (200, {"phase": "dead"}),
+                (200, {"phase": "dead"}), (200, {"phase": "dead"})]), \
+                patch.object(grade.time, "sleep") as sleep:
+            lease.delete()
+        self.assertIsNone(lease.id)
+        self.assertEqual(sleep.call_count, 2)
 
     def test_failed_cleanup_retains_lease_id(self):
         lease = grade.Lease("test-only")
@@ -279,6 +428,34 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(status, 502)
         self.assertEqual(open_url.call_count, 1,
                          "an ambiguous POST must not be blindly resent")
+
+    def test_ambiguous_create_warns_about_orphan_inventory(self):
+        for reply in (TimeoutError(), (502, None), (503, {"message": "reply lost"}),
+                      (201, None), ValueError("unreadable JSON")):
+            with self.subTest(reply=reply):
+                lease = grade.Lease("test-only")
+                options = {"side_effect": reply} if isinstance(reply, Exception) else \
+                          {"return_value": reply}
+                with patch.object(grade, "request", **options) as request, \
+                        patch("sys.stderr", io.StringIO()) as errors:
+                    with self.assertRaises(SystemExit):
+                        lease.__enter__()
+                self.assertIn("lease may have been created", errors.getvalue(),
+                              "ambiguous create must warn about an orphaned lease")
+                self.assertIn("inventory", errors.getvalue())
+                self.assertEqual(request.call_count, 1)
+
+    def test_capacity_retries_every_30_seconds(self):
+        lease = grade.Lease("test-only")
+        with patch.object(grade, "request", side_effect=[
+                (409, None), (503, {"message": "GPU plane at capacity"}),
+                (201, {"sandboxID": "gl-test"})]) as request, \
+                patch.object(grade.threading, "Thread"), \
+                patch.object(grade.time, "sleep") as sleep, \
+                patch("sys.stderr", io.StringIO()):
+            lease.__enter__()
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [30, 30])
 
     def test_invalid_id_never_becomes_a_cleanup_url(self):
         lease = grade.Lease("test-only")

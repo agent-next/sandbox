@@ -17,6 +17,30 @@ import grade as G
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEMO = os.path.dirname(HERE)
 SEEDS = "101,202,303"
+EXPECTED_GATES = {
+    "ppo-step0": {"g1_forward_speed", "g4_beats_baseline"},
+    "short-training": {"g2_fall_rate"},
+    "reward-flipped": {"g1_forward_speed", "g4_beats_baseline"},
+    "random-init": {"g2_fall_rate", "g3_torque_saturation"},
+    "zero-output": {"g1_forward_speed", "g4_beats_baseline"},
+    "negated-output": {"g2_fall_rate", "g3_torque_saturation"},
+    "shuffled-output": {"g2_fall_rate"},
+    "noisy-weights": {"g2_fall_rate", "g3_torque_saturation"},
+    "clipped-output": {"g1_forward_speed", "g4_beats_baseline"},
+    "weak-output": {"g1_forward_speed", "g4_beats_baseline"},
+    "torque-heavy": {"g3_torque_saturation"},
+}
+
+
+def check_mutant(name, verdict):
+    failed = {n for n, g in verdict["gates"].items() if not g["pass"]}
+    expected = EXPECTED_GATES[name]
+    if not expected <= failed:
+        raise RuntimeError(f"{name}: intended gates did not fail: "
+                           f"{', '.join(sorted(expected - failed))}")
+    if name == "torque-heavy" and failed != expected:
+        raise RuntimeError("torque-heavy must fail only g3_torque_saturation")
+    return sorted(failed)
 
 
 def same_verdict(a, b):
@@ -41,7 +65,8 @@ def selftest_on_lease(lease, good, out_json, seeds=SEEDS):
     files = {n: os.path.join(good, n) for n in
              ("policy.npz", "step0.npz", "short.npz", "reward-flipped.npz")}
     files["mutants.py"] = os.path.join(HERE, "mutants.py")
-    # Four checkpoints together exceed a 4 MB JSON request. Ship each file
+    files["fixtures/torque-heavy.npz"] = os.path.join(HERE, "fixtures", "torque-heavy.npz")
+    # The checkpoints together exceed a 4 MB JSON request. Ship each file
     # separately so mutation setup cannot turn into one oversized RPC.
     for name, path in files.items():
         with open(path, "rb") as source:
@@ -50,6 +75,7 @@ def selftest_on_lease(lease, good, out_json, seeds=SEEDS):
 import base64, os
 root = os.path.expanduser('~/go1mutants')
 os.makedirs(root, exist_ok=True)
+os.makedirs(os.path.join(root, 'fixtures'), exist_ok=True)
 open(os.path.join(root, {name!r}), 'wb').write(base64.b64decode({payload!r}))
 report['rc'] = 0
 """
@@ -72,8 +98,7 @@ report['stderr'] = p.stderr
     if result.get("ok") is not True or rep.get("rc") != 0:
         raise RuntimeError("mutant generation failed: " + str(rep))
     names = rep["names"]
-    if len(names) < 6 or any(not all(c.isalnum() or c == "-" for c in n)
-                             for n in names):
+    if len(names) != len(EXPECTED_GATES) or set(names) != set(EXPECTED_GATES):
         raise RuntimeError("invalid mutant inventory")
     results = {"mutants": {}, "timing": {}, "seeds": seeds, "ok": False}
 
@@ -99,15 +124,17 @@ report['stderr'] = p.stderr
     print("selftest: byte-identical verdicts outside timing", flush=True)
     killed = 0
     for name in names:
-        mass = 2.0 if name == "mass2x" else 1.0
         # Only copy NPZ data into a fresh judge-controlled evaluation input.
         remote = f"~/go1mutants/mutants/{name}/policy.npz"
-        v = checked_verdict(G.grade_on_lease(lease, good, seeds, 64, 500, mass,
+        v = checked_verdict(G.grade_on_lease(lease, good, seeds, 64, 500, 1.0,
                                            remote_policy=remote))
         failed = [n for n, g in v["gates"].items() if not g["pass"]]
-        killed += bool(failed)
-        results["mutants"][name] = {"verdict": v, "failed_gates": failed}
+        results["mutants"][name] = {
+            "verdict": v, "failed_gates": failed,
+            "expected_gates": sorted(EXPECTED_GATES[name])}
         save_results()
+        check_mutant(name, v)
+        killed += 1
         print(f"selftest: {name}: {'KILLED' if failed else 'SURVIVED'} "
               f"({', '.join(failed)}; "
               f"fwd={v['measured']['mean_forward_mps']})", flush=True)

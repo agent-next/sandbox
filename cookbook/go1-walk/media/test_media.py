@@ -15,6 +15,11 @@ HERE = Path(__file__).resolve().parent
 
 
 class MediaTests(unittest.TestCase):
+    def test_initializations_have_distinct_consistent_labels(self):
+        self.assertEqual(render.policy_label("untrained"), "RANDOM INIT")
+        self.assertEqual(render.mutant_label("untrained"), "PPO STEP-0")
+        self.assertEqual(render.policy_label("ppo-step0"), "PPO STEP-0")
+
     def test_no_plotting_library_in_media(self):
         forbidden = "mat" + "plotlib"
         for path in HERE.glob("*.py"):
@@ -117,7 +122,10 @@ class MediaTests(unittest.TestCase):
                 self.assertAlmostEqual(image.info["dpi"][0], 200, delta=.1)
         raw = (HERE / "demo.mp4").read_bytes()
         self.assertLess(raw.index(b"moov"), raw.index(b"mdat"))
-        self.assertIn(b"qp=0", (HERE / "master/demo.mp4").read_bytes()[:10000])
+        self.assertIn("ignored, CRF 0", video["master"])
+        master = HERE / "master/demo.mp4"
+        if master.exists():
+            self.assertIn(b"qp=0", master.read_bytes()[:10000])
 
 
 if __name__ == "__main__":

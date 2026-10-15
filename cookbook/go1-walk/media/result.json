@@ -91,8 +91,8 @@
   ],
   "launch": {
     "command": "python3 cookbook/go1-walk/run.py",
-    "ask_agent": "Read cookbook/go1-walk/SPEC.md. Train the Go1 on a 4 GiB GPU lease, pass every independent judge gate and the mutation self-test, then delete the lease and confirm GET 404."
+    "ask_agent": "Read cookbook/go1-walk/SPEC.md. Train the Go1 on a 4 GiB GPU lease, pass every independent judge gate and the mutation self-test, then delete the lease and confirm 404 or phase dead with 3 GET checks over 30 s."
   },
   "receipt": "RECEIPT.md",
-  "sandbox_commit": "922296c1d5355782f0d6703c53ed3596ece8783e"
+  "sandbox_commit": "2c669b0df96599e1f55edda24c779c829092ae1b"
 }
