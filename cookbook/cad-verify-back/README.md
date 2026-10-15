@@ -6,9 +6,10 @@
 
 ![The fixing-agent loop and the mutant × gate kill matrix](media/loop.png)
 
-[`demo.mp4`](media/demo.mp4) — turntable of the real delivered STL, the
-replay of a fixing agent's iterations, and one card per mutant with the
-defect and the gate that caught it (24 s, 1920×1080, H.264).
+[`demo.mp4`](media/demo.mp4) — a turntable of the real delivered STL
+(rendered offscreen, never a matplotlib animation), then full-frame cards of
+the two figures above: the per-gate verdict against the spec, and the agent
+loop with the mutant × gate kill matrix (34.7 s, 1920×1080, 30 fps, H.264).
 
 Headline numbers from `grade.sh examples/good --json` (all 14 gates pass):
 
