@@ -283,6 +283,13 @@ def test_m4a_with_moov_after_large_mdat_is_not_video(tmp_path):
     assert result._sniff(late) is None
 
 
+def test_oversized_largesize_is_unknown_not_a_crash(tmp_path):
+    bad = tmp_path / "bad.mp4"
+    bad.write_bytes(MP4[:MP4.index(b"moov") - 4]
+                    + (1).to_bytes(4, "big") + b"mdat" + b"\xff" * 8)
+    assert result._sniff(bad) is None
+
+
 # -- path hygiene -----------------------------------------------------------
 
 def test_escaping_path_reports_once(tmp_path):
