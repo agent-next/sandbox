@@ -155,34 +155,33 @@ def main():
         die("no verdict JSON returned from the sandbox")
 
     gates = verdict.get("gates", {})
-    ok = bool(gates) and all(g.get("pass") for g in gates.values()) \
-        and verdict.get("judge_intact", False)
+    ok = bool(gates) and all(gates.values()) \
+        and verdict.get("pass") is True
 
     print(f"\n{'=' * 60}")
     print(f"spreadsheet-recalc demo: {'PASS' if ok else 'FAIL'}")
     print(f"  artifact: {verdict.get('artifact', '?')}")
+    print(f"  seed: {verdict.get('seed', '?')}")
     for gate in sorted(gates):
-        g = gates[gate]
-        print(f"  gate {gate}: {'pass' if g.get('pass') else 'FAIL'}")
-        for p in g.get("problems", []):
-            print(f"    - {p}")
-    for key in ("initial_investment", "cash_flows"):
-        if key in verdict.get("metrics", {}):
-            print(f"  {key}: {verdict['metrics'][key]}")
-    for rate, s in sorted(verdict.get("scenarios", {}).items()):
-        print(f"  NPV @ {rate}:")
-        for k in ("computed", "oracle", "err_pct", "pass"):
-            if k in s:
-                print(f"    {k}: {s[k]}")
-    nc = verdict.get("negative_control", {})
-    print(f"  negative_control: moved={nc.get('moved')} "
-          f"move_pct={nc.get('move_pct')}")
+        val = gates[gate]
+        # Gates are plain booleans in the verdict JSON.
+        state = "pass" if val is True else "FAIL"
+        print(f"  gate {gate}: {state}")
+    metrics = verdict.get("metrics", {})
+    for pct in (8, 10, 12):
+        comp = metrics.get(f"npv_{pct}_computed")
+        orac = metrics.get(f"npv_{pct}_oracle")
+        err = metrics.get(f"npv_{pct}_err_pct")
+        if comp is not None:
+            print(f"  NPV @ {pct}%: computed={comp} oracle={orac} "
+                  f"err={err}%")
+    if "negative_control_move_pct" in metrics:
+        print(f"  negative control: NPV moved {metrics['negative_control_move_pct']}%")
     if verdict.get("problems"):
         print("  problems:")
         for p in verdict["problems"]:
             print(f"    - {p}")
     print(f"{'=' * 60}")
-    print(f"timing: {verdict.get('timing', {})}")
     print(f"total: {time.monotonic() - total0:.0f} s")
 
     raise SystemExit(0 if ok else 1)
