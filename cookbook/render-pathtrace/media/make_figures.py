@@ -90,7 +90,7 @@ def result_figure(run, frames, out):
         ax.annotate(f"{val:.4f}", (val, i), textcoords="offset points", xytext=(8, 8))
     g4 = v["G4"]
     ax.set(yticks=y, yticklabels=names, xlim=(0, 1), xlabel="value",
-           title="G5 image spec  |  G4: same seed -> identical HDR hash")
+           title="G5 image spec\nG4: same seed -> identical HDR hash")
     ax.text(0.98, -0.75, f"G4 hash {g4['same_seed_hashes'][0][:16]}... (x2), other seed differs",
             ha="right", fontsize=9, color=GREY)
     ax.set_ylim(-1, 2.6)

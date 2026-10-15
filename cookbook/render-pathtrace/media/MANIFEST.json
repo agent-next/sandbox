@@ -3,7 +3,7 @@
   "shows": "Studio render plus G1 furnace, G3 convergence, G4/G5 gate numbers",
   "source": "verdict.json, studio.png, frames.json",
   "command": "sh media/make_media.sh",
-  "sha256": "4fb7b4eb87f26db305d21256f49b8d5ae28ba242b46c5d9948052b9fba31e86e"
+  "sha256": "79b65ecdff423ca9082f370236065e0834b9ceb323ec2f349ff03983e89bd9b8"
  },
  "loop.png": {
   "shows": "Self-test matrix: which check rejected each bad scene",
