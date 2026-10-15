@@ -105,12 +105,12 @@
     }
   },
   "timing": {
-    "pipeline_s": 58.34,
-    "geometry_s": 2.591,
-    "duration_s": 1.031,
-    "keyframes_s": 1.441,
-    "counter_s": 52.861,
-    "poster_s": 1.931,
-    "captions_s": 0.935
+    "pipeline_s": 18.502,
+    "geometry_s": 0.806,
+    "duration_s": 0.368,
+    "keyframes_s": 0.607,
+    "counter_s": 12.263,
+    "poster_s": 0.788,
+    "captions_s": 0.729
   }
 }
