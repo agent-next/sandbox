@@ -117,9 +117,9 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.013,
-  "oracle_s": 0.97,
-  "total_s": 3.242,
-  "validator_s": 2.258
+  "geometry_s": 0.018,
+  "oracle_s": 2.168,
+  "total_s": 9.092,
+  "validator_s": 6.901
  }
 }

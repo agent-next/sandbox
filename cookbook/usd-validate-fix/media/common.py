@@ -113,6 +113,46 @@ def error_classes(errors, width=34):
     return classes
 
 
+# SPEC.md's seeded defects, each with a predicate over the *real* oracle
+# error strings of the broken asset.  defect_counts() below asserts that the
+# predicates partition the verdict's error list, so no error is dropped and
+# no count is invented.
+DEFECTS = [
+    ("D1", "no normals on any mesh", "NormalsExistChecker ×3 + oracle ×3",
+     lambda e: "normals not authored" in e),
+    ("D2a", "metersPerUnit 1.0 ≠ 0.01", "oracle (values, not presence)",
+     lambda e: e.startswith("metersPerUnit")),
+    ("D2b", "upAxis Z ≠ Y", "oracle",
+     lambda e: e.startswith("upAxis")),
+    ("D3", "degenerate face on Band", "ZeroAreaFaceChecker + oracle ×1",
+     lambda e: "triangle-fan area" in e),
+    ("D4", "Band has no material binding",
+     "oracle: no computable bound material",
+     lambda e: "bound material" in e),
+    ("D5", "no defaultPrim", "DefaultPrimChecker + oracle ×1",
+     lambda e: "defaultPrim" in e),
+    ("D6", "no extents on any mesh", "ExtentsChecker ×3 + oracle ×3",
+     lambda e: "extent not authored" in e),
+]
+
+
+def defect_counts(oracle_errors):
+    """[(defect id, label, caught-by, error count)] counted from real errors.
+
+    Dies if the predicates do not partition the list (every error must be
+    attributed to exactly one seeded defect).
+    """
+    out = []
+    for did, label, caught_by, pred in DEFECTS:
+        hits = [e for e in oracle_errors if pred(e)]
+        out.append((did, label, caught_by, len(hits)))
+    total = sum(c for *_, c in out)
+    if total != len(oracle_errors):
+        die("oracle errors do not partition into the SPEC defects: %d of %d "
+            "attributed" % (total, len(oracle_errors)))
+    return out
+
+
 def load_mesh(name):
     """An extract_mesh.py dump of the graded asset, fully validated."""
     m = load_json(

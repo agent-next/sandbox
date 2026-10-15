@@ -130,9 +130,9 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.019,
-  "oracle_s": 0.954,
-  "total_s": 5.692,
-  "validator_s": 4.716
+  "geometry_s": 0.016,
+  "oracle_s": 0.457,
+  "total_s": 3.119,
+  "validator_s": 2.645
  }
 }

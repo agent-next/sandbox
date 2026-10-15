@@ -19,7 +19,8 @@ import matplotlib.pyplot as plt
 
 from common import (DEMO_NAME, INK, INK_2, MUTED, GRID, SURFACE, SEED,
                     GOOD, CRITICAL, BBOX_TOL, UNIT_TOL,
-                    draw_cone, load_mesh, load_verdict, error_classes)
+                    draw_cone, load_mesh, load_verdict, error_classes,
+                    defect_counts)
 
 MESH_ORDER = ["/TrafficCone/Base", "/TrafficCone/Body", "/TrafficCone/Band"]
 SHORT = {"/TrafficCone/Base": "Base", "/TrafficCone/Body": "Body",
@@ -57,42 +58,42 @@ def main():
              ha="center", va="center", fontsize=13, color=INK_2)
 
     # --- left panel: the broken asset ------------------------------------
-    ax0 = fig.add_axes([0.025, 0.30, 0.28, 0.58], projection="3d",
+    ax0 = fig.add_axes([0.020, 0.415, 0.275, 0.464], projection="3d",
                        facecolor=SURFACE)
     draw_cone(ax0, mesh_broken, show_normals=False)
     ax0.set_title("before: task/traffic_cone_broken.usda",
                   fontsize=15, color=INK, pad=2)
 
-    panel0 = fig.add_axes([0.025, 0.03, 0.28, 0.24])
+    panel0 = fig.add_axes([0.020, 0.135, 0.275, 0.27])
     panel0.set_xlim(0, 1)
     panel0.set_ylim(0, 1)
     panel0.axis("off")
     sev = broken["gates"]["validator"]["issues_by_severity"]
-    panel0.text(0.0, 0.95, "NVIDIA validator: %s" %
-                sev.get("FAILURE", 0), fontsize=14, color=CRITICAL,
+    counts = defect_counts(broken["gates"]["oracle"]["errors"])
+    panel0.text(0.0, 1.00, "NVIDIA validator: %d FAILURE, status FAIL"
+                % sev.get("FAILURE", 0), fontsize=13, color=CRITICAL,
                 fontweight="bold", va="top")
-    panel0.text(0.0, 0.83, "FAILURE issues, %s WARNINGs -- status FAIL"
-                % sev.get("WARNING", 0), fontsize=12, color=INK_2, va="top")
     oracle_errs = len(broken["gates"]["oracle"]["errors"])
-    panel0.text(0.0, 0.64, "independent oracle: %d errors" % oracle_errs,
-               fontsize=14, color=CRITICAL, fontweight="bold", va="top")
-    top = 0.52
-    for label, count in sorted(error_classes(
-            broken["gates"]["oracle"]["errors"]).items()):
-        line = "%d × %s" % (count, label) if count > 1 else label
-        if len(line) > 44:
-            line = line[:42] + "…"
-        panel0.text(0.0, top, "· " + line, fontsize=10.5, color=INK_2,
-                    va="top")
-        top -= 0.093
-    panel0.text(0.0, 0.045,
-                "gray Band = no material binding · no normals anywhere "
-                "(nothing to draw)",
-                fontsize=10.5, color=MUTED, va="bottom",
-                style="italic")
+    panel0.text(0.0, 0.885, "independent oracle: %d errors"
+                % oracle_errs, fontsize=13, color=CRITICAL,
+                fontweight="bold", va="top")
+    panel0.text(0.0, 0.775, "rules not passing: %s"
+                % ", ".join(broken["gates"]["validator"]
+                            ["rules_not_passing"]),
+                fontsize=8.5, color=MUTED, va="top")
+    y = 0.66
+    for did, label, _caught, n in counts:
+        panel0.text(0.0, y, "%s  %s" % (did, label), fontsize=10.5,
+                    color=INK, va="top")
+        panel0.text(1.0, y, "%d×" % n, fontsize=10.5, color=INK_2,
+                    va="top", ha="right")
+        y -= 0.078
+    panel0.text(0.0, 0.075, "gray Band = no material binding · no normals "
+                "anywhere (nothing to draw)",
+                fontsize=9.5, color=MUTED, va="bottom", style="italic")
 
     # --- right panel: the repaired asset ---------------------------------
-    ax1 = fig.add_axes([0.395, 0.30, 0.28, 0.58], projection="3d",
+    ax1 = fig.add_axes([0.375, 0.415, 0.275, 0.464], projection="3d",
                        facecolor=SURFACE)
     draw_cone(ax1, mesh_good, show_normals=True)
     ax1.set_title("after: examples/good/traffic_cone_fixed.usda\n"
@@ -100,7 +101,7 @@ def main():
                   fontsize=13, color=INK, pad=2)
 
     # --- facts table over the right half ---------------------------------
-    panel1 = fig.add_axes([0.705, 0.30, 0.275, 0.58])
+    panel1 = fig.add_axes([0.680, 0.415, 0.300, 0.464])
     panel1.set_xlim(0, 1)
     panel1.set_ylim(0, 1)
     panel1.axis("off")
@@ -163,34 +164,29 @@ def main():
                 "bbox dev ≤ %.0e cm" % (UNIT_TOL, BBOX_TOL),
                 fontsize=10.5, color=MUTED, va="bottom", style="italic")
 
-    # --- bottom strip: gates the broken asset failed, from its verdict ----
-    strip = fig.add_axes([0.025, 0.005, 0.955, 0.115])
+    # --- bottom strip: defects the judge caught, from the real verdict ---
+    strip = fig.add_axes([0.020, 0.020, 0.960, 0.098])
     strip.set_xlim(0, 1)
     strip.set_ylim(0, 1)
     strip.axis("off")
-    strip.text(0.0, 0.92, "what the judge caught in the broken asset "
-             "(real verdict, seed %s):" % SEED,
-             fontsize=12.5, color=INK, fontweight="bold", va="top")
-    caught = [
-        ("no normals", "NormalsExistChecker ×3 + oracle", CRITICAL),
-        ("metersPerUnit 1.0 ≠ 0.01", "oracle (values, not presence)",
-         CRITICAL),
-        ("upAxis Z ≠ Y", "oracle", CRITICAL),
-        ("zero-area face on Band", "ZeroAreaFaceChecker + oracle", CRITICAL),
-        ("Band unbound", "oracle: no computable bound material", CRITICAL),
-        ("no defaultPrim", "DefaultPrimChecker + oracle", CRITICAL),
-        ("no extents", "ExtentsChecker ×3 + oracle", CRITICAL),
-    ]
+    strip.text(0.0, 0.88, "the six seeded defects, all caught (real verdict of "
+             "the broken asset, seed %s):" % SEED,
+             fontsize=12, color=INK, fontweight="bold", va="top")
     x = 0.0
-    for label, detail, color in caught:
-        w = 0.135
-        strip.add_patch(plt.Rectangle((x, 0.30), w, 0.42, facecolor=color,
-                                      linewidth=0, alpha=0.14))
-        strip.text(x + w / 2, 0.51, label, fontsize=10.5, color=INK,
-                   ha="center", va="center", fontweight="bold", wrap=True)
-        strip.text(x + w / 2, 0.13, detail, fontsize=8.5, color=INK_2,
-                   ha="center", va="bottom", wrap=True)
-        x += w + 0.008
+    gap = 0.010
+    w = (1.0 - gap * (len(counts) - 1)) / len(counts)
+    for did, label, caught_by, n in counts:
+        strip.add_patch(plt.Rectangle((x, 0.20), w, 0.52,
+                                      facecolor=CRITICAL, linewidth=0,
+                                      alpha=0.13))
+        strip.text(x + w / 2, 0.46, "%s %s" % (did, label), fontsize=9,
+                   color=INK, ha="center", va="center", fontweight="bold")
+        strip.text(x + w / 2, 0.33, caught_by, fontsize=7, color=INK_2,
+                   ha="center", va="center")
+        strip.text(x + w / 2, 0.09, "%d oracle %s" % (n, "error"
+                                                      if n == 1 else "errors"),
+                   fontsize=7, color=MUTED, ha="center", va="center")
+        x += w + gap
 
     fig.savefig("result.png", dpi=100, facecolor=SURFACE)
     print("wrote result.png")
