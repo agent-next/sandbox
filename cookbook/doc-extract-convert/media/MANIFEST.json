@@ -1,0 +1,55 @@
+{
+  "files": {
+    "demo.mp4": {
+      "command": "bash media/make_media.sh  (seed 42)",
+      "sha256": "984cc7647ec14451ff18348a2d7a52ab70907677972932234d15d8b4c9226024",
+      "source_data": [
+        "media/data/good.json",
+        "media/data/m01-total-as-float.json",
+        "media/data/m03-box-on-whitespace.json",
+        "media/data/m03b-whole-page-box.json",
+        "media/data/m04-quarantine-everything.json",
+        "media/data/m05-wrong-date-format.json",
+        "media/data/m06-accept-bad-date.json",
+        "media/data/judge_guard.json"
+      ],
+      "what": "27 s step-through of the agent loop with captions: the accuracy figure, one captioned frame per graded artifact, then the self-test kill rate."
+    },
+    "loop.png": {
+      "command": "python3 media/make_figures.py  (seed 42)",
+      "sha256": "8e666399e604568510d6677aac9aca09f5c58784e4521502aa4f9063fd1cfa90",
+      "source_data": [
+        "media/data/good.json",
+        "media/data/m01-total-as-float.json",
+        "media/data/m03-box-on-whitespace.json",
+        "media/data/m03b-whole-page-box.json",
+        "media/data/m04-quarantine-everything.json",
+        "media/data/m05-wrong-date-format.json",
+        "media/data/m06-accept-bad-date.json",
+        "media/data/judge_guard.json"
+      ],
+      "what": "The agent loop: gates passed (of 5) per graded iteration from the mutants to the known-good extractor, plus the self-test kill rate against the >= 90 % rule."
+    },
+    "result.png": {
+      "command": "python3 media/make_figures.py  (seed 42)",
+      "sha256": "d45b3023b0d0d341429d68d6f19f22fc32a94eddeca47c591c9b264167ce5350",
+      "source_data": [
+        "media/data/good.json",
+        "media/data/m01-total-as-float.json",
+        "media/data/m03-box-on-whitespace.json",
+        "media/data/m03b-whole-page-box.json",
+        "media/data/m04-quarantine-everything.json",
+        "media/data/m05-wrong-date-format.json",
+        "media/data/m06-accept-bad-date.json"
+      ],
+      "what": "G1 field accuracy for each graded artifact (six single-edit mutants and the known-good extractor) with the >= 95 % pass line, the gates each artifact cleared and the artifact names."
+    }
+  },
+  "generator": "bash media/make_media.sh",
+  "seed": 42,
+  "toolchain": {
+    "Pillow": "11.3.0",
+    "ffmpeg": "5.1.9-0+deb12u1",
+    "fonts": "fonts-dejavu-core 2.37-6"
+  }
+}

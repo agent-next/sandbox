@@ -139,14 +139,22 @@ class Panel:
                                  radius=4, fill=color)
         self.text((x, above), label, size=26, bold=True, anchor="ma")
 
-    def passline_h(self, lo, hi, at, left, right, text):
-        """The judge's numeric rule, as a dashed horizontal line + label."""
+    def passline_h(self, lo, hi, at, left, right, text, label="right"):
+        """The judge's numeric rule, as a dashed horizontal line + label.
+
+        `label` picks the end the text sits on: a pass line drawn at the top
+        of the scale collides with the last high marker if the label is on
+        the right, so those callers ask for "left".
+        """
         top = self.y0
         bottom = self.y1 - 46
         y = bottom - (at - lo) / float(hi - lo) * (bottom - top)
         for xx in range(left, right, 18):
             self.d.line([(xx, y), (min(xx + 10, right), y)], fill=INK, width=3)
-        self.text((right, y - 12), text, size=26, bold=True, anchor="rd")
+        if label == "left":
+            self.text((left, y - 12), text, size=26, bold=True, anchor="ld")
+        else:
+            self.text((right, y - 12), text, size=26, bold=True, anchor="rd")
 
 
 def new_figure(width, height, title, subtitle):

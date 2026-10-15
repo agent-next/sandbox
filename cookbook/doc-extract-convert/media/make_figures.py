@@ -156,7 +156,7 @@ def loop_png(rows, guard):
           for i in range(len(rows))]
     pts = [(x, bottom - r["gates_passed"] / float(n) * (bottom - ptop))
            for x, r in zip(xs, rows)]
-    pa.passline_h(0, n, n, left, right, "all %d gates = pass" % n)
+    pa.passline_h(0, n, n, left, right, "all %d gates = pass" % n, label="left")
     pa.dotline(pts, ptop, bottom, 0, n, C.PASS_BLUE)
     for (x, y), r in zip(pts, rows):
         pa.text((x, y - 30), "%d/%d" % (r["gates_passed"], n), size=27,
