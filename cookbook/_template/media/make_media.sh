@@ -11,6 +11,13 @@
 #   then        proof: judge PASS + mutant kill matrix as a HUD on moving footage
 #   last 2-3 s  end card: the one-line launch ("python3 run.py"), static
 #
+# demo.mp4 is rendered with the Remotion template: write media/props.json
+# (shape: cookbook/tools/remotion/README.md), then
+#   render_demo_video.sh media/props.json media/demo.mp4
+#   (i.e. bash ../../tools/remotion/render_demo_video.sh media/props.json media/demo.mp4)
+# The script validates the props, renders 1920x1080/30fps H.264, and fails
+# if the video gate fails.
+#
 # Format: 16:9 master >= 1920x1080 (4K hero renders encouraged), 25-60 s,
 # 30 fps, >= 0.8 scene cuts per 10 s, >= 20 % moving frames (real animation
 # from media/clips/*.mp4, no slides or stills), caption cap height >= 4 % of frame

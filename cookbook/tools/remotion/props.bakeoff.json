@@ -1,0 +1,29 @@
+{
+  "headline": "Agent-built filter: PASS in 3 iterations",
+  "shots": [
+    {
+      "clip": "clips/mandelbrot.mp4",
+      "duration": 7,
+      "hud": [{"label": "cutoff", "value": 1000, "unit": "Hz"}]
+    },
+    {"clip": "clips/life.mp4", "duration": 7, "speed": 4},
+    {
+      "clip": "clips/testsrc2.mp4",
+      "duration": 7,
+      "hud": [{"label": "ripple", "value": 0.42, "unit": "dB"}]
+    },
+    {"clip": "clips/cellauto.mp4", "duration": 7}
+  ],
+  "verdict": {
+    "pass": true,
+    "gates": [
+      {"name": "cutoff", "measured": "1000 Hz", "threshold": "990-1010"},
+      {"name": "ripple", "measured": "0.42 dB", "threshold": "<= 0.5"},
+      {"name": "stopband", "measured": "-61 dB", "threshold": "<= -60"}
+    ]
+  },
+  "launch": {
+    "command": "python3 run.py",
+    "ask_agent": "build me a 1 kHz low-pass filter and prove it"
+  }
+}

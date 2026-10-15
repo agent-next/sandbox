@@ -67,6 +67,8 @@ Figures show measured numbers only — never illustrative or invented data.
 
 `cookbook/tools/video_gate.py <demo.mp4>` mechanically checks the file-level rules above: >= 1920×1080 at 16:9, 25–60 s, 30 fps, H.264 yuv420p with faststart, <= 8 MB, a first frame that is not dark or a solid colour, >= 0.8 scene cuts per 10 s, at least 20 % of the frames before the end card moving (frame-to-frame luma difference >= 1.0 at 640 px wide; slide decks and Ken-Burns stills score ~0 %, viral X demo videos median 49 %), and a static end card in the last 2 s. Caption size, hook content and the storyboard slots are judged by the review panel. A demo whose video fails the gate or the review panel is not done.
 
+`demo.mp4` is produced by the Remotion template in `cookbook/tools/remotion/`: demos write `media/props.json` (shot list, HUD numbers, verdict, launch) and run `render_demo_video.sh media/props.json media/demo.mp4`, which renders headless and fails if the gate fails. Props shape and headless setup: `cookbook/tools/remotion/README.md`.
+
 ## Launch
 
 The README's one-command path is the product. An agent with no context beyond `README.md`, starting in a fresh sandbox, must reach the hero result by following only the README. Record the measured time-to-result in `RECEIPT.md` (target: < 5 min on CPU, < 10 min on GPU). If the run needs a hint that is not in the README, the README is wrong — fix it, don't annotate around it.

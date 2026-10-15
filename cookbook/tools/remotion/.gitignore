@@ -1,0 +1,7 @@
+node_modules/
+public/staged/
+clips/
+*.mp4
+!bakeoff/bakeoff.mp4
+out/
+.remotion/

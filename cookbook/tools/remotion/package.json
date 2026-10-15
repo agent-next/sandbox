@@ -1,0 +1,31 @@
+{
+  "name": "cookbook-demo-video",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Remotion template that turns a cookbook demo's clips + result.json numbers into an animated demo.mp4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-three/fiber": "9.8.1",
+    "@remotion/cli": "4.0.531",
+    "@remotion/renderer": "4.0.531",
+    "@remotion/three": "4.0.531",
+    "@remotion/transitions": "4.0.531",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.531",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "typescript": "5.9.3"
+  }
+}
