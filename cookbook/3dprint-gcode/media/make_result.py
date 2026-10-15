@@ -52,11 +52,11 @@ def render3d(out_w, out_h):
     pd, _ = rt.bead_mesh(trace)
     pl.add_mesh(pd, scalars="layer_z", cmap="plasma", smooth_shading=True,
                 specular=0.35, specular_power=24, diffuse=0.8, ambient=0.3,
-                scalar_bar_args={"title": "layer Z (mm)", "vertical": True,
-                                 "position_x": 0.045, "position_y": 0.70,
+                scalar_bar_args={"title": "layer Z (mm)", "vertical": False,
+                                 "position_x": 0.08, "position_y": 0.06,
                                  "color": MUTED, "title_font_size": 20,
-                                 "label_font_size": 18, "width": 0.05,
-                                 "height": 0.24})
+                                 "label_font_size": 18, "width": 0.34,
+                                 "height": 0.07})
     stl = rt.bracket_mesh()
     pl.add_mesh(stl, color="#2e6f9e", opacity=0.16, smooth_shading=True,
                 specular=0.15, diffuse=0.6, ambient=0.3)
@@ -83,15 +83,14 @@ def gate_line(name, g, m):
         "moves_near_part": "max %s mm off footprint (tol 10 mm)" % num("max_dist_from_footprint_mm"),
         "layer_z_sequence": "first Z %s mm, %s layers, steady h %s mm" % (
             num("first_layer_z_mm"), num("layer_count", "{:.0f}"),
-            num("steady_layer_height_mm[0]", "{:.3g}") if m["steady_layer_height_mm"] else "-"),
+            "{:.3g}".format(m["steady_layer_height_mm"][0]) if m["steady_layer_height_mm"] else "-"),
         "volume_matches_model": "%s mm3 in band %s-%s, %s g filament" % (
-            num("deposited_volume_mm3"), num("volume_band_mm3[0]", "{:.0f}"),
-            num("volume_band_mm3[1]", "{:.0f}"), num("filament_mass_g")),
-        "cube_crosscheck": "cube %s mm3 in band %.0f-%.0f" % (
-            num("cube_deposited_mm3"), m["cube_stl_volume_mm3"] * 0.25,
-            m["cube_stl_volume_mm3"] * 0.52) if False else g["detail"],
+            num("deposited_volume_mm3"), "{:.0f}".format(m["volume_band_mm3"][0]),
+            "{:.0f}".format(m["volume_band_mm3"][1]), num("filament_mass_g")),
+        "cube_crosscheck": "cube dep %s mm3, stl %.0f mm3, band 3871-8046" % (
+            num("cube_deposited_mm3"), m["cube_stl_volume_mm3"]),
         "pla_temperatures": "nozzle max %s C, bed max %s C, bed heats first" % (
-            num("nozzle_setpoints_c[1]", "{:.0f}"), num("bed_setpoints_c[1]", "{:.0f}")),
+            "{:.0f}".format(m["nozzle_setpoints_c"][1]), "{:.0f}".format(m["bed_setpoints_c"][1])),
         "time_estimate": "judge %s s vs slicer %s s (+-25%% band)" % (
             num("judge_time_s", "{:.0f}"), num("slicer_time_s", "{:.0f}")),
         "klipper_batch": "klippy exit 0, %s error lines" % num("klipper_bad_lines", "{:.0f}"),
