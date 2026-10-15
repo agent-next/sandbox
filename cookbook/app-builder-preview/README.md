@@ -19,7 +19,7 @@ small source tree it hands back.
 
 ![Fixing replay and self-test kill rate](media/loop.png)
 
-[▶ demo.mp4](media/demo.mp4) — 43 s step-through of the 6 judged flows (the
+[▶ demo.mp4](media/demo.mp4) — 42 s step-through of the 6 judged flows (the
 judge's own screenshots) with expected and measured DOM state, then the two
 figures (1920×1080, H.264, ~0.5 MB)
 
