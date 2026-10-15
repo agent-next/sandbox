@@ -69,7 +69,7 @@ set +e
     --urdf "${MODEL_DIR}/urdf/rp1_24dof.urdf" \
     --params "${HERE}/params.json" \
     --judge-dir "${HERE}" \
-    --seed "$SEED" ${JSON_OUT:+--json "$JSON_OUT"}
+    --seed "$SEED" ${JSON_OUT:+--json "$JSON_OUT"} ${TRACE_OUT:+--trace "$TRACE_OUT"}
 RC=$?
 set -e
 

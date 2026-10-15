@@ -203,7 +203,9 @@ class _Trace:
         self.ctrl_lim = ctrl_lim
         self.n = 0
         self.w.writerow(
-            ["t_s", "pelvis_z_m", "roll_deg", "pitch_deg", "tilt_deg",
+            ["t_s", "base_x_m", "base_y_m", "base_z_m",
+             "quat_w", "quat_x", "quat_y", "quat_z",
+             "roll_deg", "pitch_deg", "tilt_deg",
              "feet_fz_n", "tau_peak_nm", "tau_max_frac_of_limit"]
             + [f"qpos_{i:02d}" for i in range(24)]
             + [f"tau_{i:02d}" for i in range(24)])
@@ -226,12 +228,13 @@ class _Trace:
         tau = np.abs(np.asarray(d.actuator_force, dtype=float))
         frac = float(np.max(tau / self.ctrl_lim)) if len(tau) else 0.0
         self.w.writerow(
-            [f"{d.time:.4f}",
-             f"{float(d.xpos[self.base_id][2]):.5f}",
-             f"{float(np.degrees(roll)):.3f}",
-             f"{float(np.degrees(pitch)):.3f}",
-             f"{float(np.degrees(max(abs(roll), abs(pitch)))):.3f}",
-             f"{fz:.3f}", f"{float(tau.max()):.4f}", f"{frac:.5f}"]
+            [f"{d.time:.4f}"]
+            + [f"{float(v):.5f}" for v in d.qpos[:3]]
+            + [f"{float(v):.5f}" for v in d.qpos[3:7]]
+            + [f"{float(np.degrees(roll)):.3f}",
+               f"{float(np.degrees(pitch)):.3f}",
+               f"{float(np.degrees(max(abs(roll), abs(pitch)))):.3f}",
+               f"{fz:.3f}", f"{float(tau.max()):.4f}", f"{frac:.5f}"]
             + [f"{float(v):.5f}" for v in d.qpos[7:31]]
             + [f"{float(v):.4f}" for v in d.actuator_force[:]])
         self.n += 1
@@ -241,6 +244,20 @@ class _Trace:
 
 
 def contact_fz_feet(model, data, geom_bodyid, foot_ids, f6):
+    """Total vertical contact force on the feet; also floor-contact bodies."""
+    fz = 0.0
+    touched = _B_SET()
+    for ci in _B_RANGE(data.ncon):
+        con = data.contact[ci]
+        b1, b2 = _B_INT(geom_bodyid[con.geom1]), _B_INT(geom_bodyid[con.geom2])
+        if (b1 == 0) != (b2 == 0):
+            other = b2 if b1 == 0 else b1
+            _MJ_CF(model, data, ci, f6)
+            if other in foot_ids:
+                fz += _B_ABS(f6[0] * con.frame[2])
+            else:
+                touched.add(other)
+    return fz, touched
 
 
 def main():
@@ -443,6 +460,12 @@ def main():
     jnt_lo = model.jnt_range[1:, 0].copy()
     jnt_hi = model.jnt_range[1:, 1].copy()
     ctrl_lim = model.actuator_ctrlrange[:, 1].copy()
+    # opened before the audit hook goes live: the trace is the judge's own
+    # file, and writing it inside the artifact's window would look like an
+    # artifact write and fail the integrity gate
+    trace = (_Trace(args.trace, params, model, base_id,
+                    foot_ids, geom_bodyid, ctrl_lim)
+             if args.trace else None)
     art_active[0] = True
     art_err = None
 
@@ -533,9 +556,6 @@ def main():
                 raise ValueError("artifact modified simulator state")
             return u
 
-        trace = (_Trace(args.trace, params, model, base_id,
-                        foot_ids, geom_bodyid, ctrl_lim)
-                 if args.trace else None)
         try:
             sim_loop(model, data, params, art_ctrl,
                      _Trace.wrap(art_record, trace))
