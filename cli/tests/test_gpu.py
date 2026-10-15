@@ -317,3 +317,22 @@ def test_typed_and_capacity_errors(api, capsys, status, body, headers, want, abs
     assert err.count("\n") == 1 and want in err
     if absent:
         assert absent not in err
+
+
+@pytest.mark.parametrize("vram,code", [("0.5", 0), ("32", 0), ("0.4", 2), ("33", 2)])
+def test_vram_range_enforced_client_side(api, capsys, vram, code):
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    assert cli.main(["gpu", "create", "--vram", vram]) == code
+    if code:
+        assert "--vram" in capsys.readouterr().err and api.calls == []
+
+
+def test_exec_409_already_running_is_not_job_failure(api, capsys):
+    api.on("POST", "/sandboxes/gl-1a-1/exec", 409, {"message": "lease gl-1a-1 job already running, failed to start"})
+    assert cli.main(["gpu", "exec", "gl-1a-1", "-c", "x"]) == 2
+
+
+def test_exec_timeout_max_accepted(api):
+    api.on("POST", "/sandboxes/gl-1a-1/exec", 200, EXEC_OK)
+    assert cli.main(["gpu", "exec", "gl-1a-1", "-c", "x", "--timeout", "3600"]) == 0
+    assert api.calls[0][3]["timeout_s"] == 3600.0
