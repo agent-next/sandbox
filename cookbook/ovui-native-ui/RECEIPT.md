@@ -72,6 +72,15 @@ real	1m32.142s
 
 Warm re-run (idempotent, nothing to install): **7.7 s**, `exit 0`.
 
+This image ships **empty apt lists** (`ls /var/lib/apt/lists/*Packages*` is
+empty). `setup.sh` checks that before installing, and runs
+`apt-get update` itself, verifying the lists actually landed. Tested by
+clearing the lists and purging `mesa-vulkan-drivers`, then running
+`setup.sh` from scratch: it fetched the lists, reinstalled the package
+(`Status: install ok installed`), rebuilt the wheels and stubs, and
+`judge/grade.sh examples/good/panel.py` then passed all four gates
+(`exit 0`). So the cold-sandbox path works with no manual `apt-get update`.
+
 The three `OK` lines are `sha256sum -c` verifying the pinned wheel hashes;
 the three `...: FAILED` case (a corrupted or substituted wheel) aborts
 `setup.sh` with `set -e`.

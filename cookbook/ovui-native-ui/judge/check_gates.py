@@ -67,8 +67,12 @@ def gate1_widgets(facts):
               and (win.get("height") or 0) >= WINDOW_H - 1e-6)
     detail["window_ok"] = win_ok
 
-    refs_ok = facts.get("_ref_names") == REF_NAMES
-    detail["ref_names_ok"] = refs_ok
+    # every required name must be present; extra refs are allowed (an agent
+    # may return a helper ref, which does not make the panel invalid)
+    names = facts.get("_ref_names") or []
+    missing = [n for n in REF_NAMES if n not in names]
+    refs_ok = not missing
+    detail["ref_names_missing"] = missing
 
     sliders_ok = True
     seen = set()
