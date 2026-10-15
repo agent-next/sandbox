@@ -224,7 +224,11 @@ def main():
             import subprocess as sp
             import tempfile
             tmp = tempfile.mkdtemp(prefix="go1-mut-")
-            names = sp.run([sys.executable,
+            # mutants.py needs numpy: prefer the judge venv from
+            # judge/setup.sh, fall back to this interpreter
+            venv_py = os.path.expanduser("~/.venvs/go1-walk/bin/python")
+            mutpy = venv_py if os.path.exists(venv_py) else sys.executable
+            names = sp.run([mutpy,
                             os.path.join(HERE, "judge", "mutants.py"),
                             os.path.join(HERE, "examples", "good"), tmp],
                            check=True, capture_output=True,

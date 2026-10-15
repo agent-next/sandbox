@@ -2,8 +2,9 @@
 """Judge self-test on ONE GPU lease (stdlib only).
 
 - generates the mutants into a temp dir
-- grades the known-good artifact twice with the same seed -> the two
-  verdicts must be identical except the `timing` key (determinism)
+- grades the known-good artifact twice with the same seed -> both runs
+  must pass, with identical per-gate pass/fail and measured values
+  inside the G5 tolerance band (the warp solver is not bit-exact)
 - grades every mutant -> each must fail at least one gate
 - prints the kill rate; exits 0 only if good passes and >= 90% of mutants
   are killed
@@ -25,10 +26,20 @@ DEMO = os.path.dirname(HERE)
 SEEDS = "101,202,303"
 
 
-def strip_timing(v):
-    v = dict(v)
-    v.pop("timing", None)
-    return v
+def same_verdict(v1, v2, fwd_tol=0.10, sat_tol=0.04):
+    """Two same-seed grades agree: identical gate pass/fail and measured
+    numbers within 2x the G5 tolerance (warp is not bit-exact)."""
+    g1 = {k: g["pass"] for k, g in (v1.get("gates") or {}).items()}
+    g2 = {k: g["pass"] for k, g in (v2.get("gates") or {}).items()}
+    if g1 != g2:
+        return False
+    m1, m2 = v1.get("measured") or {}, v2.get("measured") or {}
+    if m1.keys() != m2.keys():
+        return False
+    return (m1["fall_rate"] == m2["fall_rate"]
+            and abs(m1["mean_forward_mps"] - m2["mean_forward_mps"])
+                <= fwd_tol
+            and abs(m1["max_sat_frac"] - m2["max_sat_frac"]) <= sat_tol)
 
 
 def main():
@@ -58,15 +69,18 @@ def main():
         print(f"selftest: good PASS fwd={m['mean_forward_mps']} m/s "
               f"fall={m['fall_rate']} sat={m['max_sat_frac']}", flush=True)
 
-        # determinism: same seed twice -> identical verdict minus timing
+        # determinism: same seed twice -> same verdict within G5 band
         rep2 = G.grade_on_lease(lease, good, SEEDS, 64, 500, 1.0,
                                 timeout_s=600)
         good_v2 = rep2.get("verdict")
         results["good_run2"] = good_v2
-        if strip_timing(good_v2 or {}) != strip_timing(good_v):
-            G.die("determinism check failed: two same-seed grades differ")
-        print("selftest: determinism ok (two same-seed grades identical)",
-              flush=True)
+        if not good_v2 or good_v2.get("ok") is not True:
+            G.die("second good grade did not pass")
+        if not same_verdict(good_v, good_v2):
+            G.die("determinism check failed: two same-seed grades differ "
+                  "beyond tolerance")
+        print("selftest: determinism ok (two same-seed grades agree "
+              "within tolerance)", flush=True)
 
         killed = 0
         for name in names:

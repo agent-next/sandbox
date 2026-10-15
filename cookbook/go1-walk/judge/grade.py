@@ -86,10 +86,20 @@ class Lease:
         self.id = None
 
     def __enter__(self):
-        st, created = request(self.key, "POST", "/sandboxes", {
-            "accel": {"vram_gb": self.vram_gb, "reserve": "exec"}})
-        if st != 201 or not isinstance(created, dict):
-            die(f"GPU lease create: HTTP {st}; check GPU access and capacity")
+        t0 = time.monotonic()
+        while True:
+            st, created = request(self.key, "POST", "/sandboxes", {
+                "accel": {"vram_gb": self.vram_gb, "reserve": "exec"}})
+            if st == 201 and isinstance(created, dict):
+                break
+            # the API key allows a bounded number of concurrent leases;
+            # a 409 means the slots are busy — retry briefly
+            wait = float(os.environ.get("GO1_LEASE_WAIT_S", "300"))
+            if st == 409 and time.monotonic() - t0 < wait:
+                time.sleep(20)
+                continue
+            die(f"GPU lease create: HTTP {st}; check GPU access "
+                "and capacity")
         self.id = created["sandboxID"]
         if not check_lease_id(self.id):
             die(f"GPU create returned unexpected lease id {self.id!r}")

@@ -51,7 +51,7 @@ with commands sampled from vx in [0.4, 1.0]; the judge's seeds and the fixed
 | G2 fall rate | fraction of episodes with >= 1 fall (trunk < 0.10 m or tilt > ~57 deg) <= 0.05 |
 | G3 torque saturation | fraction of actuator samples at >= 99% of forcerange <= 0.15 (per-seed max) |
 | G4 beats baseline | mean forward m/s - max(zero-action, random-policy baseline) >= 0.30 |
-| G5 determinism | the first seed graded twice gives identical metrics |
+| G5 determinism | the first seed graded twice: identical fall rate, mean forward m/s within 0.05, saturation fraction within 0.02 |
 
 The acceptance oracle is physics itself: a quadruped cannot net 0.5 m/s for
 10 s upright under foot-only contacts unless it actually walks; standing
@@ -59,11 +59,16 @@ still scores ~0, and a falling robot terminates.
 
 ## Reproduction tolerances
 
-Same seed on the same lease image is bit-identical (G5). Across runs the
-verdict JSON must be identical except the `timing` key. Different seeds
-give different numbers but a passing artifact stays passing (tolerance: all
-G1-G4 margins are set >= 3x looser than the measured good-artifact values —
-see RECEIPT.md).
+The warp constraint solver is not bit-deterministic (measured: two
+identical same-seed batches diverge by ~2e-6 in qpos within one control
+step; see RECEIPT.md). Metrics are therefore reproducible only to a
+tolerance: G5 requires the same seed graded twice in one judge run to
+give an identical fall rate and mean forward m/s / saturation fraction
+within 0.05 / 0.02 — tolerances set >= 3x the drift observed on the
+passing artifact. Across separate judge runs on the same lease image the
+verdict should be identical except `timing` and the per-rollout fields
+named above; a passing artifact stays passing because every G1-G4 margin
+is set >= 3x looser than the measured good-artifact values (RECEIPT.md).
 
 ## Lease stack (asserted at grade time)
 

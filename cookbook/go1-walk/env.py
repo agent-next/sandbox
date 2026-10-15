@@ -100,8 +100,11 @@ class Go1Batch:
         self.gen.manual_seed(seed)
         self.home_q = torch.tensor(mjd.qpos[7:19], dtype=torch.float32,
                                    device=dev)
-        self.home_ctrl = torch.tensor(mjd.ctrl, dtype=torch.float32,
-                                      device=dev)
+        # PD target for the home pose = the home joint positions.
+        # mjData.ctrl is NOT part of the keyframe (it stays 0), and
+        # joint 0 is outside the knee ctrlrange, so using mjd.ctrl
+        # would make the home pose un-standable.
+        self.home_ctrl = self.home_q.clone()
         self.ctrl_lo = torch.tensor(mjm.actuator_ctrlrange[:, 0],
                                     dtype=torch.float32, device=dev)
         self.ctrl_hi = torch.tensor(mjm.actuator_ctrlrange[:, 1],
