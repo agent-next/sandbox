@@ -121,12 +121,13 @@ def main() -> int:
         print(f"run: sandbox {sid}", flush=True)
 
         # Clone is retried on transport errors, so it must be idempotent:
-        # a tunnel drop mid-clone can leave a partial tree behind.
+        # a tunnel drop mid-clone can leave a partial tree behind.  One
+        # shell line (sbx exec quotes several arguments instead of joining
+        # them as a command).
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
-                         "rm", "-rf", CLONE_DIR, "&&",
-                         "git", "clone", "--depth", "1", "-b", args.ref,
-                         REPO, CLONE_DIR))
+                         f"rm -rf {CLONE_DIR} && git clone --depth 1 "
+                         f"-b {args.ref} {REPO} {CLONE_DIR}"))
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
