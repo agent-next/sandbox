@@ -355,7 +355,7 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
     with Gate(gates, "stl_orient",
               "trimesh: outward-facing facets (positive mesh volume)") as g:
         if m is None:
-            g.fail("skipped: STL could not be parsed (G8)")
+            g.fail("skipped: STL did not pass the trimesh checks (stl_watertight)")
         if m["signed_volume_mm3"] <= 0:
             g.fail(f"mesh has inverted orientation (signed volume "
                    f"{m['signed_volume_mm3']:.2f} <= 0)")
@@ -366,7 +366,7 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
         if solid is None:
             g.fail("skipped: no re-imported solid (G1)")
         if m is None:
-            g.fail("skipped: STL could not be parsed (G8)")
+            g.fail("skipped: STL did not pass the trimesh checks (stl_watertight)")
         v_stl = m["volume_mm3"]
         v_step = solid.Volume()
         rel = abs(v_stl - v_step) / v_step
