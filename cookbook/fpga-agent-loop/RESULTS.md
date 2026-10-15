@@ -13,7 +13,7 @@ designers never saw:
 | glm-5.3 | pass | pass | pass | pass | pass | pass | **PASS** | 11779 | 93 | 31.81 | 1.31 |
 | longcat-2.5 | pass | fail | fail | fail | fail | pass | FAIL | 2456 | 1188 | 50.87 | 216.76 |
 
-- glm-5.3 passes every gate on the hidden seed, at 3.4x fewer cycles per
+- glm-5.3 passes every gate on the hidden seed, at 2.9x fewer cycles per
   instruction than picorv32 but 8x the LUTs and 37 % of its Fmax.
 - longcat-2.5 lints and synthesizes, but every rv32ui test times out without
   writing tohost (`RESULT TIMEOUT ... CYCLES=400000`): the core never
