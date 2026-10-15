@@ -19,7 +19,7 @@ time bash judge/grade.sh examples/good/bundle.json --json /tmp/v.json
 
 What must match `RECEIPT.md`:
 
-- `judge/selftest.sh` prints the same kill rate (11/11 = 100 %) and
+- `judge/selftest.sh` prints the same kill rate (12/12 = 100 %) and
   `selftest: ok`, exit 0.
 - `judge/grade.sh examples/good/bundle.json` exits 0 and its verdict has
   `judge_intact: true` and all four gates `pass: true`. The verdict is

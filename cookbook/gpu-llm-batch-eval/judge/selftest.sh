@@ -11,7 +11,8 @@
 # 5. judge/ checksums are unchanged after everything.
 #
 # Prints the kill rate; exits non-zero unless good passes, every mutant is
-# killed, determinism holds and the kill rate is >= 90 %.
+# killed (the 90 % floor is kept only as a backstop), determinism holds
+# and the .py-artifact lane works.
 
 set -eu
 
@@ -61,6 +62,9 @@ rate=$(python3 -c "print(f'{$killed / $total * 100:.0f}')")
 echo "selftest: kill rate: $killed/$total = ${rate}%"
 if [ "$killed" -lt "$total" ]; then
     echo "selftest: SURVIVED mutants:$fails" >&2
+    echo "selftest: FAILED: a mutant the judge does not kill means a " >&2
+    echo "selftest: failure class is unguarded; every mutant must die" >&2
+    exit 1
 fi
 
 echo "selftest: determinism check (two grades of the good bundle)"

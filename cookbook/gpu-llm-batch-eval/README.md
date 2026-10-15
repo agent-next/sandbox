@@ -29,13 +29,13 @@ below and RECEIPT.md):
 | judge_accuracy | 0.34 (34/100) | ≥ floor 0.20, and within 0.5 pt of reported |
 | generations | 100 % complete | ≥ 90 % below the token cap |
 | token_accounting | 4.17 tok/s on `cpu` | within 1 % of tokens/wall, device-plausible |
-| self-test kill rate | 11/11 = 100 % | ≥ 90 % |
+| self-test kill rate | 12/12 = 100 % | ≥ 90 % |
 
 **Honesty note.** The committed bundle is a deterministic hand-written
 fixture, not a model run: the build sandbox's gateway key was rejected
 (401) so no GPU lease could be created, and its 2 vCPU would need ~20 h
 for 100 problems. The fixture proves the judge's mechanics end to end
-(its 11 mutants are all killed); `run.py --gpu` produces the real bundle
+(its 12 mutants are all killed); `run.py --gpu` produces the real bundle
 and overwrites the fixture. Every number in the table is pasted from a
 real judge run in `RECEIPT.md`.
 
@@ -94,7 +94,7 @@ block, confirming the deletion with a `GET` (`404`, or `200` with
 |---|---|
 | `git clone --depth 1` | ~3 s |
 | `judge/setup.sh` (fresh install, CPU torch + transformers) | ~4 min on 2 vCPU |
-| `judge/selftest.sh` (good + 11 mutants + determinism) | ~5 s |
+| `judge/selftest.sh` (good + 12 mutants + determinism) | ~5 s |
 | `judge/grade.sh examples/good/bundle.json` | ~0.4 s |
 
 Grading itself is string and float work over 100 generations — it does not

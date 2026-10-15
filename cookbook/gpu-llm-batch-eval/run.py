@@ -14,9 +14,9 @@ SBX_API_KEY (or E2B_API_KEY) in the environment.
 
 The judge is CPU-only by construction: it reads the bundle the artifact
 wrote and does string and float work, so the grading sandbox needs no GPU
-and no network. `--gpu` adds a GPU lane that runs the *generation* on an
-RTX 5090 VRAM slice lease over the REST API, exactly like
-cookbook/small-gpu/run.py:
+and no network. `--gpu` replaces the CPU grading lane: it runs the
+*generation* on an RTX 5090 VRAM slice lease over the REST API, exactly
+like cookbook/small-gpu/run.py:
 
     POST /sandboxes {"accel": {"vram_gb": N, "reserve": "exec"}}
     PUT  /sandboxes/{id}/files/{name}     # raw bytes, workdir-relative
@@ -53,7 +53,7 @@ API = "https://api.sbx.agent-next.com"
 # and the self-test grades 12 bundles, so every step needs more.
 STEP_TIMEOUTS = {"clone": 300, "setup": 2400, "selftest": 1800, "grade": 900}
 
-GPU_VRAM_GB = 24          # an RTX 5090 slice; 0.5B bf16 needs well under 2 GiB
+GPU_VRAM_GB = 4           # an RTX 5090 slice; 0.5B bf16 needs ~1 GiB + context
 GPU_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
 GPU_MODEL_COMMIT = "7ae557604adf67be50417f59c2c2f167def9a775"
 GPU_MODEL_FILES = ["config.json", "generation_config.json", "merges.txt",
@@ -324,7 +324,7 @@ def run_gpu_lane(key, demo_path, report_json=None):
                                      "reserve": "exec"}})
     if st != 201:
         die(f"gpu: lease create HTTP {st}; check GPU access, credit and "
-            "capacity (the CPU verdict above is unaffected)")
+            "capacity")
     sid = created["sandboxID"]
     verify_lease_id(sid)
     print(f"gpu: lease {sid} created ({time.monotonic() - t0:.0f} s)", flush=True)
@@ -378,7 +378,7 @@ def run_gpu_lane(key, demo_path, report_json=None):
         print(f"gpu: exec round trip {time.monotonic() - t0:.0f} s "
               f"(HTTP {st})", flush=True)
         if st != 200 or not isinstance(executed, dict):
-            die(f"gpu: exec HTTP {st}; the CPU verdict above is unaffected")
+            die(f"gpu: exec HTTP {st}")
         result = executed.get("result") or {}
         if result.get("ok") is not True:
             die(f"gpu: job failed: {result.get('stderr', '')[-800:]}")
@@ -443,8 +443,8 @@ def main():
     ap.add_argument("--keep", action="store_true",
                     help="leave the sandbox up and print its id")
     ap.add_argument("--gpu", action="store_true",
-                    help="also generate the good bundle on a "
-                         f"{GPU_VRAM_GB} GiB VRAM slice lease (reported)")
+                    help="instead of the CPU grading lane, generate the good "
+                         f"bundle on a {GPU_VRAM_GB} GiB VRAM slice lease")
     ap.add_argument("--report-json", metavar="PATH",
                     help="write the verdict JSON (and the GPU exec report) here")
     args = ap.parse_args()

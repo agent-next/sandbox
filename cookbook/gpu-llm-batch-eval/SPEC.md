@@ -130,6 +130,14 @@ extractor. A bundle where the answer was cut off mid-sentence by a tiny
 `max_new_tokens` fails, and the gate complains loudly about truncation
 rather than silently scoring a short answer as wrong.
 
+**Limit.** The per-generation length is the artifact's own claim: the
+judge has no tokenizer, so it cannot recompute the token count and must
+trust `max_new_tokens` per generation. This is the one gate where a number
+the judge reads is not one it can recompute — an artifact that declares a
+small length for a truncated generation can pass gate 3 while its text is
+still scored (correctly) by gate 2. It is a completeness signal, not a
+tamper-proof one.
+
 ### Gate 4 — `token_accounting`
 
 The judge recomputes throughput from the bundle's own numbers:
