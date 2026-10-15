@@ -72,12 +72,15 @@ finally:
     shutil.rmtree(tmp, ignore_errors=True)
 con.close()
 
-# 3. no stale sidecar left claiming to hold committed data
-for suffix in ("-wal", "-shm"):
-    side = db + suffix
-    if os.path.exists(side) and os.path.getsize(side) > 0:
-        print(f"note: {exp['db']}{suffix} still present "
-              f"({os.path.getsize(side)} bytes)")
+# 3. the repaired database must stand on its own: a -wal file that still
+#    holds frames means the committed data was never moved into the
+#    database, which is exactly what the task asks for.  (An empty -wal, as
+#    SQLite leaves after a clean checkpoint, is fine; -shm is a rebuildable
+#    index and is ignored.)
+wal = db + "-wal"
+if os.path.exists(wal) and os.path.getsize(wal) > 0:
+    bad(f"{exp['db']}-wal still holds {os.path.getsize(wal)} bytes; the "
+        "recovered pages must live in the database file, not beside it")
 
 if problems:
     print(f"wal-repair: {len(problems)} problem(s)")
