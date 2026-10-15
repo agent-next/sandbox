@@ -1,0 +1,15 @@
+wrote 11 mutants to <scratch>: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
+good: PASS (verdict byte-identical across 2 runs)
+mutant baked_png: FAILS (widget_tree,pixels)
+mutant empty_window: FAILS (render 1 failed)
+mutant missing_checkbox: FAILS (render 1 failed)
+mutant missing_slider: FAILS (widget_tree)
+mutant missing_swatch: FAILS (widget_tree,pixels)
+mutant nondeterministic: FAILS (determinism)
+mutant swatch_overflow: FAILS (widget_tree,pixels)
+mutant wrong_button_text: FAILS (widget_tree)
+mutant wrong_range: FAILS (widget_tree)
+mutant wrong_swatch_color: FAILS (widget_tree,pixels)
+mutant wrong_swatch_size: FAILS (widget_tree,pixels)
+kill rate: 11/11 = 100%
+self-test OK

@@ -1,0 +1,64 @@
+{
+  "gates": [
+    {
+      "gate": "rendered_png",
+      "ok": true,
+      "size": [
+        1280,
+        720
+      ]
+    },
+    {
+      "detail": {
+        "button_ok": true,
+        "checkbox_ok": true,
+        "ref_names_missing": [],
+        "sliders_distinct": true,
+        "sliders_ok": true,
+        "swatch_color_ok": true,
+        "swatch_size_ok": true,
+        "swatch_type_ok": true,
+        "window_ok": true
+      },
+      "gate": "widget_tree",
+      "ok": true
+    },
+    {
+      "detail": {
+        "bbox_mismatch": [],
+        "bg_lum": 69.0,
+        "button_face_lum": 41.0,
+        "button_text_px": 127,
+        "overflow": [],
+        "rects_missing": [],
+        "swatch_median": [
+          51.0,
+          128.0,
+          230.0
+        ],
+        "swatch_ok": true,
+        "swatch_std": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "swatch_target": [
+          51.0,
+          128.0,
+          230.0
+        ],
+        "title_px": 328,
+        "undrawn": []
+      },
+      "gate": "pixels",
+      "ok": true
+    },
+    {
+      "gate": "determinism",
+      "ok": true,
+      "sha256": "0d8e03dcb161d859"
+    }
+  ],
+  "pass": true,
+  "seed": 1234
+}
