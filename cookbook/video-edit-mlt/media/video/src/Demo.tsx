@@ -229,7 +229,7 @@ const Reject: React.FC<Props> = (p) => {
         {sides.map(([name, color, src, decoded]) => (
           <div key={name} style={{width: 890}}>
             <div style={{height: 500, borderRadius: 12, overflow: 'hidden', outline: `10px solid ${color}`}}>
-              <Loop durationInFrames={60}><Video src={src} startSec={startSec} /></Loop>
+              <Loop durationInFrames={60} layout="none"><Video src={src} startSec={startSec} /></Loop>
             </div>
             <Text size={64} bold color={color} style={{marginTop: 28}}>{name}</Text>
             <Text size={72} bold style={{marginTop: 8}}>frame {i}: {label(decoded[i], i, p.weights)}</Text>
@@ -238,7 +238,7 @@ const Reject: React.FC<Props> = (p) => {
       </div>
       <div style={{position: 'absolute', left: 50, bottom: 50, transform: `scale(${flash})`, transformOrigin: 'left'}}>
         <Pill color={differ ? RED : '#7a2d1f'}>
-          <Text size={64} bold>checker: {p.bad.edl} wrong frames = FAIL</Text>
+          <Text size={64} bold>checker: {p.bad.edl} wrong frame{p.bad.edl === 1 ? '' : 's'} = FAIL</Text>
         </Pill>
       </div>
     </AbsoluteFill>
