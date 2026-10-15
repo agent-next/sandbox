@@ -255,10 +255,21 @@ def read_gif_frames(path: str):
     return frames, loop
 
 
+def _pack(rgb: np.ndarray) -> np.ndarray:
+    """Pack RGB triples into one uint32 per pixel (fast unique/bincount)."""
+    a = rgb.astype(np.uint32)
+    return (a[..., 0] << 16) | (a[..., 1] << 8) | a[..., 2]
+
+
+def _unpack(v: int) -> tuple[int, int, int]:
+    return ((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF)
+
+
 def frame_colours(f) -> dict[tuple, int]:
     """Colour -> pixel count for one frame."""
-    vals, cts = np.unique(f["rgb"].reshape(-1, 3), axis=0, return_counts=True)
-    return {tuple(int(x) for x in v): int(c) for v, c in zip(vals, cts)}
+    packed = _pack(f["rgb"]).reshape(-1)
+    vals, cts = np.unique(packed, return_counts=True)
+    return {_unpack(int(v)): int(c) for v, c in zip(vals, cts)}
 
 
 def gate_gif_animation(path: str) -> dict:
@@ -294,8 +305,8 @@ def gate_gif_animation(path: str) -> dict:
 
 def ball_mask(frames, ball):
     """Boolean stack (T, H, W) of ball pixels, one frame at a time."""
-    want = np.array(ball, dtype=np.uint8)
-    return [np.all(f["rgb"] == want, axis=2) for f in frames]
+    want = (_pack(np.array(ball, dtype=np.uint8).reshape(1, 1, 3))[0, 0])
+    return [_pack(f["rgb"]) == want for f in frames]
 
 
 def _pick_ball_colour(frames, bg, floor):
@@ -307,7 +318,7 @@ def _pick_ball_colour(frames, bg, floor):
     for c, count in counts.items():
         if c == bg or c == floor or count < 30:
             continue
-        a = np.all(rgb == np.array(c, dtype=np.uint8), axis=2)
+        a = _pack(rgb) == _pack(np.array(c, dtype=np.uint8).reshape(1, 1, 3))[0, 0]
         # erode by one pixel: the component's interior
         er = np.zeros_like(a)
         er[1:-1, 1:-1] = (a[1:-1, 1:-1] & a[:-2, 1:-1] & a[2:, 1:-1] &

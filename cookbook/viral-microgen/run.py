@@ -34,15 +34,45 @@ class Failure(RuntimeError):
     pass
 
 
+# A dropped command stream is a transport error, not the command's exit: the
+# sandbox may still be running the step.  These are the CLI's transport
+# failures; anything else is a real exit code and is reported as such.
+TRANSPORT_MARKERS = (
+    "ConnectError", "ReadError", "RemoteProtocolError", "ConnectTimeout",
+    "ReadTimeout", "PoolTimeout", "NetworkError", "Temporary failure",
+    "Error reading content", "Connection reset", "Connection aborted",
+)
+RETRIES = 3
+RETRY_SLEEP_S = 15.0
+
+
 def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
     """Run one sbx CLI command; never raises, the caller checks exit code."""
     return subprocess.run(["sbx", *args], capture_output=True, text=True,
                           timeout=timeout)
 
 
+def is_transport_error(proc: subprocess.CompletedProcess) -> bool:
+    text = (proc.stdout or "") + (proc.stderr or "")
+    return any(m in text for m in TRANSPORT_MARKERS)
+
+
 def step(name: str, fn) -> subprocess.CompletedProcess:
+    """Run a step, retrying the whole command when the stream drops.
+
+    A transport error is not a process exit: the step is re-run from the
+    start, and the retry is only accepted when it returns a real exit code.
+    """
     start = time.monotonic()
-    proc = fn()
+    for attempt in range(1, RETRIES + 1):
+        proc = fn()
+        if proc.returncode == 0 or not is_transport_error(proc):
+            break
+        if attempt == RETRIES:
+            break
+        print(f"run: {name}: command stream dropped (attempt {attempt}); "
+              f"reattaching in {RETRY_SLEEP_S:.0f}s", flush=True)
+        time.sleep(RETRY_SLEEP_S)
     dt = time.monotonic() - start
     print(f"run: [{dt:6.1f}s] {name} -> exit {proc.returncode}", flush=True)
     if proc.returncode != 0:
