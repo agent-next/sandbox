@@ -313,10 +313,15 @@ def main():
     need_sbx()
     total0 = time.monotonic()
 
+    # A blip on the transport (a tunnel error after a few seconds, a 429,
+    # a dropped connection) is retried with backoff; a real create
+    # failure is not. The sandbox id is only taken from a returncode 0.
     proc, _ = run("create", "sbx", "create", "--timeout-min", "30",
-                  timeout=120, capture=True)
+                  timeout=120, capture=True, attempts=CREATE_ATTEMPTS,
+                  backoff=10)
     if proc.returncode != 0:
-        die(f"sbx create failed: {proc.stderr.strip()}")
+        die(f"sbx create failed after {CREATE_ATTEMPTS} attempt(s): "
+            f"{proc.stderr.strip() or 'exit ' + str(proc.returncode)}")
     sbx_id = proc.stdout.strip().splitlines()[-1]
     print(f"sandbox: {sbx_id} (template default)", flush=True)
 
