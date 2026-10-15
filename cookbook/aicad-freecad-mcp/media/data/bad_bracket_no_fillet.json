@@ -1,6 +1,6 @@
 {
   "all_pass": false,
-  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/bad/bracket_no_fillet",
+  "artifact": "cookbook/aicad-freecad-mcp/examples/bad/bracket_no_fillet",
   "artifact_files": [
     "bracket"
   ],

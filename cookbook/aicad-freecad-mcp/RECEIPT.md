@@ -3,10 +3,10 @@
 Real command output from this demo's build-out. Environment: the disposable
 build sandbox itself (Debian 12, 2 vCPU, ~4 GB RAM, Python 3.12.15) — the
 same stack `judge/setup.sh` installs. Every block below is pasted output,
-not a summary. `run.py` end-to-end inside an agent-next sandbox is run by
-the lead (a sandbox cannot be created from inside this build sandbox); each
-step of its in-sandbox sequence was executed here directly against a fresh
-`git clone` of this branch, output pasted below.
+not a summary. `run.py`'s end-to-end `sbx create → … → sbx kill` wrapper
+cannot run inside this build sandbox (a sandbox cannot create a sandbox);
+each step of its in-sandbox sequence was executed here directly against a
+fresh `git clone` of this branch, output pasted below.
 
 ## Run 1 — fresh install (new `$HOME`, AppImage sha-256 re-verified, full
 venv creation, AppImage extraction, freecad-mcp clone at pinned SHA)
@@ -125,8 +125,8 @@ face, min wall 8.06 mm.
 - two grades of the same artifact with the same `--seed` byte-identical
   apart from `timing` and per-gate `_s` — checked by `selftest.sh` (pass).
 - (not done: two runs from two fresh **agent-next sandboxes** — `sbx create`
-  is not available inside this build sandbox; the lead runs `run.py`
-  end-to-end, which executes exactly the sequence above.)
+  is not available inside this build sandbox; `run.py` executes exactly the
+  sequence above end-to-end when run from outside.)
 - (not done: `REPRODUCE.md` independent reproduction by a different agent —
   happens before merge per DEMO-STANDARD.md.)
 
@@ -153,9 +153,9 @@ face, min wall 8.06 mm.
   manufacturability trip-wire, not a certified minimum. Documented in
   SPEC.md.
 
-## Clean-sequence rerun (lead's failure)
+## Clean-sequence rerun (earlier end-to-end failure)
 
-The lead's `run.py --ref sbx/demo-aicad-freecad-mcp-fix-p` run failed at the
+An earlier `run.py --ref sbx/demo-aicad-freecad-mcp-fix-p` run failed at the
 MCP drive step on a fresh sandbox (`FATAL: FreeCAD RPC addon is not listening
 on port 9875`). Root cause, reproduced in a clean build sandbox: the image
 ships `xvfb-run` but **not `xauth`**, and `xvfb-run` refuses to start without
@@ -183,7 +183,7 @@ wiped first with
 `rm -rf ~/.config/FreeCAD ~/.local/share/FreeCAD ~/.cache/freecad-mcp ~/freecad-1.0.1 ~/freecad-mcp-* ~/.venvs ~/FreeCAD_*.AppImage`
 plus `sudo apt-get purge -y xauth xvfb` (the fixed setup.sh must reinstall
 them) and no FreeCAD process left running. Environment: Debian 12, 2 vCPU,
-3 GB RAM, Python 3.12.15 — same image class as the lead's failing sandbox.
+3 GB RAM, Python 3.12.15 — same image class as that failing sandbox.
 
 Step 1 — clone (as `run.py` sends it):
 
@@ -215,7 +215,7 @@ SETUP_DONE
 EXIT=0   wall ≈ 277 s
 ```
 
-Step 3 — MCP drive (the step that failed for the lead):
+Step 3 — MCP drive (the step that had failed):
 
 ```
 $ xvfb-run -a -s "-screen 0 1280x1024x24" $FREECAD_DIR/usr/bin/freecad \
@@ -262,6 +262,6 @@ bracket  EXIT=0  wall 10.7 s   all_pass: True, 7/7 gates
 ```
 
 `python3 -m py_compile run.py` and `python3 -m py_compile
-driver/drive_freecad.py`: clean. Still not done here: the lead's
-end-to-end `sbx create → … → sbx kill` wrapper itself (no `sbx` CLI inside
-this build sandbox — same limitation as noted above).
+driver/drive_freecad.py`: clean. Still not done here: the end-to-end
+`sbx create → … → sbx kill` wrapper itself (no `sbx` CLI inside this build
+sandbox — same limitation as noted above).

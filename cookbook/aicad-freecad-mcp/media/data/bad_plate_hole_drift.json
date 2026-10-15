@@ -1,6 +1,6 @@
 {
   "all_pass": false,
-  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/bad/plate_hole_drift",
+  "artifact": "cookbook/aicad-freecad-mcp/examples/bad/plate_hole_drift",
   "artifact_files": [
     "plate"
   ],

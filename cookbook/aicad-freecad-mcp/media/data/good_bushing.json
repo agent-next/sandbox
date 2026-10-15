@@ -1,6 +1,6 @@
 {
   "all_pass": true,
-  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/good/bushing",
+  "artifact": "cookbook/aicad-freecad-mcp/examples/good/bushing",
   "artifact_files": [
     "bushing"
   ],

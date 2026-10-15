@@ -1,6 +1,6 @@
 {
   "all_pass": false,
-  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/bad/bushing_stl_flip",
+  "artifact": "cookbook/aicad-freecad-mcp/examples/bad/bushing_stl_flip",
   "artifact_files": [
     "bushing"
   ],

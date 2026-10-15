@@ -1,6 +1,6 @@
 {
   "all_pass": false,
-  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/bad/plate_hole_count_5",
+  "artifact": "cookbook/aicad-freecad-mcp/examples/bad/plate_hole_count_5",
   "artifact_files": [
     "plate"
   ],

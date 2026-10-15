@@ -1,6 +1,6 @@
 {
   "all_pass": false,
-  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/bad/plate_scale_25_4",
+  "artifact": "cookbook/aicad-freecad-mcp/examples/bad/plate_scale_25_4",
   "artifact_files": [
     "plate"
   ],

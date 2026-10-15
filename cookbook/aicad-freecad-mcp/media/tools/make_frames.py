@@ -9,7 +9,7 @@ and no number is invented: the captions carry the real spec dimensions
 
 Frames land in media/master/frames/ (git-ignored) as frame_%05d.png;
 media/make_media.sh encodes them. Every burned-in caption is at least
-44 px tall (owner rule: readable muted on a phone).
+44 px tall (readability rule: readable muted on a phone).
 """
 import argparse
 import os
@@ -29,7 +29,7 @@ FPS = 30
 W, H = 1920, 1080
 FRAMES = os.path.join(kit.MEDIA, "master", "frames")
 GOOD = os.path.join(kit.ROOT, "examples", "good")
-CAP_MIN = 44                      # floor for every caption, per the owner rule
+CAP_MIN = 44                      # floor for every caption, per the readability rule
 
 # (part, camera pitch, spec line built from specs/<part>.md)
 TOUR = [

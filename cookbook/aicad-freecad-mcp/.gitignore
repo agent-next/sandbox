@@ -1,3 +1,4 @@
 examples/bad/
 __pycache__/
 media/master/
+media/.venv/

@@ -17,8 +17,7 @@ achieved via shot changes) | caption cap height ≥ 4 % of frame height (≥ 44 
 | payoff visible by ≤ 2 s | readable muted on a phone | every number traces
 to `media/data/*.json` (same numbers as RECEIPT.md) | every part frame is a
 pyrender+OSMesa render of the real FreeCAD-built mesh — no matplotlib in the
-video, matplotlib only for the gate-matrix/kill-bar panels in `loop.png` per
-the owner rule.
+video, matplotlib only for the gate-matrix/kill-bar panels in `loop.png`.
 
 Timing plan (36.0 s, cuts marked ✂):
 

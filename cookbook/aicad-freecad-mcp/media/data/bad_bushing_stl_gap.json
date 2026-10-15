@@ -1,6 +1,6 @@
 {
   "all_pass": false,
-  "artifact": "/home/user/w/cookbook/aicad-freecad-mcp/examples/bad/bushing_stl_gap",
+  "artifact": "cookbook/aicad-freecad-mcp/examples/bad/bushing_stl_gap",
   "artifact_files": [
     "bushing"
   ],
