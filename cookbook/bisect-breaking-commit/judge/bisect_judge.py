@@ -143,10 +143,10 @@ def grade(artifact: Path, seed: int) -> dict:
     try:
         _grade(artifact, seed, gates, timing)
     except GateFail as exc:
-        return {"artifact": str(artifact), "seed": seed, "passed": False,
+        return {"artifact": artifact.name, "seed": seed, "passed": False,
                 "failed_gate": exc.gate, "reason": exc.message,
                 "gates": gates, "timing": timing}
-    return {"artifact": str(artifact), "seed": seed, "passed": True,
+    return {"artifact": artifact.name, "seed": seed, "passed": True,
             "gates": gates, "timing": timing}
 
 

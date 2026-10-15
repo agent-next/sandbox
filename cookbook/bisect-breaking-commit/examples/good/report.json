@@ -1,0 +1,13 @@
+{
+  "identified_commit": "22fbdb56e412a94b0b5de02466d8027ba1a74058",
+  "identified_index": 25,
+  "evidence": {
+    "n_minus_1_passes": true,
+    "n_fails": true
+  },
+  "diff": "diff --git a/caseparser.py b/caseparser.py\nindex 35cbcfa..96eaaca 100644\n--- a/caseparser.py\n+++ b/caseparser.py\n@@ -20,7 +20,7 @@ def parse(text):\n         if line == BEGIN:\n             cur = {}\n             continue\n-        if line == END:\n+        if line.strip() == END:\n             if cur is None:\n                 raise ValueError(\"ENDCASE without CASE\")\n             cases.append(cur)\ndiff --git a/version.txt b/version.txt\nindex a45fd52..7273c0f 100644\n--- a/version.txt\n+++ b/version.txt\n@@ -1 +1 @@\n-24\n+25\n",
+  "serial_seconds": 39.397,
+  "parallel_seconds": 10.083,
+  "speedup": 3.907,
+  "sandboxes_used": 11
+}
