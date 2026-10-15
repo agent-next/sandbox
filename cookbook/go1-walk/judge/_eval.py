@@ -96,10 +96,12 @@ def evaluate(env, policy, steps, cmd, torch):
     d = env.qpos[:, :2] - start_xy
     T = steps * 0.02
     fwd = d[:, 0] / T  # initial heading is +x for every env (identity quat)
+    # fraction of all (env, step, actuator) samples at >= 99% of forcerange
+    sat_frac = float(sat.float().mean()) / (steps * E.N_JOINTS)
     return {"forward_mps": round(float(fwd.mean()), NORM4),
             "min_forward_mps": round(float(fwd.min()), NORM4),
             "fall_rate": round(float((~alive).float().mean()), NORM4),
-            "sat_frac": round(float(sat.float().mean() / steps), NORM4)}
+            "sat_frac": round(sat_frac, NORM4)}
 
 
 def zero_policy(obs):

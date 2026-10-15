@@ -40,12 +40,11 @@ def build_nets(obs_dim=E.OBS_DIM, n_act=E.N_JOINTS, hidden=(512, 256, 128),
 
 
 def save_policy(actor, path, meta):
-    import torch
     sd = actor.state_dict()
-    arrays = {f"w{i}": v.detach().cpu().numpy() for i, v in
-              enumerate(sd.values()) if v.ndim == 2}
-    arrays.update({f"b{i}": v.detach().cpu().numpy() for i, v in
-                   enumerate(sd.values()) if v.ndim == 1})
+    ws = [v.detach().cpu().numpy() for v in sd.values() if v.ndim == 2]
+    bs = [v.detach().cpu().numpy() for v in sd.values() if v.ndim == 1]
+    arrays = {f"w{i}": v for i, v in enumerate(ws)}
+    arrays.update({f"b{i}": v for i, v in enumerate(bs)})
     arrays["__meta__"] = np.frombuffer(json.dumps(meta).encode(),
                                        dtype=np.uint8)
     np.savez(path, **arrays)

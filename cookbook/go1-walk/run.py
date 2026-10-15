@@ -56,10 +56,16 @@ for name, b64 in FILES.items():
         fh.write(base64.b64decode(b64))
 for _m in ('env', 'train', '_eval'):
     sys.modules.pop(_m, None)
+import importlib.metadata as im
 import subprocess
 v = {}
-for mod in ('warp', 'mujoco', 'mujoco_warp', 'torch', 'numpy'):
-    v[mod] = getattr(__import__(mod), '__version__', '?')
+# dist names, not module names; importing torch here would pre-reserve
+# VRAM in the persistent worker for the whole lease
+for dist in ('warp-lang', 'mujoco', 'mujoco-warp', 'torch', 'numpy'):
+    try:
+        v[dist] = im.version(dist)
+    except Exception:
+        v[dist] = '?'
 out = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total',
                       '--format=csv,noheader'],
                      capture_output=True, text=True, timeout=10)
@@ -125,6 +131,9 @@ def main():
                     help="after grading, also grade good+mutants and print "
                          "the kill rate")
     ap.add_argument("--seeds", default="101,202,303")
+    ap.add_argument("--outdir", default=os.path.join(HERE, "out"),
+                    help="local dir for the trained artifact "
+                         "(policy.npz + curve.json)")
     a = ap.parse_args()
 
     key = os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")
@@ -185,6 +194,13 @@ def main():
                 print(f"  walk check it {e['it']}: "
                       f"{e['forward_mps']} m/s upright {e['upright']}",
                       flush=True)
+            os.makedirs(a.outdir, exist_ok=True)
+            for remote in ("out/policy.npz", "out/curve.json"):
+                data = lease.fetch_file(f"~/go1job/{remote}")
+                dst = os.path.join(a.outdir, os.path.basename(remote))
+                with open(dst, "wb") as fh:
+                    fh.write(data)
+                print(f"  saved {dst} ({len(data)} bytes)", flush=True)
             eval_args = ["--policy", "out/policy.npz"]
 
         eval_args += ["--json", "verdict_out.json", "--seeds", a.seeds]
