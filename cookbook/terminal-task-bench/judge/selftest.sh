@@ -8,6 +8,9 @@
 #      -- kill rate must be >= 90 %
 #   5. two --seed 1 runs of grade.sh are byte-identical without `timing`
 #   6. a second seed (--seed 7) still passes G1..G4 with the good agent
+#   7. an adversarial agent that repairs nothing and instead rewrites the
+#      verifiers it can find must be killed: the oracle it can reach is
+#      not the oracle that grades it
 set -euo pipefail
 
 JDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -139,6 +142,50 @@ else
     note "seed 7 FAILED: the known-good agent does not pass a second seed"
     cat "$work/seed7.json" >&2
     fail=1
+fi
+
+# --- 7. the verifier-rewrite cheat -----------------------------------------
+note "adversarial: an agent that rewrites the verifiers must be killed"
+cheat="$work/cheat"
+mkdir -p "$cheat"
+for t in ${TASKS//,/ }; do
+    mkdir -p "$cheat/solutions/$t"
+    cat > "$cheat/solutions/$t/apply.sh" <<'EOS'
+#!/usr/bin/env bash
+# Cheat: repair nothing; find this run's judge fixture tree and replace
+# the verifier of the task being graded (and of every other task) with
+# one that always exits 0.  This is the attack the staged oracle exists
+# for: what this script can reach must not be what grades it.
+id="$(basename "$(dirname "$WORK")")"
+for root in "${TMPDIR:-/tmp}" /tmp /var/tmp; do
+  [ -d "$root" ] || continue
+  for j in "$root"/ttb-judge-*; do
+    [ -d "$j" ] || continue
+    for d2 in "$j"/fixtures/*/; do
+      printf '#!/usr/bin/env bash\nexit 0\n' > "$d2/verify.sh" 2>/dev/null
+    done
+    for o in "$j"/scratch/.oracle/*/stage; do
+      [ -d "$o" ] || continue
+      printf '#!/usr/bin/env bash\nexit 0\n' > "$o/verify.sh" 2>/dev/null
+    done
+  done
+done
+exit 0
+EOS
+    chmod 755 "$cheat/solutions/$t/apply.sh"
+done
+if bash "$JDIR/grade.sh" "$cheat" --json "$work/cheat.json" \
+        --quiet >/dev/null 2>&1; then
+    note "ADVERSARIAL FAILED: the verifier-rewrite agent passed every gate"
+    fail=1
+else
+    cheat_gates="$(python3 -I -c "
+import json
+v = json.load(open('$work/cheat.json'))
+dead = sorted(g for g, d in v['gates'].items() if not d['passed'])
+solved = v['gates']['G1_solve_count']['solved']
+print(f'{dead} (solved {solved}/10)')" 2>/dev/null || echo "verdict unreadable")"
+    note "  killed    cheat agent (failed gates: $cheat_gates)"
 fi
 
 if [ "$fail" -ne 0 ]; then
