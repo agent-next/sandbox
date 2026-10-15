@@ -53,10 +53,10 @@ def render3d(out_w, out_h):
     pl.add_mesh(pd, scalars="layer_z", cmap="plasma", smooth_shading=True,
                 specular=0.35, specular_power=24, diffuse=0.8, ambient=0.3,
                 scalar_bar_args={"title": "layer Z (mm)", "vertical": True,
-                                 "position_x": 0.86, "position_y": 0.04,
+                                 "position_x": 0.045, "position_y": 0.70,
                                  "color": MUTED, "title_font_size": 20,
                                  "label_font_size": 18, "width": 0.05,
-                                 "height": 0.34})
+                                 "height": 0.24})
     stl = rt.bracket_mesh()
     pl.add_mesh(stl, color="#2e6f9e", opacity=0.16, smooth_shading=True,
                 specular=0.15, diffuse=0.6, ambient=0.3)
