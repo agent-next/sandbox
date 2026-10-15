@@ -17,7 +17,7 @@ machine grading it — the artifact is two JSON arrays.
 |---|---|
 | **result.png** | ![Good controller under the judge's spec envelope](media/result.png) |
 | **loop.png** | ![Agent loop replay — mutant × gate matrix](media/loop.png) |
-| **demo.mp4** | [56 s animation](media/demo.mp4) (1920×1080, H.264, 1.1 MB) |
+| **demo.mp4** | [52 s MuJoCo replay of the judged trajectories](media/demo.mp4) (1920×1080, H.264, 5.2 MB) |
 
 Key numbers from the judge verdict (seed 20260101, all 18 gates pass):
 - Scenario 1 θ settles in **0.70 s** (gate ≤ 5 s), overshoot **0 %** (gate ≤ 10 %)
