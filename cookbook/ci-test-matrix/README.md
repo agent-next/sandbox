@@ -68,13 +68,15 @@ naming the sandbox id if cleanup cannot be confirmed.
 
 | step | wall time |
 |---|---|
-| `git clone --depth 1` | ~1 s |
-| `judge/setup.sh` (fresh install) | 3.2 s (idempotent re-run: 0.1 s) |
-| `judge/selftest.sh` (good + 9 mutants + determinism) | ~4-6 min |
-| `judge/grade.sh examples/good/` | ~30 s |
+| `git clone --depth 1` | ~6-10 s |
+| `judge/setup.sh` (fresh install) | ~6-12 s (a cold cache downloads and sha256-checks the uv tarball) |
+| `judge/selftest.sh` (good + 9 mutants + determinism) | ~4.5-5.5 min |
+| `judge/grade.sh examples/good/` | ~25-35 s |
 
-Whole run, including sandbox create and kill: a few minutes; grading itself is
-tens of seconds. `run.py` prints a per-step timing line.
+Whole run, including sandbox create and kill: ~5.5-6.5 minutes. The three
+fresh acceptance runs of 2026-10-15 (`RECEIPT.md`) all printed the same
+verdict, kill rate and per-step times. `run.py` prints a per-step timing
+line.
 
 ## Limits, plainly
 
