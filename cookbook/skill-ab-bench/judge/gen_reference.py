@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 """Write `judge/reference.json`: the judge's own reference answers per task.
 
-G4 uses this to prove a task is *identifiable*: the reference answer must
-pass the task's verifier, and every single-edit near-miss of it must fail.
-The answers are computed by `judge/verify.py` -- the judge's independent
-oracle -- and the near-misses by `judge/grade.py`'s deterministic single-edit
-generator, so the file is a function of the corpus and nothing else.
+Per task the file pins three things:
+
+  `expected`  the correct answer, computed by `judge/verify.py` -- the judge's
+              independent oracle;
+  `naive`     the answer the *no-skill* policy is defined to give (the corpus
+              pins it in `judge/gen_inputs.py`, and
+              `judge/tests/test_corpus.py` proves the policy produces it);
+  `placebo`   the answer the *placebo* policy is defined to give;
+  `bad`       deterministic single-edit near-misses of `expected`.
+
+G9 uses `expected`/`naive`/`placebo` to check that the record's arms are the
+arms the corpus defines -- without it, a harness could fabricate a no-skill
+arm out of answers the real policy never gives (and the record would be
+evidence about nothing).  G4 uses `expected`/`bad` to prove a task is
+*identifiable*.
 
     gen_reference.py            # writes judge/reference.json
     gen_reference.py --check    # exits non-zero if the file is stale
@@ -23,6 +33,7 @@ from pathlib import Path
 JDIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(JDIR))
 
+import arms     # noqa: E402
 import grade    # noqa: E402
 import verify   # noqa: E402
 
@@ -52,7 +63,18 @@ def build() -> dict:
         if accepted:
             raise SystemExit(f"gen_reference: {tid}'s verifier accepts the "
                              f"single-edit answer {accepted[0]!r}")
-        entries[tid] = {"expected": expected, "bad": bad}
+        # What each non-skill arm is *defined* to answer.  The no-skill
+        # answer is the corpus's own pinned `naive_answer`; the placebo's is
+        # what the placebo policy produces (asserted here so this file cannot
+        # drift from the policy the way the draft corpus did).
+        naive = task["naive_answer"]
+        placebo = arms.placebo_answer(task)
+        if arms.noskill_answer(task) != naive:
+            raise SystemExit(f"gen_reference: {tid}: the no-skill policy "
+                             f"answers {arms.noskill_answer(task)!r} but the "
+                             f"corpus pins {naive!r}")
+        entries[tid] = {"expected": expected, "naive": naive,
+                        "placebo": placebo, "bad": bad}
     return {"schema": "skill-ab-bench/reference/1", "tasks": entries}
 
 

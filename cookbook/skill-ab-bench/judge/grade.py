@@ -309,6 +309,58 @@ def gate_g4(tasks_by_id: dict, reference: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# G9 -- arm fidelity (the record must be the experiment it claims to be)
+# ---------------------------------------------------------------------------
+
+def gate_g9(record, reference: dict, arms_wanted: list[str]) -> dict:
+    """Every arm's answers must be the answers the corpus defines for it.
+
+    G2 and G3 check the record against *itself*: answers that disagree with
+    their own verdicts, or two arms sharing an answer with different
+    verdicts.  They cannot see a harness that fabricates the no-skill arm
+    out of answers the real policy never gives -- garbage that differs from
+    the skill arm, with honest `passed=False` verdicts, satisfies both and
+    manufactures the delta the gates then reward.
+
+    So the arms are pinned.  `judge/reference.json` records what each arm
+    answers for each task (the no-skill arm from the corpus's own pinned
+    `naive_answer`, the placebo from the placebo policy), and this gate
+    requires the record to match.  A bench may run a *different* no-skill
+    policy -- but then it must pin that policy's answers in the corpus and
+    regenerate this file, which is the point: the record and the corpus
+    cannot silently disagree.
+    """
+    problems: list[str] = []
+    ref_tasks = reference.get("tasks") if isinstance(reference, dict) else None
+    if not isinstance(ref_tasks, dict):
+        return {"pass": False, "problems": ["reference.json has no tasks object"]}
+    checked = 0
+    for task in record.get("tasks") or []:
+        if not isinstance(task, dict):
+            continue
+        tid = task.get("task_id")
+        entry = ref_tasks.get(tid)
+        if not isinstance(entry, dict):
+            continue
+        for arm, key in (("skill", "expected"), ("noskill", "naive"),
+                         ("placebo", "placebo")):
+            if arm not in arms_wanted or key not in entry:
+                continue
+            block = task.get(arm)
+            if not isinstance(block, dict):
+                continue
+            answer = block.get("answer")
+            if not isinstance(answer, str):
+                continue
+            checked += 1
+            if answer != entry[key]:
+                problems.append(
+                    f"{tid}/{arm}: recorded {answer!r} but the corpus defines "
+                    f"that arm's answer as {entry[key]!r}")
+    return {"pass": not problems, "problems": problems, "answers_checked": checked}
+
+
+# ---------------------------------------------------------------------------
 # G5-G7 -- the statistics
 # ---------------------------------------------------------------------------
 
@@ -458,6 +510,14 @@ def main() -> int:
                 failed_gate = name
                 break
 
+    # G9 runs after the statistics: a record whose delta is wrong is more
+    # fundamentally broken than one whose arms are fabricated, and the
+    # self-test requires each mutant to die at the gate it names.
+    if artifact_error is None and failed_gate is None:
+        gates["G9_arm_fidelity"] = gate_g9(record, reference, arms_wanted)
+        if not gates["G9_arm_fidelity"]["pass"]:
+            failed_gate = "G9_arm_fidelity"
+
     judge_after = tree_digest(judge_dir)
     judge_intact = judge_before == judge_after
     gates["G8_judge_integrity"] = {
@@ -471,7 +531,7 @@ def main() -> int:
         failed_gate = "G8_judge_integrity"
 
     all_pass = bool(gates) and all(g["pass"] for g in gates.values()) \
-        and artifact_error is None and len(gates) == 8
+        and artifact_error is None and len(gates) == 9
 
     verdict = {
         "schema": SCHEMA,

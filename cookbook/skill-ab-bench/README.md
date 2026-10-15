@@ -40,7 +40,7 @@ To run the judge on your own machine instead:
 ```bash
 bash cookbook/skill-ab-bench/judge/setup.sh       # pinned jq in ~/; stdlib judge
 bash cookbook/skill-ab-bench/judge/bench.py /tmp/bench   # 48 pairs -> results.json
-bash cookbook/skill-ab-bench/judge/selftest.sh    # known-good passes, 10/10 mutants killed
+bash cookbook/skill-ab-bench/judge/selftest.sh    # known-good passes, 11/11 mutants killed
                                                   # (also: stats vs published values, corpus vs policies)
 bash cookbook/skill-ab-bench/judge/grade.sh /tmp/bench --json /tmp/v.json
 ```
@@ -74,7 +74,7 @@ it passes — that loop is the demo:
 > `cookbook/skill-ab-bench/SPEC.md` carefully. You are to make the skill A/B
 > bench honest and green: `judge/bench.py` must run a 16-task × 3-arm
 > experiment (a skill arm, a no-skill arm and a placebo arm) and write
-> `results.json`; `judge/grade.py` must grade it against all eight gates and
+> `results.json`; `judge/grade.py` must grade it against all nine gates and
 > exit 0 only if every one passes. First run `judge/setup.sh`, then
 > `python3 -I judge/bench.py /tmp/bench` to produce a record, then iterate:
 > `bash judge/grade.sh /tmp/bench --json /tmp/v.json` and read the verdict

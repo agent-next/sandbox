@@ -120,6 +120,26 @@ def _mut_significant_placebo(record: dict) -> str:
     return f"placebo adopts {moved} skill answers (noskill-placebo = -31.25 pts)"
 
 
+def _mut_fabricated_arm(record: dict) -> str:
+    """Manufacture the no-skill arm out of answers the real policy never gives.
+
+    The cheat G2 and G3 cannot see: the answers differ from the skill arm's
+    (so G2's shared-answer check does not fire) and every verdict is honest
+    (so G3 replay agrees), yet the record is evidence about a no-skill arm
+    that never existed -- and it manufactures the 75 pt delta the gates then
+    reward.  G9 requires the arm's answers to be the ones the corpus defines.
+    """
+    n = 0
+    for i, task in enumerate(record["tasks"]):
+        if task["task_id"] in EASY:
+            continue
+        task["noskill"]["answer"] = f"WRONG-{i}"
+        task["noskill"]["passed"] = False
+        n += 1
+    return (f"noskill answers replaced with {n} fabricated strings "
+            f"(verdicts honest, G2/G3 blind)")
+
+
 def _mut_policy_relabelled(record: dict) -> str:
     """Relabel the placebo arm with the skill arm's policy name.
 
@@ -139,6 +159,7 @@ RECORD_MUTANTS = [
     ("marginal-win", "G5_power", _mut_marginal_win),
     ("significant-placebo", "G7_placebo_control", _mut_significant_placebo),
     ("policy-relabelled", "G1_record_shape", _mut_policy_relabelled),
+    ("fabricated-arm-answers", "G9_arm_fidelity", _mut_fabricated_arm),
 ]
 
 

@@ -104,9 +104,10 @@ All gates are numeric and deterministic. **Exit 0 only if every gate passes.**
 | **G6 effect size** | delta = (n_skill − n_noskill)/16 in pass-rate points must be **≥ 25.0 pts** and the bootstrap CI (two-sided, percentile method, **10 000 resamples**, seeded by `--seed` default `20261014`, resampling *tasks* independently within each arm) must have its **lower bound > 0**. |
 | **G7 placebo control** | When a `placebo` arm is present (the good record has one): delta_placebo = (n_noskill − n_placebo)/16 must have a bootstrap CI **containing 0**, and its absolute delta must be **< 10.0 pts** in absolute value. A bench that hands the win to a placebo fails. |
 | **G8 judge integrity** | The artifact directory is copied to a temp dir before grading, and `judge/` is checksummed (every file, by path and content) before and after: if anything moved, the grade fails closed. Determinism is not checked here — two runs of the same seed are compared byte-for-byte by `judge/selftest.sh`, which exits non-zero if they differ. |
+| **G9 arm fidelity** | For every task, each arm's recorded `answer` must equal the answer the corpus defines for that arm: the `skill` arm's answer must equal the reference `expected`, the `noskill` arm's must equal the corpus's pinned `naive_answer`, and the `placebo` arm's must equal the placebo policy's output. G2 and G3 check the record against *itself*; this gate checks it against the corpus, so a harness that fabricates an arm out of answers the real policy never gives cannot pass. |
 
 G8 always runs, even when an earlier gate stopped the grade, so a verdict
-always carries the integrity result. The other seven run in order and the
+always carries the integrity result. The other eight run in order and the
 first failure stops grading, so a record that is structurally wrong never
 reaches the statistics.
 
@@ -189,6 +190,7 @@ arm lands at 5/16.
   | a marginal 16/16 vs 12/16 win (a real 25 pt gap, Fisher p = 0.101) | G5 |
   | a placebo arm that inherits four skill answers (a placebo that "works") | G7 |
   | the placebo arm relabelled with the skill arm's policy name | G1 |
+  | the no-skill arm's answers replaced with fabricated strings the real policy never gives (verdicts honest, G2 and G3 blind) | G9 |
   | a copy of `judge/` with a drifted reference answer | G4 |
   | a copy of `judge/` with a task's known-bad answers removed | G4 |
   | a copy of `judge/` with a task whose oracle cannot be computed | G3 |
