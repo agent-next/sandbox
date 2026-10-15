@@ -128,18 +128,26 @@ def checkpoint_param_sha256(ckpt):
 
 def gate_weights_load(mod, weights_path):
     """build_model() must return a module whose parameters equal the pinned
-    checkpoint's params_ema tensors (sha256 over sorted name->bytes)."""
+    checkpoint's params_ema tensors (sha256 over sorted name->bytes).
+
+    Returns (model, problems); the model is reused by the later gates so
+    the 64 MB checkpoint is loaded once per grade."""
     ckpt = torch.load(weights_path, map_location="cpu", weights_only=False)
     want = checkpoint_param_sha256(ckpt)
+    # the artifact is graded from a copy in a temp dir, so its own relative
+    # weights path cannot resolve; point it at the judge's --weights file
+    # (the pinned checkpoint, sha256-verified above) before it builds.
+    if hasattr(mod, "WEIGHTS_PATH"):
+        mod.WEIGHTS_PATH = weights_path
     model = mod.build_model()
     if not isinstance(model, torch.nn.Module):
-        return ["build_model() did not return an nn.Module"]
+        return None, ["build_model() did not return an nn.Module"]
     if model.training:
-        return ["model is not in eval mode"]
+        return model, ["model is not in eval mode"]
     got = param_sha256(model)
     if got != want:
-        return [f"parameter sha256 {got} != pinned checkpoint {want}"]
-    return []
+        return model, [f"parameter sha256 {got} != pinned checkpoint {want}"]
+    return model, []
 
 
 def quant8(x):
@@ -163,9 +171,13 @@ def _gaussian_window():
 
 def ssim(a, b):
     """SSIM with the standard 11x11 Gaussian window (sigma 1.5), valid
-    padding, per channel averaged, L=1.0, on 8-bit-quantised [0,1] frames."""
-    a = quant8(a).unsqueeze(0)  # (1, 3, H, W)
-    b = quant8(b).unsqueeze(0)
+    padding, per channel averaged, L=1.0, on 8-bit-quantised [0,1] frames.
+    Accepts (N, 3, H, W) batches (a single frame is N=1)."""
+    a = quant8(a)
+    b = quant8(b)
+    if a.dim() == 3:  # (3, H, W) -> (1, 3, H, W)
+        a = a.unsqueeze(0)
+        b = b.unsqueeze(0)
     w = _gaussian_window().to(a.device)
     pad = torch.nn.ZeroPad2d(5)
     mu_a = F.conv2d(pad(a), w.unsqueeze(0).unsqueeze(0).expand(3, 1, 11, 11),
@@ -195,29 +207,47 @@ def downscale(orig):
     return F.interpolate(orig, scale_factor=0.25, mode="bicubic", antialias=True)
 
 
-def decode_clip(clip_path, work_dir):
-    """Decode the clip to (N,3,H,W) float32 [0,1] via ffmpeg into raw RGB."""
-    import numpy as np  # local import; numpy is pinned by setup.sh
-    probe = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", clip_path,
-         "-f", "null", "-"], capture_output=True, text=True)
-    # get geometry from the stream itself
-    out = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", clip_path,
-         "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
-        capture_output=True)
-    if out.returncode != 0:
-        raise RuntimeError("ffmpeg decode failed: " + out.stderr.decode()[-300:])
-    # probe width/height/fps for the frame count
+def clip_geometry(clip_path):
+    """(width, height, nb_frames) of the clip, from ffprobe."""
     meta = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
          "-show_entries", "stream=width,height,nb_frames",
          "-of", "csv=p=0", clip_path], capture_output=True, text=True)
+    if meta.returncode != 0:
+        raise RuntimeError("ffprobe failed: " + meta.stderr[-300:])
     w, h, n = meta.stdout.strip().split(",")
-    n = int(n)
-    buf = np.frombuffer(out.stdout, dtype=np.uint8)
-    frames = buf.reshape(n, h, w, 3).copy()
-    return torch.from_numpy(frames).permute(0, 3, 1, 2).float() / 255.0
+    return int(w), int(h), int(n)
+
+
+def decode_frames(clip_path, indices, geometry):
+    """Decode ONLY the requested frame indices to (N,3,H,W) float32 [0,1].
+
+    The clip is 600 frames of 1920x1080 (~4 GB as raw RGB, ~15 GB as
+    float32); decoding everything to grade 3 of them would exhaust the
+    sandbox's memory. One ffmpeg call per frame index keeps the judge in
+    bounded memory and the sampled frames identical to a full decode
+    (select, scale and the pixel format are deterministic).
+    """
+    import numpy as np  # local import; numpy is pinned by setup.sh
+    w, h, _ = geometry
+    frames = []
+    for idx in indices:
+        out = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", clip_path,
+             "-vf", f"select=eq(n\\,{idx})", "-vsync", "0",
+             "-frames:v", "1",
+             "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+            capture_output=True)
+        if out.returncode != 0:
+            raise RuntimeError(f"ffmpeg decode of frame {idx} failed: "
+                               + out.stderr.decode()[-300:])
+        buf = np.frombuffer(out.stdout, dtype=np.uint8)
+        if buf.size != h * w * 3:
+            raise RuntimeError(f"frame {idx}: decoded {buf.size} bytes, "
+                               f"expected {h * w * 3}")
+        frames.append(buf.reshape(1, h, w, 3).copy())
+    stacked = np.concatenate(frames, axis=0)
+    return torch.from_numpy(stacked).permute(0, 3, 1, 2).float() / 255.0
 
 
 def gate_contract(mod, model):
@@ -241,10 +271,13 @@ def gate_contract(mod, model):
     case["finite"] = bool(torch.isfinite(out).all().item())
     if not case["finite"]:
         problems.append("output contains non-finite values")
-    o = out.clamp(0.0, 1.0)
-    case["in_range"] = bool((o >= -0.001).all().item() and (o <= 1.001).all().item())
+    # range is checked on the raw output (clamping first would hide a
+    # violation); only the metric computation clamps.
+    case["in_range"] = bool((out >= -0.001).all().item()
+                            and (out <= 1.001).all().item())
     if not case["in_range"]:
         problems.append("output values outside [-0.001, 1.001]")
+    o = out.clamp(0.0, 1.0)
     case["input_intact"] = bool(torch.equal(x, before))
     if not case["input_intact"]:
         problems.append("input tensor was modified")
@@ -262,16 +295,34 @@ def gate_contract(mod, model):
     return problems, cases
 
 
-def gate_correctness(mod, model, clip, seed, n_frames):
+CROP_H, CROP_W = 540, 960  # graded region of each 1920x1080 frame
+
+
+def center_crop(frame):
+    """Deterministic graded region: the centre CROP_H x CROP_W patch.
+
+    The judge's lowered problem (SPEC.md): the region is cropped from the
+    original frame, downscaled x4, upscaled by the artifact, and compared
+    against the cropped original. Grading the region instead of the whole
+    frame keeps CPU grading bounded (~4 s/frame instead of ~70 s) while
+    using the real clip's content.
+    """
+    _, _, h, w = frame.shape
+    if h < CROP_H or w < CROP_W:
+        return frame  # clip smaller than the region: grade it whole
+    top, left = (h - CROP_H) // 2, (w - CROP_W) // 2
+    return frame[:, :, top:top + CROP_H, left:left + CROP_W]
+
+
+def gate_correctness(mod, model, orig_by_index, total, seed, n_frames):
     """Sample frames, downscale x4, upscale with the artifact, and compare
     against the original with PSNR/SSIM against the bicubic baseline."""
-    total = clip.shape[0]
     stride = max(1, total // n_frames)
     idxs = [(k * stride + seed) % total for k in range(n_frames)]
     frames = []
     worst = {"psnr_margin": None, "ssim_margin": None}
     for i in idxs:
-        orig = clip[i:i + 1]
+        orig = center_crop(orig_by_index[i])
         low = downscale(orig)
         try:
             out = mod.upscale_frames(model, low)
@@ -314,12 +365,21 @@ def gate_correctness(mod, model, clip, seed, n_frames):
     return frames, worst
 
 
-def gate_no_cheat(mod, model, clip):
-    """The output must not be a resample filter and must not duplicate
-    frames across the temporal axis."""
+def gate_no_cheat(mod, model, orig_by_index):
+    """The output must not be a resample filter and must not duplicate or
+    reorder frames across the temporal axis.
+
+    The temporal checks run on BOTH calling conventions the artifact
+    contract allows: frame-by-frame (N=1 batches, as gate 4 samples them)
+    and one multi-frame batch — an artifact that reorders or broadcasts
+    frames only when handed a batch must not pass (SPEC.md names
+    frame_reorder and frame-0-broadcast as cheats the judge must kill).
+    """
     problems = []
-    idxs = [0, 1, 2]
-    lows = [downscale(clip[i:i + 1]) for i in idxs]
+    idxs = [i for i in (0, 1, 2) if i in orig_by_index]
+    if len(idxs) < 2:
+        idxs = sorted(orig_by_index)[:3]  # tiny clips: whatever was decoded
+    lows = [downscale(center_crop(orig_by_index[i])) for i in idxs]
     try:
         outs = [mod.upscale_frames(model, l) for l in lows]
     except Exception as exc:
@@ -353,6 +413,37 @@ def gate_no_cheat(mod, model, clip):
                 problems.append(
                     f"outputs for distinct frames {idxs[i]}/{idxs[j]} are "
                     f"identical (max|diff|={d:.2e}): frame duplication")
+    # batch path: the same frames in one batch must land in the same order
+    # as graded one-by-one (kills reordering and frame-0 broadcast).
+    batch = torch.cat(lows, dim=0)  # (3, 3, H, W), input order preserved
+    before = batch.clone()
+    try:
+        out_batch = mod.upscale_frames(model, batch)
+    except Exception as exc:
+        problems.append(f"upscale_frames raised on a batch of {len(lows)} "
+                        f"frames: {type(exc).__name__}: {str(exc)[:200]}")
+        return problems
+    if not torch.equal(batch, before):
+        problems.append("input batch was modified")
+        return problems
+    if not isinstance(out_batch, torch.Tensor) or out_batch.shape[0] != len(lows):
+        problems.append(f"batch of {len(lows)} frames produced "
+                        f"{getattr(out_batch, 'shape', None)}: frame count "
+                        "not preserved")
+        return problems
+    for k, single in enumerate(outs):
+        if out_batch[k:k + 1].shape != single.shape:
+            problems.append(f"batch output frame {k} has shape "
+                            f"{tuple(out_batch[k:k + 1].shape)} != "
+                            f"{tuple(single.shape)}")
+            continue
+        d = float((out_batch[k:k + 1].clamp(0, 1) - single.clamp(0, 1)).abs()
+                  .max().item())
+        if d > FILTER_EPS:
+            problems.append(
+                f"batch output frame {k} differs from the same frame graded "
+                f"one-by-one (max|diff|={d:.2e}): frames reordered or "
+                "swapped inside a batch")
     return problems
 
 
@@ -413,8 +504,9 @@ def main():
             if rc == 0:
                 import time
                 t0 = time.monotonic()
+                model = None
                 try:
-                    problems = gate_weights_load(mod, args.weights)
+                    model, problems = gate_weights_load(mod, args.weights)
                 except Exception as exc:
                     problems = [f"{type(exc).__name__}: {str(exc)[:300]}"]
                 verdict["timing"]["build_model_s"] = round(time.monotonic() - t0, 3)
@@ -423,9 +515,7 @@ def main():
                 if problems:
                     rc = 1
 
-        model = None
         if rc == 0:
-            model = mod.build_model()
             import time
             t0 = time.monotonic()
             try:
@@ -438,22 +528,31 @@ def main():
             if problems:
                 rc = 1
 
+        orig_by_index = {}
         if rc == 0:
             import time
-            t0 = time.monotonic()
             try:
-                clip = decode_clip(args.clip, tmp)
+                geometry = clip_geometry(args.clip)
+                w, h, total = geometry
+                stride = max(1, total // max(1, args.frames))
+                sample_idxs = sorted(set(
+                    [(k * stride + args.seed) % total
+                     for k in range(max(1, args.frames))] + [0, 1, 2]))
+                t0 = time.monotonic()
+                clip_frames = decode_frames(args.clip, sample_idxs, geometry)
             except Exception as exc:
                 verdict["gates"]["correctness"] = {
                     "pass": False,
                     "problems": [f"clip decode failed: {str(exc)[:300]}"]}
                 rc = 1
             else:
+                orig_by_index = {i: clip_frames[k:k + 1]
+                                 for k, i in enumerate(sample_idxs)}
                 verdict["timing"]["decode_s"] = round(time.monotonic() - t0, 3)
                 t0 = time.monotonic()
                 try:
-                    frames, worst = gate_correctness(mod, model, clip,
-                                                     args.seed, args.frames)
+                    frames, worst = gate_correctness(mod, model, orig_by_index,
+                                                     total, args.seed, args.frames)
                 except Exception as exc:
                     frames, worst = [], {"error": str(exc)[:200]}
                 verdict["timing"]["correctness_s"] = round(time.monotonic() - t0, 3)
@@ -461,6 +560,7 @@ def main():
                 verdict["gates"]["correctness"] = {
                     "pass": not bad,
                     "cases": len(frames),
+                    "crop": [CROP_H, CROP_W],
                     "failed": [f"{f['index']}:{f.get('error', 'metrics')}"
                                for f in bad],
                     "frames": frames, "worst": worst}
@@ -471,7 +571,7 @@ def main():
             import time
             t0 = time.monotonic()
             try:
-                problems = gate_no_cheat(mod, model, clip)
+                problems = gate_no_cheat(mod, model, orig_by_index)
             except Exception as exc:
                 problems = [f"{type(exc).__name__}: {str(exc)[:300]}"]
             verdict["timing"]["no_cheat_s"] = round(time.monotonic() - t0, 3)

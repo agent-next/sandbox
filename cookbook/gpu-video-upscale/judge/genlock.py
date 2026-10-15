@@ -48,11 +48,13 @@ def pypi_wheel(pkg, ver, filename):
     """(filename, sha256) for exactly this file of exactly this release."""
     data = get_json(f"{PYPI_JSON}/{pkg}/{ver}/json")
     for entry in data["urls"]:
-        if entry["filename"] == filename:
+        # PyPI normalises some project names in filenames (MarkupSafe
+        # publishes markupsafe-*.whl), so match case-insensitively.
+        if entry["filename"].lower() == filename.lower():
             digest = entry["digests"]["sha256"]
             if len(digest) != 64:
-                raise SystemExit(f"{filename}: digest is not sha256")
-            return filename, digest
+                raise SystemExit(f"{entry['filename']}: digest is not sha256")
+            return entry["filename"], digest
     raise SystemExit(f"{pkg} {ver}: no file named {filename}")
 
 
@@ -89,7 +91,7 @@ def wheels_for(tag):
     for pkg, ver in sorted(DEPS.items()):
         tagstem = tag if pkg == "MarkupSafe" else None
         if tagstem:
-            fn = (f"{pkg}-{ver}-{tag}-{tag}-manylinux2014_x86_64."
+            fn = (f"markupsafe-{ver}-{tag}-{tag}-manylinux2014_x86_64."
                   f"manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl")
         else:
             fn = f"{pkg}-{ver}-py3-none-any.whl"

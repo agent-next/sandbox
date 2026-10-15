@@ -15,7 +15,8 @@ import torch.nn.functional as F
 
 MODEL_SHA256 = "4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1"
 SCALE = 4
-# The judge overrides this with --weights before calling build_model().
+# Overridden by the judge (it builds the model from --weights, not from
+# disk paths); this default works when the demo tree is on disk as-is.
 WEIGHTS_PATH = "data/weights/RealESRGAN_x4plus.pth"
 
 
@@ -24,23 +25,27 @@ def _default_conv(in_c, out_c, k, bias=True):
 
 
 class ResidualDenseBlock(nn.Module):
-    """RDB: 5 conv layers, each concatenated with all previous features."""
+    """RDB: 5 conv layers, each concatenated with all previous features.
+
+    Attribute names (conv1..conv5) match the released checkpoint keys
+    (body.N.rdbK.convJ.*) so load_state_dict maps them without renaming.
+    """
 
     def __init__(self, nc=64, gc=32):
         super().__init__()
-        self.c1 = _default_conv(nc, gc, 3)
-        self.c2 = _default_conv(nc + gc, gc, 3)
-        self.c3 = _default_conv(nc + 2 * gc, gc, 3)
-        self.c4 = _default_conv(nc + 3 * gc, gc, 3)
-        self.c5 = _default_conv(nc + 4 * gc, nc, 3)
+        self.conv1 = _default_conv(nc, gc, 3)
+        self.conv2 = _default_conv(nc + gc, gc, 3)
+        self.conv3 = _default_conv(nc + 2 * gc, gc, 3)
+        self.conv4 = _default_conv(nc + 3 * gc, gc, 3)
+        self.conv5 = _default_conv(nc + 4 * gc, nc, 3)
         self.act = nn.LeakyReLU(negative_slope=0.2, inplace=True)
 
     def forward(self, x):
-        x1 = self.act(self.c1(x))
-        x2 = self.act(self.c2(torch.cat((x, x1), 1)))
-        x3 = self.act(self.c3(torch.cat((x, x1, x2), 1)))
-        x4 = self.act(self.c4(torch.cat((x, x1, x2, x3), 1)))
-        x5 = self.c5(torch.cat((x, x1, x2, x3, x4), 1))
+        x1 = self.act(self.conv1(x))
+        x2 = self.act(self.conv2(torch.cat((x, x1), 1)))
+        x3 = self.act(self.conv3(torch.cat((x, x1, x2), 1)))
+        x4 = self.act(self.conv4(torch.cat((x, x1, x2, x3), 1)))
+        x5 = self.conv5(torch.cat((x, x1, x2, x3, x4), 1))
         return x5 * 0.2 + x
 
 
@@ -91,6 +96,9 @@ class RRDBNet(nn.Module):
 def build_model():
     """Return the RRDBNet in eval mode with the pinned x4plus weights loaded."""
     model = RRDBNet()
+    checkpoint = torch.load(WEIGHTS_PATH, map_location="cpu", weights_only=False)
+    params = checkpoint.get("params_ema", checkpoint)
+    model.load_state_dict(params, strict=True)
     model.eval()
     return model
 
