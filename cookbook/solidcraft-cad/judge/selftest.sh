@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # solidcraft-cad self-test: prove the judge can fail.
-#   1. the known-good artifact passes every gate
+#   1. every known-good artifact in examples/good/ passes every gate
 #   2. every known-bad single-edit mutant fails at least one gate
 #   3. kill rate >= 90 %, else exit non-zero
 #   4. same seed twice -> byte-identical verdict JSON except `timing`
@@ -13,14 +13,20 @@ GOOD="$DEMO/examples/good/design.json"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-echo "selftest: grading known-good $GOOD"
-if bash "$JDIR/grade.sh" "$GOOD" --json "$work/good.json" > /dev/null; then
-    echo "selftest: known-good PASSED all gates"
-else
-    echo "selftest: known-good FAILED -- the judge or the example is broken" >&2
-    cat "$work/good.json" >&2
-    exit 1
-fi
+# Every file in examples/good/ is a valid design and must pass: design.json
+# (sketch + extrude) and design-csg.json (boxes and cylinders combined, the
+# way an independent agent modelled it; SolidCraft exports its rotated
+# cylinders as B-spline faces).
+for g in "$DEMO"/examples/good/*.json; do
+    echo "selftest: grading known-good $g"
+    if bash "$JDIR/grade.sh" "$g" --json "$work/good.json" > /dev/null; then
+        echo "selftest: known-good PASSED all gates"
+    else
+        echo "selftest: known-good FAILED -- the judge or the example is broken" >&2
+        cat "$work/good.json" >&2
+        exit 1
+    fi
+done
 
 python3 -I "$JDIR/mutants.py" "$GOOD" "$work/mutants" > "$work/mutants.log"
 cat "$work/mutants.log"
