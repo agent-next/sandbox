@@ -8,7 +8,7 @@ and confirms it is gone.  Needs the `sbx` CLI (pip install
 "git+https://github.com/agent-next/sandbox#subdirectory=cli") and
 SBX_API_KEY (or E2B_API_KEY) in the environment.
 
-Usage: python3 run.py [--ref main] [--keep] [--jobs N]
+Usage: python3 run.py [--ref main] [--keep]
 """
 
 from __future__ import annotations
@@ -60,8 +60,6 @@ def main() -> int:
                     help="repo ref to clone (default main)")
     ap.add_argument("--keep", action="store_true",
                     help="leave the sandbox up and print its id")
-    ap.add_argument("--jobs", type=int, default=2,
-                    help="parallel tasks inside the sandbox (default 2)")
     args = ap.parse_args()
 
     if sbx("--version").returncode != 0:
@@ -95,16 +93,21 @@ def main() -> int:
         in_sandbox("judge/setup.sh", "bash judge/setup.sh", 600)
         in_sandbox("judge/selftest.sh", "bash judge/selftest.sh", 1200,
                    echo=True)
-        graded = in_sandbox(
+        in_sandbox(
             f"judge/grade.sh {AGENT}",
-            f"bash judge/grade.sh {AGENT} --jobs {args.jobs} "
+            f"bash judge/grade.sh {AGENT} "
             "--json /tmp/verdict.json", 900, echo=True)
 
+        # parse the verdict from the JSON file the judge wrote, not by
+        # scraping the progress lines off stdout
+        verdict_raw = step("read verdict.json",
+                           lambda: sbx("exec", sid, "--timeout", "60", "--",
+                                       "cat /tmp/verdict.json"))
         try:
-            verdict = json.loads(graded.stdout[graded.stdout.rindex("{"):])
-        except (ValueError, json.JSONDecodeError) as exc:
+            verdict = json.loads(verdict_raw.stdout)
+        except json.JSONDecodeError as exc:
             raise Failure(f"could not parse the verdict JSON: {exc}\n"
-                          f"{graded.stdout[-1500:]}") from exc
+                          f"{verdict_raw.stdout[-1500:]}") from exc
 
         gates = verdict.get("gates", {})
         timing = verdict.get("timing", {})

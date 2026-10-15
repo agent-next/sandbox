@@ -27,10 +27,22 @@ does nothing scores zero.
 | G2 | every pristine tree fails its own verifier | **10/10 rejected** |
 | G3 | a `true`-only agent scores 0/10 | **0/10** |
 | G4 | total verifier wall time ≤ 300 s | **~5 s** (2 vCPU) |
-| G5 | the agent cannot modify `judge/` | **unchanged** |
+| G5 | the agent cannot change what grades it | **oracle untouched** |
 
 **Self-test kill rate: 12/12 = 100 %** — twelve scripted single-edit mutants
-of the good agent, each killed on the task it targets.
+of the good agent, each killed on the task it targets. The self-test also
+kills an **adversarial agent** that repairs nothing and rewrites every
+verifier it can reach: the oracle that grades a task is staged before the
+agent runs and byte-checked before the verifier executes, so the rewrite
+scores 0/10 (see `media/result.png`).
+
+## See it without running it
+
+`media/result.png` (tasks solved per arm against the G1 pass line),
+`media/loop.png` (kill rate and every arm's gate outcomes) and
+`media/demo.mp4` (24 s captioned step-through) are produced by
+`media/make_media.sh` from real judge runs; `media/MANIFEST.json` records
+each file's command, source data and sha256.
 
 ## Ask your agent
 
@@ -56,7 +68,7 @@ verified by the same gates. A working agent does not have to look like it.
 ```bash
 pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 export SBX_API_KEY=<your key>
-python3 cookbook/terminal-task-bench/run.py        # --ref main --keep --jobs N
+python3 cookbook/terminal-task-bench/run.py        # --ref main --keep
 ```
 
 Creates a sandbox, clones the repo, installs the pinned tools, runs the

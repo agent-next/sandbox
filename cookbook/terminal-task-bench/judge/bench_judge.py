@@ -81,6 +81,9 @@ MAX_TOTAL_VERIFY_SECONDS = 300.0
 # the seeded tree or the seed is passed to the agent under test.
 AGENT_ENV_ALLOWLIST = ("PATH", "LANG", "LC_ALL", "HOME", "TMPDIR")
 
+# the two files that make up a task's oracle
+ORACLE_FILES = ("verify.sh", "expected.json")
+
 
 def sha256_tree(root: str) -> str:
     """Cheap integrity fingerprint of a directory tree."""
@@ -202,6 +205,19 @@ def hash_or_gone(path: str) -> str:
         return "<gone>"
 
 
+def hash_oracle(taskdir: str) -> dict:
+    """sha256 of each oracle file in a fixture task dir, by name.
+
+    Called once per task on the freshly generated tree (before any
+    verifier or agent has run), the result is the birth fingerprint every
+    later staging must match: an oracle that changed after generation --
+    including one poisoned by an earlier task's apply.sh -- is tampered,
+    however self-consistent it looks later.
+    """
+    return {name: hash_or_gone(os.path.join(taskdir, name))
+            for name in ORACLE_FILES}
+
+
 def stage_oracle(taskdir: str, stage: str) -> tuple:
     """Copy the oracle (verify.sh + expected.json, nothing else) out of the
     generated fixture tree into a private staging dir and fingerprint every
@@ -212,7 +228,7 @@ def stage_oracle(taskdir: str, stage: str) -> tuple:
     """
     hashes, staged = {}, {}
     os.makedirs(stage, exist_ok=True)
-    for name in ("verify.sh", "expected.json"):
+    for name in ORACLE_FILES:
         dst = os.path.join(stage, name)
         shutil.copy2(os.path.join(taskdir, name), dst)
         os.chmod(dst, 0o700)
@@ -297,15 +313,18 @@ def reset_dir(path: str) -> None:
     os.makedirs(path)
 
 
-def grade_task(agent: str, fixtures: str, scratch_root: str, task: str):
+def grade_task(agent: str, fixtures: str, scratch_root: str, task: str,
+               birth: dict):
     """Repair one task in its own copy of the fixture and verify it.
 
     The order is the security property.  The oracle for this task
-    (verify.sh + expected.json) is copied out and fingerprinted BEFORE
-    apply.sh runs; the agent runs alone in its own session, which is then
-    reaped; the staged bytes are re-checked; and only then does the
-    verifier execute, from the judge's staged copy.  See
-    verify_with_staged_oracle for what that rules out.
+    (verify.sh + expected.json) is staged and fingerprinted BEFORE
+    apply.sh runs, and the staged bytes must equal the *birth*
+    fingerprint taken on the freshly generated tree -- so an oracle an
+    earlier task's apply.sh already poisoned is caught here, not by the
+    tree hash alone.  The agent runs in its own session, which is reaped;
+    the staged bytes are re-checked; and only then does the verifier
+    execute, from the judge's staged copy.
     """
     src = os.path.join(fixtures, task)
     dst = os.path.join(scratch_root, task)
@@ -330,6 +349,14 @@ def grade_task(agent: str, fixtures: str, scratch_root: str, task: str):
         result["verify_output"] = f"oracle unreadable before apply ran: {exc}"
         return result
 
+    # it must be the oracle as generated, not as some earlier task left it
+    if before != birth:
+        result["oracle_ok"] = False
+        result["verify_output"] = (
+            "oracle changed after fixture generation (before this task's "
+            "agent ran) -- refusing to grade against it")
+        return result
+
     if not os.path.isfile(apply_sh):
         result["apply_output"] = f"no solution at solutions/{task}/apply.sh"
         return result
@@ -351,7 +378,7 @@ def grade_task(agent: str, fixtures: str, scratch_root: str, task: str):
     return result
 
 
-def check_pristine(fixtures: str, task: str, scratch_root: str):
+def check_pristine(fixtures: str, task: str, scratch_root: str, birth: dict):
     """G2: the broken tree must fail its own verifier.
 
     Run against a throwaway copy, for the same reason agent work is: a
@@ -369,6 +396,8 @@ def check_pristine(fixtures: str, task: str, scratch_root: str):
     shutil.copytree(os.path.join(taskdir, "work"), work, symlinks=True)
 
     before, staged = stage_oracle(taskdir, os.path.join(oracle_root, "stage"))
+    if before != birth:
+        return 1, "oracle changed after fixture generation"
     rc, out, _, _ = verify_with_staged_oracle(before, staged, work,
                                               oracle_root)
     return rc, out[-2000:]
@@ -396,10 +425,17 @@ def grade(agent: str, seed: int, tasks, verbose: bool) -> dict:
         scratch = os.path.join(workdir, "scratch")
         os.makedirs(scratch, exist_ok=True)
 
+        # --- the birth fingerprint of every oracle ------------------------
+        # Taken on the freshly generated tree, before any verifier or
+        # agent runs.  Everything staged later must match it, so an oracle
+        # poisoned by an earlier task's apply.sh cannot grade a later one.
+        birth = {task: hash_oracle(os.path.join(fixtures, task))
+                 for task in tasks}
+
         # --- G2: pristine trees must fail (against copies; see above) ----
         pristine = {}
         for task in tasks:
-            rc, out = check_pristine(fixtures, task, scratch)
+            rc, out = check_pristine(fixtures, task, scratch, birth[task])
             pristine[task] = {"verify_exit": rc, "fails": rc != 0,
                               "output": out}
 
@@ -418,7 +454,8 @@ def grade(agent: str, seed: int, tasks, verbose: bool) -> dict:
         # apply.sh, and only one agent session is alive at a time)
         results = {}
         for task in tasks:
-            results[task] = grade_task(agent, fixtures, scratch, task)
+            results[task] = grade_task(agent, fixtures, scratch, task,
+                                       birth[task])
             if verbose:
                 r = results[task]
                 print(f"judge: {task}: apply={r['apply_exit']} "
@@ -435,7 +472,8 @@ def grade(agent: str, seed: int, tasks, verbose: bool) -> dict:
         os.makedirs(neg_scratch, exist_ok=True)
         neg_results = {}
         for task in tasks:
-            neg_results[task] = grade_task(negctl, fixtures, neg_scratch, task)
+            neg_results[task] = grade_task(negctl, fixtures, neg_scratch,
+                                           task, birth[task])
         neg_solved = sum(1 for r in neg_results.values() if r["solved"])
 
         # --- snapshot the oracle trees again after everything ran ---------

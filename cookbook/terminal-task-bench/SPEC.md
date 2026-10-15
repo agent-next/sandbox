@@ -54,12 +54,23 @@ For each of the ten task ids the judge:
 
 1. copies the fixture's pristine broken tree to a scratch dir
    (`fixtures/<task-id>/work/` → `scratch/<task-id>/work/`),
-2. runs `bash scratch/<task-id>/apply.sh` with `cwd=scratch/<task-id>`
-   and `WORK` set to the absolute path of `work/`, 60 s timeout, and
-3. runs `bash fixtures/<task-id>/verify.sh <abs path to work/>`.
+2. stages this task's oracle (`verify.sh` + `expected.json`) into a
+   private dir and fingerprints it, **before** the agent runs,
+3. runs `bash scratch/<task-id>/apply.sh` with `cwd=scratch/<task-id>`
+   and `WORK` set to the absolute path of `work/`, 60 s timeout, in its
+   own session, which is reaped (daemonized grandchildren included)
+   before the oracle is touched again,
+4. re-fingerprints the staged oracle -- it must be byte-identical to
+   step 2 -- and runs `bash <staged>/verify.sh <abs path to work/>`, and
+5. re-fingerprints the executed verifier afterwards.
 
 `apply.sh` is free to use anything on the image. It is graded only by
-whether `verify.sh` then exits 0.
+whether the staged `verify.sh` exits 0. The oracle the agent can reach
+is not the oracle that grades it: the judge executes its own staged
+copy, and the staged bytes are compared against the fingerprint taken
+on the freshly generated tree, so an oracle that changed after
+generation (including one an earlier task's `apply.sh` poisoned) fails
+the run rather than grading it.
 
 The ten task ids, in bench order:
 
@@ -97,9 +108,19 @@ array.
 - **G4 budget.** Total verifier wall time across the ten tasks
   `<= 300 s` on 2 vCPU (the per-task `apply.sh` timeout is 60 s). Bounds
   the bench so it stays usable; the timing table is reported either way.
-- **G5 determinism.** `grade.sh` run twice with the same `--seed` produces
-  byte-identical verdict JSON with the `timing` key removed. (`selftest.sh`
-  enforces this; `grade.sh` itself only reports.)
+- **G5 oracle untouched.** The agent must not be able to change what
+  grades it. Three checks, all required: the committed `judge/` tree and
+  the committed `fixtures/` tree are fingerprinted before and after the
+  whole run and must be unchanged; the seeded fixture tree (regenerated
+  per run) is fingerprinted before and after and must be unchanged; and
+  every task's staged oracle must be byte-identical to its birth
+  fingerprint (taken on the freshly generated tree) both before and after
+  the verifier executes. A single changed byte in any of them fails the
+  gate, and the task counts as unsolved.
+
+Determinism is a separate contract (below), checked by `selftest.sh`, not
+a gate: `grade.sh` run twice with the same `--seed` must produce
+byte-identical verdict JSON with the `timing` key removed.
 
 Every gate failure prints the offending task id and the observed number.
 
@@ -178,8 +199,13 @@ This is the mask idea from the standard: the oracle measures the *intent*
 5. Two `--seed 1` runs of `grade.sh` are byte-identical after removing
    `timing`.
 6. A second seed (`--seed 7`) still passes G1–G4 with the good agent.
+7. An adversarial agent that repairs nothing and instead rewrites every
+   verifier it can find (the fixture-tree verifiers and the staged
+   oracle) is killed: it must not pass, and its solved count must be 0.
+   This is the regression test for G5 — the attack that motivated the
+   staged oracle.
 
-Exit non-zero if any of the six steps fails.
+Exit non-zero if any of the seven steps fails.
 
 ## Reproducibility tolerances
 
@@ -195,10 +221,13 @@ seed; the one tool the judge installs is the pinned Debian `sqlite3` package
 (sha256 in `judge/setup.sh`, recorded in `judge/VERSIONS.txt`). No
 third-party dataset, and therefore no third-party licence, is involved.
 
-## What this demo does not ship
+## Media
 
-`media/` (the key figure, the agent-loop figure and the video) is produced by
-a separate later task. This demo ships the numbers instead: the README and
-RECEIPT carry the measured gates and wall times, each naming the command and
-seed that produced it. When media is added, `media/MANIFEST.json` must name,
-for every file, the command and source data that produced it.
+`media/` ships the key figure (`result.png`), the agent-loop figure
+(`loop.png`) and a 24 s video (`demo.mp4`), all produced by
+`media/make_media.sh` from real judge runs — two `grade.sh` runs (the
+known-good agent and the adversarial verifier-rewrite agent) and one
+`selftest.sh` run. `media/MANIFEST.json` names, for every file, what it
+shows, the command that made it, the source data and its sha256. Nothing
+is hand-entered. The lossless video master lives in the git-ignored
+`media/master/`.
