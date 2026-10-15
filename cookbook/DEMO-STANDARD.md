@@ -64,7 +64,7 @@ Each demo ships what a visitor needs to *see* the result without running anythin
 
 Figures show measured numbers only — never illustrative or invented data.
 
-`cookbook/tools/video_gate.py` mechanically checks the `demo.mp4` rules above — duration, 16:9 at >= 1920×1080, 30 fps, >= 0.8 scene cuts per 10 s, burned-in caption cap height >= 4 % of frame height, real content (not a blank or title card) in the first 2 s, a static end-card slot — and that `media/STORYBOARD.md` and `media/REVIEW.json` exist. A demo whose video fails the gate or the review panel is not done.
+`cookbook/tools/video_gate.py <demo.mp4>` mechanically checks the file-level rules above: >= 1920×1080 at 16:9, 25–60 s, 30 fps, H.264 yuv420p with faststart, <= 8 MB, a first frame that is not dark or a solid colour, >= 0.8 scene cuts per 10 s, and a static end card in the last 2 s. Caption size, hook content and the storyboard slots are judged by the review panel. A demo whose video fails the gate or the review panel is not done.
 
 ## Launch
 
