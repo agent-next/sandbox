@@ -10,6 +10,7 @@ Grades one `analysis.py` artifact:
                          1e-6 * max(1, |oracle|)
   G3 images              each PNG decodes, matches its declared size, has
                          >= 8 distinct RGB colours and grey variance >= 50
+                         over its central 70% x 70% region (the plot area)
   G4 plotted data        charts.json series match the oracle (OLS slope,
                          amplitude, 12 monthly means, top-10, total, C1
                          monthly series)
@@ -42,7 +43,13 @@ import oracle  # noqa: E402  (same directory; judge is stdlib + Pillow)
 TOL_REL = 1e-6
 RUN_TIMEOUT_S = 300.0
 MIN_COLOURS = 8
-MIN_VARIANCE = 50.0
+# Variance of the central 70% x 70% region (the plot area, where the data
+# is drawn).  Measured full-image variance is not enough: a chart whose
+# axes are switched off still renders a title and labels, which leaves the
+# whole image above any threshold a real chart clears.  The plot area of a
+# drawn chart here is 265..3634; a blank one is exactly 0.0.
+CENTRAL_FRACTION = 0.15
+MIN_CENTRAL_VARIANCE = 50.0
 CHART_FILES = {
     "C1": ("c1_mauna_loa_trend.png", 1280, 800),
     "C2": ("c2_seasonal_cycle.png", 1280, 800),
@@ -87,6 +94,31 @@ def imports_of(source):
             if node.module:
                 names.add(node.module.split(".")[0])
     return names
+
+
+def central_variance(raw, width, height):
+    """Grey-level variance of the central (1-2f) x (1-2f) region.
+
+    The plot area, not the whole image: a chart with its axes switched off
+    still draws a title and axis labels, so whole-image variance stays well
+    above zero.  Measured here: real charts 265..3634, a blank one 0.0.
+    """
+    f = CENTRAL_FRACTION
+    x0, y0 = int(f * width), int(f * height)
+    x1, y1 = width - x0, height - y0
+    total = 0.0
+    total_sq = 0.0
+    n = 0
+    for y in range(y0, y1):
+        row = y * width
+        for x in range(x0, x1):
+            i = (row + x) * 3
+            v = 0.299 * raw[i] + 0.587 * raw[i + 1] + 0.114 * raw[i + 2]
+            total += v
+            total_sq += v * v
+            n += 1
+    mean = total / n
+    return total_sq / n - mean * mean
 
 
 def run_artifact(artifact_dir, data_dir, work, venv_python, timing):
@@ -201,25 +233,18 @@ def gate_images(charts, out_dir, timing):
                                    f"declared {want_w}x{want_h}")
         n = len(raw) // 3
         colours = len({raw[i:i + 3] for i in range(0, len(raw), 3)})
-        grey_sum = 0.0
-        grey_sq = 0.0
-        for i in range(0, len(raw), 3):
-            r, g, b = raw[i], raw[i + 1], raw[i + 2]
-            v = 0.299 * r + 0.587 * g + 0.114 * b
-            grey_sum += v
-            grey_sq += v * v
-        mean = grey_sum / n
-        variance = grey_sq / n - mean * mean
+        variance = central_variance(raw, want_w, want_h)
         detail[key] = {"file": fname, "width_px": size[0],
                        "height_px": size[1], "distinct_colours": colours,
-                       "grey_variance": round(variance, 3)}
+                       "plot_area_variance": round(variance, 3)}
         if colours < MIN_COLOURS:
             raise GateFailed("G3", f"{fname} has {colours} distinct RGB "
                                    f"colours (< {MIN_COLOURS}): blank or "
                                    "near-blank image")
-        if variance < MIN_VARIANCE:
-            raise GateFailed("G3", f"{fname} grey variance {variance:.2f} "
-                                   f"(< {MIN_VARIANCE}): blank or "
+        if variance < MIN_CENTRAL_VARIANCE:
+            raise GateFailed("G3", f"{fname} plot-area grey variance "
+                                   f"{variance:.2f} (< "
+                                   f"{MIN_CENTRAL_VARIANCE}): blank or "
                                    "near-blank image")
     return detail
 

@@ -136,9 +136,12 @@ judge itself is seed-free (no random choices).
   total).
 - **G3 images are real and non-blank**: each PNG decodes (judge uses Pillow),
   matches the declared `width_px` × `height_px` exactly, has ≥ 8 distinct
-  RGB colours, and has a global pixel-value variance ≥ **50.0** on 0..255
-  grey levels. A flat or single-colour image fails; the declared size is
-  checked against the file, not trusted.
+  RGB colours, and has grey-level variance ≥ **50.0** over its central
+  70 % × 70 % region — the plot area, where the data is drawn. Whole-image
+  variance is *not* used: a chart with its axes switched off still renders a
+  title and labels and measures 55.9, while its plot area measures exactly
+  0.0 (real charts here measure 265, 3634 and 708). The declared size is
+  checked against the decoded file, not trusted.
 - **G4 plotted data matches the oracle**: for each chart the numbers in
   `charts.json` are compared against the judge's own aggregation with the
   same 1e-6 relative tolerance: the OLS slope and amplitude (C1/C2), the 12
