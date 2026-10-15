@@ -92,4 +92,8 @@ grades 19.0 / 8.4 / 10.7 s → 17 / 12 / 9 s.
   records. Only README.md's local steps were run, per this task.
 - `judge/setup.sh` rewrote `judge/VERSIONS.txt` with a new `recorded:`
   timestamp and otherwise identical content (restored after the run).
+- `python3 cookbook/tools/video_gate.py cookbook/aicad-freecad-mcp/media/demo.mp4`
+  re-run on the checked-in video: `passed: true`, all 16 checks green
+  (1920×1080 @ 30 fps, h264 yuv420p, 33.4 s, 3.33 MiB, faststart,
+  cuts 1.8/10 s, motion 0.3305, static end card), exit 0.
 - Nothing failed; no doc or script fixes were needed for the reproduction.
