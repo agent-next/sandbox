@@ -52,11 +52,15 @@ passes `nconmax`/`njmax` to `mujoco_warp.put_data`. `settle_steps`,
 `timed_steps` and `batches` drive the measured runs.
 
 The config also bounds how much work a grade can ask for — the **cost
-gate** below — so a single grade is a bounded job, not an open-ended one:
-with these limits every simulated part of a grade finishes in ~90 s of GPU
-stepping on the 4 GiB slice (plus the one-time ~90 s cold Warp compile on
-the first grade of a fresh lease), so no grade exec needs anywhere near the
-600 s at which the platform drops an exec reply.
+gate** below — so a single grade is a bounded job, not an open-ended one.
+The aggregate cap is ≈100M world-steps (the good config is 13.0M); on the
+4 GiB slice every mutant measured ≤ ~105 s of grade time (the five
+structure/cost-failing mutants are rejected in ~1 s, before any sim runs),
+the good
+grade's ~140 s is dominated by the one-time ~90 s cold Warp compile on a
+fresh lease, and the per-grade subprocess/exec timeouts (210–360 s, see
+`run.py`) cap even the worst legal config far below the 600 s at which the
+platform drops an exec reply.
 
 ## Judge gates (numeric pass rules)
 

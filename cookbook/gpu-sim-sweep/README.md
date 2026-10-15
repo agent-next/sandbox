@@ -32,10 +32,11 @@ Each run prints wall time per step, the verdict JSON, and a short human
 summary, then kills the sandbox/lease and confirms it is gone. `--gpu` packs
 the local checkout's `judge/` + `examples/` onto the lease (the `--ref` flag
 applies to the CPU-sandbox clone path only). The GPU path takes minutes, not
-seconds — measured ~7–8 min end-to-end: a fresh lease cold-compiles the Warp
-kernels once (~83–88 s, reported as setup time) and each grade — the good
-config and every mutant — runs real simulations (good ~131–139 s, mutants
-0–105 s each). See RECEIPT.md for the two measured runs.
+seconds — measured ~6.5 min end-to-end: a fresh lease cold-compiles the Warp
+kernels once (~86–97 s, reported as setup time) and each grade — the good
+config and every mutant — runs real simulations (good ~145–163 s; mutants
+≤ ~1 s when the structure/cost gates reject them, up to ~90 s for the three
+sim-running mutants). See RECEIPT.md for the two measured runs.
 
 To try the judge locally on a CPU-only Linux box instead:
 
@@ -105,3 +106,17 @@ it passes — that loop is the demo:
 The artifact is graded from a copy in a temp dir, and sha256 checksums of
 `judge/` are compared before and after — the artifact cannot tamper with
 its own judge. A judge crash exits 2; a graded failure exits 1.
+
+## Results
+
+![Measured sweep: GPU steps/s vs nworld with the CPU baseline and throughput floor; physics oracle per nworld](media/result.png)
+
+![Judge verdict per gate for the good config and every mutant, plus the self-test kill rate](media/loop.png)
+
+▶ **[media/demo.mp4](media/demo.mp4)** — the 8 boxes falling onto the table
+in world 0 (rendered from the judge-measured settle trajectory), then the
+nworld ladder filling in with measured steps/s. 23 s, 1080p. Media is
+regenerated from the committed exec report (`media/data/report.json`) by
+[`media/make_media.sh`](media/make_media.sh); provenance in
+[media/MANIFEST.json](media/MANIFEST.json) and
+[media/REVIEW.md](media/REVIEW.md).

@@ -1,18 +1,18 @@
 create GPU lease (4 GiB VRAM slice)...
-created gl-b66d09-28 (4 GiB VRAM slice)
+created gl-3f66cf-7 (4 GiB VRAM slice)
 exec unpack + mutant generation on GPU lease...
-  [unpack] exec ok (1 s)
+  [unpack] exec ok (0 s)
 lease python 3.13.5; 8 mutants generated
 grade known-good (full mode: CPU baseline + real GPU sweep; first grade pays the Warp cold-compile)...
-  [grade good] exec ok (144 s)
-  [grade smuggled_results] exec ok (1 s)
+  [grade good] exec ok (163 s)
+  [grade smuggled_results] exec ok (0 s)
   [grade gravity_flipped] exec ok (0 s)
-  [grade missing_nconmax] exec ok (1 s)
-  [grade tiny_timestep] exec ok (1 s)
-  [grade short_settle] exec ok (1 s)
-  [grade solver_iter_1] exec ok (51 s)
-  [grade low_capacity] exec ok (101 s)
-  [grade over_ladder] exec ok (93 s)
+  [grade missing_nconmax] exec ok (0 s)
+  [grade tiny_timestep] exec ok (0 s)
+  [grade short_settle] exec ok (0 s)
+  [grade solver_iter_1] exec ok (59 s)
+  [grade low_capacity] exec ok (78 s)
+  [grade over_ladder] exec ok (84 s)
 wrote exec report: media/data/report.json
 
 gpu-sim-sweep demo: PASS (mode full)
@@ -24,13 +24,13 @@ gpu-sim-sweep demo: PASS (mode full)
   gate throughput: pass
   measured sweep (judge-ran, 4 GiB slice):
    nworld |     steps/s | arm err |            box z | 1st step s
-        1 |         229 |   0.036 | [0.315,0.315] |      90.97
-       64 |       9,876 |   0.036 | [0.315,0.315] |       0.01
-      512 |      82,986 |   0.036 | [0.315,0.315] |       0.01
-     2048 |     276,575 |   0.036 | [0.315,0.315] |       0.01
-     8192 |     671,037 |   0.036 | [0.315,0.315] |       0.02
-  CPU 24,320 steps/s, top GPU 671,037 steps/s (speedup x27.6, floor x4.0)
-  cold Warp compile (first step): 90.97 s; parity max err 0.008110745441113454 rad
+        1 |         122 |   0.036 | [0.315,0.315] |      96.52
+       64 |       7,116 |   0.036 | [0.315,0.315] |       0.01
+      512 |      60,842 |   0.036 | [0.315,0.315] |       0.01
+     2048 |     222,929 |   0.036 | [0.315,0.315] |       0.01
+     8192 |     557,066 |   0.036 | [0.314,0.315] |       0.02
+  CPU 35,681 steps/s, top GPU 557,066 steps/s (speedup x15.6, floor x4.0)
+  cold Warp compile (first step): 96.52 s; parity max err 0.008110745441113454 rad
 
 mutants: 8/8 killed
   gravity_flipped: FAIL (structure)
@@ -41,6 +41,6 @@ mutants: 8/8 killed
   smuggled_results: FAIL (structure)
   solver_iter_1: FAIL (cpu-parity)
   tiny_timestep: FAIL (cost)
-destroying gl-b66d09-28...
-destroyed gl-b66d09-28; verified absent or dead
-total: 403 s
+destroying gl-3f66cf-7...
+destroyed gl-3f66cf-7; verified absent or dead
+total: 390 s
