@@ -82,13 +82,17 @@ def main() -> int:
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
                          "git", "clone", "--depth", "1", "-b", args.ref,
-                         REPO, CLONE_DIR))
+                         REPO, CLONE_DIR, timeout=420))
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
+            # The local subprocess timer must exceed the CLI --timeout it
+            # hands over, or Python kills a step the sandbox is still
+            # running happily (selftest alone takes ~4 minutes).
             proc = step(name, lambda: sbx(
-                "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"))
+                "exec", sid, "--timeout", str(int(timeout)), "--",
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}",
+                timeout=timeout + 120))
             if echo:
                 show(proc)
             return proc
