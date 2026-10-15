@@ -2,7 +2,7 @@
 
 Filled in before cutting `media/demo.mp4`. Slot order and craft rules:
 `cookbook/DEMO-STANDARD.md` (Media). Machine check:
-`cookbook/tools/video_gate.py`; blind panel verdicts: `media/REVIEW.json`.
+`python3 cookbook/tools/video_gate.py media/demo.mp4` (PASS, all 15 checks).
 
 | slot | content | what fills the frame | real source (command / file / seed) | caption text |
 |---|---|---|---|---|
