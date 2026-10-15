@@ -339,6 +339,21 @@ def test_committed_demo_baseline():
     assert not must_pass, "demos outside the known-fail baseline must pass: " + "; ".join(must_pass)
 
 
+def test_motion_window_ignores_a_video_start_offset(good, tmp_path):
+    # Video delayed 5 s behind audio: pts start at 5 s, the duration is
+    # unchanged, so the motion window must be measured from the first frame.
+    shifted = tmp_path / "shifted.mp4"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-itsoffset", "5", "-i", str(good),
+                    "-f", "lavfi", "-t", "5", "-i", "anullsrc=r=48000:cl=stereo",
+                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac",
+                    "-movflags", "+faststart", str(shifted)], check=True)
+    base = video_gate.judge(str(good))
+    moved = video_gate.judge(str(shifted))
+    fraction = {c["name"]: c["measured"] for c in base["checks"]}["motion_fraction"]
+    shifted_fraction = {c["name"]: c["measured"] for c in moved["checks"]}["motion_fraction"]
+    assert shifted_fraction == pytest.approx(fraction, abs=0.02)
+
+
 def test_non_square_pixels_judged_by_display_aspect(good, tmp_path):
     wide = tmp_path / "wide.mp4"
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(good), "-c", "copy", "-aspect", "32:9",
