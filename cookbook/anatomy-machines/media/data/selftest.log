@@ -1,0 +1,25 @@
+[selftest] Regenerating mutants...
+Created 7 mutants in /home/user/w/cookbook/anatomy-machines/examples/bad
+
+[selftest] Known-good figure (must PASS):
+[selftest]   good/four-stroke-engine  PASS  (56s)
+
+[selftest] Determinism check (same seed twice, verdict JSON except 'timing'):
+identical
+[selftest]   deterministic
+
+[selftest] Known-bad mutants (must FAIL):
+[selftest]   blank_canvas  killed (failed gates: 2,6)
+[selftest]   missing_parts  killed (failed gates: 3)
+[selftest]   console_error  killed (failed gates: 1,2,3,4,6)
+[selftest]   static_camera  killed (failed gates: 2)
+[selftest]   wrong_labels  killed (failed gates: 3,4)
+[selftest]   no_interaction  killed (failed gates: 4)
+[selftest]   tiny_capture  killed (failed gates: 6)
+
+[selftest] ============================================
+[selftest] good figure passed : 1/1
+[selftest] determinism        : identical
+[selftest] mutants killed     : 7/7 (100%)
+[selftest] ============================================
+[selftest] SUCCESS

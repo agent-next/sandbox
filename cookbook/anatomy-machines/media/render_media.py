@@ -9,9 +9,6 @@ synthesized or interpolated.
 Usage: render_media.py <media_dir>   (run by media/make_media.sh)
 """
 
-import hashlib
-import json
-import math
 import os
 import subprocess
 import sys
@@ -56,15 +53,13 @@ def timeline(t):
 DURATION = 21.0          # seconds -> 630 frames at 30 fps
 
 
-def sha256(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def main():
+    # --start N: crash recovery only — resume the frame loop at frame N,
+    # skipping the stills (make_media.sh always runs a full 0..N pass).
+    start = 0
+    if len(sys.argv) > 2 and sys.argv[2].startswith("--start"):
+        arg = sys.argv[2]
+        start = int(arg.split("=", 1)[1]) if "=" in arg else int(sys.argv[3])
     os.makedirs(FRAMES, exist_ok=True)
     srv = subprocess.Popen(
         [sys.executable, "-m", "http.server", str(PORT),
@@ -78,17 +73,18 @@ def main():
             page = browser.new_page(viewport={"width": 1920, "height": 1080})
 
             # ---- stills -----------------------------------------------------
-            page.goto(url + "?shot=1&labels=1&explode=0.72&yaw=35",
-                      wait_until="load")
-            page.wait_for_timeout(1200)
-            page.locator("#stageView").screenshot(
-                path=os.path.join(MEDIA, "result.png"))
+            if start == 0:
+                page.goto(url + "?shot=1&labels=1&explode=0.72&yaw=35",
+                          wait_until="load")
+                page.wait_for_timeout(1200)
+                page.locator("#stageView").screenshot(
+                    path=os.path.join(MASTER, "exploded.png"))
 
-            page.goto(url + "?shot=1&labels=0&explode=0&yaw=35",
-                      wait_until="load")
-            page.wait_for_timeout(1200)
-            page.locator("#stageView").screenshot(
-                path=os.path.join(MEDIA, "assembled.png"))
+                page.goto(url + "?shot=1&labels=0&explode=0&yaw=35",
+                          wait_until="load")
+                page.wait_for_timeout(1200)
+                page.locator("#stageView").screenshot(
+                    path=os.path.join(MEDIA, "assembled.png"))
 
             # ---- demo frames ------------------------------------------------
             page.goto(url + "?shot=1&labels=1", wait_until="load")
@@ -96,7 +92,7 @@ def main():
             stage = page.locator("#stageView")
             n = int(DURATION * FPS)
             t0 = time.monotonic()
-            for i in range(n):
+            for i in range(start, n):
                 yaw, ex, lab = timeline(i / FPS)
                 page.evaluate(
                     "__fig.set({yaw: %r, explode: %r, labels: %r})"
@@ -123,36 +119,8 @@ def main():
          os.path.join(MEDIA, "demo.mp4")],
         check=True)
 
-    # ---- manifest -------------------------------------------------------------
-    cmd = ("bash media/make_media.sh   # serves examples/good/four-stroke-engine "
-           "on 127.0.0.1, screenshots the real render at 1920x1080 under "
-           "Chrome Headless Shell + SwiftShader")
-    files = {}
-    for name, what in (
-        ("result.png", "exploded showcase capture (?shot&labels&explode=0.72, "
-                       "yaw 35): shaded solid figure, gutter labels with "
-                       "leader lines"),
-        ("assembled.png", "assembled showcase capture (?shot&labels=0, yaw 35): "
-                          "the same scene fully assembled"),
-        ("demo.mp4", "21 s turntable + exploded-view animation assembled from "
-                     "%d real rendered frames (no interpolation), h264 crf 18"
-                     % int(DURATION * FPS)),
-    ):
-        p = os.path.join(MEDIA, name)
-        files[name] = {"what": what, "command": cmd,
-                       "sha256": sha256(p), "bytes": os.path.getsize(p)}
-    manifest = {
-        "note": "Every pixel is a real screenshot of the figure rendered by "
-                "Chrome Headless Shell + SwiftShader WebGL — no synthesized "
-                "or interpolated frames.",
-        "source": "cookbook/anatomy-machines, chrome-headless-shell "
-                  "148.0.7778.96 + SwiftShader, viewport 1920x1080",
-        "files": files,
-    }
-    with open(os.path.join(MEDIA, "MANIFEST.json"), "w") as f:
-        json.dump(manifest, f, indent=2)
-        f.write("\n")
-    print("[media] wrote result.png, assembled.png, demo.mp4, MANIFEST.json")
+    print("[media] wrote master/exploded.png, assembled.png, "
+          "master/master.mp4, demo.mp4")
 
 
 if __name__ == "__main__":

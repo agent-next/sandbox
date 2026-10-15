@@ -11,8 +11,15 @@ BASE_DIR="$(dirname "$SCRIPT_DIR")"
 GOOD_DIR="$BASE_DIR/examples/good/four-stroke-engine"
 BAD_DIR="$BASE_DIR/examples/bad"
 GRADE_SH="$SCRIPT_DIR/grade.sh"
-OUT="$(mktemp -d /tmp/anat-selftest.XXXXXX)"
-trap 'rm -rf "$OUT"' EXIT
+# SELFTEST_OUT=<dir> keeps the per-artifact verdict JSONs and grade logs
+# (media/collect_data.sh uses them as figure input); default is a temp dir.
+if [[ -n "${SELFTEST_OUT:-}" ]]; then
+    OUT="$SELFTEST_OUT"
+    mkdir -p "$OUT"
+else
+    OUT="$(mktemp -d /tmp/anat-selftest.XXXXXX)"
+    trap 'rm -rf "$OUT"' EXIT
+fi
 
 echo "[selftest] Regenerating mutants..."
 python3 "$SCRIPT_DIR/mutants.py"

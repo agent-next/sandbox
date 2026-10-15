@@ -2,40 +2,66 @@
 
 Showcases the [anatomy](https://github.com/wheresryan22/anatomy) agent
 skill (MIT licence, pinned commit `e6600ffc4e8e`) — "describe a machine in
-one line, get an interactive isometric wireframe you can rotate and
+one line, get an interactive isometric illustration you can rotate and
 inspect" — running end to end inside a disposable agent-next sandbox. The
-artifact is one self-contained HTML file: raw WebGL isometric wireframe
-of a four-stroke engine, drag-to-orbit camera, clickable labelled parts.
-A judge the figure cannot fool decides whether it is real: headless
-Chromium (Playwright 1.60.0 + Chrome Headless Shell 148.0.7778.96,
-sha256-checked, SwiftShader WebGL on CPU) drags the canvas itself,
-screenshots the pixels, reads the parts list out of the DOM, clicks every
-part and counts animation frames. A sandbox helps because the whole
-browser toolchain (~120 MB download plus system libraries) is installed,
-run and thrown away without touching your machine — no GPU, no X server.
+artifact is one self-contained HTML file: a raw-WebGL isometric figure
+of a four-stroke engine with shaded solid parts (per-part materials,
+key/fill/hemisphere lighting, a thin edge overlay), drag-to-orbit
+camera, clickable labelled parts, and a `?shot` showcase capture mode
+(exploded view, gutter labels with leader lines) used for the gallery
+media below. A judge the figure cannot fool decides whether it is real:
+headless Chromium (Playwright 1.60.0 + Chrome Headless Shell
+148.0.7778.96, sha256-checked, SwiftShader WebGL on CPU) drags the
+canvas itself, screenshots the pixels, reads the parts list out of the
+DOM, clicks every part, counts animation frames, and audits the capture
+mode. A sandbox helps because the whole browser toolchain (~120 MB
+download plus system libraries) is installed, run and thrown away
+without touching your machine — no GPU, no X server.
 
 Gates and thresholds are in [SPEC.md](SPEC.md); measured results and real
 command output are in [RECEIPT.md](RECEIPT.md).
 
+## Media
+
+![Exploded view of the four-stroke engine with labels and the judge's
+verdict band](media/result.png)
+
+- [`media/result.png`](media/result.png) — the real figure exploded to
+  72 %, labels with leader lines, plus the measured gate values.
+- [`media/assembled.png`](media/assembled.png) — the same scene fully
+  assembled (raw real screenshot).
+- [`media/demo.mp4`](media/demo.mp4) — 21 s turntable +
+  exploded-view animation, assembled from 630 real rendered frames
+  (no interpolation), H.264 crf 18.
+- [`media/loop.png`](media/loop.png) — the good figure plus all 7
+  mutants against the 6 gates, from real verdict JSONs.
+- [`media/MANIFEST.json`](media/MANIFEST.json) — sha256 + provenance;
+  [`media/make_media.sh`](media/make_media.sh) regenerates everything
+  (renders the real scene headless; data collection in
+  [`media/collect_data.sh`](media/collect_data.sh)).
+
 ## What the judge saw
 
-![Canvas at three dragged camera angles — the judge's own screenshots](media/angle_1.png)
+The judge's own canvas captures of a passing run (seed 42) are kept in
+[`media/data/shots-good/`](media/data/shots-good/) (`angle_0..2.png`
+after successive 240 px drags, `spin_*.png` mid-drag frames) alongside
+the raw verdict JSONs.
 
-Real frames from a passing run (seed 42): `media/angle_0..2.png` are the
-canvas after successive 240 px drags, `media/spin_*.png` a mid-drag frame
-series — provenance in [media/MANIFEST.json](media/MANIFEST.json).
-
-- Canvas variance **661 / 653 / 668** at the three angles (floor 50) —
+- Canvas variance **1361 / 1328 / 1303** at the three angles (floor 50) —
   not blank.
-- Rotation is real: **5.2 / 5.5** mean pixel difference and **6 %** of
-  pixels changed between angles.
+- Rotation is real: **8.5 / 10.2** mean pixel difference and **9–11 %**
+  of pixels changed between angles (floor 3.0 / 2 %).
 - Parts recall **17/17** vs the textbook reference list
   (`judge/reference/four-stroke-engine.json`, sources cited inside);
   floor 0.8, zero duplicates.
 - Clicking all 17 parts shows the name + description; **17/17** pass.
-- Frame rate under SwiftShader on 2 vCPU: **~46 FPS** measured (floor 10).
-- Self-test kills **6/6** known-bad mutants (blank canvas, missing parts,
-  console error, frozen camera, wrong labels, dead interaction).
+- Frame rate under SwiftShader on 2 vCPU: **~13–17 FPS** measured
+  (floor 10).
+- Capture mode audited: **1920 px** wide, **~13 %** non-background
+  pixels (floor 8 %), **0** label-chip overlaps.
+- Self-test kills **7/7** known-bad mutants (blank canvas, missing parts,
+  console error, frozen camera, wrong labels, dead interaction,
+  shrunken capture).
 
 ## Ask your agent
 
@@ -44,9 +70,12 @@ series — provenance in [media/MANIFEST.json](media/MANIFEST.json).
 > pinned headless-Chromium judge. Then, using the anatomy skill
 > (https://github.com/wheresryan22/anatomy), build a figure directory for
 > "a four-stroke engine": one self-contained HTML file with a WebGL
-> isometric wireframe you can drag to orbit, a parts list of
-> `data-part` elements, and a `data-part-info` panel that shows each
-> part's name and description on click. Iterate with
+> isometric figure you can drag to orbit, a parts list of
+> `data-part` elements, a `data-part-info` panel that shows each
+> part's name and description on click, and a `?shot=1&labels=1&explode=0.7`
+> showcase mode that renders the same scene fullscreen (shaded solids,
+> `.lbl` label chips with leader lines, no page chrome or tooltips).
+> Iterate with
 > `bash cookbook/anatomy-machines/judge/grade.sh <your-figure-dir>` until
 > every gate passes. Report the final verdict JSON and kill the sandbox
 > when done.
@@ -70,12 +99,16 @@ unless `--keep` is given.
 # 1. Install the pinned judge toolchain (~40 s warm mirror)
 bash judge/setup.sh
 
-# 2. Self-test: proves the judge can fail (good + 6 mutants, ~2.5 min)
+# 2. Self-test: proves the judge can fail (good + 7 mutants, ~5 min)
 bash judge/selftest.sh
 
 # 3. Grade the known-good figure (seed 42 for reproducibility)
 bash judge/grade.sh examples/good/four-stroke-engine \
     --json /tmp/verdict.json --seed 42
+
+# 4. Regenerate the media (real judge data, then the headless render)
+bash media/collect_data.sh   # ~6 min: selftest + verdict JSONs + shots
+bash media/make_media.sh     # renders the real figure, encodes demo.mp4
 ```
 
 ### `judge/grade.sh` flags
@@ -95,8 +128,10 @@ measured FPS (under `timing`) vary between runs.
 | step | wall time |
 |---|---|
 | `judge/setup.sh` (cold, incl. ~119 MB browser download) | ~40 s |
-| `judge/selftest.sh` (2 good grades + 6 mutants) | ~2 m 18 s |
-| `judge/grade.sh examples/good/four-stroke-engine` | ~19–22 s |
+| `judge/selftest.sh` (2 good grades + 7 mutants) | ~5 m |
+| `judge/grade.sh examples/good/four-stroke-engine` | ~40 s |
+| `media/collect_data.sh` (selftest + verdicts + shots) | ~6 m |
+| `media/make_media.sh` (630 real frames + encode) | ~30 m |
 
 ## Sources and credit
 

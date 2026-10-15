@@ -1,14 +1,51 @@
 {
-  "note": "Real frames produced by the judge's own browser run -- no synthesized media. All files are canvas screenshots written by `judge/check_gates.py --shots` during a passing grade of examples/good/four-stroke-engine. result.png / loop.png / demo.mp4 are produced by the follow-up media task (media/make_media.sh).",
-  "command": "bash judge/grade.sh examples/good/four-stroke-engine --seed 42 --shots <dir> --json verdict.json",
-  "source": "cookbook/anatomy-machines, seed 42, Chrome Headless Shell 148.0.7778.96 + SwiftShader, 2026-10-14",
+  "note": "Every frame of result.png/assembled.png/demo.mp4 is a real screenshot of the figure rendered by Chrome Headless Shell + SwiftShader WebGL -- no synthesized or interpolated frames. loop.png's cells come from real grade.sh verdicts in media/data/ (collect_data.sh).",
+  "source": "cookbook/anatomy-machines, seed 42, chrome-headless-shell 148.0.7778.96 + SwiftShader, viewport 1920x1080",
   "files": {
-    "angle_0.png": {"what": "canvas at default azimuth 35 deg (gate-2 shot 1)", "sha256": "f068cee5bf40a00e5769ba5611374372d9f8f1a2701fd9b5507d1cb3f577473b"},
-    "angle_1.png": {"what": "canvas after first 240 px drag, azimuth ~131 deg (gate-2 shot 2)", "sha256": "cce4d05c3e3ff76cae4d2e85d7aa543b581ce2c066fa9a035929b235d052cff2"},
-    "angle_2.png": {"what": "canvas after second 240 px drag, azimuth ~227 deg (gate-2 shot 3)", "sha256": "9ab9a10b7e3ad7b46507aa402b1dcf514edd49128a116f07dd4ff50357d8f39c"},
-    "spin_00.png": {"what": "rotation frame series, drag step 0/8", "sha256": "faa9fdfb58a5fe17b603310b27810d51a6ab9429650abd60adf64e420bc5c60d"},
-    "spin_02.png": {"what": "rotation frame series, drag step 2/8", "sha256": "639891732102bc4574e2098476e5befba8739c1a3eac5cfdb822d4664259c726"},
-    "spin_04.png": {"what": "rotation frame series, drag step 4/8", "sha256": "c2f0ccfd05ead09576b59799fda8a049e4c87a6bcc979c32f477b257aaeb702c"},
-    "spin_06.png": {"what": "rotation frame series, drag step 6/8", "sha256": "421aa3385b61340fd84563f610ecfdb691ee2105d647f24a74045942e51e2d39"}
+    "result.png": {
+      "what": "Exploded-view showcase capture of the real figure (?shot&labels&explode=0.72, yaw 35) rendered by Chrome Headless Shell + SwiftShader at 1920x1080, with a verdict band drawn from the measured values in verdict-good.json.",
+      "command": "media/make_media.sh  (render_media.py + fig_result.py)",
+      "sources": [
+        "media/master/exploded.png",
+        "media/data/verdict-good.json"
+      ],
+      "sha256": "aecb730982807914513d30f71448666982e188fc8a3cb9ddbc306382ebfaae12",
+      "bytes": 246959
+    },
+    "assembled.png": {
+      "what": "The same scene fully assembled (?shot&labels=0, yaw 35): a raw real screenshot, no annotation.",
+      "command": "media/make_media.sh  (render_media.py)",
+      "sources": [
+        "examples/good/four-stroke-engine/four-stroke-engine.html"
+      ],
+      "sha256": "199c561bafbd3a243753f0100d54bddc3ab33f2a38f2b060843ee71b2a18d027",
+      "bytes": 145857
+    },
+    "loop.png": {
+      "what": "Mutant x gate matrix: examples/good plus the 7 single-edit mutants against all 6 judge gates. Red cells carry the measured value that broke the gate.",
+      "command": "media/.venv/bin/python media/fig_loop.py",
+      "sources": [
+        "media/data/verdict-good.json",
+        "media/data/verdict-blank_canvas.json",
+        "media/data/verdict-missing_parts.json",
+        "media/data/verdict-console_error.json",
+        "media/data/verdict-static_camera.json",
+        "media/data/verdict-wrong_labels.json",
+        "media/data/verdict-no_interaction.json",
+        "media/data/verdict-tiny_capture.json",
+        "media/data/selftest.log"
+      ],
+      "sha256": "cbbe955049918c451f2b5f4dcf405b34490251903ea65b3f754560d369de2c07",
+      "bytes": 141389
+    },
+    "demo.mp4": {
+      "what": "21 s turntable + exploded-view animation assembled from 630 real rendered frames (no interpolation), h264 crf 18; lossless master in media/master/ (git-ignored).",
+      "command": "media/make_media.sh  (render_media.py)",
+      "sources": [
+        "examples/good/four-stroke-engine/four-stroke-engine.html"
+      ],
+      "sha256": "f7e76099db860d3a0258c094f884ac47710dae024337c9911057b8093ea2ef67",
+      "bytes": 5103410
+    }
   }
 }

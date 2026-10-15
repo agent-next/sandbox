@@ -1,0 +1,80 @@
+{
+  "artifact": "four-stroke-engine.html",
+  "machine": "four-stroke-engine",
+  "seed": 42,
+  "gates": [
+    {
+      "gate": 1,
+      "name": "loads_clean",
+      "http_ok": true,
+      "canvas_w": 860,
+      "canvas_h": 840,
+      "webgl": true,
+      "console_errors": 1,
+      "passed": false
+    },
+    {
+      "gate": 2,
+      "name": "rotates_nonblank",
+      "variance_min": 50.0,
+      "mad_min": 3.0,
+      "changed_min": 0.02,
+      "variances": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean_abs_diffs": [
+        0.0,
+        0.0
+      ],
+      "changed_fractions": [
+        0.0,
+        0.0
+      ],
+      "passed": false
+    },
+    {
+      "gate": 3,
+      "name": "parts_coverage",
+      "recall_min": 0.8,
+      "n_scene_parts": 0,
+      "n_reference": 17,
+      "recall": 0.0,
+      "duplicates": 0,
+      "passed": false
+    },
+    {
+      "gate": 4,
+      "name": "interaction",
+      "desc_min": 20,
+      "info_ok": 0,
+      "info_total": 0,
+      "passed": false
+    },
+    {
+      "gate": 5,
+      "name": "frame_rate",
+      "fps_floor": 10.0,
+      "fps_pass": true,
+      "passed": true
+    },
+    {
+      "gate": 6,
+      "name": "capture_quality",
+      "width_min": 1280,
+      "nonbg_min": 0.08,
+      "w": 860,
+      "h": 841,
+      "nonbg_fraction": 0.0,
+      "n_labels": 0,
+      "label_overlaps": 0,
+      "passed": false
+    }
+  ],
+  "all_gates_passed": false,
+  "timing": {
+    "wall_seconds": 15.09,
+    "measured_fps": 60.5
+  }
+}

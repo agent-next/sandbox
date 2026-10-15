@@ -38,7 +38,8 @@ file (plus nothing else) built with the pinned anatomy kit at commit
 Required DOM contract (what the judge drives, as a user would):
 
 - a `<canvas>` with a live WebGL context, >= 480 px wide and >= 360 px tall,
-  rendering the machine as a rotatable isometric wireframe;
+  rendering the machine as a rotatable isometric figure (shaded solid
+  parts; a thin edge overlay is allowed);
 - camera rotation driven by pointer drag on the canvas and by the
   ←/→ keys;
 - a parts list in the DOM: one element per part, carrying
@@ -46,6 +47,12 @@ Required DOM contract (what the judge drives, as a user would):
 - clicking a `[data-part]` element selects that part: a
   `[data-part-info]` element then shows the part's name plus a
   description (>= 20 characters beyond the name);
+- a capture mode for gallery stills/footage: `?shot=1&labels=1&explode=<0..1>`
+  renders the same real scene fullscreen — the canvas element
+  `#stageView` (or the page's first canvas) owns the whole viewport up to
+  1920×1080, parts are shaded solids, each part has a label chip
+  (`.lbl`) with a leader line, and page chrome plus hover tooltips are
+  hidden;
 - zero console errors on load.
 
 The known-good artifact lives at `examples/good/four-stroke-engine/`.
@@ -86,6 +93,14 @@ deterministic under SwiftShader at a fixed viewport).
   over a 3 s in-page window: FPS >= 10 (floor measured on the reference
   2 vCPU SwiftShader sandbox and recorded in `judge/VERSIONS.txt` and
   RECEIPT.md).
+- **Gate 6 — capture quality.** The judge reloads at 1920×1080 with
+  `?shot=1&labels=1&explode=0.72` and screenshots the stage canvas. The
+  capture must be >= 1280 px wide; >= 8 % of pixels must differ from the
+  estimated background colour by more than 30 grayscale levels (the
+  background is estimated as the median of the four 24×24 corner
+  patches — a flat-colour page or a sparse wireframe scores near zero;
+  the good figure measures ~0.13); and no two `.lbl` label chips may
+  overlap (pairwise bounding-box intersection count == 0).
 
 ## Acceptance oracle
 
@@ -96,8 +111,8 @@ deterministic under SwiftShader at a fixed viewport).
   standard four-stroke references (cited in the file); the judge recomputes
   recall from the DOM.
 - Gate 5's floor (10 FPS) is a measured value: the good example measures
-  ~2× above it on the reference 2 vCPU SwiftShader sandbox; the number is
-  recorded in RECEIPT.md with the measurement command.
+  ~13–17 FPS under SwiftShader on the 2 vCPU reference box; the numbers
+  are recorded in RECEIPT.md with the measurement command.
 
 ## Mutants (single-edit, judge/mutants.py)
 
@@ -110,6 +125,8 @@ Each is a copy of the good figure with one edit:
 5. `wrong_labels` — every registry name replaced with `gizmo 1..n`
    (gate 3/4).
 6. `no_interaction` — part elements lose their pointer events (gate 4).
+7. `tiny_capture` — shot-mode stage shrunk to a centred 40 % box, so the
+   capture is far under 1280 px wide and mostly background (gate 6).
 
 A judge that cannot fail each of these is not done: `judge/selftest.sh`
 must report a kill rate >= 90 %.
@@ -118,6 +135,6 @@ must report a kill rate >= 90 %.
 
 - Two grades at the same seed must produce byte-identical verdict JSON
   outside the `timing` key (checked by `judge/selftest.sh`).
-- `judge/selftest.sh` grades the good example + all 6 mutants, prints the
+- `judge/selftest.sh` grades the good example + all 7 mutants, prints the
   kill rate, and exits non-zero unless good passes, all mutants fail
   something, and determinism holds.

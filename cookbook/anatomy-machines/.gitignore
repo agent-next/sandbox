@@ -1,1 +1,3 @@
 media/master/
+media/.venv/
+media/__pycache__/
