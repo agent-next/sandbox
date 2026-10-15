@@ -13,7 +13,7 @@ Gates (see SPEC.md):
   G2 physical-sanity ranges
   G3 artifact runs under 9-min wall limit, emits RESULT line + results JSON
      on a *valid sweep grid* (strictly increasing, covering 2.2-2.7 GHz,
-     >= 21 points) + raw openEMS port time series *written inside a
+     >= 51 points) + raw openEMS port time series *written inside a
      recorded solver-run window and still matching the size+sha256 hashed
      at that Run's end*, and the reported scalars agree with the judge's
      own S11 derivation from those raw files
@@ -165,8 +165,6 @@ def jmod_intact():
 # are stated in SPEC.md ("Threat model"): in-process hook patching /
 # ptrace of the child by the artifact.
 # --------------------------------------------------------------------------
-PORT_BASENAMES = ("port_ut_1", "port_it_1")
-
 RUNNER = '''\
 import sys, os, json, time, runpy, importlib.util, hashlib
 jfd, mode, art = int(sys.argv[1]), sys.argv[2], sys.argv[3]
