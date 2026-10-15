@@ -127,5 +127,5 @@ except Exception:
     pass
 PY
 } > "$VERSIONS_FILE"
-LOG "versions recorded in $VERSIONS.txt"
+LOG "versions recorded in $VERSIONS_FILE"
 LOG "setup complete"

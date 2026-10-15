@@ -1,0 +1,13 @@
+aicad-freecad-mcp judge tool versions
+recorded: 2026-10-15T00:35:39Z
+requirements.txt sha256: 54054604372bfdc58f8850ad972c31a4da84a6ff7c6622889c546c6fba9beb0b
+freecad: FreeCAD 1.0.1 Revision: 39285 (Git)
+freecad appimage sha256: 5a3fc405771b4fbb5f270110d055bc135123c9fc91bb7dbb5d068ac7fbe50f6e
+freecad-mcp git SHA: 78bf0230a03324b56c9a0b7f55150fb5be2a0d42
+freecad-mcp addon version: 0.1.27
+trimesh: 4.6.6
+manifold3d: 3.1.1
+cadquery: 2.5.2
+ezdxf: 1.4.0
+numpy: 2.2.6
+OCP: 7.7.2 (via cadquery)
