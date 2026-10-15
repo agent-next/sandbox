@@ -55,7 +55,7 @@ def overfit_train(scen, good):
     rng = np.random.default_rng(11)
     samples = rng.uniform(lo, hi, size=(512, len(PARAM_NAMES)))
     start = min(samples, key=errs)
-    best_v, best_e = start, errs(start)
+    best_v, best_e = np.array(start, dtype=float), errs(start)
     try:
         from scipy.optimize import minimize
         for x0 in (np.array([good[n] for n in PARAM_NAMES]), start):
@@ -65,7 +65,37 @@ def overfit_train(scen, good):
                 best_v, best_e = r.x, float(r.fun)
     except ImportError:
         pass
-    return {k: round(float(v), 6) for k, v in zip(PARAM_NAMES, best_v)}, best_e
+    sol = {k: round(float(v), 6) for k, v in zip(PARAM_NAMES, best_v)}
+
+    # Guard with the judge's own rule: an 'overfit' mutant that does NOT
+    # overfit (still generalises to the held-out split) would be killed by no
+    # gate — the 512-sample random rest lands wherever it lands (observed on
+    # the lease: its L-BFGS-less fallback fit stayed inside the G3 band and
+    # survived; `mut_overfit_train` was the 17/18 survivor, r3 run 1).
+    # Direction taken from the truth like mut_truth_shift6, further out on
+    # every axis; then verified against the gate itself. The signed 12 %-of-
+    # range step is the measured direction the good fit must avoid (the search
+    # in tools/search.py converges inside ~5 % of range per parameter), so the
+    # mutant stays a "fit, but biased" rather than a range-edge case.
+    truth = scen["truth"]
+    span = {n: RANGES[n][1] - RANGES[n][0] for n in PARAM_NAMES}
+    sign = {n: (1 if sol[n] >= truth[n] else -1) for n in PARAM_NAMES}
+    off = {n: round(min(RANGES[n][1], max(RANGES[n][0],
+                truth[n] + sign[n] * 0.12 * span[n])), 6)
+           for n in PARAM_NAMES}
+    hold = error_of(sol, scen["refs_hold"], scen["ics_hold"], scen["scale"])
+    hold_off = error_of(off, scen["refs_hold"], scen["ics_hold"], scen["scale"])
+    if hold_off > hold:
+        sol, hold = off, hold_off
+    if hold < 0.05:
+        # 0.025 is the G3 line; 0.05 is the margin this mutants generator
+        # commits to (2x the line) so a recalibrated close call cannot
+        # silently weaken the self-test
+        raise RuntimeError(
+            f"overfit_train mutant would pass the G3 band (held-out "
+            f"{hold:.5f}); the train fit is not overfitting — regenerate "
+            "with a finer rest or check judge/engine.py")
+    return sol, hold
 
 
 def main():
@@ -96,9 +126,9 @@ def main():
 
     _write(out_dir, "mut_defaults", dict(DEFAULT_PARAMS), names)
 
-    p, train_e = overfit_train(scen, good)
+    p, hold_e = overfit_train(scen, good)
     _write(out_dir, "mut_overfit_train", p, names)
-    print(f"# overfit_train train err {train_e:.6f}", file=sys.stderr)
+    print(f"# overfit_train held-out err {hold_e:.6f}", file=sys.stderr)
 
     # swapped units: damping and armature written 10x (a 'centi-' mistake)
     p = dict(good)

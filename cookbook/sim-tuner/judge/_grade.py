@@ -232,7 +232,10 @@ class LocalGpu:
     def exec(self, code, timeout=GPU_TIMEOUT_S):
         t0 = time.monotonic()
         wrapped = code + "\nprint('__REPORT__' + json.dumps(report))\n"
-        r = subprocess.run([sys.executable, "-c", wrapped], capture_output=True,
+        # stdin, not argv: a full eval payload is long enough that argv
+        # detonates with E2BIG on the lease's exec framework; `python -`
+        # reads the program from stdin instead
+        r = subprocess.run([sys.executable, "-"], input=wrapped, capture_output=True,
                            text=True, timeout=timeout)
         self.exec_wall_s.append(round(time.monotonic() - t0, 2))
         if r.returncode != 0:

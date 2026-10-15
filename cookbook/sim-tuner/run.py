@@ -198,7 +198,7 @@ def main():
         report = result.get("report") or {}
         if result.get("ok") is not True:
             die(f"judge job failed on the lease: {(result.get('stderr') or '')[-500:]}")
-        print(f"exec done in {dt:.0f} s", flush=True)
+        print(f"lease job done in {dt:.0f} s", flush=True)
 
         if args.report_json:
             with open(args.report_json, "w") as fh:

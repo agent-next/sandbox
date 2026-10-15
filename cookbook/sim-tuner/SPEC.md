@@ -105,15 +105,17 @@ promise — the full judge always needs the GPU check.
 | quantity | measured |
 |---|---|
 | noise floor: hidden truth vs held-out, with the 1.5 % noise | 0.01400 |
-| default (uncalibrated MJCF) parameters vs held-out | 0.88275 |
-| 30 % of the default error (the G3 relative cap) | 0.26482 |
+| the default-parameter error (measured per grade; it rides the scenario) | 0.118–0.883 across the shipped metric revisions |
 | weakest range-edge mutant (`solref_dr` at 0.80) | 0.03948 (2.82× floor) |
 | strongest range-edge mutant (`mu` at 0.15) | 0.62888 (44.9× floor) |
 | all ten range-edge mutants | 0.039–0.629 (2.8×–44.9× floor) |
 | honest-fit scatter: one parameter ± 5 % of range off truth | 1.05×–7.0× floor |
 | honest-fit scatter: one parameter ± 20 % of range off truth | 1.35×–16.3× floor |
 
-Two scene choices make this band wide enough to gate on, both measured:
+The G3 relative cap is 30 % of the default error, recomputed at every grade
+from the same seed, so the ratio travels with metric changes; the numbers in
+this table are what grade run r3 measured (default 0.11849). Two scene
+choices make this band wide enough to gate on, both measured:
 
 1. **The `box_zdot` channel is recorded** (vertical velocity of the box). The
    box is airborne until its landing, so this channel is ~0 everywhere except
