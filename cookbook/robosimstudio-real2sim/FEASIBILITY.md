@@ -386,3 +386,58 @@ closed gl-951d38-30 0.6 s
   of the bug is exactly the upload time above — which is why it matters here.
 
 ### B3. RSS on the GPU lease
+
+**The lease's own Warp is too old for newton 1.6 — measured, not assumed.**
+The cheap payload (33 MB: `robosimstudio`, `viser`, `pyroki`, `jaxls`,
+`yourdfpy` and helpers, no `warp-lang`) installs and imports cleanly on the
+lease and even sees the GPU:
+
+```
+PROBE rc=0
+warp 1.13.0
+newton 1.6.0
+mujoco 3.12.0
+numpy 2.2.6
+Warp 1.13.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.0
+   Devices:
+     "cpu"      : "x86_64"
+     "cuda:0"   : "NVIDIA GeForce RTX 5090" (5 GiB, sm_120, mempool enabled)
+rss /home/ubuntu/rsssite/robosimstudio/__init__.py
+```
+
+but `scene.build()` on `device="cuda:0"` dies inside Newton's graph colouring:
+
+```
+HARNESS_RESULT {"script": ".../00_hello_world.py", "device": "cuda:0", "steps_in_view": 20,
+ "run_wall_s": 6.623, "ok": false,
+ "error": "AttributeError: module 'warp.config' has no attribute 'log_level'"}
+  File "/home/ubuntu/rsssite/newton/_src/sim/graph_coloring.py", line 301, in color_graph
+    if max_min_ratio > target_max_min_color_ratio and wp.config.log_level <= wp.LOG_DEBUG:
+AttributeError: module 'warp.config' has no attribute 'log_level'
+```
+
+`wp.config.log_level` was added in a later Warp; newton 1.6.0's declared floor
+is `warp-lang>=1.17.0`. **The 142 MB `warp-lang 1.18.0` wheel is therefore not
+optional**, and the payload the lease actually needs is the full
+**240 MB** one — the same 30 wheels plus warp. That is ~40 min of upload per
+fresh lease at the measured rate. The `robotsim` template with RSS baked in
+would delete exactly this.
+
+A first attempt with that same 240 MB set is recorded here for one reason: it
+failed for a reason of *mine*, not RSS's, and the failure mode is worth
+naming. `harness.py` was launched as `python -I …`, and `-I` ignores
+`PYTHONPATH`, so the harness could not import the target directory it had just
+been installed into:
+
+```
+ModuleNotFoundError: No module named 'robosimstudio'
+```
+
+Install was fine (`install rc=0`, 9.8 s); the run was not. The fix is to pass
+the target directory on `sys.path` explicitly rather than relying on
+`PYTHONPATH`, which is what the final run does.
+
+### B3b. RSS on the GPU lease — final run
+
+
