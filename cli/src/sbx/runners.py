@@ -231,7 +231,7 @@ class GitHub:
         self._check(resp, "delete runner")
         return True
 
-    def jobs(self, repos: list[str], tracked: set[tuple[str, int]], *, cancelled_since: float = 0):
+    def demand_jobs(self, repos: list[str], tracked: set[tuple[str, int]], *, cancelled_since: float = 0):
         """Active, tracked and recently cancelled runs, including jobs missed between polls."""
         for repo in repos:
             for status in ("queued", "in_progress", "cancelled"):
@@ -266,6 +266,19 @@ class GitHub:
             if complete:
                 tracked.discard((repo, run_id))
 
+
+    def job(self, runner: str, identity: dict) -> dict:
+        """Poll only the worker's run attempt until our runner's conclusion propagates."""
+        deadline = time.monotonic() + 60
+        repo = identity["repository"]
+        while time.monotonic() < deadline:
+            for job in self._jobs(repo, identity["run_id"], identity["run_attempt"], deadline=deadline):
+                if job.get("runner_name") == runner:
+                    if job.get("conclusion") is not None:
+                        return {**job, "repo": repo, "head_sha": job.get("head_sha") or identity["sha"]}
+                    break
+            time.sleep(min(2, max(0, deadline - time.monotonic())))
+        raise RunnerError(f"GitHub job lookup timed out for runner {runner}")
 
 class RestDemand:
     """Bounded repo discovery and demand polling, independent of warm/starting/full state."""
@@ -309,7 +322,7 @@ class RestDemand:
                 self._discover()
                 self.next_discovery = self.clock() + 300
             count = 0
-            for repo, job in self.gh.jobs(self.repos, self.tracked, cancelled_since=self.cancelled_since):
+            for repo, job in self.gh.demand_jobs(self.repos, self.tracked, cancelled_since=self.cancelled_since):
                 if job["status"] == "completed" and job.get("conclusion") == "cancelled":
                     # Reclaim now, not after the remaining repositories have been polled.
                     on_cancel(repo, job)
@@ -327,19 +340,6 @@ class RestDemand:
             self.next_poll = max(self.clock() + delay, self.gh.read_after)
             emit("poll_error", error=_error(exc), retry_s=round(self.next_poll - self.clock(), 2))
         return self.backlog
-
-    def job(self, runner: str, identity: dict) -> dict:
-        """Poll only the worker's run attempt until our runner's conclusion propagates."""
-        deadline = time.monotonic() + 60
-        repo = identity["repository"]
-        while time.monotonic() < deadline:
-            for job in self._jobs(repo, identity["run_id"], identity["run_attempt"], deadline=deadline):
-                if job.get("runner_name") == runner:
-                    if job.get("conclusion") is not None:
-                        return {**job, "repo": repo, "head_sha": job.get("head_sha") or identity["sha"]}
-                    break
-            time.sleep(min(2, max(0, deadline - time.monotonic())))
-        raise RunnerError(f"GitHub job lookup timed out for runner {runner}")
 
 
 @dataclass
