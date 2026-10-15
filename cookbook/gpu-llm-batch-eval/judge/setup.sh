@@ -4,9 +4,9 @@
 # The judge proper (grade.sh -> _grade.py -> extract.py) imports only the
 # Python standard library, so a machine that only ever *grades* needs no
 # third-party package at all. The venv exists because the same interpreter
-# regenerates the good bundle (README, "Regenerating the good run") and
-# because the judge pins its own interpreter rather than trusting whatever
-# `python3` the sandbox happens to have.
+# runs the real artifact (examples/good/eval.py) when a bundle is
+# regenerated, and because the judge pins its own interpreter rather than
+# trusting whatever `python3` the sandbox happens to have.
 #
 # Everything comes from judge/requirements.lock with exact versions and
 # sha256 hashes, enforced by pip's --require-hashes: nothing unpinned is

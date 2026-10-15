@@ -28,15 +28,15 @@ What must match `RECEIPT.md`:
 - `judge/setup.sh` installs the exact versions in `judge/requirements.lock`
   (torch 2.10.0+cpu, transformers 4.57.6, and the pinned transitive set);
   `judge/VERSIONS.txt` is regenerated with the same versions.
-- The good bundle's measured numbers (`judge_accuracy`, `untruncated_fraction`,
-  `derived_tok_s`) are properties of the committed bundle and the pinned
-  problems, so they must reproduce **exactly**, not within a tolerance:
-  the judge reads a file, it does not re-run the model. A difference means
-  the judge or `problems.json` changed, which is itself the finding.
-
-The generation numbers (`wall_time_s`, `throughput_tok_s` of the good run)
-are **not** expected to reproduce: they were measured on this builder's
-machine and are reported under a device-plausible gate rather than a fixed
-value. A reproducer that re-runs `examples/good/eval.py` will get a
-different rate on different hardware; that is expected and is why the gate
-is a plausibility check, not an equality check.
+- The committed good bundle is a hand-written fixture (see the honesty
+  note in README.md and the header of RECEIPT.md), so its graded numbers
+  (`judge_accuracy` 0.34, `untruncated_fraction` 1.0, `derived_tok_s`
+  4.1676) are properties of the committed file and the pinned problems:
+  they must reproduce **exactly**, not within a tolerance. The judge reads
+  a file, it does not re-run the model. A difference means the judge or
+  `problems.json` changed, which is itself the finding.
+- If you run `python3 cookbook/gpu-llm-batch-eval/run.py --gpu` with a
+  working key, the generation numbers (`wall_time_s`, `throughput_tok_s`)
+  are **not** expected to match any fixed value: they are measured on
+  your lease's hardware and gated for device plausibility, not equality.
+  Record the lease id and its deletion in RECEIPT.md's GPU section.

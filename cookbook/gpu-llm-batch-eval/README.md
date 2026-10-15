@@ -19,19 +19,27 @@ one small file it hands back.
 
 ## Results
 
-Key numbers from the judge verdict (`examples/good/bundle.json`):
+Key numbers from the judge verdict on the committed good bundle
+(`examples/good/bundle.json` — a hand-written fixture; see the honesty note
+below and RECEIPT.md):
 
 | gate | measured | rule |
 |---|---|---|
 | structure | pass | 100 problems, aligned, `temperature 0`, `greedy` |
-| judge_accuracy | 0.27 (27/100) | ≥ floor 0.20, and within 0.5 pt of reported |
+| judge_accuracy | 0.34 (34/100) | ≥ floor 0.20, and within 0.5 pt of reported |
 | generations | 100 % complete | ≥ 90 % below the token cap |
-| token_accounting | 3.9 tok/s on `cpu` | within 1 % of tokens/wall, device-plausible |
+| token_accounting | 4.17 tok/s on `cpu` | within 1 % of tokens/wall, device-plausible |
 | self-test kill rate | 11/11 = 100 % | ≥ 90 % |
 
-`media/` is produced by a later task; the numbers above are the ones this
-task measured, and every one of them is pasted from a real run in
-`RECEIPT.md`.
+**Honesty note.** The committed bundle is a deterministic hand-written
+fixture, not a model run: the build sandbox's gateway key was rejected
+(401) so no GPU lease could be created, and its 2 vCPU would need ~20 h
+for 100 problems. The fixture proves the judge's mechanics end to end
+(its 11 mutants are all killed); `run.py --gpu` produces the real bundle
+and overwrites the fixture. Every number in the table is pasted from a
+real judge run in `RECEIPT.md`.
+
+`media/` is produced by a later task.
 
 ## Ask your agent
 
@@ -52,9 +60,12 @@ task measured, and every one of them is pasted from a real run in
 > believe the judge is wrong, say so instead of working around it. Kill the
 > sandbox when you are done.
 
-The known-good example in `examples/good/` is the bundle this repository
-measured; a working answer does not have to match its accuracy, only clear
-the gates.
+The known-good example in `examples/good/` is a hand-written fixture (see
+the honesty note above) whose generations the judge can score end to end; a
+working answer does not have to match its accuracy, only clear the gates.
+`examples/good/eval.py` is the real artifact to imitate: pinned model from
+a local directory, transformers batched greedy generation, and a bundle
+whose reported numbers its own generations support.
 
 ## One-command run
 
@@ -81,10 +92,10 @@ block, confirming the deletion with a `GET` (`404`, or `200` with
 
 | step | wall time |
 |---|---|
-| `git clone --depth 1` | ~2 s |
-| `judge/setup.sh` (fresh install, CUDA-class wheels) | ~7 min on 2 vCPU |
-| `judge/selftest.sh` (good + 11 mutants + determinism) | ~2 s |
-| `judge/grade.sh examples/good/bundle.json` | ~0.1 s |
+| `git clone --depth 1` | ~3 s |
+| `judge/setup.sh` (fresh install, CPU torch + transformers) | ~4 min on 2 vCPU |
+| `judge/selftest.sh` (good + 11 mutants + determinism) | ~5 s |
+| `judge/grade.sh examples/good/bundle.json` | ~0.4 s |
 
 Grading itself is string and float work over 100 generations — it does not
 touch the model, so it is seconds on any machine. `run.py` prints a
