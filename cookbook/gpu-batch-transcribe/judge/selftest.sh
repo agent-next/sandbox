@@ -36,20 +36,31 @@ total=0
 fails=""
 while read -r name; do
     total=$((total + 1))
-    if bash "$HERE/grade.sh" "$MUT/$name.py" --json "$WORK/$name.json" >/dev/null 2>&1; then
+    # grade.sh prints "grade: exit N" on every run: a judge that always
+    # exits 0 (or prints ok for a failing mutant) shows up here instead
+    # of passing silently.
+    out=$(bash "$HERE/grade.sh" "$MUT/$name.py" \
+        --json "$WORK/$name.json" 2>&1); rc=$?
+    greplast=$(printf '%s\n' "$out" | grep "grade: exit" | tail -1)
+    if [ "$rc" -eq 0 ]; then
         fails="$fails $name"
         echo "selftest: mutant $name: SURVIVED (judge did not kill it)" >&2
+        echo "selftest:   $greplast" >&2
     else
         killed=$((killed + 1))
         gate=$("$PY" - "$WORK/$name.json" <<'EOF'
 import json, sys
-v = json.load(open(sys.argv[1]))
+try:
+    v = json.load(open(sys.argv[1]))
+except Exception:
+    print("no verdict json")
+    raise SystemExit
 gates = v.get("gates", {})
 failed = [k for k, g in gates.items() if isinstance(g, dict) and not g.get("pass")]
-print(",".join(failed) or f"exit {v.get('exit', '?')}")
+print(",".join(failed) or "exit")
 EOF
 )
-        echo "selftest: mutant $name: killed (gate: $gate)"
+        echo "selftest: mutant $name: killed (gate: $gate; $greplast)"
     fi
 done < "$WORK/names.txt"
 

@@ -385,6 +385,9 @@ def main():
     if args.json_out:
         with open(args.json_out, "w") as fh:
             json.dump(verdict, fh, indent=2, sort_keys=True)
+    # One line with the judge's own return code: the selftest greps it so
+    # a judge that always exits 0 cannot look like it killed a mutant.
+    print(f"grade: exit {rc}")
     print(json.dumps(verdict, indent=2, sort_keys=True))
     sys.exit(rc)
 

@@ -30,6 +30,7 @@ import base64
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -51,6 +52,25 @@ STEP_TIMEOUTS = {
 
 API = "https://api.sbx.agent-next.com"
 
+# A transport blip (tunnel error, connection reset, a 5xx/429 from the
+# gateway) is not a verdict on the command — the CLI may have failed
+# before the request was even sent. These are retried with backoff
+# (LESSONS.md, 616b07c). Anything else fails immediately and verbatim.
+TRANSIENT_ERRORS = (
+    "connecterror", "tunnel error", "error sending request",
+    "connection reset", "connection refused", "connection aborted",
+    "remote end closed", "temporarily unavailable", "timed out",
+    "timeout", "http 408", "http 429", "http 500", "http 502",
+    "http 503", "http 504", "bad gateway", "service unavailable",
+)
+
+
+def is_transient(text):
+    if not text:
+        return False
+    low = text.lower()
+    return any(pat in low for pat in TRANSIENT_ERRORS)
+
 
 def die(msg, code=1):
     print(f"run.py: {msg}", file=sys.stderr)
@@ -65,16 +85,49 @@ def need_sbx():
         die("no API key: export SBX_API_KEY (or E2B_API_KEY)")
 
 
-def run(step, *args, timeout=None, capture=False):
-    t0 = time.monotonic()
-    proc = subprocess.run(
-        args, capture_output=capture, text=True,
-        timeout=timeout and timeout + 30)
-    dt = time.monotonic() - t0
-    status = "ok" if proc.returncode == 0 else f"exit {proc.returncode}"
-    print(f"  [{step}] {' '.join(args[:3])} ... {status} "
-          f"({dt:.0f} s)", flush=True)
-    return proc, dt
+class StepProc:
+    """A step outcome: returncode plus output, or a local timeout marker."""
+
+    def __init__(self, returncode, stdout="", stderr="", timeout=False):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+        self.timeout = timeout
+
+
+def run(step, *args, timeout=None, capture=False, attempts=1, backoff=10):
+    """Run one sbx command, retrying transient transport failures.
+
+    `attempts` bounds the tries; each retry waits `backoff` * attempt
+    seconds first. A command that fails for a non-transient reason runs
+    once. A local subprocess timeout is never retried here (the command
+    may still be running remotely); callers treat it as a failure.
+    """
+    for attempt in range(1, attempts + 1):
+        t0 = time.monotonic()
+        try:
+            proc = subprocess.run(
+                args, capture_output=capture, text=True,
+                timeout=timeout and timeout + 30)
+        except subprocess.TimeoutExpired:
+            dt = time.monotonic() - t0
+            print(f"  [{step}] {' '.join(args[:3])} ... local timeout "
+                  f"after {dt:.0f} s (the command may still be running "
+                  "in the sandbox)", flush=True)
+            return StepProc(124, timeout=True, stderr="local timeout"), dt
+        dt = time.monotonic() - t0
+        status = "ok" if proc.returncode == 0 else f"exit {proc.returncode}"
+        print(f"  [{step}] {' '.join(args[:3])} ... {status} "
+              f"({dt:.0f} s)", flush=True)
+        text = (proc.stderr or "") + (proc.stdout or "")
+        if proc.returncode != 0 and attempt < attempts and is_transient(text):
+            wait = backoff * attempt
+            print(f"  [{step}] transient transport error; retrying in "
+                  f"{wait} s (attempt {attempt + 1}/{attempts})", flush=True)
+            time.sleep(wait)
+            continue
+        return proc, dt
+    raise AssertionError("unreachable")
 
 
 # --------------------------------------------------------------- GPU lease

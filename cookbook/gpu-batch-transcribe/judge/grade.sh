@@ -18,4 +18,11 @@ if [ ! -x "$PY" ]; then
     exit 2
 fi
 
+# The fresh clone ships no corpus/ (audio is downloaded by setup); the
+# corpus digest check needs every pinned file, so install before
+# complaining that one is missing.
+if [ ! -d "$HERE/corpus" ] || [ ! -f "$HERE/corpus/corpus.json" ]; then
+    bash "$HERE/setup.sh"
+fi
+
 exec "$PY" "$HERE/_grade.py" "$@"
