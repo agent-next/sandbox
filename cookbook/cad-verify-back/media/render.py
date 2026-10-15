@@ -200,10 +200,11 @@ def draw_mesh(ax, mesh, yaw=35.0, tilt=22.0, base=BLUE, zoom=1.0,
     fk = f[keep][order]
     cols = shade_colors(mesh, R, base)[keep][order]
     if highlight is not None:
-        hl = set(highlight)
-        idx = np.array([i for i, face in enumerate(fk) if face in hl], dtype=int)
-        if len(idx):
-            cols[idx] = matplotlib.colors.to_rgb(hl_color)
+        # keep_idx maps each drawn row back to the original face index
+        keep_idx = np.nonzero(keep)[0][order]
+        hit = np.isin(keep_idx, np.asarray(list(set(highlight))))
+        if hit.any():
+            cols[hit] = matplotlib.colors.to_rgb(hl_color)
     from matplotlib.collections import PolyCollection
     pc = PolyCollection(v[fk][:, :, :2], facecolors=cols, edgecolors=edge,
                         linewidths=0.0 if edge == "none" else 0.4)
@@ -275,8 +276,12 @@ def assert_no_overlaps(fig, what, ignore_xy=False):
     for a in fig.axes:
         for t in a.texts:
             collect(t)
-        if a.title.get_text().strip():
-            collect(a.title)
+        # set_title(loc="left"/"right") fills _left_title/_right_title;
+        # a.title alone would silently skip them
+        for ttl in (a.title, getattr(a, "_left_title", None),
+                    getattr(a, "_right_title", None)):
+            if ttl is not None and ttl.get_text().strip():
+                collect(ttl)
         if hasattr(a, "get_legend") and a.get_legend() is not None:
             items.append((a.get_legend(), a.get_legend().get_window_extent(rend)))
         if not ignore_xy:

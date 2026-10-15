@@ -60,9 +60,12 @@ def main():
                            + ["data/selftest.log"],
         },
         "demo.mp4": {
-            "shows": "part turntable (real delivered STL), the agent-loop "
-                     "replay, and one card per mutant showing the defect and "
-                     "the gate that caught it (24 s, 1920x1080, 30 fps)",
+            "shows": "storyboarded to media/STORYBOARD.md: hook turntable of "
+                     "the real delivered STL, spec.json -> delivered files, "
+                     "bolt-circle close-up, the agent-loop replay at ~10x "
+                     "speed, one card per mutant showing the defect and the "
+                     "gate that caught it, verdict + kill matrix, end card "
+                     "(37 s, 1920x1080, 30 fps)",
             "command": "bash media/make_media.sh video  (video.py + ffmpeg)",
             "source_data": ["data/verdicts/*.json", "data/replay/iter*.json",
                             "examples/good/part.stl",

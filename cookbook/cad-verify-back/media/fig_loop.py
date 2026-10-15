@@ -155,7 +155,7 @@ def main():
     axm.set_title(f"self-test matrix: every mutant fails ≥ 1 gate on its own "
                   f"evidence — kill rate {kill} (each red cell shows the judge's "
                   f"measured value vs that gate's limit)",
-                  fontsize=9, color=rd.INK2, pad=16, loc="left")
+                  fontsize=9, color=rd.INK2, pad=34, loc="left")
 
     handles = [
         rd.matplotlib.patches.Patch(facecolor=rd.GOOD_WASH,
