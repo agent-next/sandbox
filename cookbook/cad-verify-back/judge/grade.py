@@ -6,9 +6,11 @@ Usage:
 
 <artifact_dir> must contain part.step, part.stl and part.dxf (the agent's
 delivered files). The judge never runs the agent's Python: it re-imports the
-STEP through OCCT, parses the STL with its own stdlib parser (judge/stl.py),
-and reads the DXF with ezdxf. Every expected number comes from the closed-form
-oracle in judge/oracle.py, derived only from the spec JSON.
+STEP through OCCT, checks that solid for validity with BRepCheck_Analyzer,
+parses the STL with trimesh, reads the DXF with ezdxf, and compares the
+re-imported STEP geometry against a reference solid built from the spec alone
+via a boolean XOR (trimesh/manifold3d). Every expected number comes from the
+closed-form oracle in judge/oracle.py, derived only from the spec JSON.
 
 Exit 0 iff every gate passes. The verdict JSON contains every measured and
 expected number so a pass can be checked by hand.
@@ -24,19 +26,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import oracle          # noqa: E402  (judge's own closed-form oracle)
-import stl as stllib   # noqa: E402  (judge's own STL parser, stdlib only)
 
 TOL_BBOX = 0.01        # mm, gate G2
 TOL_VOL_STEP = 0.001   # relative, gate G3
 TOL_DIAM = 0.01        # mm, gates G4 / G9
-TOL_POS = 0.02         # mm, gates G4 / G5 / G9
-TOL_ANG = 0.05         # deg, gate G5
-TOL_VOL_STL = 0.01     # relative, gate G8
-TOL_DR = 0.01          # mm, gate G11
+TOL_POS = 0.02         # mm, gates G4 / G5 / G6 / G9
+TOL_ANG = 0.05         # deg, gates G5 / G6
+TOL_VOL_STL = 0.01     # relative, gate G10
+TOL_XOR = 0.01         # relative, gate G7 (symmetric difference vs reference)
+TOL_DR = 0.01          # mm, gate G13
+TESSELLATE_TOL = 0.01  # mm, chord tolerance for the XOR reference meshes
 
 
 GATE_ORDER = [
-    "step_solid", "step_bbox", "step_volume", "step_holes", "step_pcd",
+    "step_solid", "step_valid", "step_bbox", "step_volume", "step_holes",
+    "step_pcd", "angular_spacing", "step_xor",
     "stl_watertight", "stl_orient", "stl_volume", "dxf_circles",
     "dxf_outline", "design_rules",
 ]
@@ -98,6 +102,68 @@ def step_cylinders(solid):
     return out
 
 
+def _tessellate_solid(solid_or_wp):
+    """Tessellate a cadquery solid/workplane to a trimesh.Trimesh."""
+    import numpy as np
+    import trimesh
+    val = solid_or_wp.val() if hasattr(solid_or_wp, "val") else solid_or_wp
+    verts, faces = val.tessellate(TESSELLATE_TOL)
+    return trimesh.Trimesh(
+        vertices=np.array([[v.x, v.y, v.z] for v in verts]),
+        faces=np.array(faces))
+
+
+def build_reference(spec):
+    """Reference solid built from the spec JSON alone (cadquery/OCCT).
+
+    This is the only place geometry is reconstructed; every gate compares
+    the delivered artifact against the spec-derived numbers in oracle.py
+    or against this reference solid.
+    """
+    import math as _math
+    import cadquery as cq
+    L, W, T = spec["plate_l"], spec["plate_w"], spec["plate_t"]
+    bore, boss_od, boss_h = spec["bore_d"], spec["boss_od"], spec["boss_h"]
+    n, d, pcd = spec["bolt_n"], spec["bolt_d"], spec["pcd"]
+    wp = cq.Workplane("XY").box(L, W, T, centered=(True, True, False))
+    if boss_h > 0:
+        wp = wp.faces(">Z").workplane().circle(boss_od / 2).extrude(boss_h)
+    wp = wp.faces(">Z").workplane().circle(bore / 2).cutThruAll()
+    r = pcd / 2.0
+    for i in range(n):
+        a = 2.0 * _math.pi * i / n
+        # cut each hole as an explicit cylinder through the plate: robust
+        # where a single pushPoints cut can trip OCCT's shape upgrade
+        cyl = (cq.Workplane("XY").workplane(offset=-1.0)
+               .center(r * _math.cos(a), r * _math.sin(a))
+               .circle(d / 2).extrude(T + 2.0))
+        wp = wp.cut(cyl)
+    return wp
+
+
+def xor_volume_mm3(mesh_a, mesh_b):
+    """Volume of the symmetric difference (A xor B) of two meshes, mm^3.
+
+    Uses trimesh's boolean engine backed by manifold3d: XOR = union of
+    (A - B) and (B - A). check_volume is off because both halves are empty
+    when the shapes coincide.
+    """
+    from trimesh.boolean import boolean_manifold
+    ab = boolean_manifold([mesh_a, mesh_b], "difference", check_volume=False)
+    ba = boolean_manifold([mesh_b, mesh_a], "difference", check_volume=False)
+    xor = boolean_manifold([ab, ba], "union", check_volume=False)
+    return xor.volume
+
+
+def angular_steps_deg(centres, n_expected):
+    """Sorted angular positions and pairwise steps between consecutive holes."""
+    angs = sorted((math.degrees(math.atan2(y, x)) + 360.0) % 360.0
+                  for x, y in centres)
+    steps = [(angs[(i + 1) % len(angs)] - angs[i]) % 360.0
+             for i in range(len(angs))]
+    return angs, steps
+
+
 def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
     spec = json.load(open(spec_path))
     exp = oracle.expected(spec)
@@ -132,6 +198,17 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
         if solid is not None and solid.Volume() <= 0:
             g.fail(f"STEP solid has non-positive volume {solid.Volume()}")
         g.ok(solids=1, volume_mm3=solid.Volume())
+
+    # ---- G1b: STEP solid is a valid B-rep (OCCT BRepCheck_Analyzer) ------
+    with Gate(gates, "step_valid",
+              "re-imported STEP passes OCCT BRepCheck_Analyzer") as g:
+        if solid is None:
+            g.fail("skipped: no re-imported solid (G1)")
+        from OCP.BRepCheck import BRepCheck_Analyzer
+        if not BRepCheck_Analyzer(solid.wrapped).IsValid():
+            g.fail("STEP solid is not a valid B-rep "
+                   "(OCCT BRepCheck_Analyzer reports errors)")
+        g.ok(valid=True)
 
     # ---- G2: bounding box ---------------------------------------------
     with Gate(gates, "step_bbox", "bbox within 0.01 mm of spec") as g:
@@ -188,9 +265,9 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
         g.ok(bore_d=round(bore[0], 4), bolt_d=round(bolt_hits[0][0], 4),
              bolt_centres=[(round(x, 4), round(y, 4)) for x, y in centres])
 
-    # ---- G5: bolt centres on the PCD, evenly spaced --------------------
+    # ---- G5: bolt centres on the PCD ------------------------------------
     with Gate(gates, "step_pcd",
-              "bolt centres on PCD within 0.02 mm, spacing within 0.05 deg") as g:
+              "bolt centres on the spec PCD within 0.02 mm") as g:
         if centres is None:
             g.fail("skipped: no bolt centres from G4")
         r = exp["pcd_radius"]
@@ -199,13 +276,6 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
             g.fail(f"bolt centre radial error up to {max(r_errs):.4f} mm "
                    f"(> {TOL_POS}); radii="
                    f"{[round(math.hypot(x, y), 3) for x, y in centres]}")
-        angs = sorted((math.degrees(math.atan2(y, x)) + 360.0) % 360.0
-                      for x, y in centres)
-        steps = [(angs[(i + 1) % len(angs)] - angs[i]) % 360.0
-                 for i in range(len(angs))]
-        if any(abs(s - exp["angular_step_deg"]) > TOL_ANG for s in steps):
-            g.fail(f"angular steps {['%.4f' % s for s in steps]} vs expected "
-                   f"{exp['angular_step_deg']} deg (tol {TOL_ANG})")
         # positions must also match the analytic centres
         pos_errs = []
         for (x, y) in centres:
@@ -215,8 +285,24 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
             g.fail(f"bolt centre positions off by up to {max(pos_errs):.4f} mm "
                    f"from analytic PCD positions")
         g.ok(max_radial_err_mm=round(max(r_errs), 5),
-             max_pos_err_mm=round(max(pos_errs), 5),
-             angular_steps_deg=[round(s, 4) for s in steps])
+             max_pos_err_mm=round(max(pos_errs), 5))
+
+    # ---- G6: angular spacing between consecutive holes --------------------
+    with Gate(gates, "angular_spacing",
+              "bolt holes evenly spaced: every step within 0.05 deg "
+              "of 360/bolt_n") as g:
+        if centres is None:
+            g.fail("skipped: no bolt centres from G4")
+        angs, steps = angular_steps_deg(centres, spec["bolt_n"])
+        want = exp["angular_step_deg"]
+        dev = max(abs(s - want) for s in steps)
+        if dev > TOL_ANG:
+            g.fail(f"angular steps {['%.4f' % s for s in steps]} deg vs "
+                   f"expected {want} deg; max deviation {dev:.4f} > "
+                   f"{TOL_ANG} deg")
+        g.ok(angular_steps_deg=[round(s, 4) for s in steps],
+             expected_step_deg=want,
+             max_deviation_deg=round(dev, 5))
 
     # ---- G6/G7/G8: STL with the judge's own parser ----------------------
     with Gate(gates, "stl_watertight",
