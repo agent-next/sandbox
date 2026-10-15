@@ -5,35 +5,53 @@
 Demonstrate an agent-next sandbox composing a hero section from the
 popular open-source **shaders** component library
 (<https://github.com/shader-effects-inc/shaders> — the npm package
-`shaders`, ~4.8k GitHub stars), rendered headless in the sandbox using
-Chromium's WebGPU-on-SwiftShader, and graded by an independent judge
+`shaders`, ~4.8k GitHub stars, 200+ shader effect components), rendered
+headless in the sandbox in Chromium, and graded by an independent judge
 that checks the rendered pixels, not the agent's claims.
 
 - Upstream package: `shaders` on npm, **pinned to version 4.0.4**
   (2026-10-09), sha256-verified at setup time. MIT licence by
-  Shader Effects Inc.; mini-COPY of the licence ships in the good example.
-- Rendering backend: **WebGPU via Dawn/SwiftShader (CPU)** in headless
-  Chromium 150.0.7871.100 (Debian bookworm, pinned + sha256-verified).
-  WebGPU (not the WebGL fallback) is the only backend this demo grades;
-  that choice is measured and recorded (see "Backend measurement" below).
+  Shader Effects Inc.; a copy of the licence ships in the good example.
+- Headless Chromium 150.0.7871.100 (Debian bookworm, pinned +
+  sha256-verified) renders the page. 2 vCPU / ~4 GB RAM is enough.
+
+## Backend: which works (measured, 2026-10-15)
+
+Chromium 150 can grant a WebGPU adapter in headless software mode
+(`--enable-unsafe-webgpu --enable-unsafe-swiftshader`: adapter granted,
+`vendor=google, architecture=swiftshader`) — but **SwiftShader's WebGPU
+draw path does not rasterize**: the registry reports `supported`, the
+device is granted, every `createShader` call resolves, zero console
+errors are raised, and yet every canvas stays fully transparent on
+readback (64x64 downsample variance 0, distinct-colour count 1, on
+Aurora / Blob / ConicGradient alike). Screenshots of the page confirm
+nothing is drawn.
+
+The same Chromium build's **WebGL2 path over the same SwiftShader
+driver rasterizes correctly** (`WEBGL_debug_renderer_info` reports
+`ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)))` and test
+triangles render with real pixel variance).
+
+So this demo grades the library's rendered output through **WebGL2 on
+SwiftShader**, which is the fallback the library's docs describe for
+environments without a working GPU; the verdict JSON records both which
+backend rendered and what the WebGPU probe found
+(`backend.probe.adapter`, `backend.probe.swiftshaderBlank`). On a
+machine with a working WebGPU rasterizer the same gates run unchanged.
 
 ## Non-goals
 
 - The React/Vue/Svelte/Solid bindings, the partner bundle,
-  `npx shaders` tooling, MCP servers. Only the framework-free
-  `shaders/js` entry of the library is used.
-- Building the library from source. The sha256-verified npm tarball is
-  the only source of the library code.
-- Native-gpu WebGPU, WebGL fallback grading, multiple effects composed in
-  layers on one canvas, or the React wrapper's animation helpers. The
-  judge drives `createShader` from `shaders/js` directly, one component
-  per canvas.
-- Video encoding. That is the media task's job; the judge produces PNG
-  frames only.
+  `npx shaders` tooling, MCP servers, building the library from source.
+  The sha256-verified npm tarball is the only source of library code,
+  and only the framework-free `shaders/js` entry is used.
+- Native-GPU WebGPU, multiple effects layered on one canvas, custom
+  user-authored WGSL, video encoding (that is the media task's job).
 
 ## Artifact
 
-One **artifact directory** — a static web page plus a manifest:
+One **artifact directory** — a static hero-section page plus a
+manifest:
 
 ```
 <artifact>/
@@ -48,84 +66,88 @@ One **artifact directory** — a static web page plus a manifest:
 {
   "title": "Aurora Hero",
   "effects": [
-    { "type": "Aurora",    "region": "hero-aurora" },
-    { "type": "Blob",      "region": "hero-blob" },
+    { "type": "Aurora",        "region": "hero-aurora" },
+    { "type": "Blob",          "region": "hero-blob" },
     { "type": "ConicGradient", "region": "hero-conic" }
   ]
 }
 ```
 
 `type` must be an effect name from the pinned library's registry;
-`region` must be the `id` of an element in `index.html` that contains
+`region` must be the `id` of an element in `index.html` containing
 exactly one `<canvas>`. The judge serves the artifact verbatim over
-HTTP, mounts each declared effect from the **sha256-verified local
-library bundle** (never from the page's own copy) onto each region's
-canvas, and grades the rendered pixels.
+HTTP, mounts each declared effect onto its region's canvas from the
+**sha256-verified local library bundle** (never from any copy the
+artifact ships), and grades the rendered pixels.
 
-Anything else in the page (headings, copy, buttons, CSS) is fair game.
-The artifact is graded in a scratch copy and may not write into
-`judge/`; `judge/` is checksummed before and after grading.
+The judge renders with the WebGL rasterizer (`context` option of
+`createShader` — the library's documented fallback), after recording
+the WebGPU probe results described above. Anything else in the page
+(headings, copy, buttons, CSS) is fair game. The artifact is graded in
+a scratch copy; `judge/` is sha256-checksummed before and after.
 
 ## Gates (numeric pass rules)
 
-The judge runs the page twice (1440x900 and 375x780 viewports) in
-headless Chromium (`--enable-unsafe-swiftshader`, `--no-sandbox`), and
-once more at 1440x900 for the pixel probes.
+The judge runs headless Chromium
+(`--enable-unsafe-webgpu --enable-unsafe-swiftshader --no-sandbox`) at
+1440x900 (layout + pixel probes) and 375x780 (layout probe).
 
-### Gate 1 — page & context
-- The page loads over HTTP with **zero console errors** and zero
-  unhandled rejections (browser-reported).
-- For every declared effect the library produces a live WebGPU context
-  (`navigator.gpu` adapter + device granted) — recorded per region. This
-  is also where which backend actually ran is measured.
+### Gate 1 — page & probes
+- The page loads over HTTP with **zero browser-reported console errors**
+  and zero unhandled rejections.
+- For every declared effect, mounting the library component on the
+  region's canvas resolves without throwing and without an
+  `onError` callback within 30 s; the mount is recorded with the
+  backend actually used (`webgl`).
+- The verdict records the WebGPU probe (`adapter granted? vendor/arch?`)
+  and the WebGL renderer string.
 
 ### Gate 2 — non-blank rendering (per effect)
-- Each declared region's canvas is read back with
-  `canvas.toDataURL()` after a settling delay; the per-region pixel
-  variance of the RGB channels must exceed **12.0** (on the 0-255
-  channel scale, population variance of the combined channels of a
-  64x64 downsample) so a flat frame cannot pass; and the count of
-  distinct 12-bit colours (top 4 bits per channel) must exceed **20**,
-  so a two-tone dither cannot pass.
+- Each declared region's canvas is read back
+  (`canvas.toDataURL()` into a 64x64 downsample). The RGB channel
+  **population variance must exceed 12.0** (0-255 scale, 64x64x3
+  samples), so a flat frame cannot pass; and the number of distinct
+  12-bit colours (top 4 bits per channel) must exceed **20**, so a
+  two-tone dither cannot pass.
 
 ### Gate 3 — animation (per effect)
-- Two consecutive canvas captures **1.0 s apart**; the mean absolute
-  pixel difference over the 64x64 downsample must exceed **4.0** out of
-  255. A live shader that merely drew one frame and stopped fails here.
+- Two captures of the canvas 1.0 s apart; the **mean absolute pixel
+  difference must exceed 4.0** out of 255 over the 64x64 downsample.
+  A shader that drew one frame and stopped fails here.
 
-### Gate 4 — provenance (the effects are real library exports)
-- Every `type` in `artist.json` must be a name reported by the pinned
-  library's registry at grade time (imported `shaders/js/registry.js`
-  from the sha256-verified tarball, not from the artifact).
-- The page must not contain any of its own WebGPU/WGSL/GLSL shader
-  code: a scan of `index.html` and any local `*.js`/`*.mjs` it loads
-  finds no `//wgsl`, `wgsl` code fences, `createShaderModule`,
-  `GPUShaderModule`, `gl_FragColor`, or `fragmentShader` outside the
-  pinned bundle. (The bundle lives outside the artifact and is served
-  from `/vendor/`.) Inline WGSL in a `.js` file means the effect was
-  hand-written, not imported.
+### Gate 4 — provenance (real library exports, no hand-written shaders)
+- Every `type` in `artist.json` is a name exported by the pinned
+  library's registry (`dist/js/registry.js` from the sha256-verified
+  tarball).
+- A static scan of `index.html` and every local `*.js`/`*.mjs` the page
+  loads finds no user-authored shader code: none of the tokens
+  `createShaderModule`, `GPUShaderModule`, `wgsl`, `gl_FragColor`,
+  `fragmentShader`, `vertexShader`. The pinned bundle is served from
+  `/vendor/` outside the artifact, so inline WGSL/GLSL in the artifact
+  means the effect was hand-written, not imported.
 
 ### Gate 5 — layout (no overflow)
-- At 1440x900 and at 375x780: `document.scrollingElement.scrollWidth`
-  must be <= viewport width + 1 px. Each declared region must be
-  visible in the layout (bounding box height >= 100 px at 1440px
-  viewport and >= 80 px at 375px).
-- The hero section must contain a text headline: an `h1` whose
-  `clientHeight` is > 0 at both viewports (so a bare canvas doesn't
-  count as a hero section).
+- At 1440x900 and at 375x780: `document.scrollingElement.scrollWidth <=
+  innerWidth + 1 px`.
+- Each declared region's bounding box is at least 100 px tall at 1440
+  px width and at least 80 px tall at 375 px width.
+- The hero section contains a headline: an `h1` with `clientHeight > 0`
+  at both widths.
 
-### Gate 6 — performance floor (recorded, not pass/failed by wall time)
-- Frames rendered per second during the probe is measured over a 3 s
-  window and recorded in the verdict under `performance.fps`. The gate
-  passes when fps >= **2** on SwiftShader CPU (the floor that says the
-  frame loop is actually turning over in CI). Real numbers go into
-  RECEIPT.md.
+### Gate 6 — performance floor (recorded + minimal threshold)
+- Rendered frames per second is measured over a 3 s window per effect
+  (rAF callbacks counted). The gate passes when fps >= **2** on
+  SwiftShader; measured numbers are written to the verdict under
+  `performance` and to RECEIPT.md.
 
 ### Determinism
-- Grade twice with the same `--seed`: the verdict JSON must be
-  byte-identical outside the `timing` key. Time-dependent shader output
-  is captured at fixed virtual timestamps via Chromium's virtual time
-  budget, so the same seed gives the same captures.
+- The verdict JSON contains no wall-time fields outside `timing`.
+  Two runs with the same `--seed` must produce byte-identical verdict
+  JSON outside the `timing` key. Time-dependent captures are taken at
+  fixed offsets after `onReady` (canvas pixels are read with the render
+  loop paused at a fixed frame count where the library allows it), so
+  shader animation state at capture time is reproducible at a fixed
+  seed.
 
 ## Acceptance oracle
 
@@ -133,23 +155,13 @@ The oracle is the rendered pixel output of the pinned library,
 measured by the judge itself:
 
 - **Gates 2 & 3:** numeric thresholds on the judge's own pixel
-  captures. A blank/static/dithered canvas fails them regardless of
+  captures. A blank / static / two-tone canvas fails them regardless of
   what the manifest claims.
 - **Gate 4:** the sha256-verified local copy of the library's own
-  registry ("is this effect a real export?") plus a static scan that
-  the page itself contains no shader code.
+  registry decides what counts as a real export; a static scan decides
+  whether the page ships its own shader code.
 - **Gate 5:** the browser's own layout metrics at both widths.
 
 Nothing passes because "the page loaded" or "the agent said it was
-from the library" — every gate is a measurement the judge takes
-itself from the rendered output.
-
-## Backend measurement (recorded, not gated)
-
-Chromium's `--enable-unsafe-swiftshader` gives WebGPU via Dawn's
-SwiftShader device when no real GPU exists. The judge records
-`adapter.info.vendor`, `adapter.info.architecture`, and
-`adapter.info.description` into the verdict's `backend` key so the
-receipt shows which path actually rendered the pixels. If WebGPU is
-unavailable and the library falls back to WebGL, that is recorded and
-Gate 1 fails — the demo grades the WebGPU path only.
+from the library" — every gate is a measurement the judge takes itself
+from the rendered output.
