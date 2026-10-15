@@ -10,15 +10,15 @@ from nothing — the whole judge comes up from an empty image plus the pinned
 
 | | RUN-A | RUN-B |
 |---|---|---|
-| `judge/setup.sh` | exit 0, 29.8 s (download + install) | exit 0, 16.5 s |
-| `judge/grade.sh examples/good` | exit 0, 10.2 s | exit 0, 8.3 s |
-| `judge/selftest.sh` | exit 0, 102.6 s | exit 0, 81.4 s |
+| `judge/setup.sh` | exit 0, 29.8 s (download + install) | exit 0, 22.1 s |
+| `judge/grade.sh examples/good` | exit 0, 10.2 s | exit 0, 15.4 s |
+| `judge/selftest.sh` | exit 0, 102.6 s | exit 0, 97.1 s |
 | sha256 of the `.deb` download | `58e59f7d…d1b819909` OK (`sha256sum -c`) | same, OK |
 | sqlite3 installed | 3.40.1-2+deb12u2 | 3.40.1-2+deb12u2 |
 | G1 solved | **10/10** | **10/10** |
 | G2 pristine trees rejected | **10/10** | **10/10** |
 | G3 negative control | **0/10** | **0/10** |
-| G4 total verifier time | 3.056 s (limit 300) | 3.015 s (limit 300) |
+| G4 total verifier time | 3.792 s (limit 300) | 5.025 s (limit 300) |
 | G5 judge tree unchanged | yes | yes |
 | kill rate | **12/12 = 100 %** | **12/12 = 100 %** |
 | verdict JSON (timing stripped) | identical | identical |

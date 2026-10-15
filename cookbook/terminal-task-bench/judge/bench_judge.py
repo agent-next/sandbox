@@ -133,7 +133,6 @@ def grade_task(agent: str, fixtures: str, scratch_root: str, task: str):
     work = os.path.join(dst, "work")
     env = dict(os.environ)
     env["WORK"] = work
-    env["PATH"] = env.get("PATH", "") + ":" + os.path.join(DEMO, "bin")
 
     rc, out, secs = run(["bash", apply_sh], cwd=dst, timeout=APPLY_TIMEOUT,
                         env=env)
