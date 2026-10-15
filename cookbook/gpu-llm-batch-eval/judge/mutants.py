@@ -20,6 +20,7 @@ Failure classes, from the brief:
     gpu_rate_on_cpu     device says cpu, throughput is a GPU rate
     empty_generation    one generation is an empty string
     bad_hash            problems_sha256 of a different problem set
+    string_index        one generation's i is the string "7", not the int
 """
 
 import json
@@ -94,6 +95,10 @@ def mutate(name, bundle):
         b["generations"][7]["generation"] = ""
     elif name == "bad_hash":
         b["problems_sha256"] = "0" * 64
+    elif name == "string_index":
+        # a non-integer i must be a structured structure-gate failure, not a
+        # TypeError from sorted() while building the verdict
+        b["generations"][7]["i"] = str(b["generations"][7]["i"])
     else:
         raise SystemExit(f"unknown mutant {name}")
     return b
@@ -102,7 +107,7 @@ def mutate(name, bundle):
 NAMES = ["first_number", "inflated_accuracy", "deflated_accuracy", "truncated",
          "misaligned", "nondeterministic", "invented_throughput",
          "cpu_claimed_as_gpu", "gpu_rate_on_cpu", "empty_generation",
-         "bad_hash"]
+         "bad_hash", "string_index"]
 
 
 def main():

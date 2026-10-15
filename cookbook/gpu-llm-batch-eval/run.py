@@ -66,6 +66,11 @@ UPLOAD_CHUNK = 400 * 1024 * 1024
 
 
 def die(msg, code=1):
+    # never echo the key back: gateway bodies travel inside some messages
+    for name in ("SBX_API_KEY", "E2B_API_KEY"):
+        value = os.environ.get(name)
+        if value:
+            msg = msg.replace(value, "[redacted]")
     print(f"run.py: {msg}", file=sys.stderr)
     raise SystemExit(code)
 
@@ -89,8 +94,14 @@ def run(step, *args, timeout=None, capture=False):
     return proc, dt
 
 
-def request(key, method, path, body=None, raw=None, timeout=900):
-    """-> (status, parsed-body-or-None). `raw` sends bytes with no JSON."""
+def request(key, method, path, body=None, raw=None, timeout=900,
+            raw_response=False):
+    """-> (status, parsed-body-or-None).
+
+    `raw` sends bytes with no JSON. `raw_response=True` returns the response
+    body as bytes instead of parsing it as JSON — a downloaded JSON file is
+    still bytes on the wire and must survive the trip intact.
+    """
     if raw is not None:
         data, ctype = raw, "application/octet-stream"
     elif body is None:
@@ -102,12 +113,16 @@ def request(key, method, path, body=None, raw=None, timeout=900):
     try:
         with urlopen(req, timeout=timeout) as r:
             payload = r.read()
+            if raw_response:
+                return r.status, payload
             try:
                 return r.status, json.loads(payload) if payload else None
             except ValueError:
                 return r.status, payload
     except HTTPError as exc:
         payload = exc.read()
+        if raw_response:
+            return exc.code, payload
         try:
             return exc.code, json.loads(payload) if payload else None
         except ValueError:
@@ -370,7 +385,8 @@ def run_gpu_lane(key, demo_path, report_json=None):
         report = result.get("report") or {}
 
         st, bundle_bytes = request(key, "GET",
-                                   f"/sandboxes/{sid}/files/bundle.json")
+                                   f"/sandboxes/{sid}/files/bundle.json",
+                                   raw_response=True)
         if st != 200 or not isinstance(bundle_bytes, bytes):
             die(f"gpu: could not download bundle.json: HTTP {st}")
         out = os.path.join(demo_path, "examples", "good", "bundle.json")
@@ -482,8 +498,21 @@ def main():
             print(f"run.py: --keep: sandbox {sbx_id} left running; "
                   "kill it with: sbx kill " + sbx_id)
         else:
-            run("kill", "sbx", "kill", sbx_id, timeout=120)
+            proc, _ = run("kill", "sbx", "kill", sbx_id, timeout=120,
+                          capture=True)
+            if proc.returncode != 0:
+                die(f"cleanup not confirmed: sbx kill failed for sandbox "
+                    f"{sbx_id} (exit {proc.returncode}: "
+                    f"{(proc.stderr or '').strip()[:200]}); kill it with: "
+                    f"sbx kill {sbx_id}", 2)
             proc, _ = run("list", "sbx", "list", timeout=60, capture=True)
+            # a failed `sbx list` is not a confirmation either: an empty
+            # stdout would read as "the id is gone"
+            if proc.returncode != 0:
+                die(f"cleanup not confirmed: `sbx list` failed for sandbox "
+                    f"{sbx_id} (exit {proc.returncode}: "
+                    f"{(proc.stderr or '').strip()[:200]}); check with: "
+                    f"sbx list", 2)
             if sbx_id in (proc.stdout or ""):
                 die(f"cleanup not confirmed: sandbox {sbx_id} still live; "
                     "kill it with: sbx kill " + sbx_id, 2)

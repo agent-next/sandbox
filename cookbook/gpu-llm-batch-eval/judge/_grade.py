@@ -81,18 +81,45 @@ def load_problems(judge_dir):
     return path, doc
 
 
-def run_artifact(artifact, workdir, timeout, device, seed):
-    """Copy the artifact into a fresh dir and run it there. Returns (rc, stderr)."""
+def run_artifact(artifact, workdir, timeout, device, seed, judge_dir):
+    """Copy the artifact into a fresh dir and run it there. Returns (rc, stderr).
+
+    The artifact is graded from a copy in a fresh temp dir so it cannot see
+    or write `judge/`; it gets the model dir and the problems through the
+    environment only. The judge's own `problems.json` is copied next to the
+    copy so the artifact can read it through `LLM_EVAL_PROBLEMS` and the
+    bundle's `problems_sha256` stays checkable against the judge's file.
+    """
     run_dir = os.path.join(workdir, "run")
     os.makedirs(run_dir, exist_ok=True)
     local = os.path.join(run_dir, os.path.basename(artifact))
     shutil.copy2(artifact, local)
-    # the artifact must not see judge/; it gets the model dir and problems
-    # through the environment only
+    # The artifact must not see judge/; it gets the pinned problems and the
+    # model directory through the environment only (SPEC: "loads the pinned
+    # model from a local directory"). The problems file is copied next to
+    # the artifact so the bundle's problems_sha256 is checkable against the
+    # same pinned file the judge scores with.
+    shutil.copy2(os.path.join(judge_dir, "problems.json"),
+                 os.path.join(run_dir, "problems.json"))
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["LLM_EVAL_DEVICE"] = device
     env["LLM_EVAL_SEED"] = str(seed)
+    env["LLM_EVAL_PROBLEMS"] = os.path.join(run_dir, "problems.json")
+    # The artifact loads the pinned model from a local directory. The judge
+    # supplies its path through LLM_EVAL_MODEL_DIR (eval.py documents this);
+    # there is no download inside the judge, so a missing model dir is a
+    # structured gate failure naming the files to fetch, not a traceback.
+    model_dir = env.get("LLM_EVAL_MODEL_DIR") or os.path.join(
+        os.path.dirname(os.path.abspath(artifact)), "model")
+    if not os.path.isdir(model_dir):
+        return (1,
+                f"grading a .py artifact needs the pinned model directory: "
+                f"set LLM_EVAL_MODEL_DIR to a directory holding the files "
+                f"pinned in judge/MODEL.txt (none found at {model_dir!r}); "
+                f"or grade the bundle.json the artifact already wrote",
+                run_dir)
+    env["LLM_EVAL_MODEL_DIR"] = model_dir
     proc = subprocess.run([sys.executable, local], cwd=run_dir, env=env,
                           capture_output=True, text=True, timeout=timeout)
     return proc.returncode, proc.stderr[-4000:], run_dir
@@ -134,6 +161,11 @@ def check_structure(bundle, problems_doc, problems_sha):
     idx = [g.get("i") for g in gens if isinstance(g, dict)]
     if len(idx) != len(gens):
         problems.append("a generation entry is not an object")
+    elif not all(type(v) is int for v in idx):
+        # a non-integer `i` (e.g. "0") must be a structured gate failure,
+        # not a TypeError from sorted(); validate before sorting
+        problems.append("generation i values must be integers, got "
+                        f"{sorted({type(v).__name__ for v in idx})}")
     elif sorted(idx) != list(range(len(gens))):
         problems.append("generation i values are not exactly 0..n-1")
     if bundle["problems_sha256"] != problems_sha:
@@ -327,7 +359,7 @@ def main():
         if bundle_path is None:
             rc, err, run_dir = run_artifact(args.artifact, workdir,
                                             args.timeout, args.device,
-                                            args.seed)
+                                            args.seed, judge_dir)
             if rc != 0:
                 artifact_error = (f"artifact exited {rc}: "
                                   f"{err.strip()[-500:]}")

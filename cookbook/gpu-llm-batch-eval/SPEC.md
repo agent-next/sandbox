@@ -73,7 +73,7 @@ extraction is independent.
 | input | source | licence |
 |---|---|---|
 | model weights + tokenizer | `Qwen/Qwen2.5-0.5B-Instruct` at commit `7ae557604adf67be50417f59c2c2f167def9a775` (pinned per-file sha256 in `judge/MODEL.txt`) | Apache-2.0 |
-| 100 problems | first 100 test rows of GSM8K, pinned with sha256 in `judge/problems.json` | MIT |
+| 100 problems | first 100 test rows of GSM8K; the committed `judge/problems.json` *is* the pin (its `source`/`source_commit`/`source_sha256` record the upstream file), and every bundle must echo its sha256 under `problems_sha256` | MIT |
 | judge toolchain | `judge/requirements.lock`, hashes enforced by pip | — |
 
 The model card reports GSM8K-style maths results only through the base model
