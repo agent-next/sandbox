@@ -1,0 +1,7 @@
+# skill-ab-bench judge: versions installed by judge/setup.sh
+# (Linux x86_64)
+jq 1.6
+jq debian package: 1.6-2.1+deb12u2
+libjq1 debian package: 1.6-2.1+deb12u2
+python3 3.12.15
+judge engine: python3 standard library only (no packages installed)
