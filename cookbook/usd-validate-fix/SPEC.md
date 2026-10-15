@@ -68,12 +68,14 @@ artifact to a scratch dir, verifies `judge/` is unchanged afterwards
 
 ### Gate 1 — NVIDIA validator, zero failures
 `nvidia_usd_validate <copy>` with the default rule set, disabling
-exactly two rules that cannot pass under pip `usd-core` because the
-wheel ships no `shaderDefs.usda` (so the Sdr registry resolves **no**
-shader id, for any asset): `UsdShadeShaderSdrCompliance` and
-`MaterialUsdPreviewSurfaceChecker` (the latter emits only an
-environmental WARNING). Pass rule: exit 0, JSON `status == "PASS"`, and
-zero issues with severity `FAILURE` or `ERROR`.
+exactly one rule, `MaterialUsdPreviewSurfaceChecker`, which cannot pass
+under pip `usd-core` because the wheel ships no `shaderDefs.usda` (so
+the Sdr registry resolves **no** shader id, for any asset — the rule
+emits only that environmental WARNING and reports FAIL). (The earlier
+draft also named `UsdShadeShaderSdrCompliance`; no rule with that name
+is registered at the pinned commit and the CLI rejects it with
+exit 2.) Pass rule: exit 0, JSON `status == "PASS"`, and zero issues
+with severity `FAILURE` or `ERROR`.
 
 ### Gate 2 — independent usd-core oracle (`judge/oracle.py`)
 Re-derives every property from the artifact using only `pxr` (no
@@ -120,5 +122,6 @@ Single edits of the good artifact: `no_normals` (D1), `mpu_1` (D2a),
 `upaxis_z` (D2b), `zero_face` (D3), `unbind` (D4), `no_defaultprim`
 (D5), `no_extent` (D6), `delete_band` (delete the offending prim),
 `scale_points` (×100 with `metersPerUnit = 1` to fake units),
-`short_normals` (drop one normal — count mismatch). Self-test kill
-rate must be 100 % (≥ 90 % required).
+`short_normals` (drop one normal — count mismatch), and `no_collision`
+(collider stripped). Self-test kill rate must be 100 % (≥ 90 %
+required).
