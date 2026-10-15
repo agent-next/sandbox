@@ -43,7 +43,9 @@ REQUIRED = {
 }
 ACCURACY_BAND = 0.005          # 0.5 percentage points, both directions
 THROUGHPUT_TOL = 0.01          # 1 %
-MIN_THROUGHPUT_TOK_S = 50.0    # a CPU-rate number on a GPU run is a red flag
+GPU_FLOOR_TOK_S = 50.0         # a CPU-rate number on a GPU run is a red flag
+CPU_FLOOR_TOK_S = 0.2          # even a throttled CPU run clears this
+CPU_CEILING_TOK_S = 1000.0     # a CPU run claiming GPU rates is fabricated
 UNTRUNCATED_FRACTION = 0.90    # >= 90 % of generations must end naturally
 
 
@@ -248,10 +250,18 @@ def check_generations(bundle, by_i, problems_doc):
 
 
 def check_tokens(bundle):
-    """Gate 4: the bundle's own numbers must be self-consistent."""
+    """Gate 4: the bundle's own numbers must be self-consistent.
+
+    `generated_tokens / wall_time_s` must equal the reported throughput to
+    within 1 %, and the number must be plausible for the device the bundle
+    claims. A bundle that says "cuda" while reporting a CPU rate did not
+    use the accelerator; a bundle that says "cpu" while reporting a GPU
+    rate invented the timing. Both are failures, in opposite directions.
+    """
     tokens = float(bundle["generated_tokens"])
     wall = float(bundle["wall_time_s"])
     reported = float(bundle["throughput_tok_s"])
+    device = str(bundle["device"]).lower()
     derived = tokens / wall
     rel = abs(derived - reported) / max(derived, 1e-9)
     problems = []
@@ -259,13 +269,31 @@ def check_tokens(bundle):
         problems.append(f"generated_tokens/wall_time_s = {derived:.2f} tok/s "
                         f"differs from throughput_tok_s {reported:.2f} by "
                         f"{rel * 100:.2f}% (limit {THROUGHPUT_TOL * 100:.0f}%)")
-    if derived <= MIN_THROUGHPUT_TOK_S:
-        problems.append(f"{derived:.2f} tok/s is below the "
-                        f"{MIN_THROUGHPUT_TOK_S:.0f} tok/s GPU floor")
+    if device.startswith("cuda") or device.startswith("gpu"):
+        if derived <= GPU_FLOOR_TOK_S:
+            problems.append(
+                f"device is {bundle['device']!r} but {derived:.2f} tok/s is "
+                f"at or below the {GPU_FLOOR_TOK_S:.0f} tok/s GPU floor "
+                "(a CPU-rate number on a GPU run: the accelerator was not "
+                "used, or the timing is invented)")
+    elif device.startswith("cpu"):
+        if derived <= CPU_FLOOR_TOK_S:
+            problems.append(f"{derived:.2f} tok/s is implausibly slow even "
+                            f"for a CPU run (floor {CPU_FLOOR_TOK_S} tok/s)")
+        elif derived > CPU_CEILING_TOK_S:
+            problems.append(
+                f"device is {bundle['device']!r} but {derived:.2f} tok/s "
+                f"exceeds the {CPU_CEILING_TOK_S:.0f} tok/s CPU ceiling: a "
+                "CPU run cannot reach GPU rates, so the timing is invented")
+    else:
+        problems.append(f"device {bundle['device']!r} is neither cpu nor cuda")
     return (not problems), problems, {
         "derived_tok_s": round(derived, 4),
         "reported_tok_s": round(reported, 4),
         "rel_error": round(rel, 8),
+        "device": bundle["device"],
+        "device_floor_tok_s": (GPU_FLOOR_TOK_S if device.startswith(("cuda", "gpu"))
+                               else CPU_FLOOR_TOK_S),
     }
 
 

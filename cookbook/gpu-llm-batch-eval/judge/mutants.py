@@ -17,6 +17,7 @@ Failure classes, from the brief:
     nondeterministic    temperature > 0, greedy false
     invented_throughput wall time too small for the token count
     cpu_claimed_as_gpu  device says cuda, throughput is a CPU rate
+    gpu_rate_on_cpu     device says cpu, throughput is a GPU rate
     empty_generation    one generation is an empty string
     bad_hash            problems_sha256 of a different problem set
 """
@@ -48,6 +49,14 @@ def _first_number_accuracy(bundle):
     return round(hits / len(bundle["generations"]), 4)
 
 
+def _set_rate(bundle, tok_s, device):
+    """Make the bundle self-consistently report `tok_s` on `device`."""
+    bundle["wall_time_s"] = round(bundle["generated_tokens"] / tok_s, 6)
+    bundle["throughput_tok_s"] = round(
+        bundle["generated_tokens"] / bundle["wall_time_s"], 6)
+    bundle["device"] = device
+
+
 def mutate(name, bundle):
     b = json.loads(json.dumps(bundle))  # deep copy
     if name == "first_number":
@@ -75,12 +84,12 @@ def mutate(name, bundle):
     elif name == "invented_throughput":
         b["wall_time_s"] = round(b["wall_time_s"] / 1000.0, 6)
     elif name == "cpu_claimed_as_gpu":
-        # the artifact ran on CPU threads but reports device "cuda": the
-        # numbers stay self-consistent, they are just a CPU rate
-        scale = 50.0
-        b["wall_time_s"] = round(b["wall_time_s"] * scale, 6)
-        b["throughput_tok_s"] = round(b["generated_tokens"] / b["wall_time_s"], 6)
-        b["device"] = "cuda"
+        # the artifact reports device "cuda" while its own numbers are a CPU
+        # rate: the device claim and the measured rate disagree
+        _set_rate(b, 2.0, "cuda")
+    elif name == "gpu_rate_on_cpu":
+        # the other direction: device says "cpu", the timing is a GPU rate
+        _set_rate(b, 2000.0, "cpu")
     elif name == "empty_generation":
         b["generations"][7]["generation"] = ""
     elif name == "bad_hash":
@@ -92,7 +101,8 @@ def mutate(name, bundle):
 
 NAMES = ["first_number", "inflated_accuracy", "deflated_accuracy", "truncated",
          "misaligned", "nondeterministic", "invented_throughput",
-         "cpu_claimed_as_gpu", "empty_generation", "bad_hash"]
+         "cpu_claimed_as_gpu", "gpu_rate_on_cpu", "empty_generation",
+         "bad_hash"]
 
 
 def main():
