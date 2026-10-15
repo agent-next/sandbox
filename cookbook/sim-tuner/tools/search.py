@@ -21,7 +21,11 @@ per-signal errors for exactly this). Stages:
      smoothly with dr;
   4. repeat mu and the ridge once at the improved point;
   5. (damping, armature) on the arm channels, coarse grid + zoom;
-  6. joint polish on the total error: coordinate line scans until stall.
+  6. joint polish on the total error: coordinate line scans until stall;
+  7. convergence on the CPU oracle — the gated metric is CPU MuJoCo and the
+     basin is a sub-percent needle the batch scans can bracket but not enter
+     (measured; see SPEC "Calibration"), so a Hooke–Jeeves pattern search on
+     the train split walks the last distance. Cheap: each eval is 6 CPU sims.
 
 Every batch's scores are appended to examples/good/loop.json (the media
 round turns it into loop.png). The resulting artifact is written to
@@ -92,6 +96,9 @@ def main():
     ap.add_argument("--out", default=GOOD_DIR)
     ap.add_argument("--cpu", action="store_true",
                     help="score candidates on the CPU oracle, no GPU lease")
+    ap.add_argument("--lease-id",
+                    help="reuse an existing GPU lease id instead of creating one "
+                         "(still destroyed on exit)")
     args = ap.parse_args()
 
     import numpy as np
@@ -197,8 +204,12 @@ def main():
     try:
         versions = None
         if lease is not None:
-            lease.create()
-            print(f"[search] gpu slice {lease.id} up in {lease.create_s}s", flush=True)
+            if args.lease_id:
+                lease.id = args.lease_id
+                print(f"[search] reusing gpu slice {lease.id}", flush=True)
+            else:
+                lease.create()
+                print(f"[search] gpu slice {lease.id} up in {lease.create_s}s", flush=True)
 
         # --- iter 0: broad uniform pre-sample on the total error
         pop = min(511, args.budget - 1)
@@ -276,14 +287,45 @@ def main():
             if before - after < 2e-4:
                 break
 
-        # the judge scores on CPU MuJoCo; a final short CPU polish of the two
-        # needle parameters removes any GPU/CPU engine offset in the incumbent
-        for nm, w in (("solref_tc", 1e-4), ("solref_dr", 0.08)):
-            lo_, hi_ = RANGES[nm]
-            grid = np.linspace(max(lo_, cur[nm] - w), min(hi_, cur[nm] + w), 21)
-            errs = [error_of(dict(cur, **{nm: float(v)}), scen["refs_train"],
-                             scen["ics_train"], scen["scale"]) for v in grid]
-            cur[nm] = float(grid[int(np.argmin(errs))])
+        # --- stage 7: convergence on the CPU oracle (the judge's own metric).
+        # Hooke-Jeeves pattern search: coordinate probes + a pattern move along
+        # the accumulated direction, shrinking steps on stall. The (damping,
+        # armature) valley is diagonal -- one-parameter scans are uphill from a
+        # compensated point, so only a pattern move can walk it.
+        def cpu_obj(v):
+            return error_of({k: float(t) for k, t in zip(PARAM_NAMES, v)},
+                            scen["refs_train"], scen["ics_train"], scen["scale"])
+
+        x = np.array([cur[n] for n in PARAM_NAMES])
+        fx = cpu_obj(x)
+        steps_v = 0.06 * (hi - lo)
+        it, hist = 0, []
+        while it < 3000 and steps_v.max() > 1e-6:
+            e0 = it
+            y, fy = x.copy(), fx
+            for j in range(len(PARAM_NAMES)):
+                for s in (steps_v[j], -steps_v[j]):
+                    z = y.copy()
+                    z[j] = float(np.clip(z[j] + s, lo[j], hi[j]))
+                    fz = cpu_obj(z)
+                    it += 1
+                    if fz < fy:
+                        y, fy = z, fz
+            if fy < fx - 1e-10:
+                z = np.clip(2 * y - x, lo, hi)
+                fz = cpu_obj(z)
+                it += 1
+                if fz < fy:
+                    y, fy = z, fz
+                x, fx = y, fy
+                hist.append(round(fx, 6))
+            else:
+                steps_v *= 0.5
+            iterations.append({"iter": len(iterations), "kind": "cpu-hj",
+                               "n": it - e0, "chunks": [],
+                               "errors": hist[:], "best_err": round(fx, 6)})
+        cur = {n: float(v) for n, v in zip(PARAM_NAMES, x)}
+        print(f"[search] cpu refine: train {fx:.5f} in {it} evals", flush=True)
 
         final = {n: round(float(cur[n]), 6) for n in PARAM_NAMES}
         cpu_train = error_of(final, scen["refs_train"], scen["ics_train"], scen["scale"])

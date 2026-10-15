@@ -214,6 +214,44 @@ class GpuLease:
                                "run sandbox_kill for this id")
 
 
+class LocalGpu:
+    """Same exec() contract as GpuLease, but runs the batch eval in a local
+    subprocess. Used when the judge itself already runs on a GPU slice (the
+    run.py lease): exec slices have no outbound network and no API key, so a
+    nested lease cannot be created — and need not be: the serving slice IS a
+    fresh 4 GiB mujoco_warp stack (SIM_TUNER_GPU_LOCAL=1)."""
+
+    def __init__(self):
+        self.id = None
+        self.create_s = 0.0
+        self.exec_wall_s = []
+
+    def create(self):
+        pass
+
+    def exec(self, code, timeout=GPU_TIMEOUT_S):
+        t0 = time.monotonic()
+        wrapped = code + "\nprint('__REPORT__' + json.dumps(report))\n"
+        r = subprocess.run([sys.executable, "-c", wrapped], capture_output=True,
+                           text=True, timeout=timeout)
+        self.exec_wall_s.append(round(time.monotonic() - t0, 2))
+        if r.returncode != 0:
+            raise RuntimeError(f"local gpu eval failed rc={r.returncode}: "
+                               f"{r.stderr[-300:]}")
+        rep = None
+        for line in r.stdout.splitlines():
+            if line.startswith("__REPORT__"):
+                rep = json.loads(line[len("__REPORT__"):])
+        if not isinstance(rep, dict):
+            raise RuntimeError(f"local gpu eval produced no report: "
+                               f"{r.stdout[-200:]} {r.stderr[-200:]}")
+        rep["_wall_s"] = round(time.monotonic() - t0, 3)
+        return rep
+
+    def close(self):
+        pass
+
+
 def gate_gpu_agreement(lease, params, scen):
     """G4: score the artifact on the GPU batch evaluator; must match the CPU error."""
     errors, gpu_sim_s, versions, nworld = None, 0.0, None, 0
@@ -242,8 +280,13 @@ def gate_gpu_agreement(lease, params, scen):
             "lease_versions": versions}
 
 
-def grade(artifact_path, seed, gpu=True, lease=None, expected_versions=None, want_params=False):
-    """Run every gate; -> (verdict dict, rc, scenario, lease)."""
+def grade(artifact_path, seed, gpu=True, lease=None, expected_versions=None,
+          want_params=False, gpu_local=False):
+    """Run every gate; -> (verdict dict, rc, scenario, lease).
+
+    gpu_local: run the G4 batch eval on the local GPU stack instead of leasing
+    a fresh slice — the mode used when the judge itself already runs inside a
+    GPU lease (SIM_TUNER_GPU_LOCAL=1)."""
     scen = gen_scenario(seed, expected_versions=expected_versions)
     t0 = time.perf_counter()
     verdict = {"artifact": os.path.basename(artifact_path), "demo": "sim-tuner",
@@ -279,10 +322,13 @@ def grade(artifact_path, seed, gpu=True, lease=None, expected_versions=None, wan
 
     if params is not None and gpu:
         if lease is None:
-            key = os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")
-            if not key:
-                raise RuntimeError("no API key: export SBX_API_KEY (G4 needs a GPU lease)")
-            lease = GpuLease(key)
+            if gpu_local:
+                lease = LocalGpu()
+            else:
+                key = os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")
+                if not key:
+                    raise RuntimeError("no API key: export SBX_API_KEY (G4 needs a GPU lease)")
+                lease = GpuLease(key)
         if lease.id is None:
             lease.create()
         g4 = gate_gpu_agreement(lease, params, scen)
@@ -317,6 +363,9 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--json", dest="json_out")
     ap.add_argument("--cpu-only", action="store_true", help="skip G4 (no GPU lease)")
+    ap.add_argument("--gpu-local", action="store_true",
+                    help="run G4 on the local GPU stack instead of leasing a slice "
+                         "(set automatically via SIM_TUNER_GPU_LOCAL inside run.py's lease)")
     ap.add_argument("--judge-dir")
     ap.add_argument("--bundle", help="write the scenario bundle JSON here")
     ap.add_argument("--keep-params", action="store_true",
@@ -342,9 +391,12 @@ def main():
     lease = None
     try:
         try:
-            verdict, rc, scen, lease = grade(art, args.seed, gpu=not args.cpu_only,
-                                             expected_versions=expected_versions,
-                                             want_params=args.keep_params)
+            verdict, rc, scen, lease = grade(
+                art, args.seed, gpu=not args.cpu_only,
+                expected_versions=expected_versions,
+                want_params=args.keep_params,
+                gpu_local=args.gpu_local
+                or os.environ.get("SIM_TUNER_GPU_LOCAL") == "1")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     finally:

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Self-test: prove the judge can fail. See SPEC.md.
 #
-# 1. the known-good example passes grade.sh (G1-G4, incl. a real GPU lease);
+# 1. the known-good example passes grade.sh (G1-G4: on a real GPU lease, or on
+#    the local GPU stack when SIM_TUNER_GPU_LOCAL=1 — the mode run.py sets when
+#    the judge itself runs inside the demo's lease, which has no outbound net);
 # 2. every scripted mutant fails at least one gate. Mutants are graded
 #    --cpu-only: each one is killed by a CPU gate (G1 structure/ranges, G2
 #    train error or G3 held-out error), so no mutant ever leases a GPU —
@@ -11,8 +13,9 @@
 # 4. judge/ checksums are compared before and after (inside grade.sh).
 #
 # Prints the kill rate; exits non-zero unless good passes, every mutant is
-# killed and determinism holds. Needs SBX_API_KEY (or E2B_API_KEY) with GPU
-# access and judge/version-table.json (judge/setup.sh --record).
+# killed and determinism holds. Needs judge/version-table.json
+# (judge/setup.sh --record) and either SBX_API_KEY (or E2B_API_KEY) with GPU
+# access, or SIM_TUNER_GPU_LOCAL=1 on a host with the pinned GPU stack.
 
 set -euo pipefail
 

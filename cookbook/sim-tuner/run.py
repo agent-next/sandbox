@@ -6,7 +6,7 @@ demo (judge + examples) into it as a base64 tar.gz payload, runs the pinned
 setup check, the judge self-test, and grades the known-good params.json,
 then always deletes the lease and confirms the deletion (GET -> 404/dead).
 
-    python3 cookbook/sim-tuner/run.py [--seed N] [--keep-each-exec-dir]
+    python3 cookbook/sim-tuner/run.py [--seed N] [--keep] [--report-json PATH]
     python3 cookbook/sim-tuner/run.py --selftest-only   # skip the final grade
 
 Needs SBX_API_KEY (or E2B_API_KEY) with GPU access, and Python 3.10+ on this
@@ -86,6 +86,12 @@ def pack_demo():
 EXEC_SRC = """
 import base64, io, json, os, subprocess, sys, tarfile, tempfile, time
 
+# the lease image IS the pinned toolchain (judge/version-table.json); point the
+# judge at this python and let G4 score on this very slice -- exec slices have
+# no outbound network and no API key, so a nested lease cannot be created.
+os.environ['SIM_TUNER_PYTHON'] = sys.executable
+os.environ['SIM_TUNER_GPU_LOCAL'] = '1'
+
 root = os.path.expanduser('~/sim-tuner-demo')
 os.makedirs(root, exist_ok=True)
 tarfile.open(fileobj=io.BytesIO(base64.b64decode(__PAYLOAD__)), mode='r:gz').extractall(root)
@@ -147,6 +153,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--selftest-only", action="store_true")
+    ap.add_argument("--keep", action="store_true",
+                    help="leave the GPU lease up and print its id")
     ap.add_argument("--report-json", metavar="PATH", help="write the exec report here")
     args = ap.parse_args()
 
@@ -176,6 +184,7 @@ def main():
     print(f"created {sid} in {time.monotonic() - t0:.1f} s", flush=True)
 
     report = {}
+    rc = 1
     try:
         job = render_job(payload, args.seed)
         print("exec judge on the lease (stack check, selftest, grade)...", flush=True)
@@ -221,6 +230,11 @@ def main():
         if rc != 0:
             print("\n(good grade or selftest did not pass; see stage output)", flush=True)
     finally:
+        if args.keep:
+            print(f"run.py: --keep: lease {sid} left running; delete it with "
+                  f"DELETE /sandboxes/{sid} (or sandbox_kill)", flush=True)
+            print(f"total: {time.monotonic() - total0:.0f} s")
+            raise SystemExit(rc)
         print(f"destroying {sid}...", flush=True)
         try:
             request(key, "DELETE", f"/sandboxes/{sid}")
