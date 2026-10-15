@@ -71,7 +71,7 @@ measured numbers (field accuracy, quarantine count) must be identical.
 | judge-guard mutant | killed (the weakened ink check must fail the good artifact) | |
 | determinism | two runs at seed 42 identical apart from `timing` | |
 | `grade.sh` exit | 0 | |
-| G1 field accuracy | 48/48 = 1.000 (line: ≥ 0.95) | |
+| G1 field accuracy | 48/48 (rule: ≥ 0.95 **and** 0 wrong fields — binds at 48/48) | |
 | G3 exact totals | 11/11 at 0 ulp | |
 | G2 grounding | 0 boxes failing the ink check | |
 | G4 negative control | 2/2 corrupted pages quarantined, 0 invented values, 12/12 pages accounted | |

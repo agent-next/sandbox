@@ -453,8 +453,12 @@ def main(argv=None):
 
     score = score_accuracy(records, truth, quarantine)
     accuracy = (score["correct"] / score["slots"]) if score["slots"] else 0.0
+    # G1's documented rule is accuracy >= 0.95; this gate additionally
+    # requires zero wrong fields, so at 48 slots it binds at 48/48 (a 47/48
+    # artifact scores 0.979 and still fails).  SPEC.md states the rule this
+    # way -- the pass line is a lower bound, not the whole rule.
     gate("G1", accuracy >= FIELD_ACCURACY_MIN and not score["wrong"],
-         "field accuracy %.3f (%d/%d, min %.2f)"
+         "field accuracy %.3f (%d/%d, min %.2f, 0 wrong fields)"
          % (accuracy, score["correct"], score["slots"], FIELD_ACCURACY_MIN),
          accuracy=round(accuracy, 4), correct=score["correct"],
          slots=score["slots"], examples=score["wrong"][:20])

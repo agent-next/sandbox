@@ -121,7 +121,9 @@ def result_png(rows):
                note=notes[i], note_fill=C.INK_2 if r["passed"] else C.FAIL_RED)
         p.text((lx, y), names[i], size=25, anchor="lm",
                fill=C.INK if r["passed"] else C.INK_2)
-    p.passline_v(0.0, 1.0, 0.95, "G1 pass line  ≥ 95 %", ptop - 46, axis_y)
+    p.passline_v(0.0, 1.0, 0.95,
+                 "G1 rule  ≥ 95 % and 0 wrong fields  (48/48)", ptop - 46,
+                 axis_y)
 
     # a legend (two series), so identity is never colour-alone
     d.rectangle([70, H - 112, 102, H - 80], fill=C.PASS_BLUE)

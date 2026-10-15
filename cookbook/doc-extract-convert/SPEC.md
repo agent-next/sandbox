@@ -123,10 +123,14 @@ are deterministic at a fixed seed.
   `date` `YYYY-MM-DD`; `reason_code` from the allowed set. Any violation
   fails G0 outright (this is the gate that catches "printed something
   plausible but malformed").
-- **G1 — field accuracy ≥ 95 %.** Over the 12 pages × 4 fields = 48 field
-  slots, a field counts correct only if the value is exact (string
+- **G1 — field accuracy: 48/48 exact.** Over the 12 pages × 4 fields = 48
+  field slots, a field counts correct only if the value is exact (string
   equality after the normalisation above; `total` compared as
-  `decimal.Decimal`). Accuracy = correct / 48 ≥ **0.95**.
+  `decimal.Decimal`). Accuracy = correct / 48, and the pass rule is
+  **accuracy ≥ 0.95 with no wrong slot** — at 48 slots that minimum
+  already rounds to 47.5, i.e. 48/48, so one missed field fails the gate
+  even though 47/48 = 0.979 > 0.95. The ≥ 95 % line stays in the rule
+  (and in the figures) as the numeric floor the slot count tightens.
 - **G2 — grounding.** Every non-quarantined field's `bbox` must (a) satisfy
   the area ratio bound and (b) **contain ink**: the judge re-reads that
   page region from the original raster, binarises it, and requires the
@@ -162,7 +166,7 @@ are deterministic at a fixed seed.
 | gate | pass rule |
 | --- | --- |
 | G0 | 0 schema violations |
-| G1 | field accuracy ≥ 0.95 (48 slots) |
+| G1 | field accuracy ≥ 0.95 and 0 wrong slots — i.e. 48/48 at this corpus size |
 | G2 | 0 boxes failing area bound or ink check |
 | G3 | exact totals == correct totals, 0 ulp |
 | G4 | 2/2 corrupted pages quarantined with expected codes, no intact page quarantined, 0 invented values, 12/12 pages accounted |
