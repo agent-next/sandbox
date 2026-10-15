@@ -1,0 +1,19 @@
+{
+  "name": "gpu-kernel-demo-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion composition for cookbook/gpu-kernel/media/demo.mp4. Renders animated overlays on top of the real recorded judge-run clips.",
+  "scripts": {
+    "render": "remotion render src/index.ts Main out/demo-render.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.531",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.531"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}
