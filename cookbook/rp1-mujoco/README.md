@@ -37,11 +37,12 @@ measured value against its limit. Green = pass, red = fail, blue = info
 (reported, never gated). Kill rate 8/8 = 100 %.*
 
 [▶ demo.mp4 (30 s, 1920×1080, H.264)](media/demo.mp4)
-*Video: a real MuJoCo turntable of the judged pose, the judged episode in
-real time with the live tilt/height readout, then the two figures above,
-the zero-torque mutant falling under the stand gate, and the verdict card.
-Every 3D frame is a real render of the pinned scene at the state the judge
-recorded — nothing is re-simulated and no number is invented.*
+*Video: a real MuJoCo turntable of the judged pose; the judged episode in
+real time with the live tilt/height readout and the push marked; result.png
+full frame; the zero-torque mutant collapsing under the stand gate; the
+loop.png kill matrix; the verdict card; the end card. Every 3D frame is a
+real render of the pinned scene at the state the judge recorded — nothing
+is re-simulated and no number is invented.*
 
 Key numbers from the judge verdict (`examples/good/controller.py`,
 seed `20261014`):
