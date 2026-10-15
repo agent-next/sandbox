@@ -89,11 +89,11 @@ the three `...: FAILED` case (a corrupted or substituted wheel) aborts
 
 ```
 $ bash judge/selftest.sh
-wrote 11 mutants to /tmp/tmp.MPCotA6yTA: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
+wrote 11 mutants to /tmp/tmp.6vKpoRBLZJ: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
 good: PASS (verdict byte-identical across 2 runs)
 mutant baked_png: FAILS (widget_tree,pixels)
-mutant empty_window: FAILS (widget_tree,pixels)
-mutant missing_checkbox: FAILS (widget_tree,pixels)
+mutant empty_window: FAILS (render 1 failed)
+mutant missing_checkbox: FAILS (render 1 failed)
 mutant missing_slider: FAILS (widget_tree)
 mutant missing_swatch: FAILS (widget_tree,pixels)
 mutant nondeterministic: FAILS (determinism)
@@ -106,19 +106,33 @@ kill rate: 11/11 = 100%
 self-test OK
 exit code: 0
 
-real	1m25.683s
+real	1m3.230s
 ```
 
 Run 1 wall time **2m3s**, run 2 **1m46s**; the block above is a third run
 from a fresh clone of the pushed commit (13 graded runs, 26 renders at ~4.5 s each, plus the two
 graded known-good runs). All runs: `kill rate: 11/11 = 100%`, `exit 0`.
 
-Every mutant fails a **gate assertion**, not a crash: `missing_slider`
+The two runs that produced this receipt predate a reporting fix in the
+self-test (see Deviations item 3): `empty_window` and `missing_checkbox`
+throw while the panel is being built (`IndexError`, `TypeError`), so
+`grade.sh` never reached the gates and — before the fix — wrote no `--json`
+verdict, leaving the previous mutant's verdict on disk. The self-test then
+misattributed those two kills to `widget_tree,pixels`. The fix has two
+parts: `grade.sh` now always writes an error verdict
+(`{"pass": false, "error": "render 1 failed", "log": …}`) to `--json` when a
+render dies, and `selftest.sh` removes the verdict file before grading each
+mutant. The block above is the corrected output. The kill rate is unchanged
+— 11/11 — because both mutants were already killed; only the reported
+reason was wrong.
+
+Nine of the eleven mutants fail a **gate assertion**: `missing_slider`
 renders fine (its third row is a `Label` instead of a `FloatSlider`) and is
 caught by `widget_tree` with `sliders_ok: false`; `nondeterministic` passes
-gates 0–2 and is caught only by `determinism`. The self-test also checks
-that two graded runs of the known-good give byte-identical verdicts
-excluding the `timing` key.
+gates 0–2 and is caught only by `determinism`. The two build-crashers
+(`empty_window`, `missing_checkbox`) are killed by the render step itself.
+The self-test also checks that two graded runs of the known-good give
+byte-identical verdicts excluding the `timing` key.
 
 ## `bash judge/grade.sh examples/good/panel.py --json /tmp/v.json`
 
@@ -194,7 +208,7 @@ Mutant pixel evidence (grade.sh verdicts, run 2 tools):
 wrong_range          pass=False  failed=widget_tree
 wrong_swatch_color   pass=False  failed=widget_tree,pixels  swatch_med=[230.0, 51.0, 26.0]
 swatch_overflow      pass=False  failed=widget_tree,pixels  overflow=['swatch']
-empty_window         pass=False  failed=widget_tree,pixels
+empty_window         error="render 1 failed" (IndexError at build)
 nondeterministic     pass=False  failed=determinism
 ```
 
@@ -238,9 +252,11 @@ grade.sh exit=1
    `judge/selftest.sh`, `judge/grade.sh examples/good/panel.py`) against a
    fresh clone in this sandbox, and by parsing its real `grade.sh` output
    with `run.py`'s own verdict-extraction code. The lead runs it end to end.
-3. **No `media/` yet.** The brief for this task excludes media; a later task
-   adds `media/result.png`, `media/loop.png`, `media/demo.mp4`,
-   `media/MANIFEST.json` and `media/make_media.sh`.
+3. **`media/` added by a later task.** `media/make_media.sh` regenerates
+   `media/result.png`, `media/loop.png`, `media/demo.mp4` and
+   `media/MANIFEST.json` from real judge outputs; its runs are recorded in
+   the "Media build" section below. Building the media surfaced the
+   self-test misattribution described above, fixed in the same commit.
 4. **`REPRODUCE.md` is not yet present.** The standard requires an
    independent agent (different model family) to reproduce the numbers from
    `README.md` alone before merge; that is a separate step, and this receipt

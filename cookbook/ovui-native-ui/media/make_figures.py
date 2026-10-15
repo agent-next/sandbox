@@ -62,11 +62,20 @@ def load(name):
     return json.loads((DATA / name).read_text())
 
 
+def failed_gates(v):
+    """The judge's own attribution for a failed verdict: the gates that
+    failed, or the judge's error string when it died before the gates."""
+    if v.get("pass") is None:
+        return "run error"
+    bad = [g["gate"] for g in v.get("gates", []) if not g["ok"]]
+    return ", ".join(bad) if bad else v.get("error", "unknown")
+
+
 def draw_render_overlay(ax, show_bboxes=True, pass_stamp=True,
                         region_only=False):
     """The real 1280x720 render with the judge's measured bboxes drawn.
 
-    show_bboxes (0..1 or bool) fades the measured bboxes + labels in;
+    show_bboxes fades the measured bboxes + labels in;
     pass_stamp draws the PASS stamp from the real verdict.
     region_only leaves out the bboxes (title-only framing).
     """
@@ -95,9 +104,15 @@ def draw_render_overlay(ax, show_bboxes=True, pass_stamp=True,
         y1 = win["position_y"] + win["height"] - 4
         ax.plot([x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0],
                 color=SURFACE, lw=1.4, ls=(0, (4, 3)), alpha=0.9)
-        ax.text(x1, y0 - 10, "content region (title bar 26 px + border 4 px)",
-                ha="right", fontsize=8, color=SURFACE)
+        # below the window: nothing is drawn there, so the caption cannot
+        # collide with the widget labels
+        ax.text(x0, y1 + 16, "content region (title bar 26 px + border 4 px)",
+                ha="left", fontsize=8, color=SURFACE)
 
+        # widget labels ride leader lines out to the right of the window:
+        # the render's dark background is clear there, and rows are 26-30 px
+        # apart, so the labels never stack on each other or on the region
+        # caption (the render's own widgets are only ~24 px tall).
         for name, f in facts.items():
             if name in ("window", "_ref_names"):
                 continue
@@ -105,8 +120,11 @@ def draw_render_overlay(ax, show_bboxes=True, pass_stamp=True,
             w, h = f["computed_width"], f["computed_height"]
             ax.add_patch(plt.Rectangle(
                 (x, y), w, h, fill=False, ec=S1, lw=1.6, zorder=4))
-            ax.text(x, y - 5, name, ha="left", fontsize=7.5, color=S1,
-                    bbox=dict(fc=SURFACE, ec="none", pad=1.2), zorder=5)
+            cx = x1 + 26
+            ax.plot([x + w, cx - 6], [y + h / 2, y + h / 2],
+                    color=SURFACE, lw=0.8, alpha=0.55, zorder=3)
+            ax.text(cx, y + h / 2, name, ha="left", va="center",
+                    fontsize=8.5, color=SURFACE, zorder=5)
 
     if pass_stamp:
         det = [g for g in good["gates"] if g["gate"] == "determinism"][0]
@@ -131,8 +149,8 @@ def result_png():
     facts = load("facts.json")
     pix = [g for g in good["gates"] if g["gate"] == "pixels"][0]["detail"]
     ref = json.loads((MEDIA.parent / "judge/reference.json").read_text())
-    sw = facts["swatch"]
-    sw_target = ref["swatch_rgb"]
+    tol = ref["swatch_tol"]
+    target = ref["swatch_rgb"]
 
     fig = plt.figure(figsize=(10, 6.8), dpi=200)
     gs = fig.add_gridspec(2, 1, height_ratios=[2.7, 1], hspace=0.07)
@@ -142,7 +160,7 @@ def result_png():
 
     ax_top.set_title(
         "ovui-native-ui — headless omni.ui render, judged against the spec "
-        "(1280×720, 30 fps-lavapipe headless run)",
+        "(1280×720, lavapipe CPU Vulkan)",
         fontsize=11.5, pad=8)
 
     # --- bottom: the swatch colour, measured vs the spec mask -------------
@@ -151,12 +169,8 @@ def result_png():
     xs = [0, 1, 2]
     med = pix["swatch_median"]
     std = pix["swatch_std"]
-    tol = ref["swatch_tol"]
-    target = ref["swatch_rgb"]
     ax.bar(xs, med, width=0.62, color=S1, edgecolor=SURFACE, lw=1.5,
-           label=f"measured median (std {list(std)})")
-    ax.bar(xs, std, width=0.62, bottom=med, color=CRIT, lw=0,
-           label="measured std deviation")
+           label=f"measured median (std {list(std)} — flat fill)")
     # the ±tol band the judge allows around the analytic target
     ax.errorbar(xs, target, yerr=tol, fmt="none", ecolor=TEXT2,
                 elinewidth=1.4, capsize=5,
@@ -176,7 +190,8 @@ def result_png():
     ax.set_axisbelow(True)
     ax.legend(loc="upper right", fontsize=8.4, frameon=False)
     ax.set_title("Colour swatch gate: measured median vs the judge's "
-                 "±12 mask around the analytic sRGB target [51, 128, 230]",
+                 f"±{tol} mask around the analytic sRGB target "
+                 f"[{', '.join(str(t) for t in target)}]",
                  fontsize=10, pad=6)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
@@ -188,39 +203,39 @@ def result_png():
 
 
 def loop_png():
-    """Agent-loop replay + self-test kill-rate bars, from real verdicts."""
+    """Agent-loop replay + self-test kill-rate table, from real verdicts."""
     good = load("grade_good.json")
     mutants = load("mutants.json")
     selftest = (DATA / "selftest.txt").read_text()
     rate_line = [l for l in selftest.splitlines() if "kill rate" in l][-1]
     rate = rate_line.split(":")[1].strip()
 
-    fig = plt.figure(figsize=(10, 7.4), dpi=200)
-    gs = fig.add_gridspec(2, 1, height_ratios=[1, 1.15], hspace=0.42)
+    fig = plt.figure(figsize=(10, 7.6), dpi=200)
+    gs = fig.add_gridspec(2, 1, height_ratios=[1, 1.45], hspace=0.34)
 
     # --- top: the agent-loop replay --------------------------------------
     # A scripted replay in the order a fixing agent meets the failures:
-    # three mutants a first attempt plausibly makes (one per gate class),
-    # then the known-good pass.  It is a scripted replay of real judge
-    # verdicts, not a recorded live trace.
+    # three mutants a first attempt plausibly makes (one per failure mode:
+    # build error, pixel mismatch, nondeterminism), then the known-good
+    # pass.  It is a scripted replay of real judge verdicts, not a
+    # recorded live trace.
     replay_order = [
-        ("empty_window", "empty window\n(build error)"),
+        ("empty_window", "empty window"),
         ("wrong_swatch_color", "wrong swatch\ncolour"),
         ("nondeterministic", "nondeterministic\nrender"),
         ("good", None),
     ]
     ax = fig.add_subplot(gs[0])
-    ax.set_title("Agent-loop replay: the gate that failed per iteration "
+    ax.set_title("Agent-loop replay: the judge verdict per iteration "
                  "(scripted replay, not a live trace)", fontsize=11)
     ys, labels, colors = [], [], []
     for i, (name, caption) in enumerate(replay_order):
         if name == "good":
-            ok, gate, what = True, None, "all gates pass"
+            ok, gate, what = True, None, "known-good panel"
         else:
             v = mutants[name]
             ok = False
-            gate = "build error" if v.get("pass") is None else \
-                ", ".join(g["gate"] for g in v["gates"] if not g["ok"])
+            gate = failed_gates(v)
             what = caption
         ys.append(1 if ok else 0)
         labels.append(f"it {i+1}: {what}\n"
@@ -246,29 +261,29 @@ def loop_png():
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
 
-    # --- bottom: self-test kill strip -------------------------------------
+    # --- bottom: self-test kill table (one row per mutant) ----------------
     ax = fig.add_subplot(gs[1])
-    ax.set_title(f"Self-test kill rate: {rate}  "
-                 "(requirement ≥ 90%)", fontsize=11)
-    ax.bar([0], [1], width=0.72, color=GOOD, edgecolor=SURFACE, lw=2)
-    ax.text(0, 1.06, "known-good\npasses", ha="center", fontsize=8,
-            color=TEXT2)
-    for i, name in enumerate(MUTANT_ORDER, 1):
-        v = mutants[name]
-        crashed = v.get("pass") is None
-        failed_txt = "build error" if crashed else \
-            ", ".join(g["gate"] for g in v["gates"] if not g["ok"])
-        # wrap the gate list: bars are only ~0.7 apart, a bare
-        # "widget_tree, pixels" runs into its neighbours
-        ax.text(i, -0.42, "\n".join(textwrap.wrap(failed_txt, 14)),
-                ha="center", va="top", fontsize=7,
-                color=CRIT, fontweight="bold")
-    ax.set_xlim(-0.6, len(MUTANT_ORDER) + 0.6)
-    ax.set_ylim(-1.35, 1.3)
-    ax.set_yticks([])
+    ax.set_title(f"Self-test: every mutant is killed by the judge "
+                 f"(kill rate {rate}, requirement ≥ 90%)", fontsize=11)
+    rows = [("known-good panel", "PASS — all 4 gates", True)] + [
+        (MUTANT_LABELS[n], failed_gates(mutants[n]), False)
+        for n in MUTANT_ORDER
+    ]
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, len(rows))
+    ax.invert_yaxis()
+    for i, (name, gates, ok) in enumerate(rows):
+        y = i + 0.5
+        ax.text(0.245, y, name, ha="right", va="center", fontsize=9,
+                color=TEXT)
+        ax.barh(y, 0.44, left=0.26, height=0.62,
+                color=GOOD if ok else S1, edgecolor=SURFACE, lw=1.5)
+        ax.text(0.715, y, gates, ha="left", va="center", fontsize=8.6,
+                color=TEXT2)
     ax.set_xticks([])
-    for s in ("top", "right", "left"):
-        ax.spines[s].set_visible(False)
+    ax.set_yticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
 
     fig.tight_layout()
     fig.savefig(MEDIA / "loop.png")

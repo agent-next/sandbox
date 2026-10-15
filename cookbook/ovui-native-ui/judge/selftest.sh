@@ -30,10 +30,14 @@ assert a['pass'], 'known-good did not pass'
 echo "good: PASS (verdict byte-identical across 2 runs)"
 
 # -- every mutant must fail at least one gate ----------------------------
+# rm the verdict file first: grade.sh writes no --json when the artifact
+# fails before the gates (e.g. it crashes at build), and a stale verdict
+# from the previous mutant would misattribute that failure to its gates.
 total=0; killed=0
 for m in "$WORK"/mut_*.py; do
   total=$((total+1))
   name="$(basename "$m" .py)"
+  rm -f "$WORK/mut.json"
   if bash "$HERE/grade.sh" "$m" --json "$WORK/mut.json" >/dev/null 2>&1; then
     echo "MUTANT SURVIVED: $name"
   else

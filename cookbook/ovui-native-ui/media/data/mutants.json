@@ -49,14 +49,16 @@
     "seed": 1234
   },
   "empty_window": {
-    "error": "ll last):\\n  File \\\"/home/user/w/cookbook/ovui-native-ui/judge/render.py\\\", line 91, in _main\\n    built = build()\\n            ^^^^^^^\\n  File \\\"/tmp/tmp.ifNrikO0Nc/panel.py\\\", line 49, in build_panel\\n    \\\"slider1\\\": sliders[0],\\n               ~~~~~~~^^^\\nIndexError: list index out of range\\n\"}\n",
+    "error": "render 1 failed",
     "exit": 1,
-    "pass": null
+    "log": "standalone::init: headless Vulkan mode enabled\nstandalone::init: injecting VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json\nVulkanBackend: selected device: \"llvmpipe (LLVM 15.0.6, 256 bits)\" (vendorID=0x10005, type=CPU (software renderer))\nVulkanBackend: device does not support VK_KHR_external_semaphore_fd, CUDA interop disabled\nVulkanBackend: initialized successfully (1280x720, offscreen)\nHeadlessVulkanPlatform: loaded font <tools>/venv/lib/python3.12/site-packages/omni/ui/resources/fonts/NotoSans-Regular.ttf\nVulkanBackend: ImGui Vulkan backend initialized\nHeadlessVulkanPlatform: initialized (1280x720)\nstandalone::init: initialized successfully (1280x720)\nTraceback (most recent call last):\n  File \"<demo>/judge/render.py\", line 115, in <module>\n    main()\n  File \"<demo>/judge/render.py\", line 111, in main\n    json.dump(result[\"facts\"], f, indent=2, sort_keys=True)\n              ~~~~~~^^^^^^^^^\nKeyError: 'facts'\nTask exception was never retrieved\nfuture: <Task finished name='Task-1' coro=<main.<locals>._main() done, defined at <demo>/judge/render.py:90> exception=IndexError('list index out of range')>\nTraceback (most recent call last):\n  File \"<demo>/judge/render.py\", line 91, in _main\n    built = build()\n            ^^^^^^^\n  File \"<scratch>/panel.py\", line 49, in build_panel\n    \"slider1\": sliders[0],\n               ~~~~~~~^^^\nIndexError: list index out of range\n",
+    "pass": false
   },
   "missing_checkbox": {
-    "error": "y\\\", line 42, in build_panel\\n    checkbox = ui.Label(\\n               ^^^^^^^^^\\nTypeError: __init__(): incompatible constructor arguments. The following argument types are supported:\\n    1. omni.ui._ui.Label(arg0: str, **kwargs)\\n\\nInvoked with: kwargs: width=140.000000px, height=22.000000px\\n\"}\n",
+    "error": "render 1 failed",
     "exit": 1,
-    "pass": null
+    "log": "standalone::init: headless Vulkan mode enabled\nstandalone::init: injecting VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json\nVulkanBackend: selected device: \"llvmpipe (LLVM 15.0.6, 256 bits)\" (vendorID=0x10005, type=CPU (software renderer))\nVulkanBackend: device does not support VK_KHR_external_semaphore_fd, CUDA interop disabled\nVulkanBackend: initialized successfully (1280x720, offscreen)\nHeadlessVulkanPlatform: loaded font <tools>/venv/lib/python3.12/site-packages/omni/ui/resources/fonts/NotoSans-Regular.ttf\nVulkanBackend: ImGui Vulkan backend initialized\nHeadlessVulkanPlatform: initialized (1280x720)\nstandalone::init: initialized successfully (1280x720)\nTraceback (most recent call last):\n  File \"<demo>/judge/render.py\", line 115, in <module>\n    main()\n  File \"<demo>/judge/render.py\", line 111, in main\n    json.dump(result[\"facts\"], f, indent=2, sort_keys=True)\n              ~~~~~~^^^^^^^^^\nKeyError: 'facts'\nTask exception was never retrieved\nfuture: <Task finished name='Task-1' coro=<main.<locals>._main() done, defined at <demo>/judge/render.py:90> exception=TypeError('__init__(): incompatible constructor arguments. The following argument types are supported:\\n    1. omni.ui._ui.Label(arg0: str, **kwargs)\\n\\nInvoked with: kwargs: width=140.000000px, height=22.000000px')>\nTraceback (most recent call last):\n  File \"<demo>/judge/render.py\", line 91, in _main\n    built = build()\n            ^^^^^^^\n  File \"<scratch>/panel.py\", line 42, in build_panel\n    checkbox = ui.Label(\n               ^^^^^^^^^\nTypeError: __init__(): incompatible constructor arguments. The following argument types are supported:\n    1. omni.ui._ui.Label(arg0: str, **kwargs)\n\nInvoked with: kwargs: width=140.000000px, height=22.000000px\n",
+    "pass": false
   },
   "missing_slider": {
     "exit": 1,
@@ -247,7 +249,7 @@
       {
         "gate": "determinism",
         "ok": false,
-        "sha256": "2b7adad966603481"
+        "sha256": "a4ba32afa7850270"
       }
     ],
     "pass": false,

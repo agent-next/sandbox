@@ -74,8 +74,9 @@ gates; it exits 0 only if all pass.
 `judge/selftest.sh` proves the judge can fail: the known-good passes, and 11
 known-bad mutants (missing slider, wrong range, wrong swatch colour, layout
 overflow, empty window, wrong button text, wrong swatch size, missing
-checkbox/swatch, a baked PNG, a nondeterministic render) each fail at least
-one gate. Kill rate 11/11 = 100%.
+checkbox/swatch, a baked PNG, a nondeterministic render) each fail a gate
+assertion or die at build, which the grade run reports as `render 1 failed`.
+Kill rate 11/11 = 100%.
 
 ## Measured wall time
 
@@ -135,6 +136,30 @@ not provide it; 0.3.0 falls back instead. See `RECEIPT.md` "Deviations".
   target are pinned to the versions in `judge/VERSIONS.txt`.
 - No media are shipped yet (a later task adds `media/`).
 
+## Media
+
+![The known-good render with the judge's measured bboxes and the swatch-gate
+chart](media/result.png)
+
+`media/` is regenerated from real judge outputs by `bash media/make_media.sh`
+(no judge verdict, no media):
+
+- `media/result.png` — the real 1280×720 render with the judge's measured
+  widget bboxes and content region, the swatch-gate chart (measured median
+  vs the judge's ±12 mask), and the PASS stamp with the real sha256.
+- `media/loop.png` — the agent loop: a scripted replay of real judge verdicts
+  (build error → pixel mismatch → nondeterminism → PASS) and the self-test
+  kill table, one row per mutant with the gate(s) that failed it.
+- `media/demo.mp4` — a 40 s, 1920×1080, 30 fps walkthrough of the same
+  judge outputs.
+- `media/MANIFEST.json` — what each file shows, the command that makes it,
+  its source data, and its sha256.
+
+`media/data/` holds the underlying real outputs (the good-grade verdict, the
+selftest log, the per-mutant verdicts, the sha-verified render and its
+widget facts); `media/master/` (the lossless `-crf 0` video master) is
+git-ignored. The figures never draw a number the judge did not produce.
+
 ## Files
 
 | path | what |
@@ -148,6 +173,7 @@ not provide it; 0.3.0 falls back instead. See `RECEIPT.md` "Deviations".
 | `judge/selftest.sh`, `judge/mutants.py` | known-good passes, 11 known-bad mutants all fail |
 | `examples/good/panel.py` | the known-good artifact |
 | `run.py` | the one-command run |
+| `media/` | the figures, video and manifest, regenerated from real judge outputs |
 | `RECEIPT.md` | real command output and tool versions |
 
 ## Licence and sources

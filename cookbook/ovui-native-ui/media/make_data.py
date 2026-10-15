@@ -56,6 +56,17 @@ MUTANT_ORDER = [
     "missing_checkbox", "missing_swatch", "baked_png", "nondeterministic",
 ]
 
+TOOLS = STUB.parent  # ~/tools/ovui-native-ui (venv + cuda-stub live here)
+
+
+def normalize(text):
+    """Strip machine-specific paths so data files are byte-stable and carry
+    no internal hostnames/paths (public-repo hygiene; DEMO-STANDARD.md)."""
+    text = text.replace(str(DEMO), "<demo>")
+    text = text.replace(str(TOOLS), "<tools>")
+    text = re.sub(r"/tmp/[A-Za-z0-9._-]+", "<scratch>", text)
+    return text
+
 
 def sh(cmd, cwd=None):
     return subprocess.run(cmd, check=True, capture_output=True,
@@ -63,10 +74,11 @@ def sh(cmd, cwd=None):
 
 
 def stable_verdict(path):
-    """Verdict JSON without the run-varying timing key, sorted keys."""
+    """Verdict JSON without the run-varying timing key, sorted keys,
+    with internal paths normalised."""
     v = json.loads(Path(path).read_text())
     v.pop("timing", None)
-    return json.dumps(v, indent=2, sort_keys=True) + "\n"
+    return normalize(json.dumps(v, indent=2, sort_keys=True)) + "\n"
 
 
 def main():
@@ -83,8 +95,7 @@ def main():
 
         # -- 2. the self-test output (kill rate) ----------------------------
         selftest = sh(["bash", str(DEMO / "judge/selftest.sh")])
-        selftest = re.sub(r"/tmp/[^\s:]+", "<scratch>", selftest)
-        (DATA / "selftest.txt").write_text(selftest)
+        (DATA / "selftest.txt").write_text(normalize(selftest))
         rate = [l for l in selftest.splitlines() if "kill rate" in l]
         print(f"selftest.sh: {rate[-1].strip() if rate else 'NO KILL RATE'}")
 
@@ -104,7 +115,7 @@ def main():
                 v = json.loads(stable_verdict(out))
             else:   # the run itself failed before a verdict was written
                 v = {"pass": None,
-                     "error": (r.stdout + r.stderr)[-300:]}
+                     "error": normalize((r.stdout + r.stderr)[-300:])}
             v["exit"] = r.returncode
             mutants[name] = v
         (DATA / "mutants.json").write_text(

@@ -37,6 +37,26 @@ judge_checksum() {
 }
 JUDGE_BEFORE="$(judge_checksum)"
 
+# A grade that dies before the gates still writes its verdict to --json: a
+# missing file would let a caller read a previous run's stale verdict.
+error_verdict() {
+  python3 -c '
+import json, sys
+kind, log_path = sys.argv[1], sys.argv[2]
+v = {"pass": False, "error": kind}
+try:
+    v["log"] = open(log_path).read()[-2000:]
+except OSError:
+    pass
+print(json.dumps(v, indent=2, sort_keys=True))' "$1" "${2:-}"
+}
+write_verdict() {
+  echo "$1" >&2
+  if [ -n "$JSON_OUT" ]; then
+    printf '%s\n' "$1" >"$JSON_OUT"
+  fi
+}
+
 export OMNIUI_HEADLESS=1
 export OMNIUI_LAVAPIPE=1
 export OMNIUI_BACKEND=vulkan
@@ -54,14 +74,13 @@ t0=$(date +%s)
 (cd "$SCRATCH" && timeout "$RENDER_LIMIT" "$VENV/bin/python" -I "$HERE/render.py" \
     "$SCRATCH/panel.py" "$SCRATCH/shot1.png" "$SCRATCH/facts1.json") \
     >"$SCRATCH/render1.log" 2>&1 || {
-        echo "{\"pass\": false, \"error\": \"render 1 failed\", \"log\": $(python3 -c '
-import json,sys; print(json.dumps(open(sys.argv[1]).read()[-2000:]))' "$SCRATCH/render1.log")}" >&2
+        write_verdict "$(error_verdict "render 1 failed" "$SCRATCH/render1.log")"
         exit 1
     }
 (cd "$SCRATCH" && timeout "$RENDER_LIMIT" "$VENV/bin/python" -I "$HERE/render.py" \
     "$SCRATCH/panel.py" "$SCRATCH/shot2.png" "$SCRATCH/facts2.json") \
     >"$SCRATCH/render2.log" 2>&1 || {
-        echo "{\"pass\": false, \"error\": \"render 2 failed\"}" >&2
+        write_verdict "$(error_verdict "render 2 failed" "$SCRATCH/render2.log")"
         exit 1
     }
 t1=$(date +%s)
