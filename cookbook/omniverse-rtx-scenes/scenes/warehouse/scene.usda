@@ -86,7 +86,7 @@ def Xform "World"
         double3 xformOp:scale = (0.01, 0.01, 0.01)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
         def "RackAsset" (
-            prepend references = @./assets/Props/general/RackLongEmpty_A1/RackLongEmpty_A1.usd@
+            prepend references = @./assets/Props/general/RackLongEmpty_A1/RackLongEmpty_A1.usda@
         )
         {
             float3 xformOp:rotateXYZ = (-90, 0, 0)

@@ -55,55 +55,48 @@ def load_lock(out: Path) -> dict:
 def localise_into(scene_dir: Path, keys: list[str], cache: Path, lock: dict,
                   force: bool = False) -> list[Path]:
     """Copy each locked entry into scene_dir/assets/<key>, fetching first when
-    missing.  A key that is a directory in the cache (a whole SimReady prop,
-    the UR10 robot, the mdl chain) is copied as a tree so every relative
-    `./materials/...` reference keeps resolving; a plain file key (e.g. the
-    HDRI) is copied singly.  Only files listed in the lock are copied, but
-    every file inside a copied directory is expected to be in the lock.
-    Returns written paths."""
+    missing.  A key is either:
+
+      * a lock file key (copied singly), or
+      * a lock directory prefix (every file listed under it in the lock is
+        fetched then copied, preserving the prefix so relative ./materials/...,
+        ./textures/... references keep resolving).
+
+    Only files listed in the lock are copied.  Returns written paths."""
     written = []
     for key in keys:
         info = lock.get(key)
-        if info is None and not (cache / key).is_dir():
-            raise SystemExit(f"[build] lock entry missing: {key}")
-        src = cache / key
-        dst = scene_dir / "assets" / key
-        if (src.is_dir() or (cache / key).is_dir()):
-            # whole-tree copy: fetch any missing locked file inside first
-            dst.mkdir(parents=True, exist_ok=True)
-            for f in sorted(src.rglob("*")):
-                if f.is_file():
-                    rel = f.relative_to(cache)
-                    lock_info = lock.get(str(rel))
-                    if lock_info is None:
-                        # unlisted sidecar (e.g. OmniPBR.mdl dropped next to a
-                        # layer, or a .mdl held outside materials/): just copy
-                        rel_dst = dst / f.relative_to(src)
-                        rel_dst.parent.mkdir(parents=True, exist_ok=True)
-                        if not rel_dst.exists():
-                            shutil.copy2(f, rel_dst)
-                        continue
-                    if not f.exists() or force:
-                        at.fetch(lock_info["url"], f, lock_info["sha256"])
-                    rel_dst = dst / f.relative_to(src)
-                    rel_dst.parent.mkdir(parents=True, exist_ok=True)
-                    if not rel_dst.exists() or \
-                            at.sha256_file(rel_dst) != lock_info["sha256"]:
-                        shutil.copy2(f, rel_dst)
-            written.append(dst)
-        else:
-            if info is None:
-                raise SystemExit(f"[build] lock entry missing: {key}")
+        if info is not None:
+            src = cache / key
+            dst = scene_dir / "assets" / key
             if not src.exists() or force:
                 at.fetch(info["url"], src, info["sha256"])
             dst.parent.mkdir(parents=True, exist_ok=True)
             if not dst.exists() or at.sha256_file(dst) != info["sha256"]:
                 shutil.copy2(src, dst)
             written.append(dst)
+            continue
+
+        # directory-prefix key: copy every locked file beneath it
+        prefix = key.rstrip("/") + "/"
+        sub = {k: v for k, v in lock.items() if k.startswith(prefix)}
+        if not sub:
+            raise SystemExit(f"[build] lock entry missing: {key}")
+        for fkey in sorted(sub):
+            fi = sub[fkey]
+            src = cache / fkey
+            if not src.exists() or force:
+                at.fetch(fi["url"], src, fi["sha256"])
+            dst = scene_dir / "assets" / fkey
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if not dst.exists() or at.sha256_file(dst) != fi["sha256"]:
+                shutil.copy2(src, dst)
+            written.append(dst)
     return written
 
 
-def place_mdl_chain(scene_dir: Path, cache: Path) -> None:
+def place_mdl_chain(scene_dir: Path, cache: Path, lock: dict,
+                    force: bool = False) -> None:
     """Resolve bare @OmniPBR.mdl@ refs (and the M_*.mdl `using ::OmniPBR`
     imports) by dropping the 3-file MDL base chain wherever it is needed:
       * next to every layer that references OmniPBR.mdl by bare name
@@ -112,6 +105,17 @@ def place_mdl_chain(scene_dir: Path, cache: Path) -> None:
       * at the scene root under mdl/ (safety net for rerendering tools).
     Run with the system python3 (pxr present)."""
     from pxr import Usd
+
+    # ensure the base chain is in the cache (lock keys mdl/<m>)
+    mdl_cache = cache / "mdl"
+    mdl_cache.mkdir(parents=True, exist_ok=True)
+    for m in MDL_FILES:
+        info = lock.get(f"mdl/{m}")
+        if info is None:
+            raise SystemExit(f"[build] lock entry missing: mdl/{m}")
+        src = mdl_cache / m
+        if not src.exists() or force:
+            at.fetch(info["url"], src, info["sha256"])
 
     layered_dirs = set()
     for usd_file in (scene_dir / "assets").rglob("*.usd*"):
@@ -131,19 +135,20 @@ def place_mdl_chain(scene_dir: Path, cache: Path) -> None:
                 layered_dirs.add(usd_file.parent)
                 break
 
+    mdl_cache = cache / "mdl"
     for d in list(layered_dirs) + [
             c for c in (scene_dir / "assets").rglob("materials") if c.is_dir()]:
         d.mkdir(parents=True, exist_ok=True)
         for m in MDL_FILES:
             dst = d / m
             if not dst.exists():
-                shutil.copy2(cache / "mdl" / m, dst)
+                shutil.copy2(mdl_cache / m, dst)
 
     sroot = scene_dir / "mdl"
     sroot.mkdir(parents=True, exist_ok=True)
     for m in MDL_FILES:
         if not (sroot / m).exists():
-            shutil.copy2(cache / "mdl" / m, sroot / m)
+            shutil.copy2(mdl_cache / m, sroot / m)
 
 
 # ---------------------------------------------------------------------------
@@ -219,11 +224,55 @@ KEYS_A = [
 ]
 
 
+def fix_rack_udim(scene_dir: Path) -> None:
+    """Resolve the SimReady rack's <UDIM> placeholder texture refs to a concrete
+    UDIM tile (1001) so every reference resolves offline.  The rack ships
+    references to T_*_*.<UDIM>.png placeholders; we pin all of them to .1001
+    (which exists in the lock) and keep only one tile per channel.
+
+    The rack's .usd layer is binary USDC containing the <UDIM> placeholders,
+    so we convert it to text usda (writing .usda over .usd) before patching,
+    and rewrite the referencing scene.usda to point at the .usda layer.
+    """
+    import re
+    from pxr import Usd
+
+    udim_re = re.compile(
+        r"\.(?:Albedo|Albedo_[A-Z0-9]+|Normal|ORM|Trim_Albedo|Trim_Normal|"
+        r"Trim_ORM|Trim_Opacity)\.<UDIM>\.png")
+
+    rack = scene_dir / "assets" / "Props" / "general" / "RackLongEmpty_A1"
+    rack_usd = rack / "RackLongEmpty_A1.usd"
+    rack_usda = rack / "RackLongEmpty_A1.usda"
+
+    if rack_usd.exists() and b"<UDIM>" in rack_usd.read_bytes():
+        st = Usd.Stage.Open(str(rack_usd))
+        st.GetRootLayer().Export(str(rack_usda))
+        rack_usd.unlink()
+
+    for usd_file in sorted(rack.rglob("*.usd*")):
+        if usd_file.suffix not in (".usd", ".usda", ".usdc"):
+            continue
+        data = usd_file.read_bytes()
+        if b"<UDIM>" not in data:
+            continue
+        text = data.decode("utf-8", "ignore")
+        text = udim_re.sub(lambda m: m.group(0).replace("<UDIM>", "1001"), text)
+        usd_file.write_text(text)
+
+    scene_usda = scene_dir / "scene.usda"
+    if scene_usda.exists():
+        text = scene_usda.read_text()
+        text = text.replace("RackLongEmpty_A1.usd@", "RackLongEmpty_A1.usda@")
+        scene_usda.write_text(text)
+
+
 def build_a(out: Path, cache: Path, lock: dict, force: bool = False) -> dict:
     scene_dir = out / "scenes" / "warehouse"
     (scene_dir / "assets").mkdir(parents=True, exist_ok=True)
     localise_into(scene_dir, KEYS_A, cache, lock, force)
-    place_mdl_chain(scene_dir, cache)
+    fix_rack_udim(scene_dir)
+    place_mdl_chain(scene_dir, cache, lock, force)
 
     N = 8 * 30  # 8 s dolly at 30 fps
     cam_eye0 = (-3.8, 2.2, 3.4)
@@ -318,7 +367,7 @@ def build_a(out: Path, cache: Path, lock: dict, force: bool = False) -> dict:
         '        double3 xformOp:scale = (0.01, 0.01, 0.01)',
         '        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]',
         '        def "RackAsset" (',
-        '            prepend references = @./assets/Props/general/RackLongEmpty_A1/RackLongEmpty_A1.usd@',
+        '            prepend references = @./assets/Props/general/RackLongEmpty_A1/RackLongEmpty_A1.usda@',
         '        )',
         '        {',
         '            float3 xformOp:rotateXYZ = (-90, 0, 0)',
@@ -413,7 +462,7 @@ def build_c(out: Path, cache: Path, lock: dict, force: bool = False) -> dict:
     scene_dir = out / "scenes" / "arm"
     (scene_dir / "assets").mkdir(parents=True, exist_ok=True)
     localise_into(scene_dir, KEYS_C, cache, lock, force)
-    place_mdl_chain(scene_dir, cache)
+    place_mdl_chain(scene_dir, cache, lock, force)
 
     N = 12 * 30  # 12 s turntable at 30 fps
     eye = (0.0, 1.9, 3.6)
@@ -579,7 +628,7 @@ def build_b_template(out: Path, cache: Path, lock: dict, force: bool = False) ->
     scene_dir = out / "scenes" / "physics"
     (scene_dir / "assets").mkdir(parents=True, exist_ok=True)
     localise_into(scene_dir, KEYS_B, cache, lock, force)
-    place_mdl_chain(scene_dir, cache)
+    place_mdl_chain(scene_dir, cache, lock, force)
 
     # Read the cardbox collider geometry from the main SimReady mesh (the
     # *_physics.usd companion only adds the collision schema via sublayers).
