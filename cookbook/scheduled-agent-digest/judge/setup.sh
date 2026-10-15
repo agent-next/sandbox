@@ -139,10 +139,10 @@ HAVE="$("${SQLITE3_BIN}" --version | awk '{print $1}')"
 # ---------------------------------------------------------------------------
 JDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 {
-    echo "# recorded by judge/setup.sh at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "# recorded by judge/setup.sh (re-running setup leaves this file unchanged)"
     echo "sqlite3 ${SQLITE3_PKG_VERSION} (upstream $("${SQLITE3_BIN}" --version | awk '{print $1}'))"
     echo "python3 $(python3 -c 'import platform; print(platform.python_version())')"
-} | tee "${JDIR}/VERSIONS.txt" >/dev/null
+} > "${JDIR}/VERSIONS.txt"
 
 echo "[setup] done."
 echo "  sqlite3 -> ${SQLITE3_BIN} ($("${SQLITE3_BIN}" --version | awk '{print $1}'))"
