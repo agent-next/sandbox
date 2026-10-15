@@ -95,24 +95,25 @@ def load_env_module(artifact_dir, workdir):
 
     The module is imported from a copy, never from the artifact directory, so
     nothing it does at import time can write into `judge/` or `tasks/`.
+    Returns `(module, tasks_path, env_path)` or `(None, reason, None)`.
     """
     src = os.path.join(artifact_dir, "code_task_env.py")
     if not os.path.isfile(src):
-        return None, "code_task_env.py missing"
-    shutil.copy2(src, os.path.join(workdir, "code_task_env.py"))
+        return None, "code_task_env.py missing", None
+    env_path = os.path.join(workdir, "code_task_env.py")
+    shutil.copy2(src, env_path)
     # The bank travels with the module so a relative default path resolves.
     tasks_dst = os.path.join(workdir, "tasks.json")
     shutil.copy2(os.path.join(DEMO, "tasks", "tasks.json"), tasks_dst)
-    spec = importlib.util.spec_from_file_location(
-        "artifact_env", os.path.join(workdir, "code_task_env.py"))
+    spec = importlib.util.spec_from_file_location("artifact_env", env_path)
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
     except BaseException as exc:
-        return None, "import failed: %s: %s" % (type(exc).__name__, exc)
+        return None, "import failed: %s: %s" % (type(exc).__name__, exc), None
     if not hasattr(module, "CodeTaskEnv"):
-        return None, "module defines no CodeTaskEnv"
-    return module, tasks_dst
+        return None, "module defines no CodeTaskEnv", None
+    return module, tasks_dst, env_path
 
 
 def make_env(module, tasks_path, seed, timeout_s):
@@ -463,49 +464,92 @@ def gate_reward_determinism(v, module, tasks_path, seed, solutions):
              if ok else "rewards differ: %s" % rewards)
 
 
-def gate_hostile_zero(v, module, tasks_path, seed, bank):
-    """9. Infinite loop, fork bomb and file deleter each score exactly 0.0."""
-    entry = {t["id"]: t["entry"] for t in bank["tasks"]}
+def gate_hostile_zero(v, artifact_env, tasks_path, seed, bank):
+    """9. Infinite loop, fork bomb and file deleter each score exactly 0.0.
+
+    Each action runs in a separate process group (`hostile_probe.py`) with a
+    hard wall-clock limit, so an artifact that never returns from `step`, or
+    that fork-bombs, cannot hang or exhaust the judge.  When the limit
+    expires the judge kills the probe's whole process group and records a
+    failure for that shape.
+    """
     bank_path = os.path.join(DEMO, "tasks", "tasks.json")
     before = sha256_file(bank_path)
+    probe = os.path.join(HERE, "hostile_probe.py")
 
-    shapes = {
-        "infinite-loop": "def %s(*a, **k):\n    while True:\n        pass\n",
-        "fork-bomb": ("import os\n"
-                      "def %s(*a, **k):\n"
-                      "    while True:\n"
-                      "        try:\n            os.fork()\n"
-                      "        except OSError:\n            pass\n"),
-        "file-deleter": ("import shutil, os\n"
-                         "def %s(*a, **k):\n"
-                         "    shutil.rmtree(os.getcwd(), ignore_errors=True)\n"
-                         "    return None\n"),
-    }
     problems = []
-    for name, template in shapes.items():
-        env = make_env(module, tasks_path, seed, STEP_TIMEOUT_S)
-        obs, _ = env.reset()
-        tid = obs["task_id"]
-        src = template % entry[tid]
+    results = {}
+    for shape in ("infinite-loop", "fork-bomb", "file-deleter"):
         t0 = time.time()
+        proc = subprocess.Popen(
+            [sys.executable, "-I", probe, artifact_env, tasks_path,
+             str(seed), shape, str(STEP_TIMEOUT_S)],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+            preexec_fn=_probe_limits)
+        timed_out = False
         try:
-            o, r, term, trunc, info = env.step(src)
-        except BaseException as exc:
-            problems.append("%s: step raised %s: %s"
-                            % (name, type(exc).__name__, exc))
-            continue
+            out, _ = proc.communicate(timeout=HOSTILE_S)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            _kill_group(proc)
+            out = ""
         dt = time.time() - t0
-        if r != 0.0:
-            problems.append("%s: reward %r, want 0.0" % (name, r))
+
+        if timed_out:
+            problems.append("%s: judge killed it after %.0fs (step never "
+                            "returned)" % (shape, HOSTILE_S))
+            results[shape] = {"reward": None, "wall_s": round(dt, 3),
+                              "timed_out": True}
+            continue
+        try:
+            payload = json.loads(out.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            problems.append("%s: probe produced no verdict" % shape)
+            results[shape] = {"reward": None, "wall_s": round(dt, 3),
+                              "timed_out": False}
+            continue
+        reward = payload.get("reward")
+        results[shape] = {"reward": reward, "wall_s": round(dt, 3),
+                          "timed_out": payload.get("timed_out")}
+        if reward != 0.0:
+            problems.append("%s: reward %r, want 0.0" % (shape, reward))
         if dt > HOSTILE_S:
-            problems.append("%s: took %.1fs > %.0fs" % (name, dt, HOSTILE_S))
+            problems.append("%s: took %.1fs > %.0fs" % (shape, dt, HOSTILE_S))
 
     after = sha256_file(bank_path)
     if after != before:
         problems.append("task bank changed during the hostile gate")
     v.record("hostile_zero", not problems,
-             "3 hostile actions scored 0.0 within %.0fs, bank unchanged"
-             % HOSTILE_S if not problems else "; ".join(problems[:3]))
+             "3 hostile actions scored 0.0, judge alive, bank unchanged"
+             if not problems else "; ".join(problems[:3]))
+    return results
+
+
+def _probe_limits():
+    """Host-safety limits for the hostile probe: its own process group, so the
+    judge can kill every descendant at once, and a CPU cap as a second net."""
+    import resource
+    try:
+        resource.setrlimit(resource.RLIMIT_CPU,
+                           (int(HOSTILE_S) + 5, int(HOSTILE_S) + 5))
+    except (ValueError, OSError):
+        pass
+    os.setsid()
+
+
+def _kill_group(proc):
+    import signal
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
 
 
 def gate_no_leak(v, module, tasks_path, seed, solutions, bank):
@@ -656,6 +700,7 @@ def main(argv):
     v = Verdict()
     judge_before = judge_hash()
     throughput_measure = None
+    hostile_measure = None
 
     # The artifact is copied into scratch before it is imported, so nothing it
     # does at import time can touch judge/ or tasks/.
@@ -664,7 +709,7 @@ def main(argv):
         bank = json.load(open(os.path.join(DEMO, "tasks", "tasks.json")))
         gate_bank_valid(v, bank)
 
-        module, tasks_path = load_env_module(artifact, work)
+        module, tasks_path, env_path = load_env_module(artifact, work)
         if module is None:
             v.record("artifact_valid", False, tasks_path)
             for name in ("gymnasium_api", "reward_reference", "partial_exact",
@@ -699,7 +744,7 @@ def main(argv):
                     ("reward_determinism", lambda: gate_reward_determinism(
                         v, module, tasks_path, args.seed, solutions)),
                     ("hostile_zero", lambda: gate_hostile_zero(
-                        v, module, tasks_path, args.seed, bank)),
+                        v, env_path, tasks_path, args.seed, bank)),
                     ("no_leak", lambda: gate_no_leak(
                         v, module, tasks_path, args.seed, solutions, bank)),
                     ("throughput", lambda: gate_throughput(
@@ -709,6 +754,8 @@ def main(argv):
                         result = fn()
                         if name == "throughput":
                             throughput_measure = result
+                        elif name == "hostile_zero":
+                            hostile_measure = result
                     except BaseException as exc:
                         v.record(name, False,
                                  "%s: %s" % (type(exc).__name__, exc))
@@ -737,6 +784,7 @@ def main(argv):
                 "generated_at": _utc_now(),
                 "elapsed_s": round(elapsed, 3),
                 "throughput": throughput_measure,
+                "hostile": hostile_measure,
             },
         }
         text = json.dumps(verdict, indent=2, sort_keys=True)
