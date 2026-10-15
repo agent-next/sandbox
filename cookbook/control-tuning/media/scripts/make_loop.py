@@ -47,6 +47,12 @@ def selftest_log():
     if not m:
         c.die(f"{path} has no 'kill rate: k/n = p%' line - the self-test "
               "did not complete")
+    if not re.search(r"^selftest: OK \(every check passed\)$", log, re.M):
+        c.die(f"{path} has no 'selftest: OK' line - the self-test failed "
+              "or did not finish (unit tests, determinism or a grading)")
+    bad = re.findall(r"^FAIL(?: \(unexpected\))?: .*$", log, re.M)
+    if bad:
+        c.die(f"{path} records failed self-test checks: {bad[:3]}")
     killed, total, rate = (int(g) for g in m.groups())
     rows = []
     for verdict, name, label in re.findall(

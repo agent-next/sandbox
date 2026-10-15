@@ -237,7 +237,7 @@ if summary:
             "repeat_verdicts_identical": facts.get("deterministic") == "1"}
     if "gates" in facts.get("full_good", ""):
         bits = dict(kv.split("=", 1)
-                    for kv in facts["full_good"].split("\t"))
+                    for kv in facts["full_good"].split("\t")[1:])
         good["gates_passed"], good["gates_total"] = \
             (int(x) for x in bits["gates"].split("/"))
         good["mc_pass"], good["mc_n"] = \
@@ -256,4 +256,5 @@ sys.exit(0 if rate >= 90 else 1)
 PYEOF
 [ $? -eq 0 ] || fail=1
 
+[ "$fail" = 0 ] && echo "selftest: OK (every check passed)"
 exit $fail
