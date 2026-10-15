@@ -58,14 +58,20 @@ means, the emissions total is a sum over an ISO-3166 code regex — so a
 
 ## Measured results
 
-Run 2026-10-15, 2 vCPU / ~3 GB, Python 3.12.15 (`judge/VERSIONS.txt`):
+Run 2026-10-15, 2 vCPU / ~3.9 GB, Python 3.12.15 (`judge/VERSIONS.txt`).
+Cold = the pinned venv deleted first, so everything installs from nothing:
 
-| step | wall time |
-| --- | --- |
-| `judge/setup.sh` (cold) | 40 s |
-| `judge/setup.sh` (warm, idempotent) | 2.4 s |
-| `judge/selftest.sh` (good + 8 mutants + determinism) | 67 s |
-| `judge/grade.sh examples/good` | 6.5 s |
+| step | cold | warm |
+| --- | --- | --- |
+| `judge/setup.sh` | 1 m 50 s – 2 m 16 s | 2.4 s (idempotent no-op) |
+| `judge/selftest.sh` (good + 8 mutants + determinism) | 3 m 00 s | 1 m 07 s |
+| `judge/grade.sh examples/good` | 12 – 26 s | 12 – 26 s |
+
+`grade.sh` is dominated by the artifact's own imports: pandas + matplotlib
+cost 6–11 s to import on 2 vCPU before any analysis runs, and the artifact
+runs under `python -I` while the judge's PNG decode competes for the same
+two cores. The 300 s gate timeout leaves a wide margin. Wall times on this
+2 vCPU box vary by ~2× run to run; the *numbers*, not the times, are stable.
 
 Self-test kill rate: **8/8 = 100 %** — off-by-one row filter, wrong groupby
 key, mean-vs-median swap, unit error, blank chart, flat trend line, the

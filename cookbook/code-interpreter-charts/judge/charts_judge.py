@@ -96,31 +96,6 @@ def imports_of(source):
     return names
 
 
-def central_variance(raw, width, height):
-    """Grey-level variance of the central (1-2f) x (1-2f) region.
-
-    The plot area, not the whole image: a chart with its axes switched off
-    still draws a title and axis labels, so whole-image variance stays well
-    above zero.  Measured here: real charts 265..3634, a blank one 0.0.
-    """
-    f = CENTRAL_FRACTION
-    x0, y0 = int(f * width), int(f * height)
-    x1, y1 = width - x0, height - y0
-    total = 0.0
-    total_sq = 0.0
-    n = 0
-    for y in range(y0, y1):
-        row = y * width
-        for x in range(x0, x1):
-            i = (row + x) * 3
-            v = 0.299 * raw[i] + 0.587 * raw[i + 1] + 0.114 * raw[i + 2]
-            total += v
-            total_sq += v * v
-            n += 1
-    mean = total / n
-    return total_sq / n - mean * mean
-
-
 def run_artifact(artifact_dir, data_dir, work, venv_python, timing):
     """G1: run the artifact on a copy; return (answers, charts, png dir)."""
     src = Path(artifact_dir)
@@ -147,7 +122,15 @@ def run_artifact(artifact_dir, data_dir, work, venv_python, timing):
     out_dir = run_dir / "out"
     out_dir.mkdir()
 
-    env = dict(os.environ, MPLBACKEND="Agg", MPLCONFIGDIR=str(work / "mpl"))
+    # A stable MPLCONFIGDIR, not a fresh one per grade: matplotlib rebuilds
+    # its font cache from scratch in an empty config dir, which costs ~5 s
+    # of the 300 s budget on a 2 vCPU box.  It lives beside the venv, so the
+    # artifact still never sees or writes the repo.
+    mpl_dir = Path(os.environ.get(
+        "CHART_MPLCONFIGDIR",
+        Path.home() / ".cache" / "code-interpreter-charts" / "mpl"))
+    mpl_dir.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ, MPLBACKEND="Agg", MPLCONFIGDIR=str(mpl_dir))
     start = time.monotonic()
     try:
         proc = subprocess.run(
@@ -224,16 +207,23 @@ def gate_images(charts, out_dir, timing):
                 im.load()
                 size = im.size
                 rgb = im.convert("RGB")
-                raw = rgb.tobytes()
+                colours = len(rgb.getcolors(maxcolors=1 << 24) or [])
+                grey = rgb.convert("L")
+                plot = grey.crop((int(CENTRAL_FRACTION * want_w),
+                                  int(CENTRAL_FRACTION * want_h),
+                                  want_w - int(CENTRAL_FRACTION * want_w),
+                                  want_h - int(CENTRAL_FRACTION * want_h)))
+                histogram = plot.histogram()
         except Exception as exc:  # Pillow raises a family of errors
             raise GateFailed("G3", f"{fname} does not decode as an image: "
                                    f"{exc}") from exc
         if size != (want_w, want_h):
             raise GateFailed("G3", f"{fname} is {size[0]}x{size[1]} px, "
                                    f"declared {want_w}x{want_h}")
-        n = len(raw) // 3
-        colours = len({raw[i:i + 3] for i in range(0, len(raw), 3)})
-        variance = central_variance(raw, want_w, want_h)
+        n = sum(histogram)
+        mean = sum(v * c for v, c in enumerate(histogram)) / n
+        variance = sum(c * (v - mean) ** 2
+                       for v, c in enumerate(histogram)) / n
         detail[key] = {"file": fname, "width_px": size[0],
                        "height_px": size[1], "distinct_colours": colours,
                        "plot_area_variance": round(variance, 3)}
