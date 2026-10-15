@@ -1,0 +1,27 @@
+# usd-validate-fix judge: exact, sha256-checked installs.
+# Installed by judge/setup.sh with:
+#   pip install --only-binary :all: --require-hashes -r requirements.txt
+# (only-binary: sdists are not hash-listed, so pip must never build one)
+#
+# usd-core 25.5 (Pixar, Apache-2.0-modified) - every wheel hash of the release.
+usd-core==25.5 \
+    --hash=sha256:05f550a74480102579e6a358c59b3d8c9a338e7bd46ef6e2e40577eee60e1f60 \
+    --hash=sha256:0a2772178cdfbab26bc34bdaf5c88a2831886f94b0ced0264239eb8ac0f4c0d1 \
+    --hash=sha256:448e87f7330623233e50fa7fbb112e3247ce23261e9f5f223b7a42454b33c65b \
+    --hash=sha256:656717b3671a70aa73033c5145a83d3b9ef532f9fb8ce6846526d1f2ce5dfe95 \
+    --hash=sha256:0a66bfa5fbd3b0b6009e60d6781b4b3fa0bae67de20a7893811aab7ec4802b9d \
+    --hash=sha256:38ecd693d0c750eb4e63370834c763f50f243b2580d99cebde993cdd1706ea3a \
+    --hash=sha256:43ac347de63e68ac8f77d876b4d9cdb63781085a4f537b384d8a171ead3799ae \
+    --hash=sha256:6d4dbc80fc6dbbfe1e42cebcb61801197e62490a447ad4f7d946427c802c2037 \
+    --hash=sha256:12dcd6f15a4c24bf3b48807f8c04116054a2fa8173bb6319b8e787ca800df0b7 \
+    --hash=sha256:1d7c90d717c5649e8188fb631362d113f1d890f1d56d2a1438631d49b8f2d2b4 \
+    --hash=sha256:ebfc830dbdc27be9ec2b59bc7f19e887c11ec3b9a890071c74fc564a574670f4 \
+    --hash=sha256:5b8addad8dbf8327a08724210fd976a6a40d329f0a5e216b764b7a0984f9d45b \
+    --hash=sha256:b0e1e6d9f338ec4e6839857273f35e2a827c442e35d99369ee860fcc3037ea06 \
+    --hash=sha256:30cb1cd00fd2bdcfe4209abe033e0a1d0f44e443191c269a300213da02a64e87 \
+    --hash=sha256:6ab2c5e21cff49efb283729c9515cfb1457cf767b146908c92db45e6aceb952b
+# usd-validation-nvidia 1.22.0 (NVIDIA, Apache-2.0 AND CC-BY-4.0) - the official
+# PyPI release of commit 14a998c0445f33140f56879e165691c2955afca1
+# ("Publish public mirror v1.22.0", 2026-09-10).
+usd-validation-nvidia==1.22.0 \
+    --hash=sha256:5bf8756a1642c627561859f46ba04b898f79ff0b09a494aa468d027821a2b5c4
