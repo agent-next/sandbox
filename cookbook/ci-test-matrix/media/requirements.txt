@@ -1,1 +1,25 @@
+# Pinned plotting wheels for the ci-test-matrix media figures.
+#
+# media/make_media.sh installs exactly these versions into media/.venv
+# (git-ignored) and fails if the import of matplotlib does not give the
+# pinned version, so a figure can never be regenerated under a different
+# matplotlib than the one it was authored with.
+#
+# The set is the full transitive closure of matplotlib on CPython 3.12 /
+# manylinux x86_64 -- every distribution is pinned, so the resolved set is
+# the same on every machine.  Resolved and installed on the acceptance run
+# of 2026-10-15; the installed versions are recorded in MANIFEST.json.
+#
+# matplotlib 3.10.5 is older than two weeks at that date, so it is not a
+# "latest" pin.
 matplotlib==3.10.5
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.67.0
+kiwisolver==1.5.1
+numpy==2.5.4
+packaging==26.3
+pillow==12.3.0
+pyparsing==3.3.3
+python-dateutil==2.9.0.post0
+six==1.17.0
