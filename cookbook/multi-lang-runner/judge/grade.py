@@ -128,10 +128,17 @@ def gate_run(artifact, cases_dir, workdir, compile_timing):
     for lang in LANGS:
         run_timing[lang] = {"run_s": {}}
         for prob in PROBS:
-            _, run_cmd_base = lang_cmd(lang, artifact, prob)
-            # use prebuilt binary for compiled langs
+            compile_cmd, run_cmd_base = lang_cmd(lang, artifact, prob)
+            # use the binary G2 just built; build it here if that gate never
+            # ran or its build failed, so one bad build reports once, as a
+            # compile failure, and every run failure stays a run failure.
             if lang in COMPILED:
                 outbin = os.path.join(workdir, "%s_%s.bin" % (lang, prob))
+                if not os.path.exists(outbin):
+                    rc, _, err, _ = run_cmd(compile_cmd, timeout=COMPILE_TIMEOUT)
+                    if rc != 0:
+                        failures.append("%s/%s compile: rc=%d %s"
+                                        % (lang, prob, rc, err[:200]))
                 run_cmd_base = [outbin]
             case_files = sorted(
                 f for f in os.listdir(cases_dir) if f.startswith(prob + "_") and f.endswith(".in")

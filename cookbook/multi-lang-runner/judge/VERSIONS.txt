@@ -1,0 +1,21 @@
+# VERSIONS.txt -- recorded by judge/setup.sh
+# One entry per tool the demo depends on: the expected version and
+# the tool's own --version output as actually installed.
+
+python3 (oracle + judge + interpreted solutions)
+  Python 3.12.15
+
+node (interpreted solutions)
+  v24.21.0
+
+go (compiled solutions)
+  go version go1.27.1 linux/amd64
+
+rustc (compiled solutions)
+  rustc 1.98.1 (48a229cea 2026-09-01)
+
+gcc (compiled C solutions)
+  gcc (Debian 12.2.0-14+deb12u1) 12.2.0
+
+bash (interpreted solutions)
+  GNU bash, version 5.2.15(1)-release (x86_64-pc-linux-gnu)
