@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import re
 from pathlib import Path
@@ -13,8 +12,10 @@ import httpx
 from .cli import SbxError, _credentials, _positive_seconds, _say
 
 MAX_EXEC_TIMEOUT_S = 3600
+VRAM_RANGE_GIB = (0.5, 32)
 DEFAULT_EXEC_TIMEOUT_S = 120
 _LEASE_ID = re.compile(r"gl-[A-Za-z0-9-]+")
+_JOB_FAILED = re.compile(r"\bjob \d+ failed:")
 
 # status -> (label, what to do); the server message is appended when present
 _HINTS = {
@@ -51,6 +52,12 @@ def _body(resp: httpx.Response):
         return None
 
 
+class GpuHttpError(SbxError):
+    def __init__(self, text: str, status: int, message: str | None):
+        super().__init__(text)
+        self.status, self.message = status, message
+
+
 def _error(resp: httpx.Response) -> SbxError:
     status = resp.status_code
     body = _body(resp)
@@ -72,7 +79,7 @@ def _error(resp: httpx.Response) -> SbxError:
     parts = [f"{label} ({status})"]
     if isinstance(message, str) and message.strip():
         parts.append(" ".join(message.split())[:300])
-    return SbxError(": ".join(parts) + f" -- {hint}")
+    return GpuHttpError(": ".join(parts) + f" -- {hint}", status, message if isinstance(message, str) else None)
 
 
 def _call(method: str, path: str, body: dict | None = None, timeout: float = 60, ok_missing: bool = False):
@@ -97,7 +104,10 @@ def _emit_json(data) -> None:
 def cmd_create(args) -> int:
     accel: dict = {}
     if args.vram is not None:
-        accel["vram_gb"] = _positive_seconds(args.vram, "--vram")
+        lo, hi = VRAM_RANGE_GIB
+        accel["vram_gb"] = _positive_seconds(args.vram, "--vram", hi)
+        if args.vram < lo:
+            raise SbxError(f"--vram must be a positive number from {lo:g} to {hi:g} GiB")
     if args.template:
         accel["template"] = args.template
     if args.gpu_class:
@@ -123,7 +133,7 @@ def cmd_exec(args) -> int:
     try:
         _, data = _call("POST", f"/sandboxes/{sid}/exec", {"code": code, "timeout_s": timeout}, timeout + 30)
     except SbxError as exc:
-        if "job" in str(exc) and "failed" in str(exc) and "(409)" in str(exc):
+        if isinstance(exc, GpuHttpError) and exc.status == 409 and _JOB_FAILED.search(exc.message or ""):
             _say(f"sbx: {exc}", err=True)
             return 1
         raise
