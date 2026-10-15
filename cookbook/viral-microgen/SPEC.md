@@ -31,7 +31,7 @@ artifact/
 | GIF distinct colours | exactly 5 |
 | GIF ball bounces | >= 4 |
 | QR planted string (`--seed N`) | `VIRAL-MICROGEN-<N>` (judge-side constant) |
-| QR decoders | zbar 0.23.92 **and** zxing-cpp 1.4.0 (two independent libraries) |
+| QR decoders | zbar 0.23.92 **and** zxing-cpp 2.3.0 (two independent libraries) |
 | palette colours | exactly 5, each an exact RGB match to a colour present in the GIF |
 
 The planted QR string is derived from `--seed` inside the judge, so the seed
@@ -102,7 +102,7 @@ key.
    between bounces, and the ball travels >= 120 px horizontally across the
    file. A single frame fails this gate outright (that is the negative control).
 5. **qr_scans** — `qr.png` decodes to exactly `VIRAL-MICROGEN-<N>` under
-   zbar 0.23.92 (`zbarimg --raw`) **and** under zxing-cpp 1.4.0
+   zbar 0.23.92 (`zbarimg --raw`) **and** under zxing-cpp 2.3.0
    (`read_barcode`); a single decode is not enough. Both must agree on the
    exact string; a wrong string, or a QR only one library can read, fails.
 6. **palette_match** — `palette.png` parses with Pillow; it has exactly 5
