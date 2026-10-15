@@ -174,7 +174,10 @@ def qr_png(out, seed):
     import qr  # noqa: E402  (the demo's own stdlib-only encoder, tools/qr.py)
     text = f"VIRAL-MICROGEN-{seed}"
     m = qr.encode(text)
-    scale, border = 8, 4
+    # Pure black on pure white, 10 px per module with the standard 4-module
+    # quiet zone: some decoders are unreliable on near-black modules at small
+    # module sizes, and a plain 1-bit symbol is what a camera expects.
+    scale, border = 10, 4
     n = len(m)
     img = Image.new("RGB", ((n + 2 * border) * scale, (n + 2 * border) * scale),
                     (255, 255, 255))
@@ -185,7 +188,7 @@ def qr_png(out, seed):
                 x0 = (c + border) * scale
                 y0 = (r + border) * scale
                 d.rectangle([x0, y0, x0 + scale - 1, y0 + scale - 1],
-                            fill=(20, 20, 24))
+                            fill=(0, 0, 0))
     path = os.path.join(out, "qr.png")
     img.save(path)
     return path, text

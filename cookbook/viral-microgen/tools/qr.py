@@ -83,9 +83,11 @@ _LEVEL_M_BITS = 0b00
 
 def _version_for(nbytes):
     for v in range(1, 11):
-        _total, _ecc, _n1, dc1, _n2, _dc2 = ECC_M[v]
-        # mode (4 bits) + char count (8 bits for v1-9) = 12 bits of overhead
-        if dc1 * 8 - 12 >= nbytes * 8:
+        _total, _ecc, n1, dc1, n2, dc2 = ECC_M[v]
+        # data codewords across *both* block groups, minus mode + count bits
+        data_cw = n1 * dc1 + n2 * dc2
+        overhead = 4 + (8 if v < 10 else 16)
+        if data_cw * 8 - overhead >= nbytes * 8:
             return v
     raise ValueError(f"string too long for versions 1-10: {nbytes} bytes")
 
@@ -102,7 +104,9 @@ def _bitstream(data, version):
     put(len(data), 8 if version < 10 else 16)
     for b in data:
         put(b, 8)
-    cap = ECC_M[version][0] * 8
+    # capacity of the *data* codewords (both block groups), in bits
+    _total, _ecc, n1, dc1, n2, dc2 = ECC_M[version]
+    cap = (n1 * dc1 + n2 * dc2) * 8
     if len(bits) > cap:
         raise ValueError("data does not fit the chosen version")
     put(0, min(4, cap - len(bits)))     # terminator (maybe truncated)
@@ -162,16 +166,24 @@ def _builder(version):
                     func[rr][cc] = True
 
     def finder(r0, c0):
-        # 7x7 finder plus its one-module light separator (an 8x8 box)
-        reserve(r0, c0, 8, 8)
+        """Draw the 7x7 finder whose top-left module is (r0, c0)."""
         for dr in range(7):
             for dc in range(7):
                 m[r0 + dr][c0 + dc] = 1 if (dr in (0, 6) or dc in (0, 6)
                                            or (2 <= dr <= 4 and 2 <= dc <= 4)) else 0
+                func[r0 + dr][c0 + dc] = True
 
+    # The three finders sit in the corners; each is surrounded on the two
+    # sides facing the data area by a one-module light separator.  The 8x8
+    # reserved boxes below therefore start one row/column *outside* the
+    # finder on those sides -- the separator row of the bottom-left finder is
+    # row n-8, not row n-1.
     finder(0, 0)
-    finder(0, n - 8)
-    finder(n - 8, 0)
+    reserve(0, 0, 8, 8)                 # separator: row 7, col 7
+    finder(0, n - 7)
+    reserve(0, n - 8, 8, 8)             # separator: row 7, col n-8
+    finder(n - 7, 0)
+    reserve(n - 8, 0, 8, 8)             # separator: row n-8, col 7
 
     # timing patterns: row 6 and column 6, alternating, dark at even index
     for i in range(8, n - 8):
@@ -206,15 +218,17 @@ def _builder(version):
     m[n - 8][8] = 1
     func[n - 8][8] = True
 
-    # version information, versions 7+ (18 modules, two blocks)
+    # version information, versions 7+ (18 modules, two 6x3 blocks):
+    # bit i of the 18-bit value goes to (row i//3, col n-11 + i%3) and, for
+    # the second copy, to (row n-11 + i%3, col i//3).
     if version >= 7:
         vbits = _version_info(version)
         for i in range(18):
-            r, c = i // 3, i % 3
-            m[n - 11 + r][c] = (vbits >> i) & 1
-            func[n - 11 + r][c] = True
-            m[r][n - 11 + c] = (vbits >> i) & 1
-            func[r][n - 11 + c] = True
+            bit = (vbits >> i) & 1
+            m[i // 3][n - 11 + i % 3] = bit
+            func[i // 3][n - 11 + i % 3] = True
+            m[n - 11 + i % 3][i // 3] = bit
+            func[n - 11 + i % 3][i // 3] = True
     return m, func
 
 
@@ -228,9 +242,15 @@ def _version_info(version):
 
 
 def _place_bits(m, func, bits):
-    """Zig-zag placement from the bottom-right; returns the bits left over."""
+    """Zig-zag placement from the bottom-right; returns the bits left over.
+
+    The first bit of the codeword stream (the MSB of the first data codeword)
+    goes to the bottom-right data module; the walk then moves upward in
+    two-module-wide column pairs, alternating direction, skipping the
+    vertical timing column.
+    """
     n = len(m)
-    i = len(bits) - 1
+    i = 0
     upward = True
     right = n - 1
     while right > 0:
@@ -241,14 +261,11 @@ def _place_bits(m, func, bits):
         for r in rows:
             for c in cols:
                 if not func[r][c]:
-                    if i >= 0:
-                        m[r][c] = bits[i] & 1
-                        i -= 1
-                    else:
-                        m[r][c] = 0
+                    m[r][c] = bits[i] & 1 if i < len(bits) else 0
+                    i += 1
         upward = not upward
         right -= 2
-    return i + 1                            # number of bits still unwritten
+    return max(0, len(bits) - i)          # number of bits still unwritten
 
 
 _MASKS = [
@@ -259,7 +276,7 @@ _MASKS = [
     lambda r, c: (r // 2 + c // 3) % 2 == 0,
     lambda r, c: (r * c) % 2 + (r * c) % 3 == 0,
     lambda r, c: ((r * c) % 2 + (r * c) % 3) % 2 == 0,
-    lambda r, c: ((r * c) % 2 + (r * c) % 3) % 2 == 0,
+    lambda r, c: ((r + c) % 2 + (r * c) % 3) % 2 == 0,
 ]
 
 
@@ -284,8 +301,15 @@ def _apply_mask(m, func, mask_id):
 
 
 def _write_format(m, fmt):
-    # first copy: column 8 rows 0..8 (row 6 is the timing pattern, skipped),
-    # then row 8 columns 5..0 (bits 9..14)
+    """Write the 15 format bits, LSB-first, into both copies.
+
+    m[r][c] is row r, column c.  Bit i of `fmt` (i = 0 is the LSB) lands on
+      copy 1: (i, 8) for i = 0..5, (7, 8), (8, 8), (8, 7), then (8, 14-i)
+              for i = 9..14 (row 6 is the timing pattern and is skipped);
+      copy 2: (8, n-1-i) for i = 0..7, then (n-15+i, 8) for i = 8..14.
+    The dark module at (n-8, 8) is drawn by the builder.
+    """
+    n = len(m)
     for i in range(6):
         m[i][8] = (fmt >> i) & 1
     m[7][8] = (fmt >> 6) & 1
@@ -293,9 +317,6 @@ def _write_format(m, fmt):
     m[8][7] = (fmt >> 8) & 1
     for i in range(9, 15):
         m[8][14 - i] = (fmt >> i) & 1
-    # second copy: row 8 columns n-8..n-1 (bits 0..7) and column 8 rows
-    # n-7..n-1 (bits 8..14)
-    n = len(m)
     for i in range(8):
         m[8][n - 1 - i] = (fmt >> i) & 1
     for i in range(8, 15):
