@@ -71,6 +71,15 @@ def step(name: str, fn) -> subprocess.CompletedProcess:
     return proc
 
 
+def _listing_has(listing: str, sid: str) -> bool:
+    """True iff the sandbox id appears as a whole column in `sbx list`
+    output (not as a substring of some other id)."""
+    for line in listing.splitlines():
+        if sid in line.split():
+            return True
+    return False
+
+
 def show(proc: subprocess.CompletedProcess) -> None:
     """Echo a step's stdout so the user sees the judge's own lines
     (each 'killed <mutant> (gate: ...)', the kill rate, the verdict)."""
@@ -168,7 +177,7 @@ def main() -> int:
                           f"{listing.returncode}; cannot confirm sandbox {sid} "
                           f"is gone -- run sbx kill {sid}", file=sys.stderr)
                     sys.exit(1)
-                if sid in (listing.stdout or ""):
+                if _listing_has(listing.stdout or "", sid):
                     print(f"run: FAILED cleanup: sandbox {sid} still live; "
                           f"run sbx kill {sid}", file=sys.stderr)
                     sys.exit(1)
