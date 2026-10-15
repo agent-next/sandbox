@@ -751,8 +751,8 @@ def shot_proof_pass(scn, t, t0, t1):
             fig.patches.append(Rectangle((0.235, y - 0.036), 0.53, 0.0012,
                                          transform=fig.transFigure,
                                          facecolor="#2c313c", edgecolor="none"))
-        caption(fig, "the judge re-derives every number from the simulator's "
-                     "own output files - nothing asks PhysX if PhysX is right")
+        caption(fig, "every number re-derived from the simulator's output "
+                     "files - nothing asks PhysX if PhysX is right")
 
     return overlay(c, hud)
 
