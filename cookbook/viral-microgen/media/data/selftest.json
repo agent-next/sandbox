@@ -1,0 +1,162 @@
+{
+  "seed": 42,
+  "good_passed": true,
+  "total": 15,
+  "killed": 15,
+  "kill_rate": "100%",
+  "mutants": [
+    {
+      "name": "wav_steady_tone",
+      "expected_gate": "shepard_property",
+      "killed": true,
+      "failed_gate": "shepard_property",
+      "failed_gates": [
+        "shepard_property"
+      ],
+      "reason": "shepard_property: failed: rising_slope, log_linear_r2_ge_0.995, span_ge_3_octaves, spectrum_unimodal"
+    },
+    {
+      "name": "wav_plain_sweep",
+      "expected_gate": "shepard_property",
+      "killed": true,
+      "failed_gate": "shepard_property",
+      "failed_gates": [
+        "shepard_property"
+      ],
+      "reason": "shepard_property: failed: span_ge_3_octaves, pitch_class_return, spectrum_unimodal"
+    },
+    {
+      "name": "wav_too_short",
+      "expected_gate": "wav_format",
+      "killed": true,
+      "failed_gate": "wav_format",
+      "failed_gates": [
+        "wav_format",
+        "shepard_property"
+      ],
+      "reason": "wav_format: failed: duration_ge_20s; shepard_property: failed: span_ge_3_octaves, pitch_class_return"
+    },
+    {
+      "name": "wav_wrong_rate",
+      "expected_gate": "wav_format",
+      "killed": true,
+      "failed_gate": "wav_format",
+      "failed_gates": [
+        "wav_format"
+      ],
+      "reason": "wav_format: failed: sample_rate_22050"
+    },
+    {
+      "name": "gif_static_one_frame",
+      "expected_gate": "ball_bounces",
+      "killed": true,
+      "failed_gate": "gif_animation",
+      "failed_gates": [
+        "gif_animation",
+        "ball_bounces",
+        "palette_match"
+      ],
+      "reason": "gif_animation: failed: n_frames_ge_48, exactly_5_colours; ball_bounces: a single frame has no motion to measure; palette_match: failed: swatches_exact_gif_colours, each_swatch_ge_50px_in_gif"
+    },
+    {
+      "name": "gif_too_few_frames",
+      "expected_gate": "gif_animation",
+      "killed": true,
+      "failed_gate": "gif_animation",
+      "failed_gates": [
+        "gif_animation",
+        "ball_bounces"
+      ],
+      "reason": "gif_animation: failed: n_frames_ge_48; ball_bounces: failed: n_bounces_ge_4, travel_ge_120px"
+    },
+    {
+      "name": "gif_six_colours",
+      "expected_gate": "gif_animation",
+      "killed": true,
+      "failed_gate": "gif_animation",
+      "failed_gates": [
+        "gif_animation",
+        "palette_match"
+      ],
+      "reason": "gif_animation: failed: no_sixth_colour, exactly_5_colours; palette_match: failed: every_gif_colour_on_card"
+    },
+    {
+      "name": "gif_flat_ball",
+      "expected_gate": "ball_bounces",
+      "killed": true,
+      "failed_gate": "ball_bounces",
+      "failed_gates": [
+        "ball_bounces"
+      ],
+      "reason": "ball_bounces: failed: n_bounces_ge_4, rise_ge_25px"
+    },
+    {
+      "name": "gif_finite_loop",
+      "expected_gate": "gif_animation",
+      "killed": true,
+      "failed_gate": "gif_animation",
+      "failed_gates": [
+        "gif_animation"
+      ],
+      "reason": "gif_animation: failed: loop_infinite"
+    },
+    {
+      "name": "qr_wrong_string",
+      "expected_gate": "qr_scans",
+      "killed": true,
+      "failed_gate": "qr_scans",
+      "failed_gates": [
+        "qr_scans"
+      ],
+      "reason": "qr_scans: failed: zbar_matches_planted, zxing_matches_planted"
+    },
+    {
+      "name": "qr_corrupt",
+      "expected_gate": "qr_scans",
+      "killed": true,
+      "failed_gate": "qr_scans",
+      "failed_gates": [
+        "qr_scans"
+      ],
+      "reason": "qr_scans: failed: zbar_decodes, zxing_decodes, zbar_matches_planted, zxing_matches_planted, both_agree"
+    },
+    {
+      "name": "palette_invented",
+      "expected_gate": "palette_match",
+      "killed": true,
+      "failed_gate": "palette_match",
+      "failed_gates": [
+        "palette_match"
+      ],
+      "reason": "palette_match: failed: swatches_exact_gif_colours, every_gif_colour_on_card, each_swatch_ge_50px_in_gif"
+    },
+    {
+      "name": "palette_missing",
+      "expected_gate": "palette_match",
+      "killed": true,
+      "failed_gate": "palette_match",
+      "failed_gates": [
+        "palette_match"
+      ],
+      "reason": "palette_match: palette card has 4 swatch colours, expected 5"
+    },
+    {
+      "name": "palette_four_swatches",
+      "expected_gate": "palette_match",
+      "killed": true,
+      "failed_gate": "palette_match",
+      "failed_gates": [
+        "palette_match"
+      ],
+      "reason": "palette_match: palette card has 4 swatch colours, expected 5"
+    },
+    {
+      "name": "missing_file",
+      "expected_gate": null,
+      "killed": true,
+      "failed_gate": null,
+      "failed_gates": [],
+      "reason": "missing required file palette.png"
+    }
+  ]
+}

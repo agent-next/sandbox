@@ -1,0 +1,50 @@
+{
+  "seed": 42,
+  "generated_by": "bash media/make_media.sh",
+  "files": {
+    "result.png": {
+      "shows": "The four artifacts with the judge's measured numbers drawn on them: the Shepard chroma glide against its analytic fit and the 3.0-octave spec floor; the ball's bottom edge per frame with the measured floor row and each bounce marked; the QR code and the 5-colour palette card.",
+      "command": "python3 media/make_figures.py examples/good media --seed 42",
+      "source_data": [
+        "examples/good/shepard.wav",
+        "examples/good/ball.gif",
+        "examples/good/qr.png",
+        "examples/good/palette.png"
+      ],
+      "judge_verdict": "judge/grade.sh examples/good --seed 42 (all six gates pass)",
+      "sha256": "314bb0a71dc5036c9603633a95fb08d1eb384b5acb28e9104650adeba9f62274"
+    },
+    "loop.png": {
+      "shows": "Self-test kill rate: each known-bad mutant and whether the judge killed it (15/15 = 100%).",
+      "command": "python3 media/make_figures.py examples/good media --seed 42",
+      "source_data": [
+        "media/data/selftest.json"
+      ],
+      "sha256": "f3481ed90358170cd1805f4814654d806489a5e2db44bd028dac282cf137dc8c"
+    },
+    "demo.mp4": {
+      "shows": "36 s animation of the judged artifact: the bouncing ball GIF frame by frame with the judge's bounce marks, the Shepard chroma glide drawing itself against its fit and the spec floor, and the WAV envelope with a playhead.",
+      "command": "python3 media/make_video.py examples/good media/master/demo.mkv --seed 42 --fps 30 && ffmpeg -i media/master/demo.mkv -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart media/demo.mp4",
+      "source_data": [
+        "examples/good/ball.gif",
+        "examples/good/shepard.wav"
+      ],
+      "master": "media/master/demo.mkv (lossless, git-ignored)",
+      "sha256": "0b3853aa4c68a734863e8c853dbfc9c8d0a073ff0b030ca048eeb17ee0aa5bb9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30.0,
+      "codec": "h264",
+      "duration_s": 30.0
+    },
+    "data/selftest.json": {
+      "shows": "Raw self-test result: the gate that killed each mutant.",
+      "command": "python3 media/make_selftest_data.py . media/data/selftest.json --seed 42",
+      "source_data": [
+        "examples/good",
+        "judge/mutants.py"
+      ],
+      "sha256": "631d6c66552d4319bdc0f6202cc44b17b1484e3073f08273c7e810e463f28537"
+    }
+  }
+}
