@@ -3,27 +3,48 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "httpx 0.28.1 \u2014 module dependency map",
-    "subtitle": "top-level modules of the httpx package; edges are direct imports",
+    "subtitle": "top-level modules of the httpx package; edges are direct imports; colour = module role",
     "output": "diagram.html",
     "repository": {
       "url": "https://github.com/encode/httpx",
       "provider": "github",
       "revision": "26d48e0634e6ee9cdc0533996db289ce4b430177"
+    },
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "frontend": {
+          "label": "public API"
+        },
+        "backend": {
+          "label": "core client"
+        },
+        "database": {
+          "label": "models & codecs"
+        },
+        "messagebus": {
+          "label": "config & auth"
+        },
+        "cloud": {
+          "label": "shared internals"
+        }
+      }
     }
   },
   "components": [
     {
       "id": "init__",
-      "type": "backend",
+      "type": "frontend",
       "label": "__init__",
       "sublabel": "httpx/__init__.py",
+      "tag": "0 importers",
       "pos": [
-        40,
+        509,
         40
       ],
       "size": [
-        170,
-        80
+        128,
+        64
       ],
       "sources": [
         {
@@ -32,169 +53,18 @@
       ]
     },
     {
-      "id": "version__",
-      "type": "backend",
-      "label": "__version__",
-      "sublabel": "httpx/__version__.py",
-      "pos": [
-        250,
-        1240
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/__version__.py"
-        }
-      ]
-    },
-    {
-      "id": "api",
-      "type": "backend",
-      "label": "_api",
-      "sublabel": "httpx/_api.py",
-      "pos": [
-        460,
-        740
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_api.py"
-        }
-      ]
-    },
-    {
-      "id": "auth",
-      "type": "backend",
-      "label": "_auth",
-      "sublabel": "httpx/_auth.py",
-      "pos": [
-        670,
-        240
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_auth.py"
-        }
-      ]
-    },
-    {
-      "id": "client",
-      "type": "backend",
-      "label": "_client",
-      "sublabel": "httpx/_client.py",
-      "pos": [
-        880,
-        1440
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_client.py"
-        }
-      ]
-    },
-    {
-      "id": "config",
-      "type": "backend",
-      "label": "_config",
-      "sublabel": "httpx/_config.py",
-      "pos": [
-        1090,
-        940
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_config.py"
-        }
-      ]
-    },
-    {
-      "id": "content",
-      "type": "backend",
-      "label": "_content",
-      "sublabel": "httpx/_content.py",
-      "pos": [
-        1300,
-        440
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_content.py"
-        }
-      ]
-    },
-    {
-      "id": "decoders",
-      "type": "backend",
-      "label": "_decoders",
-      "sublabel": "httpx/_decoders.py",
-      "pos": [
-        1510,
-        1640
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_decoders.py"
-        }
-      ]
-    },
-    {
-      "id": "exceptions",
-      "type": "backend",
-      "label": "_exceptions",
-      "sublabel": "httpx/_exceptions.py",
-      "pos": [
-        1720,
-        1140
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_exceptions.py"
-        }
-      ]
-    },
-    {
       "id": "main",
-      "type": "backend",
+      "type": "frontend",
       "label": "_main",
       "sublabel": "httpx/_main.py",
+      "tag": "1 importers",
       "pos": [
-        1930,
-        640
+        432,
+        150
       ],
       "size": [
-        170,
-        80
+        112,
+        64
       ],
       "sources": [
         {
@@ -203,36 +73,118 @@
       ]
     },
     {
-      "id": "models",
-      "type": "backend",
-      "label": "_models",
-      "sublabel": "httpx/_models.py",
+      "id": "api",
+      "type": "frontend",
+      "label": "_api",
+      "sublabel": "httpx/_api.py",
+      "tag": "1 importers",
       "pos": [
-        2140,
-        140
+        608,
+        150
       ],
       "size": [
-        170,
-        80
+        106,
+        64
       ],
       "sources": [
         {
-          "path": "httpx/_models.py"
+          "path": "httpx/_api.py"
+        }
+      ]
+    },
+    {
+      "id": "client",
+      "type": "backend",
+      "label": "_client",
+      "sublabel": "httpx/_client.py",
+      "tag": "3 importers",
+      "pos": [
+        512,
+        260
+      ],
+      "size": [
+        122,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_client.py"
+        }
+      ]
+    },
+    {
+      "id": "content",
+      "type": "database",
+      "label": "_content",
+      "sublabel": "httpx/_content.py",
+      "tag": "2 importers",
+      "pos": [
+        40,
+        370
+      ],
+      "size": [
+        128,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_content.py"
+        }
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "messagebus",
+      "label": "_auth",
+      "sublabel": "httpx/_auth.py",
+      "tag": "3 importers",
+      "pos": [
+        232,
+        370
+      ],
+      "size": [
+        112,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_auth.py"
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "type": "messagebus",
+      "label": "_config",
+      "sublabel": "httpx/_config.py",
+      "tag": "4 importers",
+      "pos": [
+        408,
+        370
+      ],
+      "size": [
+        122,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_config.py"
         }
       ]
     },
     {
       "id": "multipart",
-      "type": "backend",
+      "type": "database",
       "label": "_multipart",
       "sublabel": "httpx/_multipart.py",
+      "tag": "2 importers",
       "pos": [
-        2350,
-        1340
+        594,
+        370
       ],
       "size": [
-        170,
-        80
+        139,
+        64
       ],
       "sources": [
         {
@@ -241,74 +193,18 @@
       ]
     },
     {
-      "id": "status_codes",
-      "type": "backend",
-      "label": "_status_codes",
-      "sublabel": "httpx/_status_codes.py",
-      "pos": [
-        2560,
-        840
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_status_codes.py"
-        }
-      ]
-    },
-    {
-      "id": "types",
-      "type": "backend",
-      "label": "_types",
-      "sublabel": "httpx/_types.py",
-      "pos": [
-        2770,
-        340
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_types.py"
-        }
-      ]
-    },
-    {
-      "id": "urlparse",
-      "type": "backend",
-      "label": "_urlparse",
-      "sublabel": "httpx/_urlparse.py",
-      "pos": [
-        2980,
-        1540
-      ],
-      "size": [
-        170,
-        80
-      ],
-      "sources": [
-        {
-          "path": "httpx/_urlparse.py"
-        }
-      ]
-    },
-    {
       "id": "urls",
-      "type": "backend",
+      "type": "database",
       "label": "_urls",
       "sublabel": "httpx/_urls.py",
+      "tag": "7 importers",
       "pos": [
-        3190,
-        1040
+        797,
+        370
       ],
       "size": [
-        170,
-        80
+        112,
+        64
       ],
       "sources": [
         {
@@ -317,21 +213,162 @@
       ]
     },
     {
-      "id": "utils",
-      "type": "backend",
-      "label": "_utils",
-      "sublabel": "httpx/_utils.py",
+      "id": "decoders",
+      "type": "database",
+      "label": "_decoders",
+      "sublabel": "httpx/_decoders.py",
+      "tag": "2 importers",
       "pos": [
-        3400,
-        540
+        973,
+        370
       ],
       "size": [
-        170,
-        80
+        133,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_decoders.py"
+        }
+      ]
+    },
+    {
+      "id": "types",
+      "type": "cloud",
+      "label": "_types",
+      "sublabel": "httpx/_types.py",
+      "tag": "9 importers",
+      "pos": [
+        129,
+        480
+      ],
+      "size": [
+        117,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_types.py"
+        }
+      ]
+    },
+    {
+      "id": "utils",
+      "type": "cloud",
+      "label": "_utils",
+      "sublabel": "httpx/_utils.py",
+      "tag": "6 importers",
+      "pos": [
+        309,
+        480
+      ],
+      "size": [
+        117,
+        64
       ],
       "sources": [
         {
           "path": "httpx/_utils.py"
+        }
+      ]
+    },
+    {
+      "id": "exceptions",
+      "type": "cloud",
+      "label": "_exceptions",
+      "sublabel": "httpx/_exceptions.py",
+      "tag": "8 importers",
+      "pos": [
+        491,
+        480
+      ],
+      "size": [
+        144,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_exceptions.py"
+        }
+      ]
+    },
+    {
+      "id": "urlparse",
+      "type": "database",
+      "label": "_urlparse",
+      "sublabel": "httpx/_urlparse.py",
+      "tag": "1 importers",
+      "pos": [
+        699,
+        480
+      ],
+      "size": [
+        133,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_urlparse.py"
+        }
+      ]
+    },
+    {
+      "id": "models",
+      "type": "database",
+      "label": "_models",
+      "sublabel": "httpx/_models.py",
+      "tag": "8 importers",
+      "pos": [
+        895,
+        480
+      ],
+      "size": [
+        122,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_models.py"
+        }
+      ]
+    },
+    {
+      "id": "version__",
+      "type": "cloud",
+      "label": "__version__",
+      "sublabel": "httpx/__version__.py",
+      "tag": "2 importers",
+      "pos": [
+        391,
+        615
+      ],
+      "size": [
+        144,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/__version__.py"
+        }
+      ]
+    },
+    {
+      "id": "status_codes",
+      "type": "database",
+      "label": "_status_codes",
+      "sublabel": "httpx/_status_codes.py",
+      "tag": "4 importers",
+      "pos": [
+        599,
+        615
+      ],
+      "size": [
+        155,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_status_codes.py"
         }
       ]
     }
@@ -467,7 +504,19 @@
     },
     {
       "from": "config",
-      "to": "urls"
+      "to": "urls",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          469,
+          347
+        ],
+        [
+          853,
+          347
+        ]
+      ]
     },
     {
       "from": "content",
@@ -475,7 +524,19 @@
     },
     {
       "from": "content",
-      "to": "multipart"
+      "to": "multipart",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          104,
+          356
+        ],
+        [
+          664,
+          356
+        ]
+      ]
     },
     {
       "from": "content",
@@ -491,7 +552,19 @@
     },
     {
       "from": "exceptions",
-      "to": "models"
+      "to": "models",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          563,
+          585
+        ],
+        [
+          956,
+          585
+        ]
+      ]
     },
     {
       "from": "main",
@@ -511,19 +584,34 @@
     },
     {
       "from": "models",
-      "to": "content"
+      "to": "content",
+      "variant": "dashed"
     },
     {
       "from": "models",
-      "to": "decoders"
+      "to": "decoders",
+      "variant": "dashed"
     },
     {
       "from": "models",
-      "to": "exceptions"
+      "to": "exceptions",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          956,
+          594
+        ],
+        [
+          563,
+          594
+        ]
+      ]
     },
     {
       "from": "models",
-      "to": "multipart"
+      "to": "multipart",
+      "variant": "dashed"
     },
     {
       "from": "models",
@@ -531,15 +619,40 @@
     },
     {
       "from": "models",
-      "to": "types"
+      "to": "types",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          956,
+          558
+        ],
+        [
+          188,
+          558
+        ]
+      ]
     },
     {
       "from": "models",
-      "to": "urls"
+      "to": "urls",
+      "variant": "dashed"
     },
     {
       "from": "models",
-      "to": "utils"
+      "to": "utils",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          956,
+          576
+        ],
+        [
+          368,
+          576
+        ]
+      ]
     },
     {
       "from": "multipart",
@@ -551,19 +664,34 @@
     },
     {
       "from": "types",
-      "to": "auth"
+      "to": "auth",
+      "variant": "dashed"
     },
     {
       "from": "types",
-      "to": "config"
+      "to": "config",
+      "variant": "dashed"
     },
     {
       "from": "types",
-      "to": "models"
+      "to": "models",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          188,
+          567
+        ],
+        [
+          956,
+          567
+        ]
+      ]
     },
     {
       "from": "types",
-      "to": "urls"
+      "to": "urls",
+      "variant": "dashed"
     },
     {
       "from": "urlparse",
@@ -587,7 +715,8 @@
     },
     {
       "from": "utils",
-      "to": "urls"
+      "to": "urls",
+      "variant": "dashed"
     }
   ]
 }
