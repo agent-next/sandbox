@@ -25,6 +25,7 @@ import json
 import os
 import re
 import sys
+from urllib.parse import urlsplit
 
 from playwright.sync_api import sync_playwright
 
@@ -40,8 +41,11 @@ GENERIC_OR_WEBSAFE = {
 MONO_HINTS = ("mono", "courier", "consol")  # monospace family detection
 
 # DOM collector: everything the Python side needs, measured in one pass.
+# Runs in an isolated world (see below): the artifact's own JS can
+# monkey-patch window.getComputedStyle in the main world but cannot reach
+# this one.
 COLLECT_JS = r"""
-() => {
+W => {
   const px = v => parseFloat(v) || 0;
   const rgba = s => {
     const m = s.match(/rgba?\(([^)]+)\)/);
@@ -108,7 +112,7 @@ COLLECT_JS = r"""
         code: !!el.closest('pre, code, [data-ui]'),
       });
       res.families.push(fam);
-      if (window.__W === 1440) res.sizes1440.push(Math.round(parseFloat(cs.fontSize) * 10) / 10);
+      if (W === 1440) res.sizes1440.push(Math.round(parseFloat(cs.fontSize) * 10) / 10);
     }
     if (isHeading) {
       res.headings.push({tag: el.tagName, text: (el.textContent || '').trim()
@@ -324,6 +328,33 @@ def load_brief(path):
 # main
 # ---------------------------------------------------------------------------
 
+def _same_origin(url, origin):
+    """A request is in-scope only if it targets the scratch server's exact
+    origin. data:/blob:/about: URLs never reach the network at all."""
+    try:
+        p = urlsplit(url)
+    except ValueError:
+        return False
+    if p.scheme in ("data", "blob", "about"):
+        return True
+    return f"{p.scheme}://{p.netloc}" == origin
+
+
+def _world_eval(cdp, world_id, expression, by_value=True):
+    """Evaluate JS in the page's isolated world via CDP, so page scripts
+    cannot monkey-patch the functions the judge measures with."""
+    res = cdp.send("Runtime.evaluate", {
+        "expression": expression,
+        "contextId": world_id,
+        "returnByValue": by_value,
+        "awaitPromise": True,
+    })
+    if "exceptionDetails" in res:
+        raise RuntimeError("check_gates: isolated-world eval failed: "
+                           + json.dumps(res["exceptionDetails"])[:800])
+    return res.get("result", {}).get("value")
+
+
 def main():
     if len(sys.argv) < 3:
         print("usage: check_gates.py <artifact_dir> <base_url> "
@@ -354,6 +385,9 @@ def main():
         with open(axe_path, encoding="utf-8") as f:
             axe_src = f.read()
 
+    parts = urlsplit(base_url)
+    server_origin = f"{parts.scheme}://{parts.netloc}"
+
     data = {}   # per-width measurements
     events = {}  # console/network bookkeeping
     with sync_playwright() as pw:
@@ -364,32 +398,64 @@ def main():
                 reduced_motion="reduce", locale="en-US",
                 device_scale_factor=1)
             page = ctx.new_page()
-            console_errors, failed, bad_status, external = [], [], [], []
+            console_errors, failed, bad_status = [], [], []
+            external, requests_seen = [], []
             page.on("console", lambda m: console_errors.append(m.text)
                     if m.type == "error" else None)
-            page.on("requestfailed", lambda r: failed.append(r.url))
+            # aborted external requests also fire requestfailed; they are
+            # recorded under external_requests instead
+            page.on("requestfailed", lambda r: failed.append(r.url)
+                    if r.url not in external else None)
             page.on("response", lambda r: bad_status.append(
                 f"{r.status} {r.url}") if r.status >= 400 else None)
-            page.on("request", lambda r: external.append(r.url)
-                    if not r.url.startswith("http://127.0.0.1:") else None)
+            page.on("request", lambda r: requests_seen.append(r.url))
+
+            # Route-abort every request outside the scratch server's exact
+            # origin, before it can leave the box; still record it for
+            # gate 1.
+            def _route_guard(route):
+                url = route.request.url
+                if _same_origin(url, server_origin):
+                    route.continue_()
+                else:
+                    external.append(url)
+                    route.abort()
+
+            ctx.route("**/*", _route_guard)
             page.goto(base_url, wait_until="load")
             page.evaluate("() => document.fonts.ready")
             page.wait_for_timeout(400)
-            page.evaluate("window.__W = %d" % w)
-            data[w] = page.evaluate(COLLECT_JS)
+
+            # An external request the route did not abort left the box:
+            # any request event to another origin not in `external`.
+            leaked = [u for u in requests_seen
+                      if not _same_origin(u, server_origin)
+                      and u not in external]
+
+            # Measure in an isolated world (CDP): page scripts share the
+            # DOM but cannot patch this realm's getComputedStyle et al.
+            cdp = ctx.new_cdp_session(page)
+            cdp.send("Page.enable")
+            frame_id = cdp.send("Page.getFrameTree")["frameTree"]["frame"]["id"]
+            world = cdp.send("Page.createIsolatedWorld", {
+                "frameId": frame_id, "worldName": "taste-judge",
+                "grantUniveralAccess": True})["executionContextId"]
+            data[w] = _world_eval(cdp, world, f"({COLLECT_JS})({w})")
             events[w] = {"console_errors": console_errors,
                          "request_failed": failed,
                          "status_ge_400": bad_status,
-                         "external_requests": external}
+                         "external_requests": external,
+                         "external_unblocked": leaked}
             if shots:
                 os.makedirs(shots, exist_ok=True)
                 page.screenshot(path=os.path.join(shots, f"site-{w}.png"),
                                 full_page=True)
             if axe_src and w in (1440, TAP_WIDTH):
-                page.add_script_tag(content=axe_src)
-                data[w]["axe"] = page.evaluate(AXE_RUN_JS)
+                _world_eval(cdp, world, axe_src, by_value=False)
+                data[w]["axe"] = _world_eval(cdp, world, f"({AXE_RUN_JS})()")
                 if w == 1440:
-                    data[w]["wind"] = page.evaluate(WIND_JS)
+                    data[w]["wind"] = _world_eval(cdp, world,
+                                                 f"({WIND_JS})()")
             ctx.close()
         browser.close()
 
@@ -403,6 +469,7 @@ def main():
     gate("clean_load",
          not any(events[w]["console_errors"] or events[w]["request_failed"]
                  or events[w]["status_ge_400"] or events[w]["external_requests"]
+                 or events[w]["external_unblocked"]
                  for w in WIDTHS),
          g1)
 

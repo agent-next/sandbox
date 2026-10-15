@@ -16,6 +16,7 @@ VENV="$JUDGE_HOME/venv"
 VENV_PY="$VENV/bin/python"
 MARKER="$JUDGE_HOME/installed"
 
+PIP_VERSION="25.1.1"
 PLAYWRIGHT_VERSION="1.63.0"
 AXE_VERSION="4.10.3"
 AXE_SHA256="0f2b4d7dcdf7d1219df8d1959ad68e565f51d14c3f0d88bb71cd59abeb956292"
@@ -68,7 +69,7 @@ log "python3-venv present"
 # --------------------------------------------------------------------------
 log "Creating venv with pinned playwright ${PLAYWRIGHT_VERSION} (hashed)..."
 python3 -m venv "$VENV"
-"$VENV/bin/pip" install --quiet --upgrade pip >/dev/null
+"$VENV/bin/pip" install --quiet "pip==${PIP_VERSION}" >/dev/null
 "$VENV/bin/pip" install --quiet --require-hashes -r "$SCRIPT_DIR/requirements.txt"
 "$VENV/bin/pip" check >/dev/null
 V=$("$VENV_PY" -m playwright --version)

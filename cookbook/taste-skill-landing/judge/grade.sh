@@ -45,8 +45,8 @@ done
 # judge-integrity checksum (before)
 SUM_BEFORE="$(cd "$SCRIPT_DIR" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
 
-echo "[grade] artifact : $ABS_ARTIFACT"
-echo "[grade] seed     : $SEED"
+echo "[grade] artifact : $ABS_ARTIFACT" >&2
+echo "[grade] seed     : $SEED" >&2
 
 # scratch copy; serve over a deterministic localhost port
 WORK="$(mktemp -d /tmp/taste-judge.XXXXXX)"
@@ -61,13 +61,7 @@ for _ in $(seq 1 50); do
 done
 BASE_URL="http://127.0.0.1:$PORT/index.html"
 
-JSON_ARG=() ; SHOTS_ARG=()
-ABS_JSON=""
-if [[ -n "$JSON_OUT" ]]; then
-    mkdir -p "$(dirname "$JSON_OUT")"
-    ABS_JSON="$(cd "$(dirname "$JSON_OUT")" && pwd)/$(basename "$JSON_OUT")"
-    JSON_ARG=(--json "$ABS_JSON")
-fi
+SHOTS_ARG=()
 if [[ -n "$TRACE_DIR" ]]; then
     mkdir -p "$TRACE_DIR"
     SHOTS_ARG=(--shots "$TRACE_DIR")
@@ -77,26 +71,39 @@ T_START="$(date +%s.%N)"
 set +e
 "$VENV_PY" "$SCRIPT_DIR/check_gates.py" "$WORK/site" "$BASE_URL" \
     --axe "$AXE_JS" --brief "$BASE_DIR/brief.md" \
-    "${JSON_ARG[@]}" "${SHOTS_ARG[@]}" >"$WORK/grade_out.json"
+    "${SHOTS_ARG[@]}" >"$WORK/verdict.json"
 RC=$?
 set -e
 [[ -n "${SERVER_PID:-}" ]] && kill "$SERVER_PID" 2>/dev/null || true
 SERVER_PID=""
 
-if [[ -n "$JSON_OUT" && -f "$ABS_JSON" ]]; then
-    T_ELAPSED="$(python3 -c "import sys;print(float(sys.argv[1])-float(sys.argv[2]))" \
-                     "$(date +%s.%N)" "$T_START")"
-    python3 - "$ABS_JSON" "$SEED" "$T_ELAPSED" <<'PY'
+# check_gates.py wrote the verdict JSON to stdout; stamp seed+timing,
+# copy to --json if asked, and print it — the one JSON verdict.
+T_ELAPSED="$(python3 -c "import sys;print(float(sys.argv[1])-float(sys.argv[2]))" \
+                 "$(date +%s.%N)" "$T_START")"
+if python3 - "$WORK/verdict.json" "$SEED" "$T_ELAPSED" <<'PY'
 import json, sys
 path, seed, secs = sys.argv[1], int(sys.argv[2]), float(sys.argv[3])
-with open(path) as f:
-    v = json.load(f)
+try:
+    with open(path) as f:
+        v = json.load(f)
+except Exception:
+    sys.exit(1)
 v['seed'] = seed
 v['timing'] = {'wall_seconds': round(secs, 3)}
 with open(path, 'w') as f:
     json.dump(v, f, indent=2)
     f.write('\n')
 PY
+then
+    if [[ -n "$JSON_OUT" ]]; then
+        mkdir -p "$(dirname "$JSON_OUT")"
+        cp "$WORK/verdict.json" "$JSON_OUT"
+    fi
+    cat "$WORK/verdict.json"
+else
+    echo "[grade] ERROR: no verdict JSON produced (grader crashed)" >&2
+    RC=2
 fi
 
 SUM_AFTER="$(cd "$SCRIPT_DIR" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
@@ -105,5 +112,5 @@ if [[ "$SUM_BEFORE" != "$SUM_AFTER" ]]; then
     exit 2
 fi
 
-echo "[grade] exit code: $RC (0 = all gates passed)"
+echo "[grade] exit code: $RC (0 = all gates passed)" >&2
 exit $RC

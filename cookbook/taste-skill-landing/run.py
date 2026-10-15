@@ -176,6 +176,10 @@ def main():
                       f"{'ALL GATES PASS' if v.get('all_gates_passed') else 'FAILS'}")
                 for g, ok in gates.items():
                     print(f"[run]   {'pass' if ok else 'FAIL'}  {g}")
+            print("\n[run] ======== verdict JSONs ========", flush=True)
+            for name, v in verdicts.items():
+                print(f"[run] ---- {name} ----", flush=True)
+                print(json.dumps(v, indent=2, sort_keys=True), flush=True)
         else:
             print(json.dumps({"failed_at": failed}, indent=2), flush=True)
     finally:
