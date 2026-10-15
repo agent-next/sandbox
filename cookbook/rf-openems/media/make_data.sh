@@ -77,7 +77,7 @@ run bad_plant_pyc       examples/bad/bad_plant_pyc.py       fail
 run good                examples/good/antenna.py            pass
 
 if [ "${FORCE:-0}" = 1 ] || [ ! -s "$MEDIA/data/selftest.txt" ]; then
-    echo "== selftest (good + 15 mutants + determinism, ~25-35 min) =="
+    echo "== selftest (good + 15 mutants + determinism, ~50 min on 2 vCPU) =="
     bash judge/selftest.sh 2>&1 | tee "$MEDIA/data/selftest.txt"
 else
     echo "== selftest: log exists, skipping =="

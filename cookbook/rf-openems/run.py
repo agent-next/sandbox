@@ -44,15 +44,15 @@ def sbx_exec(sid, script, timeout_s, **kw):
 # sandbox (see RECEIPT.md) plus >= 3x headroom for a slower fresh sandbox.
 T_CLONE = 300        # measured ~10-30 s
 T_SETUP = 600        # measured ~45 s
-T_SELFTEST = 5400    # measured ~25-35 min (good + 15 mutants + determinism)
-T_GRADE = 1500       # measured ~5-9 min (sim + oracle + convergence re-run)
+T_SELFTEST = 5400    # measured ~48 min (good + 15 mutants + determinism)
+T_GRADE = 1500       # measured ~13 min (sim + oracle + convergence re-run)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", default="main")
     ap.add_argument("--keep", action="store_true")
-    ap.add_argument("--timeout-min", type=int, default=60)
+    ap.add_argument("--timeout-min", type=int, default=120)
     args = ap.parse_args()
 
     if not (os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")):
