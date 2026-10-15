@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import importlib.util
 import json
-import os
 from pathlib import Path
 import shlex
 import time
@@ -15,7 +14,6 @@ DEMO = MEDIA.parent
 spec = importlib.util.spec_from_file_location("studio_runner", DEMO / "run.py")
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
-CLIENT = None
 
 
 def upload(sid, path, destination):
@@ -33,26 +31,21 @@ def download(sid, remote, local, size, digest):
         return
     partial = local.with_name(local.name + ".partial")
     with partial.open("wb") as stream:
-        if CLIENT is not None:
-            with CLIENT.files.read(remote, format="stream") as source:
-                for chunk in source:
-                    stream.write(chunk)
-        else:
-            for offset in range(0, size, 196608):
-                code = ("import base64;"
-                        f"f=open({remote!r},'rb');f.seek({offset});"
-                        "print(base64.b64encode(f.read(196608)).decode())")
-                # A stalled exec transport once cost a whole transfer; retry chunks.
-                for attempt in range(3):
-                    try:
-                        text = runner.sbx("exec", sid, "--timeout", "120",
-                                          "python3 -c " + shlex.quote(code))
-                        break
-                    except RuntimeError:
-                        if attempt == 2:
-                            raise
-                        time.sleep(3 * attempt + 1)
-                stream.write(base64.b64decode(text, validate=True))
+        for offset in range(0, size, 196608):
+            code = ("import base64;"
+                    f"f=open({remote!r},'rb');f.seek({offset});"
+                    "print(base64.b64encode(f.read(196608)).decode())")
+            # A stalled exec transport once cost a whole transfer; retry chunks.
+            for attempt in range(3):
+                try:
+                    text = runner.sbx("exec", sid, "--timeout", "120",
+                                      "python3 -c " + shlex.quote(code))
+                    break
+                except RuntimeError:
+                    if attempt == 2:
+                        raise
+                    time.sleep(3 * attempt + 1)
+            stream.write(base64.b64decode(text, validate=True))
     if partial.stat().st_size != size or hashlib.sha256(
             partial.read_bytes()).hexdigest() != digest:
         raise RuntimeError(f"transfer checksum mismatch: {local.name}")
@@ -85,14 +78,17 @@ def collect(sid):
         list(pool.map(transfer, listing))
     (MEDIA / "data").mkdir(exist_ok=True)
     (MEDIA / "data/transfers.json").write_text(json.dumps(listing, indent=2) + "\n")
+    (MEDIA / "data/capture.json").write_text(json.dumps({
+        "mode": "single_sandbox",
+        "sandbox": sid,
+        "proof_command": "sh judge/selftest.sh --seed 17",
+        "proof_backend": "blender sandbox",
+    }, indent=2) + "\n")
 
 
 def main():
-    global CLIENT
     p = argparse.ArgumentParser()
     p.add_argument("--sandbox", help="collect an already-finished development render")
-    p.add_argument("--sdk", action="store_true",
-                   help="use sbx CLI's pinned e2b 2.40.0 streaming file transport")
     args = p.parse_args()
     sid = args.sandbox
     try:
@@ -107,13 +103,6 @@ def main():
             runner.remote_step(sid, "media-render", prefix +
                                "blender -b --factory-startup --python-exit-code 1 -t 4 "
                                "-P media/render.py -- --out media/source --seed 17", 3000)
-        if args.sdk:
-            from importlib.metadata import version
-            from e2b import Sandbox
-            assert version("e2b") == "2.40.0"
-            CLIENT = Sandbox.connect(sid,
-                api_key=os.environ.get("E2B_API_KEY") or os.environ.get("SBX_API_KEY"),
-                domain=os.environ.get("E2B_DOMAIN", "sbx.agent-next.com"))
         collect(sid)
     finally:
         if sid:

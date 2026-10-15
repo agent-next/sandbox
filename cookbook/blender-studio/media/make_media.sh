@@ -2,6 +2,7 @@
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 python3 -c 'import PIL; assert PIL.__version__ == "10.2.0", "requires Pillow 10.2.0"'
+PYTHONPATH="$HERE" python3 -c 'import compose; print("Font DejaVuSans.ttf sha256=" + compose.FONT_SHA256)'
 python3 - <<'PY'
 import subprocess
 for tool in ("ffmpeg", "ffprobe"):
@@ -10,11 +11,7 @@ for tool in ("ffmpeg", "ffprobe"):
     print(version)
 PY
 if [ "${STUDIO_REUSE_SOURCE:-0}" != 1 ]; then
-    if [ "${STUDIO_USE_SDK:-0}" = 1 ]; then
-        "${STUDIO_CAPTURE_PYTHON:-python3}" "$HERE/capture.py" --sdk
-    else
-        python3 "$HERE/capture.py"
-    fi
+    python3 "$HERE/capture.py"
 fi
 python3 "$HERE/compose.py"
 python3 "$HERE/../../tools/video_gate.py" "$HERE/demo.mp4"

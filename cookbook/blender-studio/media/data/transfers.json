@@ -1,0 +1,225 @@
+[
+  {
+    "name": "media/source/frame-01.png",
+    "size": 1894466,
+    "sha256": "ad55fd530a0dfe6f4e02803ade84edbd6713c3e0bf00bf8bff85945efd1647e1",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-02.png",
+    "size": 1870522,
+    "sha256": "6967cca179bf011c80c2dc6fc0f50c45f463c8d5eeec34caa4d3f424303014d9",
+    "source": "recovered standalone retry",
+    "remote_checksum_verified": false
+  },
+  {
+    "name": "media/source/frame-03.png",
+    "size": 1846614,
+    "sha256": "e406b9c5bbacfac748501b69e27848986264320f1d84f07352fe2674228698cd",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-04.png",
+    "size": 1833233,
+    "sha256": "b0f905853514a4ac0d27073280502496b02f0731c42ac84fc285e46dc7e38a28",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-05.png",
+    "size": 1823524,
+    "sha256": "3796d912276c55211c2336b1d7b2d3d1645735732bc7d6334e5f68055fb72e0b",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-06.png",
+    "size": 1828466,
+    "sha256": "0df4f06bcb1c4e3aa9219733e1a867a264cd2620c2812a6b8f436d65c9688507",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-07.png",
+    "size": 1832993,
+    "sha256": "358770b935f02cb7f3124c8a431164b24e09c863a431172fdacd00f89cfe376b",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-08.png",
+    "size": 1848076,
+    "sha256": "5cfdca775fd4ef30bc9887d16e10019bac1a0c2d2945fdbe5ceb60a46f46d879",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-09.png",
+    "size": 1844734,
+    "sha256": "e005b06b256629559579a65f5b2ea11393e820d0914ee2e65a3768cf71a1c61a",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-10.png",
+    "size": 1853292,
+    "sha256": "f6a41e7ec5236c58afb995d4dec78a0374d1c7411427ed3213aaf2d89905c8ba",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-11.png",
+    "size": 1875669,
+    "sha256": "e63163ffdc1ae663095a13127ab7819af1d588fa952e2180c07508b36e16fecd",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/frame-12.png",
+    "size": 1893027,
+    "sha256": "dfe0cf4615e545acb9ef41ccd304c85d1678bca22353f75fe0d192c45ad52930",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "media/source/unlinked.png",
+    "size": 1900138,
+    "sha256": "7ec075b20195c413f01b681dead56e270a436b446c1b53849e7fe82c001487ea",
+    "source": "prior sandbox capture 01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "remote_checksum_verified": true
+  },
+  {
+    "name": "outputs-edge-selftest/good/hero.png",
+    "size": 44448,
+    "sha256": "64c3ca537ca8253943b495efab8d90e7fea98bc7a91afa128aa9e41731fe6924",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/good/rim-on.png",
+    "size": 5418,
+    "sha256": "6068920a13cdc9bc71102dd642a9e30fe48b7db7adeecb4ef46129053fa97899",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/clipped_hero/hero.png",
+    "size": 53176,
+    "sha256": "f22c9fa9d98f70ec780d373ee41519cfb50dd9d54fa3e20a3623672a3be3e311",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/clipped_hero/rim-on.png",
+    "size": 5755,
+    "sha256": "c4856c473f0398ab1cd705e6db6620a5be47dc556085593b0b6230dc416cdd33",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/filtered_seam/hero.png",
+    "size": 44960,
+    "sha256": "5ecf57e64c42cd4ddab02f828945fcd4a968ccc7e9bdfce19b5c5031a339ab6e",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/filtered_seam/rim-on.png",
+    "size": 5382,
+    "sha256": "6625c9266f17ffbcf68cd87f0d8b7948f6d896f3cda1d6e87f9509d7488402f6",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/high_seam/hero.png",
+    "size": 45386,
+    "sha256": "0a748c81d5eb600baa9b60720406f7fd7234148434d59a93c398aa1d423f67a0",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/high_seam/rim-on.png",
+    "size": 5395,
+    "sha256": "6d291b671a67b763496fa0133e4880460b6a3b073d36a885921d43f70f6411eb",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/off_center/hero.png",
+    "size": 44191,
+    "sha256": "80f98443ad832db8da2db50b0d100b0b8e2d8be6aafe111182be2350d9e5f8ae",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/off_center/rim-on.png",
+    "size": 5170,
+    "sha256": "fa3e1b9d2a2f538000ad8449efba754a340d0e57291e537ec3cdc152d4eaaf57",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/orbiting_hero/hero.png",
+    "size": 44485,
+    "sha256": "f0f32e9ff81b5cf21f7f0ba75afc421951fff8e15788a4b222d124cd0ad3a0ec",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/orbiting_hero/rim-on.png",
+    "size": 5278,
+    "sha256": "c04f277ecc4c63d3cc6a98aa04d3b5a0514972e8517ec6a8b187d1f0e4393570",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/overexposed/hero.png",
+    "size": 15257,
+    "sha256": "6b5a1c5d327ce0220d5416b2908734aca47079d2fa087acab995ef4a2bb19ff5",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/overexposed/rim-on.png",
+    "size": 5418,
+    "sha256": "95941946b9c61ed621bba19bba996f5c637703d14fe2b486647bf8dbaa81ee25",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/unlinked_halo/hero.png",
+    "size": 43672,
+    "sha256": "767b02a569b1edc5890cafb2f3c03d8476ff493b8053494eac73e51b91e6a57a",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/unlinked_halo/rim-on.png",
+    "size": 5418,
+    "sha256": "362204dfe23fb25806ba9049e2cc5d9feb3dffc8af6fb6ddd9489781c60d0ebc",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/unlinked_rim/hero.png",
+    "size": 44840,
+    "sha256": "9c4d4c686813f02cb76fb5cf13ba7b94564d34255f1c951f09536863b7bad4d4",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/unlinked_rim/rim-on.png",
+    "size": 15606,
+    "sha256": "a9e3f64fe30fd64297ee32f035bef7c21382c46fc86b97791d81f28c68ada2c4",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/visible_seam/hero.png",
+    "size": 45443,
+    "sha256": "905799d351cbfa6d14e49623b6d2925867e68651e7ba53e39622f97bcb28df83",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/visible_seam/rim-on.png",
+    "size": 5418,
+    "sha256": "4bee40305445de2ffb4ced2854af9048c949ce80723bd6de5a06aaad9e2631f1",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/wrong_period/hero.png",
+    "size": 44448,
+    "sha256": "d65577ede6f1a2ebf7ae303be1d558d621236d861553549a0a0c6a0e4ea10acf",
+    "source": "local pinned Blender"
+  },
+  {
+    "name": "outputs-edge-selftest/wrong_period/rim-on.png",
+    "size": 5418,
+    "sha256": "045dd791ea5a896da8aa9310e4159aa1b8d5fe1d68b132ddde3efc9507a359c0",
+    "source": "local pinned Blender"
+  }
+]

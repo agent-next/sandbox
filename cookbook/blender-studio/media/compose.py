@@ -1,6 +1,7 @@
 """Figures, factual captions and video cut from real Blender render evidence."""
 import hashlib
 import json
+from functools import lru_cache
 from pathlib import Path
 import subprocess
 
@@ -13,10 +14,15 @@ BG = (13, 22, 36)
 WHITE = (245, 249, 255)
 BLUE = (83, 189, 232)
 ORANGE = (245, 158, 65)
+FONT_SHA256 = "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280"
+FONT_PATH = Path(ImageFont.truetype("DejaVuSans.ttf", 64).path)
+if hashlib.sha256(FONT_PATH.read_bytes()).hexdigest() != FONT_SHA256:
+    raise RuntimeError("requires the pinned DejaVuSans.ttf; see README.md")
 
 
+@lru_cache(maxsize=16)
 def font(size):
-    return ImageFont.truetype("DejaVuSans.ttf", size)
+    return ImageFont.truetype(str(FONT_PATH), size)
 
 
 def text(draw, xy, value, size=64, color=WHITE):
@@ -67,6 +73,7 @@ def kill_matrix(data):
 def main():
     MASTER.mkdir(parents=True, exist_ok=True)
     data = json.loads((HERE / "data/selftest.json").read_text())
+    capture = json.loads((HERE / "data/capture.json").read_text())
     if not data["pass"] or data["kill_rate"] != 1:
         raise RuntimeError("cannot publish PASS media from failing evidence")
     gates = data["good"]["gates"]
@@ -99,7 +106,7 @@ def main():
     text(draw, (65, 50), "MEASURED REPAIR LOOP + JUDGE SELF-TEST", 64, BLUE)
     old = data["mutants"]["off_center"]
     count = sum(g["pass"] for g in old["gates"].values())
-    text(draw, (65, 155), "Single-setting repair: hero_x 1.6 m → 0 m", 50)
+    text(draw, (65, 135), "Repair: hero_x 1.6 m → 0 m", 46)
     draw.line((100, 465, 890, 465), fill=WHITE, width=3)
     draw.line((100, 235, 100, 465), fill=WHITE, width=3)
     for x, value in ((270, count), (680, 5)):
@@ -161,11 +168,13 @@ def main():
                  (0, 155))
     repair.paste(hero().resize((960, 540)), (960, 155))
     draw = ImageDraw.Draw(repair)
-    text(draw, (40, 45), "MUTANT → REPAIR / REAL SANDBOX PROCESS", 64, BLUE)
+    text(draw, (40, 45), "MUTANT → REPAIR / MEASURED JUDGE OUTPUT", 64, BLUE)
     text(draw, (55, 740), f"Off-center: {count}/5", 64, ORANGE)
     text(draw, (1040, 740), "Centered: 5/5", 64, BLUE)
     speed = data["timing"]["total_seconds"] / 3
-    text(draw, (55, 900), f"Self-test output replay / {speed:.1f}x speed", 64)
+    text(draw, (55, 900), f"Local self-test replay / {speed:.1f}x speed" if
+         capture["proof_backend"] == "local pinned Blender" else
+         f"Sandbox self-test replay / {speed:.1f}x speed", 64)
     text(draw, (55, 990), f"Measured runtime {data['timing']['total_seconds']:.1f}s · seed 17", 64)
     # Real process rows revealed over the three-second slot.
     repairs = []
@@ -214,13 +223,15 @@ def main():
     if (HERE / "demo.mp4").stat().st_size > 8_000_000:
         raise RuntimeError("web video exceeds requested 8 MB")
     entries = []
+    compose_command = ("sh media/make_media.sh" if capture["mode"] == "single_sandbox"
+                       else "STUDIO_REUSE_SOURCE=1 sh media/make_media.sh")
     descriptions = {"result.png": "actual hero with numeric framing pass line",
                     "loop.png": "measured mutant-to-good repair and kill matrix",
                     "demo.mp4": "30 s real Cycles scene, turntable, light probes and proof"}
     for name, description in descriptions.items():
         path = HERE / name
         entries.append({"file": name, "shows": description,
-                        "command": "sh media/make_media.sh",
+                        "command": compose_command,
                         "source": ["media/data/selftest.json", "media/source/render.json"],
                         "seed": 17, "bytes": path.stat().st_size,
                         "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
@@ -229,10 +240,12 @@ def main():
                 "-P media/render.py -- --out media/source --seed 17",
                 "render": {"resolution": [1920, 1080], "samples": 8, "threads": 4,
                            "engine": "CYCLES", "device": "CPU"},
+                "capture": capture,
                 "render_frames": render_rows,
                 "tools": {"pillow": "10.2.0",
+                          "font": {"file": "DejaVuSans.ttf", "sha256": FONT_SHA256},
                           "blender": data["good"]["blender"],
-                          "e2b": "2.40.0 (optional transfer only)",
+                          "transfer": "sbx CLI, stdlib base64 chunks",
                           "ffmpeg": subprocess.check_output(
                               ["ffmpeg", "-version"], text=True).splitlines()[0]}}
     manifest["source_sha256"] = {
@@ -242,7 +255,7 @@ def main():
                   *sorted((HERE.parent / "judge").glob("*.sh")),
                   HERE / "render.py", HERE / "compose.py", HERE / "capture.py",
                   HERE / "make_media.sh", HERE / "data/selftest.json",
-                  HERE / "data/transfers.json"]}
+                  HERE / "data/transfers.json", HERE / "data/capture.json"]}
     manifest["media_reproducibility"] = (
         "Regenerate the complete frame set in one sandbox run. Source sha256s "
         "identify this capture, not guaranteed byte-identical future PNGs. "

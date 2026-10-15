@@ -11,7 +11,7 @@ Background panels and cropping are presentation only, never substitute geometry.
 | 6–10 | close-up of red paint and glass, then the wide scene | crop of frame 1, no invented geometry | “Car paint / glass / gold” |
 | 10–16 | actual 12-frame turntable, repeated at six frames/s | full-resolution frames 1–12, period 12 | “Real Cycles turntable · 6 fps playback” |
 | 16–20 | full-resolution linked/unlinked A/B, then direct light-linking probes | frame 1 and unlinked.png; selftest good and unlinked_rim rim-on.png | measured backdrop deltas / “Products-only rim” |
-| 20–23 | real off-center mutant beside repaired good; sped-up replay of measured sandbox selftest output rows | selftest.json and mutant hero.png | “Self-test output replay · measured runtime / 3 s speed” |
+| 20–23 | real off-center mutant beside repaired good; sped-up replay of measured selftest output rows | selftest.json and mutant hero.png | “Local self-test replay · measured runtime / 3 s speed” for the fallback capture |
 | 23–27 | PASS, five gate metrics and ten-mutant kill matrix | selftest.json, good verdict | “PASS 5/5 · 10/10 mutants caught” only if measured |
 | 27–30 | static launch card over real hero | frame 1 | `python3 run.py` |
 
@@ -21,3 +21,9 @@ The final three seconds are static. No labels imply that the 12 pose samples
 were rendered at 30 fps: the master repeats actual render frames.
 The process slot replays measured self-test output, not a screen recording or
 an autonomous agent session. The lead reviews that presentation explicitly.
+
+Final capture deviation: cloud renders completed but credit exhaustion blocked
+their download. The cut uses retained earlier sandbox renders (frame 2 from a
+separate retry) and proof images from a local pinned-Blender self-test.
+`data/capture.json` and `RECEIPT.md` record this fallback. The default
+`make_media.sh` still regenerates the entire frame set in one fresh sandbox.

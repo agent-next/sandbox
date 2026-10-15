@@ -1,0 +1,193 @@
+{
+  "files": [
+    {
+      "file": "result.png",
+      "shows": "actual hero with numeric framing pass line",
+      "command": "STUDIO_REUSE_SOURCE=1 sh media/make_media.sh",
+      "source": [
+        "media/data/selftest.json",
+        "media/source/render.json"
+      ],
+      "seed": 17,
+      "bytes": 1242409,
+      "sha256": "c44daaed47952d32319f57028fe4f2ded0cb96ecba46dbb841693f6bb17e5e42"
+    },
+    {
+      "file": "loop.png",
+      "shows": "measured mutant-to-good repair and kill matrix",
+      "command": "STUDIO_REUSE_SOURCE=1 sh media/make_media.sh",
+      "source": [
+        "media/data/selftest.json",
+        "media/source/render.json"
+      ],
+      "seed": 17,
+      "bytes": 111974,
+      "sha256": "52df734552cf4c22a57676ef872133c402abcbef9f019636f885fa03733309a1"
+    },
+    {
+      "file": "demo.mp4",
+      "shows": "30 s real Cycles scene, turntable, light probes and proof",
+      "command": "STUDIO_REUSE_SOURCE=1 sh media/make_media.sh",
+      "source": [
+        "media/data/selftest.json",
+        "media/source/render.json"
+      ],
+      "seed": 17,
+      "bytes": 3345167,
+      "sha256": "727c04a1ee2afb0a1f35c15fbdf0ccdb8a10a2d7290fb220b21f384ffc815752"
+    }
+  ],
+  "render_command": "blender -b --factory-startup --python-exit-code 1 -t 4 -P media/render.py -- --out media/source --seed 17",
+  "render": {
+    "resolution": [
+      1920,
+      1080
+    ],
+    "samples": 8,
+    "threads": 4,
+    "engine": "CYCLES",
+    "device": "CPU"
+  },
+  "capture": {
+    "mode": "mixed_historical_sandbox_renders_with_local_proof",
+    "accepted_complete_capture": false,
+    "render_backend": "Blender 5.2.2 LTS Cycles CPU inside blender sandboxes",
+    "original_render_sandbox": "01a13e90-0220-7883-8936-c3f03ad3ca30",
+    "original_render_snapshot_sha256": "31a60cd5e6f0deffd3cc9d040dc1861032b1e887c65a5dad4b5005ee894aaab5",
+    "frame_02": {
+      "source": "intact earlier standalone sandbox retry recovered from task scratch",
+      "remote_checksum_verified": false,
+      "reason": "the earlier retry was compared against the original render's hash, not its own; local decoded bytes are hashed in render_frames"
+    },
+    "proof_command": "sh judge/selftest.sh --seed 17 --out outputs-edge-selftest",
+    "proof_backend": "local pinned Blender",
+    "proof_wall_seconds": 37.948,
+    "proof_host_python": "3.12.3",
+    "proof_blender": "5.2.2 LTS",
+    "proof_blender_build": "d13f752e3b9c",
+    "failed_fresh_capture": {
+      "sandbox": "01a13f18-bae3-7ee1-b05e-ada941a5ae7c",
+      "snapshot_sha256": "ae8e9e7a46fa60fcbef87c503282e742b571757540207b5cd20528bb16688cff",
+      "render_command": "blender -b --factory-startup --python-exit-code 1 -t 4 -P media/render.py -- --out media/source --seed 17",
+      "render_exit": 0,
+      "render_wall_seconds": 675.2,
+      "completed_images": 13,
+      "sdk_capture_process_exit": 143,
+      "cli_collect_process_exit": 1,
+      "error": "Code.FAILED_PRECONDITION: credit exhausted; add credit to resume",
+      "cleanup": "killed; confirmed absent from sbx list"
+    }
+  },
+  "render_frames": [
+    {
+      "file": "frame-01.png",
+      "frame": 1,
+      "seconds": 134.425,
+      "sha256": "ad55fd530a0dfe6f4e02803ade84edbd6713c3e0bf00bf8bff85945efd1647e1"
+    },
+    {
+      "file": "frame-02.png",
+      "frame": 2,
+      "seconds": 73.3,
+      "sha256": "6967cca179bf011c80c2dc6fc0f50c45f463c8d5eeec34caa4d3f424303014d9",
+      "timing_kind": "recorded remote_step wall, not isolated render time",
+      "capture": "recovered separate frame-02 sandbox retry; remote checksum unavailable"
+    },
+    {
+      "file": "frame-03.png",
+      "frame": 3,
+      "seconds": 126.698,
+      "sha256": "e406b9c5bbacfac748501b69e27848986264320f1d84f07352fe2674228698cd"
+    },
+    {
+      "file": "frame-04.png",
+      "frame": 4,
+      "seconds": 102.626,
+      "sha256": "b0f905853514a4ac0d27073280502496b02f0731c42ac84fc285e46dc7e38a28"
+    },
+    {
+      "file": "frame-05.png",
+      "frame": 5,
+      "seconds": 123.168,
+      "sha256": "3796d912276c55211c2336b1d7b2d3d1645735732bc7d6334e5f68055fb72e0b"
+    },
+    {
+      "file": "frame-06.png",
+      "frame": 6,
+      "seconds": 112.468,
+      "sha256": "0df4f06bcb1c4e3aa9219733e1a867a264cd2620c2812a6b8f436d65c9688507"
+    },
+    {
+      "file": "frame-07.png",
+      "frame": 7,
+      "seconds": 128.715,
+      "sha256": "358770b935f02cb7f3124c8a431164b24e09c863a431172fdacd00f89cfe376b"
+    },
+    {
+      "file": "frame-08.png",
+      "frame": 8,
+      "seconds": 94.494,
+      "sha256": "5cfdca775fd4ef30bc9887d16e10019bac1a0c2d2945fdbe5ceb60a46f46d879"
+    },
+    {
+      "file": "frame-09.png",
+      "frame": 9,
+      "seconds": 103.419,
+      "sha256": "e005b06b256629559579a65f5b2ea11393e820d0914ee2e65a3768cf71a1c61a"
+    },
+    {
+      "file": "frame-10.png",
+      "frame": 10,
+      "seconds": 102.682,
+      "sha256": "f6a41e7ec5236c58afb995d4dec78a0374d1c7411427ed3213aaf2d89905c8ba"
+    },
+    {
+      "file": "frame-11.png",
+      "frame": 11,
+      "seconds": 91.128,
+      "sha256": "e63163ffdc1ae663095a13127ab7819af1d588fa952e2180c07508b36e16fecd"
+    },
+    {
+      "file": "frame-12.png",
+      "frame": 12,
+      "seconds": 84.141,
+      "sha256": "dfe0cf4615e545acb9ef41ccd304c85d1678bca22353f75fe0d192c45ad52930"
+    },
+    {
+      "file": "unlinked.png",
+      "frame": 1,
+      "seconds": 81.177,
+      "sha256": "7ec075b20195c413f01b681dead56e270a436b446c1b53849e7fe82c001487ea"
+    }
+  ],
+  "tools": {
+    "pillow": "10.2.0",
+    "font": {
+      "file": "DejaVuSans.ttf",
+      "sha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280"
+    },
+    "blender": "5.2.2 LTS",
+    "transfer": "sbx CLI, stdlib base64 chunks",
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers"
+  },
+  "source_sha256": {
+    "examples/good/scene.py": "f5638439d8c666d1d50f95948765ca12315e32960afba0201c63f9c10dde7570",
+    "judge/artifact.py": "bd426e81951a2993c7809fbf46850721b4f0968015492417ec70b6002aedb77b",
+    "judge/grade.py": "a89af269126e1d691510571253705a5be9aa4b3d3b6787620e86539c3c0aa8f8",
+    "judge/measure.py": "5a558823d9a833239d52bbda7e5671817cc01047933eaa1dea767999a05f2bbf",
+    "judge/mutants.py": "df72fa59dd01aa82f0aedcba40f1bc1d236ba03ca39d54ffe8dfa4ec469bd250",
+    "judge/selftest.py": "dc97cc14c02e82508bc88bbc4c1bc4a75253e40ccdec9f7cd934170d5826ae48",
+    "judge/studio.py": "b012be7e1664c0b738964a86e3190d7e6ab6af4a0817f555866c8fa0dc192290",
+    "judge/grade.sh": "e9cf1409554684c3d2f6431310ff4ac5825c88a5ca6d7dc3792040ffacdf8cd1",
+    "judge/selftest.sh": "3c602318fb072ab46751a644c5802665eec63cd310245da07fed28adab73d0d8",
+    "judge/setup.sh": "5bce378cadc6e039ed34df4a079efa33459bb78abae09ce17ee5f144b2819f0b",
+    "media/render.py": "b147c8c6342d8eca91c95d885419573504ea0e5eba6056a343a34cf4150c51ea",
+    "media/compose.py": "188180ac22ce8c33c8fb278611e6993eba4ae2a28a1b1c8834407f394f8e6900",
+    "media/capture.py": "db5b4dab437fa9e092b73ac5c268ffeeb0784a66b4326264b198205f96eeac95",
+    "media/make_media.sh": "dc96881b01631c43a89d4a8e29af265e79036549c536bea95b9e518cc3bd6112",
+    "media/data/selftest.json": "507fc983f4d63d50331faa171775e1275dca998320813b2914ec6bfdb1f4e543",
+    "media/data/transfers.json": "90c9f30a1d5405d757099b16ea497557a4fc29b5029b2e8b3b93f7fcd3d967ce",
+    "media/data/capture.json": "32b192783358d77e48d26e0b265f70d9a98d614f8e63f3845baa6b49fd89f102"
+  },
+  "media_reproducibility": "Regenerate the complete frame set in one sandbox run. Source sha256s identify this capture, not guaranteed byte-identical future PNGs. The judge requires identical verdict JSON excluding timing."
+}
