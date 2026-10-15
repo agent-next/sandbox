@@ -21,14 +21,14 @@ def save(wb, dst):
 def mutant_static_npv(src, dst):
     """Replace NPV formula with a literal number (the negative control)."""
     wb = load_good(src)
-    wb["Valuation"]["B2"] = 890.11  # hardcoded, not a formula
+    wb["Valuation"]["B2"] = 2753.39  # hardcoded, not a formula
     save(wb, dst)
 
 
 def mutant_wrong_cashflow(src, dst):
-    """Change Year 2 cash flow from 4200 to 5000."""
+    """Change Year 2 free cash flow from =F4 (5000) to a wrong 5500."""
     wb = load_good(src)
-    wb["Projections"]["G4"] = 5000  # was =F4 (4200)
+    wb["Projections"]["G4"] = 5500  # was =F4 (5000)
     save(wb, dst)
 
 
@@ -42,7 +42,7 @@ def mutant_wrong_exponent(src, dst):
 def mutant_missing_year(src, dst):
     """Year 3 free cash flow set to 0 (missing year)."""
     wb = load_good(src)
-    wb["Projections"]["G5"] = 0  # was =F5 (5100)
+    wb["Projections"]["G5"] = 0  # was =F5 (6000)
     save(wb, dst)
 
 
