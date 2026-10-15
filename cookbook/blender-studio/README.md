@@ -132,5 +132,6 @@ Framing measures the evaluated bounding box, not silhouette area. The linking
 probe isolates direct light; indirect reflection on the backdrop is legitimate.
 Framing is checked at all twelve poses. Full-frame primary rays and filter-border
 rays reject seams outside the strips used to measure backdrop smoothness.
-The blind review panel verdicts are in `media/REVIEW.json`; the independent
-reproduction is in `REPRODUCE.md`.
+The independent reproduction matched (`REPRODUCE.md`). The blind video review
+panel has not passed yet: one judge scored wow 6 against a bar of 7. Its raw
+verdicts and the planned polish are in `media/REVIEW.json`.

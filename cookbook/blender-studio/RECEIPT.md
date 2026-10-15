@@ -4,9 +4,9 @@ The final judge passed `python3 run.py` twice from fresh `blender` sandboxes,
 strictly sequentially, seed 17. Both processes exited 0, caught 10/10 mutants,
 and produced byte-identical verdicts excluding `timing`. Both sandbox deletions
 were confirmed by `sbx list`. The shipped media comes from one fresh, complete
-sandbox capture and passes the mechanical video gate, the blind two-judge
-review panel and an independent reproduction (`media/REVIEW.json`,
-`REPRODUCE.md`).
+sandbox capture and passes the mechanical video gate and an independent
+reproduction (`REPRODUCE.md`). The blind two-judge review panel has not
+passed yet (`media/REVIEW.json`).
 
 ## Versions
 
