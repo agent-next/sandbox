@@ -16,6 +16,7 @@ and the command to run it. Entries are added only after they pass review.
 | [fea-calculix](fea-calculix/README.md) | Design the lightest steel cantilever and grade it with CalculiX + gmsh: stress and deflection limits, mesh convergence and an Euler-Bernoulli cross-check; 9/9 mutants caught, independently reproduced. |
 | [plc-st](plc-st/README.md) | Compile an IEC 61131-3 Structured Text tank controller with MATIEC and grade it against a simulated plant in 8 scenarios (overflow, dry run, E-stop, recovery, random faults); 6/6 mutants caught, independently reproduced. |
 | [firmware-qemu](firmware-qemu/README.md) | Build bare-metal Cortex-M3 firmware (UART shell, ring buffer, CRC-32) and grade it in QEMU over a real UART session: 8 gates incl. a zlib CRC oracle; 14/14 mutants caught, independently reproduced. |
+| [kicad-pcb](kicad-pcb/README.md) | Grade a KiCad 9 555 LED-blinker board headless with kicad-cli: ERC, DRC, schematic-vs-PCB netlist, closed outline, gerbers and drills checked by an independent stdlib oracle; 8/8 mutants caught, independently reproduced. |
 | [img2threejs-showcase](img2threejs-showcase/README.md) | Build the img2threejs procedural Three.js gallery in parallel 4 vCPU / 16 GB sandboxes and render all 32 demos headless: 29 fully rendered on CPU-only WebGL, every verdict checked against positive/negative controls and by eye. |
 
 The first three prompts passed review as demo videos. They have not been

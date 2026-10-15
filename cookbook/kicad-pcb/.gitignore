@@ -1,0 +1,8 @@
+# generated at grade/media time — never commit
+media/master/
+media/.venv/
+media/data/*.log
+**/__pycache__/
+*.kicad_prl
+fp-info-cache
+*-bak

@@ -1,0 +1,106 @@
+{
+  "outputs": [
+    {
+      "file": "result.png",
+      "description": "kicad-cli 3D render of the known-good board (left) and the per-gate judge verdict with measured values (right)",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "data/good.json",
+      "sha256": "3ac307f7f2ef6fe163deb8f66acda9255c213e5796cbfb81fff7ff641864f0ca"
+    },
+    {
+      "file": "loop.png",
+      "description": "self-test kill matrix: known-good + 8 mutants x gates G1-G6, coloured from verdict JSONs; red cells show the measured value",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "data/*.json verdicts",
+      "sha256": "0c1cda6ee985b0080a347f0ed065f51ed58659a517660d01c042c77e54d2a170"
+    },
+    {
+      "file": "demo.mp4",
+      "description": "step-through: real board render, good verdict, each mutant before/after with its ERC/DRC marker circled, kill matrix",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "master/frames/ + data/*.json",
+      "sha256": "31af2cdc1bf751fc64c90a6b6c2a0a6b17c99e934b983c050481891077879240"
+    },
+    {
+      "file": "make_data.sh",
+      "description": "regenerates data/ from fresh judge runs",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "-",
+      "sha256": "8738498301a9e151e93b4f12b05dea79e7587f7bfbd41f01584ff3c0886b6aa8"
+    },
+    {
+      "file": "make_media.sh",
+      "description": "this regeneration script",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "-",
+      "sha256": "a56ad4792753c7809e862bfc0394ee92937987c2f4da4bfa7b1b7ed201aef831"
+    },
+    {
+      "file": "render.py",
+      "description": "figure/frame renderer (matplotlib + PyMuPDF)",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "-",
+      "sha256": "7d12fcb871112d212d79123c48c555f64d5993dbb700f0bfec1bdd8259461701"
+    },
+    {
+      "file": "REVIEW.md",
+      "description": "manual pixel-level review record",
+      "command": "bash media/make_data.sh && bash media/make_media.sh",
+      "source_data": "-",
+      "sha256": "ee872dd6e241d0e2c5dc17b3b6d4455821149a9a48fb9bbef046bc1fe93b7922"
+    }
+  ],
+  "source_data_sha256": {
+    "data/drc_short.drc.json": "7173b1e6a55474c671730c18c11d090e8db184cde8389ad5edf93e6b49b73dae",
+    "data/drc_short.erc.json": "f7cf975c4c7eb466d78d6853fd0c05c65eb7d49e69f0bb7b1d13ee593feff294",
+    "data/drc_short.json": "8c45ade93c7ba5cd86c50ac6ae86b742549ff5c06c5dfe10a2521646374c7814",
+    "data/drc_unconnected.drc.json": "cd11f50aee3f4e35d44ec7ac47f4d22a44892a72d5db4cb70abf5969e1bf6f50",
+    "data/drc_unconnected.erc.json": "f88a6985d1d783001d0d2ea8d32a01d0764eac53a668da82d8109c8e4c0ba38e",
+    "data/drc_unconnected.json": "11b99f9442d3b3918952158276556cfd482f2bdc44f793ad1774eedeb91fabf7",
+    "data/drill_no_tools.drc.json": "baa4a56dbc004a37cdebeb0cd41e3ce5ae7a2dacb34eb9696bdef2f6a61fb282",
+    "data/drill_no_tools.erc.json": "68c8a1b7935a0ef7ec1791f410ca7c2fabd55722e65e8b3179e9b4cac961044a",
+    "data/drill_no_tools.json": "c1a3b612225a5e2379ed77a8df91da286dab6ab01412cd75551daacb0aa64475",
+    "data/erc_off_grid.drc.json": "2451b416871591b7705f70a252a38a454f45a7858c220b2f35fdc9eec39c0340",
+    "data/erc_off_grid.erc.json": "cf95951753966fab51369e0310efa79a089a513963259f8f2120fd38a01d251f",
+    "data/erc_off_grid.json": "e61b12c731a91243997452e357936fb59544d276e38dc88712751dc084b1e175",
+    "data/erc_power_short.drc.json": "549e68d08169e52722f0bae792a04186e098f0672f249e85dab5cc1c6ba438d0",
+    "data/erc_power_short.erc.json": "7058823bcf6b85a14722dd90e4f5278181e71f895413a5366617fced74dc5379",
+    "data/erc_power_short.json": "0e63c155522a27de202cee038e426acd943ae0a3260c050abcb3270360253e64",
+    "data/erc_unconnected_pin.drc.json": "4c4a2b731d5fafcba9e088dfd9b6c7b60e53e6570a7bd853a64b59c2b9901828",
+    "data/erc_unconnected_pin.erc.json": "889869515f01dab2a693f20b878573416ead308a12139acd12303fe5add511fd",
+    "data/erc_unconnected_pin.json": "6e50bf6e4f974169cbcad129671a28ec274f24cdf57f7bd42a338cea596f7653",
+    "data/good.drc.json": "e8efe8b90bf32ae446e73956523bbd30be5259a450a2a33a0c48d54b7857d4c4",
+    "data/good.erc.json": "e654d59325e17a4dc2cb6baacb57e819a66c7301a9c4c0c28aeb74ec2f13a0eb",
+    "data/good.json": "25e5bea7b883c363e9363304a2b0eeb50ca2cd18656de51f56a72b677e2a80f9",
+    "data/netlist_mismatch.drc.json": "32d2c387283eb7188617ca5c499358554680455f7101c711fc9e77a0308b473e",
+    "data/netlist_mismatch.erc.json": "30ff6782aa1d4d90807abf76d5ea94045424beb1d514b642748823a6a78d0276",
+    "data/netlist_mismatch.json": "4042ff13f866bca197eca02d6c14ad8ecc5517c8cbabd80da3bc0c6ff6cc2d74",
+    "data/outline_open.drc.json": "19061e4d03e75822bbdcc6beb4d1e446bc6683a940e5c19bcaddd5bbd3d74966",
+    "data/outline_open.erc.json": "399bd3b902b82408c1067fc0f3f3cb0edbb1e9f4201eda63cdcd7404e3bf943b",
+    "data/outline_open.json": "4af59d004bc4809576dffcb1cd5fa38f4f9d3c99dd848bf3e533cd19d1ed5892",
+    "data/mutants/erc_power_short/555-blinker.kicad_pcb": "192cf779789c2d668009f017a38934b99e04164271f2407d8cdc1e3fdd24cf45",
+    "data/mutants/erc_power_short/555-blinker.kicad_pro": "79446e54984f212c30f565bfdbce2c86181404a4c8e5a5354a760ae6afd002af",
+    "data/mutants/erc_power_short/555-blinker.kicad_sch": "8babdc1742d6c6501f9c4ba52bf53667cb7f02bf1377792d1dff068ea6ad94dc",
+    "data/mutants/netlist_mismatch/555-blinker.kicad_pcb": "192cf779789c2d668009f017a38934b99e04164271f2407d8cdc1e3fdd24cf45",
+    "data/mutants/netlist_mismatch/555-blinker.kicad_pro": "79446e54984f212c30f565bfdbce2c86181404a4c8e5a5354a760ae6afd002af",
+    "data/mutants/netlist_mismatch/555-blinker.kicad_sch": "cc62738d6f32e91bd23bcd24db94f5e3e510383ba76b895e3cc1085c6e40273b",
+    "data/mutants/erc_off_grid/555-blinker.kicad_pcb": "192cf779789c2d668009f017a38934b99e04164271f2407d8cdc1e3fdd24cf45",
+    "data/mutants/erc_off_grid/555-blinker.kicad_pro": "79446e54984f212c30f565bfdbce2c86181404a4c8e5a5354a760ae6afd002af",
+    "data/mutants/erc_off_grid/555-blinker.kicad_sch": "cb423d1927ebabb183853a9a9c495f7583066362e193d71f83ed19931b0ce6b7",
+    "data/mutants/drc_short/555-blinker.kicad_pcb": "53732d4621670d0c5be7a32cba52eb4a2f67db90f45f570c92a20c3827024807",
+    "data/mutants/drc_short/555-blinker.kicad_pro": "79446e54984f212c30f565bfdbce2c86181404a4c8e5a5354a760ae6afd002af",
+    "data/mutants/drc_short/555-blinker.kicad_sch": "45a2acf20250471fbc0e863dc5827db6915f5bbc797454581db316ab57dc0807",
+    "data/mutants/outline_open/555-blinker.kicad_pcb": "2388a20f5c7ed4c2677a8d32c9b6e312cb807a1abdc1874dd461a06e14644082",
+    "data/mutants/outline_open/555-blinker.kicad_pro": "79446e54984f212c30f565bfdbce2c86181404a4c8e5a5354a760ae6afd002af",
+    "data/mutants/outline_open/555-blinker.kicad_sch": "45a2acf20250471fbc0e863dc5827db6915f5bbc797454581db316ab57dc0807",
+    "data/mutants/drc_unconnected/555-blinker.kicad_pcb": "a5fad44762fc97d016f560cabf758bb9fda1cbe20b9398d9e2ed2b6550882c76",
+    "data/mutants/drc_unconnected/555-blinker.kicad_pro": "79446e54984f212c30f565bfdbce2c86181404a4c8e5a5354a760ae6afd002af",
+    "data/mutants/drc_unconnected/555-blinker.kicad_sch": "45a2acf20250471fbc0e863dc5827db6915f5bbc797454581db316ab57dc0807",
+    "data/mutants/drill_no_tools/555-blinker.kicad_pcb": "56fd7181677ff68d38c23d02f453cfbad356606356b7017c7d0404f5cd1b6857",
+    "data/mutants/drill_no_tools/555-blinker.kicad_pro": "79446e54984f212c30f565bfdbce2c86181404a4c8e5a5354a760ae6afd002af",
+    "data/mutants/drill_no_tools/555-blinker.kicad_sch": "45a2acf20250471fbc0e863dc5827db6915f5bbc797454581db316ab57dc0807",
+    "data/mutants/erc_unconnected_pin/555-blinker.kicad_pcb": "192cf779789c2d668009f017a38934b99e04164271f2407d8cdc1e3fdd24cf45",
+    "data/mutants/erc_unconnected_pin/555-blinker.kicad_pro": "79446e54984f212c30f565bfdbce2c86181404a4c8e5a5354a760ae6afd002af",
+    "data/mutants/erc_unconnected_pin/555-blinker.kicad_sch": "32da5721d47973b3cf299d5d4eecbc40016a48d07938effdea2f42379230f8ca"
+  }
+}
