@@ -63,6 +63,15 @@ key in the environment):
 The demo's own checked-in artifacts (`examples/good/`) were produced exactly
 this way, through the MCP server, and are what `run.py` grades.
 
+## Results
+
+![real result: meshes and judge verdicts](media/result.png)
+
+![judge matrix: mutants x gates](media/loop.png)
+
+[Watch the demo (33 s)](media/demo.mp4) — real mesh renders, gate numbers,
+and the judge matrix.
+
 ## What the judge checks (see `SPEC.md` for numbers)
 
 - B-rep: STEP re-imports as exactly 1 valid solid (OCCT BRepCheck_Analyzer),
