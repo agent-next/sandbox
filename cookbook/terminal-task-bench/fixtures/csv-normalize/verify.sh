@@ -12,7 +12,9 @@ WORK="${1:?usage: verify.sh <work-dir>}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 python3 -I - "$WORK" "$HERE/expected.json" <<'PY'
+import csv
 import hashlib
+import io
 import json
 import os
 import sys
@@ -36,7 +38,7 @@ if not os.path.isfile(out):
 raw = open(out, "rb").read()
 text = raw.decode("utf-8")
 
-# 1. shape: LF only, no CR, exactly one trailing newline, no blank lines
+# 1. shape: LF only, exactly one trailing newline, no blanks or comments
 if b"\r" in raw:
     bad("output still contains CR bytes (CRLF not normalized)")
 if not text.endswith("\n") or text.endswith("\n\n"):
@@ -50,28 +52,26 @@ if any(ln.startswith("#") for ln in lines):
     bad("output contains a comment line")
 if any(ln != ln.strip() for ln in lines):
     bad("output has leading/trailing whitespace on a line")
-if any('"' in ln for ln in lines):
-    bad("output still contains quote characters")
 
-# 2. header and rows as literals
-if not lines:
+# 2. parse it back and compare rows as literals
+rows = list(csv.reader(io.StringIO(text)))
+if not rows:
     bad("output is empty")
     sys.exit(1)
-header = lines[0].split(",")
-if header != exp["header"]:
-    bad(f"header is {header!r}, expected {exp['header']!r}")
+if rows[0] != exp["header"]:
+    bad(f"header is {rows[0]!r}, expected {exp['header']!r}")
 
-want_rows = [",".join(str(c) for c in r) for r in exp["rows"]]
-got_rows = lines[1:]
-if got_rows != want_rows:
-    bad(f"{len(got_rows)} data rows, expected {len(want_rows)}")
-    for i, (g, w) in enumerate(zip(got_rows, want_rows)):
+want = [[str(c) for c in r] for r in exp["rows"]]
+got = rows[1:]
+if got != want:
+    bad(f"{len(got)} data rows, expected {len(want)}")
+    for i, (g, w) in enumerate(zip(got, want)):
         if g != w:
             bad(f"  row {i}: {g!r} != {w!r}")
             break
-    if len(got_rows) != len(want_rows):
-        only_got = [r for r in got_rows if r not in want_rows]
-        only_want = [r for r in want_rows if r not in got_rows]
+    if len(got) != len(want):
+        only_got = [r for r in got if r not in want]
+        only_want = [r for r in want if r not in got]
         if only_got:
             bad(f"  unexpected: {only_got[:3]}")
         if only_want:
@@ -79,13 +79,15 @@ if got_rows != want_rows:
 
 # 3. ordering: ids strictly ascending
 ids = []
-for ln in got_rows:
-    try:
-        ids.append(int(ln.split(",")[0]))
-    except ValueError:
-        bad(f"row {ln!r} does not start with an integer id")
+for row in got:
+    if not row or not row[0].lstrip("-").isdigit():
+        bad(f"row {row!r} does not start with an integer id")
+        continue
+    ids.append(int(row[0]))
 if ids != sorted(ids):
     bad("rows are not ordered by id")
+if len(ids) != len(set(ids)):
+    bad("the output has duplicate ids")
 
 # 4. byte-exact against the recorded canonical form
 got_sha = hashlib.sha256(raw).hexdigest()
@@ -100,6 +102,6 @@ if os.path.isfile(inp) and b"\r\n" not in open(inp, "rb").read():
 if problems:
     print(f"csv-normalize: {len(problems)} problem(s)")
     sys.exit(1)
-print(f"csv-normalize: OK ({len(want_rows)} rows kept, "
+print(f"csv-normalize: OK ({len(want)} rows kept, "
       f"{exp['dropped_ragged']} ragged rows dropped, byte-exact)")
 PY

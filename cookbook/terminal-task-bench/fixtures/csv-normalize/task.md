@@ -10,7 +10,10 @@ Write `work/out/clean.csv` so that it is exactly:
 - a single header line `id,name,qty`;
 - one line per **kept** row, ordered by `id`, ascending;
 - fields separated by commas, `LF` line endings, no trailing spaces, no
-  comment lines, no blank lines, no quoting anywhere;
+  comment lines, no blank lines;
+- quoting follows RFC 4180 *minimal* quoting: a field is wrapped in double
+  quotes **only** when it contains a comma, a quote or a newline, and any
+  embedded quote is doubled — nothing else is quoted;
 - a row is **dropped** when it does not have exactly three fields;
 - surrounding spaces around a field are stripped, and quotes around a field
   are removed (a quoted comma stays part of the field).

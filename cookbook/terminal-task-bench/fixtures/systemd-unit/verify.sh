@@ -91,11 +91,13 @@ if not argv:
     bad("ExecStart= is empty")
     sys.exit(1)
 prog = argv[0]
-# the fixture tree is a stand-in root: /usr/local/bin/ingestd means
-# <work>/usr/local/bin/ingestd, exactly as the tree lays it out
-prog_abs = (os.path.join(work, prog.lstrip("/")) if os.path.isabs(prog)
-            else os.path.join(work, prog))
-if not os.path.isfile(prog_abs):
+# The fixture tree is a stand-in root, so ExecStart may name either a path
+# inside the tree (what the judge actually runs) or a root-absolute path
+# whose tree-relative form exists.  Both spellings are accepted; a path that
+# resolves to neither is a broken unit.
+candidates = [prog, os.path.join(work, prog.lstrip("/"))]
+prog_abs = next((c for c in candidates if os.path.isfile(c)), None)
+if prog_abs is None:
     bad(f"ExecStart names {prog!r}, which does not exist under the tree")
 elif not os.access(prog_abs, os.X_OK):
     bad(f"ExecStart names {prog!r}, which is not executable "

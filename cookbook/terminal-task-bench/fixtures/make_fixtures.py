@@ -35,6 +35,7 @@ import struct
 import subprocess
 import sys
 import tarfile
+import tempfile
 
 EPOCH = 1700000000  # fixed mtime for every generated file
 GIT_ENV = {
@@ -164,10 +165,22 @@ def gen_wal_repair(work: str, rng: random.Random) -> dict:
     if os.path.exists(shm):
         os.remove(shm)
 
-    # what an untouched tree shows: the pre-checkpoint rows only
-    probe = subprocess.run(["sqlite3", dbfile, "select count(*) from orders;"],
-                           capture_output=True, text=True)
-    visible = probe.stdout.strip()
+    # What an untouched tree shows, measured on a throwaway copy: opening
+    # the fixture itself would checkpoint it and delete the torn WAL we just
+    # wrote, destroying the task.
+    probe_dir = tempfile.mkdtemp()
+    visible = None
+    try:
+        for suffix in ("", "-wal", "-shm"):
+            if os.path.exists(dbfile + suffix):
+                shutil.copyfile(dbfile + suffix,
+                                os.path.join(probe_dir, "app.db" + suffix))
+        probe = subprocess.run(
+            ["sqlite3", os.path.join(probe_dir, "app.db"),
+             "select count(*) from orders;"], capture_output=True, text=True)
+        visible = probe.stdout.strip()
+    finally:
+        shutil.rmtree(probe_dir, ignore_errors=True)
 
     return {
         "orders": [list(r) for r in orders],
@@ -373,12 +386,11 @@ def gen_csv_normalize(work: str, rng: random.Random) -> dict:
         kept.append((rid, name, qty))
     kept.sort(key=lambda r: r[0])
 
+    # canonical form: RFC 4180 minimal quoting, LF line endings
     out = io.StringIO()
-    out.write("id,name,qty\n")
-    for rid, name, qty in kept:
-        if "," in name:
-            name = '"' + name.replace('"', '""') + '"'
-        out.write(f"{rid},{name},{qty}\n")
+    writer = csv.writer(out, lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(["id", "name", "qty"])
+    writer.writerows(kept)
     canonical = out.getvalue()
 
     return {
@@ -388,6 +400,7 @@ def gen_csv_normalize(work: str, rng: random.Random) -> dict:
         "rows": [list(r) for r in kept],
         "rows_count": len(kept),
         "dropped_ragged": 2,
+        "quoted_rows": [list(r) for r in kept if "," in r[1]],
         "sha256": sha256_text(canonical),
         "canonical_bytes": len(canonical.encode()),
     }
@@ -459,7 +472,9 @@ def gen_symlink_maze(work: str, rng: random.Random) -> dict:
         "current_link": "links/current",
         "loop_link": "links/loop",
         "expected_version": target,
-        "expected_target": f"releases/{target}",
+        # the link lives in links/, so a relative target that survives a
+        # move of the whole tree is ../releases/<version>
+        "expected_target": f"../releases/{target}",
         "payload": f"releases/{target}/payload/data.txt",
         "payload_sha256": sha256_text(f"payload for {target}\n" * 2),
         "release_file": "RELEASE.txt",

@@ -62,6 +62,15 @@ else:
         bad(f"{exp['payload']} contents changed "
             f"({got[:16]}... != {exp['payload_sha256'][:16]}...)")
 
+# 2b. and the link must land on it, not merely exist
+if os.path.islink(cur):
+    landed = os.path.realpath(cur)
+    want = os.path.realpath(os.path.join(work, exp["payload"][:-len("/payload/data.txt")]))
+    if landed != want:
+        bad(f"{exp['current_link']} resolves to "
+            f"{os.path.relpath(landed, work)}, expected "
+            f"{os.path.relpath(want, work)}")
+
 # 3. resolving through the link must land on the payload
 via_link = os.path.join(cur, "payload", "data.txt")
 if not os.path.exists(via_link):
