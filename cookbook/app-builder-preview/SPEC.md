@@ -159,22 +159,26 @@ by scripted single edits:
 | mutant | edit | gate that kills it |
 |---|---|---|
 | broken_delete | delete handler removes the wrong item (index off by one) | flows (delete) |
-| missing_route | the `/` route is not registered (app renders nothing) | flows (all) |
-| stats_off_by_one | stats-total counts done items too | flows (stats) |
-| no_persist | localStorage save removed | flows (persist) |
+| stats_wrong_span | stats-total shows the done count instead of the total | flows (stats) |
+| no_persist | the localStorage save is removed | flows (persist) |
 | console_error | a `console.error` on mount | hygiene (console) |
-| wrong_element_id | `todo-text` id renamed to `todo-label` | flows (add) |
+| wrong_element_id | the `todo-text` id is renamed | flows (add) |
+| build_broken | the vite config points at a missing entry | build |
 
 `judge/selftest.sh` grades the known-good (must pass) and every mutant
-(each must fail ≥ 1 gate), prints the kill rate, and checks determinism
-(two grades of the good artifact produce byte-identical verdicts except
-the `timing` key). It exits non-zero unless the kill rate is ≥ 90 %.
+(each must fail ≥ 1 gate), prints the kill rate, and checks determinism:
+two grades of the good artifact, and two grades of a failing artifact
+(`build_broken`), must each produce byte-identical verdicts except the
+`timing` key. It exits non-zero unless the kill rate is ≥ 90 %.
 
 ## Determinism
 
 The app is a pure client-side SPA with no randomness; the reference build
 is seeded via `--seed`. Two grades of the same artifact give
-byte-identical verdict JSON except `timing` — enforced by `selftest.sh`.
+byte-identical verdict JSON except `timing` — enforced by `selftest.sh`,
+for a passing and for a failing artifact. A failing verdict quotes tool
+output, which can carry the per-run scratch directory, so `_grade.py`
+rewrites those paths to a stable placeholder before writing the verdict.
 
 ## Toolchain (pinned, sha256-checked)
 
