@@ -59,7 +59,7 @@ and must write into `<run_dir>`:
   "n_grid": 128,            // grid resolution per side
   "dt": 4e-4,               // seconds per step
   "steps": 2000,            // total steps
-  "frame_stride": 6,        // one PNG every this many steps
+  "frame_stride": 4,        // one PNG every this many steps
   "seed": 0,                // default seed; --seed overrides
   "gravity": -9.81,
   "domain": [1.0, 1.0],     // lower-left corner at (0,0)
