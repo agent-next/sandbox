@@ -135,7 +135,7 @@ def main() -> int:
 
         # ---- 2. clone ------------------------------------------------------
         clone = (
-            f"git clone --depth 1 -b {shlex.quote(args.ref)} {REPO_URL} /w/repo")
+            f"git clone --depth 1 -b {shlex.quote(args.ref)} {REPO_URL} /tmp/repo")
         rc = timed("clone", lambda: sbx_exec(sid, clone, STEP_TIMEOUTS["clone"]))
         if rc != 0:
             raise RuntimeError(f"git clone failed (exit {rc})")
