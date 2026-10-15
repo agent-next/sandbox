@@ -93,14 +93,20 @@ def part(spec=SPEC, turn_deg=0.0, web=None, bulge=None):
         if ax > hx - r and ay > hy - r:
             return math.hypot(ax - (hx - r), ay - (hy - r)) < r
         return ax < hx and ay < hy
-    return {"cylinders": cyl, "classify": lambda pts: ["in" if material(*q) else "out" for q in pts]}
+    def material_fraction(x, y, r0, r1, z0, z1, a0=0.0, a1=360.0, nr=3, na=180, nz=100):
+        pts = [(x + (r0 + (r1 - r0) * (i + 0.5) / nr) * math.cos(math.radians(a0 + (a1 - a0) * (j + 0.5) / na)),
+                y + (r0 + (r1 - r0) * (i + 0.5) / nr) * math.sin(math.radians(a0 + (a1 - a0) * (j + 0.5) / na)),
+                z0 + (z1 - z0) * (k + 0.5) / nz) for i in range(nr) for j in range(na) for k in range(nz)]
+        return sum(map(lambda q: material(*q), pts)) / len(pts)
+    return {"cylinders": cyl, "material_fraction": material_fraction}
 
 
 class Features(unittest.TestCase):
     def test_ideal_part_passes(self):
         ok, info = J.features(part(), SPEC)
         self.assertTrue(ok, info["problems"])
-        self.assertGreater(info["wall_probes"], 1000)
+        self.assertEqual(info["wall_checks_failed"], 0)
+        self.assertEqual(info["wall_checks"], 20)
 
     def test_whole_bolt_pattern_turned_10_deg_fails(self):
         ok, info = J.features(part(turn_deg=10), SPEC)

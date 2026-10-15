@@ -40,10 +40,20 @@ import sys
 assert (3, 12) <= sys.version_info[:2] <= (3, 13), sys.version
 PY
 
-# Reuse a venv only if it was installed from this exact requirements.txt.
+# Reuse a venv only if it was installed from this exact requirements.txt and
+# every pinned package still has its pinned version.
 REQ_SHA="$(sha256sum "$JDIR/requirements.txt" | cut -d' ' -f1)"
-if [ -x "$VENV/bin/python" ] && [ "$(cat "$VENV/.requirements.sha256" 2>/dev/null)" = "$REQ_SHA" ]; then
-    echo "setup: judge venv already installed from this requirements.txt (skipping pip)"
+pins_ok() {
+    "$VENV/bin/python" -I - "$JDIR/requirements.txt" <<'PY' 2>/dev/null
+import importlib.metadata as md, re, sys
+for ln in open(sys.argv[1]):
+    m = re.match(r"([A-Za-z0-9_.-]+)==([^\s;\\]+)", ln.strip())
+    if m and md.version(m[1]) != m[2]:
+        sys.exit(1)
+PY
+}
+if [ -x "$VENV/bin/python" ] && [ "$(cat "$VENV/.requirements.sha256" 2>/dev/null)" = "$REQ_SHA" ] && pins_ok; then
+    echo "setup: judge venv matches requirements.txt (skipping pip)"
 else
     if ! python3 -m venv "$VENV" 2>/dev/null; then
         # Debian ships venv separately; make sure apt actually has package lists.
