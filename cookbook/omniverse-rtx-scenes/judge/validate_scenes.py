@@ -7,8 +7,15 @@ Gates (from SPEC.md):
       params + bbox; actual render coverage is stage-2 but we validate
       necessary conditions here).
   G2: No missing texture on bound materials — every Mesh with a material
-      binding must resolve all its texture files locally.
-  G3: PhysX energy (Scene B only) — total KE at final frame < 0.01 J.
+      binding must resolve all its texture files locally.  MDL materials
+      (surface output `outputs:mdl:surface`, shader with `info:mdl:sourceAsset`)
+      must also have that MDL and every texture input resolve on disk, and a
+      material with no connected surface output FAILS (it renders as an
+      untextured grey blob in RTX).  UsdPreviewSurface materials pass the
+      connect requirement too.
+  G3: PhysX energy (Scene B only) — total KE at final frame < 0.01 J, plus a
+      no-interpenetration check: at the last baked frame no box collider sits
+      inside another's, and every body moved/tilted enough to be a knock-over.
   G4: USD integrity — 0 unresolved deps, metersPerUnit=1, upAxis=Y,
       ≥1 Camera, bbox non-empty, every Mesh bound.
 
@@ -21,17 +28,28 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
 import tempfile
 from pathlib import Path
 
+from typing import NamedTuple
+
 from pxr import Usd, UsdGeom, UsdUtils, Sdf, Gf, UsdShade, UsdPhysics
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 SCENES = ROOT / "scenes"
+
+# Scene B's knock-over stack (SPEC.md): >= 24 SimReady boxes, and each must
+# travel far enough / tilt far enough for the topple to be visible.
+PHYSX_MIN_BOXES = 24
+PHYSX_MIN_FALL_M = 0.05        # min centroid travel over the 6 s bake
+PHYSX_MIN_TILT_DEG = 5.0        # min orientation change over the bake
+PHYSX_INTERPENETRATION_MM = 6   # tolerated collider overlap, in millimetres
+
 
 
 # ---------------------------------------------------------------------------
@@ -69,58 +87,159 @@ def mesh_has_material_binding(mesh: UsdGeom.Mesh) -> bool:
     return prim.HasRelationship("material:binding")
 
 
-def mesh_bound_textures_resolve(stage: Usd.Stage, mesh: UsdGeom.Mesh,
-                                stage_root: Path) -> tuple[bool, list[str]]:
-    """Check that all textures referenced by the mesh's bound material exist locally.
-    Returns (all_resolved, missing_paths).
+class MeshBinding(NamedTuple):
+    """A material bound to a mesh, resolved against this machine's files."""
+    material: str        # the material:binding target path
+    kind: str            # "mdl" | "preview" | "unbound" | "unknown"
+    missing: list[str]   # non-empty ⇒ the gate fails
 
-    If the material's surface output is not connected to a shader (constant-color
-    fallback), there are no texture inputs to validate → pass (no missing).
+
+def surface_shader(material_prim: Usd.Prim) -> Usd.Prim | None:
+    """The Shader prim this Material's surface output is connected to, if any.
+
+    UsdShade.Material.GetSurfaceOutput().GetConnectedSource() returns nothing
+    for materials bound by the SimReady packs even when `outputs:mdl:surface`
+    is authored, so the connection is read straight off the attribute.  Try
+    the MDL render context first, then UsdPreviewSurface's `outputs:surface`.
+    """
+    for name in ("outputs:mdl:surface", "outputs:surface",
+                 "outputs:universal:surface"):
+        attr = material_prim.GetAttribute(name)
+        conns = attr.GetConnections() if attr else []
+        for path in conns:
+            shader = material_prim.GetStage().GetPrimAtPath(path.GetPrimPath())
+            if shader:
+                return shader
+    return None
+
+
+def surface_output_name(material_prim: Usd.Prim) -> str | None:
+    for name in ("outputs:mdl:surface", "outputs:surface",
+                 "outputs:universal:surface"):
+        attr = material_prim.GetAttribute(name)
+        if attr and attr.GetConnections():
+            return name
+    return None
+
+
+def shader_mdl_source(shader_prim: Usd.Prim) -> str | None:
+    """`info:mdl:sourceAsset` of a shader, or None when it is not MDL."""
+    if not shader_prim:
+        return None
+    attr = shader_prim.GetAttribute("info:mdl:sourceAsset")
+    val = attr.Get() if attr else None
+    return str(val) if val else None
+
+
+def resolve_asset_path(path: str, layer_dirs: list[Path]) -> Path:
+    """Resolve a (possibly bare) asset reference against the candidate dirs."""
+    sp = Sdf.AssetPath(path)
+    resolved = sp.resolvedPath
+    if resolved and Path(resolved).exists():
+        return Path(resolved)
+    for d in layer_dirs:
+        cand = d / path.lstrip("./")
+        if cand.exists():
+            return cand
+    return Path(resolved) if resolved else Path(path)
+
+
+def mesh_material_binding(stage: Usd.Stage, mesh: UsdGeom.Mesh,
+                          scene_dir: Path,
+                          search_dirs: list[Path]) -> MeshBinding:
+    """What the mesh's bound material resolves to locally.
+
+    Returns a MeshBinding whose `missing` list is non-empty (→ gate failure)
+    when:
+      * the Material has no connected surface output — an MDL-less or
+        half-authored material cannot render, so it is a defect, not a pass; or
+      * the surface shader's `info:mdl:sourceAsset` does not exist on disk; or
+      * one of its texture inputs does not exist on disk.
     """
     prim = mesh.GetPrim()
-    mat_rel = prim.GetRelationship("material:binding")
-    if not mat_rel:
-        return True, []
-
-    targets = mat_rel.GetTargets()
+    rel = prim.GetRelationship("material:binding")
+    if not rel:
+        return MeshBinding("", "unbound", [])
+    targets = rel.GetTargets()
     if not targets:
-        return False, ["no material:binding targets"]
+        return MeshBinding("", "unbound", ["no material:binding targets"])
 
-    missing = []
+    missing: list[str] = []
     for t in targets:
         mat_prim = stage.GetPrimAtPath(t)
         if not mat_prim:
             missing.append(f"material prim not found: {t}")
             continue
-        mat = UsdShade.Material(mat_prim)
-        # find surface output -> shader -> inputs
-        surface_out = mat.GetSurfaceOutput()
-        if not surface_out:
-            missing.append(f"material {t}: no surface output")
+        layer_dirs = [Path(l.realPath).parent
+                      for l in stage.GetUsedLayers() if l.realPath]
+        if not layer_dirs:
+            layer_dirs = [scene_dir]
+        layer_dirs += list(search_dirs)
+        layer_dirs.append(scene_dir)
+
+        shader_prim = surface_shader(mat_prim)
+        if shader_prim is None:
+            # A Material with no connected surface output cannot render: the
+            # validator must FAIL rather than treat it as a constant-colour
+            # material with nothing to check.
+            out = surface_output_name(mat_prim)
+            missing.append(
+                f"material {t}: surface output "
+                f"'{out or 'outputs:surface'}' is not connected to a shader")
             continue
-        connected = surface_out.GetConnectedSource()
-        if not connected:
-            # No shader connected → constant-color material, no textures to check
-            continue
-        shader_prim = connected[0].GetPrim()
-        if not shader_prim:
-            missing.append(f"material {t}: shader prim not found")
-            continue
-        shader = UsdShade.Shader(shader_prim)
-        for inp in shader.GetInputs():
+
+        mdl = shader_mdl_source(shader_prim)
+        if mdl and not resolve_asset_path(mdl, layer_dirs).exists():
+            missing.append(f"mdl {mdl} not found")
+        kind = "mdl" if mdl else "preview"
+
+        for inp in UsdShade.Shader(shader_prim).GetInputs():
             if inp.GetTypeName() in ("asset", "texture"):
                 val = inp.Get()
-                if val and isinstance(val, Sdf.AssetPath):
-                    # Sdf.AssetPath.resolvedPath requires an asset resolver
-                    # context. For relative paths, resolve against the layer's
-                    # directory (which is the warehouse assets dir for this demo).
-                    p = val.resolvedPath
-                    if not p:
-                        # Fallback: relative path → resolve against stage root
-                        p = str((stage_root / val.path).resolve())
-                    if p and not Path(p).exists():
-                        missing.append(p)
-    return len(missing) == 0, missing
+                if isinstance(val, Sdf.AssetPath) and val.path and \
+                        not resolve_asset_path(val.path, layer_dirs).exists():
+                    missing.append(val.path)
+        return MeshBinding(str(t), kind, missing)
+    return MeshBinding(str(targets[0]), "unknown", missing)
+
+
+def mesh_bound_textures_resolve(stage: Usd.Stage, mesh: UsdGeom.Mesh,
+                                stage_root: Path,
+                                search_dirs: list[Path] | None = None
+                                ) -> tuple[bool, list[str]]:
+    """Gate G2: the mesh's bound material resolves fully on this machine.
+
+    Every material the SimReady packs bind is an MDL OmniPBR material (surface
+    output `outputs:mdl:surface` → Shader with `info:mdl:sourceAsset` and
+    texture inputs).  UsdPreviewSurface materials are accepted too, but a
+    material whose surface output is not connected to any shader — or whose
+    MDL/textures do not resolve — fails the gate: it would render as an
+    untextured grey blob in RTX.
+    """
+    binding = mesh_material_binding(
+        stage, mesh, stage_root, search_dirs if search_dirs is not None else [])
+    return len(binding.missing) == 0, binding.missing
+
+
+def material_stats(stage: Usd.Stage, scene_dir: Path,
+                   search_dirs: list[Path] | None = None
+                   ) -> dict[str, int]:
+    """Per-scene material census: MDL vs UsdPreviewSurface vs unresolvable."""
+    stats = {"mdl": 0, "preview": 0, "unbound": 0, "unresolved": 0}
+    seen: set[str] = set()
+    for m in get_meshes(stage):
+        if not mesh_has_material_binding(m):
+            continue
+        for t in m.GetPrim().GetRelationship("material:binding").GetTargets():
+            if str(t) in seen:
+                continue
+            seen.add(str(t))
+            binding = mesh_material_binding(stage, m, scene_dir,
+                                            search_dirs or [])
+            stats[binding.kind] += 1
+            if binding.missing:
+                stats["unresolved"] += 1
+    return stats
 
 
 def camera_frustum_overlaps_bbox(cam: UsdGeom.Camera, bbox: Gf.Range3d) -> bool:
@@ -172,13 +291,136 @@ def camera_frustum_overlaps_bbox(cam: UsdGeom.Camera, bbox: Gf.Range3d) -> bool:
     return True
 
 
-def check_scene_a(stage: Usd.Stage, stage_root: Path) -> dict:
-    """Warehouse: A — 8s dolly, 240 frames, 30 fps, Y-up, meters."""
+def _quat_angle(q0, q1) -> float:
+    """Angle between two quaternions, in degrees."""
+    d = abs(sum(q0[i] * q1[i] for i in range(4)))
+    return math.degrees(2 * math.acos(max(-1.0, min(1.0, d))))
+
+
+def _oriented_points(points, quat, translate) -> list[tuple[float, float, float]]:
+    """Apply (quat, translate) to every point, world-Y-up."""
+    q = Gf.Quatf(*[float(quat[i]) for i in range(4)])
+    rot = Gf.Quaternion(q.GetReal(), Gf.Vec3f(q.GetImaginary()[0],
+                                              q.GetImaginary()[1],
+                                              q.GetImaginary()[2]))
+    out = []
+    for p in points:
+        v = rot.Transform(Gf.Vec3f(*[float(x) for x in p]))
+        out.append((v[0] + translate[0], v[1] + translate[1],
+                    v[2] + translate[2]))
+    return out
+
+
+def _obb_from_points(points):
+    """Local min/max of a collider mesh's points (its local box extent)."""
+    mn = [min(p[i] for p in points) for i in range(3)]
+    mx = [max(p[i] for p in points) for i in range(3)]
+    return mn, mx
+
+
+def _point_in_obb(pt, quat, translate, mn, mx, tol: float) -> bool:
+    """Is world-space point pt inside the oriented box (mn..mx) + tol?"""
+    q = Gf.Quatd(float(quat[0]), float(quat[1]), float(quat[2]),
+                 float(quat[3]))
+    local = q.GetInverse().Transform(Gf.Vec3d(pt[0] - translate[0],
+                                               pt[1] - translate[1],
+                                               pt[2] - translate[2]))
+    return all(mn[i] - tol <= local[i] <= mx[i] + tol for i in range(3))
+
+
+def check_no_interpenetration(stage: Usd.Stage, body_prims: list,
+                              tol: float = PHYSX_INTERPENETRATION_MM / 1000
+                              ) -> list[str]:
+    """G3: at the final baked frame, no box's collider sits inside another's.
+
+    The bake collides each body as a convex hull of its own mesh points, and
+    box-against-box is the overwhelmingly common contact here.  A contained
+    vertex (beyond a small solver-slop tolerance) therefore means the baked
+    result interpenetrates: the sim was mis-settled, not merely "close".
+    Mirrors the geometry the physics engine actually collided.
+    """
+    if not body_prims:
+        return []
+
+    obbs = []
+    for prim in body_prims:
+        collider = next((c for c in prim.GetAllChildren()
+                         if c.GetTypeName() == "Mesh"
+                         and c.HasAttribute("physics:approximation")), None)
+        if collider is None:
+            continue
+        pts = UsdGeom.Mesh(collider).GetPointsAttr().Get()
+        if not pts:
+            continue
+        t_attr = prim.GetAttribute("xformOp:translate")
+        o_attr = prim.GetAttribute("xformOp:orient")
+        if not (t_attr and o_attr and t_attr.GetTimeSamples()):
+            continue
+        last = max(t_attr.GetTimeSamples())
+        translate = t_attr.Get(Usd.TimeCode(last))
+        quat = o_attr.Get(Usd.TimeCode(last)) if o_attr else \
+            (1.0, 0.0, 0.0, 0.0)
+        mn, mx = _obb_from_points(pts)
+        obbs.append((prim.GetPath().pathString, pts, quat, translate, mn, mx))
+
+    def world_pts(quat, translate, pts):
+        q = Gf.Quatd(float(quat[0]), float(quat[1]), float(quat[2]),
+                     float(quat[3]))
+        out = []
+        for p in pts:
+            v = q.Transform(Gf.Vec3d(float(p[0]), float(p[1]), float(p[2])))
+            out.append((v[0] + translate[0], v[1] + translate[1],
+                        v[2] + translate[2]))
+        return out
+
+    bad = []
+    for i in range(len(obbs)):
+        for j in range(i + 1, len(obbs)):
+            (na, ptsa, qa, ta, mna, mxa), (nb, ptsb, qb, tb, mnb, mxb) = \
+                obbs[i], obbs[j]
+            # containment is directional: a vertex of B inside A (or of A
+            # inside B), beyond the solver-slop tolerance, is interpenetration.
+            wb = world_pts(qb, tb, ptsb)
+            if any(_point_in_obb(p, qa, ta, mna, mxa, tol) for p in wb):
+                bad.append(f"{na} <-> {nb}")
+                continue
+            wa = world_pts(qa, ta, ptsa)
+            if any(_point_in_obb(p, qb, tb, mnb, mxb, tol) for p in wa):
+                bad.append(f"{na} <-> {nb}")
+    return bad
+
+
+def material_search_dirs(scene_dir: Path) -> list[Path]:
+    """Directories a bare `OmniPBR.mdl` may resolve against for this scene.
+
+    USD resolves a bare MDL reference against the folder of the layer that
+    referenced it; build_scenes.py also drops the chain into every
+    `materials/` dir and the scene-root `mdl/`.  Search all three.
+    """
+    dirs = [scene_dir, scene_dir / "mdl"]
+    for p in (scene_dir / "assets").rglob("materials"):
+        dirs.append(p)
+    for p in (scene_dir / "assets").rglob("mdl"):
+        dirs.append(p)
+    seen: set[Path] = set()
+    return [d for d in dirs if not (d in seen or seen.add(d))]
+
+
+def check_scene_a(stage: Usd.Stage, stage_root: Path,
+                  scene_dir: Path | None = None) -> dict:
+    """A/C — dolly or turntable scene, 8s (warehouse) / 12s (arm), 30 fps.
+
+    scene_dir overrides which scene folder's assets to resolve against, so the
+    arm scene is checked against its own assets, not the warehouse's.
+    """
     errors = []
     warnings = []
 
     # G4: USD integrity
-    unresolved = compute_unresolved(stage_root / "scenes" / "warehouse" / "scene.usda")
+    scene_dir = Path(scene_dir) if scene_dir else \
+        Path(stage_root) / "scenes" / "warehouse"
+    search_dirs = material_search_dirs(scene_dir)
+    unresolved = compute_unresolved(scene_dir / "scene.usda")
     if unresolved:
         errors.append(f"G4: {len(unresolved)} unresolved deps: {unresolved}")
 
@@ -207,12 +449,18 @@ def check_scene_a(stage: Usd.Stage, stage_root: Path) -> dict:
     if unbound:
         errors.append(f"G2: {len(unbound)} meshes without material:binding")
 
-    # G2: texture resolution on bound meshes
+    # G2: every bound material resolves: MDL source + textures on disk, and
+    # its surface output actually connected to a shader.
     for m in meshes:
         if mesh_has_material_binding(m):
-            ok, missing = mesh_bound_textures_resolve(stage, m, stage_root)
+            ok, missing = mesh_bound_textures_resolve(stage, m, scene_dir,
+                                                      search_dirs)
             if not ok:
-                errors.append(f"G2: mesh {m.GetPrim().GetPath()}: missing textures {missing}")
+                errors.append(
+                    f"G2: mesh {m.GetPrim().GetPath()}: {missing}")
+
+    # Per-scene material census (reported, and asserted in the log/JSON).
+    mats = material_stats(stage, scene_dir, search_dirs)
 
     # Camera animation: should have timeSamples on translate
     if cam:
@@ -223,13 +471,15 @@ def check_scene_a(stage: Usd.Stage, stage_root: Path) -> dict:
 
     return {"errors": errors, "warnings": warnings,
             "stats": {"meshes": len(meshes), "bound": len(meshes) - len(unbound),
-                      "cameras": len(cams), "unresolved": len(unresolved)}}
+                      "cameras": len(cams), "unresolved": len(unresolved),
+                      "materials": mats}}
 
 
 def check_scene_c(stage: Usd.Stage, stage_root: Path) -> dict:
     """Arm: C — 12s turntable, 360 frames, 30 fps, Y-up, meters."""
-    # Reuse same checks as A
-    return check_scene_a(stage, stage_root)
+    # Same checks as A, but against the arm scene's own asset folder.
+    return check_scene_a(stage, stage_root,
+                         scene_dir=Path(stage_root) / "scenes" / "arm")
 
 
 def check_scene_b(stage: Usd.Stage, stage_root: Path) -> dict:
@@ -237,7 +487,9 @@ def check_scene_b(stage: Usd.Stage, stage_root: Path) -> dict:
     errors = []
     warnings = []
 
-    unresolved = compute_unresolved(stage_root / "scenes" / "physics" / "scene.usda")
+    scene_dir = Path(stage_root) / "scenes" / "physics"
+    search_dirs = material_search_dirs(scene_dir)
+    unresolved = compute_unresolved(scene_dir / "scene.usda")
     if unresolved:
         errors.append(f"G4: {len(unresolved)} unresolved deps: {unresolved}")
 
@@ -265,9 +517,13 @@ def check_scene_b(stage: Usd.Stage, stage_root: Path) -> dict:
         if not mesh_has_material_binding(m):
             errors.append(f"G2: visual mesh {m.GetPrim().GetPath()} unbound")
         else:
-            ok, missing = mesh_bound_textures_resolve(stage, m, stage_root)
+            ok, missing = mesh_bound_textures_resolve(stage, m, scene_dir,
+                                                      search_dirs)
             if not ok:
-                errors.append(f"G2: mesh {m.GetPrim().GetPath()}: missing textures {missing}")
+                errors.append(
+                    f"G2: mesh {m.GetPrim().GetPath()}: {missing}")
+
+    mats = material_stats(stage, scene_dir, search_dirs)
 
     # G3: PhysX energy check — kinetic energy should be near zero at end
     # We can't run PhysX here (no GPU/ovphysx in this venv); the bake already
@@ -295,22 +551,50 @@ def check_scene_b(stage: Usd.Stage, stage_root: Path) -> dict:
                 if angvel.GetLength() > 1e-12:
                     warnings.append(f"G3: {prim.GetPath()} still has physics:angularVelocity")
 
-    # Check timeSamples exist on the 3 boxes
-    for name in ["Box1", "Box2", "Box3"]:
-        prim = stage.GetPrimAtPath(f"/World/Boxes/{name}")
-        if not prim:
-            errors.append(f"G3: missing body /World/Boxes/{name}")
-            continue
+    # G3: bodies must be dynamic (pushable), animated and settled.
+    # Scene B's point is a knock-over: a stack of SimReady boxes toppled by a
+    # pushed pallet, so the bodies must actually move between t0 and tEnd.
+    body_roots = [prim for prim in
+                  stage.Traverse(Usd.TraverseInstanceProxies())
+                  if prim.HasAPI(UsdPhysics.RigidBodyAPI)
+                  and not prim.HasAttribute("physics:approximation")]
+    if len(body_roots) < PHYSX_MIN_BOXES:
+        errors.append(
+            f"G3: {len(body_roots)} rigid bodies, "
+            f"expected >= {PHYSX_MIN_BOXES} SimReady boxes")
+    for prim in body_roots:
         t_attr = prim.GetAttribute("xformOp:translate")
         o_attr = prim.GetAttribute("xformOp:orient")
         if not (t_attr and t_attr.GetTimeSamples()):
-            errors.append(f"G3: {name} missing translate timeSamples")
-        if not (o_attr and o_attr.GetTimeSamples()):
-            errors.append(f"G3: {name} missing orient timeSamples")
+            errors.append(f"G3: {prim.GetPath()} missing translate timeSamples")
+            continue
+        times = sorted(t_attr.GetTimeSamples())
+        start = t_attr.Get(Usd.TimeCode(times[0]))
+        end = t_attr.Get(Usd.TimeCode(times[-1]))
+        moved = (Gf.Vec3d(*[start[i] for i in range(3)]) -
+                 Gf.Vec3d(*[end[i] for i in range(3)])).GetLength()
+        if moved < PHYSX_MIN_FALL_M:
+            errors.append(
+                f"G3: {prim.GetPath()} fell only {moved:.3f} m "
+                f"(expected >= {PHYSX_MIN_FALL_M} m of knock-over)")
+        if o_attr and o_attr.GetTimeSamples():
+            samples = sorted(o_attr.GetTimeSamples())
+            q0 = o_attr.Get(Usd.TimeCode(samples[0]))
+            q1 = o_attr.Get(Usd.TimeCode(samples[-1]))
+            if _quat_angle(q0, q1) < PHYSX_MIN_TILT_DEG:
+                warnings.append(
+                    f"G3: {prim.GetPath()} rotated only "
+                    f"{_quat_angle(q0, q1):.1f} deg")
+    # Interpenetration: at the last frame no box's collider overlaps another's.
+    inter = check_no_interpenetration(stage, body_roots)
+    if inter:
+        errors.append(f"G3: {len(inter)} interpenetrating bodies: {inter[:3]}")
 
     return {"errors": errors, "warnings": warnings,
             "stats": {"meshes": len(meshes), "visual": len(visual_meshes),
-                      "cameras": len(cams), "unresolved": len(unresolved)}}
+                      "bodies": len(body_roots),
+                      "cameras": len(cams), "unresolved": len(unresolved),
+                      "materials": mats}}
 
 
 # ---------------------------------------------------------------------------
@@ -318,23 +602,36 @@ def check_scene_b(stage: Usd.Stage, stage_root: Path) -> dict:
 # ---------------------------------------------------------------------------
 MUTANTS_DIR = HERE / "mutants"
 
+# Each mutant is (file, description, mutator, expected_error_substring).
+# The substring is the defect the gate must name when rejecting the mutant —
+# a mutant rejected for any other reason (e.g. missing assets) is a
+# misreported kill, and the selftest fails on it.
 MUTANT_SPECS = [
     ("missing_texture.usda", "missing albedo texture on bound mesh",
-     lambda s, r: _mutant_missing_texture(s)),
+     lambda s, r: _mutant_missing_texture(s), "missing_texture.png"),
     ("unresolved_ref.usda", "unresolved reference to non-existent layer",
-     lambda s, r: _mutant_unresolved_ref(s)),
+     lambda s, r: _mutant_unresolved_ref(s), "does_not_exist.usd"),
     ("wrong_units.usda", "metersPerUnit = 0.01 (cm) instead of 1.0",
-     lambda s, r: _mutant_wrong_units(s)),
+     lambda s, r: _mutant_wrong_units(s), "metersPerUnit"),
     ("gravity_flip.usda", "physics:gravityDirection = (0, 1, 0) (upwards)",
-     lambda s, r: _mutant_gravity_flip(s)),
+     lambda s, r: _mutant_gravity_flip(s), "gravity"),
     ("camera_off_target.usda", "camera pointing at sky (0, 1, 0)",
-     lambda s, r: _mutant_camera_off_target(s)),
+     lambda s, r: _mutant_camera_off_target(s), "frustum"),
     ("unbound_mesh.usda", "mesh without material:binding",
-     lambda s, r: _mutant_unbound_mesh(s)),
+     lambda s, r: _mutant_unbound_mesh(s), "material:binding"),
     ("empty_bbox.usda", "stage with empty bbox",
-     lambda s, r: _mutant_empty_bbox(s)),
+     lambda s, r: _mutant_empty_bbox(s), "bbox"),
     ("no_camera.usda", "stage with no camera",
-     lambda s, r: _mutant_no_camera(s)),
+     lambda s, r: _mutant_no_camera(s), "cameras"),
+    ("disconnected_mdl_surface.usda",
+     "MDL material whose outputs:mdl:surface is not connected to a shader",
+     lambda s, r: _mutant_disconnected_mdl_surface(s), "not connected"),
+    ("unresolvable_mdl.usda",
+     "MDL material whose info:mdl:sourceAsset does not resolve on disk",
+     lambda s, r: _mutant_unresolvable_mdl(s), "does_not_exist.mdl"),
+    ("disconnected_preview_surface.usda",
+     "UsdPreviewSurface material whose outputs:surface is not connected",
+     lambda s, r: _mutant_disconnected_preview_surface(s), "not connected"),
 ]
 
 
@@ -369,7 +666,71 @@ def _mutant_missing_texture(stage: Usd.Stage) -> Usd.Stage:
     return stage
 
 
+def _first_bound_mesh(stage: Usd.Stage) -> Usd.Prim | None:
+    for prim in stage.Traverse():
+        if prim.IsA(UsdGeom.Mesh) and prim.HasRelationship("material:binding") \
+                and prim.GetRelationship("material:binding").GetTargets():
+            return prim
+    return None
+
+
+def _mutant_disconnected_mdl_surface(stage: Usd.Stage) -> Usd.Stage:
+    """A Material that declares an MDL surface output but never connects it.
+
+    This is the defect gap 4 was reported on: a material authored with
+    `outputs:mdl:surface` whose shader connection is missing renders as an
+    untextured default grey, and the old validator passed it because it read
+    "no connected source ⇒ constant-color material ⇒ no textures to check".
+    Like _mutant_missing_texture, the mesh is pointed at a brand-new
+    defective material so exactly one defect is introduced.
+    """
+    mesh = _first_bound_mesh(stage)
+    if mesh is None:
+        return stage
+    mat = UsdShade.Material.Define(stage, mesh.GetPath().AppendChild(
+        "BadMaterial").AppendChild("Material"))
+    # outputs:mdl:surface declared but with no shader connection.
+    mat.GetPrim().CreateAttribute("outputs:mdl:surface",
+                                  Sdf.ValueTypeNames.Token)
+    mesh.GetRelationship("material:binding").SetTargets([mat.GetPath()])
+    return stage
+
+
+def _mutant_unresolvable_mdl(stage: Usd.Stage) -> Usd.Stage:
+    """A material whose MDL source asset is not on disk.
+
+    Patches the mesh's real bound material: its connected surface shader keeps
+    its texture wiring but names an MDL that does not exist locally.
+    """
+    mesh = _first_bound_mesh(stage)
+    if mesh is None:
+        return stage
+    mat_prim = stage.GetPrimAtPath(
+        mesh.GetRelationship("material:binding").GetTargets()[0])
+    shader = surface_shader(mat_prim)
+    if not shader:
+        return stage
+    shader.GetAttribute("info:mdl:sourceAsset").Set(
+        Sdf.AssetPath("./does_not_exist.mdl"))
+    return stage
+
+
+def _mutant_disconnected_preview_surface(stage: Usd.Stage) -> Usd.Stage:
+    """An UsdPreviewSurface material with outputs:surface and no shader."""
+    mesh = _first_bound_mesh(stage)
+    if mesh is None:
+        return stage
+    mat = UsdShade.Material.Define(stage, mesh.GetPath().AppendChild(
+        "BadPreviewMaterial").AppendChild("Material"))
+    mat.GetPrim().CreateAttribute("outputs:surface",
+                                   Sdf.ValueTypeNames.Token)
+    mesh.GetRelationship("material:binding").SetTargets([mat.GetPath()])
+    return stage
+
+
 def _mutant_unresolved_ref(stage: Usd.Stage) -> Usd.Stage:
+    # Add a reference to a non-existent file
+
     # Add a reference to a non-existent file
     root = stage.GetDefaultPrim()
     xf = UsdGeom.Xform.Define(stage, root.GetPath().AppendChild("BadRef"))
@@ -454,7 +815,7 @@ def write_mutants() -> None:
     tmp_text_path = MUTANTS_DIR / "_base_abs.usda"
     tmp_text_path.write_text(abs_text)
 
-    for fname, desc, mutator in MUTANT_SPECS:
+    for fname, desc, mutator, _ in MUTANT_SPECS:
         stage = Usd.Stage.Open(str(tmp_text_path))
         stage = mutator(stage, None)
         out = MUTANTS_DIR / fname
@@ -463,29 +824,42 @@ def write_mutants() -> None:
 
 
 def run_selftest() -> int:
-    """Run validation against mutants; each MUST fail (produce ≥1 error)."""
+    """Run validation against mutants; each MUST fail for its own defect.
+
+    A mutant that is rejected only because the scene's assets are missing (or
+    any other reason unrelated to the injected defect) is a misreported kill,
+    so the rejection must name the expected error substring.  The unmutated
+    base is validated first as a control: it must pass every gate, otherwise
+    the whole run is vacuous and reported as failed.
+    """
     write_mutants()
 
-    checkers = {
-        "missing_texture.usda": check_scene_a,
-        "unresolved_ref.usda": check_scene_a,
-        "wrong_units.usda": check_scene_a,
-        "gravity_flip.usda": check_scene_a,
-        "camera_off_target.usda": check_scene_a,
-        "unbound_mesh.usda": check_scene_a,
-        "empty_bbox.usda": check_scene_a,
-        "no_camera.usda": check_scene_a,
-    }
+    # Control: the unmutated base must pass.  Its refs were rewritten to
+    # absolute paths (_base_abs.usda), same as the mutants.
+    base = open_stage(MUTANTS_DIR / "_base_abs.usda")
+    base_result = check_scene_a(base, ROOT)
+    if base_result["errors"]:
+        print("  ✗ CONTROL FAILED — the unmutated scene itself does not "
+              "validate, so the kill rate below would be vacuous:")
+        for e in base_result["errors"][:4]:
+            print(f"      {e}")
+        return 1
+    print("  ✓ control: unmutated scene passes all gates")
 
     passed = 0
     failed = 0
-    for fname, desc, _ in MUTANT_SPECS:
-        path = MUTANTS_DIR / fname
-        stage = open_stage(path)
-        result = checkers[fname](stage, ROOT)
-        if result["errors"]:
-            print(f"  ✓ {fname} ({desc}) — correctly REJECTED: {result['errors'][0][:80]}")
+    for fname, desc, _, expect in MUTANT_SPECS:
+        stage = open_stage(MUTANTS_DIR / fname)
+        result = check_scene_a(stage, ROOT)
+        named = any(expect in e for e in result["errors"])
+        if result["errors"] and named:
+            hit = next(e for e in result["errors"] if expect in e)
+            print(f"  ✓ {fname} ({desc}) — correctly REJECTED: {hit[:90]}")
             passed += 1
+        elif result["errors"]:
+            print(f"  ✗ {fname} ({desc}) — rejected for the WRONG reason "
+                  f"(expected '{expect}'): {result['errors'][0][:90]}")
+            failed += 1
         else:
             print(f"  ✗ {fname} ({desc}) — INCORRECTLY ACCEPTED")
             failed += 1
