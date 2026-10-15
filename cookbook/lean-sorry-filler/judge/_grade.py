@@ -41,6 +41,44 @@ BUILD_TIMEOUT_S = 600
 AXIOMS_TIMEOUT_S = 120
 
 
+def strip_comments(text):
+    """Remove Lean comments from a source, keeping everything else.
+
+    Handles `--` line comments and `/- -/` block comments (which nest).
+    A `--` or `/-` inside a string literal is not comment syntax; Lean
+    string literals cannot span lines, so scan each line up to its
+    newline, guarding `--` / `/-` that appear inside a literal. All
+    newlines outside comments are preserved, so line anchors in the
+    stripped text still line up with the original file.
+    """
+    out = []
+    i, n = 0, len(text)
+    in_block = 0  # nesting depth of /- -/ block comments
+    while i < n:
+        c = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if in_block:
+            if c == "-" and nxt == "/":
+                in_block -= 1
+                i += 2
+            elif c == "/" and nxt == "-":
+                in_block += 1
+                i += 2
+            else:
+                i += 1
+        elif c == "/" and nxt == "-":
+            in_block += 1
+            i += 2
+        elif c == "-" and nxt == "-":
+            # line comment: skip to end of line, keep the newline
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
 def log(*a):
     print(*a, file=sys.stderr)
 
@@ -59,10 +97,9 @@ def elan_home():
 
 
 def find_elan():
-    cand = [elan_home() / "bin"]
-    for c in cand:
-        if (c / "lean").exists():
-            return c
+    c = elan_home() / "bin"
+    if (c / "lean").exists():
+        return c
     log("grade: no Lean toolchain found; run judge/setup.sh first")
     sys.exit(2)
 
@@ -70,8 +107,8 @@ def find_elan():
 def count_planted(fixture):
     n = 0
     for f in EXPECTED_FILES[3:]:
-        text = (fixture / f).read_text()
-        n += len(SORRY_RE.findall(text))
+        n += len(SORRY_RE.findall(strip_comments(
+            (fixture / f).read_text())))
     return n
 
 
@@ -97,15 +134,19 @@ def gate_structure(artifact, fixture, verdict):
             g["pass"] = False
             g["problems"].append(f"{name}: {len(text.encode())} bytes > "
                                  f"{MAX_FILE_KIB} KiB")
-        for token in SORRY_RE.findall(text) + CHEAT_RE.findall(text):
+        # comments are removed before every scan: a token or statement
+        # parked in a comment (line or block) is not code
+        code = strip_comments(text)
+        for token in SORRY_RE.findall(code) + CHEAT_RE.findall(code):
             g["pass"] = False
             g["problems"].append(f"{name}: forbidden token {token!r}")
         # statement freeze: the fixture's theorem text up to ":=" must
         # be the head of the theorem with that same name in the
-        # submission. A line-anchored, name-matched check — never a
-        # substring search: the frozen text may not park in a comment
+        # submission. Both texts are scanned with Lean comments
+        # removed (block comments nest; line comments end at the
+        # newline): the frozen text may never park inside a comment
         # while a weaker statement is proved under the same name.
-        fx = (fixture / name).read_text()
+        fx = strip_comments((fixture / name).read_text())
         m = STATEMENT_RE.search(fx)
         if m:
             frozen = m.group(1).strip()
@@ -113,7 +154,7 @@ def gate_structure(artifact, fixture, verdict):
             line_re = re.compile(
                 r"^theorem\s+" + re.escape(tname) +
                 r"\b[^\n]*?([ \t]*:=)", re.M)
-            lm = line_re.search(text)
+            lm = line_re.search(code)
             if lm is None:
                 g["pass"] = False
                 g["problems"].append(f"{name}: no theorem {tname!r} "
@@ -204,7 +245,7 @@ def gate_closure(artifact, fixture, verdict):
     for name in EXPECTED_FILES[3:]:
         sub = artifact / name
         if sub.is_file():
-            n = len(SORRY_RE.findall(sub.read_text()))
+            n = len(SORRY_RE.findall(strip_comments(sub.read_text())))
             per_file[name] = n
             remaining += n
         else:

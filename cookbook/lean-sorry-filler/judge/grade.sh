@@ -12,8 +12,7 @@ set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 
-if [ ! -x "${ELAN_HOME:-$HOME/.elan}/bin/lean" ] && \
-   [ ! -x "$HOME/.elan-test/bin/lean" ]; then
+if [ ! -x "${ELAN_HOME:-$HOME/.elan}/bin/lean" ]; then
     echo "grade.sh: no Lean toolchain found; run judge/setup.sh first" >&2
     exit 2
 fi

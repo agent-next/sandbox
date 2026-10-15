@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive the 9 known-bad artifacts for selftest from the known-good one.
+"""Derive the 10 known-bad artifacts for selftest from the known-good one.
 
 Each mutant is a single scripted edit of examples/good/exercises (see
 SPEC.md for which gate kills which). Usage:
@@ -89,6 +89,25 @@ def main():
                   "(p ∧ True) ↔ (True ∧ p) := by\n  simp\n")
         p.write_text(text[:i] + parked)
 
+    def m_statement_parked_in_block_comment(d):
+        # the same attack the reviewer planted: the frozen statement goes
+        # into a /- -/ block comment (/- … -/ nest, so the whole statement
+        # fits one block), a trivially-true statement is proved under the
+        # same name. The statement freeze must read code, not comments.
+        p = d / "Exercises/Ex10.lean"
+        text = p.read_text()
+        frozen = ("theorem exercise_and_distrib (p q r : Prop) : "
+                  "(p ∧ (q ∨ r)) ↔ ((p ∧ q) ∨ (p ∧ r))")
+        i = text.index("theorem exercise_and_distrib")
+        parked = (f"/- Exercise 10, statement archived: -/\n"
+                  f"/-\n"
+                  f"{frozen}\n"
+                  f"-/\n"
+                  "/-- `∧` pushes into both sides of a `∨`. -/\n"
+                  "theorem exercise_and_distrib (p : Prop) : p ↔ p := by\n"
+                  "  simp\n")
+        p.write_text(text[:i] + parked)
+
     for name, fn in [
         ("resubmit_sorry", m_resubmit_sorry),
         ("admit_token", m_admit_token),
@@ -99,6 +118,7 @@ def main():
         ("missing_file", m_missing_file),
         ("broken_proof", m_broken_proof),
         ("statement_parked_in_comment", m_statement_parked_in_comment),
+        ("statement_parked_in_block_comment", m_statement_parked_in_block_comment),
     ]:
         make(good, out, name, fn)
 

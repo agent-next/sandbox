@@ -23,7 +23,7 @@ fixture and may not change, so a proof of a weaker statement is rejected.
 - Judge: `judge/grade.sh <artifact>` builds the artifact from a fresh
   copy with the pinned toolchain and applies the five gates below.
 - Self-test: `judge/selftest.sh` proves the judge fails known-bad
-  submissions (9 scripted mutants, kill rate ≥ 90 % required).
+  submissions (10 scripted mutants, kill rate ≥ 90 % required).
 
 ## Non-goals
 
@@ -49,8 +49,9 @@ The artifact is a directory containing **exactly** the fixture's file set
    (whitespace included — the statement text is frozen; only the proof
    after `:= by` may change);
 2. no occurrence of the tokens `sorry`, `admit`, `sorryAx`,
-   `native_decide`, or `axiom` anywhere in the submitted sources
-   (word-boundary match);
+   `native_decide`, or `axiom` in the submitted sources outside
+   comments (word-boundary match; comments may mention them — they are
+   not admissions);
 3. each file ≤ 64 KiB;
 4. `lake build` succeeding with the pinned toolchain and reporting zero
    sorry warnings.
@@ -69,8 +70,12 @@ the seed has nothing to perturb (stated here so the flag is honest).
 
 1. **structure** — file set identical to the fixture's (all 13 files
    present; no extra files); all 10 statements found verbatim on their
-   own line in the matching file (count must equal 10); forbidden-token
-   regex over submitted sources matches 0 times; every file ≤ 64 KiB.
+   own line in the matching file (count must equal 10) — scanned after
+   removing Lean comments (`/- -/` block comments, which nest, and
+   `--` line comments), so a parked statement can never masquerade as
+   the frozen one; forbidden-token
+   regex over submitted sources (comments removed) matches 0 times;
+   every file ≤ 64 KiB.
 2. **build** — `lake build --no-cache` exits 0 within 600 s on the fresh
    copy, and the captured log contains 0 lines matching
    ``declaration uses `sorry` `` (the no-sorry regex; a re-submitted
@@ -82,11 +87,12 @@ the seed has nothing to perturb (stated here so the flag is honest).
    Quot.sound}. An added `axiom` declaration, `sorryAx`, or
    `native_decide` (which pulls in `Lean.ofReduceBool`) fails this gate.
 4. **closure** — planted sorries N = 10 (counted from the pristine
-   fixture at grade time); remaining admissions R counted in the
-   submitted sources by the same regex as gate 1; closed fraction
-   (N − R)/N ≥ 0.60. Measured from source text, independently of the
-   build log, so the two numbers can disagree only if one gate is
-   broken.
+   fixture at grade time, comments removed); remaining admissions R
+   counted in the submitted sources by the same regex as gate 1
+   (comments removed, so a `sorry` parked in a comment does not read
+   as closed); closed fraction (N − R)/N ≥ 0.60. Measured from source
+   text, independently of the build log, so the two numbers can
+   disagree only if one gate is broken.
 5. **judge_intact** — sha256 of every file under `judge/` (fixture
    included) identical before and after the grade; the artifact is built
    from a copy and can never write into the judge.
@@ -110,7 +116,7 @@ sorries, which is exactly what the demo is about catching.
 
 ## Known-bad examples (self-test)
 
-`judge/mutants.py` derives 8 known-bad artifacts from `examples/good/`
+`judge/mutants.py` derives 10 known-bad artifacts from `examples/good/`
 by scripted single edits:
 
 | mutant | edit | gate that kills it |
@@ -123,6 +129,8 @@ by scripted single edits:
 | syntax_error | stray `!` in Ex08 | build |
 | missing_file | Ex09.lean deleted | structure (file set) + build (broken import) |
 | broken_proof | Ex10 proof → `rfl` (does not hold by `rfl`) | build |
+| statement_parked_in_comment | Ex10 frozen statement parked in `--` comments, trivial statement proved under the same name | structure (statement freeze) |
+| statement_parked_in_block_comment | same attack with the statement inside a `/- -/` block comment | structure (statement freeze) |
 
 `judge/selftest.sh` grades the known-good (must pass) and every mutant
 (each must fail ≥ 1 gate), prints the kill rate, checks determinism

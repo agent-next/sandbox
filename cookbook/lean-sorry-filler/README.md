@@ -12,13 +12,14 @@ elaborate every file, the build log must carry no
 Lean's three standard axioms (`propext`, `Classical.choice`,
 `Quot.sound`). The theorem statements are frozen line-by-line, so
 proving something easier — even with the original statement parked in
-a comment — is caught by a name-matched, line-anchored statement check.
+a comment (line or block) — is caught by a name-matched, line-anchored
+statement check that runs on the source with Lean comments removed.
 
 A sandbox helps because a compile-check loop with untrusted agent
 edits is exactly what you should not run on your own machine: the judge
 builds the submission from a copy, checksums itself before and after,
 and a broken proof can never touch anything local. The whole judge —
-pinned elan 4.2.4 / Lean 4.34.1 toolchain, self-test with 9 mutants,
+pinned elan 4.2.4 / Lean 4.34.1 toolchain, self-test with 10 mutants,
 grading — runs from nothing in a fresh sandbox in a few minutes (the
 Lean download is ~580 MB, ~1–3 min; everything after is seconds).
 
@@ -76,18 +77,20 @@ passes — that loop is the demo:
 
 | gate | rule |
 |---|---|
-| structure | exact fixture file set; all 10 statements verbatim; no `sorry`/`admit`/`sorryAx`/`native_decide`/`axiom` token; each file ≤ 64 KiB |
+| structure | exact fixture file set; all 10 statements verbatim (comments stripped before the scan); no `sorry`/`admit`/`sorryAx`/`native_decide`/`axiom` token outside comments; each file ≤ 64 KiB |
 | build | `lake build --no-cache` exits 0 within 600 s and the log has 0 ``declaration uses `sorry` `` lines |
 | axioms | `#print axioms` per theorem: no axioms, or ⊆ {propext, Classical.choice, Quot.sound} |
 | closure | (planted − remaining)/planted ≥ 60 %, counted from source with the same regex as gate 1 |
 
 The artifact is graded from a copy in a temp dir, and sha256 checksums
 of `judge/` are compared before and after — the submission cannot
-tamper with its own judge. `judge/selftest.sh` grades 8 scripted mutants
-(re-submitted sorry, `admit`, smuggled `axiom`, `native_decide`,
-statement binder swap, syntax error, missing file, broken proof) and a
+tamper with its own judge. `judge/selftest.sh` grades 10 scripted
+mutants (re-submitted sorry, `admit`, smuggled `axiom`,
+`native_decide`, statement binder swap, syntax error, missing file,
+broken proof, statement parked in a `--` comment, statement parked in
+a `/- -/` block comment) and a
 determinism check (two grades → byte-identical verdicts except
-`timing`); kill rate 8/8 = 100 %.
+`timing`); kill rate 10/10 = 100 %.
 
 ## Limits, stated plainly
 
