@@ -13,10 +13,14 @@ class RunnerTests(unittest.TestCase):
     def args(self, path):
         return argparse.Namespace(keep=False, output=path, seed=17, skip_selftest=False)
 
-    def exercise(self, root, *, exec_failure=False, cleanup_status=404, via_exec=False):
+    def exercise(self, root, *, exec_failure=False, cleanup_status=404, via_exec=False,
+                 image_numpy="2.2.6"):
         calls = []
         def request(key, method, path, body=None):
             calls.append((method, path))
+            if method == "POST" and path.endswith("/exec") and "image_numpy" in body["code"]:
+                return 200, json.dumps({"result": {"ok": True, "report": {
+                    "image_numpy": image_numpy}}}).encode()
             if method == "POST" and path == "/sandboxes":
                 self.assertEqual(body["accel"]["template"], "browser")
                 return 201, b'{"sandboxID":"gl-test-1"}'
@@ -39,7 +43,8 @@ class RunnerTests(unittest.TestCase):
                 return cleanup_status, b"{}"
             return 201, b"{}"
         with patch.object(run, "request", side_effect=request), \
-             patch.object(run, "dependencies", return_value={"numpy.whl": b"wheel"}), \
+             patch.object(run, "dependencies", return_value={"mutracer-0.1.1.tgz": b"m"}), \
+             patch.object(run, "numpy_wheel", return_value=b"wheel"), \
              patch.object(run, "source_archive", return_value=b"archive"):
             run.gpu_run(self.args(root), "test")
         return calls
@@ -52,6 +57,21 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(json.loads((output / "runner.json").read_text())["cleanup_get_status"], 404)
             self.assertEqual(calls[-2:], [("DELETE", "/sandboxes/gl-test-1"),
                                          ("GET", "/sandboxes/gl-test-1")])
+
+    def test_image_numpy_skips_wheel_upload(self):
+        with tempfile.TemporaryDirectory() as temp:
+            calls = self.exercise(Path(temp) / "output")
+            self.assertFalse([path for method, path in calls
+                              if method == "PUT" and path.endswith(".whl")])
+
+    def test_missing_image_numpy_uploads_verified_wheel(self):
+        with tempfile.TemporaryDirectory() as temp:
+            calls = self.exercise(Path(temp) / "output", image_numpy=None)
+            self.assertIn(("PUT", f"/sandboxes/gl-test-1/files/out/{run.WHEEL}"), calls)
+
+    def test_job_without_wheel_uses_image_numpy(self):
+        self.assertNotIn("SBX_RENDER_NUMPY_WHEEL", run.job_source(17, None))
+        self.assertIn("SBX_RENDER_NUMPY_WHEEL", run.job_source(17, run.WHEEL))
 
     def test_exec_failure_still_deletes(self):
         with tempfile.TemporaryDirectory() as temp:
