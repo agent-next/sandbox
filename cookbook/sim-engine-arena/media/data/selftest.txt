@@ -1,0 +1,15 @@
+selftest: generating mutants
+selftest: grading known-good
+selftest: known-good: PASS
+selftest: mutant time_stretched: killed (gate: drop.csv_shape,incline_slide.csv_shape,incline_stick.csv_shape,pendulum.csv_shape)
+selftest: mutant wrong_gravity: killed (gate: drop.oracle)
+selftest: mutant friction_ignored: killed (gate: incline_slide.oracle,incline_stick.oracle)
+selftest: mutant wrong_timestep: killed (gate: drop.csv_shape,incline_slide.csv_shape,incline_stick.csv_shape,pendulum.csv_shape)
+selftest: mutant pendulum_length_off: killed (gate: pendulum.oracle)
+selftest: mutant incline_sign_flip: killed (gate: incline_slide.oracle)
+selftest: mutant crash: killed (gate: run)
+selftest: mutant hardcoded_oracle: killed (gate: structure)
+selftest: kill rate: 8/8 = 100%
+selftest: determinism check (two grades of the good artifact)
+selftest: determinism: OK
+selftest: ok
