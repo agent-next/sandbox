@@ -59,6 +59,13 @@ def demo_ids() -> list[str]:
     return re.findall(r"^    id: '([^']+)'", src, re.M)
 
 
+def patience_arg(v: str) -> int:
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError("--patience must be >= 1")
+    return n
+
+
 def run_shard(k: int, targets: list[str], template: str, out: Path, keep: bool, patience: int = 1) -> str:
     out.mkdir(parents=True, exist_ok=True)
     sbx = Sandbox.create(template, timeout=DEADLINE_S * patience + 3600)  # room for a slow download after the run
@@ -114,7 +121,7 @@ def main() -> int:
     ap.add_argument("--shards", type=int, default=8)
     ap.add_argument("--only", nargs="*", help="render just these targets")
     ap.add_argument("--keep", action="store_true")
-    ap.add_argument("--patience", type=int, default=1, help="multiply every render wait (heavy scenes on CPU)")
+    ap.add_argument("--patience", type=patience_arg, default=1, help="multiply every render wait (heavy scenes on CPU), >= 1")
     args = ap.parse_args()
     out = Path(args.out)
     key = os.environ.get("E2B_API_KEY") or os.environ["SBX_API_KEY"]

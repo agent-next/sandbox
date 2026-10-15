@@ -7,7 +7,8 @@ commit inside the sandbox.
 
 ![every target with its verdict](media/result.png)
 
-[media/demo.mp4](media/demo.mp4): 54 s, cut to the storyboard in `media/STORYBOARD.md`.
+The demo video (`media/make_media.sh` writes it, cut to `media/STORYBOARD.md`) is not committed:
+it has not passed the blind review panel yet (`media/REVIEW.json`).
 
 Why a sandbox helps: the production build needs more memory than a laptop shell usually has free
 (it OOMs at 3 GB), and rendering 32 WebGL scenes in software takes hours on one machine. Here
@@ -76,7 +77,8 @@ Full per-target table and run log: `RECEIPT.md`.
 
 ## Media
 
-`media/result.png` (every target's final screenshot with its verdict), `media/demo.mp4` (1920x1080,
+`media/result.png` (every target's final screenshot with its verdict), `media/demo.mp4` (not
+committed until it passes the review panel; 1920x1080,
 H.264 crf 18, 54 s; slots and sources in `media/STORYBOARD.md`: one rendered scene, the command
 beside the result grid, the first 450 s of one target's recording at 50x speed, the last 2.5 s of 9
 more targets' recordings, every screenshot on three pages, the verdicts with the controls, and the

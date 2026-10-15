@@ -60,6 +60,8 @@ def collect(run_dirs: list[Path]) -> tuple[dict[str, dict], list[dict]]:
     notes = json.loads((HERE / "notes.json").read_text())
     for k, r in final.items():
         r["visual"] = visual.get(k, "RENDERED" if r["verdict"] == "PASS" else "NO_FRAME")
+        # an override names a frame checked by eye: it applies only to a run that drew one and kept its screenshot
+        assert r["visual"] != "RENDERED" or (r.get("rendered", r["verdict"] in ("PASS", "LOADING_OVERLAY")) and r["png"].exists()), f"{k}: RENDERED without a drawn frame"
         r["note"] = notes.get(k, "")
     return dict(sorted(final.items())), controls
 
