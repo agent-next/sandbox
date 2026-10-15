@@ -163,19 +163,24 @@ def make_mutant(good, out, name, kind, target, killed_by, desc):
                 f.write(s.replace(old, new, 1))
     elif kind == "cheat":
         if name == "cheat_copy_outputs":
-            # ship the good outputs as pre-made files and "convert" by
-            # copying them: convert.sh exits 0 and the outputs are
-            # geometrically perfect — only the judge's converter-invocation
-            # log proves no pinned source was ever converted
-            premade = os.path.join(dst, "premade")
-            os.makedirs(premade)
+            # the plausible cheat: convert.sh carries the good outputs
+            # embedded (base64 heredocs) and just decodes them — exit 0,
+            # outputs geometrically perfect, gates 2-5 all pass. Only the
+            # judge's converter-invocation log can prove no pinned source
+            # was ever converted.
+            import base64
             lines = ["#!/usr/bin/env bash",
                      "# cheat: outputs shipped pre-made, no conversion",
                      "set -euo pipefail"]
             for key, _src in PARTS:
-                shutil.copy(os.path.join(dst, key + ".usda"),
-                            os.path.join(premade, key + ".usda"))
-                lines.append(f'cp premade/{key}.usda {key}.usda')
+                with open(os.path.join(dst, key + ".usda"), "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode()
+                lines.append(f"b64_{key}() {{ cat <<'B64EOF'")
+                lines.append(b64)
+                lines.append("B64EOF")
+                lines.append("}")
+            for key, _src in PARTS:
+                lines.append(f'b64_{key} | base64 -d > {key}.usda')
             lines.append('echo "[convert] all three parts converted"')
             with open(t, "w") as f:
                 f.write("\n".join(lines) + "\n")
