@@ -4,16 +4,16 @@
   "measurement_date": "2026-10-15",
   "outputs": {
     "demo.mp4": {
-      "bytes": 5070585,
+      "bytes": 6471097,
       "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
-      "sha256": "7c68858d353af5bbd26afd0055ec3608969a8bd718bd41576798b7a0f226260a",
+      "sha256": "e5d616c2d80f1e4adc632046f3898148367c74ea0a12aefbb9cf6dc0256cf6d0",
       "source_data": [
         "media/data/report.json",
         "media/data/cpu-qpos.npy",
         "media/data/model.xml",
         "media/data/loop.json"
       ],
-      "what": "26 s simulator-native MuJoCo CPU reference replay of world 0; arm reaching and eight boxes falling/settling; 4x4 repeated identical-world tiles; measured ladder reveal; PASS proof card."
+      "what": "26 s simulator-native MuJoCo CPU reference replay of world 0; native 3D camera orbits of the arm reaching and eight boxes falling/settling; single, 2x2 and 4x4 animated identical-world replays; measured ladder reveal; moving PASS/kill-matrix HUD; static launch frame only in the last 2 s."
     },
     "loop.png": {
       "bytes": 203144,
@@ -54,11 +54,11 @@
     "media/data/replay.json": "44021fdb82e4991c562316d70998e850c175749e1198923cf5e268bfac7bbe57",
     "media/data/report.json": "e5e9c9b39371c809e6aa91fc2bcbf5b53ab1df0a3b063953fe59846d5357bd26",
     "media/evidence.py": "4686295f7bd2349109116d6ea3d19d8c3422e35499bd30b30f997bc23c139e2f",
-    "media/make_media.sh": "6b69208f17d45fd7019a1d8d09ca394a5c9e60c36083bcd6850c52a423c4da90",
-    "media/manifest.py": "fb72fc4f3d2ba8e79bc0f2b8cf22d86215ac4b47eb81196d9c53d343c2d04071",
-    "media/render.py": "b3581fcc7edf21983ab4aeccb7a05f8a0f839a47970df5e905324d4a5958a7c6",
+    "media/make_media.sh": "e277a392da3e4b80994cfd3bd1c4412c68f771cb786ac640373409f5613e0491",
+    "media/manifest.py": "dffa1c77d4d72b3841bc922ccceca282a442faff47454c115c7500d0650a93e3",
+    "media/render.py": "d0493437fd3c6b81dc4ee246b19cb403e6b72f130902a38dc5a13e4506e5ef92",
     "media/requirements.txt": "76a8e7ab75315d6fdb5ddfefb6bed31c5e02408dc7aa68fe5972131969b69c66",
-    "media/test_media.py": "468b5211a5e62d364899cdbc5130c652cdf13def47f696e114b8fdbee10da6eb"
+    "media/test_media.py": "1e3cc516e3d9e7688b6f186f7fb6c1a6db549edb2b872bd015647bdfc3fdaa3c"
   },
   "state_checks": "All CPU states re-run with judge cpu_reference; graded CPU oracle within 1e-9; every rendered qpos within 1e-9 of the CPU data; retained float32 GPU samples within judge tolerance 0.05.",
   "video": {
@@ -66,7 +66,8 @@
     "height": 1080,
     "lossless_master": "media/master/demo.mp4 (-crf 0, git-ignored)",
     "seconds": 26,
-    "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart",
+    "simulator_clips": "media/clips/shot-00.mp4 through shot-09.mp4 (lossless, git-ignored; concatenated into master)",
+    "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -maxrate 2100k -bufsize 2100k -movflags +faststart",
     "width": 1920
   }
 }

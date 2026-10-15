@@ -124,9 +124,11 @@ its own judge. A judge crash exits 2; a graded failure exits 1.
 **[Watch the 3D replay](media/demo.mp4)**, 26 s, 1920×1080 at 30 fps:
 the arm reaches its joint target and eight boxes fall and settle, rendered
 by MuJoCo's own offscreen renderer with textures, lights and shadows.
-The 4×4 scale view repeats the reference world honestly: the judge initializes
+Native 3D camera orbits keep the scene moving, including the opening result
+and judge proof. The scale view cuts from one world to 2×2 and 4×4 animated
+replays, repeating the reference world honestly: the judge initializes
 every GPU world identically. Its count-up reveals measured endpoints, not
-a live performance meter.
+a live performance meter. Only the final two-second launch frame is static.
 
 The 2026-10-15 acceptance run (`python3 run.py --ref sbx/sweep-r4 --gpu`,
 seed 0, 383 s) measured **686,725 steps/s at nworld 8192 vs 26,574 CPU,
@@ -151,8 +153,9 @@ bash cookbook/gpu-sim-sweep/media/make_media.sh
 ```
 
 The script installs the pinned MuJoCo/Pillow media dependencies, replays and
-checks the physics, renders every frame, writes a git-ignored lossless master,
-encodes H.264, and runs the media tests. Source measurements:
+checks the physics, renders every frame into lossless simulator clips,
+cuts them into a git-ignored lossless master, encodes H.264 (CRF 18 with a 2.1 Mbit/s
+ceiling to stay below 8 MB), and runs the media tests. Source measurements:
 [`media/data/report.json`](media/data/report.json). Provenance and visual
 inspection: [MANIFEST.json](media/MANIFEST.json), [STORYBOARD.md](media/STORYBOARD.md),
 [REVIEW.md](media/REVIEW.md). The acceptance run is separate from the two

@@ -3,6 +3,7 @@
 from functools import lru_cache
 import json
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 
 import mujoco
@@ -104,7 +105,7 @@ class Replay:
         self.renderer = mujoco.Renderer(self.model, H, W)
         self.checked = 0
 
-    def frame(self, index, close=False):
+    def frame(self, index, close=False, *, azimuth=115, elevation=-23):
         assert_state(self.states[index], self.expected[index], f"CPU frame {index}")
         self.data.qpos[:] = self.states[index]
         self.data.time = index * self.model.opt.timestep
@@ -114,7 +115,7 @@ class Replay:
         camera.type = mujoco.mjtCamera.mjCAMERA_FREE
         camera.lookat[:] = [.85, 0, .53] if close else [.52, 0, .56]
         camera.distance = 1.85 if close else 2.55
-        camera.azimuth, camera.elevation = 115, -23
+        camera.azimuth, camera.elevation = azimuth, elevation
         self.renderer.update_scene(self.data, camera=camera)
         self.renderer.scene.flags[mujoco.mjtRndFlag.mjRND_SHADOW] = True
         self.checked += 1
@@ -206,20 +207,25 @@ def loop(report):
     image.save(HERE / "loop.png", dpi=(200, 200))
 
 
-def tiled_frame(replay, index):
-    tile = replay.frame(index).resize((320, 180), Image.Resampling.LANCZOS)
+def tiled_frame(replay, index, side, **camera):
+    tile = replay.frame(index, **camera).resize((1280 // side, 720 // side),
+                                               Image.Resampling.LANCZOS)
     image = Image.new("RGB", (W, H), WHITE)
-    for row in range(4):
-        for col in range(4):
-            image.paste(tile, (320 + col * 320, 150 + row * 180))
+    for row in range(side):
+        for col in range(side):
+            image.paste(tile, (320 + col * tile.width, 150 + row * tile.height))
     return image
 
 
 def video(replay):
+    cuts = (2, 8, 11, 13, 15, 17, 19, 21, 24)
+    cut_times = ",".join(map(str, cuts))
     command = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
                "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-an", "-c:v", "libx264",
                "-threads", "1", "-crf", "0", "-preset", "ultrafast", "-pix_fmt", "yuv444p",
-               "-map_metadata", "-1", str(HERE / "master/demo.mp4")]
+               "-map_metadata", "-1", "-force_key_frames", cut_times,
+               "-f", "segment", "-segment_times", cut_times, "-reset_timestamps", "1",
+               str(HERE / "clips/shot-%02d.mp4")]
     t = replay.timing
     end = replay.config["settle_steps"]
     with subprocess.Popen(command, stdin=subprocess.PIPE) as encoder:
@@ -227,21 +233,22 @@ def video(replay):
             for f in range(26 * FPS):
                 seconds = f / FPS
                 if seconds < 2:
-                    image = replay.frame(end)
+                    image = replay.frame(end, azimuth=95 + 12 * seconds)
                     caption(image, f"{t['top_steps_per_s']:,} steps/s / physics PASS",
-                            "MuJoCo CPU reference replay of world 0 • finished state",
+                            "MuJoCo CPU reference replay of world 0 • orbit of finished state",
                             [f"{t['speedup']:.1f}× CPU at nworld 8192 • 4 GiB RTX 5090 slice",
                              "PASS: arm reaches target; 8 boxes landed on the table"])
                 elif seconds < 8:
                     index = round((seconds - 2) / (6 - 1 / FPS) * end)
-                    image = replay.frame(index)
+                    image = replay.frame(index, azimuth=125 + 10 * (seconds - 2))
                     caption(image, "01 / Reach the target. Land all eight boxes.",
                             f"MuJoCo CPU reference replay of world 0 • t = {index * .001:.3f} s • 7.5× slow",
                             ["Config: dt 0.001 s • implicitfast • 100 solver iterations",
                              "Oracle at 0.800 s: arm error < 0.15 rad; 0.255 < box z < 0.525 m"])
                 elif seconds < 11:
                     index = round((seconds - 8) / (3 - 1 / FPS) * end)
-                    image = replay.frame(index, close=True)
+                    image = replay.frame(index, close=True,
+                                         azimuth=260 - 12 * (seconds - 8), elevation=-42)
                     caption(image, "02 / Contact is the capacity trap",
                             f"MuJoCo CPU reference replay of world 0 • t = {index * .001:.3f} s • 3.75× slow",
                             ["Eight free bodies fall from 0.50–1.10 m onto the table",
@@ -251,17 +258,42 @@ def video(replay):
                     point_index = min(4, int(phase / 2))
                     p = t["points"][point_index]
                     index = round((phase % 2) / (2 - 1 / FPS) * end)
-                    image = tiled_frame(replay, index)
+                    side = (1, 2, 4, 4, 4)[point_index]
+                    azimuth = (100, 200, 115, 250, 95)[point_index]
+                    direction = (1, -1, 1, -1, 1)[point_index]
+                    image = tiled_frame(
+                        replay, index, side, close=point_index == 3,
+                        azimuth=azimuth + direction * 15 * (phase % 2),
+                        elevation=-42 if point_index == 3 else -23)
                     # Count-up is only a reveal animation. Only the endpoint is
                     # a measurement, and the caption makes this distinction explicit.
                     fraction = min(1, (phase % 2) / .8)
                     shown = round(p["steps_per_s"] * fraction)
                     caption(image, f"03 / nworld {p['nworld']:,} → {shown:,} steps/s",
-                            "16 replay tiles • identical initial states in every world • no randomized variety",
+                            f"{side * side} animated replay tile(s) • identical initial states in every world",
                             [f"Measured endpoint: {p['steps_per_s']:,} steps/s • count-up is a reveal, not a live meter",
                              "MuJoCo CPU reference replay of world 0 • repeated tiles • 2.5× slow"])
+                elif seconds < 24:
+                    index = round((seconds - 21) / (3 - 1 / FPS) * end)
+                    view = replay.frame(index, azimuth=200 + 12 * (seconds - 21))
+                    image = Image.new("RGB", (W, H), WHITE)
+                    image.paste(view.resize((1152, 648), Image.Resampling.LANCZOS), (384, 262))
+                    caption(image, "PASS / all six judge gates • 8/8 mutants killed",
+                            "MuJoCo CPU reference replay of world 0 • 3.75× slow • measured acceptance verdict",
+                            [f"{t['top_steps_per_s']:,} vs {t['cpu_steps_per_s']:,} CPU steps/s • "
+                             f"{t['speedup']:.1f}× • floor {t['speedup_floor']:g}×",
+                             f"Parity {t['parity_max_err']:.5f} < 0.05 rad • 4 GiB RTX 5090 slice"])
+                    # The matrix rides above the action, not over the arm or boxes.
+                    names = ("smuggled_results", "gravity_flipped", "missing_nconmax",
+                             "tiny_timestep", "short_settle", "solver_iter_1",
+                             "low_capacity", "over_ladder")
+                    draw = ImageDraw.Draw(image)
+                    draw.rectangle((0, 140, W, 260), fill=WHITE)
+                    for i, name in enumerate(names):
+                        label(image, (40 + (i % 4) * 470, 146 + (i // 4) * 52),
+                              f"KILLED {name}", 27, GREEN, True)
                 else:
-                    image = replay.frame(end)
+                    image = replay.frame(end, azimuth=236)
                     caption(image, f"PASS / {t['top_steps_per_s']:,} steps/s at nworld 8192",
                             "MuJoCo CPU reference replay of world 0 • graded by the judge on a 4 GiB RTX 5090 slice",
                             [f"CPU {t['cpu_steps_per_s']:,} steps/s • {t['speedup']:.1f}× • "
@@ -270,7 +302,15 @@ def video(replay):
                 encoder.stdin.write(image.tobytes())
         finally:
             encoder.stdin.close()
-        assert encoder.wait() == 0, "Lossless master encode failed"
+        assert encoder.wait() == 0, "Lossless simulator clip encode failed"
+    with tempfile.TemporaryDirectory(dir=HERE / "work") as temp:
+        playlist = HERE / temp / "clips.txt"
+        playlist.write_text("".join(
+            f"file '{HERE / 'clips' / f'shot-{i:02d}.mp4'}'\n"
+            for i in range(len(cuts) + 1)))
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
+                        "-i", str(playlist), "-c", "copy", "-map_metadata", "-1",
+                        str(HERE / "master/demo.mp4")], check=True)
     print(f"MuJoCo Renderer: {replay.checked} frames verified against CPU qpos data within 1e-9")
 
 

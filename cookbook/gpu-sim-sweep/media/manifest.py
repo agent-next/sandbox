@@ -40,8 +40,10 @@ def main():
                     "good grade (explicitly not a live agent trace), all six final "
                     "gates and the 8/8 self-test kill rate.",
         "demo.mp4": "26 s simulator-native MuJoCo CPU reference replay of world 0; "
-                    "arm reaching and eight boxes falling/settling; 4x4 repeated "
-                    "identical-world tiles; measured ladder reveal; PASS proof card.",
+                    "native 3D camera orbits of the arm reaching and eight boxes "
+                    "falling/settling; single, 2x2 and 4x4 animated identical-world "
+                    "replays; measured ladder reveal; moving PASS/kill-matrix HUD; "
+                    "static launch frame only in the last 2 s.",
     }
     manifest = {
         "generated_by": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
@@ -54,7 +56,10 @@ def main():
                         "oracle within 1e-9; every rendered qpos within 1e-9 of the "
                         "CPU data; retained float32 GPU samples within judge tolerance 0.05.",
         "video": {"width": 1920, "height": 1080, "fps": 30, "seconds": 26,
-                  "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart",
+                  "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p "
+                                "-maxrate 2100k -bufsize 2100k -movflags +faststart",
+                  "simulator_clips": "media/clips/shot-00.mp4 through shot-09.mp4 "
+                                     "(lossless, git-ignored; concatenated into master)",
                   "lossless_master": "media/master/demo.mp4 (-crf 0, git-ignored)"},
         "outputs": {},
     }

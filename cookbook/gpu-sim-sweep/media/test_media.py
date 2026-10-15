@@ -5,6 +5,7 @@ import copy
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -92,6 +93,41 @@ class MediaTests(unittest.TestCase):
         visual.geom_friction[0, 0] += .1
         with self.assertRaisesRegex(AssertionError, "physics geom_friction"):
             render.assert_physics(original, visual)
+
+    def test_camera_orbit_changes_view_without_changing_pose(self):
+        replay = render.Replay()
+        try:
+            first = np.asarray(replay.frame(200, azimuth=100))
+            second = np.asarray(replay.frame(200, azimuth=130))
+            self.assertGreater(np.mean(np.abs(first.astype(float) - second)), 5,
+                               "Native 3D orbit must change the rendered view")
+            np.testing.assert_array_equal(replay.data.qpos, replay.expected[200])
+            replay.states[200, 7] += .01
+            with self.assertRaisesRegex(AssertionError, "rendered-state mismatch"):
+                replay.frame(200, azimuth=160)
+        finally:
+            replay.close()
+
+    def test_tiles_advance_the_verified_reference_replay(self):
+        replay = render.Replay()
+        try:
+            first = render.tiled_frame(replay, 0, 4, azimuth=115)
+            second = render.tiled_frame(replay, 200, 4, azimuth=115)
+            self.assertNotEqual(first.tobytes(), second.tobytes(),
+                                "Tiles must animate the real arm and falling boxes")
+            np.testing.assert_array_equal(replay.data.qpos, replay.expected[200])
+            np.testing.assert_array_equal(np.asarray(second)[150:330, 320:640],
+                                          np.asarray(second)[330:510, 640:960])
+            np.testing.assert_array_equal(np.asarray(second)[:140], np.asarray(first)[:140])
+            np.testing.assert_array_equal(np.asarray(second)[910:], np.asarray(first)[910:])
+        finally:
+            replay.close()
+
+    def test_cookbook_video_gate(self):
+        gate = HERE.parents[1] / "tools/video_gate.py"
+        checked = subprocess.run([sys.executable, str(gate), str(HERE / "demo.mp4")],
+                                 capture_output=True, text=True)
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
 
     def test_report_cannot_hide_a_surviving_mutant(self):
         report = evidence.load_report()

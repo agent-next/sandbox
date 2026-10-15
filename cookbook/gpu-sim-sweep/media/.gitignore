@@ -1,5 +1,6 @@
 .venv/
 master/
+clips/
 .frames/
 __pycache__/
 work/

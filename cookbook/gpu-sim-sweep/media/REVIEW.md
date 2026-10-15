@@ -1,149 +1,143 @@
 # 3D media review, 2026-10-15
 
-## What was rendered
+## Video-gate recut
 
-`bash cookbook/gpu-sim-sweep/media/make_media.sh` uses MuJoCo 3.8.1's
-`mujoco.Renderer` on EGL, with an OSMesa fallback probe. The scene has a
-textured checker floor, gradient skybox, two lights and enabled shadows.
-Only visual attributes change; the model's geometry, inertia, contacts,
-actuators, initial state and timestep are checked against the judge model.
-The CPU reference starts at `MjData(model)` with zero velocity and
-`ctrl = ARM_TARGET`, exactly as the judge does.
+The reviewed static cut failed the newly merged cookbook gate:
+`scene_cuts_per_10s = 0.7692 < 0.8` and
+`motion_fraction = 0.0403 < 0.2`. The replacement keeps the same measured
+numbers and physics, but adds native 3D camera orbits, opposite-angle
+contact close-ups, one/2×2/4×4 animated replays, and a moving proof shot
+with the eight actual mutant kills. Only 24–26 s is static.
+`STORYBOARD.md` was updated before cutting the replacement.
 
-The media environment is Python 3.12.3, MuJoCo 3.8.1, NumPy 2.3.1,
-Pillow 11.3.0 and ffmpeg 6.1.1. Media dependencies are pinned in
-`requirements.txt`. Wheel downloads stalled during setup, so the local
-environment was bootstrapped from installed/cached copies of those exact
-versions; `pip check` passed. The media NumPy version differs from the
-judge's pinned 1.26.4, but every reconstructed CPU state and the graded
-CPU oracle still match at 1e-9. The MuJoCo physics version is unchanged.
+Every image of the simulation comes from MuJoCo 3.8.1's
+`mujoco.Renderer`, using EGL (the script also probes an OSMesa fallback).
+The checker floor, gradient skybox, lights and shadows are real scene
+rendering. Camera orbits are not pans or zooms over still images.
+The simulator first writes ten lossless shot clips, then ffmpeg
+concatenates them into the git-ignored CRF 0 master and encodes the web
+copy with CRF 18, preset slow, yuv420p and faststart. A 2.1 Mbit/s VBV
+ceiling keeps the moving scene under 8 MB. The first uncapped recut
+failed the size check at 17,093,306 bytes; it is not the committed encode.
 
-Source measurements are the separate 2026-10-15 acceptance run:
+The source remains the 2026-10-15 acceptance run:
 `python3 run.py --ref sbx/sweep-r4 --gpu --report-json media/data/report.json`,
-seed 0. Its public, sanitized report and console output are retained.
-No lease was created for rendering.
+seed 0. No lease was created and no throughput measurement was changed.
+The environment is Python 3.12.3, MuJoCo 3.8.1, NumPy 2.3.1,
+Pillow 11.3.0 and ffmpeg 6.1.1; `pip check` passes.
 
-The acceptance report retains GPU samples, not a CPU trajectory. Therefore:
+## State provenance
 
-- `judge/_sweep.py:cpu_reference` regenerates all 801 CPU states from the
-  exact good config; the graded CPU oracle must match within 1e-9.
-- The renderer reconstructs the reference again and checks every retained
-  CPU state, then checks every rendered qpos against it within 1e-9.
-- The retained 201 float32 GPU samples match the reconstructed reference
-  within the judge's 0.05 parity tolerance (observed 0.00811055). They are
-  not claimed equal to CPU states at 1e-9.
-- The original GPU sample convention is preserved: CPU step i versus
-  GPU step i+1, because the GPU runner records after its compile step.
-- The separately measured full parity error on the proof card remains
-  0.008110745441113454 rad, as reported by the acceptance judge.
+- The exact good config, model, timestep, initial state and controls are
+  reconstructed through `judge/_sweep.py:cpu_reference`, not a new physics
+  implementation. All 801 retained CPU states and the graded CPU oracle
+  match a fresh reference within 1e-9.
+- Every rendered qpos is asserted against that data within 1e-9, including
+  orbit views, contact close-ups and the reference frame reused in tiles.
+  Scene dressing is checked not to change geometry, masses, contacts,
+  actuators or solver settings.
+- All GPU worlds start identically. The tiles honestly reuse the same
+  animated CPU reference world; they are not separate GPU recordings or
+  randomized trajectories. The on-screen count-up reveals measured ladder
+  endpoints, not a live performance meter.
+- The 201 retained float32 GPU samples match at the judge's 0.05 tolerance
+  (observed error 0.00811055), not at 1e-9. The original convention is
+  preserved: CPU step i versus GPU step i+1, recorded after compilation.
+  The full measured parity error on screen remains 0.008110745441113454 rad.
 
-## Images opened at original pixel scale
+## Images opened
 
-Both original PNGs were opened. Their left/right halves were also opened
-as 1200-pixel-wide, unscaled crops, so every original pixel and caption
-could be inspected without the viewer downsampling a 2400-pixel image.
+Both complete PNGs were opened, along with their unscaled 1200-pixel-wide
+left/right crops for inspection at original pixel scale. Both figures
+remain byte-identical to the approved version.
 
-**result.png, 2400×1950, 200 dpi:** four real 3D views at simulation
-0.000, 0.200, 0.400 and 0.800 s. Initially the cyan capsule-link arm stands
-upright beside eight coloured boxes suspended at staggered heights over
-the dark table. At 0.200 s the arm has bent and the boxes have fallen;
-some low boxes are contacting the table while higher boxes remain airborne.
-At 0.400 and 0.800 s all eight boxes are on the table and the arm moves
-into its final joint-target pose. The floor texture, specular surfaces,
-perspective and cast shadows make the actual 3D geometry visible.
+- **result.png (2400×1950, 200 dpi):** four native 3D views at 0.000,
+  0.200, 0.400 and 0.800 s. The cyan arm bends while eight coloured boxes
+  fall onto the dark table. Perspective, lighting and cast shadows are
+  visible. Each tile compares the graded arm error 0.0607 rad with
+  < 0.15 rad and the final box centre 0.315 m with
+  0.255 < z < 0.525 m. The final read-back is explicitly labelled, not
+  attributed to the airborne initial pose. The measured ladder remains
+  134 / 10,785 / 77,008 / 248,064 / 686,725 steps/s; the pass line is
+  686,725 > 4 × 26,574 = 106,296 steps/s, 25.8× CPU.
+- **loop.png (2400×1600, 200 dpi):** the labelled config-fixing replay
+  shows the real solver_iter_1, low_capacity and good grades at
+  5/6, 4/6 and 6/6 gates. The right side shows 8/8 kills, the ≥90% pass
+  line, zero survivors and each mutant's actual killing gates.
+  It is a Pillow evidence table, not a fabricated live agent trace.
 
-Each tile labels the graded CPU arm error, 0.0607 rad versus the
-0.15 rad oracle, and the final box centre height, 0.315 m versus
-0.255 < z < 0.525 m. PASS is explicitly for the 0.800 s read-back,
-not a claim that the initial airborne frame already satisfies the oracle.
-The bottom Pillow ladder reads 134 / 10,785 / 77,008 / 248,064 / 686,725
-steps/s. The throughput pass line reads
-686,725 > 4 × 26,574 = 106,296 steps/s, 25.8× CPU.
+### Final web-video frames opened at 1920×1080
 
-**loop.png, 2400×1600, 200 dpi:** the left side shows a labelled recorded
-config-fixing replay: solver_iter_1 gives 5/6 gates, low_capacity 4/6,
-and good 6/6 PASS. These are real acceptance grades, not a fabricated
-chronological agent session. Orange failure bars and the green final
-pass bar are legible. The six final gates are individually listed.
-The right side shows 8/8 = 100% kills, the ≥90% pass line, zero survivors,
-and each mutant's actual killing gates. No cell or label is clipped.
+Each frame was extracted from the final H.264 web encode with
+`ffmpeg -ss T -i demo.mp4 -frames:v 1` and opened individually.
+These are new inspections of the final encode, not the earlier static cut.
 
-## Full-size video frames opened
-
-Frames were extracted with `ffmpeg -ss T -i demo.mp4 -frames:v 1` and
-opened individually at 1920×1080. The inspected encode has the same
-SHA256 as the final committed encode listed below.
-
-| Video time | What is visibly present |
+| Time | What is visibly present |
 |---|---|
-| 0 s | Finished bent arm and eight landed coloured boxes, real checker floor and shadows. Hook: 686,725 steps/s, physics PASS, 25.8× CPU. No title-only frame. |
-| 3 s | The arm is moving away from its upright initial pose; boxes are airborne above the table at different heights. CPU reference replay label, simulation time and 7.5× slow label are readable. |
-| 5 s | The arm is bent low; the eight boxes are landing/landed on the table. Their square tops and vertical sides remain visible, with cast shadows. The oracle caption stays in the lower margin. |
-| 9 s | A real closer camera view of falling boxes and table contact. Some boxes are on the table and higher boxes remain above it. The arm is partly outside this deliberate contact close-up. Caption identifies 3.75× slow CPU replay. |
-| 12.5 s | A 4×4 grid of identical real replay tiles, with arm and settled boxes in each. nworld 1 endpoint: 134 steps/s. Caption explicitly says identical initial states and repeated tiles. |
-| 16.5 s | The same honestly repeated 3D scene grid; nworld 512 endpoint is 77,008 steps/s. The endpoint is labelled measured; count-up is labelled a reveal, not a live meter. |
-| 20.5 s | Sixteen real scene tiles and the nworld 8192 endpoint, 686,725 steps/s. There is no fabricated per-world variety or claim that these are separate GPU trajectory recordings. |
-| 23 s | Closing proof over the finished rendered scene: 686,725 vs 26,574 CPU steps/s, 25.8×, floor 4×, 8/8 killed, parity 0.00811 < 0.05 rad, and the 4 GiB RTX 5090 slice label. |
-| 25 s | Held closing rendered frame and the one-line `python3 run.py --gpu` launch command. The arm and all eight boxes remain visible, with captions outside their motion area. |
+| 0 s | Finished bent cyan arm and eight landed coloured boxes, checker floor and shadows; hook says 686,725 steps/s, physics PASS and 25.8× CPU. The camera orbits this real pose during the opening shot. |
+| 3 s | Arm bending away from upright, boxes at different falling heights; full-scene perspective has changed. CPU reference and 7.5× slow labels are visible. |
+| 5.5 s | Low bent arm and landed boxes, seen from farther around the scene; dt, solver and final-read-back oracle captions remain outside the action. |
+| 8.5 s | Elevated opposite-angle close-up of the table and falling boxes. The arm is partly outside this deliberate contact view. Replay is labelled 3.75× slow. |
+| 11.5 s | One animated reference view in the protected scene area; nworld 1 and the 134 steps/s measured endpoint are labelled. |
+| 13.5 s | Four complete animated reference tiles from another angle; nworld 64 endpoint is 10,785 steps/s. No tile is covered by the caption bands. |
+| 16.5 s | Sixteen wide replay tiles with bent arms and landed boxes; nworld 512 endpoint is 77,008 steps/s. |
+| 18.5 s | Sixteen elevated contact close-ups, with all eight boxes on each table; nworld 2048 endpoint is 248,064 steps/s. |
+| 20.5 s | Sixteen wide scene views from the next camera angle; nworld 8192 endpoint is 686,725 steps/s. |
+| 21 s | Proof HUD and all eight actual mutant names marked KILLED; the replay restarts with an upright arm and airborne boxes. The entire scene sits below the matrix, so the HUD does not obscure it. |
+| 22.5 s | Proof HUD over the continuing orbit/replay, now with the arm bent and boxes landed; CPU 26,574, 25.8×, floor 4×, parity 0.00811 < 0.05 rad and the 4 GiB slice remain visible. |
+| 25 s | Static finished native 3D scene and the launch command `python3 run.py --gpu`. |
 
-The simulation shots are native 3D renders, not motion plots, stick figures
-or hand-drawn substitutes. `loop.png` intentionally uses a Pillow evidence
-table/bar layout; it does not pretend to render physics.
+The source frames are native simulator output, not plots, stick figures or
+drawn geometry. Caption bands do not cover the tiled action or proof view.
 
-## VERIFY
+## Verification
 
-“Clean” here means deleting all generated PNG/video/manifest/CPU replay
-products and the lossless master before each build. The measured input
-report and installed dependency cache are retained.
+The added media gate regression test was first run against the original
+committed video. It failed on an assertion naming the two failed checks,
+not an import error or skip. After the recut, the final build reports:
 
-Two consecutive final-code clean builds, plus a third diagnostic rebuild:
-
-```
-make_media.sh clean build 1: rc=0
-make_media.sh clean build 2: rc=0
-make_media.sh diagnostic clean build 3: rc=0
+```text
+make_media.sh rc=0
 CPU reference: 801 states; graded oracle matches within 1e-9
 Recorded GPU trajectory: 201 samples; max error 0.00811055 <= 0.05
 MuJoCo Renderer: 784 frames verified against CPU qpos data within 1e-9
 MANIFEST: files, sizes, source and output SHA256 verified
-Ran 8 tests
+Ran 11 tests in 7.337s
 OK
 ```
 
-Both PNGs, the model XML, replay metadata and CPU qpos array were
-byte-identical across these builds. Video SHA256 was:
+The tests additionally prove that camera movement changes the view without
+changing qpos, tiles animate the reference and leave HUD margins clear,
+and altered poses, parity samples, physics dressing, mutant results,
+hashes and clipped labels are rejected.
 
+```text
+$ python -m pytest -q cookbook/tools/test_video_gate.py --color=no
+....................                                                     [100%]
+20 passed in 160.24s (0:02:40)
 ```
-build 1: 7c68858d353af5bbd26afd0055ec3608969a8bd718bd41576798b7a0f226260a
-build 2: 553d6e6f7331277c56b58c76d4e691cf799e8f842449f9d31af2064cab184501
-build 3: 7c68858d353af5bbd26afd0055ec3608969a8bd718bd41576798b7a0f226260a
-```
 
-**Video is not guaranteed byte-identical.** Comparing the decoded lossless
-masters of builds 2 and 3 found 263 changed colour channels in 122 of 780
-frames, maximum 8-bit channel delta 3, maximum per-frame mean absolute
-delta 0.0000020898 on the 0–255 scale. This is tiny raster/colour variation,
-not trajectory drift: the CPU data are byte-identical and every frame's
-state assertions pass. The web files differ by 81 bytes; the manifest
-correctly follows the actual video hash. A single-thread lossless encode
-did not eliminate the variation. No stronger determinism claim is made.
+Final `video_gate.py` verdict: `passed: true`, `failed: []`.
 
-The new source-ban test was also run against the original generators
-from f077723 in a temporary directory. It failed on
-`AssertionError: Forbidden plotting import`, not an import error or skip.
-The current media tests all pass. Negative controls reject altered CPU
-poses, altered GPU trajectory samples, physics-changing scene dressing,
-surviving mutants, missing files, incorrect hashes and clipped text.
+| Check | Measured | Required |
+|---|---:|---:|
+| scene_cuts_per_10s | 1.1538 (3 detected cuts) | ≥ 0.8 |
+| motion_fraction | 0.8679 | ≥ 0.2 |
+| endcard_static | 0.0015 | ≤ 0.5 |
+| size_mib | 6.1713 | ≤ 8 |
+| first_frame_luma_mean | 197.1802 | ≥ 20 |
+| first_frame_luma_std | 50.2443 | ≥ 12 |
+| first_frame_not_solid | 236 | ≥ 8 |
 
-`git grep` for the forbidden plotting package returns no matches in the
-demo. Public-path/diagnostic hygiene and `git diff --check` were checked.
-Full CLI CI and a new GPU lease grade were not run for this media-only
-change; the supplied acceptance grade is the measurement source.
-Independent reproduction and PR review remain pre-merge work.
+The gate also passes codec, pixel format, resolution, aspect ratio,
+duration, frame rate and faststart (`moov@32`, `mdat@10292`).
+`test_result.py`: 41 passed. All 104 tracked JSON files parse; marketplace
+paths and manifest required fields pass. `git diff --check` passes.
+The forbidden plotting-package `git grep` has no matches in this demo.
 
 ### ffprobe, final encode
 
-```
+```text
 codec_name=h264
 width=1920
 height=1080
@@ -151,19 +145,17 @@ pix_fmt=yuv420p
 r_frame_rate=30/1
 nb_frames=780
 duration=26.000000
-size=5070585
+size=6471097
 ```
 
-The 5.07 MB web encode uses `-crf 18 -preset slow -pix_fmt yuv420p
--movflags +faststart`; the git-ignored lossless master uses `-crf 0`.
-The tests check faststart atom order, resolution, frame count, size, codec,
-pixel format and the lossless master's `qp=0` encoder record.
+Final video SHA256:
+`e5d616c2d80f1e4adc632046f3898148367c74ea0a12aefbb9cf6dc0256cf6d0`.
+`MANIFEST.json` records all output and generator hashes. Raster/encode
+bytes are not promised identical across machines; the CPU trajectory
+and per-frame state assertions are the reproducibility guarantee.
 
-### Final committed file hashes
-
-```
-f7af1df44a84eea658dab3ffe7523a2a4991ff28c5bf6c96066f553a4fe4048f  result.png
-32bd45cbe367fcaf6716dc60f72d70c7c27a4cb7815aa7d0d8e0bb2bf3c91e44  loop.png
-7c68858d353af5bbd26afd0055ec3608969a8bd718bd41576798b7a0f226260a  demo.mp4
-2f31e202d678d227eceb49882d896700d64e6873b5d074df2b1408847424b802  MANIFEST.json
-```
+Not run for this media-only fix: fresh GPU lease grading, CLI Python
+3.10/3.13 CI matrix, or the two-model blind review panel. This inspection
+does not substitute for that panel. No gate threshold or known-fail
+baseline was changed. Temporary review frames and test scratch were
+removed; the required ignored simulator clips and lossless master remain.
