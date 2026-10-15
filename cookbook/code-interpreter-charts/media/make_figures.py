@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Figures for the code-interpreter-charts demo — every plotted number comes
-from a file the judge wrote during a real run (verdict JSONs).  No invented
-data: if a source file is missing, this exits 1.
+from a file the judge wrote during a real run (verdict JSONs, the good
+artifact's own charts.json).  No invented data: if a source file is missing,
+this exits 1.
 
-Usage: make_figures.py <judge_runs_dir> <outdir>
-Writes result.png and loop.png (200 dpi).
+Usage: make_figures.py <judge_runs_dir> <outdir>   (run via make_media.sh)
+
+Reads   <runs>/good.json            verdict for the known-good artifact
+        <runs>/good_out/charts.json the artifact's judged output
+        <runs>/mutants/<name>.json  one verdict per known-bad mutant
+Writes  result.png and loop.png (200 dpi).
 """
 
 import json
@@ -14,16 +19,15 @@ import sys
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import numpy as np
 
-# Colour-blind-safe palette (Wong 2011, verified CVD-safe)
-BLUE = '#0072B2'    # series 1 — measured / good case
-ORANGE = '#D55E00'  # series 2 — oracle / reference
-GREEN = '#009E73'   # pass / good
-RED = '#CC79A7'     # fail / bad
+# dataviz reference palette (validated: CVD-safe on the light surface)
+BLUE = '#2a78d6'    # series 1 — measured / good case
+ORANGE = '#eb6834'  # series 2 — reference (OLS trend line)
+GREEN = '#0ca30c'   # status: good — pass
+RED = '#d03b3b'     # status: critical — failing data
 INK = '#0b0b0b'
 INK2 = '#52514e'
-GRID = '#e5e4e0'
+GRID = '#e1e0d9'
 
 plt.rcParams.update({
     'font.size': 11, 'axes.edgecolor': INK2, 'axes.labelcolor': INK,
@@ -51,10 +55,11 @@ def load_json(path):
 #   (a) Mauna Loa monthly series + OLS trend line (C1 data from charts.json)
 #   (b) Mean seasonal cycle (C2 data from charts.json)
 #   (c) 2024 top-10 emitters (C3 data from charts.json)
+# with the judge's verdict numbers drawn on them.
 # ---------------------------------------------------------------------------
 def make_result(runs, outdir):
-    good = load_json(need(os.path.join(runs, 'verdicts', '01_good.json')))
-    charts = load_json(need(os.path.join(runs, 'verdicts', '01_good_charts.json')))
+    good = load_json(need(os.path.join(runs, 'good.json')))
+    charts = load_json(need(os.path.join(runs, 'good_out', 'charts.json')))
 
     fig = plt.figure(figsize=(12.8, 9.6))
     gs = fig.add_gridspec(2, 2, hspace=0.34, wspace=0.24,
@@ -66,7 +71,7 @@ def make_result(runs, outdir):
     months = c1['months']
     xs = [m[0] for m in months]
     ys = [m[1] for m in months]
-    ax.plot(xs, ys, color=BLUE, lw=0.8, label='Mauna Loa monthly mean')
+    ax.plot(xs, ys, color=BLUE, lw=1.0, label='Mauna Loa monthly mean')
     line = c1['trend_line']
     ax.plot([line[0][0], line[1][0]], [line[0][1], line[1][1]],
             color=ORANGE, lw=2.0, ls='--',
@@ -81,7 +86,7 @@ def make_result(runs, outdir):
     c2 = charts['C2']
     mlabels = [m[0] for m in c2['months']]
     mvals = [m[1] for m in c2['months']]
-    ax.bar(mlabels, mvals, color=GREEN, edgecolor='white', linewidth=0.5)
+    ax.bar(mlabels, mvals, color=BLUE, edgecolor='white', linewidth=0.5)
     ax.set_xlabel('Month')
     ax.set_ylabel('Mean CO$_2$ (ppm)')
     ax.set_title(f"(b) Mean seasonal cycle (C2) — amplitude "
@@ -96,7 +101,8 @@ def make_result(runs, outdir):
     ax.barh(entities, values, color=BLUE, edgecolor='white', linewidth=0.5)
     ax.set_xlabel('Annual CO$_2$ emissions 2024 (GtCO$_2$)')
     ax.set_title(f"(c) Top 10 emitters 2024 (C3) — total "
-                 f"{c3['total_gt']:.2f} Gt", fontsize=12)
+                 f"{c3['total_gt']:.2f} Gt, top share "
+                 f"{c3['owid_top_emitter_2024_share']:.4f}", fontsize=12)
 
     fig.suptitle('code-interpreter-charts judge: known-good artifact '
                  'passes every gate', fontsize=14, y=0.965)
@@ -107,72 +113,88 @@ def make_result(runs, outdir):
 
 
 # ---------------------------------------------------------------------------
-# loop.png — the agent loop: verdict per replay step + kill rate
+# loop.png — the agent loop: verdict per draft iteration + self-test kills
 # ---------------------------------------------------------------------------
+# Draft iterations replayed as the agent loop: each is a real verdict the
+# self-test produced (single-edit mutants of the good artifact model the
+# plausible first drafts), ending at the known-good artifact.
+LOOP_STEPS = [
+    ('mutants/off-by-one-filter.json', 'draft 1:\nwindow 1991+'),
+    ('mutants/mean-vs-median.json', 'draft 2:\nmedian for mean'),
+    ('mutants/blank-chart.json', 'draft 3:\nC2 drawn blank'),
+    ('good.json', 'final:\nexamples/good'),
+]
+
+
 def make_loop(runs, outdir):
-    steps = [
-        ('01_good.json', 'known-good\nartifact'),
-    ]
     verdicts = []
-    for fname, label in steps:
-        v = load_json(need(os.path.join(runs, 'verdicts', fname)))
-        failed = [g for g, d in v['gates'].items()
-                  if isinstance(d, dict) and d.get('passed') is False]
-        verdicts.append((label, v['passed'], failed))
+    for fname, label in LOOP_STEPS:
+        v = load_json(need(os.path.join(runs, fname)))
+        # gates entries are assigned in order and stop at the first failure,
+        # so the G-keys present are exactly the gates that passed.
+        n_pass = len([g for g in v['gates'] if g.startswith('G')])
+        verdicts.append((label, v['passed'], v.get('failed_gate'), n_pass))
 
     mutants = []
     mdir = os.path.join(runs, 'mutants')
     for f in sorted(os.listdir(mdir)):
+        if not f.endswith('.json'):
+            continue
         v = load_json(os.path.join(mdir, f))
-        mutants.append((f[:-5], v['passed']))
+        mutants.append((f[:-5], v['passed'], v.get('failed_gate')))
 
     fig = plt.figure(figsize=(12.8, 5.4))
     gs = fig.add_gridspec(1, 2, width_ratios=[1, 1.25], wspace=0.28,
                           left=0.065, right=0.98, top=0.86, bottom=0.16)
 
-    # ---- (a) replay: gate status per iteration -----------------------------
+    # ---- (a) replay: gates passed per draft iteration ----------------------
     ax = fig.add_subplot(gs[0, 0])
-    xs = range(len(steps))
-    colors = [GREEN if p else RED for _, p, _ in verdicts]
-    bars = ax.bar(xs, [100] * len(steps), width=0.55,
-                  color=colors, edgecolor='white', linewidth=2)
-    for i, (label, passed, failed) in enumerate(verdicts):
-        tag = 'PASS' if passed else 'FAIL gates %s' % ','.join(failed)
-        ax.text(i, 102, tag, ha='center', fontsize=10, color=INK,
+    xs = range(len(verdicts))
+    colors = [GREEN if p else RED for _, p, _, _ in verdicts]
+    ax.bar(xs, [n * 20 for *_, n in verdicts], width=0.55,
+           color=colors, edgecolor='white', linewidth=2)
+    for i, (label, passed, gate, n) in enumerate(verdicts):
+        ax.text(i, n * 20 + 3, f'{n}/5', ha='center', fontsize=9, color=INK)
+        tag = 'PASS' if passed else f'FAIL gate {gate}'
+        ax.text(i, 127, tag, ha='center', fontsize=10,
+                color=GREEN if passed else RED,
                 fontweight='bold' if passed else 'normal')
     ax.set_xticks(list(xs))
-    ax.set_xticklabels([s[1] for s in steps], fontsize=9)
+    ax.set_xticklabels([s[1] for s in verdicts], fontsize=9)
     ax.set_ylabel('gates passed (%)')
-    ax.set_ylim(0, 115)
-    ax.set_title('(a) Agent loop: known-good artifact\npasses all 5 gates',
-                 fontsize=12)
+    ax.set_ylim(0, 135)
+    ax.set_yticks([0, 20, 40, 60, 80, 100])
+    ax.set_title('(a) Agent loop: verdict per draft iteration\n'
+                 'until every gate passes', fontsize=12)
 
-    # ---- (b) self-test kill rate -------------------------------------------
+    # ---- (b) self-test: known-good vs every known-bad ----------------------
     ax = fig.add_subplot(gs[0, 1])
-    names = [m for m, _ in mutants]
-    killed = [0 if p else 1 for _, p in mutants]  # 1 = killed (failed)
-    y = range(len(mutants))
-    ax.barh(y, [100] * len(mutants), height=0.55, color='#dcdcd8',
+    rows = [('known-good', True, None)] + mutants
+    names = [m for m, _, _ in rows]
+    y = range(len(rows))
+    # killed = judge rejected it (a mutant); the known-good passes by design
+    statuses = [('passes' if p else f'killed (G{g[-1]})', p)
+                for _, p, g in rows]
+    ax.barh(y, [100] * len(rows), height=0.55, color='#dcdcd8',
             edgecolor='white', linewidth=2)
-    ax.barh(y, [100 if k else 0 for k in killed], height=0.55,
-            color=BLUE, edgecolor='white', linewidth=2)
-    for i, k in enumerate(killed):
-        ax.text(103, i, 'killed' if k else 'SURVIVED',
-                va='center', fontsize=9,
-                color=INK if k else RED,
-                fontweight='bold' if not k else 'normal')
+    for i, (text, is_good) in enumerate(statuses):
+        killed = not is_good
+        ax.barh(i, 100, height=0.55,
+                color=GREEN if is_good else BLUE,
+                edgecolor='white', linewidth=2)
+        ax.text(103, i, text, va='center', fontsize=9, color=INK)
     ax.set_yticks(list(y))
     ax.set_yticklabels(names, fontsize=9)
     ax.invert_yaxis()
-    ax.set_xlim(0, 126)
+    ax.set_xlim(0, 132)
     ax.set_xticks([0, 50, 100])
-    ax.set_xlabel('mutants killed by selftest (%)')
-    ax.set_title('(b) Self-test: %d/%d mutants killed\n(above: required '
-                 '>= 90 %%)' % (sum(killed), len(mutants)),
-                 fontsize=12)
+    ax.set_xlabel('judge verdict per self-test artifact (%)')
+    killed_n = len(mutants) - sum(1 for _, p, _ in mutants if p)
+    ax.set_title(f'(b) Self-test: {killed_n}/{len(mutants)} known-bad killed'
+                 '\n(required >= 90 %)', fontsize=12)
 
     fig.suptitle('The judge the agent cannot fool — replayed loop and '
-                 'self-test kill rate', fontsize=14, y=0.99)
+                 'self-test verdicts', fontsize=14, y=0.99)
     out = os.path.join(outdir, 'loop.png')
     fig.savefig(out, dpi=200)
     plt.close(fig)

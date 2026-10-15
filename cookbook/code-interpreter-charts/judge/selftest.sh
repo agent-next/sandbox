@@ -5,11 +5,26 @@
 #   3. kill rate >= 90 %, else exit non-zero
 #   4. two runs on the good artifact give byte-identical verdict JSON
 #      apart from the `timing` key
+#
+#   --verdicts DIR   also copy each verdict JSON the run produced into DIR
+#                    (good.json + mutants/<name>.json); media/make_media.sh
+#                    uses them so the figures carry only real judge output.
 set -euo pipefail
 
 JDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO="$(cd "$JDIR/.." && pwd)"
 GOOD="$DEMO/examples/good"
+VERDICTS=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --verdicts) VERDICTS="$2"; shift 2 ;;
+        *) echo "selftest: unknown argument '$1'" >&2; exit 2 ;;
+    esac
+done
+if [ -n "$VERDICTS" ]; then
+    mkdir -p "$VERDICTS/mutants"
+fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -17,6 +32,7 @@ trap 'rm -rf "$work"' EXIT
 echo "selftest: grading known-good $GOOD"
 if bash "$JDIR/grade.sh" "$GOOD" --json "$work/good.json" > /dev/null; then
     echo "selftest: known-good PASSED all gates"
+    [ -z "$VERDICTS" ] || cp "$work/good.json" "$VERDICTS/good.json"
 else
     echo "selftest: known-good FAILED -- the judge or the example is broken" >&2
     cat "$work/good.json" >&2
@@ -44,6 +60,7 @@ print(v.get('failed_gate') or '?')
         echo "selftest: killed    $name (gate: $gate)"
         killed=$((killed + 1))
     fi
+    [ -z "$VERDICTS" ] || cp "$work/$name.json" "$VERDICTS/mutants/$name.json"
 done
 
 rate="$(python3 -I -c "print(f'{$killed/$total:.0%}' if $total else 'n/a')")"

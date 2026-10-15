@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # media/make_media.sh — regenerate every media file from real judge output.
 #
-# Pipeline (all data written by judge/grade.sh / judge/selftest.sh runs in
+# Pipeline (all data written by judge/selftest.sh and the good artifact in
 # THIS invocation — nothing is hand-edited or invented):
-#   1. grade the known-good artifact (verdict JSON with all gate numbers)
-#   2. run the self-test (kill rate, determinism check)
-#   3. render result.png and loop.png from those judge outputs
-#   4. render video frames, encode a lossless master + web H.264
-#   5. write MANIFEST.json (sha256 of each shipped file)
+#   1. judge/selftest.sh --verdicts media/judge_runs  (good.json + one
+#      verdict per mutant; the kill rate; the determinism check)
+#   2. the known-good artifact itself, once, under the pinned interpreter
+#      (charts.json + the three PNGs the judge graded)
+#   3. result.png and loop.png from those judge outputs (make_figures.py)
+#   4. video frames from the artifact's PNGs + the verdict numbers
+#      (make_frames.py), lossless crf 0 master into media/master/ (git
+#      ignored), then the web H.264 encode
+#   5. MANIFEST.json (sha256 of each shipped file)
 #
-# Fails loudly if any expected judge output is missing.
+# Fails loudly if any expected judge output is missing or a step fails.
+# Needs the pinned stack from judge/setup.sh and ffmpeg:
+#   CHART_VENV=~/.cache/code-interpreter-charts/venv bash media/make_media.sh
 
 set -euo pipefail
 
@@ -17,37 +23,44 @@ MEDIA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO_DIR="$(dirname "$MEDIA_DIR")"
 RUNS="$MEDIA_DIR/judge_runs"
 MASTER="$MEDIA_DIR/master"
+VENV="${CHART_VENV:-$HOME/.cache/code-interpreter-charts/venv}"
+PY="$VENV/bin/python"
 
-PY="${PYTHON:-python3}"
-if ! "$PY" -c 'import matplotlib, numpy' >/dev/null 2>&1; then
-    echo "make_media: python3 lacks matplotlib/numpy — install the pinned set:" >&2
-    echo "  python3 -m venv /tmp/charts-media && /tmp/charts-media/bin/pip install \\" >&2
-    echo "      --require-hashes -r judge/requirements.txt" >&2
-    echo "  PYTHON=/tmp/charts-media/bin/python bash media/make_media.sh" >&2
-    exit 1
-fi
-command -v ffmpeg >/dev/null 2>&1 || { echo "make_media: ffmpeg missing" >&2; exit 1; }
-
-# Pinned tool versions (must match judge/requirements.txt and VERSIONS.txt)
+# The judge stack (exact versions, judge/VERSIONS.txt) so media and judge
+# render identically; ffmpeg for the encode.
+[ -x "$PY" ] || { echo "make_media: no pinned interpreter at $PY -- run judge/setup.sh first" >&2; exit 1; }
+"$PY" -c 'import matplotlib, PIL' >/dev/null 2>&1 || {
+    echo "make_media: $PY lacks matplotlib/Pillow -- re-run judge/setup.sh" >&2; exit 1; }
 "$PY" - <<'PY' || exit 1
 import matplotlib
 assert matplotlib.__version__ == '3.11.2', matplotlib.__version__
 print('[media] matplotlib', matplotlib.__version__)
 PY
+command -v ffmpeg >/dev/null 2>&1 || { echo "make_media: ffmpeg missing" >&2; exit 1; }
 echo "[media] ffmpeg $(ffmpeg -version | head -1 | awk '{print $3}')"
 
 mkdir -p "$RUNS"
 
-echo "=== 1. grade known-good artifact ==="
-bash "$DEMO_DIR/judge/grade.sh" "$DEMO_DIR/examples/good" \
-    --json "$RUNS/good_verdict.json" --seed 20261015
+echo "=== 1. self-test (verdicts -> $RUNS) ==="
+rm -rf "$RUNS/good.json" "$RUNS/mutants"
+bash "$DEMO_DIR/judge/selftest.sh" --verdicts "$RUNS" 2>&1 | tee "$RUNS/selftest_output.txt"
 
-echo "=== 2. self-test (kill rate) ==="
-bash "$DEMO_DIR/judge/selftest.sh" 2>&1 | tee "$RUNS/selftest_output.txt"
+echo "=== 2. good artifact run (charts + PNGs the judge graded) ==="
+rm -rf "$RUNS/good_out"
+mkdir -p "$RUNS/good_out"
+MPLBACKEND=Agg "$PY" -I "$DEMO_DIR/examples/good/analysis.py" \
+    --data-dir "$DEMO_DIR/examples/good/data" --out-dir "$RUNS/good_out"
 
 echo "=== 3. guard: judge outputs present ==="
-[ -f "$RUNS/good_verdict.json" ] || { echo "make_media: MISSING good_verdict.json" >&2; exit 1; }
-[ -f "$RUNS/selftest_output.txt" ] || { echo "make_media: MISSING selftest_output.txt" >&2; exit 1; }
+for f in "$RUNS/good.json" "$RUNS/selftest_output.txt" \
+         "$RUNS/good_out/charts.json" \
+         "$RUNS/good_out/c1_mauna_loa_trend.png" \
+         "$RUNS/good_out/c2_seasonal_cycle.png" \
+         "$RUNS/good_out/c3_top_emitters_2024.png"; do
+    [ -f "$f" ] || { echo "make_media: MISSING $f" >&2; exit 1; }
+done
+n_mutants="$(ls -1 "$RUNS/mutants"/*.json 2>/dev/null | wc -l)"
+[ "$n_mutants" -ge 5 ] || { echo "make_media: only $n_mutants mutant verdicts (< 5)" >&2; exit 1; }
 
 echo "=== 4. figures ==="
 "$PY" -I "$MEDIA_DIR/make_figures.py" "$RUNS" "$MEDIA_DIR"
@@ -57,12 +70,13 @@ FRAMES="$(mktemp -d "${TMPDIR:-/tmp}/charts-frames.XXXXXX")"
 trap 'rm -rf "$FRAMES"' EXIT
 "$PY" -I "$MEDIA_DIR/make_frames.py" "$RUNS" "$FRAMES"
 
-echo "=== 6. lossless master (crf 0, gitignored) ==="
+echo "=== 6. lossless master (crf 0, git-ignored media/master/) ==="
 mkdir -p "$MASTER"
 rm -f "$MASTER/charts_master.mp4"
-# 8 frames at 4 s each = 32 s, inside the 20-60 s standard.
+# 8 frames at 4 s each = 32 s of content; tpad holds the last frame 3 s
+# more: 35 s total, inside the 20-60 s standard.
 ffmpeg -y -loglevel error -framerate 1/4 -i "$FRAMES/frame_%04d.png" \
-    -c:v libx264 -preset veryslow -qp 0 -pix_fmt yuv420p \
+    -c:v libx264 -preset veryslow -crf 0 -pix_fmt yuv444p \
     -vf "fps=30,tpad=stop_mode=clone:stop_duration=3" \
     -s 1920x1080 "$MASTER/charts_master.mp4"
 
@@ -78,21 +92,26 @@ import hashlib, json, os, sys
 media = sys.argv[1]
 entries = []
 spec = {
-    'result.png': ('Key figure: the three charts rendered by the good artifact '
-                   '(C1 Mauna Loa trend with OLS line, C2 seasonal cycle, '
-                   'C3 top-10 emitters) with the judge verdict numbers.',
+    'result.png': ('Key figure: the three charts the judge graded for the '
+                   'known-good artifact (C1 Mauna Loa trend + OLS line, C2 '
+                   'seasonal cycle, C3 top-10 emitters) with the verdict '
+                   'numbers.',
                    'bash media/make_media.sh  (make_figures.py)',
-                   'media/judge_runs/good_verdict.json'),
-    'loop.png': ('The agent loop: judge gate results for the good artifact '
-                 'and the self-test kill rate (12/12 mutants killed).',
+                   'media/judge_runs/good_out/charts.json, '
+                   'media/judge_runs/good.json'),
+    'loop.png': ('The agent loop: gates passed per draft iteration '
+                 '(single-edit mutant verdicts until the good artifact '
+                 'passes) and the self-test kill rate.',
                  'bash media/make_media.sh  (make_figures.py)',
-                 'media/judge_runs/good_verdict.json, '
+                 'media/judge_runs/mutants/*.json, '
+                 'media/judge_runs/good.json, '
                  'media/judge_runs/selftest_output.txt'),
-    'demo.mp4': ('Step-through of the judge outputs: the three charts, the '
-                 'verdict numbers, and the self-test kill rate; lossless crf 0 '
-                 'master in git-ignored media/master/.',
+    'demo.mp4': ('Step-through of the agent loop: each judged chart with '
+                 'its gate numbers, then the verdict summary; lossless '
+                 'crf 0 master in git-ignored media/master/.',
                  'bash media/make_media.sh  (make_frames.py + ffmpeg)',
-                 'media/judge_runs/good_verdict.json, '
+                 'media/judge_runs/good_out/*.png, '
+                 'media/judge_runs/good.json, '
                  'media/judge_runs/selftest_output.txt'),
 }
 for fname, (what, cmd, src) in spec.items():
@@ -104,7 +123,7 @@ for fname, (what, cmd, src) in spec.items():
 with open(os.path.join(media, 'MANIFEST.json'), 'w') as f:
     json.dump({'demo': 'cookbook/code-interpreter-charts',
                'note': 'every number plotted comes from judge output files '
-                       'regenerated by make_media.sh (seed 20261015)',
+                       'regenerated by make_media.sh',
                'files': entries}, f, indent=2)
     f.write('\n')
 for e in entries:
