@@ -2,13 +2,14 @@
 # Prove the judge can fail, and fail *closed*: the known-good example must
 # pass; every generated single-edit mutant must fail — specifically at the
 # gate it was built to trip (mutants.py targets). A mutant that passes, a
-# missing/unparseable verdict, a grade crash, a wrong-gate kill, a mutant
+# missing/unparseable verdict, a grade crash, a wrong-gate kill, a target
+# gate that was skipped rather than failed ("not run ..."), a mutant
 # generation error, or an unexpected bad_*.py inventory are all selftest
 # FAILURES — never counted as kills.
 #
 # Options forwarded to grade.sh (e.g. --skip-convergence for a faster run;
 # mutants then get rc=2 partial verdicts, still counted only if the
-# targeted gate failed).
+# targeted gate actually failed).
 set -uo pipefail   # NOT -e: expected failures inside
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO="$(dirname "$HERE")"
@@ -21,6 +22,12 @@ ST_TMP="$(mktemp -d /tmp/rf-selftest.XXXXXX)"
 fail() { echo; echo "selftest FAIL: $*" >&2; exit 1; }
 
 cd "$DEMO"
+
+# ---- judge unit tests (no solver) must pass first ----------------------
+echo "== judge unit tests (sweep-grid validation) =="
+ut="$("$RF_PY" -B judge/test_grid.py 2>&1)" \
+    || fail "unit tests failed: $ut"
+echo "$ut" | tail -3
 
 # ---- mutant generation must succeed and produce exactly the known set --
 gen_out="$("$RF_PY" judge/mutants.py generate 2>&1)" \
@@ -85,7 +92,7 @@ fi
 echo "  wall: $((SECONDS-t0)) s"
 
 # ---- mutants: kill = nonzero rc AND parseable failing verdict AND the --
-# ---- targeted gate actually failed -------------------------------------
+# ---- targeted gate actually failed (a "not run ..." gate is NOT a kill) -
 echo "== known-bad mutants (each must fail its targeted gate) =="
 printf "  %-26s %-22s %s\n" mutant targeted_gate first_failed_gate
 killed=0; mtot=0; bad=0
@@ -109,15 +116,23 @@ try:
     gates = v["gates"]
 except Exception:
     print("INVALID_VERDICT"); raise SystemExit
-failed = [g["gate"] for g in gates if not g["pass"]]
-if v.get("all_pass") or not failed:
+# a gate recorded as "not run ..." did not test anything: it is a skip,
+# not a failure — counting it as a kill would let --skip-convergence
+# "kill" both G8 mutants without ever running convergence
+def skipped(g):
+    return not g["pass"] and g["detail"].startswith("not run")
+failed = [g["gate"] for g in gates if not g["pass"] and not skipped(g)]
+skipped = [g["gate"] for g in gates if skipped(g)]
+if v.get("all_pass") or not (failed or skipped):
     print("INVALID_VERDICT")
 elif tgt not in {g["gate"] for g in gates}:
     print("TARGET_NEVER_RAN")
+elif tgt in skipped:
+    print("TARGET_SKIPPED")
 elif tgt in failed:
     print("KILL\t" + failed[0])
 else:
-    print("WRONG_GATE\t" + ",".join(failed))
+    print("WRONG_GATE\t" + ",".join(failed + skipped))
 EOF
 )"
         case "$res" in
