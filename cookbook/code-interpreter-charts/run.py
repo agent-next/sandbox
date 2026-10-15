@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -38,11 +39,13 @@ TRANSIENT_HINTS = (
     "tunnel error",     # the sandbox's connect tunnel refused the exec
     "connection error", # e2b SDK wording for a dropped connection
     "ReadTimeout",      # reply lost in transit
+    "no result within", # the CLI gave up waiting for an exec's reply
     "502", "503", "504",  # gateway blips
     "429",              # quota/rate limit: back off, then retry
 )
 RETRIES = 4                 # retries after the first attempt
 BACKOFFS = (5, 15, 30, 60)  # seconds slept before each retry
+POLL_EVERY = 5.0            # seconds between polls of a detached step
 
 
 class Failure(RuntimeError):
@@ -91,11 +94,73 @@ def step(name: str, fn) -> subprocess.CompletedProcess:
     return proc
 
 
-def show(proc: subprocess.CompletedProcess) -> None:
-    """Echo a step's stdout so the user sees the judge's own lines
-    (each 'killed <mutant> (gate: ...)', the kill rate, the verdict)."""
-    if proc.stdout:
-        print(proc.stdout.rstrip(), flush=True)
+class Detached:
+    """Run one long step detached inside the sandbox and poll it.
+
+    `sbx exec` streams the command's output through the CLI, so the CLI's
+    own --timeout is also the deadline for the *reply*: a step that takes
+    longer than it is killed as a failure even though the command is still
+    running (LESSONS.md: a transport error is not a process exit).  A
+    detached step writes its own exit code to a file, so the poll never
+    waits more than POLL_EVERY for a reply and a lost reply costs one poll
+    instead of the whole step.
+    """
+
+    def __init__(self, sid: str, name: str, cmd: str,
+                 budget: float) -> None:
+        self.name = name
+        self.budget = budget          # seconds the step itself may take
+        # The step name goes into shell paths unquoted, so it must not
+        # carry a space or a slash ("judge/grade.sh examples/good").
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", name).strip("_")
+        self.rc = f"/tmp/charts_{slug}.rc"
+        self.log = f"/tmp/charts_{slug}.log"
+        # Every command is one idempotent shell line: a poll that fails
+        # midway is retried without touching the running step.  The whole
+        # backgrounded group is redirected (`( ... ) >/dev/null 2>&1
+        # </dev/null &`): without that the group inherits exec's stdout
+        # pipe and holds it open for the step's whole run, so sbx exec
+        # would wait for the step anyway -- the very timeout this avoids.
+        # `; echo $? > rc` records the step's own exit code and nohup keeps
+        # it alive after exec's shell exits.
+        line = (f"( cd {CLONE_DIR}/{DEMO} && rm -f {self.rc} && "
+                f"nohup sh -c '( {cmd} ) > {self.log} 2>&1; "
+                f"echo $? > {self.rc}' ) > /dev/null 2>&1 < /dev/null & "
+                f"echo {name} started")
+        step(f"{name} (launch)", lambda: sbx("exec", sid, "--timeout", "120",
+                                             "--", line))
+        print(f"run: {name} detached (budget {budget:.0f}s), polling",
+              flush=True)
+
+    def poll(self, sid: str) -> int:
+        """Wait for the step's exit code; return it (echoing the log)."""
+        deadline = time.monotonic() + self.budget
+        while True:
+            # `|| true`: a not-yet-written rc file is "still running", not
+            # a failed poll (cat would otherwise exit 1 and look like one).
+            got = step(f"{self.name} (poll)",
+                       lambda: sbx("exec", sid, "--timeout", "90", "--",
+                                   f"cat {self.rc} 2>/dev/null || true"))
+            code = got.stdout.strip()
+            if code.isdigit():
+                out = sbx("exec", sid, "--timeout", "120", "--",
+                          f"cat {self.log} 2>/dev/null")
+                if out.stdout:
+                    print(out.stdout.rstrip(), flush=True)
+                return int(code)
+            if time.monotonic() > deadline:
+                tail = sbx("exec", sid, "--timeout", "120", "--",
+                           f"tail -40 {self.log} 2>/dev/null")
+                raise Failure(
+                    f"{self.name} did not finish within {self.budget:.0f}s; "
+                    f"last output:\n{(tail.stdout or '').strip()[-2000:]}")
+            time.sleep(POLL_EVERY)
+
+
+def detached(name: str, sid: str, cmd: str, budget: float) -> int:
+    """Launch a long step detached and return its real exit code."""
+    job = Detached(sid, name, cmd, budget)
+    return job.poll(sid)
 
 
 def main() -> int:
@@ -129,32 +194,31 @@ def main() -> int:
                          f"rm -rf {CLONE_DIR} && git clone --depth 1 "
                          f"-b {args.ref} {REPO} {CLONE_DIR}"))
 
-        def in_sandbox(name: str, cmd: str, timeout: float,
-                       echo: bool = False) -> subprocess.CompletedProcess:
-            # Local subprocess timeout must exceed the sandbox-side --timeout
-            # so the sandbox command can finish before the local process is
-            # killed; add 60 s for CLI round-trip overhead.
-            proc = step(name, lambda: sbx(
-                "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}",
-                timeout=timeout + 60))
-            if echo:
-                show(proc)
-            return proc
+        # The three long steps run detached: a step that takes minutes
+        # cannot outlive a single exec reply, so each records its own exit
+        # code and run.py polls for it (see Detached).  A non-zero code is
+        # the step's own failure and is reported as one.
+        def long_step(name: str, cmd: str, budget: float) -> None:
+            start = time.monotonic()
+            rc = detached(name, sid, cmd, budget)
+            print(f"run: [{time.monotonic() - start:6.1f}s] {name} -> "
+                  f"exit {rc}", flush=True)
+            if rc != 0:
+                raise Failure(f"{name} failed (exit {rc})")
 
-        in_sandbox("judge/setup.sh", "bash judge/setup.sh", 900)
-        in_sandbox("judge/selftest.sh", "bash judge/selftest.sh", 900,
-                   echo=True)
-        graded = in_sandbox(
-            f"judge/grade.sh {ARTIFACT}",
-            f"bash judge/grade.sh {ARTIFACT} --json /tmp/verdict.json", 600,
-            echo=True)
+        long_step("judge/setup.sh", "bash judge/setup.sh", 900)
+        long_step("judge/selftest.sh", "bash judge/selftest.sh", 1200)
+        long_step(f"judge/grade.sh {ARTIFACT}",
+                  f"bash judge/grade.sh {ARTIFACT} --json /tmp/verdict.json",
+                  600)
 
+        verdict_text = sbx("exec", sid, "--timeout", "120", "--",
+                           "cat /tmp/verdict.json").stdout
         try:
-            verdict = json.loads(graded.stdout[graded.stdout.index("{"):])
+            verdict = json.loads(verdict_text[verdict_text.index("{"):])
         except (ValueError, json.JSONDecodeError) as exc:
             raise Failure(f"could not parse the verdict JSON: {exc}\n"
-                          f"{graded.stdout[-1000:]}") from exc
+                          f"{verdict_text[-1000:]}") from exc
         gates = verdict.get("gates", {})
         answers = gates.get("G2", {})
         images = gates.get("G3", {})
