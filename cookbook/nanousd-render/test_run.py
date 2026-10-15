@@ -24,6 +24,8 @@ import importlib.util
 import io
 import os
 import shlex
+import shutil
+import site
 import subprocess
 import sys
 import unittest
@@ -126,7 +128,17 @@ class CliHelpTest(unittest.TestCase):
     def test_sbx_exec_help_documents_the_separator(self):
         """The installed CLI's own help tells the caller to use `--`; if
         that contract moves, run.py's argv must be revisited."""
-        proc = subprocess.run(["sbx", "exec", "--help"],
+        # resolve the installed console script even when the user bin dir
+        # is not on this shell's PATH (site.getuserbase()/bin/sbx)
+        exe = shutil.which("sbx")
+        if not exe:
+            cand = os.path.join(site.getuserbase(), "bin", "sbx")
+            if os.path.exists(cand):
+                exe = cand
+        self.assertIsNotNone(
+            exe, "sbx CLI not installed: pip install "
+            '"git+https://github.com/agent-next/sandbox#subdirectory=cli"')
+        proc = subprocess.run([exe, "exec", "--help"],
                               capture_output=True, text=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("--", proc.stdout)
