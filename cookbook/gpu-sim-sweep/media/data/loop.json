@@ -1,0 +1,8 @@
+{
+  "provenance": "Recorded config-fixing replay using real acceptance mutant grades, not a chronological live agent trace.",
+  "iterations": [
+    {"report_key": "solver_iter_1", "label": "1 solver iteration: parity fails"},
+    {"report_key": "low_capacity", "label": "Contact capacity 8/32: boxes tunnel"},
+    {"report_key": "good", "label": "100 iterations + capacity 64/256: PASS"}
+  ]
+}

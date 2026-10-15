@@ -1,0 +1,75 @@
+{
+  "generated_by": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
+  "measurement_command": "python3 cookbook/gpu-sim-sweep/run.py --ref sbx/sweep-r4 --gpu",
+  "measurement_date": "2026-10-15",
+  "outputs": {
+    "demo.mp4": {
+      "bytes": 6629359,
+      "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
+      "sha256": "0a734a5f8cc1e389ae5a17d3b8de2b2781454d4a68fc9d23d7061e172acf065a",
+      "source_data": [
+        "media/data/report.json",
+        "media/data/cpu-qpos.npy",
+        "media/data/model.xml",
+        "media/data/loop.json"
+      ],
+      "what": "30 s native MuJoCo renders of CPU reference and retained GPU world-0 states; matched-clock CPU/GPU comparison with measured common-scale throughput bars; early 1-to-8192 measured sweep illustrated with 1/4/16/64/256 CPU-simulated worlds explicitly labelled visual replay, perturbed starts, not measured worlds; phone-readable provenance, animated HUD and green check / red X plain-English rejections over real moving simulation; static launch frame only in the last 2 s."
+    },
+    "loop.png": {
+      "bytes": 203144,
+      "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
+      "sha256": "32bd45cbe367fcaf6716dc60f72d70c7c27a4cb7815aa7d0d8e0bb2bf3c91e44",
+      "source_data": [
+        "media/data/report.json",
+        "media/data/cpu-qpos.npy",
+        "media/data/model.xml",
+        "media/data/loop.json"
+      ],
+      "what": "Pillow config-fixing replay of two measured bad grades and the good grade (explicitly not a live agent trace), all six final gates and the 8/8 self-test kill rate."
+    },
+    "result.png": {
+      "bytes": 831002,
+      "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
+      "sha256": "06a3bc2fc9744d9ae070a27015a36b82868b4ea28ef8fac206184a6916dbea9a",
+      "source_data": [
+        "media/data/report.json",
+        "media/data/cpu-qpos.npy",
+        "media/data/model.xml",
+        "media/data/loop.json"
+      ],
+      "what": "Four real MuJoCo 3D key moments of the arm and eight boxes; graded CPU oracle vs pass bounds per tile; measured GPU ladder and throughput pass line drawn with Pillow."
+    }
+  },
+  "render_backend": "mujoco.Renderer; EGL preferred, OSMesa fallback",
+  "seed": 0,
+  "source_sha256": {
+    "examples/good/sweep.json": "7fe65e25418a3635ea1b4e0248a1740eb64854af39fc0f29a655a6d0764ae29e",
+    "judge/_grade.py": "12b25f63d4d5b2d68bb55456c29a70f98f0f8a379febc463fa4c40c8d8a84b01",
+    "judge/_sweep.py": "122f815441917dda9851cd16bad97c69dec2aacda7b4100bbb14e4d95597646a",
+    "judge/scene.py": "fa70d188d684b82e72efe47627f4138754430644ccf382f65fcbfe0f1222aeb0",
+    "media/data/cpu-qpos.npy": "1ffda39e2d8819da2ae6305ad21bf71948a2068f9e872e0d98357ebd7202d51e",
+    "media/data/gpu-run.log": "9b6ab3620e7c76ccba182ffdb11edcbd6d072b7f9dca0dfe95786ae438937b34",
+    "media/data/loop.json": "ed3b735d2e6c1c9ee107282550a56d3cdbe5589853e35bed4461b72782fe6ddd",
+    "media/data/model.xml": "b223d3c11761e8abe2d13b65a0ad800172e4fa2c3d471366d5b1c4df64002d0b",
+    "media/data/replay.json": "44021fdb82e4991c562316d70998e850c175749e1198923cf5e268bfac7bbe57",
+    "media/data/report.json": "e5e9c9b39371c809e6aa91fc2bcbf5b53ab1df0a3b063953fe59846d5357bd26",
+    "media/data/visual-replay.json": "a5266bd58b089498cb95ae3ad393ad0f2413ec4b19081647044a05425515faec",
+    "media/evidence.py": "4686295f7bd2349109116d6ea3d19d8c3422e35499bd30b30f997bc23c139e2f",
+    "media/make_media.sh": "a9bbbbebb15cd50a0df657deb47f894422e3fccbe488ecc80d8ee1bd066d06f8",
+    "media/manifest.py": "e3341dbaba46db14765d8ef7c8ac10dabef3d796ba3a53d97286327d4937e1e5",
+    "media/render.py": "a76a25cdeec8ee6e47b573a4b0ae4a283110a95dda6d75984125b65897629871",
+    "media/requirements.txt": "76a8e7ab75315d6fdb5ddfefb6bed31c5e02408dc7aa68fe5972131969b69c66",
+    "media/test_media.py": "33134f30639528f1d4d8804128760d696fcad469a9d06ef902d8bc652a900d8a",
+    "media/video-gate.json": "7175e338aa071e23e7a8430765665b0d4b61daf407d40ca75cbae54eab2f1c67"
+  },
+  "state_checks": "All CPU states re-run with judge cpu_reference; graded CPU oracle within 1e-9; every rendered qpos within 1e-9 of the CPU data or exact retained GPU samples; separately labelled visual variants use seeded real CPU simulations with bounded start perturbations, never measured data; translated grid instances preserve each variant's pose; retained float32 GPU samples within judge tolerance 0.05.",
+  "video": {
+    "fps": 30,
+    "height": 1080,
+    "lossless_master": "media/master/demo.mp4 (-crf 0, git-ignored)",
+    "seconds": 30,
+    "simulator_clips": "media/clips/shot-00.mp4 through shot-10.mp4 (lossless, git-ignored; concatenated into master)",
+    "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -maxrate 1900k -bufsize 1900k -movflags +faststart",
+    "width": 1920
+  }
+}

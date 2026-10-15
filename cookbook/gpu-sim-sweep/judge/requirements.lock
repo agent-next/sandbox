@@ -1,0 +1,25 @@
+## pinned toolchain for gpu-sim-sweep judge — pip install --require-hashes
+## mujoco 3.8.1, mujoco-warp 3.8.1, warp-lang 1.13.0, numpy 1.26.4
+## CPython 3.12 only, x86-64 Linux (cp312 wheel hashes)
+mujoco==3.8.1 \
+    --hash=sha256:2970c90913a52b31eade56f27e5439905f08f1479e7991e257144ca829fa1267
+mujoco-warp==3.8.1 \
+    --hash=sha256:6aef7339ba3a8bf8e69659172d2d770169096e3a341f6b5b8a909b383c2581a2
+warp-lang==1.13.0 \
+    --hash=sha256:ac2479c70ad410d58deb088c2a64168792be588efc1bec22dc51f92238e8c8c3
+numpy==1.26.4 \
+    --hash=sha256:675d61ffbfa78604709862923189bad94014bef562cc35cf61d3a07bba02a7ed
+absl-py==2.5.1 \
+    --hash=sha256:721200f2f0e9960f2ca9dc3a2a706b201f5f75d812c158f059cbbe29eeafbdb8
+etils[epath]==1.14.0 \
+    --hash=sha256:b5df7341f54dbe1405a4450b2741207b4a8c279780402b45f87202b94dfc52b4
+glfw==2.10.2 \
+    --hash=sha256:b860de3ca0686182483f98f3ddd12e660acf25b3e0d521450ec9a3f999f72a65
+pyopengl==3.1.10 \
+    --hash=sha256:794a943daced39300879e4e47bd94525280685f42dbb5a998d336cfff151d74f
+fsspec==2026.9.0 \
+    --hash=sha256:8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+zipp==4.1.1 \
+    --hash=sha256:8979f52d874162f485ff2981e3891f3a3317b7a3dd43ff1e1775b9304f307a9c

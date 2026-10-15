@@ -1,0 +1,51 @@
+$ python3 run.py --ref sbx/sweep-r4 --gpu --report-json media/data/report.json
+create GPU lease (4 GiB VRAM slice)...
+created gl-08a900-4 (4 GiB VRAM slice)
+exec unpack + mutant generation on GPU lease...
+  [unpack] exec ok (2 s)
+lease python 3.13.5; 8 mutants generated
+grade known-good (full mode: CPU baseline + real GPU sweep; first grade pays the Warp cold-compile)...
+  [grade good] exec ok (169 s)
+  [grade smuggled_results] exec ok (0 s)
+  [grade gravity_flipped] exec ok (0 s)
+  [grade missing_nconmax] exec ok (0 s)
+  [grade tiny_timestep] exec ok (0 s)
+  [grade short_settle] exec ok (1 s)
+  [grade solver_iter_1] exec ok (42 s)
+  [grade low_capacity] exec ok (72 s)
+  [grade over_ladder] exec ok (92 s)
+wrote exec report: media/data/report.json
+
+gpu-sim-sweep demo: PASS (mode full)
+  gate cost: pass
+  gate cpu-parity: pass
+  gate engine-parity: pass
+  gate physics-oracle: pass
+  gate structure: pass
+  gate throughput: pass
+  measured sweep (judge-ran, 4 GiB slice):
+   nworld |     steps/s | arm err |            box z | 1st step s
+        1 |         134 |   0.036 | [0.315,0.315] |     104.94
+       64 |      10,785 |   0.036 | [0.315,0.315] |       0.01
+      512 |      77,008 |   0.036 | [0.315,0.315] |       0.01
+     2048 |     248,064 |   0.036 | [0.315,0.315] |       0.01
+     8192 |     686,725 |   0.036 | [0.315,0.315] |       0.01
+  CPU 26,574 steps/s, top GPU 686,725 steps/s (speedup x25.8, floor x4.0)
+  cold Warp compile (first step): 104.945 s; parity max err 0.008110745441113454 rad
+
+mutants: 8/8 killed
+  gravity_flipped: FAIL (structure)
+  low_capacity: FAIL (cpu-parity, physics-oracle)
+  missing_nconmax: FAIL (structure)
+  over_ladder: FAIL (physics-oracle, throughput)
+  short_settle: FAIL (cost)
+  smuggled_results: FAIL (structure)
+  solver_iter_1: FAIL (cpu-parity)
+  tiny_timestep: FAIL (cost)
+destroying gl-08a900-4...
+destroyed gl-08a900-4; verified absent or dead
+total: 383 s
+
+real	6m22.852s
+user	0m0.142s
+sys	0m0.049s

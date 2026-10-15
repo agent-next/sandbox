@@ -1,0 +1,33 @@
+{
+  "arm_start_perturbation_rad": [
+    -0.12,
+    0.12
+  ],
+  "box_position_perturbation_m": [
+    [
+      -0.025,
+      0.025
+    ],
+    [
+      -0.025,
+      0.025
+    ],
+    [
+      -0.08,
+      0.08
+    ]
+  ],
+  "box_rotation_perturbation_rad": [
+    -0.35,
+    0.35
+  ],
+  "display_only": "translated world instances; arm colour varies by world",
+  "initial_velocity": 0,
+  "measured": false,
+  "measured_gpu_starts": "identical; these are NOT the measured worlds",
+  "on_screen_label": "visual replay, perturbed starts",
+  "qpos_sha256": "61865d9bd12050cf1effc26b31f466d4b6e1319338328ace139e26bc7bce3a8a",
+  "seed": 0,
+  "source": "same good config and controls; new CPU simulations only",
+  "worlds_rendered_at_most": 256
+}
