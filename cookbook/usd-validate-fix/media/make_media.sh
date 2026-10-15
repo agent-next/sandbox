@@ -40,12 +40,28 @@ command -v ffmpeg >/dev/null 2>&1 || { echo "make_media: ffmpeg missing" >&2; ex
 # MPLPY, a separate git-ignored venv at media/.venv, built here when
 # missing so `bash media/make_media.sh` works on a fresh host.  Judge
 # tools that need pxr keep using $PY (the judge venv).
+#
+# The install is hash-checked (media/requirements.txt): a re-published
+# matplotlib or numpy wheel cannot silently change what result.png or
+# demo.mp4 draws.  Add a new wheel version by regenerating that file, not
+# by loosening the flags here.
 MPLPY="$MEDIA_DIR/.venv/bin/python"
+PINNED="$MEDIA_DIR/requirements.txt"
+[ -f "$PINNED" ] || { echo "make_media: $PINNED missing" >&2; exit 1; }
 if [ ! -x "$MPLPY" ] || ! "$MPLPY" -c 'import matplotlib, numpy' >/dev/null 2>&1; then
-    echo "[media] creating plotting venv media/.venv (matplotlib+numpy, pinned)"
+    echo "[media] creating plotting venv media/.venv from hash-pinned requirements.txt"
     python3 -m venv "$MEDIA_DIR/.venv"
     "$MEDIA_DIR/.venv/bin/pip" install --disable-pip-version-check --quiet \
-        matplotlib==3.11.2 numpy==2.5.4
+        --only-binary :all: --require-hashes -r "$PINNED"
+fi
+# A pre-existing venv is only trusted if it matches the pins: pip lists
+# whatever is installed, so a hand-edited venv is caught here rather than
+# changing the media.
+INSTALLED="$("$MPLPY" -c 'import matplotlib,numpy; print(matplotlib.__version__,numpy.__version__)')"
+if [ "$INSTALLED" != "3.11.2 2.5.4" ]; then
+    echo "make_media: media/.venv has matplotlib/numpy '$INSTALLED', requirements.txt pins 3.11.2 2.5.4" >&2
+    echo "make_media: remove $MEDIA_DIR/.venv and re-run" >&2
+    exit 1
 fi
 
 echo "[media] matplotlib $("$MPLPY" -c 'import matplotlib; print(matplotlib.__version__)')"

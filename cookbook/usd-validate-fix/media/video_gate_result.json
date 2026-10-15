@@ -2,8 +2,7 @@
   "file": "demo.mp4",
   "passed": false,
   "failed": [
-    "scene_cuts_per_10s",
-    "motion_fraction"
+    "scene_cuts_per_10s"
   ],
   "checks": [
     {
@@ -26,7 +25,7 @@
     },
     {
       "name": "duration_s",
-      "measured": 46.3333,
+      "measured": 34.0333,
       "threshold": "25-60 s",
       "pass": true
     },
@@ -50,25 +49,25 @@
     },
     {
       "name": "size_mib",
-      "measured": 4.0091,
+      "measured": 3.7519,
       "threshold": "<= 8 MiB",
       "pass": true
     },
     {
       "name": "faststart",
-      "measured": "moov@32 mdat@17409",
+      "measured": "moov@32 mdat@11249",
       "threshold": "moov atom before mdat",
       "pass": true
     },
     {
       "name": "first_frame_luma_mean",
-      "measured": 236.2949,
+      "measured": 234.5534,
       "threshold": ">= 20",
       "pass": true
     },
     {
       "name": "first_frame_luma_std",
-      "measured": 48.5713,
+      "measured": 55.3759,
       "threshold": ">= 12",
       "pass": true
     },
@@ -80,15 +79,15 @@
     },
     {
       "name": "scene_cuts_per_10s",
-      "measured": 0.6475,
+      "measured": 0.2938,
       "threshold": ">= 0.8",
       "pass": false
     },
     {
       "name": "motion_fraction",
-      "measured": 0.109,
+      "measured": 0.8304,
       "threshold": ">= 0.2 (frames with YDIF >= 1, before the last 2 s)",
-      "pass": false
+      "pass": true
     },
     {
       "name": "endcard_static",
