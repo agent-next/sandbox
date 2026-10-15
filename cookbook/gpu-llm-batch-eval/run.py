@@ -35,12 +35,12 @@ printed.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
-import tarfile
 import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -60,6 +60,9 @@ GPU_MODEL_FILES = ["config.json", "generation_config.json", "merges.txt",
                    "model.safetensors", "tokenizer.json",
                    "tokenizer_config.json", "vocab.json"]
 HF_BASE = f"https://huggingface.co/{GPU_MODEL}/resolve/{GPU_MODEL_COMMIT}"
+# The files API caps one upload at 512 MiB, so model.safetensors (~0.9 GiB)
+# travels as chunks that the lease reassembles (and sha256-checks) itself.
+UPLOAD_CHUNK = 400 * 1024 * 1024
 
 
 def die(msg, code=1):
@@ -112,7 +115,6 @@ def request(key, method, path, body=None, raw=None, timeout=900):
 
 
 def sha256_file(path):
-    import hashlib
     h = hashlib.sha256()
     with open(path, "rb") as fh:
         for block in iter(lambda: fh.read(1 << 20), b""):
@@ -128,20 +130,10 @@ def verify_lease_id(sid):
             "destroyed automatically — list your sandboxes and delete it")
 
 
-def gpu_exec_job(model_sha, problems_sha, device="cuda"):
-    """The Python the lease runs: load local weights, generate, write bundle."""
+def gpu_reattach_job(model_sha, n_parts):
+    """First lease exec: reassemble the chunked weights and sha256-check them."""
     return f"""
-import hashlib, json, os, time, sys
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-report['device_name'] = torch.cuda.get_device_name(0)
-report['torch'] = torch.__version__
-report['python'] = sys.version.split()[0]
-
-work = os.path.expanduser('~/eval')
-model_dir = os.path.join(work, 'model')
-problems_path = os.path.join(work, 'problems.json')
+import hashlib, os, glob
 
 def sha(path):
     h = hashlib.sha256()
@@ -150,21 +142,57 @@ def sha(path):
             h.update(b)
     return h.hexdigest()
 
-want_model = {model_sha!r}
-want_problems = {problems_sha!r}
-got_problems = sha(problems_path)
-assert got_problems == want_problems, 'problems.json sha256 mismatch: ' + got_problems
-report['problems_sha256'] = got_problems
-# the weights are one file; a per-file check is what the upload returned
-report['weights_sha256'] = sha(os.path.join(model_dir, 'model.safetensors'))
+parts = sorted(glob.glob('model/model.safetensors.part*'))
+assert len(parts) == {n_parts}, 'expected {n_parts} weight chunks, got %d' % len(parts)
+with open('model/model.safetensors', 'wb') as out:
+    for p in parts:
+        with open(p, 'rb') as fh:
+            for b in iter(lambda: fh.read(1 << 20), b''):
+                out.write(b)
+got = sha('model/model.safetensors')
+assert got == {model_sha!r}, 'reassembled weights sha256 mismatch: ' + got
+for p in parts:
+    os.remove(p)
+report['weights_sha256'] = got
+report['weights_bytes'] = os.path.getsize('model/model.safetensors')
+"""
 
-rows = json.load(open(problems_path))['problems']
-tok = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
+
+def gpu_exec_job(problems_sha, device="cuda"):
+    """Second lease exec: load local weights, generate, write the bundle.
+
+    Paths are workdir-relative: uploads stream into the lease workdir, and
+    downloads read <workdir>/out, so the bundle lands in out/bundle.json.
+    """
+    return f"""
+import hashlib, json, os, time, sys
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+report['device_name'] = torch.cuda.get_device_name(0)
+report['torch'] = torch.__version__
+report['transformers'] = transformers.__version__
+report['python'] = sys.version.split()[0]
+
+def sha(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for b in iter(lambda: fh.read(1 << 20), b''):
+            h.update(b)
+    return h.hexdigest()
+
+got_problems = sha('problems.json')
+assert got_problems == {problems_sha!r}, 'problems.json sha256 mismatch: ' + got_problems
+report['problems_sha256'] = got_problems
+report['weights_sha256'] = sha('model/model.safetensors')
+
+rows = json.load(open('problems.json'))['problems']
+tok = AutoTokenizer.from_pretrained('model', local_files_only=True)
 if tok.pad_token is None:
     tok.pad_token = tok.eos_token
 tok.padding_side = 'left'
 model = AutoModelForCausalLM.from_pretrained(
-    model_dir, dtype=torch.bfloat16, local_files_only=True).to('cuda').eval()
+    'model', dtype=torch.bfloat16, local_files_only=True).to('cuda').eval()
 
 SUF = ("\\nSolve the problem step by step. End your answer with the line "
        "'Final answer: <number>'.")
@@ -236,18 +264,41 @@ for g, r in zip(gens, rows):
         correct += 1
 bundle['reported_accuracy'] = round(correct / len(rows), 6)
 report['reported_accuracy'] = bundle['reported_accuracy']
-json.dump(bundle, open(os.path.join(work, 'bundle.json'), 'w'), indent=1, sort_keys=True)
-report['bundle_bytes'] = os.path.getsize(os.path.join(work, 'bundle.json'))
+os.makedirs('out', exist_ok=True)
+json.dump(bundle, open('out/bundle.json', 'w'), indent=1, sort_keys=True)
+report['bundle_bytes'] = os.path.getsize('out/bundle.json')
 """
+
+
+def load_model_pins(demo_path):
+    """judge/MODEL.txt: '<sha256>  <name>' per pinned model file."""
+    pins = {}
+    path = os.path.join(demo_path, "judge", "MODEL.txt")
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            digest, name = line.split(None, 1)
+            pins[name.strip()] = digest
+    return pins
+
+
+def upload_bytes(key, sid, name, data, want_sha):
+    """PUT one file through the lease files API and verify its sha256."""
+    st, body = request(key, "PUT", f"/sandboxes/{sid}/files/{name}", raw=data)
+    if st != 200 or not isinstance(body, dict) or body.get("sha256") != want_sha:
+        die(f"gpu: upload {name} HTTP {st}: {body}")
+    return body
 
 
 def run_gpu_lane(key, demo_path, report_json=None):
     """Generate the good bundle on a GPU slice lease; upload in, download out."""
     import tempfile
-    with open(os.path.join(demo_path, "judge", "problems.json"), "rb") as fh:
-        problems_bytes = fh.read()
-    problems_sha = sha256_file(os.path.join(demo_path, "judge", "problems.json"))
-    model_sha = GPU_MODEL_SHA
+    problems_path = os.path.join(demo_path, "judge", "problems.json")
+    problems_bytes = open(problems_path, "rb").read()
+    problems_sha = sha256_file(problems_path)
+    pins = load_model_pins(demo_path)
 
     print(f"gpu: creating lease ({GPU_VRAM_GB} GiB VRAM slice)...", flush=True)
     t0 = time.monotonic()
@@ -266,34 +317,47 @@ def run_gpu_lane(key, demo_path, report_json=None):
         print("gpu: uploading pinned problems + weights via the files API...",
               flush=True)
         t0 = time.monotonic()
-        st, body = request(key, "PUT", f"/sandboxes/{sid}/files/problems.json",
-                           raw=problems_bytes)
-        if st != 200 or not isinstance(body, dict) or \
-                body.get("sha256") != problems_sha:
-            die(f"gpu: upload problems.json HTTP {st}: {body}")
+        upload_bytes(key, sid, "problems.json", problems_bytes, problems_sha)
         for name in GPU_MODEL_FILES:
             path = os.path.join(tmpdir, name)
             if not os.path.exists(path):
-                url = f"{HF_BASE}/{name}"
-                subprocess.run(["curl", "-sSL", "-o", path, url], check=True)
+                subprocess.run(["curl", "-sSL", "-o", path,
+                                f"{HF_BASE}/{name}"], check=True)
+            local_sha = sha256_file(path)
+            if local_sha != pins.get(name):
+                die(f"gpu: {name} sha256 {local_sha} does not match the pin "
+                    f"in judge/MODEL.txt ({pins.get(name)})")
+            size = os.path.getsize(path)
+            if name != "model.safetensors" or size <= UPLOAD_CHUNK:
+                upload_bytes(key, sid, f"model/{name}",
+                             open(path, "rb").read(), local_sha)
+                print(f"gpu:   uploaded model/{name} ({size} bytes)", flush=True)
+                continue
+            # the weights exceed the per-upload cap: send them as chunks the
+            # lease reassembles (and sha256-checks) itself
+            n_parts = 0
             with open(path, "rb") as fh:
-                data = fh.read()
-            st, body = request(key, "PUT",
-                               f"/sandboxes/{sid}/files/model/{name}", raw=data)
-            if st != 200 or not isinstance(body, dict) or \
-                    body.get("sha256") != sha256_file(path):
-                die(f"gpu: upload model/{name} HTTP {st}: {body}")
-            print(f"gpu:   uploaded model/{name} ({len(data)} bytes)",
-                  flush=True)
+                while True:
+                    chunk = fh.read(UPLOAD_CHUNK)
+                    if not chunk:
+                        break
+                    part_sha = sha256_bytes(chunk)
+                    upload_bytes(key, sid,
+                                 f"model/{name}.part{n_parts}", chunk,
+                                 part_sha)
+                    n_parts += 1
+                    print(f"gpu:   uploaded model/{name}.part{n_parts - 1} "
+                          f"({len(chunk)} bytes)", flush=True)
+            report = reassemble(key, sid, local_sha, n_parts)
+            print(f"gpu:   reassembled model/{name} ({report['weights_bytes']} "
+                  f"bytes, sha256 verified on the lease)", flush=True)
         print(f"gpu: upload round trip {time.monotonic() - t0:.0f} s", flush=True)
 
-        job = ("import os\n"
-               "os.makedirs(os.path.expanduser('~/eval'), exist_ok=True)\n"
-               + gpu_exec_job(model_sha, problems_sha))
         print("gpu: running batched generation on the lease...", flush=True)
         t0 = time.monotonic()
         st, executed = request(key, "POST", f"/sandboxes/{sid}/exec",
-                               {"code": job, "timeout_s": 3600})
+                               {"code": gpu_exec_job(problems_sha),
+                                "timeout_s": 3600})
         print(f"gpu: exec round trip {time.monotonic() - t0:.0f} s "
               f"(HTTP {st})", flush=True)
         if st != 200 or not isinstance(executed, dict):
@@ -303,7 +367,8 @@ def run_gpu_lane(key, demo_path, report_json=None):
             die(f"gpu: job failed: {result.get('stderr', '')[-800:]}")
         report = result.get("report") or {}
 
-        st, bundle_bytes = request(key, "GET", f"/sandboxes/{sid}/files/bundle.json")
+        st, bundle_bytes = request(key, "GET",
+                                   f"/sandboxes/{sid}/files/bundle.json")
         if st != 200 or not isinstance(bundle_bytes, bytes):
             die(f"gpu: could not download bundle.json: HTTP {st}")
         out = os.path.join(demo_path, "examples", "good", "bundle.json")
@@ -336,8 +401,21 @@ def run_gpu_lane(key, demo_path, report_json=None):
         print(f"gpu: lease {sid} deleted; GET confirms gone (404)", flush=True)
 
 
-# sha256 of the pinned weights file, recorded from the pinned download
-GPU_MODEL_SHA = os.environ.get("LLM_EVAL_MODEL_SHA256", "")
+def reassemble(key, sid, want_sha, n_parts):
+    """Run the chunk-reassembly exec; return its report."""
+    st, executed = request(key, "POST", f"/sandboxes/{sid}/exec",
+                           {"code": gpu_reattach_job(want_sha, n_parts),
+                            "timeout_s": 900})
+    if st != 200 or not isinstance(executed, dict):
+        die(f"gpu: reassembly exec HTTP {st}")
+    result = executed.get("result") or {}
+    if result.get("ok") is not True:
+        die(f"gpu: reassembly failed: {result.get('stderr', '')[-800:]}")
+    return result.get("report") or {}
+
+
+def sha256_bytes(data):
+    return hashlib.sha256(data).hexdigest()
 
 
 def main():
