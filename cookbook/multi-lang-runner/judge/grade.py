@@ -144,7 +144,7 @@ def gate_run(artifact, cases_dir, workdir, compile_timing):
                 key = "%s/%s" % (prob, cf)
                 run_timing[lang]["run_s"][key] = round(wall, 3)
                 if rc != 0:
-                    failures.append("%s/%s run %s: rc=%d %s" % (lang, prob, cf, err[:200]))
+                    failures.append("%s/%s run %s: rc=%s %s" % (lang, prob, cf, rc, err[:200]))
                     continue
                 expected = oracle(prob, stdin_text)
                 if out != expected:
