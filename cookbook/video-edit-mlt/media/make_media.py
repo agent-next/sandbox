@@ -3,8 +3,8 @@
 import hashlib
 import importlib.util
 import json
-import math
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -39,10 +39,6 @@ def canvas(colour=BG):
     return Image.new("RGB", (W, H), colour)
 
 
-def panel(im, box, colour):
-    ImageDraw.Draw(im).rounded_rectangle(box, radius=18, fill=colour)
-
-
 def movie_frame(index):
     return Image.open(WORK / f"edit-{max(1,min(225,index+1)):03d}.png").convert("RGB")
 
@@ -50,14 +46,6 @@ def movie_frame(index):
 def paste_fit(im, frame, box):
     x, y, w, h = box
     im.paste(frame.resize((w, h), Image.Resampling.LANCZOS), (x, y))
-
-
-def metric(im, xy, label, value, limit, width=800):
-    x, y = xy
-    text(im, (x, y), label, 64, MUTED)
-    text(im, (x, y+70), value, 110, GREEN, True)
-    text(im, (x, y+200), limit, 64, INK)
-    ImageDraw.Draw(im).line((x, y+280, x+width, y+280), fill="#344155", width=2)
 
 
 def summarize():
@@ -130,136 +118,6 @@ def loop_figure(v, matrix):
     im.save(MEDIA / "loop.png", dpi=(200, 200))
 
 
-def shot(t, verdict, measurements, matrix, bad):
-    g = verdict["gates"]
-    def readout(im, index, xy):
-        code = measurements["decoded"][index]
-        if 100 <= index <= 124:
-            label = f"OUT {index:03d} / B {measurements['weights'][index-100]:.3f}"
-        else:
-            label = f"OUT {index:03d} = {'ABC'[code[0]]}:{code[1]:03d}"
-        x, y = xy
-        panel(im, (x-20, y-10, x+890, y+95), BG)
-        text(im, (x, y), label, 64, GREEN, True)
-    if t < 2:
-        index = int(t*25)
-        im = movie_frame(index).resize((W, H), Image.Resampling.LANCZOS)
-        panel(im, (40, 40, 1880, 250), BG)
-        text(im, (80, 60), "AN AI AGENT EDITED THIS VIDEO", 78, INK, True)
-        text(im, (80, 160), "and a checker verified every frame", 60, MUTED)
-        panel(im, (1290, 780, 1850, 925), "#0b6e4f")
-        text(im, (1325, 810), "PASS 225/225", 66, INK, True)
-        panel(im, (70, 780, 1250, 925), BG)
-        text(im, (110, 805), "THE CUT. EVERY FRAME.", 78, INK, True)
-        readout(im, index, (110, 300))
-        return im
-    if t < 5:
-        im = canvas("#f4f1e8")
-        text(im, (65, 55), "225 FRAMES.", 96, BG, True)
-        text(im, (65, 170), "ZERO GUESSWORK.", 96, BG, True)
-        index = int((t-2)*25)
-        paste_fit(im, movie_frame(index), (760, 360, 1120, 630))
-        readout(im, index, (800, 850))
-        for j, line in enumerate(["1280 x 720 / 25 fps", "One 25-frame dissolve", "Logo: frames 0-99", "Music duck >= 8 dB"]):
-            text(im, (65, 400+j*120), line, 64, BG)
-        return im
-    if t < 8:
-        im = canvas("#23372f")
-        text(im, (65, 40), "A > DISSOLVE > B > C", 82, INK, True)
-        for i, name in enumerate("abc"):
-            source = Image.open(WORK / f"source-{name}.png")
-            paste_fit(im, source, (65+i*610, 190, 570, 320))
-            text(im, (90+i*610, 200), name.upper(), 72, INK, True)
-        index = 100+int((t-5)*25)
-        paste_fit(im, movie_frame(index), (500, 560, 920, 518))
-        readout(im, index, (520, 960))
-        text(im, (65, 660), "SOURCE", 64)
-        text(im, (65, 750), "TO CUT", 64)
-        return im
-    if t < 13:
-        i = min(124, 100+int((t-8)*5))
-        im = movie_frame(i).resize((W, H), Image.Resampling.LANCZOS)
-        panel(im, (0, 100, W, 310), BG)
-        text(im, (65, 115), "25 FRAMES. ONE DISSOLVE.", 78, INK, True)
-        text(im, (65, 220), f'Frame {i} / B weight {measurements["weights"][i-100]:.3f}', 64, GREEN)
-        panel(im, (60, 885, 1080, 1010), BG)
-        text(im, (90, 910), "0.2x speed / real frames", 64)
-        return im
-    if t < 17:
-        i = min(224, 195+int((t-13)*6))
-        im = canvas("#e5edf3")
-        paste_fit(im, movie_frame(i), (0, 300, W, H))
-        panel(im, (0, 0, W, 300), BG)
-        text(im, (65, 20), "THE CHECKER READS THE PIXELS.", 74, INK, True)
-        cid, source = measurements["decoded"][i]
-        text(im, (65, 125), f"OUTPUT {i:03d} = CLIP {'ABC'[cid]} : {source:03d}", 80, GREEN, True)
-        text(im, (65, 220), "0.24x speed / real output", 64)
-        return im
-    if t < 21:
-        im = canvas("#f4f1e8")
-        text(im, (65, 50), "MUSIC DOWN. VOICE THROUGH.", 78, BG, True)
-        text(im, (65, 170), "Music volume, measured from the exported audio", 64, "#344155")
-        d = ImageDraw.Draw(im)
-        inside = measurements["music_inside"]
-        outside = measurements["music_outside"]
-        base = sum(outside)/len(outside)
-        for j, (label, values, colour) in enumerate((
-                ("NO VOICE", outside, BLUE), ("VOICE ON", inside, "#009e73"))):
-            y = 370+j*220
-            rms = math.sqrt(sum(x*x for x in values)/len(values))
-            d.rectangle((600, y, 600+int(1050*rms/base), y+100), fill=colour)
-            text(im, (65, y+10), label, 68, BG, True)
-        x = 600+int(1050*10**(-8/20))
-        d.line((x, 550, x, 800), fill="#d55e00", width=6)
-        text(im, (65, 855), f'Music {g["ducking"]["measured"]:.1f} dB quieter / needed 8 dB', 68, BG, True)
-        text(im, (65, 955), "Orange line: loudest music allowed under voice", 64, "#9c4100")
-        return im
-    if t < 26:
-        im = canvas("#102b27")
-        text(im, (65, 45), "PASS: 225 / 225 FRAMES", 82, INK, True)
-        text(im, (65, 150), "Measured from the pixels and the audio", 64, GREEN)
-        loud = g["loudness"]["measured"]
-        metric(im, (65, 310), "Wrong cuts", str(g["edl"]["measured"]), "allowed: 0")
-        metric(im, (1030, 310), "Dissolve error", f'{g["dissolve"]["measured"]:.2f}', "allowed: up to 0.20")
-        metric(im, (65, 660), "Loudness", "OK", f'{loud["integrated_lufs"]} / target -16')
-        metric(im, (1030, 660), "Clipping", "NONE", f'peak {loud["true_peak_dbtp"]} dB')
-        return im
-    if t < 32:
-        i = bad["first"]
-        im = canvas()
-        text(im, (65, 40), "ONE FRAME OFF? REJECTED.", 82, INK, True)
-        text(im, (65, 150), f"Same output frame {i:03d}, two timelines", 64, MUTED)
-        for col, (title, colour, code) in enumerate((
-                ("GOOD EDIT", GREEN, measurements["decoded"][i]),
-                ("OFF-BY-ONE CUT", "#d55e00", bad["decoded"][i]))):
-            x = 65+col*930
-            frame = Image.open((WORK if col == 0 else WORK / "bad") / f"edit-{i+1:03d}.png")
-            paste_fit(im, frame, (x, 260, 860, 484))
-            ImageDraw.Draw(im).rectangle((x-6, 254, x+866, 750), outline=colour, width=12)
-            text(im, (x, 780), title, 64, colour, True)
-            text(im, (x, 870), f"CLIP {'ABC'[code[0]]} : {code[1]:03d}", 72, INK, True)
-        text(im, (65, 975), f'Checker: {bad["verdict"]["gates"]["edl"]["measured"]} wrong cuts / FAIL', 64, "#d55e00", True)
-        return im
-    if t < 36:
-        im = canvas("#f4f1e8")
-        text(im, (65, 45), "11 / 11 BAD EDITS REJECTED", 82, BG, True)
-        names = [(name, matrix["mutants"][name]) for name in INTENDED]
-        for j, (name, item) in enumerate(names):
-            col, row = (0, j) if j < 6 else (1, j-6)
-            x, y = 65+col*960, 230+row*130
-            label = name.replace("_", " ")
-            text(im, (x, y), label, 64, BG, True)
-            text(im, (x, y+65), f'REJECT / {item["failed_gate"]}', 64, "#007354")
-        return im
-    im = canvas()
-    text(im, (100, 200), "PREMIERE, OPEN SOURCE", 88, INK, True)
-    text(im, (100, 360), "Write the timeline. Prove the cut.", 70, GREEN)
-    text(im, (100, 610), "python3", 80, INK, True)
-    text(im, (100, 720), "cookbook/video-edit-mlt/run.py", 76, INK, True)
-    text(im, (100, 925), "Disposable sandbox. Independent judge.", 64, MUTED)
-    return im
-
-
 def build():
     WORK.mkdir(exist_ok=True)
     for path, expected in (
@@ -272,30 +130,37 @@ def build():
     assert v["passed"] and all(m["killed"] for m in matrix["mutants"].values())
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(DATA / "render.mp4"),
                     "-fps_mode", "passthrough", str(WORK / "edit-%03d.png")], check=True)
-    for name in "abc":
-        subprocess.run(["ffmpeg", "-y", "-v", "error", "-i",
-                        str(DEMO / f"assets/clip_{name}.mp4"), "-frames:v", "1",
-                        str(WORK / f"source-{name}.png")], check=True)
     figure(v, f)
     loop_figure(v, matrix)
-    bad = load("offbyone/frames.json") | {"verdict": load("offbyone/verdict.json")}
-    assert bad["verdict"]["failed_gate"] == "edl"
-    bad["first"] = next(i for i, (a, b) in enumerate(zip(f["decoded"], bad["decoded"])) if a != b)
-    (WORK / "bad").mkdir(exist_ok=True)
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(DATA / "offbyone/render.mp4"),
-                    "-fps_mode", "passthrough", str(WORK / "bad/edit-%03d.png")], check=True)
-    with (WORK / "encode.log").open("wb") as err:
-        p = subprocess.Popen(["ffmpeg", "-y", "-v", "error", "-f", "rawvideo",
-                              "-pix_fmt", "rgb24", "-s", "1920x1080", "-r", "30",
-                              "-i", "-", "-c:v", "libx264", "-crf", "0",
-                              "-preset", "ultrafast", "-threads", "2",
-                              str(MEDIA / "master/lossless.mp4")],
-                             stdin=subprocess.PIPE, stderr=err)
-        for frame in range(40*30):
-            p.stdin.write(shot(frame/30, v, f, matrix, bad).tobytes())
-        p.stdin.close()
-        if p.wait() != 0:
-            raise RuntimeError("lossless encode failed; see work/encode.log")
+    bad = load("offbyone/verdict.json")
+    assert bad["failed_gate"] == "edl"
+    bad_decoded = load("offbyone/frames.json")["decoded"]
+    public = MEDIA / "video/public"
+    public.mkdir(exist_ok=True)
+    shutil.copyfile(DATA / "render.mp4", public / "render.mp4")
+    shutil.copyfile(DATA / "offbyone/render.mp4", public / "bad.mp4")
+    for name in "abc":
+        shutil.copyfile(DEMO / f"assets/clip_{name}.mp4", public / f"clip_{name}.mp4")
+    g = v["gates"]
+    loud = g["loudness"]["measured"]
+    write(WORK / "props.json", {
+        "decoded": f["decoded"], "weights": f["weights"],
+        "musicInside": f["music_inside"], "musicOutside": f["music_outside"],
+        "ducking": g["ducking"]["measured"], "dissolve": g["dissolve"]["measured"],
+        "lufs": loud["integrated_lufs"], "peak": loud["true_peak_dbtp"],
+        "edl": g["edl"]["measured"], "frames": len(f["decoded"]),
+        "gates": [
+            {"name": "wrong cuts", "value": str(g["edl"]["measured"])},
+            {"name": "dissolve error", "value": f'{g["dissolve"]["measured"]:.3f} (max 0.20)'},
+            {"name": "logo on", "value": f'frames 0-99, score {g["logo"]["measured"]["min_on"]:.3f}'},
+            {"name": "music under voice", "value": f'-{g["ducking"]["measured"]:.1f} dB'},
+            {"name": "loudness", "value": f'{loud["integrated_lufs"]} LUFS (target -16)'},
+            {"name": "peak", "value": f'{loud["true_peak_dbtp"]} dB, no clipping'},
+            {"name": "format", "value": "1280x720, 25 fps"},
+        ],
+        "mutants": [{"name": n, "gate": matrix["mutants"][n]["failed_gate"]} for n in INTENDED],
+        "bad": {"decoded": bad_decoded, "edl": bad["gates"]["edl"]["measured"],
+                "first": next(i for i, (a, b) in enumerate(zip(f["decoded"], bad_decoded)) if a != b)}})
     manifest_spec = importlib.util.spec_from_file_location("result", DEMO.parent / "tools/result.py")
     result = importlib.util.module_from_spec(manifest_spec)
     manifest_spec.loader.exec_module(result)
