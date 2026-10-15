@@ -27,7 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEMO = os.path.dirname(HERE)
 
 JOB = """
-import base64, json, os, subprocess, sys, time
+import base64, hashlib, json, os, subprocess, sys, time
 FILES = __PAYLOAD__
 ARGS = __ARGS__
 ROOT = os.path.expanduser('~/go1judge')
@@ -41,6 +41,14 @@ for name, b64 in FILES.items():
         fh.write(base64.b64decode(b64))
 for m in ('env', '_eval'):
     sys.modules.pop(m, None)
+protected = [n for n in FILES if n != 'policy.npz']
+def hashes():
+    return {n: hashlib.sha256(open(os.path.join(ROOT, 'model' if
+             n.endswith('.xml') else '', n), 'rb').read()).hexdigest()
+            for n in protected}
+before = hashes()
+if os.path.exists('verdict_out.json'):
+    os.unlink('verdict_out.json')
 t0 = time.time()
 proc = subprocess.run([sys.executable, '_eval.py'] + ARGS,
                       capture_output=True, text=True, timeout=600)
@@ -50,6 +58,9 @@ report['stderr_tail'] = proc.stderr[-2000:]
 report['eval_wall_s'] = round(time.time() - t0, 1)
 try:
     report['verdict'] = json.load(open('verdict_out.json'))
+    report['verdict']['judge_intact'] = before == hashes()
+    if not report['verdict']['judge_intact']:
+        report['verdict']['ok'] = False
 except Exception as exc:
     report['verdict'] = None
     report['verdict_error'] = str(exc)
@@ -66,19 +77,27 @@ def request(key, method, path, body=None, timeout=900):
     r = Request(API + path, data=data, method=method,
                 headers={"X-API-Key": key, "Content-Type": "application/json"})
     last = None
+    error = None
     for attempt in range(5):
         try:
             with urlopen(r, timeout=timeout) as resp:
                 raw = resp.read()
                 return resp.status, json.loads(raw) if raw else None
         except HTTPError as exc:
+            raw = exc.read()
+            try:
+                error = json.loads(raw) if raw else None
+            except ValueError:
+                error = None
             # 409 = exec slot busy, 5xx = transient gateway blip
             if exc.code == 409 or 500 <= exc.code < 600:
+                if isinstance(error, dict) and "failed" in str(error.get("message", "")):
+                    return exc.code, error
                 last = exc
                 time.sleep(5 * (attempt + 1))
                 continue
-            return exc.code, None
-    return last.code, None
+            return exc.code, error
+    return last.code, error
 
 
 def check_lease_id(sid):
@@ -97,6 +116,7 @@ class Lease:
         t0 = time.monotonic()
         while True:
             st, created = request(self.key, "POST", "/sandboxes", {
+                "timeout": 7200,
                 "accel": {"vram_gb": self.vram_gb, "reserve": "exec"}})
             if st == 201 and isinstance(created, dict):
                 break
@@ -118,7 +138,7 @@ class Lease:
                         {"code": code, "timeout_s": timeout_s},
                         timeout=timeout_s + 60)
         if st != 200 or not isinstance(r, dict):
-            die(f"GPU exec: HTTP {st}")
+            die(f"GPU exec: HTTP {st}; {r}")
         return r.get("result") or {}
 
     def fetch_file(self, remote_path, chunk=524288):
@@ -157,22 +177,19 @@ class Lease:
                                          f"/sandboxes/{self.id}")
             except Exception:
                 st = None
-            if st == 404 or (st == 200 and isinstance(remaining, dict)
-                             and remaining.get("phase") == "dead"):
-                print(f"destroyed {self.id}; verified absent or dead",
-                      flush=True)
+            if st == 404:
+                print(f"destroyed {self.id}; GET 404 confirmed",
+                      file=sys.stderr, flush=True)
                 self.id = None
                 return
             time.sleep(5 * (attempt + 1))
         raise RuntimeError(
             f"cleanup unconfirmed for {self.id}: HTTP {st}; "
             f"delete it yourself via the API")
-        print(f"destroyed {self.id}; verified absent or dead", flush=True)
-        self.id = None
 
 
 def grade_on_lease(lease, artifact, seeds, episodes, steps, mass_scale,
-                   extra_files=None, timeout_s=600):
+                   extra_files=None, timeout_s=600, trace=False):
     """Ship the judge payload and run _eval.py. Returns the report dict."""
     files = {
         "env.py": os.path.join(DEMO, "env.py"),
@@ -189,6 +206,8 @@ def grade_on_lease(lease, artifact, seeds, episodes, steps, mass_scale,
     args = ["--policy", "policy.npz", "--json", "verdict_out.json",
             "--seeds", seeds, "--episodes", str(episodes),
             "--steps", str(steps), "--mass-scale", str(mass_scale)]
+    if trace:
+        args += ["--trace-dir", "traces"]
     code = JOB.replace("__PAYLOAD__", repr(payload)).replace(
         "__ARGS__", repr(args))
     res = lease.exec(code, timeout_s)
@@ -221,16 +240,16 @@ def main():
         die(f"{a.artifact}: no policy.npz")
 
     t0 = time.monotonic()
-    print(f"grading {a.artifact} on a {a.vram} GiB VRAM slice "
-          f"(seeds {a.seed}, {a.episodes} episodes/seed, "
-          f"{a.steps} steps)", flush=True)
+    print(f"grading {a.artifact} (seeds {a.seed}, "
+          f"{a.episodes} episodes/seed, {a.steps} steps)",
+          file=sys.stderr, flush=True)
     with Lease(key, a.vram) as lease:
-        print(f"created {lease.id}", flush=True)
+        print(f"created {lease.id}", file=sys.stderr, flush=True)
         t = time.monotonic()
         rep = grade_on_lease(lease, a.artifact, a.seed, a.episodes,
                              a.steps, a.mass_scale)
         print(f"  eval: {rep.get('eval_wall_s', '?')} s on lease "
-              f"(incl. first-time kernel compile)", flush=True)
+              "(independent CPU MuJoCo)", file=sys.stderr, flush=True)
         if a.keep:
             print(f"--keep: lease {lease.id} left running")
             keep_id = lease.id
@@ -244,13 +263,7 @@ def main():
         with open(a.json, "w") as fh:
             json.dump(verdict, fh, indent=1, sort_keys=True)
     ok = verdict.get("ok") is True
-    print(f"verdict: {'PASS' if ok else 'FAIL'} "
-          f"(total wall {time.monotonic() - t0:.0f} s)")
-    for name, g in sorted((verdict.get("gates") or {}).items()):
-        print(f"  {name}: {'pass' if g.get('pass') else 'FAIL'} "
-              f"({g.get('rule')}; measured {g.get('value')})")
-    if verdict.get("error"):
-        print(f"  error: {verdict['error']}")
+    print(json.dumps(verdict, sort_keys=True))
     raise SystemExit(0 if ok else 1)
 
 

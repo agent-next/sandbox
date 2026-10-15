@@ -83,6 +83,7 @@ class Go1Batch:
         self.rw = {**REWARD_DEFAULTS, **(reward or {})}
         self.cmd_vlo, self.cmd_vhi = cmd_vx
         mjm = make_mjmodel(mass_scale, xml_path)
+        mjm.opt.timestep = SIM_DT
         mjd = mujoco.MjData(mjm)
         mujoco.mj_resetDataKeyframe(mjm, mjd, 0)  # "home" keyframe
         mujoco.mj_forward(mjm, mjd)
@@ -147,6 +148,8 @@ class Go1Batch:
         qpos[:, 3] = 1.0
         qpos[:, 4:7] = 0.0
         qpos[:, 7:19] = self.home_q + 0.05 * self._randn(idx.numel(), 12)
+        # Advanced indexing returns a copy, not a view.
+        self.qpos[idx] = qpos
         self.qvel[idx] = 0.02 * self._randn(idx.numel(), 18)
         self.ctrl[idx] = self.home_ctrl
         self.last_act[idx] = 0.0
@@ -177,6 +180,7 @@ class Go1Batch:
     def step(self, act):
         """One control step: PD target update + 10 physics steps.
         Returns (obs, reward, done); finished envs are reset in place."""
+        act = act.clamp(-1.0, 1.0)
         rate = (act - self.last_act).pow(2).sum(-1)
         self.last_act = act.clone()
         target = self.home_ctrl + ACT_SCALE * act
@@ -209,8 +213,7 @@ class Go1Batch:
         fell = (self.qpos[:, 2] < MIN_TRUNK_Z) | (grav[:, 2] > FALL_GZ)
         done = fell | (self.ep_step >= self.episode_steps)
         rew = rew + rw["fall"] * fell.float()
-        obs = self.obs()
         if self.auto_reset:
             idx = torch.nonzero(done).squeeze(-1)
             self._reset_idx(idx)
-        return obs, rew, done
+        return self.obs(), rew, done

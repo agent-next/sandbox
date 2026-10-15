@@ -1,2 +1,7 @@
 out/
-judge/VERSIONS.txt
+__pycache__/
+media/.tools/
+media/work/
+media/master/
+media/data/*.npz
+media/data/render-model.xml

@@ -4,8 +4,8 @@ grades: policy.npz (actor weights + metadata) driven by train_config.json.
     python train.py --config train_config.json --out outdir \
         [--resume outdir/state.pt] [--max-wall-s S] [--progress FILE]
 
-The lease exec endpoint caps a single call at ~600 s, so training runs in
-chunks: each invocation trains until the iteration target or --max-wall-s
+Training runs in bounded chunks so callers behind HTTP proxies can resume:
+each invocation trains until the iteration target or --max-wall-s
 is exhausted, saves full resumable state (nets + optimizer + RNG + curve)
 to <out>/state.pt and a one-line status to --progress, then exits 0.
 The caller (run.py) repeats until status.finished. stdlib + torch only.
@@ -239,9 +239,15 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
     env.ep_step = torch.arange(n_envs, device=env.qpos.device) \
         % cfg["episode_steps"]
     ppo = PPO(cfg)
+    # Warm all stepping kernels before starting the training clock.
+    tc = time.monotonic()
+    env.step(torch.zeros(n_envs, E.N_JOINTS, device=env.qpos.device))
+    torch.cuda.synchronize()
+    compile_s = time.monotonic() - tc
+    env.reset_all()
     eval_env = None
     curve, walk_evals, hits = [], [], 0
-    t_train = time.time()
+    t_train = 0.0
     done_it = 0
     if resume and os.path.exists(resume):
         sd = torch.load(resume, map_location="cuda", weights_only=False)
@@ -255,6 +261,8 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
     steps_per_it = n_envs * cfg["rollout_steps"]
 
     def save_state(finished):
+        save_policy(ppo.actor, os.path.join(out, "policy.npz"),
+                    {"trained_iters": done_it, "seed": cfg["seed"]})
         torch.save({"ppo": ppo.state_dict(), "iter": done_it,
                     "curve": curve, "walk_evals": walk_evals,
                     "hits": hits,
@@ -267,18 +275,27 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
                   "mean_reward": curve[-1]["mean_reward"] if curve
                   else None,
                   "walk_evals": walk_evals}
+        status["kernel_warmup_s"] = round(compile_s, 3)
+        status["torch_peak_reserved_bytes"] = torch.cuda.max_memory_reserved()
+        status["torch_peak_allocated_bytes"] = torch.cuda.max_memory_allocated()
         with open(progress_file, "w") as fh:
             json.dump(status, fh)
         return status
 
     state_path = os.path.join(out, "state.pt")
     t_start = time.time()
+    if not resume:
+        save_policy(ppo.actor, os.path.join(out, "step0.npz"),
+                    {"trained_iters": 0, "seed": cfg["seed"]})
     while done_it < cfg["iters"]:
         if max_wall_s and time.time() - t_start > max_wall_s:
             return save_state(False)
         buf, last_val = ppo.rollout(env)
         r = ppo.update(buf, last_val)
         done_it += 1
+        if done_it == max(1, cfg["iters"] // 20):
+            save_policy(ppo.actor, os.path.join(out, "short.npz"),
+                        {"trained_iters": done_it, "seed": cfg["seed"]})
         curve.append({"it": done_it, "mean_reward": round(r, 4),
                       "wall_s": round(t_train + time.time() - t_start, 2)})
         if done_it % 10 == 0:
@@ -294,7 +311,7 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
             log(f"walk check it {done_it}: {ev}")
             hits = hits + 1 if ev["forward_mps"] >= cfg["walk_mps"] \
                 and ev["upright"] >= 0.95 else 0
-            if hits >= 2:
+            if hits >= 2 and done_it >= cfg["min_iters"]:
                 break
     train_wall = t_train + time.time() - t_start
     status = save_state(True)
@@ -312,6 +329,9 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
                "steps_per_s": round(steps_per_it * done_it / train_wall),
                "walk_evals": walk_evals, "curve": curve,
                "reward_end": curve[-1]["mean_reward"]}
+    summary["kernel_warmup_s"] = round(compile_s, 3)
+    summary["torch_peak_allocated_bytes"] = torch.cuda.max_memory_allocated()
+    summary["torch_peak_reserved_bytes"] = torch.cuda.max_memory_reserved()
     with open(os.path.join(out, "curve.json"), "w") as fh:
         json.dump(summary, fh, indent=1)
     return {**summary, **status}

@@ -1,21 +1,8 @@
 #!/usr/bin/env python3
-"""go1-walk demo: train a Go1 to walk on a 4 GiB GPU slice, then judge it.
+"""One command: fresh 4 GiB lease, PPO, real self-test, independent grade.
 
-    python3 cookbook/go1-walk/run.py [--vram 4] [--iters N] [--keep]
-        [--skip-train ARTIFACT_DIR] [--selftest]
-
-One command: creates a VRAM-slice lease over the agent-next REST API,
-ships env.py/train.py/the Go1 model (the lease has no network), trains a
-PPO policy with batched MuJoCo-Warp (~minutes), then grades the fresh
-checkpoint with the judge's own held-out-seed simulation -- the judge
-never reads a number the artifact claims. The lease is always destroyed
-afterwards and the delete is confirmed by a 404.
-
---selftest additionally grades examples/good plus every judge/mutants.py
-mutant on the same lease and reports the kill rate.
---skip-train grades an existing artifact directory instead of training.
-
-Standard library only. Needs SBX_API_KEY (or E2B_API_KEY) in the env.
+Python 3.10+, standard library only. The networkless GPU image is pinned
+and all source/model data is shipped through REST exec payloads.
 """
 
 from __future__ import annotations
@@ -24,282 +11,171 @@ import argparse
 import base64
 import json
 import os
+from pathlib import Path
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                "judge"))
-import grade as G  # noqa: E402
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE / "judge"))
+import grade as G
+from selftest import checked_verdict, selftest_on_lease
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+SHIP = {"env.py": HERE / "env.py", "train.py": HERE / "train.py",
+        "_eval.py": HERE / "judge/_eval.py",
+        "go1_meshless.xml": HERE / "model/go1_meshless.xml"}
 
-SHIP_FILES = [
-    ("env.py", "env.py"),
-    ("train.py", "train.py"),
-    ("_eval.py", "judge/_eval.py"),
-    ("go1_meshless.xml", "model/go1_meshless.xml"),
-    ("train_config.json", "examples/good/train_config.json"),
-]
-
-SETUP_JOB = """
-import base64, os, sys
-ROOT = os.path.expanduser('~/go1job')
-os.makedirs(os.path.join(ROOT, 'model'), exist_ok=True)
-os.chdir(ROOT)
-sys.path.insert(0, ROOT)
-FILES = __PAYLOAD__
-for name, b64 in FILES.items():
-    sub = 'model' if name.endswith('.xml') else ''
-    d = os.path.join(ROOT, sub)
-    os.makedirs(d, exist_ok=True)
-    with open(os.path.join(d, name), 'wb') as fh:
-        fh.write(base64.b64decode(b64))
-for _m in ('env', 'train', '_eval'):
-    sys.modules.pop(_m, None)
-import importlib.metadata as im
-import subprocess
-v = {}
-# dist names, not module names; importing torch here would pre-reserve
-# VRAM in the persistent worker for the whole lease
-for dist in ('warp-lang', 'mujoco', 'mujoco-warp', 'torch', 'numpy'):
-    try:
-        v[dist] = im.version(dist)
-    except Exception:
-        v[dist] = '?'
-out = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total',
-                      '--format=csv,noheader'],
-                     capture_output=True, text=True, timeout=10)
-report['versions'] = v
-report['gpu'] = out.stdout.strip()
-report['files'] = sorted(FILES)
+SETUP = """
+import base64, os, subprocess, sys
+root = os.path.expanduser('~/go1job')
+os.makedirs(os.path.join(root, 'model'), exist_ok=True)
+for name, value in __PAYLOAD__.items():
+    path = os.path.join(root, 'model' if name.endswith('.xml') else '', name)
+    open(path, 'wb').write(base64.b64decode(value))
+p = subprocess.run([sys.executable, '-c',
+    "import _eval, json; v,b = _eval.check_stack(); "
+    "print(json.dumps(v)); assert not b, b"],
+    cwd=root, capture_output=True, text=True, timeout=120)
+report['rc'] = p.returncode
+report['stdout'] = p.stdout
+report['stderr'] = p.stderr
+report['gpu'] = subprocess.run(
+    ['nvidia-smi', '--query-gpu=name,memory.total', '--format=csv,noheader'],
+    capture_output=True, text=True, timeout=10).stdout.strip()
 """
 
-TRAIN_CHUNK = """
-import json, os, subprocess, sys, time
-os.chdir(os.path.expanduser('~/go1job'))
-t0 = time.time()
-cmd = [sys.executable, 'train.py', '--config', 'train_config.json',
-       '--out', 'out', '--progress', 'out/progress.json',
-       '--max-wall-s', '__WALL__']
+TRAIN = """
+import json, os, subprocess, sys
+root = os.path.expanduser('~/go1job')
+args = [sys.executable, 'train.py', '--config', 'train_config.json',
+        '--out', 'out', '--progress', 'out/progress.json', '--max-wall-s', '__CHUNK_S__']
 if __RESUME__:
-    cmd += ['--resume', 'out/state.pt']
-proc = subprocess.run(cmd, capture_output=True, text=True, timeout=560)
-report['rc'] = proc.returncode
-report['stdout_tail'] = proc.stdout[-4000:]
-report['stderr_tail'] = proc.stderr[-2000:]
-report['chunk_wall_s'] = round(time.time() - t0, 1)
-try:
-    report['status'] = json.load(open('out/progress.json'))
-except Exception as exc:
-    report['status_error'] = str(exc)
-"""
-
-EVAL_JOB = """
-import json, os, subprocess, sys, time
-os.chdir(os.path.expanduser('~/go1job'))
-t0 = time.time()
-proc = subprocess.run([sys.executable, '_eval.py'] + ARGS,
-                      capture_output=True, text=True, timeout=500)
-report['rc'] = proc.returncode
-report['stdout_tail'] = proc.stdout[-3000:]
-report['stderr_tail'] = proc.stderr[-2000:]
-report['eval_wall_s'] = round(time.time() - t0, 1)
-try:
-    report['verdict'] = json.load(open('verdict_out.json'))
-except Exception as exc:
-    report['verdict'] = None
-    report['verdict_error'] = str(exc)
+    args += ['--resume', 'out/state.pt']
+p = subprocess.run(args, cwd=root, capture_output=True, text=True, timeout=560)
+report['rc'] = p.returncode
+report['stdout'] = p.stdout[-6000:]
+report['stderr'] = p.stderr[-3000:]
+if p.returncode == 0:
+    report['status'] = json.load(open(os.path.join(root, 'out/progress.json')))
 """
 
 
-def payload_b64():
-    payload = {}
-    for name, rel in SHIP_FILES:
-        with open(os.path.join(HERE, rel), "rb") as fh:
-            payload[name] = base64.b64encode(fh.read()).decode()
-    return payload
+def checked_exec(lease, code, timeout, step):
+    result = lease.exec(code, timeout)
+    rep = result.get("report") or {}
+    if result.get("ok") is not True or rep.get("rc") != 0:
+        raise RuntimeError(f"{step} failed: {rep.get('stderr') or result.get('stderr')}")
+    return rep
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vram", type=int, default=4)
-    ap.add_argument("--iters", type=int, default=None,
-                    help="override train_config.json iters (quick smoke)")
-    ap.add_argument("--keep", action="store_true",
-                    help="leave the lease up and print its id")
-    ap.add_argument("--skip-train", metavar="ARTIFACT_DIR",
-                    help="grade an existing local artifact instead of "
-                         "training a new one")
-    ap.add_argument("--selftest", action="store_true",
-                    help="after grading, also grade good+mutants and print "
-                         "the kill rate")
+    ap.add_argument("--config", type=Path, default=HERE / "examples/good/train_config.json")
+    ap.add_argument("--iters", type=int)
+    ap.add_argument("--chunk-s", type=int, default=90)
+    ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--skip-train", type=Path, metavar="ARTIFACT_DIR")
+    ap.add_argument("--selftest", action="store_true", help="self-test is already the default")
+    ap.add_argument("--no-selftest", action="store_true", help="exploration only, not a complete demo run")
     ap.add_argument("--seeds", default="101,202,303")
-    ap.add_argument("--outdir", default=os.path.join(HERE, "out"),
-                    help="local dir for the trained artifact "
-                         "(policy.npz + curve.json)")
+    ap.add_argument("--trace", action="store_true", help="download exact judge-scored states")
+    ap.add_argument("--outdir", type=Path, default=HERE / "out")
     a = ap.parse_args()
-
+    if a.iters is not None and a.iters < 1:
+        ap.error("--iters must be positive")
+    if a.vram < 1 or a.vram > 32:
+        ap.error("--vram must be in 1..32")
     key = os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")
     if not key:
-        G.die("no API key: export SBX_API_KEY (or E2B_API_KEY)")
-
+        G.die("export SBX_API_KEY (or E2B_API_KEY)")
+    a.outdir.mkdir(parents=True, exist_ok=True)
+    a.outdir = a.outdir.resolve()
+    artifact = a.skip_train.resolve() if a.skip_train else a.outdir
+    cfg = json.loads(a.config.read_text())
+    if a.iters:
+        cfg["iters"] = a.iters
+    if not a.skip_train:
+        (a.outdir / "train_config.json").write_text(json.dumps(cfg, indent=2) + "\n")
     total0 = time.monotonic()
+    timing = {}
     lease = G.Lease(key, a.vram)
     sid = None
+    rc = 1
     try:
+        t = time.monotonic()
         lease.__enter__()
         sid = lease.id
-        print(f"[{time.monotonic()-total0:6.1f}s] created {sid} "
-              f"({a.vram} GiB VRAM slice)", flush=True)
-
+        timing["create_s"] = round(time.monotonic() - t, 3)
+        print(f"create: {sid}, {a.vram} GiB, {timing['create_s']} s", flush=True)
+        payload = {n: base64.b64encode(p.read_bytes()).decode() for n, p in SHIP.items()}
+        payload["train_config.json"] = base64.b64encode(json.dumps(cfg).encode()).decode()
         t = time.monotonic()
-        payload = payload_b64()
-        if a.iters is not None:
-            cfg = json.loads(base64.b64decode(
-                payload["train_config.json"]))
-            cfg["iters"] = a.iters
-            payload["train_config.json"] = base64.b64encode(
-                json.dumps(cfg).encode()).decode()
-        code = SETUP_JOB.replace("__PAYLOAD__", repr(payload))
-        res = lease.exec(code, 300)
-        rep = res.get("report") or {}
-        if res.get("ok") is not True:
-            G.die(f"setup failed: {(res.get('stderr') or '')[-400:]}")
-        print(f"[{time.monotonic()-total0:6.1f}s] shipped payload; "
-              f"gpu={rep.get('gpu')} stack={rep.get('versions')}",
-              flush=True)
-
-        if a.skip_train:
-            policy = open(os.path.join(a.skip_train, "policy.npz"),
-                          "rb").read()
-            up = ("import base64\n"
-                  "open('~/go1job/policy_eval.npz'.replace('~',"
-                  " __import__('os').path.expanduser('~')), 'wb')"
-                  f".write(base64.b64decode({base64.b64encode(policy).decode()!r}))\n"
-                  "report['shipped_policy'] = len(base64.b64decode("
-                  f"{base64.b64encode(policy).decode()!r}))")
-            res = lease.exec(up, 120)
-            eval_args = ["--policy", "policy_eval.npz"]
-        else:
-            # train in chunks well under the exec endpoint's ~600 s cap
-            # (measured: HTTP 502 once a call passes 10 min)
-            chunk_wall = 420 if a.iters is None else 60
-            n_chunks = 0
-            while True:
-                code = (TRAIN_CHUNK.replace("__WALL__", str(chunk_wall))
-                        .replace("__RESUME__",
-                                 "True" if n_chunks else "False"))
-                res = lease.exec(code, 600)
-                rep = res.get("report") or {}
-                n_chunks += 1
-                if res.get("ok") is not True or rep.get("rc") != 0:
-                    G.die(f"training chunk {n_chunks} failed: "
-                          + (rep.get("stderr_tail") or "")[-600:])
-                st = rep.get("status") or {}
-                print(f"[{time.monotonic()-total0:6.1f}s] chunk {n_chunks}: "
-                      f"it {st.get('it')} reward {st.get('mean_reward')} "
-                      f"walk_evals={len(st.get('walk_evals') or [])}",
-                      flush=True)
-                if st.get("finished"):
+        rep = checked_exec(lease, SETUP.replace("__PAYLOAD__", repr(payload)), 180, "setup")
+        timing["setup_s"] = round(time.monotonic() - t, 3)
+        print(f"setup: rc=0, {timing['setup_s']} s; gpu={rep['gpu']}; "
+              f"stack={rep['stdout'].strip()}", flush=True)
+        if not a.skip_train:
+            t = time.monotonic()
+            for chunk in range(1, 401):
+                code = TRAIN.replace("__RESUME__", str(chunk > 1)).replace("__CHUNK_S__", str(a.chunk_s))
+                rep = checked_exec(lease, code,
+                                   600, f"training chunk {chunk}")
+                st = rep["status"]
+                print(f"training chunk {chunk}: rc=0 it={st['it']} "
+                      f"reward={st['mean_reward']} train_wall={st['train_wall_s']} s "
+                      f"walk_evals={st['walk_evals']}", flush=True)
+                (a.outdir / "progress.json").write_text(json.dumps(st, indent=2) + "\n")
+                (a.outdir / "policy.npz").write_bytes(
+                    lease.fetch_file("~/go1job/out/policy.npz"))
+                if st["finished"]:
                     break
-                if n_chunks > 40:
-                    G.die("training did not finish in 40 chunks")
-            print(f"  training done: env_steps={st.get('env_steps')} "
-                  f"iters={st.get('it')} wall={st.get('train_wall_s')}s",
-                  flush=True)
-            res = lease.exec(
-                "import json, os\n"
-                "os.chdir(os.path.expanduser('~/go1job'))\n"
-                "report['summary'] = json.load(open('out/curve.json'))\n",
-                120)
-            rep = res.get("report") or {}
-            s = rep.get("summary") or st
-            if s.get("steps_per_s"):
-                print(f"  env-steps/s={s['steps_per_s']}", flush=True)
-            for e in s.get("walk_evals") or []:
-                print(f"  walk check it {e['it']}: "
-                      f"{e['forward_mps']} m/s upright {e['upright']}",
-                      flush=True)
-            os.makedirs(a.outdir, exist_ok=True)
-            for remote in ("out/policy.npz", "out/curve.json"):
-                data = lease.fetch_file(f"~/go1job/{remote}")
-                dst = os.path.join(a.outdir, os.path.basename(remote))
-                with open(dst, "wb") as fh:
-                    fh.write(data)
-                print(f"  saved {dst} ({len(data)} bytes)", flush=True)
-            eval_args = ["--policy", "out/policy.npz"]
-
-        eval_args += ["--json", "verdict_out.json", "--seeds", a.seeds]
-        code = EVAL_JOB.replace("ARGS", repr(eval_args))
-        res = lease.exec(code, 590)
-        rep = res.get("report") or {}
-        verdict = rep.get("verdict")
-        if verdict is None:
-            G.die("no verdict: " + json.dumps(rep, indent=1)[:1000])
-        ok = verdict.get("ok") is True
-        print(f"[{time.monotonic()-total0:6.1f}s] verdict: "
-              f"{'PASS' if ok else 'FAIL'}", flush=True)
-        for n, g in sorted((verdict.get("gates") or {}).items()):
-            print(f"  {n}: {'pass' if g.get('pass') else 'FAIL'} "
-                  f"({g.get('rule')}; measured {g.get('value')})",
-                  flush=True)
-
-        if a.selftest:
-            print("selftest: grading good + mutants on the same lease",
-                  flush=True)
-            import subprocess as sp
-            import tempfile
-            tmp = tempfile.mkdtemp(prefix="go1-mut-")
-            # mutants.py needs numpy: prefer the judge venv from
-            # judge/setup.sh, fall back to this interpreter
-            venv_py = os.path.expanduser("~/.venvs/go1-walk/bin/python")
-            mutpy = venv_py if os.path.exists(venv_py) else sys.executable
-            names = sp.run([mutpy,
-                            os.path.join(HERE, "judge", "mutants.py"),
-                            os.path.join(HERE, "examples", "good"), tmp],
-                           check=True, capture_output=True,
-                           text=True).stdout.split()
-            killed = 0
-            for n in names:
-                mdir = os.path.join(tmp, n)
-                aj = os.path.join(mdir, "args.json")
-                ms = 1.0
-                if os.path.exists(aj):
-                    ea = json.load(open(aj)).get("extra_args") or []
-                    if "--mass-scale" in ea:
-                        ms = float(ea[ea.index("--mass-scale") + 1])
-                pol = open(os.path.join(mdir, "policy.npz"), "rb").read()
-                b64 = base64.b64encode(pol).decode()
-                lease.exec(
-                    "import base64, os\n"
-                    f"open(os.path.expanduser('~/go1job/mut.npz'), 'wb')"
-                    f".write(base64.b64decode({b64!r}))\n"
-                    "report['ok'] = True", 120)
-                code = EVAL_JOB.replace(
-                    "ARGS", repr(["--policy", "mut.npz", "--json",
-                                  "verdict_out.json", "--seeds", a.seeds,
-                                  "--mass-scale", str(ms)]))
-                rep = (lease.exec(code, 590).get("report") or {})
-                v = rep.get("verdict")
-                failed = [k for k, g in ((v or {}).get("gates") or {})
-                          .items() if g.get("pass") is False]
-                if failed:
-                    killed += 1
-                print(f"  mutant {n}: {'KILLED' if failed else 'SURVIVED'}"
-                      f" ({', '.join(failed)})", flush=True)
-            print(f"selftest kill rate: {killed}/{len(names)}", flush=True)
-
-        print(f"total: {time.monotonic() - total0:.0f} s", flush=True)
-        rc = 0 if ok else 1
+            else:
+                raise RuntimeError("training did not finish within 400 chunks")
+            timing["train_roundtrip_s"] = round(time.monotonic() - t, 3)
+            for name in ("policy.npz", "step0.npz", "short.npz", "curve.json"):
+                data = lease.fetch_file(f"~/go1job/out/{name}")
+                if not data:
+                    raise RuntimeError(f"missing training output {name}")
+                (a.outdir / name).write_bytes(data)
+            summary = json.loads((a.outdir / "curve.json").read_text())
+            print("training: " + json.dumps({k: v for k, v in summary.items()
+                                             if k != "curve"}, sort_keys=True), flush=True)
+            # This is a separately trained, real reward-sign counterfactual.
+            negative = HERE / "examples/good/reward-flipped.npz"
+            if negative.exists():
+                (a.outdir / negative.name).write_bytes(negative.read_bytes())
+        if not a.no_selftest:
+            t = time.monotonic()
+            test = selftest_on_lease(lease, str(artifact),
+                                    str(a.outdir / "selftest.json"), a.seeds)
+            timing["selftest_s"] = round(time.monotonic() - t, 3)
+            if not test["ok"]:
+                raise RuntimeError("self-test failed")
+        t = time.monotonic()
+        rep = G.grade_on_lease(lease, str(artifact), a.seeds, 64, 500, 1.0,
+                               trace=a.trace)
+        verdict = checked_verdict(rep)
+        timing["grade_s"] = round(time.monotonic() - t, 3)
+        (a.outdir / "verdict.json").write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n")
+        print("grade: rc=" + str(rep["rc"]) + f", {timing['grade_s']} s", flush=True)
+        print(json.dumps(verdict, sort_keys=True), flush=True)
+        if a.trace:
+            for seed in a.seeds.split(","):
+                data = lease.fetch_file(f"~/go1judge/traces/seed-{int(seed)}.npz")
+                (a.outdir / f"seed-{int(seed)}.npz").write_bytes(data)
+        rc = 0 if verdict["ok"] else 1
     finally:
+        t = time.monotonic()
         if a.keep and sid:
-            print(f"--keep: lease {sid} left running; delete it via the API",
-                  flush=True)
+            print(f"--keep: {sid}; delete via the API when finished", flush=True)
             lease.id = None
-        lease.__exit__(None, None, None)
-
-    raise SystemExit(rc)
+        lease.delete()
+        timing["cleanup_s"] = round(time.monotonic() - t, 3)
+        timing["total_s"] = round(time.monotonic() - total0, 3)
+        (a.outdir / "timing.json").write_text(json.dumps(timing, indent=2) + "\n")
+        print(f"total: {timing['total_s']} s; rc={rc}", flush=True)
+    return rc
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

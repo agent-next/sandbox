@@ -1,125 +1,171 @@
-"""Go1 walking judge: runs ON the GPU lease. Never trusts the artifact.
+"""Independent, deterministic MuJoCo evaluation, executed on the GPU lease.
 
-Usage (on the lease, cwd = the shipped job dir):
-
-    python3 _eval.py --policy policy.npz --json verdict.json \
-        [--seeds 101,202,303] [--episodes 64] [--steps 500]
-        [--mass-scale 1.0] [--cmd 1.0,0.0,0.0]
-
-The artifact under test is policy.npz (actor weights + metadata) plus any
-training config the agent wrote; both are treated as data only. Every gated
-number below is measured here by simulating the shipped model with
-mujoco-warp; nothing is read back from files the artifact controls.
+Training uses batched MuJoCo-Warp. The judge uses single-threaded CPU MuJoCo
+with float64 state, not the trainer's environment or reported metrics.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import os
 import sys
 import time
 
-EXPECTED_STACK = {"warp": "1.13.0", "mujoco": "3.8.1",
-                  "mujoco_warp": "3.8.1", "numpy": "1.26.4",
-                  "torch": "2.10.0+cu128"}
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
 
-# Gate thresholds (see SPEC.md). Measured reference values are in RECEIPT.md.
-G1_MIN_FORWARD_MPS = 0.5      # >= 50% of the commanded 1.0 m/s
-G2_MAX_FALL_RATE = 0.05       # <= 5% of episodes may ever fall
-G3_MAX_SAT_FRAC = 0.15        # <= 15% of actuator samples saturated
-G4_MIN_MARGIN_MPS = 0.30      # must beat the better baseline by 0.3 m/s
-G4_BASELINES = ("zero", "random")
-G5_FWD_TOL = 0.05             # same-seed repeat: |d mean forward m/s|
-G5_SAT_TOL = 0.02             # same-seed repeat: |d saturation fraction|
-NORM4 = 4                     # verdict floats are rounded to 4 decimals
+EXPECTED_STACK = {"warp-lang": "1.13.0", "mujoco": "3.8.1",
+                  "mujoco-warp": "3.8.1", "numpy": "1.26.4",
+                  "torch": "2.10.0"}
+SIM_DT = 0.002
+DECIM = 10
+CTRL_DT = SIM_DT * DECIM
+MIN_TRUNK_Z = 0.10
+FALL_GZ = -0.55
+MODEL = os.path.join(os.path.dirname(__file__), "model", "go1_meshless.xml")
 
 
 def check_stack():
-    got, bad = {}, []
-    for name, want in EXPECTED_STACK.items():
-        try:
-            mod = __import__(name)
-            v = getattr(mod, "__version__", "?")
-        except Exception:
-            v = "missing"
-        got[name] = v
-        if v != want:
-            bad.append(f"{name} {v} != {want}")
+    import torch
+    got = {k: importlib.metadata.version(k) for k in EXPECTED_STACK}
+    bad = [f"{k} {got[k]} != {v}" for k, v in EXPECTED_STACK.items()
+           if got[k] != v]
+    got["torch_runtime"] = torch.__version__
+    if torch.__version__ != "2.10.0+cu128":
+        bad.append(f"torch runtime {torch.__version__} != 2.10.0+cu128")
+    if sys.version_info[:2] != (3, 13):
+        bad.append("lease requires Python 3.13")
     return got, bad
 
 
-def load_policy(path, hidden, device):
-    """Rebuild the actor from the artifact's raw weights (allow_pickle off)."""
+def load_policy(path):
     import numpy as np
     import torch
-    z = np.load(path, allow_pickle=False)
-    n_layers = sum(1 for k in z.files if k.startswith("w"))
-    if n_layers < 1:
-        raise ValueError("policy.npz has no weight arrays")
-    w = [torch.tensor(np.asarray(z[f"w{i}"]), dtype=torch.float32,
-                      device=device) for i in range(n_layers)]
-    b = [torch.tensor(np.asarray(z[f"b{i}"]), dtype=torch.float32,
-                      device=device) for i in range(n_layers)]
-    shapes = [tuple(x.shape) for x in w]
+
+    with np.load(path, allow_pickle=False) as z:
+        n = sum(k.startswith("w") for k in z.files)
+        if not 1 <= n <= 8:
+            raise ValueError("expected 1..8 MLP layers")
+        weights, biases, shapes = [], [], []
+        prev = 45
+        for i in range(n):
+            w, b = np.asarray(z[f"w{i}"]), np.asarray(z[f"b{i}"])
+            if (w.ndim != 2 or w.shape[1] != prev or
+                    not 1 <= w.shape[0] <= 1024 or b.shape != (w.shape[0],)):
+                raise ValueError(f"invalid layer {i} shape")
+            if not np.isfinite(w).all() or not np.isfinite(b).all():
+                raise ValueError(f"non-finite layer {i}")
+            weights.append(torch.tensor(w, dtype=torch.float32))
+            biases.append(torch.tensor(b, dtype=torch.float32))
+            shapes.append(list(w.shape))
+            prev = w.shape[0]
+        if prev != 12:
+            raise ValueError("expected 12 actions")
 
     def policy(obs):
-        x = obs
-        for i in range(n_layers):
-            x = x @ w[i].T + b[i]
-            if i < n_layers - 1:
-                x = torch.nn.functional.elu(x)
-        return torch.clamp(x, -1.0, 1.0)
+        with torch.no_grad():
+            x = torch.tensor(obs, dtype=torch.float32)
+            for i, (w, b) in enumerate(zip(weights, biases)):
+                x = x @ w.T + b
+                if i + 1 < n:
+                    x = torch.nn.functional.elu(x)
+            return x.clamp(-1.0, 1.0).numpy()
     return policy, shapes
 
 
-def evaluate(env, policy, steps, cmd, torch):
-    """Rollout with a fixed command; fallen envs keep simulating and are
-    marked dead. Returns per-run metrics (all floats rounded)."""
-    import env as E
-    dev = env.qpos.device
-    env.reset_all()
-    env.auto_reset = False
-    env.cmd[:] = torch.tensor(cmd, device=dev)
-    start_xy = env.qpos[:, :2].clone()
-    alive = torch.ones(env.n, dtype=torch.bool, device=dev)
-    sat = torch.zeros(env.n, dtype=torch.long, device=dev)
+def gravity(quat):
+    import numpy as np
+    w, x, y, z = quat.T
+    return np.column_stack((2 * (w * y - x * z),
+                            -2 * (y * z + w * x),
+                            -(1 - 2 * (x * x + y * y))))
+
+
+def evaluate(policy, seed, episodes, steps, mass_scale=1.0, trace=None):
+    import mujoco
+    import numpy as np
+
+    model = mujoco.MjModel.from_xml_path(MODEL)
+    model.opt.timestep = SIM_DT
+    model.body_mass[1:] *= mass_scale
+    model.body_inertia[1:] *= mass_scale
+    home = model.key_qpos[0, 7:].copy()
+    force_limit = np.abs(model.actuator_forcerange).max(axis=1)
+    rng = np.random.default_rng(seed)
+    qpos = np.tile(model.key_qpos[0], (episodes, 1))
+    qpos[:, 7:] += 0.05 * rng.standard_normal((episodes, 12))
+    qvel = 0.02 * rng.standard_normal((episodes, 18))
+    worlds = [mujoco.MjData(model) for _ in range(episodes)]
+    for i, d in enumerate(worlds):
+        d.qpos[:] = qpos[i]
+        d.qvel[:] = qvel[i]
+        d.ctrl[:] = home
+        mujoco.mj_forward(model, d)
+    start_x = qpos[:, 0].copy()
+    alive = np.ones(episodes, dtype=bool)
+    last = np.zeros((episodes, 12))
+    command = np.tile([1.0, 0.0, 0.0], (episodes, 1))
+    saturated, samples, peak_ratio = 0, 0, 0.0
+    recorded = {"qpos": [qpos.copy()], "qvel": [qvel.copy()],
+                "alive": [alive.copy()]} if trace else None
     for _ in range(steps):
-        with torch.no_grad():
-            act = policy(env.obs())
-        env.step(act)
-        quat = env.qpos[:, 3:7]
-        grav = env._rot_inv(quat, torch.tensor(
-            [0.0, 0.0, -1.0], device=dev).expand(env.n, 3))
-        fell = (env.qpos[:, 2] < E.MIN_TRUNK_Z) | (grav[:, 2] > E.FALL_GZ)
-        alive &= ~fell
-        sat += (env.qfrc.abs() >= 0.99 * env.frange).sum(-1)
-    d = env.qpos[:, :2] - start_xy
-    T = steps * 0.02
-    fwd = d[:, 0] / T  # initial heading is +x for every env (identity quat)
-    # fraction of all (env, step, actuator) samples at >= 99% of forcerange
-    sat_frac = float(sat.float().mean()) / (steps * E.N_JOINTS)
-    return {"forward_mps": round(float(fwd.mean()), NORM4),
-            "min_forward_mps": round(float(fwd.min()), NORM4),
-            "fall_rate": round(float((~alive).float().mean()), NORM4),
-            "sat_frac": round(sat_frac, NORM4)}
+        obs = np.column_stack((gravity(qpos[:, 3:7]), qvel[:, 3:6],
+                               command, qpos[:, 7:] - home,
+                               qvel[:, 6:], last))
+        action = policy(obs)
+        if action.shape != (episodes, 12) or not np.isfinite(action).all():
+            raise ValueError("non-finite or wrongly shaped actions")
+        last = np.clip(action, -1, 1)
+        targets = np.clip(home + 0.5 * last,
+                          model.actuator_ctrlrange[:, 0],
+                          model.actuator_ctrlrange[:, 1])
+        for i, d in enumerate(worlds):
+            if not alive[i]:
+                continue
+            d.ctrl[:] = targets[i]
+            for _ in range(DECIM):
+                mujoco.mj_step(model, d)
+                ratio = np.abs(d.actuator_force) / force_limit
+                saturated += int((ratio >= 0.99).sum())
+                samples += 12
+                peak_ratio = max(peak_ratio, float(ratio.max()))
+            qpos[i], qvel[i] = d.qpos, d.qvel
+        if not np.isfinite(qpos).all() or not np.isfinite(qvel).all():
+            raise ValueError("non-finite simulation state")
+        alive &= (qpos[:, 2] >= MIN_TRUNK_Z) & (
+            gravity(qpos[:, 3:7])[:, 2] <= FALL_GZ)
+        if recorded is not None:
+            for key, value in (("qpos", qpos), ("qvel", qvel), ("alive", alive)):
+                recorded[key].append(value.copy())
+    forward = (qpos[:, 0] - start_x) / (steps * CTRL_DT)
+    metrics = {"forward_mps": round(float(forward.mean()), 6),
+               "min_forward_mps": round(float(forward.min()), 6),
+               "fall_rate": round(float((~alive).mean()), 6),
+               "sat_frac": round(saturated / max(samples, 1), 6),
+               "peak_torque_ratio": round(peak_ratio, 6)}
+    if recorded is not None:
+        np.savez_compressed(trace, **{k: np.asarray(v) for k, v in recorded.items()},
+                            seed=seed, sim_dt=SIM_DT, control_dt=CTRL_DT,
+                            mass_scale=mass_scale,
+                            model_sha256=sha256(MODEL),
+                            metrics=json.dumps(metrics, sort_keys=True))
+    return metrics
 
 
-def zero_policy(obs):
-    import torch
-    return torch.zeros(obs.shape[0], 12, device=obs.device)
+def sha256(path):
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
 
 
-def make_random_policy(seed, device):
-    import torch
-    g = torch.Generator(device=device)
-    g.manual_seed(seed ^ 0x5EED)
-
-    def policy(obs):
-        return torch.rand(obs.shape[0], 12, generator=g,
-                          device=obs.device) * 2.0 - 1.0
-    return policy
+def emit(verdict, path):
+    verdict.setdefault("ok", False)
+    with open(path, "w") as fh:
+        json.dump(verdict, fh, indent=2, sort_keys=True, allow_nan=False)
+    print(json.dumps(verdict, sort_keys=True, allow_nan=False))
 
 
 def main():
@@ -130,132 +176,80 @@ def main():
     ap.add_argument("--episodes", type=int, default=64)
     ap.add_argument("--steps", type=int, default=500)
     ap.add_argument("--mass-scale", type=float, default=1.0)
-    ap.add_argument("--cmd", default="1.0,0.0,0.0")
+    ap.add_argument("--trace-dir")
     a = ap.parse_args()
-    t0 = time.time()
-
-    verdict = {"artifact": os.path.basename(a.policy),
-               "policy_sha256": hashlib.sha256(
-                   open(a.policy, "rb").read()).hexdigest(),
-               "eval": {"seeds": [int(s) for s in a.seeds.split(",")],
-                        "episodes_per_seed": a.episodes,
-                        "steps": a.steps, "cmd": a.cmd,
-                        "mass_scale": a.mass_scale},
-               "gates": {}, "timing": {"wall_s": 0.0}}
-
-    stack, bad = check_stack()
-    verdict["stack"] = stack
-    if bad:
-        verdict["error"] = "lease stack mismatch: " + "; ".join(bad)
-        _emit(verdict, a.json)
-        sys.exit(2)
-
-    import torch  # noqa: F401 - policy backend on the lease
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import env as E
-
-    cmd = tuple(float(x) for x in a.cmd.split(","))
-    try:
-        policy, shapes = load_policy(a.policy, None, "cuda")
-    except Exception as exc:
-        verdict["error"] = f"artifact unreadable: {exc}"
-        _emit(verdict, a.json)
-        sys.exit(2)
-    verdict["policy_shapes"] = shapes
-    if tuple(shapes[0][1:]) and shapes[0][-1] != E.OBS_DIM:
-        pass  # first layer fan-in is checked by running it below
-
+    t0 = time.monotonic()
     seeds = [int(s) for s in a.seeds.split(",")]
+    if a.episodes < 1 or a.steps < 1 or not 0 < a.mass_scale < 10:
+        ap.error("invalid rollout dimensions or mass")
+    verdict = {"artifact": "policy.npz", "policy_sha256": sha256(a.policy),
+               "model_sha256": sha256(MODEL), "backend": "mujoco-cpu-float64",
+               "eval": {"seeds": seeds, "episodes_per_seed": a.episodes,
+                        "steps": a.steps, "cmd": [1.0, 0.0, 0.0],
+                        "mass_scale": a.mass_scale},
+               "gates": {}, "runs": [], "timing": {}}
     try:
-        run_fwd, run_fall, run_sat = [], [], []
-        for si, seed in enumerate(seeds):
-            env = E.Go1Batch(a.episodes, seed=seed,
-                             mass_scale=a.mass_scale,
-                             episode_steps=a.steps + 8)
-            r = evaluate(env, policy, a.steps, cmd, env.torch)
-            run_fwd.append(r["forward_mps"])
-            run_fall.append(r["fall_rate"])
-            run_sat.append(r["sat_frac"])
-            verdict.setdefault("runs", []).append(
-                {"seed": seed, "policy": "under_test", **r})
-            if si == 0:
-                env2 = E.Go1Batch(a.episodes, seed=seed,
-                                  mass_scale=a.mass_scale,
-                                  episode_steps=a.steps + 8)
-                r2 = evaluate(env2, policy, a.steps, cmd, env2.torch)
-                verdict["determinism"] = {
-                    "seed": seed, "a": r, "b": r2,
-                    "forward_mps_diff": round(
-                        abs(r["forward_mps"] - r2["forward_mps"]), NORM4),
-                    "fall_rate_identical":
-                        r["fall_rate"] == r2["fall_rate"],
-                    "sat_frac_diff": round(
-                        abs(r["sat_frac"] - r2["sat_frac"]), NORM4)}
-            del env
-        for name in G4_BASELINES:
-            env = E.Go1Batch(a.episodes, seed=seeds[0],
-                             mass_scale=a.mass_scale,
-                             episode_steps=a.steps + 8)
-            pol = zero_policy if name == "zero" else \
-                make_random_policy(seeds[0], env.qpos.device)
-            r = evaluate(env, pol, a.steps, cmd, env.torch)
+        stack, bad = check_stack()
+        verdict["stack"] = stack
+        if bad:
+            raise ValueError("lease stack mismatch: " + "; ".join(bad))
+        import numpy as np
+        import torch
+        torch.set_num_threads(1)
+        policy, shapes = load_policy(a.policy)
+        verdict["policy_shapes"] = shapes
+        runs = []
+        for seed in seeds:
+            trace = None
+            if a.trace_dir:
+                os.makedirs(a.trace_dir, exist_ok=True)
+                trace = os.path.join(a.trace_dir, f"seed-{seed}.npz")
+            r = evaluate(policy, seed, a.episodes, a.steps, a.mass_scale, trace)
+            runs.append(r)
+            verdict["runs"].append({"seed": seed, "policy": "under_test", **r})
+            if trace:
+                verdict.setdefault("traces", {})[str(seed)] = sha256(trace)
+        repeat = evaluate(policy, seeds[0], a.episodes, a.steps, a.mass_scale)
+        verdict["determinism"] = {"seed": seeds[0], "a": runs[0], "b": repeat,
+                                  "identical": runs[0] == repeat}
+        baseline_rng = np.random.default_rng(seeds[0] ^ 0x5EED)
+        baselines = {
+            "zero": lambda obs: np.zeros((len(obs), 12)),
+            "random": lambda obs: baseline_rng.uniform(-1, 1, (len(obs), 12))}
+        verdict["baselines"] = {}
+        for name, pol in baselines.items():
+            r = evaluate(pol, seeds[0], a.episodes, a.steps, a.mass_scale)
+            verdict["baselines"][name] = r
             verdict["runs"].append({"seed": seeds[0], "policy": name, **r})
-            verdict.setdefault("baselines", {})[name] = r
-            del env
+        fwd = round(float(np.mean([r["forward_mps"] for r in runs])), 6)
+        fall = round(float(np.mean([r["fall_rate"] for r in runs])), 6)
+        sat = max(r["sat_frac"] for r in runs)
+        peak = max(r["peak_torque_ratio"] for r in runs)
+        best = max(r["forward_mps"] for r in verdict["baselines"].values())
+        margin = round(fwd - best, 6)
+        verdict["measured"] = {"mean_forward_mps": fwd, "fall_rate": fall,
+                               "max_sat_frac": sat, "peak_torque_ratio": peak,
+                               "best_baseline_forward_mps": best}
+        verdict["gates"] = {
+            "g1_forward_speed": {"pass": fwd >= 0.5, "value": fwd,
+                                 "rule": "mean forward m/s >= 0.5"},
+            "g2_fall_rate": {"pass": fall <= 0.05, "value": fall,
+                             "rule": "fall rate <= 0.05"},
+            "g3_torque_saturation": {"pass": sat <= 0.15 and peak <= 1.000001,
+                                     "value": sat,
+                                     "rule": "saturation <= 0.15; torque ratio <= 1.000001"},
+            "g4_beats_baseline": {"pass": margin >= 0.30, "value": margin,
+                                  "rule": "beats best zero/random baseline by >= 0.30 m/s"},
+            "g5_determinism": {"pass": runs[0] == repeat,
+                               "value": runs[0] == repeat,
+                               "rule": "same seed gives identical metrics"}}
+        verdict["ok"] = all(g["pass"] for g in verdict["gates"].values())
     except Exception as exc:
-        verdict["error"] = f"evaluation failed: {exc}"
-        _emit(verdict, a.json)
-        sys.exit(2)
-
-    fwd = round(sum(run_fwd) / len(run_fwd), NORM4)
-    fall = round(sum(run_fall) / len(run_fall), NORM4)
-    sat = round(max(run_sat), NORM4)
-    best_base = max(b["forward_mps"]
-                    for b in verdict["baselines"].values())
-    verdict["measured"] = {"mean_forward_mps": fwd, "fall_rate": fall,
-                           "max_sat_frac": sat,
-                           "best_baseline_forward_mps": best_base}
-    det = verdict["determinism"]
-    verdict["gates"] = {
-        "g1_forward_speed": {
-            "pass": fwd >= G1_MIN_FORWARD_MPS,
-            "rule": f"mean forward m/s >= {G1_MIN_FORWARD_MPS}",
-            "value": fwd},
-        "g2_fall_rate": {
-            "pass": fall <= G2_MAX_FALL_RATE,
-            "rule": f"fall rate <= {G2_MAX_FALL_RATE}",
-            "value": fall},
-        "g3_torque_saturation": {
-            "pass": sat <= G3_MAX_SAT_FRAC,
-            "rule": f"actuator saturation fraction <= {G3_MAX_SAT_FRAC}",
-            "value": sat},
-        "g4_beats_baseline": {
-            "pass": fwd - best_base >= G4_MIN_MARGIN_MPS,
-            "rule": f"forward m/s beats best of {G4_BASELINES} "
-                    f"by >= {G4_MIN_MARGIN_MPS}",
-            "value": round(fwd - best_base, NORM4)},
-        "g5_determinism": {
-            "pass": (det["fall_rate_identical"]
-                     and det["forward_mps_diff"] <= G5_FWD_TOL
-                     and det["sat_frac_diff"] <= G5_SAT_TOL),
-            "rule": f"same seed graded twice: identical fall rate, "
-                    f"|d forward m/s| <= {G5_FWD_TOL}, "
-                    f"|d sat frac| <= {G5_SAT_TOL} (the warp solver is "
-                    "not bit-deterministic; tolerances >= 3x observed "
-                    "drift, see RECEIPT.md)",
-            "value": det},
-    }
-    verdict["ok"] = all(g["pass"] for g in verdict["gates"].values())
-    verdict["timing"] = {"wall_s": round(time.time() - t0, 1)}
-    _emit(verdict, a.json)
-    sys.exit(0 if verdict["ok"] else 1)
-
-
-def _emit(verdict, path):
-    with open(path, "w") as fh:
-        json.dump(verdict, fh, indent=1, sort_keys=True)
-    print(json.dumps(verdict, indent=1, sort_keys=True))
+        verdict["error"] = f"{type(exc).__name__}: {exc}"
+    verdict["timing"]["wall_s"] = round(time.monotonic() - t0, 3)
+    emit(verdict, a.json)
+    return 0 if verdict["ok"] else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

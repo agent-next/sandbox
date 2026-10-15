@@ -50,12 +50,12 @@ def main():
         save(os.path.join(outroot, name), arrays, args, cfg)
         names.append(name)
 
-    # 1. untrained: every weight re-drawn from N(0, 0.3) — a step-0 policy
-    a = dict(base)
-    for k in a:
-        if k.startswith(("w", "b")):
-            a[k] = rng.normal(0.0, 0.3, a[k].shape).astype(np.float32)
-    put("untrained", a)
+    # Real training counterfactuals, not synthetic claims about training.
+    for name, filename in (("untrained", "step0.npz"),
+                           ("short-training", "short.npz"),
+                           ("reward-flipped", "reward-flipped.npz")):
+        with np.load(os.path.join(good, filename), allow_pickle=False) as z:
+            put(name, {k: np.asarray(z[k]) for k in z.files})
 
     # 2. zero-output: final layer zeroed -> actions pinned at 0 -> stand still
     a = dict(base)
@@ -63,7 +63,7 @@ def main():
     a[f"b{li}"] = np.zeros_like(a[f"b{li}"])
     put("zero-output", a)
 
-    # 3. negated: final layer sign-flipped -> mirrored gait
+    # 3. negated actions (distinct from actually sign-flipped reward training).
     a = dict(base)
     a[f"w{li}"] = -a[f"w{li}"]
     a[f"b{li}"] = -a[f"b{li}"]

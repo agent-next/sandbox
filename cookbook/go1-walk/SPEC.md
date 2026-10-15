@@ -10,7 +10,7 @@ held-out seeds and decides pass/fail.
 
 ## Non-goals
 
-- No rendering/video in the graded path (media is a later round).
+- Rendering is not part of acceptance; media replays the judge's exact states.
 - No sim-to-real, no terrain curriculum, no joystick yaw/lateral tracking
   beyond the sampled command ranges used in training.
 - The judge does not re-run training; it grades the produced checkpoint.
@@ -39,36 +39,54 @@ Only the four foot spheres collide with the floor.
 
 ## Gates
 
-The judge runs its own rollouts on the lease: `N=64` episodes per held-out
+The judge runs single-threaded **CPU MuJoCo** rollouts on the lease, with
+float64 state, independently of the batched Warp trainer: `N=64` episodes per held-out
 seed, `T=500` control steps (10 s) each, fixed command `(1.0, 0.0, 0.0)`,
 seeds `101,202,303` by default (`--seed` overrides). Training used seed 1
-with commands sampled from vx in [0.4, 1.0]; the judge's seeds and the fixed
-1.0 m/s command are the held-out conditions.
+with commands sampled from vx in [0.4, 1.0] and yaw in [-0.3, 0.3].
+Evaluation seeds never enter training, and evaluation fixes yaw at zero.
+The 1.0 m/s command is the upper endpoint of training, not an unseen speed.
+Each episode starts at the home pose with independent Gaussian joint
+position (standard deviation 0.05 rad) and velocity (0.02) perturbations.
+A fall freezes that episode at its first failed control step. Forward
+displacement is always divided by the full 10 s, never by survival time.
 
 | gate | rule (all numbers measured by the judge's own sim) |
 |---|---|
 | G1 forward speed | mean forward m/s across all held-out episodes >= 0.5 (50% of the 1.0 m/s command) |
 | G2 fall rate | fraction of episodes with >= 1 fall (trunk < 0.10 m or tilt > ~57 deg) <= 0.05 |
-| G3 torque saturation | fraction of actuator samples at >= 99% of forcerange <= 0.15 (per-seed max) |
+| G3 torque saturation | fraction of live actuator samples at >= 99% of forcerange <= 0.15 (per-seed max); peak absolute torque / limit <= 1.000001 |
 | G4 beats baseline | mean forward m/s - max(zero-action, random-policy baseline) >= 0.30 |
-| G5 determinism | the first seed graded twice: identical fall rate, mean forward m/s within 0.05, saturation fraction within 0.02 |
+| G5 determinism | the first seed graded twice: identical metrics |
 
-The acceptance oracle is physics itself: a quadruped cannot net 0.5 m/s for
-10 s upright under foot-only contacts unless it actually walks; standing
-still scores ~0, and a falling robot terminates.
+The acceptance oracle is a measured task specification, not a claim about
+the reward or an analytic optimal gait: net forward displacement / 10 s,
+uprightness throughout, physical torque limits, and superiority to two
+independently simulated baselines. Torque is sampled at every 0.002 s
+physics substep. A stationary policy cannot pass G1/G4; falls cannot
+inflate the score by shortening the denominator. This does not prove
+sim-to-real safety or biomechanical gait quality.
 
 ## Reproduction tolerances
 
-The warp constraint solver is not bit-deterministic (measured: two
-identical same-seed batches diverge by ~2e-6 in qpos within one control
-step; see RECEIPT.md). Metrics are therefore reproducible only to a
-tolerance: G5 requires the same seed graded twice in one judge run to
-give an identical fall rate and mean forward m/s / saturation fraction
-within 0.05 / 0.02 — tolerances set >= 3x the drift observed on the
-passing artifact. Across separate judge runs on the same lease image the
-verdict should be identical except `timing` and the per-rollout fields
-named above; a passing artifact stays passing because every G1-G4 margin
-is set >= 3x looser than the measured good-artifact values (RECEIPT.md).
+The same checkpoint, model, seeds and pinned stack must produce
+byte-identical verdict JSON after removing only `timing`. Self-test
+enforces this across two complete grades, as well as G5's repeated seed.
+Warp training is stochastic and can produce different checkpoints.
+Two fresh retraining runs must each pass all five gates; their raw
+numbers need not be identical. Independent checkpoint reproduction
+requires exact gate values (six-decimal reporting).
+
+## Media contract
+
+`--trace` records all evaluated states, including the initial state, in
+NPZ data controlled by the judge. `media/make_media.sh` grades both the
+trained and real step-0 checkpoint, fetches these states, and replays
+them with `mujoco.Renderer`. It never interpolates or re-simulates poses.
+Every frame checks qpos within 1e-9 against that graded data. Render-only
+materials, lights and textures cannot alter the model's physics.
+The video is 1920x1080, 30 fps, 30 s, H.264 CRF 18 from a CRF 0 master,
+under 8 MB. Hero stills and training/judge-loop graphics use Pillow.
 
 ## Lease stack (asserted at grade time)
 

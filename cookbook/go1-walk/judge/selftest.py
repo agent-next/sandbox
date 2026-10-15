@@ -1,125 +1,128 @@
 #!/usr/bin/env python3
-"""Judge self-test on ONE GPU lease (stdlib only).
-
-- generates the mutants into a temp dir
-- grades the known-good artifact twice with the same seed -> both runs
-  must pass, with identical per-gate pass/fail and measured values
-  inside the G5 tolerance band (the warp solver is not bit-exact)
-- grades every mutant -> each must fail at least one gate
-- prints the kill rate; exits 0 only if good passes and >= 90% of mutants
-  are killed
-"""
+"""Real self-test on one lease. No local dependency beyond the stdlib."""
 
 from __future__ import annotations
 
+import argparse
+import base64
+import copy
 import json
 import os
-import subprocess
 import sys
-import tempfile
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import grade as G  # noqa: E402
+import grade as G
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEMO = os.path.dirname(HERE)
 SEEDS = "101,202,303"
 
 
-def same_verdict(v1, v2, fwd_tol=0.10, sat_tol=0.04):
-    """Two same-seed grades agree: identical gate pass/fail and measured
-    numbers within 2x the G5 tolerance (warp is not bit-exact)."""
-    g1 = {k: g["pass"] for k, g in (v1.get("gates") or {}).items()}
-    g2 = {k: g["pass"] for k, g in (v2.get("gates") or {}).items()}
-    if g1 != g2:
-        return False
-    m1, m2 = v1.get("measured") or {}, v2.get("measured") or {}
-    if m1.keys() != m2.keys():
-        return False
-    return (m1["fall_rate"] == m2["fall_rate"]
-            and abs(m1["mean_forward_mps"] - m2["mean_forward_mps"])
-                <= fwd_tol
-            and abs(m1["max_sat_frac"] - m2["max_sat_frac"]) <= sat_tol)
+def same_verdict(a, b):
+    a, b = copy.deepcopy(a), copy.deepcopy(b)
+    a.pop("timing", None)
+    b.pop("timing", None)
+    a.pop("traces", None)
+    b.pop("traces", None)
+    return a == b
+
+
+def checked_verdict(rep):
+    v = rep.get("verdict")
+    if rep.get("rc") not in (0, 1) or not v or v.get("error"):
+        raise RuntimeError("judge execution failed: " + json.dumps(rep)[:1200])
+    if (rep["rc"] == 0) != v["ok"]:
+        raise RuntimeError("judge exit and verdict disagree")
+    return v
+
+
+def selftest_on_lease(lease, good, out_json, seeds=SEEDS):
+    t0 = time.monotonic()
+    # Generate mutants with the pinned NumPy already on the lease.
+    files = {n: os.path.join(good, n) for n in
+             ("policy.npz", "step0.npz", "short.npz", "reward-flipped.npz")}
+    files["mutants.py"] = os.path.join(HERE, "mutants.py")
+    payload = {n: base64.b64encode(open(p, "rb").read()).decode()
+               for n, p in files.items()}
+    code = f"""
+import base64, os, subprocess, sys
+root = os.path.expanduser('~/go1mutants')
+os.makedirs(root, exist_ok=True)
+for name, value in {payload!r}.items():
+    open(os.path.join(root, name), 'wb').write(base64.b64decode(value))
+p = subprocess.run([sys.executable, os.path.join(root, 'mutants.py'),
+                    root, os.path.join(root, 'mutants')],
+                   capture_output=True, text=True, timeout=60)
+report['rc'] = p.returncode
+report['names'] = p.stdout.split()
+report['stderr'] = p.stderr
+"""
+    result = lease.exec(code, 120)
+    rep = result.get("report") or {}
+    if result.get("ok") is not True or rep.get("rc") != 0:
+        raise RuntimeError("mutant generation failed: " + str(rep))
+    names = rep["names"]
+    if len(names) < 6 or any(not all(c.isalnum() or c == "-" for c in n)
+                             for n in names):
+        raise RuntimeError("invalid mutant inventory")
+    results = {"mutants": {}, "timing": {}, "seeds": seeds}
+    for i in range(2):
+        v = checked_verdict(G.grade_on_lease(lease, good, seeds, 64, 500, 1.0))
+        results[f"good_run{i+1}"] = v
+        m = v.get("measured", {})
+        print(f"selftest: good {i+1} {'PASS' if v['ok'] else 'FAIL'} "
+              f"fwd={m.get('mean_forward_mps')} m/s "
+              f"fall={m.get('fall_rate')} sat={m.get('max_sat_frac')}", flush=True)
+        if not v["ok"]:
+            raise RuntimeError("known-good artifact did not pass")
+    deterministic = same_verdict(results["good_run1"], results["good_run2"])
+    results["deterministic"] = deterministic
+    if not deterministic:
+        raise RuntimeError("same-seed verdict JSON differs outside timing")
+    print("selftest: byte-identical verdicts outside timing", flush=True)
+    killed = 0
+    # Remote files are fetched as data, then shipped to the unchanged judge.
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="go1-selftest-") as tmp:
+        for name in names:
+            path = os.path.join(tmp, "policy.npz")
+            data = lease.fetch_file(f"~/go1mutants/mutants/{name}/policy.npz")
+            with open(path, "wb") as fh:
+                fh.write(data)
+            mass = 2.0 if name == "mass2x" else 1.0
+            v = checked_verdict(G.grade_on_lease(lease, tmp, seeds, 64, 500, mass))
+            failed = [n for n, g in v["gates"].items() if not g["pass"]]
+            killed += bool(failed)
+            results["mutants"][name] = {"verdict": v, "failed_gates": failed}
+            print(f"selftest: {name}: {'KILLED' if failed else 'SURVIVED'} "
+                  f"({', '.join(failed)}; "
+                  f"fwd={v['measured']['mean_forward_mps']})", flush=True)
+    rate = killed / len(names)
+    results.update(killed=killed, total=len(names), kill_rate=rate,
+                   ok=rate >= 0.9 and killed == len(names))
+    results["timing"]["wall_s"] = round(time.monotonic() - t0, 3)
+    with open(out_json, "w") as fh:
+        json.dump(results, fh, indent=2, sort_keys=True)
+    print(f"selftest: kill rate {killed}/{len(names)} = {rate:.0%}; "
+          f"{'PASS' if results['ok'] else 'FAIL'}", flush=True)
+    return results
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--artifact", default=os.path.join(DEMO, "examples", "good"))
+    ap.add_argument("--json", default=os.path.join(DEMO, "out", "selftest.json"))
+    a = ap.parse_args()
+    os.makedirs(os.path.dirname(os.path.abspath(a.json)), exist_ok=True)
     key = os.environ.get("SBX_API_KEY") or os.environ.get("E2B_API_KEY")
     if not key:
-        G.die("no API key: export SBX_API_KEY (or E2B_API_KEY)")
-    good = os.path.join(DEMO, "examples", "good")
-    tmp = tempfile.mkdtemp(prefix="go1-selftest-")
-    mutdir = os.path.join(tmp, "mutants")
-    names = subprocess.run(
-        [sys.executable, os.path.join(HERE, "mutants.py"), good, mutdir],
-        check=True, capture_output=True, text=True).stdout.split()
-    print(f"selftest: {len(names)} mutants: {' '.join(names)}", flush=True)
-
-    results = {}
+        G.die("export SBX_API_KEY (or E2B_API_KEY)")
     with G.Lease(key, 4) as lease:
-        print(f"selftest: lease {lease.id}", flush=True)
-
-        rep = G.grade_on_lease(lease, good, SEEDS, 64, 500, 1.0,
-                               timeout_s=600)
-        good_v = rep.get("verdict")
-        results["good_run1"] = good_v
-        if not good_v or good_v.get("ok") is not True:
-            G.die("known-good artifact did not pass: "
-                  + json.dumps(good_v or rep, indent=1)[:800])
-        m = good_v["measured"]
-        print(f"selftest: good PASS fwd={m['mean_forward_mps']} m/s "
-              f"fall={m['fall_rate']} sat={m['max_sat_frac']}", flush=True)
-
-        # determinism: same seed twice -> same verdict within G5 band
-        rep2 = G.grade_on_lease(lease, good, SEEDS, 64, 500, 1.0,
-                                timeout_s=600)
-        good_v2 = rep2.get("verdict")
-        results["good_run2"] = good_v2
-        if not good_v2 or good_v2.get("ok") is not True:
-            G.die("second good grade did not pass")
-        if not same_verdict(good_v, good_v2):
-            G.die("determinism check failed: two same-seed grades differ "
-                  "beyond tolerance")
-        print("selftest: determinism ok (two same-seed grades agree "
-              "within tolerance)", flush=True)
-
-        killed = 0
-        for name in names:
-            mdir = os.path.join(mutdir, name)
-            args = {}
-            aj = os.path.join(mdir, "args.json")
-            if os.path.exists(aj):
-                args = json.load(open(aj))
-            ms = 1.0
-            ea = args.get("extra_args") or []
-            if "--mass-scale" in ea:
-                ms = float(ea[ea.index("--mass-scale") + 1])
-            rep = G.grade_on_lease(lease, mdir, SEEDS, 64, 500, ms,
-                                   timeout_s=600)
-            v = rep.get("verdict")
-            results[name] = v
-            if v is None:
-                print(f"selftest: {name}: judge error "
-                      f"{json.dumps(rep)[:300]}", flush=True)
-                continue
-            failed = [n for n, g in (v.get("gates") or {}).items()
-                      if g.get("pass") is False]
-            if failed:
-                killed += 1
-            meas = (v.get("measured") or {})
-            print(f"selftest: {name}: {'KILLED' if failed else 'SURVIVED'}"
-                  f" ({', '.join(failed) or 'no gate failed'}; "
-                  f"fwd={meas.get('mean_forward_mps')})", flush=True)
-
-    rate = killed / len(names)
-    out = os.path.join(tmp, "selftest.json")
-    with open(out, "w") as fh:
-        json.dump(results, fh, indent=1, sort_keys=True)
-    print(f"selftest: kill rate {killed}/{len(names)} = {rate:.0%} "
-          f"(verdicts: {out})", flush=True)
-    if rate < 0.9:
-        G.die(f"kill rate {rate:.0%} < 90%")
-    print("selftest: PASS", flush=True)
+        print(f"selftest: created {lease.id}", flush=True)
+        results = selftest_on_lease(lease, a.artifact, a.json)
+    return 0 if results["ok"] else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
