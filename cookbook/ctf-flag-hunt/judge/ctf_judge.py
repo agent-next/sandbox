@@ -33,7 +33,10 @@ NOTE_COUNT = 6
 BUILD_TIMEOUT = 60.0
 RUN_TIMEOUT = 15.0
 
-CC = ("gcc", "-O2", "-std=c11", "-Wall")
+# gcc-12, not gcc: the pinned package provides /usr/bin/gcc-12 and the
+# /usr/bin/gcc symlink comes from a different package, so a fresh install
+# of gcc-12 alone leaves `gcc` missing.
+CC = ("gcc-12", "-O2", "-std=c11", "-Wall")
 
 
 class JudgeError(RuntimeError):

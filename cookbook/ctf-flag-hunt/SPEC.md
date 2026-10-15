@@ -55,8 +55,12 @@ notes.c  retrieve.c  token.c  status.c  admin.c
 The judge compiles each with a fixed, documented rule —
 
 ```
-cd <dir> && gcc -O2 -std=c11 -Wall -o <out>/<name> <name>.c
+cd <dir> && gcc-12 -O2 -std=c11 -Wall -o <out>/<name> <name>.c
 ```
+
+(`gcc-12` is the binary the pinned package installs; `/usr/bin/gcc` is a
+symlink from a *different* package and is not guaranteed to exist on a
+fresh install, so the judge names the compiler explicitly.)
 
 — with `<dir>` as both the working directory and the include path (so
 `#include "helper.h"` beside the sources works). Any other files in the

@@ -42,13 +42,13 @@ assert sys.version_info >= (3, 10), sys.version
 EOF
 
 echo "setup: tool versions"
-gcc --version | sed -n '1p'
+gcc-12 --version | sed -n '1p'
 dpkg-query -W -f='gcc-12 debian package: ${Version}\n' gcc-12 2>/dev/null || true
 python3 --version
 {
     echo "# ctf-flag-hunt judge: versions installed by judge/setup.sh"
     echo "# ($(uname -sm))"
-    echo "gcc $(gcc -dumpfullversion)"
+    echo "gcc-12 $(gcc-12 -dumpfullversion)"
     echo "gcc-12 debian package: $(dpkg-query -W -f='${Version}' gcc-12 2>/dev/null || echo 'n/a')"
     echo "python3 $(python3 --version | awk '{print $2}')"
 } > "$JDIR/VERSIONS.txt"
