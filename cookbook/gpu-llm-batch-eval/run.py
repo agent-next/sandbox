@@ -142,7 +142,8 @@ def sha(path):
             h.update(b)
     return h.hexdigest()
 
-parts = sorted(glob.glob('model/model.safetensors.part*'))
+parts = sorted(glob.glob('model/model.safetensors.part*'),
+               key=lambda p: int(p.rsplit('part', 1)[1]))
 assert len(parts) == {n_parts}, 'expected {n_parts} weight chunks, got %d' % len(parts)
 with open('model/model.safetensors', 'wb') as out:
     for p in parts:
@@ -167,6 +168,7 @@ def gpu_exec_job(problems_sha, device="cuda"):
     return f"""
 import hashlib, json, os, time, sys
 import torch
+import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 report['device_name'] = torch.cuda.get_device_name(0)
