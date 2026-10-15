@@ -36,11 +36,20 @@ python3 cookbook/untrusted-code-isolation/run.py --keep              # leave it 
 Each run prints wall time per step (create, clone, setup, selftest,
 grade), the verdict JSON, and a short human summary, then kills the
 sandbox and confirms it is gone. Measured on a 2 vCPU / ~3 GB sandbox
-(see RECEIPT.md): create ~2 s, clone ~4 s, setup ~15 s (venv + sha256-checked
-`unshare` fallback), selftest ~8–10 min (11 grades), grade ~1 min,
-total ~10–11 min. A single grade is ~1 min because containment is not
-fast-forwarded: the wall-clock snippets really wait out their policy
-window so the judge can measure what actually happened.
+(see RECEIPT.md, two runs at commit `c07e80b`): create ~5 s, clone
+~20–22 s, setup ~25 s (venv + sha256-checked `unshare` fallback),
+selftest ~12.5 min (13 grades: the good runner, 10 mutants, 2
+determinism runs), grade ~1 min, total ~885 s. A single grade is ~1 min
+because containment is not fast-forwarded: the wall-clock snippets really
+wait out their policy window so the judge can measure what actually
+happened.
+
+The gateway restarts under load and a long-lived `sbx exec` stream is
+the casualty; the driver therefore runs every step detached in the
+sandbox and polls it with short, retried exec calls, so a restart costs
+one retry, not the run. Cleanup reports a sandbox gone only when
+`sbx list` actually answers with the id absent — a failed kill or an
+unreadable list is a non-zero exit naming the id.
 
 To try the judge locally on a Linux box you control (a VM, not your
 laptop — the snippets are hostile):
@@ -120,6 +129,27 @@ mutants (no CPU/as/fsize/nproc/timeout/output-cap limits, no uid drop,
 trust-the-snippet, misreport-benign, widened limits) and a determinism
 check — two grades of the good runner give byte-identical verdicts except
 measured timings; kill rate must be ≥ 90 % (it is 10/10).
+
+## Media
+
+`media/` holds the figures and the short video, all regenerated from
+real judge outputs by `media/make_media.sh ARTIFACTS_DIR` (needs
+python3 + matplotlib and ffmpeg at generation time; the demo itself is
+stdlib-only):
+
+- `media/result.png` — each numerically bounded hostile snippet's
+  measured effect against the judge's bound (pass line at 1.0), plus the
+  four binary effect gates.
+- `media/loop.png` — the self-test: 10/10 mutants killed against the
+  required 90 % line, next to the five gate results.
+- `media/demo.mp4` — 29.5 s, 1920×1080 at 30 fps, H.264; a step-through
+  of the figures above (the physics here is not time-dependent).
+- `media/MANIFEST.json` — what each file shows, the command that
+  produced it, its source data, and its sha256.
+
+Every plotted number is read from `run.py --artifacts` output
+(`verdict.json`, `selftest.log`) and `judge/policy.json`; nothing is
+hand-drawn.
 
 ## Limits, stated plainly
 

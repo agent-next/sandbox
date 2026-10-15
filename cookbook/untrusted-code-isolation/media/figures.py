@@ -152,11 +152,19 @@ def draw_result(fig, verdict, policy, rows, stage=1.0, show_effects=True):
                   fontsize=12.5, color=INK)
     ax.text(1.0, len(rows) - 0.45, "judge bound", color=VERMILLION,
             fontsize=11, va="bottom", ha="center", weight="bold")
+    # The bars are long and their labels end mid-plot, so the value and the
+    # unit are printed as two words and each is kept short enough that no
+    # row's words collide with the next row's tick label.
     for y, (label, got, bound, unit), r in zip(ys, rows[::-1], ratios):
-        ax.text(min(r + 0.03, 1.60), y + 0.02,
-                "%s / %s  %s" % (_fmt(got), _fmt(bound), unit),
-                fontsize=10.5, va="center", color=INK,
-                ha="right" if r > 1.12 else "left")
+        value = _fmt(got)
+        if r >= 0.5:                       # long bar: label inside it
+            ax.text(r - 0.03, y, value, fontsize=10.5, va="center",
+                    color="white", ha="right")
+            ax.text(r + 0.03, y, unit, fontsize=10.5, va="center",
+                    color=INK, ha="left")
+        else:                              # short bar: label after it
+            ax.text(r + 0.03, y, "%s / %s  %s" % (value, _fmt(bound), unit),
+                    fontsize=10.5, va="center", color=INK, ha="left")
     fig.text(0.02, 0.965, "Hostile snippets: measured effect vs the "
              "judge's bound", fontsize=15, color=INK, weight="bold",
              va="top")
