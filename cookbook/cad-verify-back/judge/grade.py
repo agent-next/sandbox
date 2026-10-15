@@ -33,6 +33,7 @@ TOL_DIAM = 0.01        # mm, gates G4 / G11
 TOL_POS = 0.02         # mm, gates G4 / G5 / G6 / G11
 TOL_ANG = 0.05         # deg, gates G5 / G6
 TOL_VOL_STL = 0.01     # relative, gate G10
+TOL_BBOX_STL = 0.05    # mm, gate G10 (STL bounds vs STEP tessellation bounds)
 TOL_XOR = 0.01         # relative, gate G7 (symmetric difference vs reference)
 TOL_OUTLINE = 0.01     # mm, gate G12 (DXF outline corners vs spec)
 TOL_DR = 0.01          # mm, gate G13
@@ -419,18 +420,39 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
         g.ok(signed_volume_mm3=m["signed_volume_mm3"])
 
     with Gate(gates, "stl_volume",
-              "trimesh STL volume within 1% of STEP volume") as g:
+              "STL matches the STEP solid: volume within 1%, bbox within "
+              "0.05 mm, XOR vs the STEP tessellation <= 1% of the volume") as g:
         if solid is None:
             g.fail("skipped: no re-imported solid (G1)")
         if m is None:
             g.fail("skipped: STL did not pass the trimesh checks (stl_watertight)")
-        v_stl = m["volume_mm3"]
+        import numpy as np
+        import trimesh
+        mesh = trimesh.load_mesh(stl_path, force="mesh")
+        v_stl = float(mesh.volume)
         v_step = solid.Volume()
         rel = abs(v_stl - v_step) / v_step
         if rel > TOL_VOL_STL:
             g.fail(f"STL volume {v_stl:.4f} vs STEP {v_step:.4f} "
                    f"(rel err {rel:.4%} > {TOL_VOL_STL:.2%})")
-        g.ok(stl_volume_mm3=v_stl, step_volume_mm3=v_step, rel_err=rel)
+        # geometry, not just volume: a watertight equal-volume box passes
+        # the volume check alone but is not the delivered solid
+        step_mesh = _tessellate_solid(solid)
+        bb_err = float(np.abs(np.asarray(mesh.bounds, dtype=float)
+                              - np.asarray(step_mesh.bounds, dtype=float)).max())
+        if bb_err > TOL_BBOX_STL:
+            g.fail(f"STL bbox {np.asarray(mesh.bounds).tolist()} vs STEP "
+                   f"tessellation {np.asarray(step_mesh.bounds).tolist()} "
+                   f"(max component err {bb_err:.4f} mm > {TOL_BBOX_STL} mm)")
+        xor_v = xor_volume_mm3(mesh, step_mesh)
+        xrel = xor_v / v_step
+        if xrel > TOL_XOR:
+            g.fail(f"STL/STEP symmetric-difference volume {xor_v:.2f} mm^3 "
+                   f"({xrel:.3%} of the {v_step:.2f} mm^3 STEP volume) "
+                   f"> {TOL_XOR:.0%}")
+        g.ok(stl_volume_mm3=v_stl, step_volume_mm3=v_step, rel_err=rel,
+             bbox_max_err_mm=round(bb_err, 5),
+             xor_volume_mm3=round(xor_v, 3), xor_rel_err=round(xrel, 6))
 
     # ---- G11/G12: DXF ------------------------------------------------------
     with Gate(gates, "dxf_circles",
