@@ -146,13 +146,17 @@ def xor_volume_mm3(mesh_a, mesh_b):
 
     Uses trimesh's boolean engine backed by manifold3d: XOR = union of
     (A - B) and (B - A). check_volume is off because both halves are empty
-    when the shapes coincide.
+    when the shapes coincide; the warnings guard keeps trimesh's
+    center_mass divide-by-zero on that empty result off the judge's stderr.
     """
+    import warnings
     from trimesh.boolean import boolean_manifold
-    ab = boolean_manifold([mesh_a, mesh_b], "difference", check_volume=False)
-    ba = boolean_manifold([mesh_b, mesh_a], "difference", check_volume=False)
-    xor = boolean_manifold([ab, ba], "union", check_volume=False)
-    return xor.volume
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        ab = boolean_manifold([mesh_a, mesh_b], "difference", check_volume=False)
+        ba = boolean_manifold([mesh_b, mesh_a], "difference", check_volume=False)
+        xor = boolean_manifold([ab, ba], "union", check_volume=False)
+        return xor.volume
 
 
 def angular_steps_deg(centres):
