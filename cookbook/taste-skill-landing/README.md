@@ -35,18 +35,18 @@ show the difference the skill makes (measured below).
 | no horizontal overflow at 375/768/1440 px | **pass** | **FAIL** (fixed 1200 px container) |
 | WCAG AA contrast (computed styles) | **pass** (min ratio 5.19:1) | **FAIL** |
 | all brief sections present | **pass** | pass |
-| taste rules (14 measurable skill rules) | **pass 14/14** | **FAIL 11/14** |
+| taste rules (15 measurable skill rules) | **pass 15/15** | **FAIL 11/15** |
 | axe-core 4.10.3, 0 critical/serious | **pass** | **FAIL** |
 | wind widget minutes sane (no negative/NaN) | **pass** | pass (no widget) |
 | **verdict** | **ALL GATES PASS** | **FAILS** |
 
 Judge self-test: known-good passes, determinism holds (two grades at the
 same seed byte-identical outside `timing`), the no-skill baseline exits
-non-zero with a readable verdict (the exit-code contract), and **9/9
+non-zero with a readable verdict (the exit-code contract), and **10/10
 (100 %) known-bad mutants killed** — each a single edit (low contrast,
 fixed-width container, missing section, console error, default Times font,
 tiny tap targets, image without alt, wind-widget sign bug, gradient
-button). Full transcript in [RECEIPT.md](RECEIPT.md).
+button, clipped select text). Full transcript in [RECEIPT.md](RECEIPT.md).
 
 ### Media
 

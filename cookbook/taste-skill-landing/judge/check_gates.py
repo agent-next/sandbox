@@ -10,7 +10,7 @@ Loads the artifact in pinned headless Chromium (Playwright 1.63.0) at 375,
   gate 3  WCAG AA contrast  computed color vs nearest background, 4.5:1 /
                             3:1 large text (skill references/colour.md §8)
   gate 4  brief             every brief.md section present + brand ground
-  gate 5  taste rules       14 sub-checks, each citing the skill rule
+  gate 5  taste rules       15 sub-checks, each citing the skill rule
   gate 6  axe-core          zero critical/serious violations at 1440/375
   gate 7  wind widget       the hero widget's "N minutes" figures are all
                             non-negative integers at every slider position
@@ -64,9 +64,29 @@ COLLECT_JS = r"""
     const rects = [...r.getClientRects()].filter(x => x.height > 4 && x.width > 2);
     return new Set(rects.map(x => Math.round(x.top / 4))).size;
   }
+  // 'normal' line-height resolves to a real line box that depends on the
+  // font's metrics: measure it with an offscreen probe (removed at once;
+  // the static NodeList under iteration never sees it).
+  const nlhCache = {};
+  function normalLH(cs) {
+    const key = [cs.fontFamily, cs.fontSize, cs.fontWeight, cs.fontStyle].join('|');
+    if (!(key in nlhCache)) {
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:absolute;top:0;left:0;visibility:hidden;' +
+        'margin:0;padding:0;border:0;white-space:nowrap;line-height:normal;' +
+        'font-family:' + cs.fontFamily + ';font-size:' + cs.fontSize +
+        ';font-weight:' + cs.fontWeight + ';font-style:' + cs.fontStyle + ';';
+      probe.textContent = 'Ag';
+      document.body.appendChild(probe);
+      nlhCache[key] = probe.getBoundingClientRect().height;
+      probe.remove();
+    }
+    return nlhCache[key];
+  }
   const res = {texts: [], headings: [], imgs: [], targets: [], spacings: [],
                borders: [], shadows: [], gradients: [], families: [],
-               sizes1440: [], ids: [], bodyBg: '', overflow: null, fontCheck: {}};
+               controls: [], sizes1440: [], ids: [], bodyBg: '',
+               overflow: null, fontCheck: {}};
   for (const el of document.querySelectorAll('body *')) {
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') continue;
@@ -142,6 +162,35 @@ COLLECT_JS = r"""
       res.targets.push({tag: el.tagName, text: (el.textContent || el.getAttribute('name') || '')
         .trim().slice(0, 40), w: Math.round(rect.width * 10) / 10,
         h: Math.round(rect.height * 10) / 10});
+    }
+
+    // -- control text fits its content box (5.15) -----------------------
+    // A control whose own text's line box is taller than the box left by
+    // the vertical padding renders that text clipped. Inputs that can
+    // never show text (checkbox/radio/range/colour/image/hidden) skip.
+    if (el.matches('input, select, button')) {
+      const it = (el.getAttribute('type') || 'text').toLowerCase();
+      const textless = el.tagName === 'INPUT' &&
+        ['checkbox', 'radio', 'range', 'color', 'image', 'hidden']
+          .includes(it);
+      if (!textless && rect.height > 0) {
+        let label = '';
+        if (el.tagName === 'SELECT') {
+          const o = el.options[el.selectedIndex];
+          label = o ? o.text : '';
+        } else if (el.tagName === 'INPUT') {
+          label = el.value || el.getAttribute('placeholder') || '';
+        } else {
+          label = el.textContent || '';
+        }
+        res.controls.push({
+          tag: el.tagName, id: el.id || '', text: label.trim().slice(0, 40),
+          line_box: Math.round((px(cs.lineHeight) || normalLH(cs)) * 100) / 100,
+          content_box: Math.round(
+            (el.clientHeight - px(cs.paddingTop) - px(cs.paddingBottom))
+            * 100) / 100,
+        });
+      }
     }
   }
 
@@ -506,6 +555,17 @@ def main():
               "SKILL.md step 6.4: 'at least four real pictures on the page' "
               "(SVG does not count)",
               len(raster) >= 4, {"raster_images": len(raster)})
+
+    clipped = [{"width": w,
+                "control": c["tag"] + (f"#{c['id']}" if c["id"] else ""),
+                "text": c["text"], "line_box": c["line_box"],
+                "content_box": c["content_box"]}
+               for w in WIDTHS for c in data[w]["controls"]
+               if c["line_box"] > c["content_box"] + 0.5]
+    sub_check("5.15", "control_text_fits",
+              "SKILL.md step 6.7: 'Real links and buttons' — a control whose "
+              "own text does not fit the box its padding leaves is clipped",
+              not clipped, {"clipped": clipped[:10]})
 
     gate("taste_rules", all(s["passed"] for s in sub), sub)
 

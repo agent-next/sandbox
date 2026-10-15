@@ -99,7 +99,8 @@ fi
 echo ""
 echo "[selftest] Known-bad mutants (must FAIL):"
 MUTANTS=(low_contrast fixed_container missing_section console_error
-         default_font tiny_taps img_no_alt wind_sign_bug gradient_button)
+         default_font tiny_taps img_no_alt wind_sign_bug gradient_button
+         clipped_control)
 KILLED=0; TOTAL=0; SURVIVED=()
 for m in "${MUTANTS[@]}"; do
     d="$BAD/$m"

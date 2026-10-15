@@ -151,7 +151,7 @@ seg_card 6.0 \
     "56|300|${TITLE_FONT}|judge verdict - seed 42" \
     "36|420|${TEXT_FONT}|${VERDICT_LINES[0]}" \
     "30|500|${TEXT_FONT}|${VERDICT_LINES[1]}" \
-    "28|620|${TEXT_FONT}|judge self-test - 9/9 mutants killed, a failing site exits non-zero"
+    "28|620|${TEXT_FONT}|judge self-test - 10/10 mutants killed, a failing site exits non-zero"
 
 for f in "$MASTER"/seg*.mp4; do printf 'file %s\n' "$f"; done \
     > "$WORK/concat.txt"

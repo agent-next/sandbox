@@ -99,7 +99,14 @@ def main():
            "\n/* mutant */\na.button { background-image: "
            "linear-gradient(90deg, #0E6E54, #2FA07C) !important; }\n")
 
-    print(f"Created 9 mutants in {BAD}")
+    # 10. clipped control text (gate 5.15: control_text_fits)
+    # Reintroduces the reported defect: the hero select keeps height 48px
+    # but 16px vertical padding leaves a 16px box for a 24px line box.
+    d = clone("clipped_control")
+    append(os.path.join(d, CSS),
+           "\n/* mutant */\n.live-thing select { padding: 16px; }\n")
+
+    print(f"Created 10 mutants in {BAD}")
 
 
 if __name__ == "__main__":

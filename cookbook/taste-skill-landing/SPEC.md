@@ -81,7 +81,7 @@ headless (no CPU throttling), at widths **375, 768 and 1440 px**
   brief's `heading` text (case-insensitive).
 - Computed `body` background-color equals the brief `colors.ground`.
 
-### Gate 5 — taste rules (each sub-check cites the skill)
+### Gate 5 — taste rules (each sub-check cites the skill; 15 total)
 | # | rule (skill citation) | numeric pass |
 |---|---|---|
 | 5.1 | two typefaces at most (SKILL.md house rules: "Two typefaces at most, usually one") | distinct primary font families used by visible text <= 2 |
@@ -98,6 +98,7 @@ headless (no CPU throttling), at widths **375, 768 and 1440 px**
 | 5.12 | running text 16 px+ (SKILL.md step 6.6: "Running text is in the full ink at 16px or more"; layout.md "Body text 16–18px") | every visible paragraph-scale text node (>= 60 chars) has computed font-size >= 16 px at 1440 and 375 |
 | 5.13 | headline line count (house rules: "Headlines: two lines or fewer, at every width") | every visible `h1`–`h6` occupies <= 2 line boxes (Range client rects) at each width |
 | 5.14 | image floor (SKILL.md step 6.4: "at least four real pictures on the page... SVG drawings do not count") | count of `img` with raster src and `naturalWidth > 0` >= 4 |
+| 5.15 | control text fits (SKILL.md step 6.7: "Real links and buttons") | every visible `input`/`select`/`button` that can display text (non-text input types skipped) has a text line box (font-size x computed line-height; `normal` measured via offscreen probe) <= `clientHeight` minus vertical padding, at every width (+0.5 px tolerance) |
 
 ### Gate 6 — axe-core accessibility
 - axe-core 4.10.3 injected at 1440 and 375 px: violations with impact
@@ -120,8 +121,10 @@ headless (no CPU throttling), at widths **375, 768 and 1440 px**
 `default_font` (Times/serif), `tiny_taps` (nav/button padding shrunk),
 `img_no_alt` (alt stripped), `wind_sign_bug` (wind saving computed as an
 ordered difference, so some wind directions print a negative saving),
-`gradient_button` (CSS appended). Kill rate
->= 90 % required (9/9 expected). `examples/baseline/site` is graded as a
+`gradient_button` (CSS appended), `clipped_control` (select padding back to
+16 px inside a 48 px height, so the option text's 24 px line box no longer
+fits). Kill rate
+>= 90 % required (10/10 expected). `examples/baseline/site` is graded as a
 known-bad reference row (expected to fail several gates) but is not in the
 kill-rate denominator.
 
