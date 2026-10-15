@@ -10,6 +10,7 @@ and the selftest kill bars.
 import os
 
 import numpy as np
+from matplotlib.colors import ListedColormap
 
 import common as c
 
@@ -58,19 +59,19 @@ for i, name in enumerate(ORDER):
     v = c.verdict(name)
     for j, gk in enumerate(GATES):
         mat[i, j] = 1.0 if v["gates"][gk]["pass"] else 0.0
-axm.imshow(mat, aspect="auto", cmap="Greens", vmin=-0.9, vmax=1.25,
-           interpolation="nearest")
+axm.imshow(mat, aspect="auto", vmin=0, vmax=1, interpolation="nearest",
+           cmap=ListedColormap(["#f6d3cf", "#1f7a3f"]))
 for i, name in enumerate(ORDER):
     v = c.verdict(name)
     for j, gk in enumerate(GATES):
         if v["gates"][gk]["pass"]:
-            axm.text(j, i, "✓", fontsize=11, color=c.GOOD, ha="center",
+            axm.text(j, i, "✓", fontsize=11, color="white", ha="center",
                      va="center", fontweight="bold")
         else:
             axm.text(j, i, "✕", fontsize=11, color=c.CRIT, ha="center",
                      va="center", fontweight="bold")
 axm.set_xticks(range(len(GATES)))
-axm.set_xticklabels([GATE_LBL[g] for g in GATES], fontsize=7.6)
+axm.set_xticklabels([GATE_LBL[g] for g in GATES], fontsize=7.0)
 axm.set_yticks(range(len(ORDER)))
 axm.set_yticklabels([MAT_LBL[n] for n in ORDER], fontsize=10)
 axm.tick_params(colors=c.MUTED, length=0)
@@ -98,7 +99,7 @@ axA.axhline(0, color=c.AXIS, lw=1.0, zorder=1)
 bad = c.verdict("too-aggressive")["gates"]["s2_tau_demand_max_Nm"]["value"]
 axA.annotate(f"measured peak |τ| = {bad:.2f} N·m - gate fails at 1 N·m\n"
              "(unclamped demand; the simulation clamps the real input)",
-             xy=(tA[np.argmax(np.abs(tauA))], bad),
+             xy=(tA[np.argmax(np.abs(tauA))], tauA[np.argmax(np.abs(tauA))]),
              xytext=(1.6, 1.78), fontsize=10.5, color=c.INK2,
              arrowprops=dict(arrowstyle="-", color=c.AXIS, lw=1))
 axA.set_xlabel("time (s)", fontsize=11.5, color=c.INK2)
@@ -112,9 +113,9 @@ axA.legend(loc="lower right", fontsize=9.5, frameon=True, facecolor=c.SURFACE,
            edgecolor=c.GRID)
 for txt in axA.get_legend().get_texts():
     txt.set_color(c.INK2)
-axA.text(0.02, 0.03,
+axA.text(0.02, 0.985,
          "gate: unclamped peak |τ| ≤ 1 N·m in both runs",
-         transform=axA.transAxes, fontsize=9.5, color=c.CRIT, va="bottom")
+         transform=axA.transAxes, fontsize=9.5, color=c.CRIT, va="top")
 
 # ------------------------------------------- the killer trace: settling
 axS = fig.add_subplot(gs[2, 0])
@@ -142,7 +143,8 @@ axS.set_title("Killed by the settling gate - scenario 2 cart displacement",
 axS.set_xlim(-0.3, 10.3)
 axS.set_ylim(-0.35, 1.12)
 c.style_axis(axS)
-axS.legend(loc="lower left", fontsize=9.5, frameon=True, facecolor=c.SURFACE,
+axS.legend(loc="upper left", bbox_to_anchor=(0.29, 0.99), fontsize=9.5,
+           frameon=True, facecolor=c.SURFACE,
            edgecolor=c.GRID)
 for txt in axS.get_legend().get_texts():
     txt.set_color(c.INK2)
