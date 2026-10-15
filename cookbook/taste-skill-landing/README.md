@@ -18,8 +18,10 @@ runs and is thrown away without touching your machine.
 
 The artifact under test is a static site directory — `index.html` +
 committed CSS/JS/fonts/images, no runtime network, no build step. The
-judge serves a scratch copy on `127.0.0.1`, blocks and flags any
-non-localhost request, and checksums `judge/` before and after grading.
+judge serves a scratch copy on `127.0.0.1`, route-aborts any request
+outside that exact origin (flagged in `clean_load`), measures in a CDP
+isolated JavaScript world the page's own scripts cannot monkey-patch,
+and checksums `judge/` before and after grading.
 
 The demo grades the same brief twice over: [`examples/good/`](examples/good/)
 is written **with** the skill rules; [`examples/baseline/`](examples/baseline/)
@@ -42,11 +44,18 @@ show the difference the skill makes (measured below).
 
 Judge self-test: known-good passes, determinism holds (two grades at the
 same seed byte-identical outside `timing`), the no-skill baseline exits
-non-zero with a readable verdict (the exit-code contract), and **10/10
-(100 %) known-bad mutants killed** — each a single edit (low contrast,
-fixed-width container, missing section, console error, default Times font,
-tiny tap targets, image without alt, wind-widget sign bug, gradient
-button, clipped select text). Full transcript in [RECEIPT.md](RECEIPT.md).
+non-zero with a readable verdict (the exit-code contract), and **22/22
+known-bad mutants killed — 100 %, zero survivors allowed** — each a
+single edit that declares the one check it must trip (every gate and
+every measurable taste rule has a dedicated mutant: low contrast, fixed
+container, missing section, console error, remote script load, default
+Times font, third typeface, burst type scale, off-grid spacing, missing
+alt, tiny tap targets, gradient, box-shadow, a getComputedStyle
+poisoning that only the isolated world catches, hairline, monospace body
+text, numbered heading, sub-16 px running text, over-long headline, too
+few images, clipped select text, wind-widget sign bug). A crash or a
+kill by the wrong check counts as a survivor, not a kill. Full
+transcript in [RECEIPT.md](RECEIPT.md).
 
 ### Media
 
@@ -109,7 +118,7 @@ run the judge steps directly without `SBX_API_KEY` or `run.py`:
 # 1. Install the pinned judge toolchain (~1 min; needs sudo for apt)
 bash cookbook/taste-skill-landing/judge/setup.sh
 
-# 2. Prove the judge can fail (good passes, 9/9 mutants killed, ~1 min)
+# 2. Prove the judge can fail (good passes, 22/22 mutants killed, ~9 min)
 bash cookbook/taste-skill-landing/judge/selftest.sh
 
 # 3. Grade an artifact (one JSON verdict; 0 exit = every gate passed)

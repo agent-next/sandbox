@@ -63,7 +63,9 @@ headless (no CPU throttling), at widths **375, 768 and 1440 px**
 ### Gate 1 — clean load
 - `console` messages of type `error`: **0**.
 - Request failures and HTTP responses with status >= 400: **0**.
-- Requests to hosts other than `127.0.0.1`: **0** (no runtime network).
+- Requests outside the scratch server's exact origin: **0** — every such
+  request is route-aborted before it can leave the box, and still
+  recorded; an external request the route missed also fails the gate.
 
 ### Gate 2 — no horizontal overflow
 - At each width: `document.documentElement.scrollWidth <= clientWidth + 1`.
@@ -115,18 +117,30 @@ headless (no CPU throttling), at widths **375, 768 and 1440 px**
 
 ## Mutants (judge self-test)
 
-`judge/mutants.py` single-edits the good site; each must fail >= 1 gate:
+`judge/mutants.py` single-edits the good site and declares the one check
+each mutant must trip in `examples/bad/manifest.json`; selftest counts a
+kill only when grading exits non-zero AND a readable verdict JSON shows
+the declared check failing — zero survivors allowed. 22 mutants, one or
+more per gate and per measurable taste rule:
 `low_contrast` (ink lightened), `fixed_container` (1200 px min-width body),
 `missing_section` (pricing removed), `console_error` (stray script),
-`default_font` (Times/serif), `tiny_taps` (nav/button padding shrunk),
-`img_no_alt` (alt stripped), `wind_sign_bug` (wind saving computed as an
-ordered difference, so some wind directions print a negative saving),
-`gradient_button` (CSS appended), `clipped_control` (select padding back to
-16 px inside a 48 px height, so the option text's 24 px line box no longer
-fits). Kill rate
->= 90 % required (10/10 expected). `examples/baseline/site` is graded as a
-known-bad reference row (expected to fail several gates) but is not in the
-kill-rate denominator.
+`remote_asset` (`<script src>` to an external host — the judge's request
+route aborts it before anything leaves the box), `default_font`
+(Times/serif), `third_typeface`, `type_scale_burst` (sixth+ computed
+size), `off_grid` (14 px padding), `img_no_alt` (alt stripped),
+`tiny_taps` (nav/button padding shrunk), `gradient_button` (CSS
+appended), `boxed_shadow`, `patched_styles` (a real shadow hidden from a
+`getComputedStyle` the page monkey-patches in the main world — caught
+only because the judge measures in an isolated world), `hairline` (1 px
+border), `mono_body` (Courier New body text), `numbered_step` (`01 …`
+heading), `tiny_text` (13 px running text), `long_headline` (a label
+that wraps past two lines), `few_images` (one `img` removed, three left),
+`clipped_control` (select padding back to 16 px inside a 48 px height,
+so the option text's 24 px line box no longer fits), `wind_sign_bug`
+(wind saving computed as an ordered difference, so some wind directions
+print a negative saving). `examples/baseline/site` is graded as a
+known-bad reference row (expected to fail several gates) but is not in
+the kill-rate denominator.
 
 ## Acceptance oracle
 
