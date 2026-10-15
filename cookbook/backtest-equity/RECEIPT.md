@@ -3,7 +3,8 @@
 Real command output from two fresh sandbox runs of the one-command demo
 (`run.py`), recorded by the builder agent on 2026-10-15, after the PR
 review fixes (G6 rejects `lookahead_shift 0`; the demo video was re-cut;
-the self-test now carries 11 mutants). Both runs created a fresh sandbox,
+the self-test now carries 11 mutants; the media MANIFEST counts them).
+Both runs created a fresh sandbox,
 cloned this repo at `--ref sbx/demo-backtest-equity-f3` (the branch the demo
 lives on, at the head SHA this RECEIPT ships with), ran `judge/setup.sh` →
 `judge/selftest.sh` → `judge/grade.sh examples/good --seed 42`, and killed
@@ -15,16 +16,16 @@ Command (from outside the repo, exactly as a user runs it):
 python3 cookbook/backtest-equity/run.py --ref sbx/demo-backtest-equity-f3
 ```
 
-## Run A — sandbox `01a1408c-a4b0-7212-8cd2-b69d85c9c68b`
+## Run A — sandbox `01a140a7-cd97-71e1-90ea-d0684acc94fe`
 
 Per-step timing lines printed by `run.py`:
 
 ```
-[  2.9s] sandbox 01a1408c-a4b0-7212-8cd2-b69d85c9c68b
-[  5.8s] clone: ok
-[ 33.0s] setup: ok
-[  5.9s] selftest: ok
-[  2.9s] grade: ok
+[  2.9s] sandbox 01a140a7-cd97-71e1-90ea-d0684acc94fe
+[  5.7s] clone: ok
+[ 42.7s] setup: ok
+[  7.4s] selftest: ok
+[  4.0s] grade: ok
 ```
 
 `run.py` exit code: **0**. Verdict: **PASS** (all six gates).
@@ -74,19 +75,19 @@ run: SUMMARY verdict=PASS final_equity=0.9470302914437041 (reference 0.947030291
 ```
 
 Sandbox cleanup: `run.py` printed
-`sandbox 01a1408c-a4b0-7212-8cd2-b69d85c9c68b killed and confirmed gone`,
+`sandbox 01a140a7-cd97-71e1-90ea-d0684acc94fe killed and confirmed gone`,
 and `sbx list` no longer lists the id.
 
-## Run B — sandbox `01a1408d-c72a-7172-8956-c77e9558f184`
+## Run B — sandbox `01a140a8-e168-7621-b341-bcfe0c2c8e2e`
 
 Per-step timing lines:
 
 ```
-[  2.1s] sandbox 01a1408d-c72a-7172-8956-c77e9558f184
-[  4.6s] clone: ok
-[ 32.8s] setup: ok
-[  5.9s] selftest: ok
-[  2.3s] grade: ok
+[  2.4s] sandbox 01a140a8-e168-7621-b341-bcfe0c2c8e2e
+[  5.9s] clone: ok
+[ 40.0s] setup: ok
+[  8.2s] selftest: ok
+[  4.1s] grade: ok
 ```
 
 `run.py` exit code: **0**. Verdict: **PASS** (all six gates).
@@ -97,7 +98,7 @@ PASS; judge integrity PASS; selftest PASS.
 Summary line: identical to Run A.
 
 Sandbox cleanup: `run.py` printed
-`sandbox 01a1408d-c72a-7172-8956-c77e9558f184 killed and confirmed gone`,
+`sandbox 01a140a8-e168-7621-b341-bcfe0c2c8e2e killed and confirmed gone`,
 and `sbx list` no longer lists the id.
 
 ## What the PR-review fixes changed (measured)
@@ -131,10 +132,10 @@ and `sbx list` no longer lists the id.
 | determinism | PASS | PASS |
 | judge integrity | PASS | PASS |
 | `run.py` exit code | 0 | 0 |
-| clone wall time | 5.8 s | 4.6 s |
-| setup wall time (fresh install) | 33.0 s | 32.8 s |
-| selftest wall time | 5.9 s | 5.9 s |
-| grade wall time | 2.9 s | 2.3 s |
+| clone wall time | 5.7 s | 5.9 s |
+| setup wall time (fresh install) | 42.7 s | 40.0 s |
+| selftest wall time | 7.4 s | 8.2 s |
+| grade wall time | 4.0 s | 4.1 s |
 
 The two runs agree on every graded number to full double precision. Wall
 times differ by a few seconds per step, as expected for a shared network.
