@@ -41,7 +41,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 from engine import (DEFAULT_PARAMS, GPU_CPU_ABS, GPU_CPU_TOL, N_TRAIN, N_HOLDOUT,  # noqa: E402
-                    ORACLE_ABS_ERR, ORACLE_REL_FRAC, PARAM_NAMES, PARAM_SPEC, RANGES,
+                    ORACLE_ABS_ERR, ORACLE_REL_FRAC, PARAM_NAMES, PARAM_SPEC,
                     bundle_scenario, check_version_table, error_of, gen_scenario,
                     gpu_eval_chunks, gpu_eval_code)
 
@@ -81,12 +81,26 @@ def get_versions(label, accel=""):
     return v
 
 
-def load_artifact(path, ranges=None):
-    """G1: strict structure and physical ranges. Never clamps: out-of-range fails.
+def overall(gate_passes, complete):
+    """(rc, pass, verdict) for a set of gate outcomes.
 
-    `ranges` overrides PARAM_SPEC ranges (used by the '--relaxed' self-test
-    control, which grades a physically impossible artifact that should only
-    fail on engine agreement, not on G1)."""
+    A skipped G4 (CPU-only grade) is not a pass: the demo's promise is the
+    full judge, so a CPU-only grade reports INCOMPLETE with exit code 0 —
+    the CPU gates all passed, the GPU agreement gate was never run. Only a
+    complete grade with every gate green is PASS.
+    """
+    passes = [p for p in gate_passes]
+    if any(p is False for p in passes):
+        return 1, False, "FAIL"
+    if not complete:
+        return 0, False, "INCOMPLETE"
+    if all(p is True for p in passes) and passes:
+        return 0, True, "PASS"
+    return 1, False, "FAIL"
+
+
+def load_artifact(path):
+    """G1: strict structure and physical ranges. Never clamps."""
     if os.path.getsize(path) > MAX_BYTES:
         raise ValueError(f"artifact exceeds {MAX_BYTES} bytes")
     with open(path, "rb") as fh:
@@ -95,8 +109,17 @@ def load_artifact(path, ranges=None):
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
         raise ValueError("artifact is not UTF-8") from None
+
+    def _no_duplicate_keys(pairs):
+        seen = set()
+        for k, _ in pairs:
+            if k in seen:
+                raise ValueError(f"artifact has a duplicate key {k!r}")
+            seen.add(k)
+        return dict(pairs)
+
     try:
-        obj = json.loads(text)
+        obj = json.loads(text, object_pairs_hook=_no_duplicate_keys)
     except json.JSONDecodeError as e:
         raise ValueError(f"artifact is not valid JSON: {e}") from None
     if not isinstance(obj, dict):
@@ -109,10 +132,7 @@ def load_artifact(path, ranges=None):
     if extra:
         problems.append(f"unknown parameters: {extra}")
     params = {}
-    spec = PARAM_SPEC if ranges is None else [
-        (n, ranges.get(n, (RANGES[n]))[0], ranges.get(n, RANGES[n])[1], d, desc)
-        for n, lo, hi, d, desc in PARAM_SPEC]
-    for name, lo, hi, _, _ in spec:
+    for name, lo, hi, _, _ in PARAM_SPEC:
         if name not in obj:
             continue
         v = obj[name]
@@ -297,6 +317,10 @@ def grade(artifact_path, seed, gpu=True, lease=None, expected_versions=None,
                "gates": {}, "n_model_params": len(PARAM_NAMES),
                "recordings": {"train": N_TRAIN, "holdout": N_HOLDOUT}}
 
+    # track whether this call created its own lease so it can be closed even
+    # when the GPU gate raises (the caller passes a ready lease for run.py)
+    owns_lease = lease is None and gpu
+
     problems = []
     try:
         params = load_artifact(artifact_path)
@@ -332,18 +356,30 @@ def grade(artifact_path, seed, gpu=True, lease=None, expected_versions=None,
                 if not key:
                     raise RuntimeError("no API key: export SBX_API_KEY (G4 needs a GPU lease)")
                 lease = GpuLease(key)
-        if lease.id is None:
-            lease.create()
-        g4 = gate_gpu_agreement(lease, params, scen)
-        if expected_versions:
-            vprobs = check_version_table(g4.get("lease_versions") or {}, expected_versions)
-            g4["version_check"] = "pass" if not vprobs else "fail"
-            if vprobs:
-                g4.setdefault("problems", []).extend(vprobs)
-                g4["pass"] = False
-        else:
-            g4["version_check"] = "unpinned"
-        verdict["gates"]["G4_gpu_cpu_agree"] = g4
+                owns_lease = True
+        try:
+            if lease.id is None:
+                lease.create()
+            g4 = gate_gpu_agreement(lease, params, scen)
+            if expected_versions:
+                vprobs = check_version_table(g4.get("lease_versions") or {}, expected_versions)
+                g4["version_check"] = "pass" if not vprobs else "fail"
+                if vprobs:
+                    g4.setdefault("problems", []).extend(vprobs)
+                    g4["pass"] = False
+            else:
+                g4["version_check"] = "unpinned"
+            verdict["gates"]["G4_gpu_cpu_agree"] = g4
+        except BaseException:
+            # this call created the lease, so it must not leak it when a gate
+            # raises before grade() returns it to the caller
+            if owns_lease and lease is not None:
+                try:
+                    lease.close()
+                except Exception as close_exc:   # keep the original error's identity
+                    print(f"[gpu] could not confirm cleanup of the lease this grade "
+                          f"created: {close_exc}", file=sys.stderr, flush=True)
+            raise
     elif params is not None:
         verdict["gates"]["G4_gpu_cpu_agree"] = {"pass": None, "skipped": "no GPU lease"}
 
@@ -353,10 +389,12 @@ def grade(artifact_path, seed, gpu=True, lease=None, expected_versions=None,
     if want_params:
         verdict["params"] = params
     verdict["versions_cpu"] = get_versions("judge-host")
-    rc = 0 if all(g.get("pass") for g in verdict["gates"].values()
-                  if isinstance(g, dict) and g.get("pass") is not None) and not problems else 1
-    verdict["pass"] = rc == 0
-    verdict["verdict"] = "PASS" if rc == 0 else "FAIL"
+    complete = verdict["gates"].get("G4_gpu_cpu_agree", {}).get("pass") is not None
+    verdict["complete"] = complete
+    rc, passed, label = overall([g.get("pass") for g in verdict["gates"].values()
+                                 if isinstance(g, dict)], complete)
+    verdict["pass"] = passed
+    verdict["verdict"] = label
     return verdict, rc, scen, lease
 
 

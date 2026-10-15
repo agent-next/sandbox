@@ -37,7 +37,8 @@ import sys
 def have(name, ver):
     m = u.find_spec(name)
     return m is not None and getattr(__import__(name), "__version__", "") == ver
-sys.exit(0 if have("mujoco", "3.8.1") and have("numpy", "1.26.4") else 1)
+numpy_version = "2.1.3" if sys.version_info[:2] == (3, 13) else "1.26.4"
+sys.exit(0 if have("mujoco", "3.8.1") and have("numpy", numpy_version) else 1)
 EOF
 then
     echo "setup.sh: venv already provides the pinned toolchain"

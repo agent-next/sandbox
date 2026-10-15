@@ -4,7 +4,7 @@
 Creates a fresh 4 GiB VRAM slice lease over the agent-next REST API, ships the
 demo (judge + examples) into it as a base64 tar.gz payload, runs the pinned
 setup check, the judge self-test, and grades the known-good params.json,
-then always deletes the lease and confirms the deletion (GET -> 404/dead).
+then always deletes the lease and confirms the deletion (GET -> 404).
 
     python3 cookbook/sim-tuner/run.py [--seed N] [--keep] [--report-json PATH]
     python3 cookbook/sim-tuner/run.py --selftest-only   # skip the final grade
@@ -30,7 +30,6 @@ from urllib.request import Request, urlopen
 
 API = "https://api.sbx.agent-next.com"
 DEMO_DIR = os.path.dirname(os.path.abspath(__file__))
-SETUP_WAIT_S = 1500
 SELFTEST_TIMEOUT_S = 3600
 
 
@@ -94,7 +93,8 @@ os.environ['SIM_TUNER_GPU_LOCAL'] = '1'
 
 root = os.path.expanduser('~/sim-tuner-demo')
 os.makedirs(root, exist_ok=True)
-tarfile.open(fileobj=io.BytesIO(base64.b64decode(__PAYLOAD__)), mode='r:gz').extractall(root)
+with tarfile.open(fileobj=io.BytesIO(base64.b64decode(__PAYLOAD__)), mode='r:gz') as archive:
+    archive.extractall(root, filter='data')
 j = os.path.join(root, 'judge')
 report['stages'] = stages = {}
 t0 = time.monotonic()
@@ -103,7 +103,7 @@ def step(name, cmd, timeout):
     t = time.monotonic()
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=root)
     stages[name] = {'rc': r.returncode, 'wall_s': round(time.monotonic() - t, 1),
-                    'stdout_tail': r.stdout[-1500:], 'stderr_tail': r.stderr[-800:]}
+                    'stdout_tail': r.stdout[-6000:], 'stderr_tail': r.stderr[-1500:]}
     return r
 
 # 1. setup: validate the lease stack against SPEC (the lease image IS the toolchain;
@@ -122,20 +122,19 @@ sys.exit(1 if bad else 0)
 
 if stages['stack-check']['rc'] == 0:
     step('selftest', ['bash', 'judge/selftest.sh'], __SELFTEST_TIMEOUT_S__)
-    rc, verdict = 1, None
-    vr = subprocess.run(['bash', 'judge/grade.sh', 'examples/good/params.json',
-                         '--seed', str(__SEED__), '--json', '/tmp/verdict.json'],
-                        capture_output=True, text=True, timeout=1200, cwd=root)
-    if os.path.exists('/tmp/verdict.json'):
-        verdict = json.load(open('/tmp/verdict.json'))
-    stages['grade'] = {'rc': vr.returncode, 'wall_s': None,
-                       'stdout_tail': vr.stdout[-1500:], 'stderr_tail': vr.stderr[-800:]}
-    report['verdict'] = verdict
+    if not __SELFTEST_ONLY__:
+        verdict_path = os.path.join(root, 'verdict.json')
+        if os.path.exists(verdict_path):
+            os.remove(verdict_path)
+        step('grade', ['bash', 'judge/grade.sh', 'examples/good/params.json',
+                      '--seed', str(__SEED__), '--json', verdict_path], 1200)
+        if os.path.exists(verdict_path):
+            report['verdict'] = json.load(open(verdict_path))
 report['total_s'] = round(time.monotonic() - t0, 1)
 """
 
 
-def render_job(payload, seed):
+def render_job(payload, seed, selftest_only=False):
     """Substitute every value the lease job needs into EXEC_SRC.
 
     The exec sandbox runs the rendered source with only `report` injected;
@@ -146,6 +145,7 @@ def render_job(payload, seed):
     return (EXEC_SRC
             .replace("__PAYLOAD__", repr(payload))
             .replace("__SEED__", str(int(seed)))
+            .replace("__SELFTEST_ONLY__", repr(bool(selftest_only)))
             .replace("__SELFTEST_TIMEOUT_S__", str(int(SELFTEST_TIMEOUT_S))))
 
 
@@ -196,7 +196,7 @@ def main():
     report = {}
     rc = 1
     try:
-        job = render_job(payload, args.seed)
+        job = render_job(payload, args.seed, selftest_only=args.selftest_only)
         print("exec judge on the lease (stack check, selftest, grade)...", flush=True)
         t0 = time.monotonic()
         st, executed = request(key, "POST", f"/sandboxes/{sid}/exec",
@@ -217,8 +217,10 @@ def main():
 
         for name, stg in (report.get("stages") or {}).items():
             print(f"  [{name}] rc={stg.get('rc')} ({stg.get('wall_s')} s)")
+        print((report.get("stages") or {}).get("selftest", {}).get("stdout_tail", ""), end="")
         verdict = report.get("verdict")
         if verdict:
+            print(json.dumps(verdict, indent=2, sort_keys=True))
             gates = verdict.get("gates", {})
             ok = verdict.get("pass")
             print(f"\nsim-tuner demo: {verdict.get('verdict')} (seed {verdict.get('seed')})")
@@ -232,10 +234,11 @@ def main():
                              f"(abs {g.get('abs_diff')}, rel {g.get('rel_diff')})")
                 print(line)
         rc = 0
-        if (report.get("stages") or {}).get("selftest", {}).get("rc") != 0:
+        stages = report.get("stages") or {}
+        if any(stages.get(name, {}).get("rc") != 0 for name in ("stack-check", "selftest")):
             rc = 1
         if not args.selftest_only:
-            if not verdict or not verdict.get("pass"):
+            if stages.get("grade", {}).get("rc") != 0 or not verdict or not verdict.get("pass"):
                 rc = 1
         if rc != 0:
             print("\n(good grade or selftest did not pass; see stage output)", flush=True)
@@ -254,11 +257,10 @@ def main():
             st, remaining = request(key, "GET", f"/sandboxes/{sid}")
         except Exception as exc:
             raise RuntimeError(f"cleanup unconfirmed for {sid}; run sandbox_kill for this id") from exc
-        if st != 404 and not (st == 200 and isinstance(remaining, dict)
-                              and remaining.get("phase") == "dead"):
+        if st != 404:
             die(f"cleanup unconfirmed for {sid}: HTTP {st} {fmt_body(remaining)}; "
                 "run sandbox_kill for this id")
-        print(f"destroyed {sid}; verified absent or dead", flush=True)
+        print(f"destroyed {sid}; verified GET 404", flush=True)
 
     print(f"total: {time.monotonic() - total0:.0f} s")
     raise SystemExit(rc)

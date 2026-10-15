@@ -62,22 +62,8 @@ RANGES = {p[0]: (p[1], p[2]) for p in PARAM_SPEC}
 NSTEP, SUB, HALF = 500, 4, 250     # 1.0 s at 2 ms; ctrl step at t = 0.5 s; sampled every 8 ms
 NOBS = NSTEP // SUB                # 125
 NSIG = 7
-# Signal order. box_zdot (vertical box velocity) is what makes the contact
-# parameters identifiable: the box is airborne in every recording until the
-# landing, so box_zdot is ~0 elsewhere and the landing transient is the entire
-# content of its channel. Two normalisation consequences, both measured on
-# CPU MuJoCo 3.8.1 (seed 7, see SPEC.md):
-#   * without this channel, solref range-edge mutants of a converged fit are
-#     statistically indistinguishable from the fit itself (1.01-1.08x the
-#     noise floor); with it they sit at 2.8-45x.
-#   * the channel is normalised by a PEAK scale (95th percentile of |signal|),
-#     not its RMS: the RMS of a mostly-zero channel is ~4x below the transient
-#     amplitude, which amplifies sample-frame timing error at the landing
-#     (~8 ms per observation) until the metric is a needle — 0.0149 at truth
-#     vs 0.19 one grid step (1.3 % of range) away in solref_tc, a basin no
-#     gradient method can enter. Peak normalisation keeps the transient the
-#     channel's content (edge mutants 2.8-45x) while making the honest-fit
-#     neighbourhood continuous (grid: 0.30 -> 0.15 -> 0.075 approaching truth).
+# The impact transient in box_zdot identifies the contact parameters.
+# Normalize it by a peak scale so its mostly-zero RMS does not dominate.
 SIG_NAMES = ["box_x", "box_z", "box_zdot", "q1", "q2", "q1dot", "q2dot"]
 ZDOT = 2                           # index of the box_zdot channel
 
@@ -85,16 +71,8 @@ NOISE_FRAC = 0.015                 # 1.5 % of each signal's RMS, seeded
 N_TRAIN, N_HOLDOUT = 6, 4
 DOF_H = 6                          # hinge dofs are nv-2 .. nv-1 (after the 6-dof free joint)
 
-# Gate thresholds, calibrated on CPU MuJoCo 3.8.1 (seed 7, see SPEC.md):
-# with peak normalisation of box_zdot, the noise floor (hidden-truth params vs
-# held-out recordings, WITH the 1.5 % measurement noise) is 0.01400 and the
-# default-parameter error is 0.88275, so G3's relative cap (30 %) is 0.26482
-# and the absolute threshold does the mutant rejection. Held-out range-edge
-# mutants measure 0.03948 (solref_dr lo, the strongest survivor) up to 0.62888;
-# ORACLE_ABS_ERR sits a factor >= 1.6 below the weakest of them and >= 1.6
-# above the floor, which is the band honest fits land in (single-parameter
-# offsets of +/- 5 % of range score 1.05-7.0x the floor; the fit must land
-# within a few percent of range per parameter).
+# Fixed acceptance thresholds; actual default and candidate errors are
+# recomputed for every grade, never copied from the search history.
 ORACLE_ABS_ERR = 0.025
 ORACLE_REL_FRAC = 0.30             # and below 30 % of the default-parameter error
 GPU_CPU_ABS = 0.003                # |gpu train err - cpu train err|
@@ -109,7 +87,8 @@ GPU_CPU_TOL = 0.10                 # and within 10 % of the CPU error
 PEAK_NCON, PEAK_NEFC = 4, 18
 NCONMAX, NJMAX = 4 * PEAK_NCON, 4 * PEAK_NEFC      # 16 / 72
 
-ARCH_KEYS = ["name", "accel", "os", "python", "mujoco", "numpy", "custom_fields"]
+ARCH_KEYS = ["name", "accel", "os", "python", "mujoco", "mujoco_warp", "warp",
+             "numpy", "custom_fields"]
 ARCH_ACCEL = "RTX 5090 VRAM slice"
 
 
@@ -117,11 +96,10 @@ def check_version_table(actual, expected):
     """Gate the lease stack against the SPEC table.
 
     Rules (a hard version-lock, not a substring match):
-    - keys in ARCH_KEYS (except custom_fields) must match expected exactly
+    - every key in ARCH_KEYS (except custom_fields) must match expected exactly
       (os match is on the Linux release field only; Python is matched on
       major.minor.patch, and numpy on the full version);
-    - the local mujoco_cv tuple must be >= the expected one (a newer patch
-      release of the same solver is accepted, an older one is not);
+    - mujoco_cv also rejects an older solver tuple;
     - no extra custom fields the judge does not know about may appear.
     """
     problems = []
@@ -134,6 +112,9 @@ def check_version_table(actual, expected):
         got = actual.get(key)
         if want is None:
             problems.append(f"version table has no entry for {key!r}")
+            continue
+        if got is None:
+            problems.append(f"lease reported no {key} (want {want})")
             continue
         if key == "os":
             # platform.platform() is "<system>-<release>-<version>..."-ish;
@@ -173,9 +154,9 @@ def bundle_scenario(scen):
         "truth": scen["truth"],
         "ics_train": scen["ics_train"],
         "ics_hold": scen["ics_hold"],
-        "refs_train": scen["refs_train"],
-        "refs_hold": scen["refs_hold"],
-        "scale": scen["scale"],
+        "refs_train": [r.tolist() for r in scen["refs_train"]],
+        "refs_hold": [r.tolist() for r in scen["refs_hold"]],
+        "scale": scen["scale"].tolist(),
         "expected_versions": scen["expected_versions"],
     }
 
