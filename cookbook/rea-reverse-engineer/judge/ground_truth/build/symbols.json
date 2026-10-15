@@ -1,0 +1,53 @@
+{
+ "checksum": [
+  {
+   "end": 4306,
+   "name": "_start",
+   "start": 4272
+  },
+  {
+   "end": 4586,
+   "name": "checksum_update.constprop.0",
+   "start": 4512
+  },
+  {
+   "end": 4257,
+   "name": "main",
+   "start": 4192
+  }
+ ],
+ "keycheck": [
+  {
+   "end": 4386,
+   "name": "_start",
+   "start": 4352
+  },
+  {
+   "end": 4830,
+   "name": "key_verify",
+   "start": 4592
+  },
+  {
+   "end": 4343,
+   "name": "main",
+   "start": 4240
+  }
+ ],
+ "proto": [
+  {
+   "end": 4290,
+   "name": "_start",
+   "start": 4256
+  },
+  {
+   "end": 4255,
+   "name": "main",
+   "start": 4192
+  },
+  {
+   "end": 4788,
+   "name": "proto_parse.constprop.0",
+   "start": 4496
+  }
+ ]
+}
