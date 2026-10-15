@@ -148,7 +148,8 @@ def run_orca(process_json, stl, outdir):
                                          process_json]),
            "--outputdir", outdir, stl]
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                       env=env, timeout=900)
+                       env=env, timeout=900, cwd=outdir)
+    # NB: cwd=outdir keeps OrcaSlicer's result.json byproduct out of the repo.
     log = p.stdout.decode(errors="replace")
     gcode = None
     for cand in sorted(os.listdir(outdir)):
