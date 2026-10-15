@@ -197,7 +197,12 @@ arm lands at 5/16.
   judge: they prove the judge fails closed rather than that the record is bad.
 - The statistics engine is tested against published values before anything is
   graded (`judge/tests/test_stats.py`: Fisher's tea-tasting p = 0.4857…, the
-  `[[1,9],[11,3]]` worked example, a hand-derived bootstrap bound).
+  `[[1,9],[11,3]]` worked example, a hand-derived bootstrap bound), and the
+  corpus is tested against the arm policies that answer it
+  (`judge/tests/test_corpus.py`: the skill policy reproduces the oracle on all
+  16 tasks, the no-skill policy reproduces every pinned `naive_answer`, the
+  difficulty flags match the verdicts, and the placebo differs from the
+  no-skill arm on exactly one task).
 - Kill rate ≥ 90 % printed; exit non-zero otherwise.
 - Determinism: two grade runs with the same seed produce byte-identical
   verdict JSON (excluding the `timing` key), and a *different* seed must move
@@ -230,6 +235,7 @@ if anything changed. The artifact never executes judge code.
 | `judge/grade.py` / `grade.sh` | the gates; one JSON verdict on stdout |
 | `judge/mutants.py` | the known-bad records and the mutated judges |
 | `judge/tests/test_stats.py` | the statistics engine vs. published values |
+| `judge/tests/test_corpus.py` | the corpus vs. the arm policies that answer it |
 | `judge/gen_skill.py` | builds the three desks (skill, empty, placebo) |
 | `examples/good/` | the known-good experiment record (produced by `judge/bench.py`) |
 | `examples/good/skill/` | the skill package under test |

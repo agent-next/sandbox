@@ -17,10 +17,15 @@ GOOD="$DEMO/examples/good"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-# --- 0. the statistics engine is right before anything is graded ----------
+# --- 0. the engine and the corpus are right before anything is graded -----
 echo "selftest: statistics engine"
 python3 -I "$JDIR/tests/test_stats.py" || {
     echo "selftest: statistics engine FAILED its own tests" >&2
+    exit 1
+}
+echo "selftest: corpus vs arm policies"
+python3 -I "$JDIR/tests/test_corpus.py" || {
+    echo "selftest: the corpus and the arm policies disagree" >&2
     exit 1
 }
 
