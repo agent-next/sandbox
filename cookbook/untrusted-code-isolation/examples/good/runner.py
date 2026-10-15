@@ -40,6 +40,7 @@ import json
 import os
 import pwd
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -431,6 +432,8 @@ def run_one(args):
     # must read; world-readable, owner-writable, so the snippet can read them
     # and cannot rewrite them.
     supervisor = tempfile.mkdtemp(prefix="uci-supervisor-")
+    # The isolated uid must be able to walk into this dir and read the
+    # supervisor and the env file; world-executable, not world-writable.
     os.chmod(supervisor, 0o755)
     mode = pick_mode(policy)
     uid, gid = unprivileged_uid()

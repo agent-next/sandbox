@@ -1,0 +1,8 @@
+## python 3.12.15
+## unshare unshare from util-linux 2.38.1
+## unshare path /usr/bin/unshare
+## sudo 1.9.13p3
+## kernel 6.1.175
+## user-namespaces-max 15734
+## judge-packages
+pip==25.0.1
