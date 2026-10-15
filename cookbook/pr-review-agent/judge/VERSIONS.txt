@@ -1,6 +1,6 @@
 # pr-review-agent judge: versions installed by judge/setup.sh
-# (Linux x86_64), 2026-10-15T03:28:42Z
+# (Linux x86_64), 2026-10-15T03:31:22Z
 pytest 8.4.2
-pytest venv: /home/user/.pr-review-agent/venv
+pytest venv: $HOME/.pr-review-agent/venv
 python3 3.12.15
 git 2.39.5

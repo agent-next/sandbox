@@ -16,6 +16,13 @@ set -euo pipefail
 
 PYTEST_VERSION="8.4.2"
 VENV="${PR_REVIEW_VENV:-$HOME/.pr-review-agent/venv}"
+# For messages and VERSIONS.txt: the home directory is printed as "$HOME",
+# so the committed file records no absolute path (this repo is public).
+if [ -n "${PR_REVIEW_VENV:-}" ]; then
+    VENV_SHOWN="$PR_REVIEW_VENV"
+else
+    VENV_SHOWN='$HOME/.pr-review-agent/venv'
+fi
 JDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO="$(cd "$JDIR/.." && pwd)"
 
@@ -38,9 +45,9 @@ installed_pytest() {
 }
 
 if [ "$(installed_pytest)" = "$PYTEST_VERSION" ]; then
-    echo "setup: pytest $PYTEST_VERSION already installed in $VENV (skipping download)"
+    echo "setup: pytest $PYTEST_VERSION already installed in $VENV_SHOWN (skipping download)"
 else
-    echo "setup: creating venv $VENV"
+    echo "setup: creating venv $VENV_SHOWN"
     python3 -m venv "$VENV"
     echo "setup: installing pytest $PYTEST_VERSION from PyPI (hashes pinned)"
     "$VENV/bin/python" -m pip install --quiet --no-cache-dir --require-hashes \
@@ -60,12 +67,12 @@ python3 -I "$JDIR/fixture/make_fixture.py" --check
     echo "# pr-review-agent judge: versions installed by judge/setup.sh"
     echo "# ($(uname -sm)), $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "pytest $("$VENV/bin/python" -c 'import pytest; print(pytest.__version__)')"
-    echo "pytest venv: $VENV"
+    echo "pytest venv: $VENV_SHOWN"
     echo "python3 $(python3 --version | awk '{print $2}')"
     echo "git $(git --version | awk '{print $3}')"
 } > "$JDIR/VERSIONS.txt"
 
 echo "setup: tool versions"
 cat "$JDIR/VERSIONS.txt"
-echo "setup: wrote $JDIR/VERSIONS.txt"
+echo "setup: wrote judge/VERSIONS.txt"
 echo "setup: done"

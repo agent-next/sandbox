@@ -5,6 +5,12 @@ each time) on a Debian agent-next sandbox, 2 vCPU / ~4 GB. Every number below
 is pasted from `/tmp/timed_run.log` (run 1) and `/tmp/timed_run2.log` (run 2)
 except where a line says otherwise. Nothing here is estimated.
 
+**Path substitution:** the pasted blocks replace the sandbox's home and
+checkout directories with `$HOME` and `$REPO` — the only edit made to any
+pasted line, so that this public file carries no absolute local path. The
+judge itself prints `$HOME` in its own messages (`judge/setup.sh`), and
+`judge/VERSIONS.txt` records `pytest venv: $HOME/.pr-review-agent/venv`.
+
 Sandbox: `Linux x86_64`, `python3 3.12.15`, `git 2.39.5`, `pytest 8.4.2`
 (the exact version `judge/setup.sh` pins), date `2026-10-15` (UTC).
 
@@ -13,17 +19,17 @@ Sandbox: `Linux x86_64`, `python3 3.12.15`, `git 2.39.5`, `pytest 8.4.2`
 ```
 === SETUP (fresh venv) ===
 setup: pr-review-agent judge (Linux x86_64)
-setup: creating venv /home/user/.pr-review-agent/venv
+setup: creating venv $HOME/.pr-review-agent/venv
 setup: installing pytest 8.4.2 from PyPI (hashes pinned)
 make_fixture: OK (6 diffs + oracle match)
 setup: tool versions
 # pr-review-agent judge: versions installed by judge/setup.sh
 # (Linux x86_64), 2026-10-15T03:17:22Z
 pytest 8.4.2
-pytest venv: /home/user/.pr-review-agent/venv
+pytest venv: $HOME/.pr-review-agent/venv
 python3 3.12.15
 git 2.39.5
-setup: wrote /home/user/w/cookbook/pr-review-agent/judge/VERSIONS.txt
+setup: wrote $REPO/cookbook/pr-review-agent/judge/VERSIONS.txt
 setup: done
 
 real	0m41.642s
@@ -35,7 +41,7 @@ Exit code: **0**. Idempotent re-run (same command, venv present):
 
 ```
 === SETUP idempotent re-run ===
-setup: pytest 8.4.2 already installed in /home/user/.pr-review-agent/venv (skipping download)
+setup: pytest 8.4.2 already installed in $HOME/.pr-review-agent/venv (skipping download)
 make_fixture: OK (6 diffs + oracle match)
 ...
 real	0m5.773s
@@ -80,7 +86,7 @@ timing {'materialize_trees_s': 0.166, 'g1_shape_s': 0.015, 'g4_g5_pytest_s': 27.
 ```
 selftest: fixture generator is deterministic
 make_fixture: OK (6 diffs + oracle match)
-selftest: grading known-good /home/user/w/cookbook/pr-review-agent/examples/good/review
+selftest: grading known-good $REPO/cookbook/pr-review-agent/examples/good/review
 grade: PR 1 buggy tree -- FAILED tests/test_pr1.py::test_a_full_page_is_not_truncated - assert [3, 4] =...
 grade: PR 2 buggy tree -- FAILED tests/test_pr2.py::test_a_customer_name_is_data_not_sql - assert [2, 1...
 grade: PR 3 buggy tree -- FAILED tests/test_pr3.py::test_tax_of_a_missing_order_is_none_not_a_crash - T...
@@ -158,7 +164,7 @@ is verbatim:
 
 ```json
 {
-  "artifact": "/home/user/w/cookbook/pr-review-agent/examples/good/review",
+  "artifact": "$REPO/cookbook/pr-review-agent/examples/good/review",
   "seed": 20261015,
   "passed": true,
   "failed_gate": null,
@@ -202,7 +208,7 @@ is verbatim:
     "total_s": 28.008
   },
   "tool": {
-    "pytest_python": "/home/user/.pr-review-agent/venv/bin/python",
+    "pytest_python": "$HOME/.pr-review-agent/venv/bin/python",
     "python": "3.12.15"
   }
 }
