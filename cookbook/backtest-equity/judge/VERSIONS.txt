@@ -1,0 +1,16 @@
+# backtest-equity judge: versions installed by judge/setup.sh
+# (Linux x86_64)
+python3 3.12 (/usr/local/bin/python3)
+numpy 2.2.6
+matplotlib 3.9.4
+contourpy 1.4.0
+cycler 0.12.1
+fonttools 4.67.0
+kiwisolver 1.5.1
+packaging 26.3
+pillow 12.3.0
+pyparsing 3.3.3
+python-dateutil 2.9.0.post0
+six 1.17.0
+pip 25.0.1
+fixture tools/data/ohlcv.csv sha256:227517225b7f4978c8c5c4092d40a91af9a5cbd82859c82c7516f92efb881821

@@ -1,0 +1,41 @@
+# Pinned toolchain for the backtest-equity demo (installed by
+# judge/setup.sh into $HOME/.venvs/backtest-equity with --require-hashes).
+#
+# This is the AGENT's engine toolchain (numpy + matplotlib): the judge
+# itself (judge/judge.py, judge/reference.py, judge/mutants.py, run.py) is
+# Python >= 3.10 standard library only and never imports these packages.
+#
+# Resolved for CPython 3.12 on manylinux x86_64 -- the interpreter the
+# sandbox image records in judge/VERSIONS.txt.  Pure-python wheels
+# (contourpy, fonttools, kiwisolver, packaging, pillow) are
+# interpreter-tagged, so where a pin also ships a cp311 wheel its hash is
+# listed too; pip verifies against exactly one line per package.
+#
+# Verified with:
+#   pip install --no-cache-dir --require-hashes -r judge/requirements.txt
+# (exit 0), and
+#   python3 -c "import ast,sys;
+#     bad=[n for n in ast.walk(ast.parse(open('judge/judge.py').read()))
+#          for n in n.module if ...]"  # see RECEIPT.md Hardening
+numpy==2.2.6 \
+    --hash=sha256:fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249
+matplotlib==3.9.4 \
+    --hash=sha256:173ac3748acaac21afcc3fa1633924609ba1b87749006bc25051c52c422a5d00
+contourpy==1.4.0 \
+    --hash=sha256:875f42444c9cf48d56f724f2637e60d0f73b3b12c9041e1484580a233edf9591
+cycler==0.12.1 \
+    --hash=sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30
+fonttools==4.67.0 \
+    --hash=sha256:eb3c98cac93aac4b9f6e3ce2008325340b234cc9b0338ca6b513f31962a1e278
+kiwisolver==1.5.1 \
+    --hash=sha256:34633ecf50d16187ab8e5528b7a2530f2feb4e23f300db4672538b51cfc5cd38
+packaging==26.3 \
+    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+pillow==12.3.0 \
+    --hash=sha256:78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91
+pyparsing==3.3.3 \
+    --hash=sha256:ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4
+python-dateutil==2.9.0.post0 \
+    --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
+six==1.17.0 \
+    --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274

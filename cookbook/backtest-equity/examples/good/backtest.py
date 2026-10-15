@@ -105,8 +105,8 @@ def main() -> int:
     ohlcv = here / "ohlcv.csv"
     out = backtest(ohlcv)
 
-    with (here / "returns.csv").open("w", newline="") as fh:
-        w = csv.writer(fh)
+    with (here / "returns.csv").open("w", newline="\n") as fh:
+        w = csv.writer(fh, lineterminator="\n")
         w.writerow(["date", "ret"])
         for d, r in zip(out["dates"], out["net_returns"]):
             w.writerow([d, f"{r:.10e}"])
