@@ -63,8 +63,19 @@ def main():
 
     def kill_and_confirm():
         print(f"run.py: killing sandbox {sid}", flush=True)
-        subprocess.run([sbx, "kill", sid], capture_output=True)
+        rk = subprocess.run([sbx, "kill", sid], capture_output=True,
+                            text=True)
+        if rk.returncode != 0:
+            print(f"run.py: sbx kill {sid} failed "
+                  f"({(rk.stderr or rk.stdout or '').strip()}); remove the "
+                  f"sandbox manually", file=sys.stderr)
+            return False
         listing = sh(f"{sbx} list")
+        if listing.returncode != 0:
+            print(f"run.py: `sbx list` failed — cannot confirm sandbox "
+                  f"{sid} is gone; check `sbx list` and remove it "
+                  f"manually", file=sys.stderr)
+            return False
         ids = {line.split("\t")[0] for line in listing.stdout.splitlines()}
         if sid in ids:
             print(f"run.py: could not confirm sandbox {sid} was killed; "

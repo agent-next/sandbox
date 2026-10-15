@@ -40,7 +40,14 @@ SIM_T = 10.0
 
 
 def ab_of(M, m, l):
-    """Linearised A, B for cart mass M, pendulum mass m, COM distance l."""
+    """Linearised A, B for cart mass M, pendulum mass m, COM distance l.
+
+    Lagrangian (point-mass bob, massless rod, th from upright):
+    L = (M+m)v^2/2 + m l v w cos(th) + m l^2 w^2/2 - m g l cos(th), so
+    M(q) qdd = b with M = [[M+m, m l cos th], [m l cos th, m l^2]] —
+    symmetric, hence cos(th) in BOTH off-diagonals. Solving the th = 0
+    system for [xdd, thedd] gives A, B (torque authority (M+m)/(M m l^2)).
+    """
     A = np.array([
         [0.0, 1.0, 0.0, 0.0],
         [0.0, 0.0, -m * G / M, 0.0],
@@ -51,7 +58,7 @@ def ab_of(M, m, l):
         [0.0, 0.0],
         [1.0 / M, -1.0 / (M * l)],
         [0.0, 0.0],
-        [-1.0 / (M * l), (M + m) / (m * l)],
+        [-1.0 / (M * l), (M + m) / (M * m * l * l)],
     ])
     return A, B
 
@@ -67,7 +74,7 @@ def nonlinear_rhs(K, M, m, l):
         x, v, th, w = s
         a11 = M + m
         a12 = m * l * math.cos(th)
-        a21 = m * l
+        a21 = m * l * math.cos(th)
         a22 = m * l * l
         b1 = F + m * l * w * w * math.sin(th)
         b2 = tu + m * G * l * math.sin(th)
@@ -87,9 +94,17 @@ def sim_nonlinear(K, M, m, l, ic, T=SIM_T, max_step=0.01,
 
 
 def settling_time(t, y, band):
-    """Last time |y| exceeds band; 0.0 if it never does."""
-    idx = np.abs(y) > band
-    return float(t[np.where(idx)[0][-1]]) if idx.any() else 0.0
+    """First sample after which |y| stays inside band forever after.
+
+    Returns 0.0 if |y| is always inside; t[-1] if it never settles (the
+    sample grid's last timestamp — the signal is still outside its band
+    at the horizon, so every settling gate fails on it).
+    """
+    idx = np.where(np.abs(y) > band)[0]
+    if not len(idx):
+        return 0.0
+    i = idx[-1] + 1
+    return float(t[i]) if i < len(t) else float(t[-1])
 
 
 def demands(K, Y):
@@ -128,39 +143,54 @@ def loop_response(Ki, bi):
     return np.abs(L), np.unwrap(np.angle(L))
 
 
-def siso_margins(Ki, bi):
-    """Loop-at-a-time margins: L(s) = Ki (sI - A0)^-1 bi, negative feedback.
+def _level_crossings(w, y, level):
+    """Frequencies where curve y(w) crosses `level`, linear in log w."""
+    lw = np.log(w)
+    out = []
+    for i in range(len(w) - 1):
+        d0, d1 = y[i] - level, y[i + 1] - level
+        if d0 * d1 <= 0 and y[i] != y[i + 1]:
+            f = d0 / (d0 - d1)
+            out.append(math.exp(lw[i] + f * (lw[i + 1] - lw[i])))
+    return out
 
-    Returns (gm_db, pm_deg); gm_db is GM_NO_CROSSING_DB when the phase never
-    crosses -180 deg, pm_deg is 180.0 when |L| never crosses 1.
+
+def margins_from_sweep(w, mag, ph):
+    """Gain/phase margins on a swept L(jw), negative feedback assumed.
+
+    w, mag, ph (ph unwrapped, radians) sampled on the same frequency grid.
+    Gain margin comes from every phase crossing of an odd multiple of
+    180 deg, on either side of 0 deg (a +180 deg crossing is just as
+    unstable under a gain change as a -180 deg one). Phase margin comes
+    from every |L| = 1 crossing, normalised to the conventional signed
+    range (-180, 180] deg — a 209 deg margin is really -151 deg.
+    Returns (gm_db, pm_deg); gm_db is GM_NO_CROSSING_DB when no odd
+    multiple of 180 deg is crossed, pm_deg is 180.0 when |L| never
+    crosses 1.
     """
-    mag, ph = loop_response(Ki, bi)
-    gms, pms = [], []
-    for i in range(len(W_SWEEP) - 1):
-        if (mag[i] - 1.0) * (mag[i + 1] - 1.0) <= 0 and mag[i] != mag[i + 1]:
-            f = (1.0 - mag[i]) / (mag[i + 1] - mag[i])
-            wc = math.exp(math.log(W_SWEEP[i])
-                          + f * (math.log(W_SWEEP[i + 1])
-                                 - math.log(W_SWEEP[i])))
-            phn = math.degrees(float(np.interp(math.log(wc), np.log(W_SWEEP),
-                                               ph))) % 360.0
-            if phn > 180.0:
-                phn -= 360.0
-            pms.append(180.0 + phn)
-    t180 = -math.pi
-    for k in range(5):
-        t2 = t180 - 2.0 * math.pi * k
-        for i in range(len(W_SWEEP) - 1):
-            if (ph[i] - t2) * (ph[i + 1] - t2) <= 0 and ph[i] != ph[i + 1]:
-                f = (t2 - ph[i]) / (ph[i + 1] - ph[i])
-                w180 = math.exp(math.log(W_SWEEP[i])
-                                + f * (math.log(W_SWEEP[i + 1])
-                                       - math.log(W_SWEEP[i])))
-                m180 = 20.0 * math.log10(
-                    float(np.interp(math.log(w180), np.log(W_SWEEP), mag)))
-                gms.append(-m180)
+    lw = np.log(w)
+
+    def interp(wc, y):
+        return float(np.interp(math.log(wc), lw, y))
+
+    gms = []
+    kmin = int(math.floor(ph.min() / math.pi)) - 1
+    kmax = int(math.ceil(ph.max() / math.pi)) + 1
+    for k in range(kmin, kmax + 1):
+        if k % 2 == 0:
+            continue                       # only odd multiples of 180 deg
+        for wc in _level_crossings(w, ph, k * math.pi):
+            gms.append(-20.0 * math.log10(interp(wc, mag)))
+    pms = [180.0 - (180.0 - (180.0 + math.degrees(interp(wc, ph)))) % 360.0
+           for wc in _level_crossings(w, mag, 1.0)]
     return (min(gms) if gms else GM_NO_CROSSING_DB,
             min(pms) if pms else 180.0)
+
+
+def siso_margins(Ki, bi):
+    """Loop-at-a-time margins: L(s) = Ki (sI - A0)^-1 bi, negative feedback."""
+    mag, ph = loop_response(Ki, bi)
+    return margins_from_sweep(W_SWEEP, mag, ph)
 
 
 # --- gate thresholds ---
@@ -320,12 +350,15 @@ def evaluate(Q, R, seed=20260101, n_mc=MC_N, run_mc=True, trace_dir=None):
                 if np.abs(Ymc[2]).max() > PEAK_THETA_MAX:
                     ok = False
                     break
-                th_st = settling_time(tmc, Ymc[2], THETA_BAND)
-                th_worst = max(th_worst, th_st)
-                if th_st > MC_SETTLE_MAX:
-                    ok = False
-                    break
-                if ic[0] != 0.0:
+                if ic[0] == 0.0:
+                    # lean scenario: SPEC's theta-settling criterion
+                    th_st = settling_time(tmc, Ymc[2], THETA_BAND)
+                    th_worst = max(th_worst, th_st)
+                    if th_st > MC_SETTLE_MAX:
+                        ok = False
+                        break
+                else:
+                    # displacement scenario: SPEC's x-settling criterion
                     x_st = settling_time(tmc, Ymc[0], XDISP_BAND)
                     x_worst = max(x_worst, x_st)
                     if x_st > MC_X_SETTLE_MAX:
