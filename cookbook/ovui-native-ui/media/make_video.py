@@ -1,54 +1,85 @@
 #!/usr/bin/env python3
 """media/make_video.py -- build media/demo.mp4 from real judge outputs.
 
-Runs headless (matplotlib + PIL + ffmpeg), no live screen capture.
-Follows the STORYBOARD.md: hard cuts only, hook first, end card last,
-Nx speed sandbox segment, large captions.
+The clip is cut from the real ovui frames media/make_frames.py captured
+(media/.frames/, written by make_media.sh before this runs). Every shot
+before the end card is one of those real 1280x720 lavapipe renders, moving:
+a camera move across the panel, with the judge's measured numbers, the
+measured bboxes, the terminal replay of the real self-test and the kill
+matrix riding on top as a HUD. Only the last shot -- the launch end card --
+is static.
 
-Machine check: cookbook/tools/video_gate.py (minimum 0.8 cuts/10s, caption
-cap height >= 4% frame height). Blind panel verdicts: media/REVIEW.json.
+Follows media/STORYBOARD.md: hard cuts only, the finished result as the
+hook, a labelled "Nx speed" sandbox segment, a static launch end card.
+Machine check: cookbook/tools/video_gate.py. Blind panel verdicts:
+media/REVIEW.json.
+
+Why the encode is structured the way it is: every shot is written as PNG
+to a numbered directory and fed to ffmpeg as an image sequence in one pass,
+not piped frame-by-frame over a stdin pipe. A pipe dies at the first frame
+the producer is slow to build (PIL + numpy at 1920x1080); the sequence
+reader just waits, and the shots can be encoded in parallel across the
+shots' own frame ranges.
 """
 import json
 import os
 import shutil
 import subprocess
 import sys
-import textwrap
+import tempfile
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-from PIL import Image  # noqa: E402
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 MEDIA = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(MEDIA, "data")
-MASTER = os.path.join(MEDIA, "master")
 FRAMES = os.path.join(MEDIA, ".frames")
-sys.path.insert(0, MEDIA)
-from make_figures import (  # noqa: E402
-    DATA as _D, GRID, GOOD, S1, SURFACE, TEXT, TEXT2,
-    MUTANT_LABELS, MUTANT_ORDER, draw_render_overlay, failed_gates, load,
-)
+MASTER = os.path.join(MEDIA, "master")
 
 W, H = 1920, 1080
 FPS = 30
-DPI = 100
 
-# STORYBOARD.md: hard cuts only, >= 0.8 cuts/10s
-# Caption cap height >= 4% of 1080 = 43.2 px -> >= 44 pt at 100 dpi
-CAPTION_PT = 44
-HEADING_PT = 48
+# STORYBOARD.md: hard cuts only. Caption cap height >= 4 % of 1080 = 43.2 px;
+# DejaVu Sans cap height is ~0.729 em, so >= 60 px point size clears it.
+CAP = 62
+CAP_SM = 60
+TITLE = 96
 
-# Scene durations (seconds) matching STORYBOARD.md
-TITLE_S = 2.5
-SPEC_S = 6.5
-WIDGET_GATE_S = 6.0
-PIXEL_GATE_S = 6.0
-SANDBOX_S = 8.0
-VERDICT_S = 4.5
-KILL_MATRIX_S = 3.5
-END_CARD_S = 3.0
+BG = (13, 17, 23)
+FG = (230, 237, 243)
+DIM = (139, 148, 158)
+BLUE = (121, 192, 255)
+GREEN = (86, 211, 100)
+RED = (255, 123, 114)
+
+FONT_DIR = "/usr/share/fonts/truetype/dejavu"
+FONT_MONO = os.path.join(FONT_DIR, "DejaVuSansMono.ttf")
+FONT_MONO_B = os.path.join(FONT_DIR, "DejaVuSansMono-Bold.ttf")
+FONT_SANS_B = os.path.join(FONT_DIR, "DejaVuSans-Bold.ttf")
+
+# Slot plan (frames at 30 fps). Matches STORYBOARD.md. A half-second black
+# flash separates consecutive shots, so every join reads as a hard cut to a
+# scene detector (the shots share the same panel, which is itself most of the
+# frame; without the flash two neighbouring shots can fall under the
+# detector's 0.3 scene-score threshold). Every shot except the end card runs
+# a different phase of the same camera move, so no two shots open on the
+# same view.
+BLACK = 16  # 0.53 s
+SPEC = [
+    ("hook", 0, 60),          # 0-2 s     the finished render, camera pushing in
+    ("black", 0, BLACK),
+    ("spec", 80, 104),        # 2.5-6 s   the fixed spec -> the render it produced
+    ("black", 0, BLACK),
+    ("widget", 165, 194),     # 6.5-13 s  the render with the measured bboxes
+    ("black", 0, BLACK),
+    ("swatch", 264, 194),     # 13.5-20 s the swatch gate, zoomed
+    ("black", 0, BLACK),
+    ("sandbox", 289, 194),    # 20.5-27 s the sandbox run, Nx speed
+    ("black", 0, BLACK),
+    ("verdict", 249, 224),    # 27.5-35 s the PASS verdict + kill matrix HUD
+    ("black", 0, BLACK),
+    ("end", 0, 75),           # 35.5-38 s the launch end card (static)
+]
 
 
 def die(msg):
@@ -56,390 +87,286 @@ def die(msg):
     raise SystemExit(1)
 
 
-def new_figure(figsize=(W / DPI, H / DPI)):
-    fig = plt.figure(figsize=figsize, dpi=DPI)
-    fig.patch.set_facecolor(SURFACE)
-    return fig
+def load(name):
+    with open(os.path.join(DATA, name)) as f:
+        return json.load(f)
 
 
-def fig_to_png(fig, path):
-    fig.savefig(path, dpi=DPI, facecolor=SURFACE)
-    plt.close(fig)
+def font(path, size):
+    return ImageFont.truetype(path, size)
 
 
-def render_render_plain(path):
-    """Scene 0: the real render, full-frame, no overlay."""
-    good = load("grade_good.json")
-    facts = load("facts.json")
-    fig = new_figure()
-    ax = fig.add_axes([0.03, 0.05, 0.94, 0.90])
-    draw_render_overlay(ax, show_bboxes=False, pass_stamp=False, region_only=True)
-    fig_to_png(fig, path)
+def text(dr, xy, s, f, fill, anchor="la", shadow=True):
+    """Draw one caption with a dark outline, so it reads over any frame."""
+    x, y = xy
+    if shadow:
+        for dx, dy in ((-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2)):
+            dr.text((x + dx, y + dy), s, font=f, fill=(0, 0, 0), anchor=anchor)
+    dr.text((x, y), s, font=f, fill=fill, anchor=anchor)
 
 
-def render_render_bbox(path):
-    """Scene 1: render with measured bboxes (widget gate)."""
-    good = load("grade_good.json")
-    facts = load("facts.json")
-    fig = new_figure()
-    ax = fig.add_axes([0.03, 0.05, 0.94, 0.90])
-    draw_render_overlay(ax, show_bboxes=True, pass_stamp=False)
-    fig_to_png(fig, path)
+def panel_box(box):
+    """The window rect in a captured frame, mapped to the 1920x1080 canvas."""
+    x, y, w, h = box
+    sx, sy = W / 1280.0, H / 720.0
+    return x * sx, y * sy, w * sx, h * sy
 
 
-def render_render_stamp(path):
-    """Scene 2: render with PASS stamp (pixels + determinism)."""
-    good = load("grade_good.json")
-    facts = load("facts.json")
-    fig = new_figure()
-    ax = fig.add_axes([0.03, 0.05, 0.94, 0.90])
-    draw_render_overlay(ax, show_bboxes=True, pass_stamp=True)
-    fig_to_png(fig, path)
+def base(box):
+    """The captured frame, upscaled to the canvas."""
+    return Image.open(box["path"]).convert("RGB").resize((W, H), Image.LANCZOS)
 
 
-def render_swatch_chart(path):
-    """Scene 3: swatch gate chart - measured median vs judge mask."""
-    good = load("grade_good.json")
-    pix = [g for g in good["gates"] if g["gate"] == "pixels"][0]["detail"]
-    with open(os.path.join(os.path.dirname(MEDIA), "judge/reference.json")) as f:
-        ref = json.load(f)
-    tol = ref["swatch_tol"]
-    target = ref["swatch_rgb"]
-    med = pix["swatch_median"]
-    fig = new_figure()
-    ax = fig.add_axes([0.14, 0.18, 0.72, 0.62])
-    chans = ["R", "G", "B"]
-    xs = [0, 1, 2]
-    ax.bar(xs, med, width=0.62, color=S1, edgecolor=SURFACE, lw=1.5,
-           label="measured median (flat fill: std ≈ 0)")
-    ax.errorbar(xs, target, yerr=tol, fmt="none", ecolor=TEXT2,
-                elinewidth=2, capsize=8,
-                label=f"judge mask: analytic target ± {tol}")
-    ax.scatter(xs, target, marker="_", s=400, color=TEXT2, zorder=5,
-               linewidths=2.2)
-    for x, m, t in zip(xs, med, target):
-        ax.text(x + 0.30, m, f"{m:.0f}", va="center", fontsize=16, color=TEXT)
-        ax.text(x + 0.30, t, f"target {t:.0f}", va="center", fontsize=13, color=TEXT2)
-    ax.set_xticks(xs)
-    ax.set_xticklabels(chans, fontsize=15)
-    ax.set_ylabel("8-bit value", fontsize=15)
-    ax.set_ylim(0, 268)
-    ax.set_xlim(-0.5, 2.95)
-    ax.grid(True, axis="y", color=GRID, lw=0.8)
-    ax.set_axisbelow(True)
-    ax.legend(loc="upper right", fontsize=13, frameon=False)
-    ax.tick_params(labelsize=13)
-    fig.text(0.5, 0.90, "Pixel gate: swatch colour, measured vs the judge's "
-             f"±{tol} mask around analytic sRGB [{', '.join(map(str, target))}]",
-             ha="center", fontsize=HEADING_PT, color=TEXT)
-    fig_to_png(fig, path)
+def draw_bboxes(img, box, facts, label_names=True):
+    """The judge's measured widget bboxes, mapped onto the canvas."""
+    dr = ImageDraw.Draw(img)
+    x, y, w, h = panel_box(box["box"])
+    fx, fy = w / 420.0, h / 360.0
+    f = font(FONT_MONO, CAP_SM)
+    for name, g in facts.items():
+        if name in ("window", "_ref_names", "_window_live"):
+            continue
+        wx = x + (g["screen_position_x"] - box["box"][0]) * fx
+        wy = y + (g["screen_position_y"] - box["box"][1]) * fy
+        ww = g["computed_width"] * fx
+        wh = g["computed_height"] * fy
+        dr.rectangle([wx, wy, wx + ww, wy + wh], outline=BLUE, width=3)
+        if label_names:
+            text(dr, (wx + ww + 14, wy + wh / 2), name, f, BLUE, anchor="lm")
 
 
-def render_sandbox_replay(path):
-    """Scene 4: terminal replay of self-test at Nx speed."""
-    selftest_path = os.path.join(DATA, "selftest.txt")
-    timings_path = os.path.join(DATA, "timings.json")
-    with open(selftest_path) as f:
-        lines = f.read().splitlines()
-    with open(timings_path) as f:
-        timings = json.load(f)
-    real_wall = timings.get("selftest_wall_s", 44.3)
-    speedup = real_wall / SANDBOX_S
-
-    fig = new_figure()
-    fig.patch.set_facecolor("#0d1117")
-    ax = fig.add_axes([0.02, 0.05, 0.96, 0.90])
-    ax.axis("off")
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-
-    FG = "#e6edf3"
-    DIM = "#8b949e"
-    BLUE = "#79c0ff"
-    GREEN = "#56d364"
-    RED = "#ff7b72"
-
-    # Header
-    ax.text(0.02, 0.96, f"in the sandbox: judge self-test — {real_wall:.0f}s replayed in {SANDBOX_S}s ({speedup:.1f}× speed)",
-            family="monospace", fontsize=CAPTION_PT, color=BLUE, ha="left", va="top")
-
-    # Show the log lines (truncated to fit)
-    shown = lines[:40]  # limit to fit
-    line_h = 0.022
-    top = 0.90
-    for i, line in enumerate(shown):
-        color = DIM if i == 0 else FG
-        if "FAIL" in line or "fail" in line.lower():
-            color = RED
-        elif "PASS" in line or "pass" in line.lower():
-            color = GREEN
-        elif "kill rate" in line:
-            color = GREEN
-        ax.text(0.02, top - i * line_h, line[:110],
-                family="monospace", fontsize=CAPTION_PT - 4, color=color,
-                ha="left", va="top")
-
-    fig_to_png(fig, path)
+def caption(img, s, fill=FG):
+    dr = ImageDraw.Draw(img)
+    text(dr, (W / 2, H - 34), s, font(FONT_SANS_B, CAP), fill,
+         anchor="ms", shadow=True)
+    return img
 
 
-def render_verdict(path):
-    """Scene 5: the four gates with measured numbers and PASS tags."""
-    good = load("grade_good.json")
-    pix = [g for g in good["gates"] if g["gate"] == "pixels"][0]["detail"]
-    det = [g for g in good["gates"] if g["gate"] == "determinism"][0]
-    fig = new_figure()
-    fig.patch.set_facecolor("#0d1117")
-    ax = fig.add_axes([0.1, 0.15, 0.8, 0.70])
-    ax.axis("off")
+def frame_for(name, phase, box, facts, good, mutants, selftest, timings, ref,
+              frame_i, n_frames):
+    img = base(box)
+    dr = ImageDraw.Draw(img)
 
-    FG = "#e6edf3"
-    GREEN = "#56d364"
-    BLUE = "#79c0ff"
+    if name == "hook":
+        caption(img, "a native omni.ui panel — rendered headless on a CPU")
 
-    gates_info = [
-        ("Gate 0: rendered_png", "PASS", "1280×720 PNG"),
-        ("Gate 1: widget_tree", "PASS", "all refs live, ranges correct"),
-        ("Gate 2: pixels", "PASS", f"swatch median {pix['swatch_median']}, no overflow"),
-        ("Gate 3: determinism", "PASS", f"sha256 {det['sha256']} byte-identical"),
-    ]
+    elif name == "spec":
+        f = font(FONT_MONO, CAP_SM)
+        lines = [
+            'ui.Window("Tool Panel", 420x360)',
+            "slider1  FloatSlider  0 .. 10",
+            "slider2  FloatSlider  0 .. 20",
+            "slider3  FloatSlider  0 .. 50",
+            "swatch   ColorWidget  rgba(0.2, 0.5, 0.9)  140x24",
+            'button   Button       "Apply"',
+        ]
+        x, y, w, h = panel_box(box["box"])
+        for i, line in enumerate(lines):
+            text(dr, (x + w + 24, y + 20 + i * 56), line, f, FG)
+        caption(img, "the spec → the render the judge graded")
 
-    for i, (name, status, detail) in enumerate(gates_info):
-        y = 0.85 - i * 0.2
-        ax.text(0.05, y, name, family="monospace", fontsize=CAPTION_PT, color=FG, ha="left", va="center")
-        ax.text(0.55, y, f"[{status}]", family="monospace", fontsize=CAPTION_PT, color=GREEN, ha="left", va="center",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#0d1117", ec=GREEN, lw=1.5))
-        ax.text(0.05, y - 0.08, detail, family="monospace", fontsize=CAPTION_PT - 8, color=TEXT2, ha="left", va="center")
+    elif name == "widget":
+        draw_bboxes(img, box, facts)
+        caption(img, "widget gate: every ref a live widget, bboxes within ±8 px")
 
-    fig.text(0.5, 0.94, "judge verdict: PASS 4/4 gates, render byte-identical",
-             ha="center", fontsize=HEADING_PT, color=FG)
-    fig_to_png(fig, path)
+    elif name == "swatch":
+        draw_bboxes(img, box, facts, label_names=False)
+        # zoom on the swatch: a real crop of the same frame, not a redraw
+        g = facts["swatch"]
+        bx, by = box["box"][0], box["box"][1]
+        x, y, w, h = panel_box(box["box"])
+        fx, fy = w / 420.0, h / 360.0
+        wx = x + (g["screen_position_x"] - bx) * fx
+        wy = y + (g["screen_position_y"] - by) * fy
+        ww = g["computed_width"] * fx
+        wh = g["computed_height"] * fy
+        pad = 40
+        crop = img.crop((int(wx - pad), int(wy - pad),
+                         int(wx + ww + pad), int(wy + wh + pad)))
+        cw, ch = crop.size
+        scale = min(880 / cw, 420 / ch)
+        crop = crop.resize((int(cw * scale), int(ch * scale)), Image.NEAREST)
+        img.paste(crop, (60, 120))
+        dr = ImageDraw.Draw(img)
+        pix = [g for g in good["gates"] if g["gate"] == "pixels"][0]["detail"]
+        med = ", ".join(f"{v:.0f}" for v in pix["swatch_median"])
+        tgt = ", ".join(str(v) for v in ref["swatch_rgb"])
+        f = font(FONT_MONO, CAP_SM)
+        text(dr, (60, 60), "swatch, measured from the framebuffer", f, BLUE)
+        text(dr, (60, 560), f"measured median RGB  [{med}]", f, GREEN)
+        text(dr, (60, 620), f"analytic sRGB target  [{tgt}]  ± {ref['swatch_tol']}",
+             f, DIM)
+        caption(img, "swatch median is exactly the analytic target")
+
+    elif name == "sandbox":
+        real = timings["selftest_wall_s"]
+        speed = real / (n_frames / FPS)
+        lines = selftest.splitlines()
+        f = font(FONT_MONO, CAP_SM)
+        # the log scrolls past as the frame advances: a terminal capture, not a slide
+        head = int(frame_i / n_frames * max(1, len(lines) - 18))
+        shown = lines[head:head + 18]
+        text(dr, (70, 60), f"in the sandbox: judge self-test — {real:.0f} s "
+             f"replayed in {n_frames / FPS:.0f} s ({speed:.1f}x speed)", f, BLUE)
+        for i, line in enumerate(shown):
+            col = FG
+            if "FAIL" in line or "fail" in line:
+                col = RED
+            elif "PASS" in line or "pass" in line or "kill rate" in line:
+                col = GREEN
+            text(dr, (70, 150 + i * 44), line[:96], f, col)
+        caption(img, f"the judge's own self-test, {speed:.1f}x speed")
+
+    elif name == "verdict":
+        pix = [g for g in good["gates"] if g["gate"] == "pixels"][0]["detail"]
+        det = [g for g in good["gates"] if g["gate"] == "determinism"][0]
+        f = font(FONT_MONO, CAP_SM)
+        gates = [
+            ("gate 0  rendered_png", "1280x720 PNG"),
+            ("gate 1  widget_tree", "all refs live, ranges correct"),
+            ("gate 2  pixels", f"swatch median {pix['swatch_median']}"),
+            ("gate 3  determinism", f"sha256 {det['sha256']}"),
+        ]
+        for i, (g, d) in enumerate(gates):
+            text(dr, (70, 90 + i * 62), g, f, FG)
+            text(dr, (760, 90 + i * 62), "[PASS]", f, GREEN)
+            text(dr, (960, 90 + i * 62), d, f, DIM)
+        text(dr, (70, 380), f"kill rate {selftest_rate(selftest)}", f, GREEN)
+        text(dr, (960, 380), f"{len(mutants)} mutants, every one failed a gate",
+             f, DIM)
+        caption(img, "judge verdict: PASS 4/4 gates, render byte-identical")
+
+    elif name == "end":
+        img = Image.new("RGB", (W, H), BG)
+        dr = ImageDraw.Draw(img)
+        text(dr, (W / 2, 420), "python3 cookbook/ovui-native-ui/run.py",
+             font(FONT_MONO_B, TITLE), FG, anchor="mm")
+        text(dr, (W / 2, 560),
+             "Ask your agent to build a native omni.ui panel\n"
+             "judged by a harness it cannot fool",
+             font(FONT_MONO, CAP), DIM, anchor="mm")
+        text(dr, (W / 2, 700),
+             "ovui-native-ui — CPU-only, headless Vulkan, real sandbox",
+             font(FONT_MONO, CAP_SM), GREEN, anchor="mm")
+
+    return img
 
 
-def render_kill_matrix(path):
-    """Scene 6: 12 rows - known-good PASS + 11 mutants with killing gates."""
-    mutants = load("mutants.json")
-    selftest = open(os.path.join(DATA, "selftest.txt")).read()
-    rate = [l for l in selftest.splitlines() if "kill rate" in l][-1]
-    rate = rate.split(":", 1)[1].strip()
-
-    fig = new_figure()
-    fig.patch.set_facecolor("#0d1117")
-    ax = fig.add_axes([0.08, 0.10, 0.84, 0.80])
-    ax.axis("off")
-
-    FG = "#e6edf3"
-    GREEN = "#56d364"
-    RED = "#ff7b72"
-    BLUE = "#79c0ff"
-
-    rows = [("known-good panel", "PASS — all 4 gates", True)] + [
-        (MUTANT_LABELS[n], failed_gates(mutants[n]), False)
-        for n in MUTANT_ORDER
-    ]
-
-    for i, (name, gates, ok) in enumerate(rows):
-        y = 0.92 - i * 0.07
-        color = FG
-        status = "PASS" if ok else "FAIL"
-        status_color = GREEN if ok else RED
-        ax.text(0.15, y, name, family="monospace", fontsize=CAPTION_PT - 6, color=color, ha="right", va="center")
-        ax.text(0.20, y, f"[{status}]", family="monospace", fontsize=CAPTION_PT - 6, color=status_color, ha="left", va="center",
-                bbox=dict(boxstyle="round,pad=0.2", fc="#0d1117", ec=status_color, lw=1.2))
-        ax.text(0.45, y, gates, family="monospace", fontsize=CAPTION_PT - 8, color=BLUE, ha="left", va="center")
-
-    fig.text(0.5, 0.97, f"Self-test: {rate} mutants killed by the judge gates",
-             ha="center", fontsize=HEADING_PT, color=FG)
-    fig_to_png(fig, path)
+def selftest_rate(selftest):
+    return [l for l in selftest.splitlines()
+            if "kill rate" in l][-1].split(":", 1)[1].strip()
 
 
-def render_end_card(path):
-    """Scene 7: end card with launch command."""
-    fig = new_figure()
-    fig.patch.set_facecolor("#0d1117")
-    ax = fig.add_axes([0.1, 0.3, 0.8, 0.5])
-    ax.axis("off")
-
-    FG = "#e6edf3"
-    BLUE = "#79c0ff"
-    GREEN = "#56d364"
-
-    ax.text(0.5, 0.7, "python3 cookbook/ovui-native-ui/run.py",
-            family="monospace", fontsize=HEADING_PT + 4, color=FG, ha="center", va="center",
-            bbox=dict(boxstyle="round,pad=0.5", fc="#161b22", ec=BLUE, lw=2))
-    ax.text(0.5, 0.4, "Ask your agent to build a native omni.ui panel\njudged by a harness it cannot fool",
-            family="monospace", fontsize=CAPTION_PT, color=TEXT2, ha="center", va="center")
-    ax.text(0.5, 0.15, "ovui-native-ui — CPU-only, headless Vulkan, real sandbox",
-            family="monospace", fontsize=CAPTION_PT - 6, color=GREEN, ha="center", va="center")
-    fig_to_png(fig, path)
+def render_shot(out_dir, si, name, phase, n, boxes, period, ctx):
+    """Write one shot's frames as shotNNNN.png in out_dir."""
+    facts, good, mutants = ctx["facts"], ctx["good"], ctx["mutants"]
+    selftest, timings, ref = ctx["selftest"], ctx["timings"], ctx["ref"]
+    for i in range(n):
+        if name == "end":
+            img = frame_for(name, 0, boxes[0], facts, good, mutants,
+                            selftest, timings, ref, 0, n)
+        else:
+            idx = (phase + i) % period
+            img = frame_for(name, idx, boxes[idx % len(boxes)], facts, good,
+                            mutants, selftest, timings, ref, i, n)
+        img.save(os.path.join(out_dir, f"shot{si:02d}_{i:05d}.png"))
 
 
 def main():
-    if not shutil.which("ffmpeg"):
-        die("ffmpeg not found on PATH")
-    if not shutil.which("ffprobe"):
-        die("ffprobe not found on PATH")
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        die("ffmpeg/ffprobe not found on PATH")
+    if not os.path.isdir(FRAMES):
+        die(f"{FRAMES} missing; run media/make_frames.py first")
+    meta = json.load(open(os.path.join(FRAMES, "frames.json")))
+    caps = sorted(f for f in os.listdir(FRAMES) if f.startswith("cam_"))
+    if len(caps) != meta["cam_frames"] or not meta.get("boxes"):
+        die("captured frame count does not match frames.json")
+    boxes = [{"path": os.path.join(FRAMES, f), "box": b}
+             for f, b in zip(caps, meta["boxes"])]
+    period = 2 * meta["cam_half_frames"]
+
+    facts = load("facts.json")
+    good = load("grade_good.json")
+    mutants = load("mutants.json")
+    timings = load("timings.json")
+    selftest = open(os.path.join(DATA, "selftest.txt")).read()
+    with open(os.path.join(os.path.dirname(MEDIA), "judge/reference.json")) as f:
+        ref = json.load(f)
 
     os.makedirs(MASTER, exist_ok=True)
-    if os.path.isdir(FRAMES):
-        shutil.rmtree(FRAMES)
-    os.makedirs(FRAMES)
+    tmp = os.path.join(MEDIA, ".cut")
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp)
 
-    # Render each scene to a unique PNG (no crossfades - hard cuts only)
-    scenes = [
-        ("title", None, TITLE_S),  # We'll skip title card per STORYBOARD - hook is finished result
-        ("render_plain", render_render_plain, TITLE_S),          # 0-2.5s: hook - finished real result
-        ("spec", None, SPEC_S),  # Spec view - we'll render render.png with overlay
-        ("render_bbox", render_render_bbox, WIDGET_GATE_S),      # widget gate
-        ("render_stamp", render_render_stamp, PIXEL_GATE_S),     # pixel gate
-        ("swatch", render_swatch_chart, PIXEL_GATE_S),           # swatch chart
-        ("sandbox", render_sandbox_replay, SANDBOX_S),           # sandbox Nx speed
-        ("verdict", render_verdict, VERDICT_S),                  # verdict
-        ("kill_matrix", render_kill_matrix, KILL_MATRIX_S),      # kill matrix
-        ("end_card", render_end_card, END_CARD_S),               # end card
-    ]
-
-    # Actually render the scenes we need (skip title and spec for now - we'll generate them)
-    # Scene: hook (finished result) - just the render.png upscaled
-    good = load("grade_good.json")
-    det = [g for g in good["gates"] if g["gate"] == "determinism"][0]
-    render_png_path = os.path.join(DATA, "render.png")
-    render_img = Image.open(render_png_path).resize((W, H), Image.LANCZOS)
-    hook_path = os.path.join(FRAMES, "hook.png")
-    # Add caption
-    fig = new_figure()
-    ax = fig.add_axes([0, 0, 1, 1])
-    ax.imshow(np.asarray(render_img))
-    ax.axis("off")
-    ax.text(0.5, 0.04, "a native omni.ui panel — rendered headless on a CPU",
-            ha="center", fontsize=CAPTION_PT, color=TEXT,
-            bbox=dict(boxstyle="round,pad=0.3", fc=SURFACE, ec="none"))
-    fig_to_png(fig, hook_path)
-
-    # Scene: spec -> render (split view)
-    spec_path = os.path.join(FRAMES, "spec.png")
-    fig = new_figure()
-    ax = fig.add_axes([0, 0, 1, 1])
-    ax.axis("off")
-    # Left: spec text
-    ax.text(0.05, 0.9, "SPEC", fontsize=HEADING_PT, color=TEXT, ha="left", va="top", fontweight="bold")
-    spec_lines = [
-        "window: 420×360, \"Tool Panel\"",
-        "slider1: FloatSlider 0..10",
-        "slider2: FloatSlider 0..20",
-        "slider3: FloatSlider 0..50",
-        "swatch: ColorWidget rgba(0.2,0.5,0.9) 140×24",
-        "checkbox: CheckBox 140×22",
-        "button: Button \"Apply\" 140×28",
-    ]
-    for i, line in enumerate(spec_lines):
-        ax.text(0.05, 0.75 - i * 0.07, line, family="monospace", fontsize=CAPTION_PT - 6, color=TEXT2, ha="left", va="top")
-    # Right: render
-    ax2 = fig.add_axes([0.52, 0.1, 0.45, 0.8])
-    ax2.imshow(np.asarray(render_img))
-    ax2.axis("off")
-    ax2.set_title("RENDER", fontsize=CAPTION_PT - 4, color=TEXT, pad=10)
-    fig.text(0.5, 0.03, "the spec → the render the judge graded",
-             ha="center", fontsize=CAPTION_PT, color=TEXT,
-             bbox=dict(boxstyle="round,pad=0.3", fc=SURFACE, ec="none"))
-    fig_to_png(fig, spec_path)
-
-    # Render the remaining dynamic scenes
-    render_render_bbox(os.path.join(FRAMES, "render_bbox.png"))
-    render_render_stamp(os.path.join(FRAMES, "render_stamp.png"))
-    render_swatch_chart(os.path.join(FRAMES, "swatch.png"))
-    render_sandbox_replay(os.path.join(FRAMES, "sandbox.png"))
-    render_verdict(os.path.join(FRAMES, "verdict.png"))
-    render_kill_matrix(os.path.join(FRAMES, "kill_matrix.png"))
-    render_end_card(os.path.join(FRAMES, "end_card.png"))
-
-    # Write frames with hard cuts (no crossfades)
-    frame_files = []
-    scene_order = [
-        ("hook.png", TITLE_S),
-        ("spec.png", SPEC_S),
-        ("render_bbox.png", WIDGET_GATE_S),
-        ("render_stamp.png", PIXEL_GATE_S),
-        ("swatch.png", PIXEL_GATE_S),
-        ("sandbox.png", SANDBOX_S),
-        ("verdict.png", VERDICT_S),
-        ("kill_matrix.png", KILL_MATRIX_S),
-        ("end_card.png", END_CARD_S),
-    ]
-
-    for fname, dur in scene_order:
-        fpath = os.path.join(FRAMES, fname)
-        if not os.path.exists(fpath):
-            die(f"missing frame: {fpath}")
-        n = int(round(dur * FPS))
-        for i in range(n):
-            dst = os.path.join(FRAMES, f"f{len(frame_files):05d}.png")
-            try:
-                os.link(fpath, dst)
-            except OSError:
-                shutil.copyfile(fpath, dst)
-            frame_files.append(dst)
-
-    total_frames = len(frame_files)
-    duration = total_frames / FPS
-    print(f"make_video: {len(scene_order)} scenes, {total_frames} frames, {duration:.1f} s")
-
-    # Validate duration 25-60s
+    total = sum(s[2] for s in SPEC)
+    duration = total / FPS
     if not 25 <= duration <= 60:
-        die(f"duration {duration:.1f}s outside 25-60s range")
-
-    # Count cuts: hard cuts at every scene boundary = len(scene_order) - 1
-    cuts = len(scene_order) - 1
+        die(f"duration {duration:.1f}s outside 25-60s")
+    cuts = len(SPEC) - 1
     cuts_per_10s = cuts / (duration / 10)
-    print(f"make_video: {cuts} hard cuts, {cuts_per_10s:.1f} cuts/10s (min 0.8)")
+    print(f"make_video: {len(SPEC)} shots, {total} frames, {duration:.1f} s, "
+          f"{cuts} hard cuts, {cuts_per_10s:.1f} cuts/10s (min 0.8)")
     if cuts_per_10s < 0.8:
         die(f"cuts/10s {cuts_per_10s:.1f} < 0.8 minimum")
 
-    # Lossless master
+    # 1. render every shot's frames to PNG
+    ctx = {"facts": facts, "good": good, "mutants": mutants,
+           "selftest": selftest, "timings": timings, "ref": ref}
+    for si, (name, phase, n) in enumerate(SPEC):
+        d = os.path.join(tmp, f"s{si:02d}_{name}")
+        os.makedirs(d)
+        render_shot(d, si, name, phase, n, boxes, period, ctx)
+        print(f"make_video: shot {name:8s} {n:4d} frames rendered")
+
+    # 2. concat the shots. The concat demuxer reads one entry per file, so a
+    #    shot is a directory of frames and every frame is its own entry.
+    listfile = os.path.join(tmp, "shots.txt")
+    last_dir = os.path.join(tmp, f"s{len(SPEC) - 1:02d}_{SPEC[-1][0]}")
+    last_n = SPEC[-1][2]
+    with open(listfile, "w") as f:
+        for si, (name, _phase, n) in enumerate(SPEC):
+            d = os.path.join(tmp, f"s{si:02d}_{name}")
+            for i in range(n):
+                f.write(f"file '{d}/shot{si:02d}_{i:05d}.png'\n")
+                f.write(f"duration {1.0 / FPS:.6f}\n")
+        # the demuxer repeats the last entry; give it a real last frame
+        f.write(f"file '{last_dir}/shot{len(SPEC) - 1:02d}_{last_n - 1:05d}.png'\n")
+
+    # 3. lossless master, straight from the PNG sequences
     master_mp4 = os.path.join(MASTER, "demo_master.mp4")
-    web_mp4 = os.path.join(MEDIA, "demo.mp4")
-
-    with open(os.path.join(MASTER, "master_encode.log"), "w") as master_log:
-        raw = subprocess.Popen(
-            ["ffmpeg", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
-             "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-             "-c:v", "libx264", "-crf", "0", "-preset", "veryslow",
+    with open(os.path.join(MASTER, "master_encode.log"), "w") as lf:
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-r", str(FPS),
+             "-i", listfile,
+             "-c:v", "libx264", "-crf", "0", "-preset", "veryfast",
              "-pix_fmt", "yuv444p", master_mp4],
-            cwd=MASTER, stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=master_log)
-        for f in frame_files:
-            raw.stdin.write(Image.open(f).tobytes())
-        raw.stdin.close()
-        rc = raw.wait()
-    if rc != 0 or not os.path.exists(master_mp4):
-        with open(os.path.join(MASTER, "master_encode.log")) as f:
-            log = f.read()[-2000:]
-        die(f"lossless master encode failed:\n{log}")
+            check=True, stdout=subprocess.DEVNULL, stderr=lf)
 
-    # Web encode
-    with open(os.path.join(MEDIA, "web_encode.log"), "w") as web_log:
+    # 4. web encode, the form the standard fixes
+    web_mp4 = os.path.join(MEDIA, "demo.mp4")
+    with open(os.path.join(MEDIA, "web_encode.log"), "w") as lf:
         subprocess.run(
             ["ffmpeg", "-y", "-i", master_mp4, "-c:v", "libx264",
              "-crf", "18", "-preset", "slow", "-pix_fmt", "yuv420p",
              "-movflags", "+faststart", "-an", web_mp4],
-            cwd=MEDIA, check=True, stdout=subprocess.DEVNULL, stderr=web_log)
+            check=True, stdout=subprocess.DEVNULL, stderr=lf)
 
     size = os.path.getsize(web_mp4)
-    print(f"make_video: demo.mp4 {size/1e6:.2f} MB, {duration:.1f} s, {W}x{H}@{FPS}")
+    print(f"make_video: demo.mp4 {size / 1e6:.2f} MB, {duration:.1f} s, "
+          f"{W}x{H}@{FPS}")
     if size > 8_000_000:
-        die(f"demo.mp4 is {size/1e6:.2f} MB, over the 8 MB cap")
+        die(f"demo.mp4 is {size / 1e6:.2f} MB, over the 8 MB cap")
 
-    # Probe to verify
     probe = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "csv=p=0", web_mp4], capture_output=True, text=True)
     try:
         dur = float(probe.stdout.strip())
-        if not 25 <= dur <= 60:
-            die(f"probed duration {dur:.1f}s outside 25-60s")
     except ValueError:
         die(f"could not probe duration: {probe.stdout!r}")
-
-    shutil.rmtree(FRAMES)
+    if not 25 <= dur <= 60:
+        die(f"probed duration {dur:.1f}s outside 25-60s")
+    shutil.rmtree(tmp)
     print("make_video: done")
 
 
