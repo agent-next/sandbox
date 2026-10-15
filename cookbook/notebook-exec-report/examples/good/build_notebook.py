@@ -119,6 +119,13 @@ and the judge can check that the report references every figure.
 """
 
 CODE_FIGS = """\
+# render each figure into the notebook as image/png as well as saving it:
+# set_matplotlib_formats registers the inline png formatter, which works
+# headless (the Agg backend above never auto-renders a display hook).
+import matplotlib_inline.backend_inline
+matplotlib_inline.backend_inline.set_matplotlib_formats("png")
+from IPython.display import display
+
 log_y = np.log(y)
 pred_log = model.predict(Xs[test_idx])
 
@@ -132,6 +139,7 @@ ax.set_ylabel("log(predicted MED_VALUE)")
 ax.set_title("Predicted vs observed (test split)")
 ax.legend()
 fig.tight_layout(); fig.savefig(FIGDIR / "pred_vs_obs.png", dpi=150)
+display(fig)
 
 resid = log_y[test_idx] - pred_log
 fig, ax = plt.subplots(figsize=(6, 4))
@@ -141,6 +149,7 @@ ax.set_xlabel("log(predicted MED_VALUE)")
 ax.set_ylabel("residual")
 ax.set_title("Residuals vs prediction (test split)")
 fig.tight_layout(); fig.savefig(FIGDIR / "residuals.png", dpi=150)
+display(fig)
 
 fig, ax = plt.subplots(figsize=(6, 4))
 order_c = np.argsort(np.abs(coef))
@@ -150,6 +159,7 @@ ax.axvline(0.0, color="k", lw=0.8)
 ax.set_xlabel("standardized coefficient")
 ax.set_title("Ridge coefficients (log target)")
 fig.tight_layout(); fig.savefig(FIGDIR / "coefficients.png", dpi=150)
+display(fig)
 print("figures:", sorted(p.name for p in FIGDIR.glob("*.png")))
 """
 

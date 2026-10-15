@@ -188,12 +188,15 @@ directory on `sys.path`.
 
 ## Tools (pinned by `judge/setup.sh`)
 
-- Python **3.11** (the version `judge/VERSIONS.txt` records; the judge refuses
+- Python **3.12** (the version `judge/VERSIONS.txt` records; the judge refuses
   a different minor version so verdicts stay reproducible).
-- `numpy 2.5.4`, `scipy 1.18.1`, `scikit-learn 1.9.1`, `pandas 3.0.6`,
+- `numpy 2.5.3`, `scipy 1.18.1`, `scikit-learn 1.9.1`, `pandas 3.0.6`,
   `matplotlib 3.11.2`, `nbclient 0.11.0`, `nbformat 5.11.1`,
-  `nbconvert 7.17.2`, `ipykernel 7.4.0`, `jupyter_client 8.10.0`,
-  `traitlets 5.16.1` — installed into a venv at `~/.judge-venv` from
+  `nbconvert 7.17.1`, `ipykernel 7.4.0`, `jupyter_client 8.10.0`,
+  `traitlets 5.16.1` (plus their pinned transitive closure — 64 pins in
+  `judge/requirements.txt`, each the newest release published before
+  2026-09-30) — installed into a venv at `~/.judge-venv` from
   `judge/requirements.txt` with `--require-hashes`.
-- The judge engine itself is **standard library only** and runs on the
-  system `python3`.
+- The judge's *oracle* is **standard library only** (plus numpy for the
+  SPEC-fixed split); the notebook-execution harness itself runs on the pinned
+  interpreter above.

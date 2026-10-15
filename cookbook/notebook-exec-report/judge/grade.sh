@@ -19,10 +19,10 @@ PY=""
 for cand in "$VENV/bin/python3" "$VENV/bin/python"; do
     [ -x "$cand" ] || continue
     v="$("$cand" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
-    if [ "$v" = "3.11" ]; then PY="$cand"; fi
+    if [ "$v" = "3.12" ]; then PY="$cand"; fi
 done
 if [ -z "$PY" ]; then
-    echo "grade: $VENV has no python3.11; run bash judge/setup.sh first" >&2
+    echo "grade: $VENV has no python3.12; run bash judge/setup.sh first" >&2
     exit 2
 fi
 
