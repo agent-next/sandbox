@@ -73,8 +73,11 @@ the blind reference is fine.
 ```bash
 pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 export SBX_API_KEY=<your key>
-python3 cookbook/backtest-equity/run.py          # --ref main --keep supported
+python3 cookbook/backtest-equity/run.py --ref main   # --keep supported
 ```
+
+(`--seed 42` is the default; `run.py` passes it to `grade.sh`, so the numbers
+below reproduce without naming it.)
 
 Creates a sandbox with `--timeout-min 45`, clones the repo at `--ref`
 (default `main`), runs `judge/setup.sh`, `judge/selftest.sh` and

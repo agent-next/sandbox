@@ -120,20 +120,40 @@ def main() -> int:
             if args.keep:
                 print(f"kept sandbox {sid} (kill with: sbx kill {sid})")
             else:
+                # Kill, then CONFIRM with `sbx list` that the id is gone.
+                # A listing that cannot be obtained (gateway 5xx, network)
+                # proves nothing: a lost reply is not a confirmation
+                # (DEMO-STANDARD.md; LESSONS.md), so it fails the run rather
+                # than passing vacuously.  The id is searched for only in a
+                # listing that exited 0 -- never inside error text, where an
+                # id that happens to appear must not read as "still up".
                 try:
                     killed_out, killed_rc = sbx("kill", sid, timeout=300)
                     if killed_rc != 0:
                         print(f"WARNING: sbx kill exit {killed_rc}: "
                               f"{killed_out}", file=sys.stderr)
-                    listing_out, _ = sbx("list", timeout=300)
+                    listing_out, listing_rc = sbx("list", timeout=300)
                 except subprocess.TimeoutExpired:
-                    print(f"cleanup timed out: run sbx kill {sid}",
+                    print(f"cleanup timed out: sandbox {sid} may still be "
+                          f"running; confirm with: sbx list", file=sys.stderr)
+                    sys.exit(2)
+                if listing_rc != 0:
+                    print(f"could not confirm sandbox {sid} is gone: "
+                          f"sbx list exit {listing_rc}: {listing_out}",
                           file=sys.stderr)
                     sys.exit(2)
-                if sid in (listing_out or ""):
-                    print(f"sandbox {sid} is still in sbx list", file=sys.stderr)
+                if sid in listing_out:
+                    print(f"sandbox {sid} is still in sbx list; kill it "
+                          f"with: sbx kill {sid}", file=sys.stderr)
                     sys.exit(2)
-                print(f"sandbox {sid} killed and confirmed gone")
+                if killed_rc != 0:
+                    # kill itself failed, but a listing that exited 0 and
+                    # does not show the id proves the sandbox is gone from
+                    # the account.  Report exactly that; do not claim a kill.
+                    print(f"WARNING: sbx kill exit {killed_rc}, but sbx "
+                          f"list no longer shows sandbox {sid} (gone)")
+                else:
+                    print(f"sandbox {sid} killed and confirmed gone")
 
 
 if __name__ == "__main__":
