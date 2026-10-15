@@ -27,6 +27,11 @@ _HINTS = {
     503: ("GPU plane at capacity", "no seat is free"),
 }
 
+_TYPED = {
+    "gpu_lease_cap": ("GPU lease limit reached", "GPU lease limit reached for this key; kill a lease first"),
+    "gpu_credit_exhausted": ("GPU credit exhausted", "GPU credit exhausted; ask the operator to refill it"),
+}
+
 
 def _base() -> str:
     _, domain = _credentials()
@@ -49,16 +54,24 @@ def _body(resp: httpx.Response):
 def _error(resp: httpx.Response) -> SbxError:
     status = resp.status_code
     body = _body(resp)
-    message = body.get("message") if isinstance(body, dict) else None
-    label, hint = _HINTS.get(status, (f"HTTP {status}", "the gateway refused the request"))
+    body = body if isinstance(body, dict) else {}
+    message = body.get("message")
+    code = body.get("error")
+    retry = body.get("retry_after_s") or resp.headers.get("Retry-After")
+    wait = f"retry in {retry}s" if retry else "retry later"
+    if code == "gpu_capacity_exhausted" or (
+        isinstance(message, str) and "no GPU node has a free seat" in message
+    ):
+        label, hint = "GPU capacity is full", f"GPU capacity is full; {wait}"
+    elif code in _TYPED:
+        label, hint = _TYPED[code]
+    else:
+        label, hint = _HINTS.get(status, (f"HTTP {status}", "the gateway refused the request"))
+        if status in (429, 503):
+            hint += f"; {wait}"
     parts = [f"{label} ({status})"]
     if isinstance(message, str) and message.strip():
         parts.append(" ".join(message.split())[:300])
-    retry = resp.headers.get("Retry-After")
-    if status in (429, 503) and retry:
-        hint += f"; retry in {retry}s"
-    elif status in (429, 503):
-        hint += "; retry later"
     return SbxError(": ".join(parts) + f" -- {hint}")
 
 
