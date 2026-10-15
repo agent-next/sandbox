@@ -90,14 +90,19 @@ anything from the artifact directory other than the notebook itself.
   file listed in the artifact's `figures/` directory. Every `<img>` `src`
   must resolve to a local file that exists.
 - **G4 metric vs. judge refit (the acceptance oracle)**: the judge
-  re-implements the pipeline in numpy from scratch — the same dataset, the
-  same seed and split, natural-log target, ridge closed form
+  re-implements the pipeline independently — the same dataset, the same seed
+  and split, natural-log target, and the ridge closed form
   `w = (XᵀX + αI)⁻¹Xᵀy` on the standardized predictors — and requires the
   notebook's reported `rmse_test` to agree within **1e-6** absolute,
   `rmse_train` within **1e-6**, `r2_test` within **1e-9**, and `n_train` /
-  `n_test` exactly. This is an independent oracle: it uses no scikit-learn,
-  so a notebook that secretly fits a different model, uses the train split
-  for the metric, or reports a stale value fails.
+  `n_test` exactly. This is an independent oracle on the numeric path: the
+  judge's linear algebra is its own **Gaussian elimination with partial
+  pivoting** written in the standard library (no numpy, no scipy, no
+  scikit-learn, no BLAS), so a notebook that secretly fits a different
+  model, uses the train split for the metric, or reports a stale value
+  fails. numpy appears in the judge only to reproduce the documented,
+  SPEC-fixed PRNG (`numpy.random.default_rng(seed).permutation`) — see the
+  Deviation note below.
 - **G5 accuracy (noise floor)**: the refit's `rmse_test` on the log scale
   must be ≤ **0.3040**. The generator's noise σ = 0.30, so a correct fit
   lands at 0.2953 ± 0.010; a model that skipped the log transform lands at
@@ -113,17 +118,25 @@ Violating any gate fails with the offending numbers printed.
 
 ## Acceptance oracle (independent of "it ran")
 
-1. **Analytic ridge refit (numpy only)** — G4 above. The judge re-runs the
-   pipeline with `numpy.linalg.solve`, never scikit-learn.
+1. **Independent ridge refit** — G4 above. The judge solves the normal
+   equations with its own Gaussian elimination; it never imports
+   scikit-learn, and it never imports numpy except to reproduce the
+   SPEC-fixed split. **Deviation from the earlier draft, stated plainly:**
+   the split is drawn by `numpy.random.default_rng(seed).permutation`
+   because reimplementing numpy's PCG64 + Lemire shuffle bit-for-bit in the
+   standard library was rejected as fragile; the split is therefore
+   *specified* by numpy rather than *independent* of it. Everything
+   downstream of the split — standardization, the log target, the ridge
+   solve, and all four compared metrics — is independent judge code.
 2. **Blind-seed sanity** — the judge repeats the same refit under five
    *other* split seeds and requires the graded split's `rmse_test` to be
    ≤ 1.25× the median of those five (0.2972 median). A notebook that fit one
    lucky split, or reports a train metric, is outside that band.
 3. **Held-out analytic bound** — the judge computes the coefficient recovery
-   `||ŵ − w_true|| / ||w_true||` from its own refit and requires it
-   ≤ **0.05**, since the generator's `w_true` is exact by construction
-   (measured 0.0180 on the good notebook). A metric computed on the *train*
-   split fails this too: train recovery is systematically tighter.
+   `‖ŵ − w_true‖ / ‖w_true‖` from its own refit and requires it ≤ **0.05**,
+   since the generator's `w_true` is exact by construction (measured 0.0180
+   on the good notebook). A metric computed on the *train* split fails this
+   too: train recovery is systematically tighter.
 4. **Report determinism** — G2 above: two executions from two different
    directories must agree on the figure digests. This is the gate that
    catches order-dependent and hidden-state notebooks, which cannot
