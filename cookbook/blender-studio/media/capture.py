@@ -139,7 +139,7 @@ def main():
             upload(sid, MEDIA / "render.py", runner.REMOTE + "/media/render.py")
             prefix = "cd " + runner.REMOTE + " && "
             runner.remote_step(sid, "setup", prefix + "sh judge/setup.sh", 60)
-            runner.remote_step(sid, "selftest", prefix + "sh judge/selftest.sh", 600)
+            runner.remote_step(sid, "selftest", prefix + "sh judge/selftest.sh", 1800)
             render_step(sid, prefix +
                         "blender -b --factory-startup --python-exit-code 1 -t 4 "
                         "-P media/render.py -- --out media/source --seed 17")
