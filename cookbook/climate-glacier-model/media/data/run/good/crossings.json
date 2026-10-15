@@ -1,14 +1,14 @@
 {
   "warm_2p0": {
-    "volume_km3": 6.0,
+    "volume_km3": 3.0,
     "year": 96.0076481835564
   },
   "warm_2p4": {
-    "volume_km3": 6.0,
+    "volume_km3": 3.0,
     "year": 81.60555821753714
   },
   "warm_2p8": {
-    "volume_km3": 6.0,
+    "volume_km3": 3.0,
     "year": 71.40555289612254
   }
 }

@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/anomaly-doubled/",
+  "artifact": "media/data/mutants/anomaly-doubled/",
   "failed_gate": "crossing",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/anomaly-doubled/",
+      "artifact": "media/data/mutants/anomaly-doubled/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,
@@ -133,9 +133,9 @@
   "reason": "warm_2p0 crossing year 53.004 is -43.003 yr from the analytic 96.007 (tolerance \u00b13); warm_2p0: the CSV implies crossing year 53.00381679389313, which disagrees with the analytic 96.007 and the reported 53.00381679389313 (tolerance \u00b13); warm_2p4 crossing year 45.780 is -35.890 yr from the analytic 81.670 (tolerance \u00b13); warm_2p4: the CSV implies crossing year 45.78044487117939, which disagrees with the analytic 81.670 and the reported 45.78044487117939 (tolerance \u00b13); warm_2p8 crossing year 40.547 is -30.879 yr from the analytic 71.426 (tolerance \u00b13); warm_2p8: the CSV implies crossing year 40.54693557520582, which disagrees with the analytic 71.426 and the reported 40.54693557520582 (tolerance \u00b13)",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 3.76,
-    "second_run_seconds": 2.32,
-    "total_seconds": 8.42,
-    "zero_melt_seconds": 2.27
+    "first_run_seconds": 3.25,
+    "second_run_seconds": 3.01,
+    "total_seconds": 8.0,
+    "zero_melt_seconds": 1.69
   }
 }

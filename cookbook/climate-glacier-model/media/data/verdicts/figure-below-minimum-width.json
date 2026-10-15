@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/figure-below-minimum-width/",
+  "artifact": "media/data/mutants/figure-below-minimum-width/",
   "failed_gate": "figure",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/figure-below-minimum-width/",
+      "artifact": "media/data/mutants/figure-below-minimum-width/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,
@@ -131,9 +131,9 @@
   "reason": "retreat.png width 600px < 900px",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 2.09,
-    "second_run_seconds": 2.2,
-    "total_seconds": 6.49,
-    "zero_melt_seconds": 2.14
+    "first_run_seconds": 3.08,
+    "second_run_seconds": 1.75,
+    "total_seconds": 6.91,
+    "zero_melt_seconds": 2.01
   }
 }

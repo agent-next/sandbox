@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/figure-not-written/",
+  "artifact": "media/data/mutants/figure-not-written/",
   "failed_gate": "artifact",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/figure-not-written/",
+      "artifact": "media/data/mutants/figure-not-written/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,
@@ -15,11 +15,11 @@
     },
     "artifact": {
       "passed": false,
-      "reason": "model.py does not parse: expected an indented block after 'if' statement on line 126 (model.py, line 128)"
+      "reason": "model.py does not parse: expected an indented block after 'if' statement on line 128 (model.py, line 130)"
     }
   },
   "passed": false,
-  "reason": "model.py does not parse: expected an indented block after 'if' statement on line 126 (model.py, line 128)",
+  "reason": "model.py does not parse: expected an indented block after 'if' statement on line 128 (model.py, line 130)",
   "seed": 20261015,
   "timing": {
     "total_seconds": 0.01

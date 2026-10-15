@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/import-outside-allow-list/",
+  "artifact": "media/data/mutants/import-outside-allow-list/",
   "failed_gate": "artifact",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/import-outside-allow-list/",
+      "artifact": "media/data/mutants/import-outside-allow-list/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,

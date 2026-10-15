@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/nondeterministic-tiny-perturbation/",
+  "artifact": "media/data/mutants/nondeterministic-tiny-perturbation/",
   "failed_gate": "determinism",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/nondeterministic-tiny-perturbation/",
+      "artifact": "media/data/mutants/nondeterministic-tiny-perturbation/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,
@@ -21,28 +21,28 @@
       "passed": true,
       "scenarios": {
         "warm_2p0": {
-          "csv_deviation_years": 0.027287974072365273,
-          "csv_year": 96.03427388245272,
-          "deviation_years": 0.02728798494267437,
+          "csv_deviation_years": 0.002177998536822656,
+          "csv_year": 96.00916390691718,
+          "deviation_years": 0.002177997314973368,
           "passed": true,
           "reference_year": 96.00698590838036,
-          "reported_year": 96.03427389332303
+          "reported_year": 96.00916390569533
         },
         "warm_2p4": {
-          "csv_deviation_years": -0.05859147017747546,
-          "csv_year": 81.61162217598556,
-          "deviation_years": -0.05859146547706473,
+          "csv_deviation_years": -0.07579940212565361,
+          "csv_year": 81.59441424403738,
+          "deviation_years": -0.07579941018494196,
           "passed": true,
           "reference_year": 81.67021364616303,
-          "reported_year": 81.61162218068597
+          "reported_year": 81.59441423597809
         },
         "warm_2p8": {
-          "csv_deviation_years": -0.01595209138059772,
-          "csv_year": 71.41018588350667,
-          "deviation_years": -0.01595209828583677,
+          "csv_deviation_years": -0.01387224275433141,
+          "csv_year": 71.41226573213294,
+          "deviation_years": -0.013872241991563783,
           "passed": true,
           "reference_year": 71.42613797488727,
-          "reported_year": 71.41018587660143
+          "reported_year": 71.4122657328957
         }
       },
       "tolerance_years": 3.0
@@ -52,7 +52,7 @@
       "reason": "two runs with the same seed differ in volumes.csv or crossings.json"
     },
     "figure": {
-      "bytes": 158590,
+      "bytes": 159170,
       "dpi": 200.0,
       "height_px": 1100,
       "legend": [
@@ -68,38 +68,38 @@
       "passed": true,
       "scenarios": {
         "warm_2p0": {
-          "measured_km3": 2.833739938,
+          "measured_km3": 2.83398218,
           "passed": true,
           "reference_km3": 2.8319807504132917,
-          "relative_deviation": 0.0006211862797624955
+          "relative_deviation": 0.0007067242905575062
         },
         "warm_2p4": {
-          "measured_km3": 2.044475427,
+          "measured_km3": 2.043567668,
           "passed": true,
           "reference_km3": 2.0428553314704203,
-          "relative_deviation": 0.0007930544589340224
+          "relative_deviation": 0.0003486965124775008
         },
         "warm_2p8": {
-          "measured_km3": 1.202000962,
+          "measured_km3": 1.20237808,
           "passed": true,
           "reference_km3": 1.201889389519038,
-          "relative_deviation": 9.283090601774208e-05
+          "relative_deviation": 0.0004066018763653171
         }
       },
       "tolerance_relative": 0.02
     },
     "shape": {
       "passed": false,
-      "reason": "warm_2p0 volume rises at years [1] under a warming scenario; warm_2p0 V(100) = 2.833740 km3 is not the mask sum of any whole cell count near the analytic 240 cells (got None); warm_2p4 volume rises at years [1] under a warming scenario; warm_2p4 V(100) = 2.044475 km3 is not the mask sum of any whole cell count near the analytic 168 cells (got None); warm_2p8 V(100) = 1.202001 km3 is not the mask sum of any whole cell count near the analytic 96 cells (got None)",
+      "reason": "warm_2p0 volume rises at years [2] under a warming scenario; warm_2p0 V(100) = 2.833982 km3 is not the mask sum of any whole cell count near the analytic 240 cells (got None); warm_2p4 volume rises at years [1] under a warming scenario; warm_2p4 V(100) = 2.043568 km3 is not the mask sum of any whole cell count near the analytic 168 cells (got None); warm_2p8 volume rises at years [1] under a warming scenario; warm_2p8 V(100) = 1.202378 km3 is not the mask sum of any whole cell count near the analytic 96 cells (got None)",
       "scenarios": {
         "warm_2p0": {
           "increases_at_years": [
-            1
+            2
           ],
           "mask_cells": null,
           "passed": false,
           "reference_cells": 240,
-          "worst_relative_deviation": 0.002245213081078097,
+          "worst_relative_deviation": 0.0022829167160697762,
           "worst_year": 9
         },
         "warm_2p4": {
@@ -109,15 +109,17 @@
           "mask_cells": null,
           "passed": false,
           "reference_cells": 168,
-          "worst_relative_deviation": 0.002326787233242819,
-          "worst_year": 93
+          "worst_relative_deviation": 0.002428717884670878,
+          "worst_year": 83
         },
         "warm_2p8": {
-          "increases_at_years": [],
+          "increases_at_years": [
+            1
+          ],
           "mask_cells": null,
           "passed": false,
           "reference_cells": 96,
-          "worst_relative_deviation": 0.004172839104504989,
+          "worst_relative_deviation": 0.00416147562507782,
           "worst_year": 99
         }
       },
@@ -125,20 +127,20 @@
     },
     "zero_melt": {
       "passed": false,
-      "reason": "a zero-melt (balanced) glacier lost mass: worst relative deviation from V(0) is 9.490e-04 at warm_2p4@91 (tolerance 1e-09)",
+      "reason": "a zero-melt (balanced) glacier lost mass: worst relative deviation from V(0) is 9.646e-04 at warm_2p4@12 (tolerance 1e-09)",
       "reported_crossings": {},
       "tolerance_relative": 1e-09,
-      "worst_at": "warm_2p4@91",
-      "worst_relative_deviation": 0.0009489589647986142
+      "worst_at": "warm_2p4@12",
+      "worst_relative_deviation": 0.0009645646697296187
     }
   },
   "passed": false,
   "reason": "two runs with the same seed differ in volumes.csv or crossings.json",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 2.28,
-    "second_run_seconds": 2.08,
-    "total_seconds": 5.81,
-    "zero_melt_seconds": 1.41
+    "first_run_seconds": 2.57,
+    "second_run_seconds": 2.95,
+    "total_seconds": 7.32,
+    "zero_melt_seconds": 1.75
   }
 }

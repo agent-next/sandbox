@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/tau-doubled/",
+  "artifact": "media/data/mutants/tau-doubled/",
   "failed_gate": "crossing",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/tau-doubled/",
+      "artifact": "media/data/mutants/tau-doubled/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,
@@ -131,9 +131,9 @@
   "reason": "warm_2p0 reported no crossing but the analytic reference crosses at year 96.007; warm_2p4 crossing year 91.507 is +9.837 yr from the analytic 81.670 (tolerance \u00b13); warm_2p4: the CSV implies crossing year 91.50718390804599, which disagrees with the analytic 81.670 and the reported 91.50718390804599 (tolerance \u00b13); warm_2p8 crossing year 81.171 is +9.745 yr from the analytic 71.426 (tolerance \u00b13); warm_2p8: the CSV implies crossing year 81.17136711281071, which disagrees with the analytic 71.426 and the reported 81.17136711281071 (tolerance \u00b13)",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 1.9,
-    "second_run_seconds": 3.04,
-    "total_seconds": 6.63,
-    "zero_melt_seconds": 1.6
+    "first_run_seconds": 2.73,
+    "second_run_seconds": 2.91,
+    "total_seconds": 7.55,
+    "zero_melt_seconds": 1.83
   }
 }

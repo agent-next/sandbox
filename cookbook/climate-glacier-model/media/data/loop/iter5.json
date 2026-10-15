@@ -128,9 +128,9 @@
   "passed": true,
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 2.71,
-    "second_run_seconds": 2.59,
-    "total_seconds": 6.61,
-    "zero_melt_seconds": 1.27
+    "first_run_seconds": 4.69,
+    "second_run_seconds": 2.52,
+    "total_seconds": 10.12,
+    "zero_melt_seconds": 2.85
   }
 }

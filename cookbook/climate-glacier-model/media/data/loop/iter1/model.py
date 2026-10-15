@@ -114,10 +114,12 @@ def main():
         lengths = run_scenario(a2, args.zero_melt)
         volumes = [volume_km3(length) for length in lengths]
         series[name] = volumes
-        crossings[name] = {
-            "year": crossing_year(range(YEARS + 1), volumes),
-            "volume_km3": volumes[0],
-        }
+        year = crossing_year(range(YEARS + 1), volumes)
+        # SPEC.md: the volume at the reported crossing year, interpolated the
+        # same way as the year itself (== 0.5*V(0) when it crosses).
+        volume = None if year is None else float(
+            np.interp(year, range(YEARS + 1), volumes))
+        crossings[name] = {"year": year, "volume_km3": volume}
 
     open("volumes.csv.bak", "w").write("scratch\n")
     write_csv(os.path.join(args.out, "volumes.csv"), series)

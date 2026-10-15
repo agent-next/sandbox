@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/volume-in-cubic-metres-over-km/",
+  "artifact": "media/data/mutants/volume-in-cubic-metres-over-km/",
   "failed_gate": "final_volume",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/volume-in-cubic-metres-over-km/",
+      "artifact": "media/data/mutants/volume-in-cubic-metres-over-km/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,
@@ -132,9 +132,9 @@
   "reason": "warm_2p0 V(100) = 2832.0000 km3, analytic 2.8320 km3 (99900.68% off, tolerance 2%); warm_2p4 V(100) = 2042.8800 km3, analytic 2.0429 km3 (99901.21% off, tolerance 2%); warm_2p8 V(100) = 1201.9200 km3, analytic 1.2019 km3 (99902.55% off, tolerance 2%)",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 3.59,
-    "second_run_seconds": 2.94,
-    "total_seconds": 8.07,
-    "zero_melt_seconds": 1.5
+    "first_run_seconds": 3.14,
+    "second_run_seconds": 2.24,
+    "total_seconds": 6.63,
+    "zero_melt_seconds": 1.18
   }
 }

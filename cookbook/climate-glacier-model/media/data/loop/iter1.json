@@ -22,7 +22,7 @@
   "reason": "model.py wrote outside --out: volumes.csv.bak",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 3.05,
-    "total_seconds": 3.06
+    "first_run_seconds": 3.94,
+    "total_seconds": 3.96
   }
 }

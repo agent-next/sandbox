@@ -138,9 +138,9 @@
   "reason": "a zero-melt (balanced) glacier lost mass: worst relative deviation from V(0) is 7.997e-01 at warm_2p8@100 (tolerance 1e-09); it also reported crossing years {'warm_2p0': 96.00764818355641, 'warm_2p4': 81.60555821753714, 'warm_2p8': 71.40555289612254} for a glacier that never loses mass",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 1.98,
-    "second_run_seconds": 1.62,
-    "total_seconds": 5.17,
-    "zero_melt_seconds": 1.53
+    "first_run_seconds": 3.68,
+    "second_run_seconds": 2.79,
+    "total_seconds": 10.26,
+    "zero_melt_seconds": 3.71
   }
 }

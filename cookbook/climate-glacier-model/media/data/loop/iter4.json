@@ -131,9 +131,9 @@
   "reason": "retreat.png width 600px < 900px",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 2.41,
-    "second_run_seconds": 1.62,
-    "total_seconds": 5.26,
-    "zero_melt_seconds": 1.2
+    "first_run_seconds": 3.82,
+    "second_run_seconds": 3.26,
+    "total_seconds": 10.14,
+    "zero_melt_seconds": 2.95
   }
 }

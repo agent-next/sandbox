@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/zero-melt-ignored/",
+  "artifact": "media/data/mutants/zero-melt-ignored/",
   "failed_gate": "zero_melt",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/zero-melt-ignored/",
+      "artifact": "media/data/mutants/zero-melt-ignored/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,
@@ -135,9 +135,9 @@
   "reason": "a zero-melt (balanced) glacier lost mass: worst relative deviation from V(0) is 7.997e-01 at warm_2p8@100 (tolerance 1e-09); it also reported crossing years {'warm_2p0': 96.0076481835564, 'warm_2p4': 81.60555821753714, 'warm_2p8': 71.40555289612254} for a glacier that never loses mass",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 3.58,
-    "second_run_seconds": 3.4,
-    "total_seconds": 8.48,
-    "zero_melt_seconds": 1.45
+    "first_run_seconds": 2.94,
+    "second_run_seconds": 3.19,
+    "total_seconds": 9.55,
+    "zero_melt_seconds": 3.37
   }
 }

@@ -1,9 +1,9 @@
 {
-  "artifact": "/tmp/gmut/taper-dropped/",
+  "artifact": "media/data/mutants/taper-dropped/",
   "failed_gate": "crossing",
   "gates": {
     "_meta": {
-      "artifact": "/tmp/gmut/taper-dropped/",
+      "artifact": "media/data/mutants/taper-dropped/",
       "passed": true,
       "python": "/home/user/glacier-venv/bin/python",
       "seed": 20261015,
@@ -133,9 +133,9 @@
   "reason": "warm_2p0 crossing year 85.000 is -11.007 yr from the analytic 96.007 (tolerance \u00b13); warm_2p0: the CSV implies crossing year 85.0, which disagrees with the analytic 96.007 and the reported 85.0 (tolerance \u00b13); warm_2p4 crossing year 72.500 is -9.170 yr from the analytic 81.670 (tolerance \u00b13); warm_2p4: the CSV implies crossing year 72.5, which disagrees with the analytic 81.670 and the reported 72.5 (tolerance \u00b13); warm_2p8 crossing year 63.600 is -7.826 yr from the analytic 71.426 (tolerance \u00b13); warm_2p8: the CSV implies crossing year 63.6, which disagrees with the analytic 71.426 and the reported 63.6 (tolerance \u00b13)",
   "seed": 20261015,
   "timing": {
-    "first_run_seconds": 2.17,
-    "second_run_seconds": 2.27,
-    "total_seconds": 6.15,
-    "zero_melt_seconds": 1.67
+    "first_run_seconds": 2.6,
+    "second_run_seconds": 2.53,
+    "total_seconds": 6.87,
+    "zero_melt_seconds": 1.7
   }
 }
