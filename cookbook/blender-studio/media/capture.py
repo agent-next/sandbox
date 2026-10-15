@@ -17,7 +17,7 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 
-def render_step(sid, command, budget=5400):
+def render_step(sid, command, budget=7200):
     """Launch once; reattach bounded read-only probes after lost transport."""
     start = time.monotonic()
     prefix = f"/tmp/studio-media-{os.urandom(6).hex()}"
@@ -36,9 +36,8 @@ def render_step(sid, command, budget=5400):
             state = json.loads(runner.sbx("exec", sid, "--timeout", "120",
                                          "python3 -c " + shlex.quote(probe)))
         except RuntimeError as exc:
-            if recoveries == 3 or not any(message in str(exc) for message in (
-                    "gateway is restarting", "sbx exec timed out",
-                    "no result within --timeout")):
+            # This command only reads a completion marker, never starts work.
+            if recoveries == 3 or "not found" in str(exc).lower():
                 raise
             recoveries += 1
             print(f"media-render: status transport interrupted; reattach {recoveries}/3 "
