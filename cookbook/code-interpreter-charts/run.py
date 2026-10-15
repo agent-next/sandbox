@@ -34,8 +34,6 @@ def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
     """Run one sbx CLI command; never raises, caller checks exit code."""
     return subprocess.run(["sbx", *args], capture_output=True, text=True,
                           timeout=timeout)
-
-
 def step(name: str, fn) -> subprocess.CompletedProcess:
     start = time.monotonic()
     proc = fn()
@@ -84,9 +82,13 @@ def main() -> int:
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
+            # Local subprocess timeout must exceed the sandbox-side --timeout
+            # so the sandbox command can finish before the local process is
+            # killed; add 60 s for CLI round-trip overhead.
             proc = step(name, lambda: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"))
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}",
+                timeout=timeout + 60))
             if echo:
                 show(proc)
             return proc
