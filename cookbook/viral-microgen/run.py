@@ -142,9 +142,11 @@ def main() -> int:
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
+            # the local subprocess must outlive the sandbox-side timeout, or
+            # the CLI call is killed before the sandbox answers
             proc = step(name, lambda: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"))
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}", timeout=timeout + 180))
             if echo:
                 show(proc)
             return proc
