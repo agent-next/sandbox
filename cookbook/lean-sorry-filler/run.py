@@ -101,8 +101,21 @@ def main():
             print(f"run.py: --keep: sandbox {sbx_id} left running; "
                   "kill it with: sbx kill " + sbx_id)
         else:
-            run("kill", "sbx", "kill", sbx_id, timeout=120)
+            # sbx kill returns 0 even when it killed nothing (e.g. a
+            # gateway 503 or an already-gone id), so a 0 exit proves
+            # nothing: both the kill and the confirming list must be
+            # checked, and any failure here is fatal.
+            proc, _ = run("kill", "sbx", "kill", sbx_id, timeout=120)
+            if proc.returncode != 0:
+                die(f"cleanup not confirmed: sbx kill {sbx_id} exited "
+                    f"{proc.returncode}: {(proc.stderr or '').strip()} "
+                    "(sandbox may still be running; kill it with: "
+                    "sbx kill " + sbx_id + ")", 2)
             proc, _ = run("list", "sbx", "list", timeout=60, capture=True)
+            if proc.returncode != 0:
+                die(f"cleanup not confirmed: sbx list exited "
+                    f"{proc.returncode}: {(proc.stderr or '').strip()} "
+                    "— cannot verify sandbox " + sbx_id + " is gone", 2)
             if sbx_id in (proc.stdout or ""):
                 die(f"cleanup not confirmed: sandbox {sbx_id} still live; "
                     "kill it with: sbx kill " + sbx_id, 2)

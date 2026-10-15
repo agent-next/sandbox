@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive the 8 known-bad artifacts for selftest from the known-good one.
+"""Derive the 9 known-bad artifacts for selftest from the known-good one.
 
 Each mutant is a single scripted edit of examples/good/exercises (see
 SPEC.md for which gate kills which). Usage:
@@ -73,6 +73,22 @@ def main():
         edit(d / "Exercises/Ex10.lean", " := by\n  constructor\n",
              " := by\n  rfl\n  constructor\n")
 
+    def m_statement_parked_in_comment(d):
+        # adversarial case the substring freeze let through: the frozen
+        # statement text is parked in a -- comment, a trivially-true
+        # statement is proved under the same theorem name
+        p = d / "Exercises/Ex10.lean"
+        text = p.read_text()
+        frozen = ("theorem exercise_and_distrib (p q r : Prop) : "
+                  "(p ∧ (q ∨ r)) ↔ ((p ∧ q) ∨ (p ∧ r))")
+        i = text.index("theorem exercise_and_distrib")
+        parked = (f"-- original statement, recorded for the reader:\n"
+                  f"-- {frozen}\n"
+                  "/-- `∧` pushes into both sides of a `∨`. -/\n"
+                  "theorem exercise_and_distrib (p q : Prop) : "
+                  "(p ∧ True) ↔ (True ∧ p) := by\n  simp\n")
+        p.write_text(text[:i] + parked)
+
     for name, fn in [
         ("resubmit_sorry", m_resubmit_sorry),
         ("admit_token", m_admit_token),
@@ -82,6 +98,7 @@ def main():
         ("syntax_error", m_syntax_error),
         ("missing_file", m_missing_file),
         ("broken_proof", m_broken_proof),
+        ("statement_parked_in_comment", m_statement_parked_in_comment),
     ]:
         make(good, out, name, fn)
 

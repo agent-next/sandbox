@@ -34,7 +34,7 @@ BUILD_SORRY_RE = re.compile(r"declaration uses `sorry`")
 # the frozen statement is everything from "theorem" up to ":=" on the
 # theorem line; proofs may replace what follows the ":="
 STATEMENT_RE = re.compile(
-    r"^(theorem\s+[A-Za-z_][A-Za-z0-9_']*[^\n]*?)\s*:=\s*by\s+sorry\s*$",
+    r"^(theorem\s+([A-Za-z_][A-Za-z0-9_']*)[^\n]*?)\s*:=\s*by\s+sorry\s*$",
     re.M)
 ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound"}
 BUILD_TIMEOUT_S = 600
@@ -101,11 +101,26 @@ def gate_structure(artifact, fixture, verdict):
             g["pass"] = False
             g["problems"].append(f"{name}: forbidden token {token!r}")
         # statement freeze: the fixture's theorem text up to ":=" must
-        # appear verbatim in the submission (the proof after it is free)
+        # be the head of the theorem with that same name in the
+        # submission. A line-anchored, name-matched check — never a
+        # substring search: the frozen text may not park in a comment
+        # while a weaker statement is proved under the same name.
         fx = (fixture / name).read_text()
         m = STATEMENT_RE.search(fx)
         if m:
-            if m.group(1).strip() not in text:
+            frozen = m.group(1).strip()
+            tname = m.group(2)
+            line_re = re.compile(
+                r"^theorem\s+" + re.escape(tname) +
+                r"\b[^\n]*?([ \t]*:=)", re.M)
+            lm = line_re.search(text)
+            if lm is None:
+                g["pass"] = False
+                g["problems"].append(f"{name}: no theorem {tname!r} "
+                                      "found")
+                continue
+            stmt = text[lm.start():lm.start(1)].rstrip()
+            if stmt != frozen:
                 g["pass"] = False
                 g["problems"].append(f"{name}: theorem statement "
                                       "differs from the fixture")
