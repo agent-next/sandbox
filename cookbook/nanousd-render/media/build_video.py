@@ -218,14 +218,16 @@ def caption(img: Image.Image, text: str, y=None) -> None:
     d = ImageDraw.Draw(img, "RGBA")
     pad = CAPTION_PX // 2
     lines = wrap(d, text, f, W - 2 * pad)
-    y = (H - 170) if y is None else y
     lh = int(CAPTION_PX * 1.24)
     box_h = lh * len(lines) + 2 * pad
+    # bottom-anchor the whole block so a wrapped second line stays on the
+    # frame with the same margin as a single line (a fixed y left the
+    # two-line block hanging off the bottom edge)
+    y = (H - box_h - 24) if y is None else y
     tw = max(d.textlength(ln, font=f) for ln in lines)
     x = (W - tw) / 2
-    d.rectangle([x - pad, y - pad, x + tw + pad, y + box_h - pad],
-                fill=(*SCRIM, 215))
-    yy = y
+    d.rectangle([x - pad, y, x + tw + pad, y + box_h], fill=(*SCRIM, 215))
+    yy = y + pad
     for ln in lines:
         lx = (W - d.textlength(ln, font=f)) / 2
         d.text((lx, yy), ln, font=f, fill=INK)
@@ -261,13 +263,14 @@ def badge(img, text, xy, size=46, fill=(255, 205, 60), ink=(16, 18, 22)) -> None
 OI = ["#0072B2", "#E69F00", "#009E73", "#D55E00", "#CC79A7"]
 
 
-def draw_rects(img, rects, colors, scale=1.0, labels=True, k=None):
+def draw_rects(img, rects, colors, scale=1.0, labels=True, k=None, ox=0, oy=0):
     d = ImageDraw.Draw(img, "RGBA")
     f = font("bold", 40)
     for i, (path, (x0, y0, x1, y1)) in enumerate(sorted(rects.items())):
         col = OI[i % len(OI)]
         rgb = tuple(int(col[j:j + 2], 16) for j in (1, 3, 5))
-        box = [x0 * scale, y0 * scale, x1 * scale, y1 * scale]
+        box = [x0 * scale + ox, y0 * scale + oy,
+               x1 * scale + ox, y1 * scale + oy]
         for off in (-3, 3):
             d.rectangle([box[0] + off, box[1] + off, box[2] - off, box[3] - off],
                         outline=(*rgb, 255), width=4)
@@ -352,7 +355,10 @@ def shot_input(meshes, cam, cam_attribs, n, verdict, scene_text):
         d.text((60, 86), "scene.usda", font=f, fill=(255, 205, 60),
                stroke_width=2, stroke_fill=(0, 0, 0))
         rects = {p: m["rect"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
-        draw_rects(base, rects, None, scale=1440 / 640)
+        # the render is 1440 wide pillarboxed onto 1920; the G4 rects from
+        # verdict.json live in the 640x480 grade frame, so scale them onto
+        # the 1440-wide render and shift by the pillarbox offset
+        draw_rects(base, rects, None, scale=1440 / 640, ox=(W - 1440) // 2)
         caption(base, "The artifact is one USDA file - the judge re-derives the rest")
         yield base
 
