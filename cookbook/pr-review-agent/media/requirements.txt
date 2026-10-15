@@ -1,0 +1,5 @@
+# Pinned Python deps for media generation (matplotlib + numpy only).
+# ffmpeg is taken from the distro (Debian bookworm: ffmpeg 5.1.x).
+# pytest and the judge venv come from judge/setup.sh (sha256-pinned there).
+matplotlib==3.10.7
+numpy==2.2.6
