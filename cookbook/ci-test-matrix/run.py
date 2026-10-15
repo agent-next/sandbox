@@ -29,8 +29,13 @@ class Failure(RuntimeError):
     pass
 
 
-def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
-    """Run one sbx CLI command; never raises, caller checks exit code."""
+def sbx(*args: str, timeout: float = 3900.0) -> subprocess.CompletedProcess:
+    """Run one sbx CLI command; never raises, caller checks exit code.
+
+    The client timeout must exceed the sandbox-side ``--timeout`` we pass to
+    ``sbx exec`` (the selftest alone runs ~50 interpreter spins), so it is
+    kept above the longest step's ``--timeout``.
+    """
     return subprocess.run(["sbx", *args], capture_output=True, text=True,
                           timeout=timeout)
 
