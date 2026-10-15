@@ -1,0 +1,10 @@
+# Judge-owned ruff configuration.
+#
+# The lint gate uses THIS file, not the fixture's pyproject.toml, so a
+# patch cannot relax the linter it is graded with.  The rule set matches
+# what the fixture ships with (E, F, W, I, UP, B) at the same line length.
+line-length = 88
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B"]

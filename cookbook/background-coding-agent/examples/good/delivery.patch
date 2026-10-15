@@ -1,0 +1,77 @@
+diff --git a/measurectl/cli.py b/measurectl/cli.py
+index 5581431..e37d3b1 100644
+--- a/measurectl/cli.py
++++ b/measurectl/cli.py
+@@ -5,6 +5,7 @@ from __future__ import annotations
+ import argparse
+ import sys
+ 
++from .jsonout import build_document, render
+ from .reader import InputError, read_rows
+ from .stats import Metric, summarise
+ 
+@@ -26,6 +27,11 @@ def build_parser() -> argparse.ArgumentParser:
+         default="name",
+         help="order the table by this column (default: name)",
+     )
++    parser.add_argument(
++        "--json",
++        action="store_true",
++        help="print the summary as one JSON document instead of a table",
++    )
+     return parser
+ 
+ 
+@@ -82,5 +88,8 @@ def main(argv: list[str] | None = None) -> int:
+     if not metrics:
+         print(f"measurectl: {args.path} contains no data rows", file=sys.stderr)
+         return EXIT_USAGE
++    if args.json:
++        print(render(build_document(metrics, total_count=len(rows))))
++        return EXIT_OK
+     print(render_table(ordered(metrics, args.sort)))
+     return EXIT_OK
+diff --git a/measurectl/jsonout.py b/measurectl/jsonout.py
+new file mode 100644
+index 0000000..e109f95
+--- /dev/null
++++ b/measurectl/jsonout.py
+@@ -0,0 +1,38 @@
++"""The `--json` summary document (see ISSUE.md)."""
++
++from __future__ import annotations
++
++import json
++
++from .stats import Metric
++
++SCHEMA = "measurectl/summary/v1"
++
++
++def build_document(metrics: dict[str, Metric], total_count: int) -> dict:
++    """Build the JSON-serialisable summary document.
++
++    Metrics are ordered by name in Unicode code point order, which is what
++    ``sorted`` on ``str`` gives.  Counts stay integers; the remaining
++    fields are floats.
++    """
++    return {
++        "schema": SCHEMA,
++        "total_count": total_count,
++        "metrics": [
++            {
++                "name": metric.name,
++                "count": metric.count,
++                "sum": metric.total,
++                "mean": metric.mean,
++                "min": metric.min,
++                "max": metric.max,
++            }
++            for metric in sorted(metrics.values(), key=lambda m: m.name)
++        ],
++    }
++
++
++def render(document: dict) -> str:
++    """Render the document as one JSON object."""
++    return json.dumps(document, indent=2)

@@ -124,10 +124,11 @@ Instead:
    `count · mean` — identities that must hold whatever the implementation,
    checked against the raw data.
 4. **Seeded, unseen inputs.** Two of the three graded inputs are generated
-   by the judge from `--seed` (default 20261015): multiple metrics, a
-   single-row metric, negative values, an empty unit, and values chosen so
-   that naive accumulation drifts. A patch that hardcodes the sample
-   answers passes nothing.
+   by the judge from `--seed` (default 20261015): several metrics, a
+   single-row metric, negative values, a metric whose name sorts before
+   and after the sample's, and magnitudes spanning decades. A patch that
+   hardcodes the sample answers, or only handles the shapes the sample
+   happens to contain, passes nothing.
 5. **Determinism.** With a fixed seed the two generated inputs and the
    verdict JSON are byte-identical between runs; `selftest.sh` checks it.
 
