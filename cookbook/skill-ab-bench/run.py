@@ -100,11 +100,17 @@ def main():
     good_verdict = None
     bench_summary = []
     try:
-        def exec_step(name, cmd, capture=False):
+        def exec_step(name, cmd, capture=False, allowed=(0,)):
+            """Run one command in the sandbox; `allowed` exit codes pass.
+
+            A grade is expected to exit 1 when a gate fails: that is a
+            verdict, not a broken step, and it must be reported rather than
+            swallowed.  Anything outside `allowed` is a real failure.
+            """
             proc, _ = run(name, "sbx", "exec", sbx_id,
                           "--timeout", str(STEP_TIMEOUTS[name]), "--", *cmd,
                           capture=capture)
-            if proc.returncode != 0:
+            if proc.returncode not in allowed:
                 detail = (proc.stderr or proc.stdout or "").strip()[-400:]
                 die(f"step {name} failed in sandbox {sbx_id} "
                     f"(exit {proc.returncode}): {detail}")
@@ -126,15 +132,14 @@ def main():
         exec_step("selftest", ["bash", f"sandbox/{DEMO_DIR}/judge/selftest.sh"])
 
         # Grade the record the bench just produced, and the committed one.
-        exec_step("grade", [
-            "bash", f"sandbox/{DEMO_DIR}/judge/grade.sh", "/tmp/bench",
-            "--seed", str(args.seed), "--bootstrap", str(args.bootstrap),
-            "--json", "/tmp/verdict.json"])
-        exec_step("grade-good", [
-            "bash", f"sandbox/{DEMO_DIR}/judge/grade.sh",
-            f"sandbox/{DEMO_DIR}/examples/good",
-            "--seed", str(args.seed), "--bootstrap", str(args.bootstrap),
-            "--json", "/tmp/verdict-good.json"])
+        # exit 1 is a "fail" verdict and is reported below, not raised here.
+        for step, target, out in (("grade", "/tmp/bench", "/tmp/verdict.json"),
+                                  ("grade-good", f"sandbox/{DEMO_DIR}/examples/good",
+                                   "/tmp/verdict-good.json")):
+            exec_step(step, [
+                "bash", f"sandbox/{DEMO_DIR}/judge/grade.sh", target,
+                "--seed", str(args.seed), "--bootstrap", str(args.bootstrap),
+                "--json", out], allowed=(0, 1))
 
         for name, target in (("verdict", "/tmp/verdict.json"),
                              ("good", "/tmp/verdict-good.json")):
