@@ -65,12 +65,20 @@ def request(key, method, path, body=None, timeout=900):
     data = None if body is None else json.dumps(body).encode()
     r = Request(API + path, data=data, method=method,
                 headers={"X-API-Key": key, "Content-Type": "application/json"})
-    try:
-        with urlopen(r, timeout=timeout) as resp:
-            raw = resp.read()
-            return resp.status, json.loads(raw) if raw else None
-    except HTTPError as exc:
-        return exc.code, None
+    last = None
+    for attempt in range(5):
+        try:
+            with urlopen(r, timeout=timeout) as resp:
+                raw = resp.read()
+                return resp.status, json.loads(raw) if raw else None
+        except HTTPError as exc:
+            # 409 = exec slot busy, 5xx = transient gateway blip
+            if exc.code == 409 or 500 <= exc.code < 600:
+                last = exc
+                time.sleep(5 * (attempt + 1))
+                continue
+            return exc.code, None
+    return last.code, None
 
 
 def check_lease_id(sid):
@@ -139,20 +147,26 @@ class Lease:
     def delete(self):
         if not self.id:
             return
-        try:
-            request(self.key, "DELETE", f"/sandboxes/{self.id}")
-        except Exception:
-            pass
-        try:
-            st, remaining = request(self.key, "GET", f"/sandboxes/{self.id}")
-        except Exception as exc:
-            raise RuntimeError(
-                f"cleanup unconfirmed for {self.id}; delete it yourself") \
-                from exc
-        if st != 404 and not (st == 200 and isinstance(remaining, dict)
-                              and remaining.get("phase") == "dead"):
-            raise RuntimeError(
-                f"cleanup unconfirmed for {self.id}: HTTP {st}")
+        for attempt in range(5):
+            try:
+                request(self.key, "DELETE", f"/sandboxes/{self.id}")
+            except Exception:
+                pass
+            try:
+                st, remaining = request(self.key, "GET",
+                                         f"/sandboxes/{self.id}")
+            except Exception:
+                st = None
+            if st == 404 or (st == 200 and isinstance(remaining, dict)
+                             and remaining.get("phase") == "dead"):
+                print(f"destroyed {self.id}; verified absent or dead",
+                      flush=True)
+                self.id = None
+                return
+            time.sleep(5 * (attempt + 1))
+        raise RuntimeError(
+            f"cleanup unconfirmed for {self.id}: HTTP {st}; "
+            f"delete it yourself via the API")
         print(f"destroyed {self.id}; verified absent or dead", flush=True)
         self.id = None
 
