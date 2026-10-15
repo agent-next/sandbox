@@ -1,13 +1,13 @@
 # Media Review — control-tuning
 
-Generated 2026-10-15 04:53:17 UTC by `make_media.sh`.
+Generated 2026-10-15 13:05:04 UTC by `make_media.sh`.
 
 ## Files produced
 | file | sha256 | bytes |
 |------|--------|-------|
-| result.png | bca3e2cb01acf97e33ad6a745d062c6c2b7d365ceaddd7d61e03480b09479617 | 820438 |
+| result.png | f9ff36c28efb74aebcc093f250980c037d4a5984fae11e4fd077a86aa2a6a29d | 891577 |
 | loop.png | f84a7ae2aa36f696b91d36d7df6fbcab3a758c2a1e5828c753c0f7e8dc0e8861 | 660791 |
-| demo.mp4 | f9d93dc4f8185312937f2be2921d4dea8efd0942b4581023f5ad532070f9817d | 4456362 |
+| demo.mp4 | c6891349265856c9813befd352727c13288775ca37baea80d0edb8176c3b8712 | 5166852 |
 
 ## 3-D render provenance (DEMO-STANDARD)
 - All motion in demo.mp4 and the result.png hero frame is rendered by
@@ -27,10 +27,10 @@ Generated 2026-10-15 04:53:17 UTC by `make_media.sh`.
   scenario.
 
 ## Video checks (ffprobe)
-- Duration: 53.034000 s
+- Duration: 52.234000 s
 - Resolution: 1920,1080
 - Frame rate: 30/1
-- Size: 4456362 bytes (4 MB) — under 8 MB limit: PASS
+- Size: 5166852 bytes (4 MB) — under 8 MB limit: PASS
 - Codec: h264, yuv420p, +faststart
 
 ## PNG verification (opened at full size)

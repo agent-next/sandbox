@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-10-15T04:53:17Z",
+  "generated_at": "2026-10-15T13:05:04Z",
   "files": {
-    "result.png": {"sha256": "bca3e2cb01acf97e33ad6a745d062c6c2b7d365ceaddd7d61e03480b09479617", "bytes": 820438}
+    "result.png": {"sha256": "f9ff36c28efb74aebcc093f250980c037d4a5984fae11e4fd077a86aa2a6a29d", "bytes": 891577}
     ,
     "loop.png": {"sha256": "f84a7ae2aa36f696b91d36d7df6fbcab3a758c2a1e5828c753c0f7e8dc0e8861", "bytes": 660791}
     ,
-    "demo.mp4": {"sha256": "f9d93dc4f8185312937f2be2921d4dea8efd0942b4581023f5ad532070f9817d", "bytes": 4456362}
+    "demo.mp4": {"sha256": "c6891349265856c9813befd352727c13288775ca37baea80d0edb8176c3b8712", "bytes": 5166852}
   },
   "source_files": {
     "mjcf_model": "scripts/cartpole.xml",
@@ -52,9 +52,9 @@
     "interpolation": "linear resample of the CSV rows to 30 fps"
   },
   "video_checks": {
-    "duration_sec": 53.034000,
+    "duration_sec": 52.234000,
     "resolution": "1920,1080",
-    "size_bytes": 4456362,
+    "size_bytes": 5166852,
     "size_mb": 4,
     "codec": "h264",
     "pix_fmt": "yuv420p",
