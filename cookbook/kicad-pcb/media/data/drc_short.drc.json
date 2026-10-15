@@ -1,0 +1,292 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-10-15T13:40:35+0000",
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "9.0.9",
+    "schematic_parity": [],
+    "source": "555-blinker.kicad_pcb",
+    "unconnected_items": [],
+    "violations": [
+        {
+            "description": "Items shorting two nets (nets VCC and TRIG)",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Track [TRIG] on F.Cu, length 1.9000 mm",
+                    "pos": {
+                        "x": 126.0,
+                        "y": 115.412
+                    },
+                    "uuid": "a91db54f-9c86-404e-a3c3-d33bda1e64db"
+                }
+            ],
+            "severity": "error",
+            "type": "shorting_items"
+        },
+        {
+            "description": "Items shorting two nets (nets VCC and GND)",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Track [GND] on F.Cu, length 1.8000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 122.0
+                    },
+                    "uuid": "c3437359-91eb-42fc-913b-6e742ec61075"
+                }
+            ],
+            "severity": "error",
+            "type": "shorting_items"
+        },
+        {
+            "description": "Items shorting two nets (nets VCC and DIS)",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Track [DIS] on F.Cu, length 1.0350 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 112.365
+                    },
+                    "uuid": "66b57978-3c00-4817-a883-29c72104b7dc"
+                }
+            ],
+            "severity": "error",
+            "type": "shorting_items"
+        },
+        {
+            "description": "Tracks crossing",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Track [DIS] on F.Cu, length 4.5500 mm",
+                    "pos": {
+                        "x": 123.45,
+                        "y": 112.365
+                    },
+                    "uuid": "6c933378-2a3f-499c-909a-06f768302029"
+                }
+            ],
+            "severity": "error",
+            "type": "tracks_crossing"
+        },
+        {
+            "description": "Items shorting two nets (nets VCC and TRIG)",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Track [TRIG] on F.Cu, length 2.1000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 115.7
+                    },
+                    "uuid": "60641527-2238-4c14-a6be-23a55bd01b21"
+                }
+            ],
+            "severity": "error",
+            "type": "shorting_items"
+        },
+        {
+            "description": "Items shorting two nets (nets VCC and TRIG)",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Track [TRIG] on F.Cu, length 1.3000 mm",
+                    "pos": {
+                        "x": 126.5,
+                        "y": 118.05
+                    },
+                    "uuid": "de0ffcf8-0382-4e1b-8f38-9c1d3743ba37"
+                }
+            ],
+            "severity": "error",
+            "type": "shorting_items"
+        },
+        {
+            "description": "Tracks crossing",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Track [CTRL] on F.Cu, length 8.0250 mm",
+                    "pos": {
+                        "x": 122.475,
+                        "y": 118.9
+                    },
+                    "uuid": "e8af4bf2-9e9c-4113-8cc1-b23df32c1445"
+                }
+            ],
+            "severity": "error",
+            "type": "tracks_crossing"
+        },
+        {
+            "description": "Front solder mask aperture bridges items with different nets",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Pad 1 [TRIG] of R2 on F.Cu",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 115.4125
+                    },
+                    "uuid": "38ad6fe1-83e3-4dca-a9f0-839af53cfe94"
+                }
+            ],
+            "severity": "error",
+            "type": "solder_mask_bridge"
+        },
+        {
+            "description": "Front solder mask aperture bridges items with different nets",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Pad 2 [DIS] of R2 on F.Cu",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 113.5875
+                    },
+                    "uuid": "b6fcdeb5-80db-4e61-87f9-95e90a884302"
+                }
+            ],
+            "severity": "error",
+            "type": "solder_mask_bridge"
+        },
+        {
+            "description": "Front solder mask aperture bridges items with different nets",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Pad 1 [DIS] of R1 on F.Cu",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 111.9125
+                    },
+                    "uuid": "168a1f71-9844-4f0c-a431-373337fd4f3c"
+                }
+            ],
+            "severity": "error",
+            "type": "solder_mask_bridge"
+        },
+        {
+            "description": "Front solder mask aperture bridges items with different nets",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Pad 1 [GND] of C1 on F.Cu",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 119.95
+                    },
+                    "uuid": "999638ed-b87c-48c4-81f4-fe760272d0af"
+                }
+            ],
+            "severity": "error",
+            "type": "solder_mask_bridge"
+        },
+        {
+            "description": "Front solder mask aperture bridges items with different nets",
+            "items": [
+                {
+                    "description": "Track [VCC] on F.Cu, length 11.7000 mm",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 108.5
+                    },
+                    "uuid": "5413626c-be2e-4776-9155-f1826b24e446"
+                },
+                {
+                    "description": "Pad 2 [TRIG] of C1 on F.Cu",
+                    "pos": {
+                        "x": 128.0,
+                        "y": 118.05
+                    },
+                    "uuid": "b5cda19b-20df-46c0-8c62-1546c788a254"
+                }
+            ],
+            "severity": "error",
+            "type": "solder_mask_bridge"
+        }
+    ]
+}

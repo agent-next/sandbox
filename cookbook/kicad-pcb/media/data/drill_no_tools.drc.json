@@ -1,0 +1,46 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-10-15T13:40:49+0000",
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "9.0.9",
+    "schematic_parity": [],
+    "source": "555-blinker.kicad_pcb",
+    "unconnected_items": [],
+    "violations": [
+        {
+            "description": "Through hole pad has no hole",
+            "items": [
+                {
+                    "description": "PTH pad 1 [VCC] of J1",
+                    "pos": {
+                        "x": 103.0,
+                        "y": 106.0
+                    },
+                    "uuid": "98362262-5cab-4b34-8764-4057f870116c"
+                }
+            ],
+            "severity": "error",
+            "type": "through_hole_pad_without_hole"
+        },
+        {
+            "description": "Through hole pad has no hole",
+            "items": [
+                {
+                    "description": "PTH pad 2 [GND] of J1",
+                    "pos": {
+                        "x": 103.0,
+                        "y": 108.54
+                    },
+                    "uuid": "3cda93eb-5593-4578-a461-ee2df348f2c1"
+                }
+            ],
+            "severity": "error",
+            "type": "through_hole_pad_without_hole"
+        }
+    ]
+}

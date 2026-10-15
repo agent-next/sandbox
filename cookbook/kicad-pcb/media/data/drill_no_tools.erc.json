@@ -1,0 +1,305 @@
+{
+    "$schema": "https://schemas.kicad.org/erc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-10-15T13:40:48+0000",
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "9.0.9",
+    "sheets": [
+        {
+            "path": "/",
+            "uuid_path": "/1119bfdb-32ac-4d42-a78a-6380d7e3b11a",
+            "violations": [
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #FLG01 [PWR_FLAG]",
+                            "pos": {
+                                "x": 0.4699,
+                                "y": 0.8001
+                            },
+                            "uuid": "b4f344da-ddb6-4c23-a3b5-85d0e2547659"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR01 [VCC]",
+                            "pos": {
+                                "x": 0.508,
+                                "y": 0.8001
+                            },
+                            "uuid": "cfa12131-7265-4214-908e-31da257fb1d2"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #FLG02 [PWR_FLAG]",
+                            "pos": {
+                                "x": 0.4699,
+                                "y": 0.8255
+                            },
+                            "uuid": "3fb4b62a-76c5-4d64-aebe-fc13326a2e3a"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR02 [GND]",
+                            "pos": {
+                                "x": 0.508,
+                                "y": 0.8255
+                            },
+                            "uuid": "372945f1-3ae7-4c06-b9ae-c995f279bdc0"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'Connector_Generic'",
+                    "items": [
+                        {
+                            "description": "Symbol J1 [Conn_01x02]",
+                            "pos": {
+                                "x": 0.5969,
+                                "y": 0.8001
+                            },
+                            "uuid": "cd90b262-3a26-4e03-a400-30023327687c"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR05 [VCC]",
+                            "pos": {
+                                "x": 0.9525,
+                                "y": 0.7112
+                            },
+                            "uuid": "ad0a2ab7-c15a-4ef6-8e98-5ecce3ade2fb"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR07 [VCC]",
+                            "pos": {
+                                "x": 0.8509,
+                                "y": 0.8382
+                            },
+                            "uuid": "7ea0f2be-f8ba-4e8c-b7dc-14cbe2a2d6cb"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR06 [GND]",
+                            "pos": {
+                                "x": 1.1049,
+                                "y": 0.5588
+                            },
+                            "uuid": "4749ddd1-3934-493e-9b1d-670aa6704d81"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'Device'",
+                    "items": [
+                        {
+                            "description": "Symbol R1 [R]",
+                            "pos": {
+                                "x": 0.8509,
+                                "y": 0.9271
+                            },
+                            "uuid": "35c89eb8-37a9-4303-b8fc-945fbd52b272"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'Device'",
+                    "items": [
+                        {
+                            "description": "Symbol C2 [C]",
+                            "pos": {
+                                "x": 1.1049,
+                                "y": 0.635
+                            },
+                            "uuid": "b02d8b0d-cca5-4ee1-8002-c66fb6ccd17f"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR04 [VCC]",
+                            "pos": {
+                                "x": 1.1303,
+                                "y": 0.6604
+                            },
+                            "uuid": "47044166-6ec2-4c1d-8ccd-661539cbb7e6"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'Device'",
+                    "items": [
+                        {
+                            "description": "Symbol R2 [R]",
+                            "pos": {
+                                "x": 0.8509,
+                                "y": 1.0287
+                            },
+                            "uuid": "09400d7c-c33e-4f66-8405-2eaf403a7576"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'Timer'",
+                    "items": [
+                        {
+                            "description": "Symbol U1 [NE555D]",
+                            "pos": {
+                                "x": 1.1049,
+                                "y": 0.8001
+                            },
+                            "uuid": "ccf3a1ea-bd8f-4e58-a1fb-6230f1d498d1"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'Device'",
+                    "items": [
+                        {
+                            "description": "Symbol C1 [C]",
+                            "pos": {
+                                "x": 0.8509,
+                                "y": 1.1303
+                            },
+                            "uuid": "a98098d1-4b57-4d91-a339-e99096661400"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR03 [GND]",
+                            "pos": {
+                                "x": 1.1049,
+                                "y": 0.9398
+                            },
+                            "uuid": "845484f2-dc28-4a7e-90f4-9d23ecc3a6cf"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR08 [GND]",
+                            "pos": {
+                                "x": 0.8509,
+                                "y": 1.1938
+                            },
+                            "uuid": "f76ef5e6-2ed7-4642-9d7a-b043a897ba07"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'Device'",
+                    "items": [
+                        {
+                            "description": "Symbol R3 [R]",
+                            "pos": {
+                                "x": 1.2954,
+                                "y": 0.8382
+                            },
+                            "uuid": "6e9b8fa5-970d-4019-ad42-0685e08e6b49"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'Device'",
+                    "items": [
+                        {
+                            "description": "Symbol D1 [LED]",
+                            "pos": {
+                                "x": 1.3589,
+                                "y": 0.9525
+                            },
+                            "uuid": "2c1c55e6-b7c2-4df1-b90f-abe67e1fbf5d"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                },
+                {
+                    "description": "The current configuration does not include the symbol library 'power'",
+                    "items": [
+                        {
+                            "description": "Symbol #PWR09 [GND]",
+                            "pos": {
+                                "x": 1.4351,
+                                "y": 1.0287
+                            },
+                            "uuid": "de28a7c2-284a-4865-aceb-519b80fe4da9"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_issues"
+                }
+            ]
+        }
+    ],
+    "source": "555-blinker.kicad_sch"
+}

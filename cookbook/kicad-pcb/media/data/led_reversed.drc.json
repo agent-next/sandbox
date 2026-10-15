@@ -1,0 +1,155 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-10-15T13:41:17+0000",
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "9.0.9",
+    "schematic_parity": [],
+    "source": "555-blinker.kicad_pcb",
+    "unconnected_items": [
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 2 [GND] of D1 on F.Cu",
+                    "pos": {
+                        "x": 107.9375,
+                        "y": 119.0
+                    },
+                    "uuid": "745505ea-d200-4622-94e0-b3f4174f444f"
+                },
+                {
+                    "description": "Track [GND] on F.Cu, length 2.2000 mm",
+                    "pos": {
+                        "x": 106.0625,
+                        "y": 121.7
+                    },
+                    "uuid": "f0c4c707-3590-437b-b2b0-5fce19f302ed"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [LED] of D1 on F.Cu",
+                    "pos": {
+                        "x": 106.0625,
+                        "y": 119.0
+                    },
+                    "uuid": "0b78b397-7d11-4085-8897-f95937be5f02"
+                },
+                {
+                    "description": "Track [LED] on F.Cu, length 1.4000 mm",
+                    "pos": {
+                        "x": 107.9375,
+                        "y": 117.5
+                    },
+                    "uuid": "50bbafe7-bd93-409f-a060-a727792b78f3"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        }
+    ],
+    "violations": [
+        {
+            "description": "Items shorting two nets (nets LED and GND)",
+            "items": [
+                {
+                    "description": "Pad 1 [LED] of D1 on F.Cu",
+                    "pos": {
+                        "x": 106.0625,
+                        "y": 119.0
+                    },
+                    "uuid": "0b78b397-7d11-4085-8897-f95937be5f02"
+                },
+                {
+                    "description": "Track [GND] on F.Cu, length 2.2000 mm",
+                    "pos": {
+                        "x": 106.0625,
+                        "y": 121.7
+                    },
+                    "uuid": "f0c4c707-3590-437b-b2b0-5fce19f302ed"
+                }
+            ],
+            "severity": "error",
+            "type": "shorting_items"
+        },
+        {
+            "description": "Items shorting two nets (nets LED and GND)",
+            "items": [
+                {
+                    "description": "Track [LED] on F.Cu, length 1.4000 mm",
+                    "pos": {
+                        "x": 107.9375,
+                        "y": 117.5
+                    },
+                    "uuid": "50bbafe7-bd93-409f-a060-a727792b78f3"
+                },
+                {
+                    "description": "Pad 2 [GND] of D1 on F.Cu",
+                    "pos": {
+                        "x": 107.9375,
+                        "y": 119.0
+                    },
+                    "uuid": "745505ea-d200-4622-94e0-b3f4174f444f"
+                }
+            ],
+            "severity": "error",
+            "type": "shorting_items"
+        },
+        {
+            "description": "Front solder mask aperture bridges items with different nets",
+            "items": [
+                {
+                    "description": "Track [GND] on F.Cu, length 2.2000 mm",
+                    "pos": {
+                        "x": 106.0625,
+                        "y": 121.7
+                    },
+                    "uuid": "f0c4c707-3590-437b-b2b0-5fce19f302ed"
+                },
+                {
+                    "description": "Pad 1 [LED] of D1 on F.Cu",
+                    "pos": {
+                        "x": 106.0625,
+                        "y": 119.0
+                    },
+                    "uuid": "0b78b397-7d11-4085-8897-f95937be5f02"
+                }
+            ],
+            "severity": "error",
+            "type": "solder_mask_bridge"
+        },
+        {
+            "description": "Front solder mask aperture bridges items with different nets",
+            "items": [
+                {
+                    "description": "Track [LED] on F.Cu, length 1.4000 mm",
+                    "pos": {
+                        "x": 107.9375,
+                        "y": 117.5
+                    },
+                    "uuid": "50bbafe7-bd93-409f-a060-a727792b78f3"
+                },
+                {
+                    "description": "Pad 2 [GND] of D1 on F.Cu",
+                    "pos": {
+                        "x": 107.9375,
+                        "y": 119.0
+                    },
+                    "uuid": "745505ea-d200-4622-94e0-b3f4174f444f"
+                }
+            ],
+            "severity": "error",
+            "type": "solder_mask_bridge"
+        }
+    ]
+}
