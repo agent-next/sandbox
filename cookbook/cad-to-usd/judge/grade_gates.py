@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -112,6 +113,38 @@ def gate_per_part(art, sources_dir, stage_meta_only=False):
     return results
 
 
+def pinned_source_hashes(demo_dir):
+    """{sha256: source path} from judge/sources.txt (the pinned inputs)."""
+    hashes = {}
+    with open(os.path.join(demo_dir, "judge", "sources.txt")) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            sha, path, _key = line.split("|")
+            hashes[sha] = path
+    return hashes
+
+
+def conversions_of_pinned_sources(log_path, demo_dir):
+    """Which pinned sources the artifact's convert.sh actually converted.
+
+    Reads the judge-owned shim log (one 'call sha256=<..> out=<..>' line per
+    converter invocation). An artifact that regenerates its outputs without
+    feeding the pinned sources to the converter (e.g. by copying pre-made
+    files) converts none of them and fails the gate.
+    """
+    wanted = pinned_source_hashes(demo_dir)
+    converted = {}
+    if os.path.isfile(log_path):
+        with open(log_path) as f:
+            for line in f:
+                m = re.match(r"call sha256=([0-9a-f]{64}) out=(\S+)", line)
+                if m and m.group(1) in wanted:
+                    converted.setdefault(m.group(1), []).append(m.group(2))
+    return converted, wanted
+
+
 def run_convert_script(art, out_dir, sources_dir, conv_bin, log_path):
     """Run the artifact's convert.sh in a fresh dir with fresh sources.
 
@@ -157,7 +190,9 @@ def main():
     ap.add_argument("--python", required=True,
                     help="judge venv python (for subprocess oracle calls)")
     ap.add_argument("--converter", required=True,
-                    help="path to the usd-convert-cad binary")
+                    help="path to the usd-convert-cad binary (the judge's shim)")
+    ap.add_argument("--convert-log", required=True,
+                    help="shim-owned log of converter invocations")
     ap.add_argument("--reconvert", default="1", choices=["0", "1"],
                     help="0 = skip gate 6 (self-test speed-up; the gate "
                          "reports 'skipped' and does not count)")
@@ -260,6 +295,24 @@ def main():
         conv_ok, conv_err = run_convert_script(art, regen, sources,
                                                args.converter, log)
         regen_detail = {"reproduced": conv_ok, "error": conv_err}
+        if conv_ok:
+            # gate 6 proof: every pinned source must appear in the judge's
+            # converter-invocation log (the shim recorded each call's
+            # input sha256). Copying shipped outputs converts nothing.
+            converted, wanted = conversions_of_pinned_sources(
+                args.convert_log, args.demo)
+            regen_detail["sources_converted"] = {
+                path: {"converted": sha in converted,
+                       "outputs": converted.get(sha, [])}
+                for sha, path in wanted.items()}
+            unconverted = [p for sha, p in wanted.items()
+                           if sha not in converted]
+            if unconverted:
+                regen_detail["unconverted_sources"] = unconverted
+                conv_ok = False
+                conv_err = ("convert.sh never converted the pinned source(s): "
+                            + ", ".join(unconverted))
+                regen_detail["error"] = conv_err
         if conv_ok:
             # grade the regenerated parts against gates 2-5
             regen_results = gate_per_part(regen, sources)

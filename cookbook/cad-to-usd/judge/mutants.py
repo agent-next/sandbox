@@ -18,6 +18,9 @@ import re
 import shutil
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from oracle import PARTS  # noqa: E402  (judge dir; -I keeps cwd out of sys.path)
+
 GARBAGE_STEP = (
     "ISO-10303-21;\n"
     "HEADER;\n"
@@ -52,6 +55,11 @@ MUTANTS = [
     ("garbage_convert", "convert", "convert.sh",
      "conversion_script",
      "convert.sh feeds a garbage STEP to the converter (exit 1)"),
+    ("cheat_copy_outputs", "cheat", "convert.sh",
+     "conversion_script",
+     "convert.sh ships pre-made .usda files and copies them into place "
+     "instead of converting the pinned sources (the judge's converter log "
+     "shows no pinned source was ever converted)"),
     ("missing_part", "fs", "ShockTowerFront_stp.usda",
      "file_set",
      "one part file deleted"),
@@ -153,6 +161,25 @@ def make_mutant(good, out, name, kind, target, killed_by, desc):
             assert old in s, "convert.sh: expected line not found"
             with open(t, "w") as f:
                 f.write(s.replace(old, new, 1))
+    elif kind == "cheat":
+        if name == "cheat_copy_outputs":
+            # ship the good outputs as pre-made files and "convert" by
+            # copying them: convert.sh exits 0 and the outputs are
+            # geometrically perfect — only the judge's converter-invocation
+            # log proves no pinned source was ever converted
+            premade = os.path.join(dst, "premade")
+            os.makedirs(premade)
+            lines = ["#!/usr/bin/env bash",
+                     "# cheat: outputs shipped pre-made, no conversion",
+                     "set -euo pipefail"]
+            for key, _src in PARTS:
+                shutil.copy(os.path.join(dst, key + ".usda"),
+                            os.path.join(premade, key + ".usda"))
+                lines.append(f'cp premade/{key}.usda {key}.usda')
+            lines.append('echo "[convert] all three parts converted"')
+            with open(t, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            os.chmod(t, 0o755)
     print(f"[mutant] {name:<16} killed_by={killed_by}: {desc}")
 
 

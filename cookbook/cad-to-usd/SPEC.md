@@ -85,7 +85,12 @@ A directory containing:
 6. **conversion_script** — `convert.sh` exists, is executable, and
    re-running it on fresh copies of the pinned sources reproduces the
    same three parts (each regenerated part is itself graded by gates
-   2–5).
+   2–5). Every judged quantity is re-derived from the regenerated
+   output files against the independent oracle — nothing the artifact
+   prints or computes is trusted. The judge hands `convert.sh` a
+   converter shim that logs each invocation's input sha256; every
+   pinned source must appear in that log, so an artifact cannot ship
+   pre-made outputs and copy them into place instead of converting.
 
 ## Acceptance oracle
 
@@ -113,14 +118,17 @@ with the oracle beyond tolerance fails every gate.
 `upAxis = "Y"` metadata edit and the geometry edit that swaps Y/Z point
 coordinates; a dropped mesh; a decimated mesh beyond the area tolerance;
 an empty stage; the garbage STEP as converter input via a broken
-`convert.sh`; a missing part file; one part's output replaced by a copy
-of another part's). Each mutant and the gate that kills it is listed in
-`judge/mutants.py` and in the self-test output.
+`convert.sh`; the cheat that ships pre-made outputs and copies them into
+place instead of converting; a missing part file; one part's output
+replaced by a copy of another part's). Each mutant and the gate that
+kills it is listed in `judge/mutants.py` and in the self-test output.
 
 `judge/selftest.sh` requires the good artifact to pass, >= 90 % of the
-mutants to fail at least one gate, and two grades of the good artifact
-with the same `--seed` to give byte-identical verdict JSON except the
-`timing` key.
+mutants to be killed by a judge gate — a grade that exits non-zero
+without a verdict JSON showing a failed gate (the judge crashed, or the
+artifact broke the judge before grading) does not count as a kill — and
+two grades of the good artifact with the same `--seed` to give
+byte-identical verdict JSON except the `timing` key.
 
 ## Third-party sources
 

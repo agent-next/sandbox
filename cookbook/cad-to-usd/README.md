@@ -79,16 +79,21 @@ Measured on a 2 vCPU / 4 GB sandbox (real output in RECEIPT.md):
      exact face area (`BRepGProp.SurfaceProperties`);
   6. **conversion_script** — `convert.sh` re-run on fresh sources
      reproduces all three parts, and the regenerated parts themselves
-     pass gates 2–5.
+     pass gates 2–5; the judge's converter-invocation log must show every
+     pinned source was actually converted (an artifact that ships
+     pre-made outputs and copies them into place fails here).
 - `judge/selftest.sh` — the good artifact must pass; every known-bad
-  mutant from `judge/mutants.py` must fail at least one gate (9 mutants:
-  wrong units, up-axis metadata flip, Y/Z geometry swap, dropped mesh,
-  decimated mesh, empty stage, garbage STEP through `convert.sh`, missing
-  part, cross-part copy; each names the gate that kills it); kill rate
-  must be ≥ 90 %; two grades with the same seed must be byte-identical
-  except the `timing` key.
-- The artifact always runs in a scratch copy and `judge/` is checksummed
-  before and after grading.
+  mutant from `judge/mutants.py` must be killed by a judge gate (10
+  mutants: wrong units, up-axis metadata flip, Y/Z geometry swap, dropped
+  mesh, decimated mesh, empty stage, garbage STEP through `convert.sh`,
+  the ship-outputs-and-copy-them cheat, missing part, cross-part copy;
+  a grade that crashes the judge without a verdict does not count);
+  kill rate must be ≥ 90 %; two grades with the same seed must be
+  byte-identical except the `timing` key.
+- The artifact runs out of process in a scratch copy; `judge/`, the two
+  pinned venvs and the fetched sources are all checksummed before and
+  after grading, so the artifact cannot modify the judge or forge its
+  oracle.
 
 ## Limits
 

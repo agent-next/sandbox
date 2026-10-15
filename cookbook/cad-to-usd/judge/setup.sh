@@ -61,8 +61,10 @@ install_venv() {  # install_venv <venv> <requirements>
     sha256sum "$req" | cut -d' ' -f1 > "$venv/.cad2usd-installed"
 }
 
+# Record what was actually installed into judge/VERSIONS.txt (committed:
+# the standard's pinned-versions receipt) plus the venv-local copy above.
 record_versions() {
-    local out="$VENV_BASE/cad2usd-VERSIONS.txt"
+    local out="$SCRIPT_DIR/VERSIONS.txt"
     {
         echo "recorded: $(date -u +%Y-%m-%dT%H:%M:%SZ) by judge/setup.sh"
         echo "python: $("$JUDGE_VENV/bin/python" -V 2>&1)"

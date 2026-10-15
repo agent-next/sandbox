@@ -2,15 +2,18 @@
 # judge/selftest.sh — prove the judge can fail.
 #
 #   1. known-good examples/good passes every gate;
-#   2. every known-bad mutant from judge/mutants.py fails at least one gate
-#      (kill rate must be >= 90 %);
+#   2. every known-bad mutant from judge/mutants.py is killed BY A JUDGE
+#      GATE: the grade must produce a verdict JSON that shows at least one
+#      gate with passed=false. A grade that exits non-zero without such a
+#      verdict (the judge crashed, or the artifact broke the judge before
+#      grading) does NOT count as a kill. Kill rate >= 90 %.
 #   3. determinism: two grades of the good artifact with the same --seed
 #      give byte-identical verdict JSON, excluding the "timing" key.
 #
 # Mutant grades run with --no-reconvert (gate 6, the full re-conversion, is
 # slow and only the good artifact is expected to have a working convert.sh
-# anyway — the garbage_convert mutant is graded WITH gate 6 since that is
-# exactly the gate meant to kill it).
+# anyway — the garbage_convert and cheat_copy_outputs mutants are graded
+# WITH gate 6 since that is exactly the gate meant to kill them).
 #
 # Exit 0 only if all three prove out.
 #
@@ -41,8 +44,22 @@ except Exception:
 gates = d.get("gates", {})
 bad = sorted(k for k, v in gates.items()
              if isinstance(v, dict) and v.get("passed") is False)
-print(", ".join(bad) if bad else "(all gates passed)")
+print(", ".join(bad) if bad else "(no gate failed)")
 ' "$1" 2>/dev/null || echo "no verdict file"
+}
+
+killed_by_gate() {  # killed_by_gate <verdict.json> -> 0 iff a gate failed
+    [[ -s "$1" ]] || return 1
+    "$JUDGE_PY" -I -c '
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    raise SystemExit(1)
+gates = d.get("gates", {})
+raise SystemExit(0 if any(isinstance(v, dict) and v.get("passed") is False
+                          for v in gates.values()) else 1)
+' "$1" 2>/dev/null
 }
 
 t0=$(date +%s)
@@ -59,26 +76,37 @@ fi
 echo "== selftest: generating known-bad mutants =="
 "$JUDGE_PY" -I "$SCRIPT_DIR/mutants.py" "$GOOD" "$WORK/mutants"
 
-total=0; killed=0
+total=0; killed=0; escapes=0
 for d in "$WORK/mutants"/*/; do
     name=$(basename "$d")
     total=$((total + 1))
-    # garbage_convert targets gate 6 specifically; grade it with the gate on.
+    # garbage_convert and the cheat mutant target gate 6 specifically;
+    # grade them with the gate on. Everything else: --no-reconvert.
     reconvert="--no-reconvert"
-    [[ "$name" == "garbage_convert" ]] && reconvert=""
+    case "$name" in
+        garbage_convert|cheat_copy_outputs) reconvert="" ;;
+    esac
     if bash "$SCRIPT_DIR/grade.sh" "$d" --seed "$SEED" $reconvert \
             --json "$WORK/$name.json" >/dev/null 2>&1; then
-        echo "mutant $name: PASS (unexpected)" >&2
-    else
+        echo "mutant $name: PASS (unexpected — the judge did not kill it)" >&2
+        escapes=$((escapes + 1))
+    elif killed_by_gate "$WORK/$name.json"; then
         killed=$((killed + 1))
         echo "mutant $name: FAIL (expected) -- killed by gate: $(failing_gates "$WORK/$name.json")"
+    else
+        echo "mutant $name: NOT KILLED BY A GATE (grade failed without a" \
+             "verdict showing a failed gate — judge crashed before grading)" >&2
+        escapes=$((escapes + 1))
     fi
 done
 
 kill_rate=$((100 * killed / total))
 echo "== selftest summary =="
 echo "known-good: passed"
-echo "kill rate: $killed/$total ($kill_rate%)"
+echo "kill rate: $killed/$total ($kill_rate%) — counted only when a judge gate reported the failure"
+[[ $escapes -eq 0 ]] || {
+    echo "selftest: $escapes mutant(s) not killed by a judge gate" >&2
+    exit 1; }
 [[ $kill_rate -ge 90 ]] || { echo "kill rate below 90%" >&2; exit 1; }
 
 echo "== selftest: determinism (grade twice with --seed $SEED) =="
