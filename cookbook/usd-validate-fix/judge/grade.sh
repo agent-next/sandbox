@@ -26,6 +26,18 @@ judge_sum() {
     (cd "$JDIR" && find . -type f ! -name '*.pyc' ! -name 'VERSIONS.txt' \
         -print0 | sort -z | xargs -0 sha256sum | sha256sum)
 }
+# The gate-3 reference lives outside judge/, so the judge/ checksum does not
+# cover it; pin its sha256 here (judge/REFERENCE.sha256) and fail closed.
+REF="$DEMO/task/traffic_cone_broken.usda"
+ref_before="$(sha256sum "$REF" 2>/dev/null | awk '{print $1}')"
+ref_want="$(awk '!/^#/ && NF {print $1}' "$JDIR/REFERENCE.sha256")"
+if [ -z "$ref_before" ] || [ "$ref_before" != "$ref_want" ]; then
+    echo "grade: gate-3 reference $REF does not match judge/REFERENCE.sha256" >&2
+    echo "  measured $ref_before" >&2
+    echo "  pinned   $ref_want" >&2
+    exit 1
+fi
+
 before="$(judge_sum)"
 
 set +e
@@ -35,6 +47,11 @@ set -e
 
 if [ "$(judge_sum)" != "$before" ]; then
     echo "grade: judge/ tree changed during grading -- failing closed" >&2
+    exit 1
+fi
+ref_after="$(sha256sum "$REF" 2>/dev/null | awk '{print $1}')"
+if [ "$ref_after" != "$ref_before" ]; then
+    echo "grade: gate-3 reference $REF changed during grading -- failing closed" >&2
     exit 1
 fi
 exit $rc

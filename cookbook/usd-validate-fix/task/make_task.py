@@ -49,14 +49,21 @@ def mesh(stage, path, points, fvc, fvi, normals=None):
 
 
 def cone_geometry():
-    """Traffic cone, coordinates in cm -> {name: (points, fvc, fvi)}."""
+    """Traffic cone, coordinates in cm, Y-up (as a Y-up DCC would export).
+
+    The stage declares `upAxis = "Y"` (see build()), so the cone's height is
+    the **Y** axis: Base y 0-4, Body y 4-58, Band y 30-44, x and z within
+    +/-18.  Authoring it height-along-Z with `upAxis = "Y"` would leave the
+    "repaired" cone lying on its side in any Y-up app, and the judge now
+    gates that (gate 5: the world-bbox height axis must match the up axis).
+    """
     import math
     geoms = {}
     # ---- base: square frustum --------------------------------------
     hw0, hw1, h = 18.0, 14.0, 4.0
     pts = []
-    for z, hw in ((0.0, hw0), (h, hw1)):
-        for x, y in ((-hw, -hw), (hw, -hw), (hw, hw), (-hw, hw)):
+    for y, hw in ((0.0, hw0), (h, hw1)):
+        for x, z in ((-hw, -hw), (hw, -hw), (hw, hw), (-hw, hw)):
             pts.append((x, y, z))
     fvi = [3, 2, 1, 0,
            4, 5, 6, 7,
@@ -67,26 +74,26 @@ def cone_geometry():
     geoms["Base"] = (pts, [4] * 6, fvi)
 
     # ---- body: cone frustum -----------------------------------------
-    r0, r1, z0, z1 = 13.0, 7.5, 4.0, 58.0
+    r0, r1, y0, y1 = 13.0, 7.5, 4.0, 58.0
     pts = []
-    for z, r in ((z0, r0), (z1, r1)):
+    for y, r in ((y0, r0), (y1, r1)):
         for i in range(SEG):
             a = 2.0 * math.pi * i / SEG
-            pts.append((r * math.cos(a), r * math.sin(a), z))
-    fvi = list(range(SEG - 1, -1, -1))      # bottom cap, outward -Z
-    fvi += list(range(SEG, 2 * SEG))        # top cap, outward +Z
+            pts.append((r * math.cos(a), y, r * math.sin(a)))
+    fvi = list(range(SEG - 1, -1, -1))      # bottom cap, outward -Y
+    fvi += list(range(SEG, 2 * SEG))        # top cap, outward +Y
     for i in range(SEG):                    # side quads
         a0, a1 = i, (i + 1) % SEG
         fvi += [a0, a1, SEG + a1, SEG + a0]
     geoms["Body"] = (pts, [SEG, SEG] + [4] * SEG, fvi)
 
     # ---- band: closed frustum ring ----------------------------------
-    rb0, rb1, zb0, zb1 = 13.8, 9.0, 30.0, 44.0
+    rb0, rb1, yb0, yb1 = 13.8, 9.0, 30.0, 44.0
     pts = []
-    for z, r in ((zb0, rb0), (zb1, rb1)):
+    for y, r in ((yb0, rb0), (yb1, rb1)):
         for i in range(SEG):
             a = 2.0 * math.pi * i / SEG
-            pts.append((r * math.cos(a), r * math.sin(a), z))
+            pts.append((r * math.cos(a), y, r * math.sin(a)))
     fvi = []
     for i in range(SEG):
         a0, a1 = i, (i + 1) % SEG

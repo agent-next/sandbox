@@ -1,0 +1,9 @@
+# task/traffic_cone_broken.usda -- the geometry-invariance reference.
+#
+# SPEC gate 3 compares the graded artifact against this file, so an artifact
+# that could rewrite it could grade itself: judge/grade.sh checksums it and
+# fails the grade on any mismatch.  Regenerate the asset with
+#   judge/setup.sh --make-assets
+# and update this line only together with task/make_task.py and the SPEC
+# gate-3 numbers (point counts, world-bbox invariance).
+1c4ea2b673a65d352e31c1dd08935aaf476a535f8bdb68c2ac3f2c252431c1db

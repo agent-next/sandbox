@@ -23,6 +23,20 @@ survive any formatting change of the good asset:
                        see the good stage -- only the clean-room text
                        recount (which reads the artifact's own layer) sees
                        the cheat.
+  xform_scale          wrap the good asset in a xformOp:scale = (100, 100,
+                       100) on /TrafficCone: the authored points are
+                       untouched, so the old gate-3 points comparison could
+                       not see it.  Killed by gate 3's world-bbox check and
+                       gate 4's xformOp rejection.
+  xform_rot            xformOp:translate (500, 0, 0) + rotateX 90 on
+                       /TrafficCone: moves and tips the whole prop.  Killed
+                       by gate 3 (world bbox) and gate 5 (height axis vs
+                       upAxis).
+  latin1_comment       one non-UTF-8 byte in a comment.  No gate can open
+                       it, so every gate reports a named error in a verdict;
+                       the self-test uses it to prove it does not count a
+                       crash as a kill (it remains a kill, but only because
+                       the verdict names a real gate and the errors).
 
 Usage (run with the venv python, needs pxr):
   python -I judge/mutants.py <good.usda> <outdir>
@@ -108,6 +122,42 @@ def edit_no_collision(stage):
             UsdPhysics.CollisionAPI)
 
 
+def edit_xform_scale(stage):
+    # A transform-only cheat: the authored points are untouched, but the root
+    # Xform scales the whole prop by 100, so at metersPerUnit = 0.01 the
+    # "repaired" cone is 5.8 m tall.  Killed by gate 3 (world bbox) and
+    # gate 4 (the artifact authors an xformOp the original does not have).
+    xform = UsdGeom.Xform.Define(stage, "/TrafficCone")
+    xform.AddScaleOp().Set(Gf.Vec3f(100.0, 100.0, 100.0))
+
+
+def edit_xform_rot(stage):
+    # A transform-only cheat that also tips the cone over: translate 500 cm
+    # and rotate 90 deg about X, so the height axis is no longer Y.  Killed
+    # by gate 3 (world bbox moved and tipped) and gate 5 (height axis vs
+    # upAxis) -- the authored points are either way identical.
+    xform = UsdGeom.Xform.Define(stage, "/TrafficCone")
+    xform.AddTranslateOp().Set(Gf.Vec3f(500.0, 0.0, 0.0))
+    xform.AddRotateXOp().Set(90.0)
+
+
+def edit_latin1_comment(stage):
+    # A malformed artifact: one non-UTF-8 byte in a comment.  No USD stack
+    # can open it, so every gate must report a named error in a verdict.
+    # This is the control for the self-test's rule that a crash is not a
+    # kill: it always fails the grade, but it must fail BY A NAMED GATE.
+    return None            # the byte is added by the harness, after export
+
+
+def edit_wrong_material(stage):
+    # Bind the reflective Band to the orange plastic instead of the white:
+    # a gate that only checks "some material is bound" lets this through.
+    prim = stage.GetPrimAtPath(BAND)
+    UsdShade.MaterialBindingAPI(prim).Bind(
+        UsdShade.Material(stage.GetPrimAtPath("/TrafficCone/Looks/"
+                                              "OrangePlastic")))
+
+
 def edit_sublayer_cheat(stage):
     # Replace the entire root layer's contents with nothing but a subLayers
     # reference to the good asset's absolute path.  pxr follows the
@@ -134,6 +184,10 @@ MUTANTS = [
     ("short_normals", edit_short_normals),
     ("no_collision", edit_no_collision),
     ("sublayer_cheat", edit_sublayer_cheat),
+    ("xform_scale", edit_xform_scale),
+    ("xform_rot", edit_xform_rot),
+    ("latin1_comment", edit_latin1_comment),
+    ("wrong_material", edit_wrong_material),
 ]
 
 
@@ -156,6 +210,14 @@ def main() -> int:
         edit(stage)
         path = os.path.join(outdir, "%s.usda" % name)
         stage.GetRootLayer().Export(path)
+        # latin1_comment needs a byte ASCII/USD tooling rejects; pxr's export
+        # is UTF-8, so the corrupting byte is written after the export.
+        if name in ("latin1_comment",):
+            with open(path, "rb") as fh:
+                blob = fh.read()
+            blob = blob.replace(b"#usda 1.0\n", b"#usda 1.0\n# caf\xe9\n", 1)
+            with open(path, "wb") as fh:
+                fh.write(blob)
         print("mutants: wrote %s (%s)" % (path, name))
     print("mutants: %d mutants" % len(MUTANTS))
     return 0

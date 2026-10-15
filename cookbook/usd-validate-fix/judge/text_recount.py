@@ -30,6 +30,13 @@ from __future__ import annotations
 import math
 import re
 
+# SPEC.md: which material each mesh must be bound to.
+BAND_BINDING = "/TrafficCone/Looks/WhitePlastic"
+BODY_BINDING = "/TrafficCone/Looks/OrangePlastic"
+REQUIRED_BINDINGS = {"/TrafficCone/Band": BAND_BINDING,
+                     "/TrafficCone/Body": BODY_BINDING,
+                     "/TrafficCone/Base": BODY_BINDING}
+
 METERS_PER_UNIT = 0.01          # the asset is authored in centimetres
 UNIT_TOL = 1e-4                 # |norm|-1 tolerance
 AREA_TOL = 1e-9                 # cm^2, triangle-fan total cross product
@@ -42,7 +49,7 @@ XCHECK_BBOX_TOL = 1e-4          # cm
 
 _FLOAT = re.compile(r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?")
 _DEF = re.compile(r"^(def|over)\s+([A-Za-z_]\w*)\s+\"([^\"]+)\"")
-_ATTR = re.compile(r"^(?:([A-Za-z_]\w*)\[\])?\s*"
+_ATTR = re.compile(r"^(?:(?:[A-Za-z_]\w*)\s*(?:\[\])?)?\s*"
                    r"([A-Za-z_][\w:.]*)\s*=")
 _REL = re.compile(r"^rel\s+([A-Za-z_][\w:.]*)\s*=\s*(.+)$")
 _META = re.compile(r"^\s*(?:(?:prepend|append|delete|reorder|order)\s+)?"
@@ -181,6 +188,7 @@ class Mesh:
         self.normals_interpolation = None
         self.extent = None
         self.binding = None
+        self.xform_ops = []          # xformOp:* names in authored order
 
     def fact(self):
         corners = sum(self.counts)
@@ -199,7 +207,8 @@ class Mesh:
                 "max_normal_dev": round(dev, 9) if self.normals else 0.0,
                 "zero_area_faces": self._zero_area(),
                 "extent": self._extent_fact(),
-                "bound_material": self.binding}
+                "bound_material": self.binding,
+                "xform_ops": list(self.xform_ops)}
 
     def _extent_fact(self):
         if not self.extent:
@@ -248,7 +257,14 @@ def parse_usda(path):
         text = fh.read()
 
     out = {"layer_metadata": {}, "sub_layers": [], "meshes": {},
-           "materials": set(), "api_schemas": {}, "root_prims": []}
+           "materials": set(), "api_schemas": {}, "root_prims": [],
+           "prim_types": {}, "xform_ops": {}}
+    # only these prim types carry the attributes this parser re-derives;
+    # everything else (Scope, Shader, Xform, ...) is skipped, so a transform
+    # op is still recorded (see the xformOp branch below) but never turns a
+    # non-mesh prim into a bogus "mesh" entry
+    MESH_TYPES = ("Mesh",)
+    ALL_TYPES = None
     stack: list[str] = []
     root_depth_children: set[str] = set()
     layer_metadata = {}
@@ -268,6 +284,8 @@ def parse_usda(path):
             top_level = len(stack) == 1
             path = "/" + "/".join(stack)
             current_mesh = None
+            prim_is_mesh = dtype in MESH_TYPES
+            out["prim_types"][path] = dtype
             pending_meta = ("prim", path)
             if dtype == "Material":
                 out["materials"].add(path)
@@ -322,15 +340,31 @@ def parse_usda(path):
         if rm:
             name = rm.group(1)
             if name.startswith("material:binding"):
-                mesh = out["meshes"].setdefault(prim_path, Mesh(prim_path))
-                targets = _PATH.findall(rm.group(2))
-                mesh.binding = "<%s>" % targets[0] if targets else None
-                current_mesh = mesh
+                if out["prim_types"].get(prim_path) in MESH_TYPES:
+                    mesh = out["meshes"].setdefault(
+                        prim_path, Mesh(prim_path))
+                    targets = _PATH.findall(rm.group(2))
+                    mesh.binding = "<%s>" % targets[0] if targets else None
+                    current_mesh = mesh
             continue
 
         am = _ATTR.match(stripped)
         if am:
-            name = am.group(2)
+            name = am.group(1)
+            is_mesh = out["prim_types"].get(prim_path) in MESH_TYPES
+            if name.startswith("xformOp") and name != "xformOpOrder":
+                # A transform on ANY prim (the root Xform, an ancestor, or the
+                # mesh itself): gate 4 rejects any xformOp the original does
+                # not have, so "scale the mesh 100x" or "move and tip it over"
+                # cannot pass by hiding the edit behind a transform.  Tracked
+                # per prim path, so a transform on an Xform ancestor is
+                # attributed to that ancestor and to every mesh under it.
+                ops = out["xform_ops"].setdefault(prim_path, [])
+                if name not in ops:
+                    ops.append(name)
+                continue
+            if not is_mesh:
+                continue                # not a Mesh: nothing to re-derive here
             value, attrmeta = _split_attr_meta(stripped[am.end():])
             mesh = out["meshes"].setdefault(prim_path, Mesh(prim_path))
             current_mesh = mesh
@@ -348,6 +382,17 @@ def parse_usda(path):
                 if len(nums) == 6:
                     mesh.extent = (tuple(nums[:3]), tuple(nums[3:]))
             continue
+
+    # A transform on an ancestor prim (the root Xform, a Scope, ...) moves
+    # every mesh under it, so each mesh inherits the xformOps of itself and
+    # of every prim on its path -- that is exactly what composed world space
+    # applies, and what gate 4 must reject.
+    for owner, ops in out["xform_ops"].items():
+        for mid, mesh in out["meshes"].items():
+            if mid == owner or mid.startswith(owner + "/"):
+                for op in ops:
+                    if op not in mesh.xform_ops:
+                        mesh.xform_ops.append(op)
 
     out["layer_metadata"] = layer_metadata
     return out
@@ -416,8 +461,12 @@ def check_asset(path):
         if fact["zero_area_faces"]:
             errors.append("%s: %d face(s) with triangle-fan area < %g cm^2"
                           % (mid, fact["zero_area_faces"], AREA_TOL))
+        want = REQUIRED_BINDINGS.get(mid)
         if not mesh.binding or mesh.binding.strip("<>") not in materials:
             errors.append("%s: no computable bound material" % mid)
+        elif want is not None and mesh.binding.strip("<>") != want:
+            errors.append("%s: bound to %s, must be %s (the reflective band "
+                          "is the white plastic)" % (mid, mesh.binding, want))
         if mesh.extent is None:
             errors.append("%s: extent not authored" % mid)
         else:
@@ -462,7 +511,8 @@ def _unquote(text):
 
 
 def check_geometry(path, reference):
-    """Re-derive gate 3 from both files' text: mesh paths, counts, bboxes."""
+    """Re-derive gate 3 from both files' text: mesh paths, counts, bboxes and
+    the transform stack -- no `xformOp` the original does not have."""
     errors = []
 
     def geometry(p):
@@ -475,7 +525,7 @@ def check_geometry(path, reference):
                 hi = [max(q[a] for q in pts) for a in range(3)]
             else:
                 lo = hi = [0.0, 0.0, 0.0]
-            out[mid] = (len(pts), lo, hi)
+            out[mid] = (len(pts), lo, hi, list(mesh.xform_ops))
         return out
 
     art, ref = geometry(path), geometry(reference)
@@ -484,15 +534,22 @@ def check_geometry(path, reference):
                       "artifact %s vs original %s" % (sorted(art), sorted(ref)))
     facts = {}
     for key in sorted(set(art) & set(ref)):
-        n_art, lo_a, hi_a = art[key]
-        n_ref, lo_r, hi_r = ref[key]
+        n_art, lo_a, hi_a, ops_a = art[key]
+        n_ref, lo_r, hi_r, ops_r = ref[key]
         worst = 0.0
         if n_art != n_ref:
             errors.append("%s: point count %d != original %d"
                           % (key, n_art, n_ref))
         for a in range(3):
             worst = max(worst, abs(lo_a[a] - lo_r[a]), abs(hi_a[a] - hi_r[a]))
-        facts[key] = {"points": n_art, "bbox_dev_cm": round(worst, 9)}
+        extra_ops = [o for o in ops_a if o not in ops_r]
+        if extra_ops:
+            errors.append("%s: the artifact adds transform op(s) %s that the "
+                          "original does not have -- the repair must edit the "
+                          "mesh's own data, not wrap it in a transform"
+                          % (key, extra_ops))
+        facts[key] = {"points": n_art, "xform_ops": ops_a,
+                      "bbox_dev_cm": round(worst, 9)}
         if worst > BBOX_TOL:
             errors.append("%s: points bbox deviates from the original by "
                           "%.3g cm > %g cm" % (key, worst, BBOX_TOL))

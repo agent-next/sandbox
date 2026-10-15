@@ -105,13 +105,13 @@ def main() -> int:
         facts = verdict.get("facts", {})
         oracle = facts.get("oracle", {})
         meshes = oracle.get("meshes", {})
-        norm_ok = sum(1 for m in meshes.values() if m.get("bound_material"))
+        bound_ok = sum(1 for m in meshes.values() if m.get("bound_material"))
         print("run: SUMMARY "
               f"passed={verdict.get('passed')} "
               f"validator={gates.get('validator', {}).get('validator_status')} "
               f"meshes={len(meshes)} "
               f"colliders={oracle.get('colliders')} "
-              f"bound_materials={norm_ok}/{len(meshes)} "
+              f"bound_materials={bound_ok}/{len(meshes)} "
               f"mpu={oracle.get('metersPerUnit')} "
               f"upAxis={oracle.get('upAxis')}", flush=True)
         if not verdict.get("passed"):
@@ -138,6 +138,17 @@ def main() -> int:
                 except subprocess.TimeoutExpired:
                     print(f"run: FAILED cleanup: sbx kill/list timed out; "
                           f"run sbx kill {sid}", file=sys.stderr)
+                    sys.exit(1)
+                # A lost reply is not a confirmation: `sbx list` that failed
+                # printed nothing, which is indistinguishable from an empty
+                # list -- require the exit code AND the id's absence.
+                if listing.returncode != 0:
+                    tail = (listing.stdout or "") + (listing.stderr or "")
+                    print(f"run: FAILED cleanup: could not confirm {sid} is "
+                          f"gone ('sbx list' exit "
+                          f"{listing.returncode}: {tail.strip()[-300:]}); "
+                          "run sbx list and, if it is still there, sbx kill "
+                          "for this id", file=sys.stderr)
                     sys.exit(1)
                 if sid in (listing.stdout or ""):
                     print(f"run: FAILED cleanup: sandbox {sid} still live; "

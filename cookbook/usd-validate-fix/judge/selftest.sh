@@ -28,19 +28,37 @@ fi
 
 total=0
 killed=0
+# The gates grade_engine.py can name.  A verdict whose failed_gate is not in
+# this set -- or whose JSON is missing -- means the mutant died by a crash,
+# not by a judging gate, and that is NOT a kill (DEMO-STANDARD: "Every mutant
+# must be killed BY A JUDGE GATE ... not by the artifact crashing").
+GATES="validator,oracle,geometry,up_axis,recount"
+
+# killed_by <verdict.json>: prints "<gate> <n-errors>" when the verdict
+# exists, its failed_gate is a real judging gate and that gate reported
+# errors; prints the reason it is not a kill and exits 1 otherwise.
+killed_by() {
+    python3 -I "$JDIR/kill_check.py" "$1" "$GATES"
+}
+
 for m in "$work"/mutants/*.usda; do
     name="$(basename "$m" .usda)"
     total=$((total + 1))
-    if bash "$JDIR/grade.sh" "$m" --json "$work/$name.json" > /dev/null 2>&1; then
+    rc=0
+    bash "$JDIR/grade.sh" "$m" --json "$work/$name.json" > /dev/null 2>&1 || rc=$?
+    if [ "$rc" -eq 0 ]; then
         echo "selftest: SURVIVED  $name (judge let it pass!)"
-    else
-        gate="$(python3 -I -c "
-import json, sys
-d = json.load(open(sys.argv[1]))
-print(d.get('failed_gate') or '?')" "$work/$name.json" 2>/dev/null || echo '?')"
-        echo "selftest: killed    $name (gate: $gate)"
-        killed=$((killed + 1))
+        continue
     fi
+    out="$(killed_by "$work/$name.json" 2>/dev/null)" || {
+        echo "selftest: CRASHED   $name (rc=$rc, ${out:-no verdict JSON}) -- not counted as a kill" >&2
+        echo "selftest: CRASHED   $name (rc=$rc, ${out:-no verdict JSON})"
+        continue
+    }
+    gate="${out%% *}"
+    nerr="${out##* }"
+    echo "selftest: killed    $name (gate: $gate, $nerr error(s))"
+    killed=$((killed + 1))
 done
 
 rate="$(python3 -I -c "print(f'{$killed/$total:.0%}' if $total else 'n/a')")"
