@@ -1,0 +1,15 @@
+orca-slicer: 2.3.0 (AppImage OrcaSlicer_Linux_AppImage_V2.3.0.AppImage, sha256: 73079d88ec36f0615db7919d00aa26fe301e348ba6e051862a7cfc4040150c03)
+klipper: ce7002bedf37e938bb483572949f3703ac6476cb (github tarball, sha256: da1c6223d90652cda6e826e3cf896cf97d6e11aa13aa4c8feb5232dac068f70b)
+python3: 3.12.15
+klippy dict target: atmega2560
+pip: Jinja2==3.1.4
+pip: MarkupSafe==3.0.2
+pip: aenum==3.1.17
+pip: cffi==2.1.1
+pip: greenlet==3.3.2
+pip: msgspec==0.19.0
+pip: pycparser==3.11
+pip: pyserial==3.4
+pip: python-can==3.3.4
+pip: setuptools==78.1.1
+pip: wrapt==1.17.3
