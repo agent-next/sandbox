@@ -147,23 +147,31 @@ def fit_font(d, s, path, size, max_w):
     return font(path, floor)
 
 
+BANNER_H = 96        # one line of caption text
+BANNER_H2 = 160      # title + a second caption line
+
+
 def banner(card, title, sub=None, bar=(12, 20, 32), tcol=(255, 255, 255),
            scol=(178, 196, 214)):
-    """A solid strip at the top so captions never sit on a busy render."""
-    card.d.rectangle([0, 0, W, 96], fill=bar)
-    sub_w = 0
-    if sub:
-        f = fit_font(card.d, sub, FONT_M, FS_CAP, W * 0.46)
-        sub_w = card.d.textlength(sub, font=f) + 40
-        card.text((W - 36, 48), sub, f, fill=scol, anchor="rm", caption=True)
-    ft = fit_font(card.d, title, FONT_B, FS_CAP, W - 72 - sub_w)
+    """A solid strip at the top so captions never sit on a busy render.
+
+    Title and subtitle both stay at the 44 px caption floor, so the strip
+    is two lines tall when a subtitle is present.  Returns its height.
+    """
+    h = BANNER_H2 if sub else BANNER_H
+    card.d.rectangle([0, 0, W, h], fill=bar)
+    ft = fit_font(card.d, title, FONT_B, FS_CAP, W - 72)
     card.text((36, 48), title, ft, fill=tcol, anchor="lm", caption=True)
+    if sub:
+        fs = fit_font(card.d, sub, FONT_M, FS_CAP, W - 72)
+        card.text((36, 120), sub, fs, fill=scol, anchor="lm", caption=True)
+    return h
 
 
 def footnote(card, s):
     """Provenance line on a solid strip at the bottom (also a caption)."""
     card.d.rectangle([0, H - 78, W, H], fill=(12, 20, 32))
-    f = fit_font(card.d, s, FONT_M, FS_CAP, W - 60)
+    f = fit_font(card.d, s, FONT, FS_CAP, W - 60)
     card.text((W // 2, H - 39), s, f, fill=(226, 234, 242), anchor="mm",
               caption=True)
 
@@ -181,6 +189,13 @@ def main():
     zt = verdict("zero_torque")["gates"]
     t_good, z_good, tilt_good = trace_cols("good")
     t_zt, z_zt, tilt_zt = trace_cols("zero_torque")
+
+    # the shots are defined once, in vid_render.py, so the video can only
+    # use frames that were actually rendered (and the pose a frame shows
+    # is the pose the caption quotes)
+    sys.path.insert(0, MEDIA)
+    import vid_render
+    shot_n = {k: v[1] for k, v in vid_render.shots().items()}
 
     result_png = Image.open(need(os.path.join(MEDIA, "result.png")))
     loop_png = Image.open(need(os.path.join(MEDIA, "loop.png")))
@@ -210,26 +225,26 @@ def main():
         n_written += 1
 
     # ======================================================================
-    # 1. the real result, orbiting (0.0-4.0 s, 120 frames)
+    # 1. the real result, orbiting
     # ======================================================================
-    n = 120
+    n = shot_n["turntable"]
     for i in range(n):
         c = Card((10, 16, 26))
-        c.image(render_frame("turntable", i), (0, 96, W, H - 78 - 96))
-        banner(c, "RP1 humanoid -- stands through a 30 N push",
-               "real MuJoCo render")
+        bh = banner(c, "RP1 humanoid -- stands through a 30 N push",
+                    "real MuJoCo render")
+        c.image(render_frame("turntable", i), (0, bh, W, H - 78 - bh))
         footnote(c, "judged pose from grade.sh --trace, seed 20261014")
         emit(c, check_now=(i == 0))
 
     # ======================================================================
-    # 2. the judged episode, live readout (4.0-9.0 s, 150 frames)
+    # 2. the judged episode, live readout
     # ======================================================================
-    n = 150
+    n = shot_n["episode"]
     for i in range(n):
         c = Card((10, 16, 26))
-        c.image(render_frame("episode", i), (0, 96, W, H - 96))
-        banner(c, "the judged episode -- real time",
-               "tilt limit 10 deg (stand gate)")
+        bh = banner(c, "the judged episode -- real time",
+                    "tilt limit 10 deg (stand gate)")
+        c.image(render_frame("episode", i), (0, bh, W, H - bh))
         k = int(np.argmin(np.abs(t_good - (3.8 + (9.8 - 3.8) * i / (n - 1)))))
         c.d.rectangle([30, H - 160, 800, H - 30], fill=(12, 20, 32))
         c.text((54, H - 126), f"t = {t_good[k]:5.2f} s",
@@ -248,21 +263,20 @@ def main():
     n = 105
     for _ in range(n):
         c = Card((16, 20, 28))
-        c.image(result_png, (24, 118, W - 48, H - 118 - 92))
-        banner(c, "the judged run, and every pass line")
-        footnote(c, "result.png -- media/data/traces/good + "
-                    "data/verdicts/good.json")
+        bh = banner(c, "the judged run, and every pass line")
+        c.image(result_png, (24, bh + 22, W - 48, H - bh - 22 - 92))
+        footnote(c, "result.png -- data/traces/good, data/verdicts/good.json")
         emit(c)
 
     # ======================================================================
-    # 4. the mutant falling (12.5-16.5 s, 120 frames)
+    # 4. the mutant falling
     # ======================================================================
-    n = 120
+    n = shot_n["fall"]
     for i in range(n):
         c = Card((10, 16, 26))
-        c.image(render_frame("fall", i), (0, 96, W, H - 96))
-        banner(c, "mutant zero_torque -- the judge kills it",
-               "gate stand: z 0.051 m < 0.702 m", bar=(58, 10, 10))
+        bh = banner(c, "mutant zero_torque -- the judge kills it",
+                    "gate stand: z 0.051 m < 0.702 m", bar=(58, 10, 10))
+        c.image(render_frame("fall", i), (0, bh, W, H - bh))
         k = int(np.argmin(np.abs(t_zt - 2.0 * i / (n - 1))))
         c.d.rectangle([30, H - 160, 800, H - 30], fill=(12, 20, 32))
         c.text((54, H - 126), f"t = {t_zt[k]:5.2f} s",
@@ -278,10 +292,9 @@ def main():
     n = 120
     for _ in range(n):
         c = Card((16, 20, 28))
-        c.image(loop_png, (24, 118, W - 48, H - 118 - 92))
-        banner(c, "the judge can fail: 8/8 mutants killed")
-        footnote(c, "loop.png -- agent-loop replay + mutant x gate matrix "
-                    "(data/verdicts/)")
+        bh = banner(c, "the judge can fail: 8/8 mutants killed")
+        c.image(loop_png, (24, bh + 22, W - 48, H - bh - 22 - 92))
+        footnote(c, "loop.png -- agent-loop replay, mutant x gate matrix")
         emit(c)
 
     # ======================================================================
@@ -338,17 +351,19 @@ def main():
     # ======================================================================
     n = 195
     c = Card(PAPER)
-    c.text((W // 2, 330), "try it:", font(FONT_B, FS_CAP), fill=SUB,
+    c.text((W // 2, 320), "try it:", font(FONT_B, FS_CAP), fill=SUB,
            anchor="mm", caption=True)
-    c.text((W // 2, 460), "python3 cookbook/rp1-mujoco/run.py",
+    c.text((W // 2, 452), "python3 cookbook/rp1-mujoco/run.py",
            font(FONT_MB, 76), fill=INK, anchor="mm")
-    c.text((W // 2, 600),
-           "agent-next sandbox demo  --  cookbook/rp1-mujoco\n"
+    c.text((W // 2, 596),
+           "agent-next sandbox demo  --  cookbook/rp1-mujoco",
+           font(FONT, FS_CAP), fill=SUB, anchor="mm", caption=True)
+    c.text((W // 2, 672),
            "judge: MuJoCo 3.14.0 + URDF cross-parse + statics oracle",
-           font(FONT_M, FS_CAP), fill=SUB, anchor="mm", align="center")
-    c.text((W // 2, 790),
+           font(FONT, FS_CAP), fill=SUB, anchor="mm", caption=True)
+    c.text((W // 2, 812),
            "8/8 mutants killed (100 %)  |  same seed -> byte-identical "
-           "verdict", font(FONT_M, FS_CAP), fill=SUB, anchor="mm")
+           "verdict", font(FONT, FS_CAP), fill=SUB, anchor="mm")
     c.check()
     end_frame = c.im.tobytes()
     for _ in range(n):
