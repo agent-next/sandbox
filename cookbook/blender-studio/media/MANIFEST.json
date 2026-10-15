@@ -55,7 +55,7 @@
     "original_render_sandbox": "01a13e90-0220-7883-8936-c3f03ad3ca30",
     "original_render_snapshot_sha256": "31a60cd5e6f0deffd3cc9d040dc1861032b1e887c65a5dad4b5005ee894aaab5",
     "frame_02": {
-      "source": "intact earlier standalone sandbox retry recovered from task scratch",
+      "source": "intact earlier standalone sandbox retry recovered from an earlier run working directory",
       "remote_checksum_verified": false,
       "reason": "the earlier retry was compared against the original render's hash, not its own; local decoded bytes are hashed in render_frames"
     },

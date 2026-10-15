@@ -157,7 +157,7 @@ Receiver lists are exact in both runs: rim
 All mutants fail measured numeric gates, not runtime errors. Scene parsing
 rejects executable edits; judge SHA-256 checks pass before/after every grade.
 
-Cross-family execution review (Claude Opus reviewer, GPT builder) initially
+Independent cross-family execution review initially
 found seam and orbit bypasses. The reviewer independently confirmed their
 fixes at `5a2bf96`: `findings[]=[]`, `VERDICT: SHIP`. Good passed twice locally;
 the high seam produced 1024 primary hits, and the filtered seam produced 520
@@ -207,7 +207,7 @@ bounded CLI chunks and verifies files before replacing local evidence.
 
 The clip uses twelve intact retained files from the earlier sandbox capture
 (eleven poses plus unlinked.png), and the intact frame-02 retry recovered from
-task scratch. All are actual Blender 1920×1080 renders, not drawings or
+an earlier run's working directory. All are actual Blender 1920×1080 renders, not drawings or
 interpolated geometry. The twelve retained files match their recorded remote
 SHA-256s. Frame 02 decodes fully and has recorded local SHA-256
 `6967cca179bf011c80c2dc6fc0f50c45f463c8d5eeec34caa4d3f424303014d9`;
@@ -373,7 +373,7 @@ Additional sandboxes created in this resumed round, all killed and confirmed:
 `01a13efa-18d9-7d30-b0e3-f0bc145c85e8` (9-mutant pre-filter-border runs).
 These are historical checks, not substitutes for the two final launches.
 
-Inherited task sandboxes recorded in previous workers' logs:
+Sandboxes from earlier interrupted runs (none still listed at the end):
 `01a13e49-d3ca-7723-8469-c5a62c0aaf13`,
 `01a13e81-7f3d-7530-91f7-04623e80a1f5`,
 `01a13e86-43d5-7e03-a059-ffbd2232d842`,
