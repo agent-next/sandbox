@@ -58,18 +58,21 @@ DEMO_SETUP_WALL_S="$SETUP_WALL_S" export DEMO_SETUP_WALL_S
 import hashlib, json, os, subprocess, sys
 media = sys.argv[1]
 man = []
+skip_prefixes = ("build/", "build_", "master/", "__pycache__/", "clips/")
 for root, _, files in os.walk(media):
     for f in sorted(files):
         p = os.path.join(root, f)
-        rel = os.path.relpath(p, media)
-        if rel == "MANIFEST.json":
+        rel = os.path.relpath(p, media).replace(os.sep, "/")
+        if rel == "MANIFEST.json" or rel.startswith(skip_prefixes):
             continue
-        if "/master/" in rel or rel.startswith("build/") or rel.startswith("build_"):
-            continue
-        man.append({"file": rel,
-                    "size_bytes": os.path.getsize(p),
-                    "sha256": hashlib.sha256(open(p, "rb").read()).hexdigest(),
-                    "produced_by": "media/make_media.sh"})
+        man.append({
+            "file": rel,
+            "size_bytes": os.path.getsize(p),
+            "sha256": hashlib.sha256(open(p, "rb").read()).hexdigest(),
+            "produced_by": "media/make_media.sh",
+            "source_data": "media/build/{verdict,selftest,scene_dump}.json "
+                           "+ examples/good/scene.usda + judge logs",
+        })
 json.dump({"generated_at": __import__("datetime").datetime.utcnow().isoformat()+"Z",
            "commit": subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip(),
            "files": man}, open(os.path.join(media, "MANIFEST.json"), "w"), indent=2)

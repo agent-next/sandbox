@@ -44,6 +44,8 @@ import sys
 import tempfile
 import time
 
+import numpy as np
+
 # ---------------------------------------------------------------------------
 # pinned paths (written by setup.sh; NANOUSD_RENDER_PREFIX overrides for
 # pre-provisioned environments)
@@ -81,6 +83,10 @@ FORBIDDEN_TOKENS_COMPACT = (
     "sublayers=", "inherits=", "prependinherits=", "appendinherits=",
     "variantsets=", "variantset=", "instanceable=true",
     "relmaterial:binding",
+    # SPEC "Artifact": no raw matrix xform ops (keeps both readers on the
+    # xformOp:translate/rotateXYZ/scale code path and the judge's world-xform
+    # composition simple).
+    "xformOp:transform",
 )
 SCHEMA_FORBIDDEN_PREFIXES = ("SkelRoot", "PhysicsScene", "PhysicsRigidBody")
 
@@ -202,6 +208,33 @@ def flatten_prims(record: dict):
     return out
 
 
+def world_xforms(flat: list[dict]) -> dict[str, list[float]]:
+    """Compose every prim's WORLD 4x4 (USD row-major row-vector) from the
+    nanousd C API's LOCAL transforms, honouring resetXformStack.
+
+    nanousd reports only local transforms; usd-core's GetLocalToWorldTransform
+    is already world. So that the two readers grade the SAME quantity (SPEC:
+    world transforms), walk the flat prim tree in path order, multiplying
+    each prim's local ROW-vector matrix onto its parent's world matrix.
+    resetXformStack restarts the chain at that prim. A prim with no readable
+    local transform carries the identity (xform_ok=0); the /World root's own
+    local becomes the composition base (its parent is the stage root)."""
+    world: dict[str, list[float]] = {}
+    for p in flat:
+        parent_path = p["path"].rsplit("/", 1)[0]
+        base = world.get(parent_path, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+        reset = bool(p.get("xform_reset"))
+        local = p.get("xform") if p.get("xform_ok") else None
+        M = np.array(local, float).reshape(4, 4) if local else np.eye(4)
+        B = np.array(base, float).reshape(4, 4)
+        # row-vector convention: p_world = p_local * L * W_parent, so the
+        # world matrix is L @ W_parent; a reset restarts the chain above
+        # this prim (W = L against the ancestor frame the reset starts at).
+        W = M if reset else M @ B
+        world[p["path"]] = [float(v) for v in W.ravel()]
+    return world
+
+
 # ---------------------------------------------------------------------------
 # G1/G2 checks
 
@@ -223,9 +256,9 @@ def struct_check(prims, reader: str):
     errs = []
     meshes, cameras, lights = mesh_entries(prims, reader)
 
-    if len(meshes) < 4:
-        errs.append(fail("G1", f"{reader}.too_few_meshes",
-                         f"{reader}: {len(meshes)} meshes under /World, need >= 4"))
+    if len(meshes) != 5:
+        errs.append(fail("G1", f"{reader}.mesh_count",
+                         f"{reader}: {len(meshes)} meshes under /World, need exactly 5"))
         return errs, meshes, None
     if len(cameras) < 1:
         errs.append(fail("G1", f"{reader}.no_camera",
@@ -340,7 +373,11 @@ def compare_readers(nn_flat, uc_prims):
         if worst > 1e-6:
             errs.append(fail("G2", "points_values",
                 f"{path}: points differ by {worst:.3g} between readers"))
-        # world transform (both flats are USD row-major row-vector)
+        # world transform (both flats are USD row-major row-vector). main()
+        # pre-composes each nanousd prim's WORLD matrix from the C API's local
+        # transforms (honouring resetXformStack), so both readers grade the
+        # SAME quantity (SPEC: world transforms) and a transform on /World
+        # cannot masquerade as a reader disagreement.
         d_xf = max(abs(a - b) for a, b in zip(nn["xform"], uc["xform"]))
         if d_xf > 1e-9:
             errs.append(fail("G2", "world_xform",
@@ -446,18 +483,24 @@ def main() -> int:
             setgate("G3", False, {"errors": [fail("G3", "skipped", "G1 failed")]})
             setgate("G4", False, {"errors": [fail("G4", "skipped", "G1 failed")]})
             verdict["pass"] = False
-            finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
-            return 1
+            return finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
         if "error" in uc:
             setgate("G1", False, {"errors": [fail("G1", "usdcore.open", uc["error"])]})
             setgate("G2", False, {"errors": [fail("G2", "usdcore.open", "no usd-core record")]})
             setgate("G3", False, {"errors": [fail("G3", "skipped", "G1 failed")]})
             setgate("G4", False, {"errors": [fail("G4", "skipped", "G1 failed")]})
             verdict["pass"] = False
-            finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
-            return 1
+            return finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
 
         nn_flat = flatten_prims(nn)
+        # nanousd reports LOCAL transforms; overwrite each prim's xform with
+        # its WORLD matrix composed from the ancestors' locals, so G2 (vs
+        # usd-core's already-world GetLocalToWorldTransform), G3 and G4 all
+        # grade the world quantity (SPEC G2/G4).
+        world = world_xforms(nn_flat)
+        for p in nn_flat:
+            if p.get("xform_ok"):
+                p["xform"] = world.get(p["path"], p["xform"])
         errs1, meshes, cam = struct_check(nn_flat, "nanousd")
         errs1b, uc_meshes, uc_cam = struct_check(uc["prims"], "usd-core")
         # composition arcs: parser-reported first, then the formatting-
@@ -486,8 +529,7 @@ def main() -> int:
             setgate("G3", False, {"errors": [fail("G3", "skipped", "G1/G2 failed")]})
             setgate("G4", False, {"errors": [fail("G4", "skipped", "G1/G2 failed")]})
             verdict["pass"] = False
-            finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
-            return 1
+            return finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
 
         # ---------------- G3: render -------------------------------
         out_png = None
@@ -505,14 +547,15 @@ def main() -> int:
             setgate("G4", g4["pass"], g4)
 
         verdict["pass"] = all_pass
-        finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
-        return 0 if all_pass else 1
+        return finish(args, verdict, tmpdir, judge_dir, judge_hash_before)
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def finish(args, verdict, tmpdir, judge_dir, hash_before):
-    # judge integrity: judge/ tree must be untouched by the graded run
+def finish(args, verdict, tmpdir, judge_dir, hash_before) -> int:
+    """Re-hash judge/, set integrity flag, and FAIL CLOSED if the tree
+    changed: a graded run that altered the judge is never a pass (SPEC
+    "Judge-integrity rule", README "Ask your agent")."""
     h = hashlib.sha256()
     for root, _dirs, files in sorted(os.walk(judge_dir)):
         for f in sorted(files):
@@ -521,12 +564,16 @@ def finish(args, verdict, tmpdir, judge_dir, hash_before):
             with open(fp, "rb") as fh:
                 h.update(fh.read())
     verdict["judge_integrity_ok"] = h.hexdigest() == hash_before.hexdigest()
+    ok = bool(verdict.get("pass")) and verdict["judge_integrity_ok"]
+    if not verdict["judge_integrity_ok"]:
+        verdict["pass"] = False
     verdict["timing"] = timing()
     if args.json:
         with open(args.json, "w") as fh:
             json.dump(verdict, fh, indent=2, sort_keys=True)
             fh.write("\n")
     print(json.dumps(verdict, indent=2, sort_keys=True))
+    return 0 if ok else 1
 
 
 def gate_render(art, nn_flat, cam, tmpdir, out_png=None):
@@ -549,10 +596,16 @@ def gate_render(art, nn_flat, cam, tmpdir, out_png=None):
     env["LD_LIBRARY_PATH"] = ":".join(libs + [env.get("LD_LIBRARY_PATH", "")])
     raw1 = os.path.join(tmpdir, "a.raw")
     raw2 = os.path.join(tmpdir, "b.raw")
-    p = run([RENDER_ONCE, art, camfile, raw1, raw2], env=env)
-    if p.returncode != 0:
+    rc, out, err, timed_out = _run_guarded(
+        [RENDER_ONCE, art, camfile, raw1, raw2], SUBPROC_TIMEOUT_S["render"],
+        env=env)
+    if timed_out:
+        return {"pass": False, "errors": [fail("G3", "render_timeout",
+            "renderer timed out after "
+            f"{SUBPROC_TIMEOUT_S['render']:g}s")]}, None
+    if rc != 0:
         return {"pass": False, "errors": [fail("G3", "render_failed",
-                                               p.stderr.strip()[:300])]}, None
+                                               err.strip()[:300] or out.strip()[:300])]}, None
     img = np.fromfile(raw1, dtype=np.uint8)
     if img.size != W * H * 4:
         return {"pass": False, "errors": [fail("G3", "shape",
@@ -666,12 +719,16 @@ def gate_oracle(nn_flat, cam, ctx):
             errs.append(fail("G4", "projection",
                 f"{m['path']}: too few projectable points"))
             continue
+        # store the UNCLAMPED projected rect (the oracle's own closed-form
+        # projection); on-screen area is measured against it, and only pixel
+        # sampling clamps to the frame
         rects[m["path"]] = (
-            max(0.0, float(px[ok].min())), max(0.0, float(py[ok].min())),
-            min(float(W), float(px[ok].max())), min(float(H), float(py[ok].max())))
+            float(px[ok].min()), float(py[ok].min()),
+            float(px[ok].max()), float(py[ok].max()))
         colors[m["path"]] = m["attribs"]["primvars:displayColor"][:3]
 
-    # ---- per-mesh rectangle rules
+    # ---- per-mesh rectangle rules (from the UNCLAMPED rect: a mesh pushed
+    # half off-frame must actually fail the on-screen rule)
     for path, (x0, y0, x1, y1) in rects.items():
         area = (x1 - x0) * (y1 - y0)
         if area < MIN_RECT_AREA_PX:
@@ -708,15 +765,19 @@ def gate_oracle(nn_flat, cam, ctx):
     info = {"meshes": {}}
     fits = {}
     for path, (x0, y0, x1, y1) in rects.items():
-        ix0 = int(math.ceil(x0 + (x1 - x0) * 0.25))
-        iy0 = int(math.ceil(y0 + (y1 - y0) * 0.25))
-        ix1 = int(x1 - (x1 - x0) * 0.25)
-        iy1 = int(y1 - (y1 - y0) * 0.25)
+        ix0 = int(math.floor(x0 + (x1 - x0) * 0.25))
+        iy0 = int(math.floor(y0 + (y1 - y0) * 0.25))
+        ix1 = int(math.ceil(x1 - (x1 - x0) * 0.25))
+        iy1 = int(math.ceil(y1 - (y1 - y0) * 0.25))
+        # clamp ONLY for pixel sampling; the geometry rules used the
+        # unclamped rect above
+        ix0 = max(0, min(W, ix0)); iy0 = max(0, min(H, iy0))
+        ix1 = max(0, min(W, ix1)); iy1 = max(0, min(H, iy1))
         if ix1 - ix0 < 2 or iy1 - iy0 < 2:
             errs.append(fail("G4", "inner_rect",
-                f"{path}: inner rectangle degenerate"))
+                f"{path}: inner rectangle degenerate on screen"))
             continue
-        patch = img[max(0, iy0):iy1, max(0, ix0):ix1, :3].reshape(-1, 3)
+        patch = img[iy0:iy1, ix0:ix1, :3].reshape(-1, 3)
         med = np.median(patch, axis=0) / 255.0
         med_lin = med ** 2.2                      # undo the output gamma
         own = np.array(colors[path])

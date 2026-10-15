@@ -173,7 +173,7 @@ static void dump_prim(NanousdPrim prim, int* first) {
     } else {
         for (int i = 0; i < 16; i++) printf("%s0", i ? "," : "");
     }
-    printf("],\"xform_ok\":%d,\"attribs\":{", xok);
+    printf("],\"xform_ok\":%d,\"xform_reset\":%d,\"attribs\":{", xok, reset);
     int emitted = 0;
     for (int i = 0; i < g_n_attr; i++) {
         if (!nanousd_hasattrib(prim, g_attr_names[i])) continue;

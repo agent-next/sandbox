@@ -36,11 +36,16 @@ SBX_API_KEY=<your key> python3 cookbook/nanousd-render/run.py [--ref main]
 Creates a sandbox, clones this repo, builds the pinned toolchain, runs the
 self-test (kill rate) and grades the known-good example, then kills the sandbox
 and confirms it is gone. Measured wall times are in RECEIPT.md; the big steps
-are the toolchain build (~4–5 min) and the self-test, which grades eleven
-mutants (~2 s per grade).
+are the toolchain build (~14–16 min on 2 vCPU) and the self-test, which grades
+thirteen mutants (~2 s per grade).
 
 ## Limits, stated plainly
 
+- The toolchain build is a full cmake+ninja compile of nanousd and the GLES
+  renderer, so `setup.sh` from nothing takes ~14–16 min on 2 vCPU / ~4 GB RAM
+  — above the demo standard's <5 min CPU target. Idempotent re-runs on an
+  existing prefix are ~12 s (the builds are skipped), and the extra cost is
+  the price of pinning a real C++ USD implementation rather than a pip wheel.
 - Headless CPU only: the render runs on Mesa llvmpipe (EGL pbuffer); no GPU, no
   X, no NVIDIA account, no network beyond the pinned downloads.
 - `media/make_media.sh` regenerates every figure and the video from judge

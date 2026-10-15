@@ -14,13 +14,14 @@ Mutants and the gate each must trip:
   out_of_frame       translate one mesh far off-screen     -> G4 offscreen
   recolored          one mesh's displayColor -> near copy
                      of a neighbour's                        -> G1 colors_close
-  camera_away        camera looks the wrong way             -> G4 (and G3)
+  camera_away        camera looks the wrong way             -> G3
   malformed          truncate the file mid-attribute        -> G1 nanousd.open
-  skelroot_divergence one mesh typed SkelRoot (a forbidden schema
-                     prefix)                                -> G1
+  skelroot_forbidden one mesh typed SkelRoot (a forbidden schema
+                     prefix; BOTH readers keep the prim, so G2 passes
+                     and only G1's forbidden_schema kills it) -> G1
   missing_light      the light prim is deleted              -> G1 no_light
-  too_few_points     one mesh down to 4 points              -> G1 points
-  aperture_broken    verticalAperture 20 (ratio 1.8)        -> G1 aperture_ratio
+  too_few_points     one mesh down to 3 points              -> G1 points
+  aperture_broken    verticalAperture 20.25 (ratio 1.78)    -> G1 aperture_ratio
   composite_arc      a references = line                   -> G1 forbidden_arc
   smuggled_arc       an inherits=[</Nope>] arc formatted
                      without the spaces the old text scan
@@ -29,6 +30,15 @@ Mutants and the gate each must trip:
   rects_overlap      the Cube slid right until its projected
                      rectangle overlaps the Wedge's (every
                      structural rule still holds)          -> G4 rects_overlap
+  half_offscreen     the Tetra pushed ~half its width past
+                     the right frame edge (all structural
+                     rules hold; G4's on-screen rule, measured
+                     from the unclamped rect, kills it)    -> G4 offscreen
+  nested_prim        a Scope nested under the Cylinder: the
+                     nanousd C API enumerates every prim in the
+                     stage; usd-core's /World child traversal
+                     does not descend, so the prim-PATH set
+                     under /World diverges (G2 prim_paths)  -> G2 prim_paths
 """
 
 from __future__ import annotations
@@ -61,8 +71,8 @@ def sub_once(text: str, old: str, new: str, what: str) -> str:
 def m_out_of_frame(t: str) -> str:
     # Push the tetrahedron way past the right frustum edge.
     return sub_once(
-        t, 'float3 xformOp:translate = (4.2, 0.55, 0)',
-        'float3 xformOp:translate = (60.0, 0.55, 0)', "out_of_frame")
+        t, 'float3 xformOp:translate = (2.71, 0.4, 0)',
+        'float3 xformOp:translate = (60.0, 0.4, 0)', "out_of_frame")
 
 
 def m_recolored(t: str) -> str:
@@ -88,9 +98,10 @@ def m_malformed(t: str) -> str:
 def m_skelroot_divergence(t: str) -> str:
     # A plugin schema type (SkelRoot) that is on G1's forbidden-prefix list:
     # both readers keep the prim, so no G2 divergence occurs, but the parsed
-    # type name is reported as a forbidden schema and fails G1.
+    # type name is reported as a forbidden schema and fails G1. Named
+    # skelroot_forbidden in the mutant table (it never diverges the readers).
     return sub_once(
-        t, 'def Mesh "Tetra"', 'def SkelRoot "Tetra"', "skelroot_divergence")
+        t, 'def Mesh "Tetra"', 'def SkelRoot "Tetra"', "skelroot_forbidden")
 
 
 def m_missing_light(t: str) -> str:
@@ -138,8 +149,8 @@ def m_rects_overlap(t: str) -> str:
     # it (and the inner-rect color fit, whose samples now straddle two
     # meshes).
     return sub_once(
-        t, 'float3 xformOp:translate = (-4.2, 0.6, 0)',
-        'float3 xformOp:translate = (-2.3, 0.6, 0)', "rects_overlap")
+        t, 'float3 xformOp:translate = (-2.44, 0.4, 0)',
+        'float3 xformOp:translate = (-1.5, 0.4, 0)', "rects_overlap")
 
 
 def m_smuggled_arc(t: str) -> str:
@@ -156,18 +167,45 @@ def m_smuggled_arc(t: str) -> str:
         "smuggled_arc")
 
 
+def m_half_offscreen(t: str) -> str:
+    # Slide the Tetra about half its own projected width past the right
+    # frame edge. Every structural rule still holds and both readers agree
+    # (so G1/G2 pass); only G4's on-screen rule -- measured from the
+    # UNCLAMPED projected rect -- catches it (offscreen), not a clamping
+    # artifact.
+    return sub_once(
+        t, 'float3 xformOp:translate = (2.71, 0.4, 0)',
+        'float3 xformOp:translate = (4.0, 0.4, 0)',
+        "half_offscreen")
+
+
+def m_nested_prim(t: str) -> str:
+    # Nest a Scope under the Cylinder. The nanousd C API enumerates EVERY
+    # prim in the stage (nanousd_nprims), while usd-core's /World child
+    # traversal (GetAllChildren) does not descend, so the exact prim-PATH
+    # set under /World diverges and G2 prim_paths kills it. G1 still sees
+    # a valid 5-mesh scene, so this is a genuine headline-gate kill, not a
+    # cascade.
+    return sub_once(
+        t, 'def Mesh "Cylinder"\n    {',
+        'def Mesh "Cylinder"\n    {\n        def Scope "Child"\n        {\n        }',
+        "nested_prim")
+
+
 MUTANTS = [
     ("out_of_frame", "G4", m_out_of_frame),
     ("recolored", "G1", m_recolored),
     ("camera_away", "G3", m_camera_away),
     ("malformed", "G1", m_malformed),
-    ("skelroot_divergence", "G1", m_skelroot_divergence),
+    ("skelroot_forbidden", "G1", m_skelroot_divergence),
     ("missing_light", "G1", m_missing_light),
     ("too_few_points", "G1", m_too_few_points),
     ("aperture_broken", "G1", m_aperture_broken),
     ("composite_arc", "G1", m_composite_arc),
     ("smuggled_arc", "G1", m_smuggled_arc),
     ("rects_overlap", "G4", m_rects_overlap),
+    ("half_offscreen", "G4", m_half_offscreen),
+    ("nested_prim", "G2", m_nested_prim),
 ]
 
 

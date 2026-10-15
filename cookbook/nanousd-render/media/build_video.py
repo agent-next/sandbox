@@ -102,7 +102,15 @@ def render_rgb(size, eye, target, up, fov_v_deg, cache={}):
     if img.size != size[0] * size[1] * 4:
         raise SystemExit(f"render output {img.size} bytes, "
                          f"want {size[0]*size[1]*4}")
-    im = Image.fromarray(img.reshape(size[1], size[0], 4)[:, :, :3].copy())
+    rgb = img.reshape(size[1], size[0], 4)[:, :, :3]
+    bg = rgb[3, 3].astype(int)
+    frac = float((np.abs(rgb.astype(int) - bg).max(axis=2) > 13).mean())
+    if frac < 0.01:
+        raise SystemExit(
+            f"render through {RENDER_ONCE}: only {frac*100:.2f}% of pixels "
+            f"differ from the background (broken camera matrix -> black "
+            f"frames?) -- refusing to build a video of it")
+    im = Image.fromarray(rgb.copy())
     if len(cache) > 4000:
         cache.clear()
     cache[key] = im
@@ -110,14 +118,19 @@ def render_rgb(size, eye, target, up, fov_v_deg, cache={}):
 
 
 def lookat(eye, target, up):
-    """Column-vector view matrix (p' = V @ p); USD cameras look down -Z,
-    same convention as the judge's camera_math."""
+    """Column-vector view matrix (p' = V @ p), built the way the judge's
+    camera_math builds it: the camera basis goes in the ROWS of V[:3,:3]
+    and the translation column is -basis @ eye. The renderer consumes the
+    flat row-major [r*4+c]; writing the basis in the columns transposes
+    the matrix, scatters the eye to the wrong element and lands the scene
+    behind the camera (black frames) -- see the G3 fix.
+    """
     f = normalize(np.array(target, float) - np.array(eye, float))
     r = normalize(np.cross(f, np.array(up, float)))
     u = np.cross(r, f)
     V = np.eye(4)
-    V[:3, 0], V[:3, 1], V[:3, 2] = r, u, -f
-    V[:3, 3] = -np.array([r @ eye, u @ eye, f @ eye], float)
+    V[:3, :3] = np.array([r, u, -f])
+    V[:3, 3] = V[:3, :3] @ -np.array(eye, float)
     return V
 
 
@@ -195,15 +208,44 @@ def project_rects(meshes, view, proj, size):
 # ------------------------------------------------------------------ drawing
 
 def caption(img: Image.Image, text: str, y=None) -> None:
-    """Burn a caption with a scrim; 72 px bold, cap height ~53 px."""
+    """Burn a caption with a scrim; 72 px bold (cap height ~53 px = 4.9% of
+    1080). Wraps long lines to two so no caption ever clips at the frame
+    edges -- the earlier single-line draw at 72 px overflowed the 1920 px
+    frame and both ends were cut (review finding 2). The measured text
+    width comes from the font's own advance table, padded by a half-cap
+    margin each side."""
     f = font("bold", CAPTION_PX)
     d = ImageDraw.Draw(img, "RGBA")
-    tw = d.textlength(text, font=f)
-    x = (W - tw) / 2
+    pad = CAPTION_PX // 2
+    lines = wrap(d, text, f, W - 2 * pad)
     y = (H - 170) if y is None else y
-    d.rectangle([x - 44, y - 26, x + tw + 44, y + CAPTION_PX + 26],
+    lh = int(CAPTION_PX * 1.24)
+    box_h = lh * len(lines) + 2 * pad
+    tw = max(d.textlength(ln, font=f) for ln in lines)
+    x = (W - tw) / 2
+    d.rectangle([x - pad, y - pad, x + tw + pad, y + box_h - pad],
                 fill=(*SCRIM, 215))
-    d.text((x, y), text, font=f, fill=INK)
+    yy = y
+    for ln in lines:
+        lx = (W - d.textlength(ln, font=f)) / 2
+        d.text((lx, yy), ln, font=f, fill=INK)
+        yy += lh
+
+
+def wrap(d, text, f, max_w):
+    """Word-wrap text to the widest lines that fit max_w (pixels)."""
+    words = text.split()
+    lines, cur = [], ""
+    for w_ in words:
+        trial = (cur + " " + w_).strip()
+        if d.textlength(trial, font=f) <= max_w or not cur:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = w_
+    if cur:
+        lines.append(cur)
+    return lines
 
 
 def badge(img, text, xy, size=46, fill=(255, 205, 60), ink=(16, 18, 22)) -> None:
@@ -359,7 +401,7 @@ def terminal_scroll(lines, pt=MONO_PX, width=1560):
     return img, lh
 
 
-def shot_terminal(n, setup_lines, selftest_lines, speed_label):
+def shot_terminal(n, setup_lines, selftest_lines, speed_label, selftest):
     """T['term'] - T['proof']: real log scrolling, cropped/zoomed."""
     lines = setup_lines + [""] + selftest_lines
     scroll, lh = terminal_scroll(lines)
@@ -375,14 +417,17 @@ def shot_terminal(n, setup_lines, selftest_lines, speed_label):
             crop = crop.resize((1780, int(win_h * 1780 / 1560)), Image.LANCZOS)
             img = Image.new("RGB", (W, H), (8, 10, 13))
             img.paste(crop, (70, 60))
-            badge(img, speed_label, (70, 60 + crop.size[1] + 26), size=54)
+            # badge floats over the terminal's top-right corner, well clear
+            # of the caption scrim at the bottom of the frame
+            badge(img, speed_label, (W - 620, 40), size=54)
             caption(img, "Pinned toolchain built from sha256-checked source in a sandbox")
         else:
             img = Image.new("RGB", (W, H), (236, 240, 246))
             d = ImageDraw.Draw(img)
             d.text((92, 200), "verdict: pass  (all gates true)", font=font("bold", 60),
                    fill=(20, 22, 28))
-            d.text((92, 300), "mutants: 11 / 11 killed by a named gate",
+            d.text((92, 300), f"mutants: {selftest['mutants_killed']} / "
+                              f"{selftest['mutants_total']} killed by a named gate",
                    font=font("bold", 44), fill=(20, 22, 28))
         yield img
 
@@ -493,7 +538,8 @@ def frames():
     yield from shot_orbit(meshes, cam_attribs,
                           fr(T["orbit"], T["rects"]), fr(T["rects"], T["term"]), with_rects=True)
     yield from shot_terminal(fr(T["term"], T["proof"]),
-                             setup_lines, selftest_lines, speed_label)
+                             setup_lines, selftest_lines, speed_label,
+                             selftest)
     yield from shot_proof(fr(T["proof"], T["end"]), verdict, selftest)
     yield from shot_end(fr(T["end"], T["stop"]),
                         "python3 cookbook/nanousd-render/run.py")

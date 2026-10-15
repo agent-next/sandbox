@@ -66,42 +66,61 @@ def build_result() -> None:
     d = ImageDraw.Draw(img, "RGBA")
 
     # -- left panel: the graded render with the pass line on it
-    px, py, pad = 60, 150, 20
-    rw = 1520
-    rh = int(rw * render.size[1] / render.size[0])       # 4:3 -> 1140
+    # Left margin leaves room for the y-axis tick labels (measured: a 3-digit
+    # mono-30 label is ~60 px wide, and the gridline carriage is 26 px).
+    px, py, pad = 150, 150, 20
+    rw = 1490
+    rh = int(rw * render.size[1] / render.size[0])       # 4:3 -> 1118
     big = render.resize((rw, rh), Image.LANCZOS)
     img.paste(big, (px + pad, py + pad))
     d.rectangle([px, py, px + pad * 2 + rw, py + pad * 2 + rh],
                 outline=(70, 78, 90), width=2)
 
     # oracle rectangles (the pass line), scaled from the 640x480 grade frame
-    f_lab = font("bold", 40)
+    s = rw / 640.0
+    f_lab = font("bold", 38)
+    render_right = px + pad + rw
     for i, (path, m) in enumerate(sorted(g4.items())):
         col = rgb(OI[i % len(OI)])
         x0, y0, x1, y1 = m["rect"]
-        s = rw / 640.0
         box = [px + pad + x0 * s, py + pad + y0 * s,
                px + pad + x1 * s, py + pad + y1 * s]
         for off in (-4, 4):
             d.rectangle([box[0] + off, box[1] + off, box[2] - off, box[3] - off],
                         outline=col, width=5)
         name = path.rsplit("/", 1)[-1]
-        d.text((box[0] + 10, max(py + pad, box[1] - 58)),
-               f"{name}  k={m['illuminance_k']:.2f}", font=f_lab,
+        # the label must stay inside the render panel: a mesh flush against
+        # the right frame edge (the Tetra sits at x=640) must not spill its
+        # label under the verdict panel beside it
+        tw = d.textlength(f"{name}  k={m['illuminance_k']:.2f}", font=f_lab)
+        lx = min(box[0] + 10, render_right - tw - 8)
+        ly = max(py + pad, box[1] - 58)
+        d.text((lx, ly), f"{name}  k={m['illuminance_k']:.2f}", font=f_lab,
                fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
 
     # axes around the render (the oracle's pixel space), with units
-    fa = font("mono", 30)
+    fa = font("mono", 28)
     for xv in range(0, 641, 160):
         X = px + pad + xv * s
         d.line([X, py + pad + rh + 10, X, py + pad + rh + 26], fill=(120, 128, 140), width=2)
         d.text((X - 24, py + pad + rh + 32), f"{xv}", font=fa, fill=MUTED)
-    d.text((px + pad + rw // 2 - 150, py + pad + rh + 76),
+    d.text((px + pad + rw // 2 - 160, py + pad + rh + 76),
            "projected pixel x (px, 640-wide grade frame)", font=fa, fill=MUTED)
     for yv in range(0, 481, 120):
         Y = py + pad + yv * (rh / 480.0)
         d.line([px + pad - 26, Y, px + pad - 10, Y], fill=(120, 128, 140), width=2)
-        d.text((px + pad - 100, Y - 16), f"{yv}", font=fa, fill=MUTED)
+        d.text((px + pad - 96, Y - 16), f"{yv}", font=fa, fill=MUTED)
+    # rotated y-axis caption ("projected pixel y"), rendered on its own
+    # image so it can be rotated 90 degrees beside the axis
+    ylab = "projected pixel y (px)"
+    lb = font("mono", 28).getbbox(ylab)
+    lw, lh = lb[2] - lb[0], lb[3] - lb[1]
+    li = Image.new("RGBA", (lw + 40, lh + 20), (0, 0, 0, 0))
+    ImageDraw.Draw(li).text((20 - lb[0], 10 - lb[1]), ylab, font=font("mono", 28),
+                            fill=(*MUTED, 255))
+    li = li.rotate(90, expand=True)
+    img.paste(li, (px - 40 - li.size[0], py + pad + rh // 2 - li.size[1] // 2),
+              li)
 
     # -- right panel: the verdict numbers
     qx = px + pad * 2 + rw + 46
@@ -116,7 +135,7 @@ def build_result() -> None:
     y += 66
     for g in ("G1", "G2", "G3", "G4"):
         info = verdict["gates"][g]
-        extra = f"  rendered_frac {info['rendered_frac']}" \
+        extra = f"  r_frac {info['rendered_frac']}" \
             if "rendered_frac" in info else ""
         d.text((qx + 30, y), f"{g}: {str(info['pass']).lower()}{extra}",
                font=font("mono", 36), fill=PASS)
@@ -125,30 +144,39 @@ def build_result() -> None:
     d.text((qx + 30, y), "G4 oracle per mesh", font=font("bold", 38), fill=INK)
     y += 56
     # legend: authored colour chip + measured k and deviation
+    # The verdict panel is ~614 px wide; three fixed columns at mono-34
+    # collide (a 10-char name already reaches the k column), so use mono-28
+    # and stack name/k/dev on one line within the panel width.
+    fleg = font("mono", 28)
     for i, (path, m) in enumerate(sorted(g4.items())):
         col = rgb(OI[i % len(OI)])
         d.rectangle([qx + 30, y + 6, qx + 62, y + 38], fill=col)
         name = path.rsplit("/", 1)[-1]
-        d.text((qx + 76, y), f"{name:<12}", font=font("mono", 34), fill=INK)
-        d.text((qx + 300, y), f"k={m['illuminance_k']:.3f}",
-               font=font("mono", 34), fill=INK)
-        d.text((qx + 480, y), f"dev={m['own_dev']:.3f}",
-               font=font("mono", 34), fill=INK)
-        y += 50
+        d.text((qx + 76, y), name, font=fleg, fill=INK)
+        tw = d.textlength(name, font=fleg)
+        d.text((qx + 76 + tw + 18, y), f"k={m['illuminance_k']:.3f}",
+               font=fleg, fill=INK)
+        d.text((qx + 76 + 330, y), f"dev={m['own_dev']:.3f}",
+               font=fleg, fill=INK)
+        y += 44
     y += 14
     d.text((qx + 30, y), f"judge_integrity_ok: "
                          f"{str(verdict['judge_integrity_ok']).lower()}",
            font=font("mono", 34), fill=INK)
 
-    # -- title + provenance footer
-    d.text((60, 44), "nanousd-render - two USD implementations agree, "
+    # -- title + provenance footer (footer is two lines so neither clips
+    # at the 2400 px frame edge -- review finding: the single-line footer
+    # overflowed the right edge)
+    d.text((80, 44), "nanousd-render - two USD implementations agree, "
                      "and a CPU render proves it",
            font=font("bold", 54), fill=INK)
-    d.text((60, PH - 64),
+    d.text((80, PH - 100),
            "judge/grade.sh examples/good/scene.usda --seed 0 "
-           "--json media/build/verdict.json  |  render: pinned "
-           "nanousd OpenGL ES renderer on llvmpipe  |  rectangles: G4 "
-           "numpy pinhole oracle",
+           "--json media/build/verdict.json",
+           font=font("mono", 27), fill=MUTED)
+    d.text((80, PH - 62),
+           "render: pinned nanousd OpenGL ES renderer on llvmpipe   |   "
+           "rectangles: G4 numpy pinhole oracle",
            font=font("mono", 27), fill=MUTED)
 
     img.save(os.path.join(HERE, "result.png"), dpi=(DPI, DPI))
@@ -164,8 +192,11 @@ def edit(text, old, new, what):
 
 
 # Iterations of the agent loop: real single-edit artifacts, graded for
-# real. Each edit undoes one fix from the known-good scene, so the loop
-# replays the authoring history backwards (error -> error -> error -> pass).
+# real. Each edit is one regression against the current known-good scene
+# (patterns are validated against the committed example, so a changed
+# layout fails the build instead of silently no-op'ing the loop): three
+# failing iterations, then the graded scene. Every bar is a real
+# `grade.sh` run's verdict.
 def iteration_files(outdir):
     good = open(GOOD, encoding="utf-8").read()
     its = [
@@ -177,15 +208,11 @@ def iteration_files(outdir):
         ("camera off", edit(good, "float3 xformOp:rotateXYZ = (-18, 0, 0)",
                             "float3 xformOp:rotateXYZ = (85, 0, 0)",
                             "camera off")),
-        ("overlapping", edit(good, "float3 xformOp:translate = (-4.2, 0.6, 0)",
-                             "float3 xformOp:translate = (-2.3, 0.6, 0)",
-                             "overlapping")),
-        ("sub 12 points", edit(good, "float3 xformOp:translate = (4.2, 0.55, 0)",
-                               "float3 xformOp:translate = (4.2, 0.55, 0)",
-                               "noop")),
+        ("meshes overlap", edit(good, "float3 xformOp:translate = (-2.44, 0.4, 0)",
+                                "float3 xformOp:translate = (-1.5, 0.4, 0)",
+                                "meshes overlap")),
+        ("graded scene", good),
     ]
-    # iteration 4 is the unmodified good scene (the pass)
-    its[3] = ("graded scene", good)
     paths = []
     for i, (name, text_) in enumerate(its, 1):
         p = os.path.join(outdir, f"iter{i}.usda")
@@ -230,19 +257,25 @@ def build_loop() -> None:
     d.rectangle([x0, y0, x0 + w, y0 + h], fill=PANEL, outline=(70, 78, 90))
     d.text((x0 + 24, y0 + 18), "gates passed per iteration (1 = one grade run)",
            font=font("bold", 36), fill=INK)
-    step = (w - 160) / max(1, len(history) - 1)
-    base_y = y0 + h - 90
+    # plot area leaves an x gutter for the 0-4 y labels and a y gutter for
+    # the per-iteration captions below the axis
+    plot_x0, plot_x1 = x0 + 190, x0 + w - 40
+    plot_y0, plot_y1 = y0 + 100, y0 + h - 90
+    step = (plot_x1 - plot_x0) / max(1, len(history) - 1)
     for gy in range(5):
-        Y = base_y - gy * 62
-        d.line([x0 + 120, Y, x0 + w - 40, Y], fill=(50, 56, 66), width=1)
-        d.text((x0 + 64, Y - 18), str(gy), font=font("mono", 28), fill=MUTED)
+        Y = plot_y1 - gy * 62
+        d.line([plot_x0, Y, plot_x1, Y], fill=(50, 56, 66), width=1)
+        d.text((plot_x0 - 60 - len(str(gy)) * 10, Y - 18), str(gy),
+               font=font("mono", 28), fill=MUTED)
     for i, it in enumerate(history):
-        X = x0 + 120 + i * step
+        X = plot_x0 + i * step
         col = PASS if it["pass"] else FAILC
-        top = base_y - (4 - it["nfail"]) * 62
-        d.rectangle([X - 52, top, X + 52, base_y], fill=col)
-        d.text((X - 120, base_y + 16), f"it{i+1}: {it['name']}",
-               font=font("mono", 27), fill=INK)
+        top = plot_y1 - (4 - it["nfail"]) * 62
+        d.rectangle([X - 52, top, X + 52, plot_y1], fill=col)
+        label = f"it{i+1}: {it['name']}"
+        lab_w = d.textlength(label, font=font("mono", 27))
+        lx = min(max(X - lab_w / 2, plot_x0), plot_x1 - lab_w)
+        d.text((lx, plot_y1 + 16), label, font=font("mono", 27), fill=INK)
         d.text((X - 52, top - 38), "PASS" if it["pass"] else it["failed"],
                font=font("monobold", 27), fill=col)
 

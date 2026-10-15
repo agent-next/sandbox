@@ -38,7 +38,9 @@ One USDA file (the file graded by `judge/grade.sh <artifact>`), containing:
 
 - **Meshes**: exactly 5 `def "Mesh"` prims directly under `/World`
   (`/World/Cube`, `/World/Wedge`, `/World/Cylinder`, `/World/Octahedron`,
-  `/World/Tetra` in the known-good example; the names are free), each with:
+  `/World/Tetra` in the known-good example; the names are free) and **no
+  other prims beneath them** (nested prims break the readers' traversal
+  agreement — see G2's prim-path set), each with:
   - authored `point3f[] points` with ≥ 12 points,
   - `int[] faceVertexCounts` and `int[] faceVertexIndices` describing a
     closed triangle or quad shell,
@@ -74,12 +76,14 @@ All gates numeric and deterministic; exit 0 only if all pass. `--seed` is
 accepted for interface uniformity (nothing in this judge is random).
 
 - **G1 structure (both readers)**: nanousd's C API *and* usd-core open the
-  file with no errors; both see ≥ 4 `Mesh` prims under `/World`, ≥ 1
-  qualifying `Camera`, ≥ 1 qualifying light; every mesh meets the
-  point-count, color-brightness and pairwise-color-distance rules; the
-  camera meets the authored-intrinsics and 4:3 aperture rules; no forbidden
-  composition arc or property is authored. All 5 meshes meet every
-  structural rule under both readers (fail closed on divergence).
+  file with no errors; both see **exactly 5** `Mesh` prims under `/World`
+  whose paths all start there and have no children, ≥ 1 qualifying
+  `Camera`, ≥ 1 qualifying light; every mesh meets the point-count,
+  color-brightness and pairwise-color-distance rules; the camera meets the
+  authored-intrinsics and 4:3 aperture rules; no forbidden composition arc
+  or property is authored (including raw `xformOp:transform` ops). All 5
+  meshes meet every structural rule under both readers (fail closed on
+  divergence).
   Composition arcs and plugin schemas are rejected **as the parsers report
   them** (the usd-core dumper lists Sdf arc fields and prim types), plus a
   second text net with comments stripped and all whitespace removed — a
@@ -91,25 +95,33 @@ accepted for interface uniformity (nothing in this judge is random).
   graded mesh, nanousd and usd-core must agree on
   - prim path: **exact** string equality of the mesh path sets;
   - point count: **exact** integer equality;
-  - world 4×4 transform: max |Δ| ≤ **1e-9** per entry (both computed by the
-    judge from each reader's resolved local transforms);
+  - **world** 4×4 transform: max |Δ| ≤ **1e-9** per entry. The nanousd C
+    API reports only *local* transforms, so the judge walks the prim tree
+    and composes each prim's world matrix from its ancestors' locals
+    (honouring `resetXformStack`); usd-core's `GetLocalToWorldTransform`
+    is already world. Both sides therefore grade the same quantity — a
+    transform authored on `/World` itself cannot masquerade as a reader
+    disagreement;
   - world bounding box (judge-computed from each reader's own resolved
     `points` and world transform): max |Δ| ≤ **1e-6** per coordinate.
   The camera's world transform and authored intrinsics must also agree
   ≤ 1e-9.
 - **G3 headless render**: the nanousd OpenGL ES renderer, on llvmpipe
   (EGL pbuffer, no X, no GPU), renders the scene at **640×480** RGBA8 twice
-  (to prove byte-determinism) with a judge-supplied camera derived from the
-  artifact's camera (eye/fov from the file; a fixed cannonical aim-at-scene
-  up-vector convention), and writes one PNG. The image must decode, be
-  640×480, and ≥ 1 % of pixels must differ from the corner background pixel
-  by > 0.05 per channel.
+  (to prove byte-determinism) with a judge-supplied view/proj pair derived
+  from the artifact's camera (eye, up and fov from the file's world
+  transform and authored intrinsics), and writes one PNG. The image must
+  decode, be 640×480, and ≥ 1 % of pixels must differ from the corner
+  background pixel by > 0.05 per channel.
 - **G4 projection oracle (independent numpy math)**: from the camera's world
   transform and authored intrinsics the judge projects every graded mesh's
   world bbox corners through its own pinhole model (no USD code) to a
   pixel-space axis-aligned rectangle, and requires
   - per mesh: rectangle area ≥ **400 px²** and ≥ 90 % of the rectangle is
-    on-screen (kills off-frame meshes and a camera pointed away);
+    on-screen. The rectangle and its area are measured from the **unclamped**
+    projection (the oracle's own closed-form math), so a mesh slid half its
+    width past the frame edge genuinely fails — no clamping artifact can
+    hide it (kills off-frame meshes and a camera pointed away);
   - pairwise: rectangle overlap ≤ **10 %** of the smaller area (the layout
     rule, re-measured by the judge's own math);
   - per mesh, a **color-proportionality fit** on the inner rectangle (the
@@ -147,11 +159,14 @@ accepted for interface uniformity (nothing in this judge is random).
 - ≥ 5 known-bad single-edit mutants, generated by `judge/mutants.py`, each
   fail ≥ 1 gate — including: a mesh translated out of frame, a mesh
   recolored to a near-duplicate of another, a camera rotated to look away,
-  a malformed (syntax-broken) file, a prim typed with a schema one reader
-  knows and the other silently drops (`SkelRoot`: usd-core reads it as a
-  prim under `/World`, nanousd does not, so G2's prim-path sets diverge),
-  and a composition arc smuggled in without the spaces a text-only scan
-  matches (the forge-a-pass cheat; the parser-reported arc check kills it).
+  a malformed (syntax-broken) file, a prim typed `SkelRoot` (a forbidden
+  plugin schema: **both** readers keep the prim, so G2 passes and G1's
+  forbidden-schema rule kills it), a prim **nested** under one of the five
+  meshes (nanousd's C API enumerates every prim in the stage; usd-core's
+  `/World` child traversal does not descend, so the exact prim-path set
+  under `/World` diverges and G2's `prim_paths` kills it), and a
+  composition arc smuggled in without the spaces a text-only scan matches
+  (the forge-a-pass cheat; the parser-reported arc check kills it).
 - **A kill counts only when a judge gate fails**: grade.sh exits non-zero
   *and* the verdict JSON parses *and* at least one gate has `pass: false`.
   A non-zero exit with no gate verdict is a crash, not a kill, and fails
