@@ -1,95 +1,74 @@
 #!/usr/bin/env python3
 """sbx-mcp-tools: a small stdio MCP server that hosts four tools.
 
-The server speaks MCP over stdio (one JSON-RPC 2.0 message per line) using
-the official ``mcp`` Python SDK.  It is fully self-contained: the sqlite
-database and the sample workspace it uses by default are embedded below and
-materialised into a temporary directory on first use, so the file runs from
-any working directory with no arguments.
+The server speaks MCP over stdio using the official ``mcp`` Python SDK
+(FastMCP).  It is the known-good artifact for the mcp-tools-host demo.
+
+Workspace contract
+------------------
+The host launches the server with its working directory set to the
+workspace the tools are allowed to touch.  Every tool that takes a
+path (``root`` for file_search, ``db_path`` for sqlite_query) resolves
+it and refuses — by raising a tool error (MCP ``isError: true``),
+never by returning data from outside — any path that escapes that
+workspace, whether by absolute path or by ``..`` components.  The
+server never writes to stdout (that would corrupt the JSON-RPC
+protocol stream) and never exits on bad input: it raises a tool error
+and keeps answering.
 
 Tools
 -----
-``sqlite_query(query, db_path="")``
-    Run one read-only SQL statement and return ``{"columns", "rows"}``.
-``file_search(pattern, root="")``
-    Return files under ``root`` whose path contains ``pattern``
-    (case-insensitive); every returned path stays inside ``root``.
-``convert(value, from_unit, to_unit)``
-    Convert between length/mass units with a multiplicative factor table.
+``sqlite_query(query, db_path)``
+    Run one read-only SQL SELECT and return ``{"columns", "rows"}``.
+``file_search(pattern, root)``
+    Return files under ``root`` whose relative path or text content
+    contains ``pattern`` (case-insensitive), as posix paths relative
+    to ``root``, sorted.
+``unit_convert(value, from_unit, to_unit)``
+    Convert between units of one physical dimension (length, mass,
+    temperature) using exact decimal factors (temperature affinely).
 ``calculate(expression)``
-    Evaluate a pure-arithmetic expression (no names, no calls).
-
-Every tool returns a single JSON object.  Invalid input is reported as data
-(``{"error": ...}``), never by crashing the server.
+    Evaluate pure arithmetic (+ - * / // % ** and parentheses, unary
+    minus, no names or calls) with a small AST-walking parser.
 """
 
 from __future__ import annotations
 
 import ast
-import json  # noqa: F401  (kept for debugging; tools return plain dicts)
-import math
+import os
 import sqlite3
-import sys
-import tempfile
+import urllib.parse
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-__version__ = "1.0.0"
-
 SERVER_NAME = "sbx-mcp-tools"
 
-# ---------------------------------------------------------------------------
-# Bundled data (materialised to a temp dir on first use; the judge always
-# passes its own db_path/root, this only makes the defaults standalone).
-# ---------------------------------------------------------------------------
-
-BUNDLED_DB_SQL = """
-CREATE TABLE sensors(
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    value REAL NOT NULL,
-    unit TEXT NOT NULL
-);
-INSERT INTO sensors(name, value, unit) VALUES
-    ('alpha', 12.5, 'C'),
-    ('beta', -3.25, 'C'),
-    ('gamma', 40.0, 'F'),
-    ('delta', 0.0, 'K'),
-    ('epsilon', 99.75, 'C');
-"""
-
-BUNDLED_FILES = {
-    "README.md": "# sample workspace\nUsed by the file_search default root.\n",
-    "data/sample.csv": "x,y\n1,2\n3,4\n",
-    "notes/todo.txt": "finish the demo\n",
-}
-
-_bundled_dir: Path | None = None
-
-
-def _bundled_dir() -> Path:
-    """Materialise the embedded db + workspace into a private temp dir."""
-    global _bundled_dir
-    if _bundled_dir is None:
-        _bundled_dir = Path(tempfile.mkdtemp(prefix="sbx-mcp-tools-"))
-        db = _bundled_dir / "app.db"
-        db.write_text("")  # touch so connect() creates a fresh file
-        con = sqlite3.connect(db)
-        try:
-            con.executescript(BUNDLED_DB_SQL)
-            con.commit()
-        finally:
-            con.close()
-        for rel, text in BUNDLED_FILES.items():
-            f = _bundled_dir / "workspace" / rel
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_text(text)
-    return _bundled_dir
+mcp = FastMCP(SERVER_NAME)
 
 
 # ---------------------------------------------------------------------------
-# Unit conversion (multiplicative factors to the base unit: m, kg).
+# Workspace containment: paths must resolve inside the server's working
+# directory (the workspace the host gave it at launch).
+# ---------------------------------------------------------------------------
+
+def _resolve_inside(raw: str, what: str) -> Path:
+    """Resolve ``raw`` and refuse anything outside the launch workspace."""
+    base = Path.cwd().resolve()
+    target = Path(raw)
+    if not target.is_absolute():
+        target = base / target
+    target = target.resolve()
+    if target != base and base not in target.parents:
+        raise PermissionError(
+            f"{what} must stay inside the workspace ({base}); refused: {raw}"
+        )
+    return target
+
+
+# ---------------------------------------------------------------------------
+# Unit conversion: multiplicative factors to the base unit (m, kg);
+# temperature converts affinely through degrees Celsius.
 # ---------------------------------------------------------------------------
 
 UNIT_FACTORS: dict[str, dict[str, float]] = {
@@ -110,6 +89,23 @@ UNIT_FACTORS: dict[str, dict[str, float]] = {
     },
 }
 
+
+def _convert(value: float, from_unit: str, to_unit: str) -> float:
+    src, dst = from_unit.lower(), to_unit.lower()
+    for table in UNIT_FACTORS.values():
+        if src in table and dst in table:
+            return value * table[src] / table[dst]
+    if src in ("c", "f", "k") and dst in ("c", "f", "k"):
+        celsius = {"c": value, "f": (value - 32.0) * 5.0 / 9.0,
+                   "k": value - 273.15}[src]
+        return {"c": celsius, "f": celsius * 9.0 / 5.0 + 32.0,
+                "k": celsius + 273.15}[dst]
+    known = sorted({u for t in UNIT_FACTORS.values() for u in t} |
+                   {"c", "f", "k"})
+    raise ValueError(f"unknown or mismatched units {from_unit!r} -> "
+                     f"{to_unit!r} (known: {', '.join(known)})")
+
+
 # ---------------------------------------------------------------------------
 # Safe arithmetic: parse to an AST, walk it with no names/calls/builtins.
 # ---------------------------------------------------------------------------
@@ -121,7 +117,7 @@ _BIN_OPS = {
     ast.Div: lambda a, b: a / b,
     ast.FloorDiv: lambda a, b: a // b,
     ast.Mod: lambda a, b: a % b,
-    ast.Pow: lambda a, b: a**b,
+    ast.Pow: lambda a, b: a ** b,
 }
 
 
@@ -143,106 +139,118 @@ def _safe_eval(node: ast.AST) -> float:
 
 
 # ---------------------------------------------------------------------------
-# The server itself.
+# The four tools.
 # ---------------------------------------------------------------------------
 
-mcp = FastMCP(SERVER_NAME)
-
-
 @mcp.tool()
-def sqlite_query(query: str, db_path: str = "") -> dict:
-    """Run one read-only SQL statement and return columns and rows.
+def sqlite_query(query: str, db_path: str) -> dict:
+    """Run one read-only SQL SELECT against an SQLite database file.
 
-    Returns {"columns": [...], "rows": [[...], ...]} on success or
-    {"error": "..."} for anything invalid (missing file, bad SQL,
-    more than one statement).  Never raises across the MCP boundary.
+    ``db_path`` must point inside the server's workspace.  Returns
+    ``{"columns": [...], "rows": [[...], ...]}`` on success.  Anything
+    invalid (missing file, bad SQL, non-SELECT statement, path outside
+    the workspace) raises a tool error (``isError: true``).
     """
     try:
-        path = Path(db_path) if db_path else _bundled_dir() / "app.db"
-        uri = "file:" + path.as_posix() + "?mode=ro"
+        path = _resolve_inside(db_path, "db_path")
+        q = query.strip()
+        if q.endswith(";"):  # one optional trailing terminator is fine
+            q = q[:-1].strip()
+        if ";" in q:
+            raise ValueError("exactly one statement, no ';' chaining")
+        if not q.lower().startswith("select"):
+            raise ValueError("only a single read-only SELECT is supported")
+        uri = "file:" + urllib.parse.quote(str(path)) + "?mode=ro"
         con = sqlite3.connect(uri, uri=True)
         try:
-            cur = con.execute(query)  # one statement only, read-only
+            cur = con.execute(q)  # read-only connection, one statement
             columns = [d[0] for d in cur.description] if cur.description else []
             rows = [list(r) for r in cur.fetchall()]
         finally:
             con.close()
         return {"columns": columns, "rows": rows}
-    except Exception as exc:  # reported as data; the server must survive
-        return {"error": f"{type(exc).__name__}: {exc}"}
-
-
-@mcp.tool()
-def file_search(pattern: str, root: str = "") -> dict:
-    """Return files under root whose path contains pattern (case-insensitive).
-
-    Every match is a posix path relative to root; matches outside root are
-    never returned.  Returns {"matches": [{"path": ...}, ...]} sorted, or
-    {"error": "..."} for an unusable root.
-    """
-    try:
-        base = Path(root) if root else _bundled_dir() / "workspace"
-        base_resolved = base.resolve()
-        if not base.is_dir():
-            return {"error": f"NotADirectoryError: {base}"}
-        needle = pattern.lower()
-        matches = []
-        for p in base.rglob("*"):
-            if not p.is_file():
-                continue
-            rel = p.relative_to(base_resolved).as_posix()
-            if needle in rel.lower():
-                matches.append({"path": rel})
-        matches.sort(key=lambda m: m["path"])
-        return {"matches": matches}
     except Exception as exc:
-        return {"error": f"{type(exc).__name__}: {exc}"}
+        # A clean refusal: raise so the SDK reports isError=true; the
+        # server itself survives and keeps answering.
+        raise ValueError(f"{type(exc).__name__}: {exc}") from exc
 
 
 @mcp.tool()
-def convert(value: float, from_unit: str, to_unit: str) -> dict:
-    """Convert value between length/mass units (multiplicative factors).
+def file_search(pattern: str, root: str) -> dict:
+    """List files under ``root`` whose relative path or content matches.
 
-    Returns {"result": number, "unit": to_unit} or {"error": "..."}.
+    ``root`` must point inside the server's workspace; a path that
+    escapes it raises a tool error (``isError: true``).  A file matches
+    when its path relative to ``root`` or its text content contains
+    ``pattern`` (case-insensitive).  Returns ``{"matches": [{"path":
+    ...}, ...]}`` with posix paths relative to ``root``, sorted.
     """
     try:
-        family = None
-        for fam, table in UNIT_FACTORS.items():
-            if from_unit in table and to_unit in table:
-                family = fam
-                break
-        if family is None:
-            known = sorted({u for t in UNIT_FACTORS.values() for u in t})
-            return {"error": f"unknown unit: {from_unit!r} or {to_unit!r} "
-                             f"(known: {', '.join(known)})"}
-        result = value * UNIT_FACTORS[family][from_unit] / UNIT_FACTORS[family][to_unit]
+        base = _resolve_inside(root, "root")
+        if not base.is_dir():
+            raise NotADirectoryError(root)
+        needle = pattern.lower()
+        hits = []
+        for dirpath, _dirnames, filenames in os.walk(base):
+            for fname in filenames:
+                full = Path(dirpath) / fname
+                rel = full.relative_to(base).as_posix()
+                if needle in rel.lower():
+                    hits.append(rel)
+                    continue
+                try:
+                    text = full.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    continue  # unreadable file: not a match, not an error
+                if needle in text.lower():
+                    hits.append(rel)
+        hits.sort()
+        return {"matches": [{"path": h} for h in hits]}
+    except Exception as exc:
+        # A clean refusal: raise so the SDK reports isError=true; the
+        # server itself survives and keeps answering.
+        raise ValueError(f"{type(exc).__name__}: {exc}") from exc
+
+
+@mcp.tool()
+def unit_convert(value: float, from_unit: str, to_unit: str) -> dict:
+    """Convert ``value`` between units of one physical dimension.
+
+    Length (m, km, cm, mm, mi, ft, in), mass (kg, g, lb, oz) and
+    temperature (C, F, K) are supported.  Returns ``{"result": number,
+    "unit": to_unit}``; unknown units or a dimension mismatch raise a
+    tool error (``isError: true``).
+    """
+    try:
+        result = _convert(value, from_unit, to_unit)
         return {"result": result, "unit": to_unit}
     except Exception as exc:
-        return {"error": f"{type(exc).__name__}: {exc}"}
+        # A clean refusal: raise so the SDK reports isError=true.
+        raise ValueError(f"{type(exc).__name__}: {exc}") from exc
 
 
 @mcp.tool()
 def calculate(expression: str) -> dict:
-    """Evaluate a pure-arithmetic expression (+ - * / // % **, parentheses).
+    """Evaluate one arithmetic expression safely (no eval of code).
 
-    Names, calls and any non-numeric construct are refused.  Returns
-    {"result": number} or {"error": "..."}.  Never raises across the MCP
-    boundary.
+    Accepts + - * / // % ** ( ), numbers and unary minus; names, calls
+    and any other construct are refused.  Returns ``{"result": number}``;
+    malformed input or division by zero raise a tool error
+    (``isError: true``).
     """
     try:
         tree = ast.parse(expression, mode="eval")
         return {"result": _safe_eval(tree)}
-    except ZeroDivisionError:
-        return {"error": "ZeroDivisionError: division by zero"}
     except Exception as exc:
-        return {"error": f"{type(exc).__name__}: {exc}"}
+        # Malformed input, forbidden constructs, division by zero: a
+        # clean tool error (isError: true), never a crash.
+        raise ValueError(f"{type(exc).__name__}: {exc}") from exc
 
 
 def main() -> int:
-    print(f"{SERVER_NAME} v{__version__} starting on stdio", file=sys.stderr)
-    mcp.run()
+    mcp.run()  # stdio transport; never writes to stdout
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
