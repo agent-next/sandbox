@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -27,6 +28,14 @@ import time
 
 REPO_URL = "https://github.com/agent-next/sandbox"
 DEMO = "cookbook/nanousd-render"
+
+# `sbx exec` waits at most --timeout s for a result; the 60 s default is
+# far under the toolchain build, so every step names its own budget.
+TIMEOUT_CLONE_S = 300
+TIMEOUT_SETUP_S = 1800      # the pinned build measured ~14-16 min on 2 vCPU
+TIMEOUT_SELFTEST_S = 900
+TIMEOUT_GRADE_S = 600
+TIMEOUT_SUMMARY_S = 60
 
 
 def log(msg: str) -> None:
@@ -80,6 +89,21 @@ def sandbox_id(out: str) -> str | None:
     return None
 
 
+def exec_argv(exe: str, sb_id: str, cmd: str, timeout_s: float) -> list[str]:
+    """The exact argv sent to the real `sbx` CLI for one sandbox command.
+
+    `sbx exec` takes the command as nargs="+": a lone string runs as one
+    shell line, several words must sit behind `--` or argparse eats their
+    options (`-lc` became "unrecognized arguments" -- the acceptance-run
+    failure). Here the words are ["bash", "-lc", CMD] and the CLI joins
+    them back into one shell line itself, so the line is quoted by
+    shlex.join, not by us. test_run.py re-parses this argv with the
+    installed CLI's own argparse."""
+    return [exe, "exec", sb_id,
+            "--timeout", f"{timeout_s:g}",
+            "--", "bash", "-lc", cmd]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--ref", default="main",
@@ -106,9 +130,13 @@ def main() -> int:
     timings["create_s"] = round(time.time() - s.t0, 1)
     log(f"sandbox id: {sb_id}")
 
-    def exec_in(cmd: str, step: str) -> tuple[bool, str]:
-        """Run one shell command inside the sandbox; return (ok, output)."""
-        p = sh([sbx, "exec", sb_id, "bash", "-lc", cmd])
+    def exec_in(cmd: str, timeout_s: float) -> tuple[bool, str]:
+        """Run one shell command inside the sandbox; return (ok, output).
+
+        timeout_s must cover the whole command: `sbx exec` gives up (and
+        reports that the command may still be running) after --timeout,
+        whose 60 s default is far under the ~15 min toolchain build."""
+        p = sh(exec_argv(sbx, sb_id, cmd, timeout_s))
         return p.returncode == 0, (p.stdout or "") + (p.stderr or "")
 
     ok_all = True
@@ -119,7 +147,7 @@ def main() -> int:
             ok, out = exec_in(
                 f"set -eo pipefail; rm -rf sandbox && "
                 f"git clone --depth 1 -b {args.ref} {REPO_URL} sandbox "
-                f"2>&1 | tail -2", "clone")
+                f"2>&1 | tail -2", TIMEOUT_CLONE_S)
             if not ok:
                 return die(f"clone failed:\n{out[-800:]}")
             log(f"cloned {args.ref} into ~/sandbox")
@@ -129,8 +157,7 @@ def main() -> int:
         with Step("judge/setup.sh (pinned toolchain build)") as s:
             ok, out = exec_in(
                 f"set -o pipefail; cd ~/sandbox/{DEMO} && "
-                f"bash judge/setup.sh 2>&1 | tail -25",
-                "setup")
+                f"bash judge/setup.sh 2>&1 | tail -25", TIMEOUT_SETUP_S)
             log(out.strip()[-1500:])
             if not ok:
                 return die("judge/setup.sh failed inside the sandbox (output above)")
@@ -141,7 +168,7 @@ def main() -> int:
             ok, out = exec_in(
                 f"set -o pipefail; cd ~/sandbox/{DEMO} && "
                 f"bash judge/selftest.sh --json /tmp/selftest.json "
-                f"2>&1 | tail -25", "selftest")
+                f"2>&1 | tail -25", TIMEOUT_SELFTEST_S)
             log(out.strip()[-2500:])
             if not ok:
                 ok_all = False
@@ -153,7 +180,7 @@ def main() -> int:
             ok, out = exec_in(
                 f"set -o pipefail; cd ~/sandbox/{DEMO} && "
                 f"bash judge/grade.sh examples/good/scene.usda "
-                f"--seed 0 --json /tmp/verdict.json 2>&1 | tail -40", "grade")
+                f"--seed 0 --json /tmp/verdict.json 2>&1 | tail -40", TIMEOUT_GRADE_S)
             verdict_text = out
             log(out.strip()[-3000:])
             if not ok:
@@ -165,7 +192,7 @@ def main() -> int:
         ok, out = exec_in(
             "cat /tmp/verdict.json 2>/dev/null | head -60; "
             "echo '--- selftest.json'; cat /tmp/selftest.json 2>/dev/null | head -40",
-            "summary")
+            TIMEOUT_SUMMARY_S)
         if out.strip():
             log("--- verdict / selftest JSON as written in the sandbox:")
             log(out.strip()[-3000:])
@@ -196,8 +223,14 @@ def main() -> int:
             if p.returncode != 0:
                 log(f"sbx kill reported a failure for {sb_id}: "
                     f"{p.stderr.strip()[:200]}")
-        # and confirm it is really gone (a lost kill reply is not a kill)
+        # and confirm it is really gone (a lost kill reply is not a kill).
+        # A failed `sbx list` is NOT a confirmation either.
         p = sh([sbx, "list"])
+        if p.returncode != 0:
+            print(f"[run] ERROR: cleanup of sandbox {sb_id} could not be "
+                  f"confirmed: `sbx list` failed: {p.stderr.strip()[:200]}",
+                  file=sys.stderr)
+            sys.exit(1)
         if re.search(rf"\b{re.escape(sb_id)}\b", p.stdout or ""):
             print(f"[run] ERROR: cleanup of sandbox {sb_id} could not be "
                   f"confirmed: it still appears in `sbx list`", file=sys.stderr)
