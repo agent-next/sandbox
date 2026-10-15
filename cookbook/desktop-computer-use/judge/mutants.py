@@ -12,21 +12,31 @@ Kill targets (SPEC.md "Known-bad artifact family"):
   wrong-sum-range  SUM over B2:B{N-1} instead of B2:B{N}
   no-save          skips the save step entirely
   crash-midway     raises after opening the CSV but before saving
+  wrong-total-label  total row labelled TOTAL instead of total
 """
 
 import sys
 from pathlib import Path
 
 REPLACEMENTS = [
-    ("wrong-cell", '             f"=B{row}*C{row}"])',
-     '             f"=C{row}*C{row}"])'),
-    ("wrong-format", 'XLSX = f"{CU_DIR}/report.xlsx"', 'XLSX = f"{CU_DIR}/report.csv"'),
-    ("wrong-sum-range", '         f"=SUM(B2:B{last})"])',
-     '         f"=SUM(B2:B{last - 1})"])'),
-    ("no-save", '    run(["xdotool", "key", "--window", wid, "shift+ctrl+s"])',
-     '    pass  # save skipped'),
-    ("crash-midway", 'XLSX = f"{CU_DIR}/report.xlsx"',
-     'raise SystemExit("actions: simulated crash before save")'),
+    ("wrong-cell",
+     '        type_text(f"=B{row}*C{row}")',
+     '        type_text(f"=C{row}*C{row}")'),
+    ("wrong-format",
+     'XLSX = f"{CU_DIR}/report.xlsx"',
+     'XLSX = f"{CU_DIR}/report.csv"'),
+    ("wrong-sum-range",
+     '        type_text(f"=SUM(B2:B{last})")',
+     '        type_text(f"=SUM(B2:B{last - 1})")'),
+    ("no-save",
+     '    press("ctrl+shift+s")',
+     '    pass  # save skipped: no dialog, no file'),
+    ("crash-midway",
+     '    last = n + 1          # row of the last data row',
+     '    raise SystemExit("actions: simulated crash before saving")'),
+    ("wrong-total-label",
+     '        type_text("total")',
+     '        type_text("TOTAL")'),
 ]
 
 INSERTIONS = [

@@ -21,6 +21,15 @@ else
     cat "$work/good.json" >&2
     exit 1
 fi
+# the good artifact must not die inside the judge itself: a "judge" failure
+# here means the environment is broken, not that the artifact is bad
+python3 -I -c "
+import json, sys
+v = json.load(open(sys.argv[1]))
+if v.get('failed_gate') == 'judge':
+    print('selftest: known-good died inside the judge:', v.get('reason'), file=sys.stderr)
+    sys.exit(1)
+" "$work/good.json"
 
 python3 -I "$JDIR/mutants.py" "$GOOD" "$work/mutants" > "$work/mutants.log"
 cat "$work/mutants.log"
@@ -35,6 +44,11 @@ for m in "$work"/mutants/*.py; do
     else
         gate="$(python3 -I -c "import json,sys;print(json.load(open(sys.argv[1])).get('failed_gate','?'))" "$work/$name.json" 2>/dev/null || echo '?')"
         echo "selftest: killed    $name (gate: $gate)"
+        if [ "$gate" = "judge" ]; then
+            echo "selftest: $name died inside the judge, not at a gate -- the" \
+                 "verdict explains:" >&2
+            sed 's/^/selftest: /' "$work/$name.json" >&2
+        fi
         killed=$((killed + 1))
     fi
 done

@@ -302,10 +302,12 @@ class Desktop:
              f"-env:UserInstallation=file://{profile}",
              f"--infilter={self.CSV_INFILTER}",
              str(self.fixture)],
-            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
             start_new_session=True)
-        # wait for the Calc window
+        # wait for the Calc window, reporting what the desktop was doing
+        # instead of only the timeout (a silent 30 s wait tells no one why)
         deadline = time.monotonic() + SOFFICE_READY_S
+        last_windows = None
         while time.monotonic() < deadline:
             r = sh(["xdotool", "search", "--class", "soffice"], timeout=10,
                   env={**os.environ, "DISPLAY": self.display})
@@ -314,10 +316,24 @@ class Desktop:
                 return self
             if self.soffice.poll() is not None:
                 raise RuntimeError("soffice exited before showing its window")
+            wins = sh(["xdotool", "search", "--name", "."], timeout=10,
+                      env={**os.environ, "DISPLAY": self.display})
+            names = sorted(set(wins.stdout.split()))[:6]
+            if names != last_windows:
+                log(f"no soffice window yet ({SOFFICE_READY_S:.0f}s budget); "
+                    f"windows on :{self.display.split(':')[-1]}: {names or 'none'}")
+                last_windows = names
             time.sleep(0.5)
+        err_tail = ""
+        try:
+            _, err = self.soffice.communicate(timeout=2)
+            err_tail = (err or "").decode(errors="replace").strip()[-300:]
+        except Exception:
+            pass
         self.__exit__()
         raise RuntimeError(f"Calc window did not appear within "
-                           f"{SOFFICE_READY_S}s")
+                           f"{SOFFICE_READY_S}s on display {self.display}; "
+                           f"soffice stderr tail: {err_tail or 'captured separately'}")
 
     def before_shot(self) -> Path:
         p = self.shots_dir / "before.png"
@@ -340,7 +356,15 @@ class Desktop:
                     os.killpg(os.getpgid(self.soffice.pid), signal.SIGKILL)
                 except (ProcessLookupError, PermissionError):
                     pass
-                self.soffice.wait(timeout=10)
+                try:
+                    self.soffice.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    pass
+        if self.soffice is not None:
+            try:
+                self.soffice.communicate(timeout=1)
+            except Exception:
+                pass
         for proc in (self.wm, self.xvfb):
             if proc is not None and proc.poll() is None:
                 proc.terminate()

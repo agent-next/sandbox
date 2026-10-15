@@ -59,6 +59,34 @@ def press(*keys):
     run(["xdotool", "key", *keys])
 
 
+def activate(wid):
+    """Give the Calc window keyboard focus, retrying until xdotool agrees.
+
+    XTEST input lands on the *focused* window, so every focus attempt is
+    confirmed by xdotool itself -- a window that never takes the focus eats
+    keystrokes nowhere (see the failed 30 s wait in the first acceptance run).
+    """
+    deadline = time.time() + 20
+    last_focus = None
+    while time.time() < deadline:
+        run(["xdotool", "windowactivate", "--sync", wid], timeout=15)
+        run(["xdotool", "windowfocus", wid], timeout=15)
+        run(["xdotool", "windowraise", wid], timeout=15)
+        time.sleep(0.5)
+        r = run(["xdotool", "getwindowfocus"], timeout=15)
+        focus = r.stdout.strip()
+        if focus == str(wid):
+            time.sleep(0.2)
+            return
+        if focus != last_focus:
+            print(f"actions: focus is {focus!r}, want {wid}; retrying",
+                  flush=True)
+            last_focus = focus
+        time.sleep(0.5)
+    raise SystemExit(f"actions: could not focus window {wid} within 20s "
+                     f"(focus stayed at {last_focus!r})")
+
+
 def type_text(text):
     """Type text into the focused window via XTEST (xdotool type)."""
     run(["xdotool", "type", "--delay", "12", text])
@@ -79,15 +107,13 @@ def main():
     n = n_data_rows()
     print(f"actions: fixture has {n} data rows", flush=True)
 
-    wid = search_window("soffice")
-    print(f"actions: Calc window id {wid}", flush=True)
-
+    # wait for Calc's own window (not the oosplash splash frame), then
     # focus and raise it on the real display; XTEST input goes to the
     # focused window, so the frame must own keyboard focus first
-    run(["xdotool", "windowactivate", "--sync", wid])
-    run(["xdotool", "windowfocus", wid])
-    run(["xdotool", "windowraise", wid])
-    time.sleep(0.5)
+    wid = search_window("libreoffice")
+    print(f"actions: Calc window id {wid}", flush=True)
+
+    activate(wid)
 
     last = n + 1          # row of the last data row
     total_row = n + 2     # the SUM row the task contract asks for
@@ -136,9 +162,18 @@ def main():
           flush=True)
 
     # --- save as true OOXML (.xlsx) --------------------------------------
+    # The Save-As dialog is a GTK file chooser: typing the path into its
+    # location bar needs the bar focused, and the "Use Excel 2007-365!"
+    # filter dialog needs its format list focused before Down/Return.
     press("ctrl+shift+s")
     time.sleep(2.5)
+    press("ctrl+l")                      # focus the location bar
+    time.sleep(0.5)
     type_text(XLSX)
+    press("Return")
+    time.sleep(2.0)
+    press("Down")                        # "Use Excel 2007-365!" in the list
+    time.sleep(0.3)
     press("Return")
     deadline = time.time() + 20
     while time.time() < deadline:
