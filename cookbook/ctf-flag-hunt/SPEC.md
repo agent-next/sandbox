@@ -21,14 +21,15 @@ vulnerable in exactly one specified way and no other**:
 | C5 | `admin` | logic bug | an unparsable mode that falls into the privileged branch |
 
 Each service releases its flag only when its own exploit is used, and
-refuses every other input.
+never on any other input.
 
 ## Non-goals
 
 - **Real-world hardening.** The range is deliberately vulnerable; the
   services are not to be written defensively. What *is* graded is that each
-  vulnerability is the specified one and that the other four are not
-  reachable through it.
+  vulnerability is the specified one, and that no non-exploit input to that
+  service returns its flag (G4). Cross-service isolation — whether one
+  challenge's exploit can reach another's flag file — is **not** graded.
 - **Remote exploitation.** No sockets, no network: every exploit is a local
   process invocation (argv or stdin). Nothing binds a port.
 - **Autonomous vulnerability discovery.** The judge does not grade whether
@@ -40,8 +41,8 @@ refuses every other input.
   involved and `-fstack-protector` does not change the outcome.
 - **Flag secrecy against the operator.** The judge generates the flags and
   hands each service its flag in the environment at launch. A user who can
-  read `/proc/<pid>/environ` can read the flag; that is out of scope (see
-  G4).
+  read `/proc/<pid>/environ` can read the flag. G4 covers *service*
+  behaviour (which inputs leak a flag), not the process environment.
 
 ## Artifact
 
@@ -141,13 +142,13 @@ flag{c<N>_<16 lowercase hex digits>}
 ```
 
 matching `^flag\{c[1-5]_[0-9a-f]{16}\}$`. The judge generates the five
-flags itself from `--seed`. Four are handed to their service only in the
-environment variable `CTF_FLAG` at launch; the two the file challenges
-must serve (C2, C5) are additionally materialised as the two flag files
-the judge plants (`flag_c2.txt` outside the document root, `flag_c5.txt`
-in the run directory). No flag is written into the artifact directory, the
-binaries or the document root — the negative-control sweep in G4 checks
-exactly that.
+flags itself from `--seed` and hands every one to its service only in the
+environment variable `CTF_FLAG` at launch. The two file challenges (C2, C5)
+also need a file to read, so the judge materialises those two flags as the
+flag files it plants (`flag_c2.txt` outside the document root,
+`flag_c5.txt` in the run directory). No flag is written into the artifact
+directory, the binaries or the document root — the negative-control sweep
+in G4 checks exactly that.
 
 ### Pinned configuration
 
@@ -201,11 +202,13 @@ All gates are numeric and deterministic. Exit 0 only if every gate passes.
   document root) is recorded before the exploit harness and compared after.
   The set difference must be **empty**: no service writes, deletes or
   modifies any file.
-- **G6 mutant kill rate**: the judge's own scripted mutants of the good
-  artifact (single-line edits, `judge/mutants.py`) must each fail at least
-  one gate. Pass rule: kill rate **≥ 90 %**.
 
 Violating any gate fails with the offending numbers printed.
+
+**G6, the mutant kill rate, is not a `grade.sh` gate** — `grade.sh` grades
+one artifact and has no mutants of its own. G6 is enforced by
+`judge/selftest.sh`, which grades the known-good artifact, then each
+mutant, and fails if the kill rate is below 90 %.
 
 ## Acceptance oracle (independent of "it ran")
 
