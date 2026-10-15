@@ -1,0 +1,3 @@
+# Bench scratch: packages are built into a temp dir; never commit them.
+__pycache__/
+*.pyc

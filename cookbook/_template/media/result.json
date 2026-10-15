@@ -1,0 +1,46 @@
+{
+  "schema": "agent-next/result@1",
+  "demo": "__NAME__",
+  "headline": "TODO: one plain sentence naming the measured hero result.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "TODO: gate name",
+      "pass": true,
+      "measured": "TODO: what the judge measured",
+      "threshold": "TODO: numeric pass rule from SPEC.md"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "TODO: hero number",
+      "value": "TODO",
+      "unit": "",
+      "source": "TODO: command or receipt line, e.g. RECEIPT.md:42"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "TODO: what the hero frame shows"
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "agent loop + self-test kill rate"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "demo video"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/__NAME__/run.py",
+    "ask_agent": "TODO: paste the README \"Ask your agent\" prompt"
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "0000000000000000000000000000000000000000"
+}

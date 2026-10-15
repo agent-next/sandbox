@@ -1,0 +1,45 @@
+{
+ "tools": {
+  "solidcraft": "0.10.1",
+  "matplotlib": "3.11.2",
+  "ffmpeg": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers"
+ },
+ "files": {
+  "result.png": {
+   "shows": "Delivered part (SolidCraft render) + every judge pass rule as measured/limit, pass line at 1",
+   "command": "bash media/make_media.sh (make_media.py figures)",
+   "source": "data/verdicts.json",
+   "sha256": "4c1e3f1d0da89e28efe939d66b86821637b2e393152b169c0357a820dfc4d94c"
+  },
+  "loop.png": {
+   "shows": "Independent agent's 12 designs: gates passed as recorded vs re-graded by this judge + self-test kills",
+   "command": "bash media/make_media.sh (make_media.py figures)",
+   "source": "data/agent_run.json, data/agent_run_recorded.json, data/agent_attempts/, data/verdicts.json",
+   "sha256": "5d0a093e21952f324c1d54b723b617a605803d810a8d64122bee0cf0e8dfca72"
+  },
+  "demo.mp4": {
+   "shows": "Spec -> SolidCraft build stages -> delivered views -> parametric sweep -> judge verdict -> loop",
+   "command": "bash media/make_media.sh (make_media.py frames + ffmpeg crf 0 master -> crf 18 web)",
+   "source": "data/*.json, data/renders/*.png",
+   "sha256": "af8e8dcc58c2b6240593d12d038bf7d12c81bfa5c9721280f9c010461d78a0e9"
+  },
+  "data/renders": {
+   "shows": "SolidCraft snapshot PNGs used by the figures and video",
+   "command": "solidcraft-cli snapshot <script> --view iso|top|front",
+   "sha256": {
+    "final_front.png": "cd464cf0a84654b80ce0279ea44da33845f4314c45dfdf7f32e5e6da6d45f628",
+    "final_iso.png": "f6290389d5eb990f6dce8486483498988f43c2f22bf8572d5c4ac3f5c28d966c",
+    "final_top.png": "207b4265e982a0fb6bf20f6572e7c66d539e349dd5d0def59d1cddce1ed88e5b",
+    "stage10.png": "47fa1531a8d8a631fd29363b511c4c4a169b081fd671c59828f1de1b36857100",
+    "stage11.png": "d24676bb6cfef787789310fca139484dccb4ad4cf233361d41193c1d610d2bac",
+    "stage15.png": "a01b7822181d8af249ca7f15321c5bad90eacaaebce1b52709c400401777668e",
+    "stage16.png": "f6290389d5eb990f6dce8486483498988f43c2f22bf8572d5c4ac3f5c28d966c",
+    "sweep_6.0.png": "cd464cf0a84654b80ce0279ea44da33845f4314c45dfdf7f32e5e6da6d45f628",
+    "sweep_6.5.png": "495be970c1c3ed3605c0eac259a8b44271ef098d1f58d787d03da285b688b3d4",
+    "sweep_7.0.png": "f2a132164156fb39fd01a1acaa1a4bf9c5ac600866c6c1ab85a1880be6e8e399",
+    "sweep_7.5.png": "a0f76495889e6297bca3c7df7683d1c005d7618480393560fd6012c74091ccb9",
+    "sweep_8.0.png": "a98b319fdcd43581a97b50f266fc698df579be6cf21aeba8070095ebe5bc83d0"
+   }
+  }
+ }
+}

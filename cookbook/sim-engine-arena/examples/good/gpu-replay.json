@@ -1,0 +1,156 @@
+{
+  "artifact": "sim.py",
+  "demo": "sim-engine-arena",
+  "gates": {
+    "agreement": {
+      "metrics": {
+        "drop": {
+          "max_dev": 0.0,
+          "scale": 0.05
+        },
+        "incline_slide": {
+          "max_dev": 0.0,
+          "scale": 0.05
+        },
+        "incline_stick": {
+          "max_dev": 0.0,
+          "scale": 0.05
+        },
+        "pendulum": {
+          "max_dev": 0.0,
+          "scale": 0.02
+        }
+      },
+      "pass": true,
+      "problems": []
+    },
+    "run": {
+      "pass": true,
+      "problems": []
+    },
+    "structure": {
+      "pass": true,
+      "problems": []
+    }
+  },
+  "gpu": {
+    "lease_stack_ok": true,
+    "lease_stack_problems": [],
+    "scored": {
+      "drop": {
+        "pass": true,
+        "penetration_m": 0.030192856863141063,
+        "rebound_m": 0.0,
+        "t_contact": 0.4395910478625117,
+        "t_contact_err": 0.0011355819758310916
+      },
+      "incline_slide": {
+        "accel": 1.6080518110714845,
+        "accel_err": 0.000492435726253586,
+        "end_m": 0.8028059169813501,
+        "pass": true,
+        "state": "slide",
+        "travel_m": 0.8028059169813501,
+        "v_end": 1.5481613025086725
+      },
+      "incline_stick": {
+        "accel": null,
+        "end_m": 0.0017905153556137914,
+        "pass": true,
+        "state": "stick",
+        "travel_m": 0.0017905153556137914,
+        "v_end": 0.0017999315765959442
+      },
+      "pendulum": {
+        "pass": true,
+        "period": 2.0073203254392697,
+        "period_err": 7.320546185195241e-08
+      }
+    },
+    "versions": {
+      "mujoco": "3.8.1",
+      "mujoco_warp": "3.8.1",
+      "python": "3.13.5",
+      "warp": "1.13.0"
+    },
+    "wall_s": {
+      "drop": {
+        "compile_s": 34.16,
+        "sim_s": 4.71
+      },
+      "incline_slide": {
+        "compile_s": 0.0,
+        "sim_s": 3.3
+      },
+      "incline_stick": {
+        "compile_s": 0.82,
+        "sim_s": 2.74
+      },
+      "pendulum": {
+        "compile_s": 13.14,
+        "sim_s": 29.06
+      }
+    }
+  },
+  "judge_intact": true,
+  "scenarios": {
+    "drop": {
+      "csv_shape": {
+        "pass": true,
+        "problems": []
+      },
+      "oracle": {
+        "pass": true,
+        "penetration_m": 0.030193652691982768,
+        "rebound_m": 0.0,
+        "t_contact": 0.4405908164210919,
+        "t_contact_err": 0.0011361504543011172
+      }
+    },
+    "incline_slide": {
+      "csv_shape": {
+        "pass": true,
+        "problems": []
+      },
+      "oracle": {
+        "accel": 1.608249455710321,
+        "accel_err": 0.0003695868788500686,
+        "end_m": 0.8012394925837607,
+        "pass": true,
+        "state": "slide",
+        "travel_m": 0.8012394925837607,
+        "v_end": 1.5484840899384824
+      }
+    },
+    "incline_stick": {
+      "csv_shape": {
+        "pass": true,
+        "problems": []
+      },
+      "oracle": {
+        "accel": null,
+        "end_m": 0.00178852535729963,
+        "pass": true,
+        "state": "stick",
+        "travel_m": 0.00178852535729963,
+        "v_end": 0.0017996004472917665
+      }
+    },
+    "pendulum": {
+      "csv_shape": {
+        "pass": true,
+        "problems": []
+      },
+      "oracle": {
+        "energy_drift": 0.00035511771080137306,
+        "pass": true,
+        "period": 2.0073203848961487,
+        "period_err": 4.3585438645036074e-08
+      }
+    }
+  },
+  "seed": 0,
+  "timing": {
+    "artifact_run_s": 0.8
+  }
+}
