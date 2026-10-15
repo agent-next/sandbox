@@ -1,4 +1,5 @@
 media/master/
+media/data/renders/
 __pycache__/
 *.step
 *.stl

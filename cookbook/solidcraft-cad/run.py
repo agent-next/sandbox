@@ -79,13 +79,15 @@ def main() -> int:
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
                          "git", "clone", "--depth", "1", "-b", args.ref,
-                         REPO, CLONE_DIR))
+                         REPO, CLONE_DIR, timeout=360))
 
         def in_sandbox(name: str, cmd: str, timeout: float,
                        echo: bool = False) -> subprocess.CompletedProcess:
             proc = step(name, lambda: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}"))
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}",
+                # the local wait outlives the in-sandbox --timeout
+                timeout=timeout + 60))
             if echo:
                 show(proc)
             return proc
