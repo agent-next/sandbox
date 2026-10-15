@@ -199,6 +199,53 @@ def test_github_job_lookup_shares_budget_across_repositories(monkeypatch, discov
     assert len(calls) <= 5
 
 
+@pytest.mark.parametrize("discover_repos", [False, True])
+@pytest.mark.parametrize("denied_at", ["runs", "jobs"])
+@pytest.mark.parametrize("status", [403, 404])
+def test_github_job_lookup_skips_inaccessible_repositories(discover_repos, denied_at, status):
+    paths = []
+    repos = ["acme/blocked", "acme/app"]
+    denied_path = "/repos/acme/blocked/actions/runs"
+    if denied_at == "jobs":
+        denied_path += "/9/jobs"
+
+    def handler(req):
+        paths.append(req.url.path)
+        if req.url.path == "/orgs/acme/repos":
+            return httpx.Response(200, json=[{"full_name": repo} for repo in repos])
+        if req.url.path == denied_path:
+            return httpx.Response(status, json={"message": "Actions unavailable"})
+        if req.url.path.endswith("/runs"):
+            return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
+        return httpx.Response(200, json={"jobs": [job()]})
+
+    gh = runners.GitHub("<FAKE>", "orgs/acme", client=httpx.Client(
+        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
+    result, error = None, None
+    try:
+        result = gh.job("sbx-test", [] if discover_repos else repos)
+    except cli.SbxError as exc:
+        error = str(exc)
+    assert error is None, f"an inaccessible repository must not abort other job searches: {error}"
+    assert result == job()
+    assert denied_path in paths
+    assert paths[-1] == "/repos/acme/app/actions/runs/9/jobs"
+
+
+@pytest.mark.parametrize("failed_at", ["runs", "jobs"])
+@pytest.mark.parametrize("status", [401, 429, 500])
+def test_github_job_lookup_does_not_hide_other_http_errors(failed_at, status):
+    def handler(req):
+        if req.url.path.endswith(f"/{failed_at}"):
+            return httpx.Response(status, json={"message": "request failed"})
+        return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
+
+    gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
+        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
+    with pytest.raises(cli.SbxError, match=f"HTTP {status}"):
+        gh.job("sbx-test", [])
+
+
 def test_github_waits_for_terminal_conclusion(monkeypatch):
     responses = [job(conclusion=None), job()]
     monkeypatch.setattr(runners.time, "sleep", lambda s: None)
