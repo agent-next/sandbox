@@ -86,7 +86,8 @@ class GitHub:
         # scope: "orgs/<org>" or "repos/<owner>/<repo>"
         self.scope = scope
         self.clock = clock
-        self.read_after, self.read_failures, self.reads = 0.0, 0, 0
+        self.read_after, self.reads = 0.0, 0
+        self.read_backoffs: dict[str, tuple[float, int]] = {}
         self.cache: OrderedDict = OrderedDict()
         self.http = client or httpx.Client(
             base_url=GITHUB_API,
@@ -106,9 +107,10 @@ class GitHub:
     def check_repo(self, repo: str) -> None:
         self._check(self.http.get(f"/repos/{repo}"), f"read repo {repo}")
 
-    def get(self, path: str, params: dict | None = None):
-        """Conditional, bounded-cache REST reads with shared rate-limit/error backoff."""
-        if self.clock() < self.read_after:
+    def get(self, path: str, params: dict | None = None, *, resource: str = "demand"):
+        """Isolate demand/control errors; only explicit rate limits back off all reads."""
+        after, failures = self.read_backoffs.get(resource, (0.0, 0))
+        if self.clock() < max(self.read_after, after):
             raise RunnerError("GitHub reads backing off")
         key = (path, tuple(sorted((params or {}).items())))
         cached = self.cache.get(key)
@@ -118,13 +120,13 @@ class GitHub:
                                  headers={"If-None-Match": cached[0]} if cached else {})
             self.reads += 1
             if resp.status_code == 304 and cached:
-                self.read_failures = 0
+                self.read_backoffs.pop(resource, None)
                 self.cache.move_to_end(key)
                 return cached[1]
             data = self._check(resp, "poll").json()
         except (httpx.HTTPError, RunnerError, ValueError):
-            self.read_failures += 1
-            delay = min(300, 5 * 2 ** min(self.read_failures - 1, 6))
+            failures += 1
+            delay = min(300, 5 * 2 ** min(failures - 1, 6))
             if resp is not None:
                 try:
                     delay = max(delay, float(resp.headers.get("Retry-After", 0)))
@@ -132,9 +134,12 @@ class GitHub:
                         delay = max(delay, float(resp.headers["X-RateLimit-Reset"]) - time.time())
                 except (ValueError, KeyError):
                     pass
-            self.read_after = self.clock() + delay
+                if (resp.status_code == 429 or resp.headers.get("X-RateLimit-Remaining") == "0"
+                        or (resp.status_code == 403 and "Retry-After" in resp.headers)):
+                    self.read_after = self.clock() + delay
+            self.read_backoffs[resource] = (self.clock() + delay, failures)
             raise
-        self.read_failures = 0
+        self.read_backoffs.pop(resource, None)
         if resp.headers.get("ETag"):
             self.cache[key] = (resp.headers["ETag"], data)
             self.cache.move_to_end(key)
@@ -156,7 +161,8 @@ class GitHub:
         out: dict[str, dict] = {}
         page = 1
         while True:
-            batch = self.get(f"/{self.scope}/actions/runners", {"per_page": 100, "page": page})["runners"]
+            batch = self.get(f"/{self.scope}/actions/runners", {"per_page": 100, "page": page},
+                             resource="control")["runners"]
             out.update({r["name"]: r for r in batch if r["name"].startswith(prefix)})
             if len(batch) < 100:
                 return out
