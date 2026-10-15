@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+judge/.venv/
+media/.venv/
+media/frames/
+media/master/

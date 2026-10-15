@@ -1,0 +1,20 @@
+{"task_id": "add", "source": "def add(a, b):\n    return a + b\n"}
+{"task_id": "gcd", "source": "def gcd(a, b):\n    while b:\n        a, b = b, a % b\n    return abs(a)\n"}
+{"task_id": "is_prime", "source": "def is_prime(n):\n    if n < 2:\n        return False\n    i = 2\n    while i * i <= n:\n        if n % i == 0:\n            return False\n        i += 1\n    return True\n"}
+{"task_id": "factorial", "source": "def factorial(n):\n    out = 1\n    for i in range(2, n + 1):\n        out *= i\n    return out\n"}
+{"task_id": "fib", "source": "def fib(n):\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n"}
+{"task_id": "reverse_string", "source": "def reverse_string(s):\n    return s[::-1]\n"}
+{"task_id": "count_vowels", "source": "def count_vowels(s):\n    return sum(1 for c in s if c in \"aeiou\")\n"}
+{"task_id": "sum_digits", "source": "def sum_digits(n):\n    return sum(int(c) for c in str(n))\n"}
+{"task_id": "is_palindrome", "source": "def is_palindrome(s):\n    return s == s[::-1]\n"}
+{"task_id": "clamp", "source": "def clamp(x, lo, hi):\n    if x < lo:\n        return lo\n    if x > hi:\n        return hi\n    return x\n"}
+{"task_id": "mean", "source": "def mean(xs):\n    return sum(xs) / len(xs)\n"}
+{"task_id": "unique_sorted", "source": "def unique_sorted(xs):\n    return sorted(set(xs))\n"}
+{"task_id": "base_convert", "source": "def base_convert(n, b):\n    digits = \"0123456789abcdef\"\n    if n == 0:\n        return \"0\"\n    out = \"\"\n    while n:\n        out = digits[n % b] + out\n        n //= b\n    return out\n"}
+{"task_id": "run_length_encode", "source": "def run_length_encode(s):\n    out = \"\"\n    i = 0\n    while i < len(s):\n        j = i\n        while j < len(s) and s[j] == s[i]:\n            j += 1\n        out += s[i] + str(j - i)\n        i = j\n    return out\n"}
+{"task_id": "is_anagram", "source": "def is_anagram(a, b):\n    return sorted(a) == sorted(b)\n"}
+{"task_id": "binary_search", "source": "def binary_search(xs, target):\n    lo, hi = 0, len(xs) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if xs[mid] == target:\n            return mid\n        if xs[mid] < target:\n            lo = mid + 1\n        else:\n            hi = mid - 1\n    return -1\n"}
+{"task_id": "chunk", "source": "def chunk(xs, k):\n    return [xs[i:i + k] for i in range(0, len(xs), k)]\n"}
+{"task_id": "roman", "source": "def roman(n):\n    table = [(1000, \"M\"), (900, \"CM\"), (500, \"D\"), (400, \"CD\"), (100, \"C\"),\n             (90, \"XC\"), (50, \"L\"), (40, \"XL\"), (10, \"X\"), (9, \"IX\"),\n             (5, \"V\"), (4, \"IV\"), (1, \"I\")]\n    out = \"\"\n    for value, sym in table:\n        while n >= value:\n            out += sym\n            n -= value\n    return out\n"}
+{"task_id": "edit_distance", "source": "def edit_distance(a, b):\n    prev = list(range(len(b) + 1))\n    for i, ca in enumerate(a, 1):\n        cur = [i]\n        for j, cb in enumerate(b, 1):\n            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))\n        prev = cur\n    return prev[-1]\n"}
+{"task_id": "matrix_transpose", "source": "def matrix_transpose(m):\n    return [list(row) for row in zip(*m)]\n"}

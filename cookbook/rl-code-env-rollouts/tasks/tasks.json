@@ -1,0 +1,1137 @@
+{
+ "schema": "rl-code-env-rollouts/tasks/1",
+ "seed": 20261015,
+ "tasks": [
+  {
+   "entry": "add",
+   "id": "add",
+   "prompt": "Write `add(a, b)` returning the sum of two integers.",
+   "tests": [
+    {
+     "args": [
+      47,
+      -15
+     ],
+     "expect": 32
+    },
+    {
+     "args": [
+      -47,
+      -22
+     ],
+     "expect": -69
+    },
+    {
+     "args": [
+      -13,
+      -44
+     ],
+     "expect": -57
+    },
+    {
+     "args": [
+      -6,
+      32
+     ],
+     "expect": 26
+    },
+    {
+     "args": [
+      22,
+      0
+     ],
+     "expect": 22
+    }
+   ]
+  },
+  {
+   "entry": "gcd",
+   "id": "gcd",
+   "prompt": "Write `gcd(a, b)` returning the greatest common divisor of two positive integers.",
+   "tests": [
+    {
+     "args": [
+      101,
+      171
+     ],
+     "expect": 1
+    },
+    {
+     "args": [
+      165,
+      61
+     ],
+     "expect": 1
+    },
+    {
+     "args": [
+      40,
+      166
+     ],
+     "expect": 2
+    },
+    {
+     "args": [
+      127,
+      137
+     ],
+     "expect": 1
+    },
+    {
+     "args": [
+      19,
+      76
+     ],
+     "expect": 19
+    }
+   ]
+  },
+  {
+   "entry": "is_prime",
+   "id": "is_prime",
+   "prompt": "Write `is_prime(n)` returning True if the integer n > 1 is prime, else False.",
+   "tests": [
+    {
+     "args": [
+      107
+     ],
+     "expect": true
+    },
+    {
+     "args": [
+      170
+     ],
+     "expect": false
+    },
+    {
+     "args": [
+      199
+     ],
+     "expect": true
+    },
+    {
+     "args": [
+      1
+     ],
+     "expect": false
+    },
+    {
+     "args": [
+      97
+     ],
+     "expect": true
+    }
+   ]
+  },
+  {
+   "entry": "factorial",
+   "id": "factorial",
+   "prompt": "Write `factorial(n)` returning n! for an integer n >= 0.",
+   "tests": [
+    {
+     "args": [
+      1
+     ],
+     "expect": 1
+    },
+    {
+     "args": [
+      9
+     ],
+     "expect": 362880
+    },
+    {
+     "args": [
+      5
+     ],
+     "expect": 120
+    },
+    {
+     "args": [
+      12
+     ],
+     "expect": 479001600
+    },
+    {
+     "args": [
+      0
+     ],
+     "expect": 1
+    }
+   ]
+  },
+  {
+   "entry": "fib",
+   "id": "fib",
+   "prompt": "Write `fib(n)` returning the n-th Fibonacci number, 0-indexed: fib(0)=0, fib(1)=1.",
+   "tests": [
+    {
+     "args": [
+      1
+     ],
+     "expect": 1
+    },
+    {
+     "args": [
+      4
+     ],
+     "expect": 3
+    },
+    {
+     "args": [
+      16
+     ],
+     "expect": 987
+    },
+    {
+     "args": [
+      25
+     ],
+     "expect": 75025
+    },
+    {
+     "args": [
+      0
+     ],
+     "expect": 0
+    }
+   ]
+  },
+  {
+   "entry": "reverse_string",
+   "id": "reverse_string",
+   "prompt": "Write `reverse_string(s)` returning the string s reversed.",
+   "tests": [
+    {
+     "args": [
+      "li"
+     ],
+     "expect": "il"
+    },
+    {
+     "args": [
+      "rzyu"
+     ],
+     "expect": "uyzr"
+    },
+    {
+     "args": [
+      "b"
+     ],
+     "expect": "b"
+    },
+    {
+     "args": [
+      "lwwq"
+     ],
+     "expect": "qwwl"
+    },
+    {
+     "args": [
+      "abc"
+     ],
+     "expect": "cba"
+    }
+   ]
+  },
+  {
+   "entry": "count_vowels",
+   "id": "count_vowels",
+   "prompt": "Write `count_vowels(s)` returning how many characters of s are lowercase vowels aeiou.",
+   "tests": [
+    {
+     "args": [
+      "vpqhmljoaz"
+     ],
+     "expect": 2
+    },
+    {
+     "args": [
+      "kgasgz"
+     ],
+     "expect": 1
+    },
+    {
+     "args": [
+      "jyvedwgzucnwfmu"
+     ],
+     "expect": 3
+    },
+    {
+     "args": [
+      "afne"
+     ],
+     "expect": 2
+    },
+    {
+     "args": [
+      "zehkhyiktbby"
+     ],
+     "expect": 2
+    }
+   ]
+  },
+  {
+   "entry": "sum_digits",
+   "id": "sum_digits",
+   "prompt": "Write `sum_digits(n)` returning the sum of the decimal digits of a non-negative integer n.",
+   "tests": [
+    {
+     "args": [
+      96461
+     ],
+     "expect": 26
+    },
+    {
+     "args": [
+      277596
+     ],
+     "expect": 36
+    },
+    {
+     "args": [
+      245695
+     ],
+     "expect": 31
+    },
+    {
+     "args": [
+      840305
+     ],
+     "expect": 20
+    },
+    {
+     "args": [
+      997044
+     ],
+     "expect": 33
+    }
+   ]
+  },
+  {
+   "entry": "is_palindrome",
+   "id": "is_palindrome",
+   "prompt": "Write `is_palindrome(s)` returning True if s reads the same forwards and backwards.",
+   "tests": [
+    {
+     "args": [
+      "bb"
+     ],
+     "expect": true
+    },
+    {
+     "args": [
+      "aabab"
+     ],
+     "expect": false
+    },
+    {
+     "args": [
+      "abbaccaa"
+     ],
+     "expect": false
+    },
+    {
+     "args": [
+      "racecar"
+     ],
+     "expect": true
+    },
+    {
+     "args": [
+      "abc"
+     ],
+     "expect": false
+    }
+   ]
+  },
+  {
+   "entry": "clamp",
+   "id": "clamp",
+   "prompt": "Write `clamp(x, lo, hi)` returning x limited to the inclusive range [lo, hi].",
+   "tests": [
+    {
+     "args": [
+      15,
+      -1,
+      7
+     ],
+     "expect": 7
+    },
+    {
+     "args": [
+      -16,
+      -4,
+      14
+     ],
+     "expect": -4
+    },
+    {
+     "args": [
+      18,
+      -7,
+      1
+     ],
+     "expect": 1
+    },
+    {
+     "args": [
+      8,
+      -11,
+      2
+     ],
+     "expect": 2
+    },
+    {
+     "args": [
+      -15,
+      -4,
+      14
+     ],
+     "expect": -4
+    }
+   ]
+  },
+  {
+   "entry": "mean",
+   "id": "mean",
+   "prompt": "Write `mean(xs)` returning the arithmetic mean of a non-empty list of numbers, as a float.",
+   "tests": [
+    {
+     "args": [
+      [
+       5,
+       2
+      ]
+     ],
+     "expect": 3.5
+    },
+    {
+     "args": [
+      [
+       -21,
+       -13,
+       17,
+       -4,
+       -25,
+       -23,
+       -13,
+       -19
+      ]
+     ],
+     "expect": -12.625
+    },
+    {
+     "args": [
+      [
+       -18,
+       -7,
+       13,
+       3,
+       8
+      ]
+     ],
+     "expect": -0.2
+    },
+    {
+     "args": [
+      [
+       21,
+       -28
+      ]
+     ],
+     "expect": -3.5
+    },
+    {
+     "args": [
+      [
+       -2,
+       -2,
+       9,
+       4,
+       -17,
+       12
+      ]
+     ],
+     "expect": 0.6666666666666666
+    }
+   ]
+  },
+  {
+   "entry": "unique_sorted",
+   "id": "unique_sorted",
+   "prompt": "Write `unique_sorted(xs)` returning the distinct elements of xs in ascending order.",
+   "tests": [
+    {
+     "args": [
+      [
+       2,
+       5,
+       6,
+       9,
+       2,
+       0
+      ]
+     ],
+     "expect": [
+      0,
+      2,
+      5,
+      6,
+      9
+     ]
+    },
+    {
+     "args": [
+      [
+       12
+      ]
+     ],
+     "expect": [
+      12
+     ]
+    },
+    {
+     "args": [
+      [
+       3,
+       11,
+       11,
+       6,
+       3,
+       10,
+       10
+      ]
+     ],
+     "expect": [
+      3,
+      6,
+      10,
+      11
+     ]
+    },
+    {
+     "args": [
+      [
+       6,
+       2,
+       0,
+       10,
+       2
+      ]
+     ],
+     "expect": [
+      0,
+      2,
+      6,
+      10
+     ]
+    },
+    {
+     "args": [
+      [
+       9,
+       7,
+       0
+      ]
+     ],
+     "expect": [
+      0,
+      7,
+      9
+     ]
+    }
+   ]
+  },
+  {
+   "entry": "base_convert",
+   "id": "base_convert",
+   "prompt": "Write `base_convert(n, b)` returning n as a lowercase string in base b (2 <= b <= 16).",
+   "tests": [
+    {
+     "args": [
+      3488,
+      11
+     ],
+     "expect": "2691"
+    },
+    {
+     "args": [
+      959,
+      11
+     ],
+     "expect": "7a2"
+    },
+    {
+     "args": [
+      1083,
+      9
+     ],
+     "expect": "1433"
+    },
+    {
+     "args": [
+      1462,
+      9
+     ],
+     "expect": "2004"
+    },
+    {
+     "args": [
+      1344,
+      8
+     ],
+     "expect": "2500"
+    }
+   ]
+  },
+  {
+   "entry": "run_length_encode",
+   "id": "run_length_encode",
+   "prompt": "Write `run_length_encode(s)` returning each run of a repeated character as the character followed by its count, e.g. 'aabbb' -> 'a2b3'.",
+   "tests": [
+    {
+     "args": [
+      "b"
+     ],
+     "expect": "b1"
+    },
+    {
+     "args": [
+      "c"
+     ],
+     "expect": "c1"
+    },
+    {
+     "args": [
+      "b"
+     ],
+     "expect": "b1"
+    },
+    {
+     "args": [
+      "cbaaabcbabaaca"
+     ],
+     "expect": "c1b1a3b1c1b1a1b1a2c1a1"
+    },
+    {
+     "args": [
+      "cabbc"
+     ],
+     "expect": "c1a1b2c1"
+    }
+   ]
+  },
+  {
+   "entry": "is_anagram",
+   "id": "is_anagram",
+   "prompt": "Write `is_anagram(a, b)` returning True if a and b are anagrams of each other.",
+   "tests": [
+    {
+     "args": [
+      "afefc",
+      "ecffa"
+     ],
+     "expect": true
+    },
+    {
+     "args": [
+      "fe",
+      "ef"
+     ],
+     "expect": true
+    },
+    {
+     "args": [
+      "d",
+      "d"
+     ],
+     "expect": true
+    },
+    {
+     "args": [
+      "abc",
+      "abd"
+     ],
+     "expect": false
+    },
+    {
+     "args": [
+      "listen",
+      "silent"
+     ],
+     "expect": true
+    }
+   ]
+  },
+  {
+   "entry": "binary_search",
+   "id": "binary_search",
+   "prompt": "Write `binary_search(xs, target)` returning the index of target in the ascending list xs, or -1 if absent.",
+   "tests": [
+    {
+     "args": [
+      [
+       24,
+       51,
+       53
+      ],
+      47
+     ],
+     "expect": -1
+    },
+    {
+     "args": [
+      [
+       38
+      ],
+      38
+     ],
+     "expect": 0
+    },
+    {
+     "args": [
+      [
+       3,
+       10,
+       41,
+       53,
+       58
+      ],
+      44
+     ],
+     "expect": -1
+    },
+    {
+     "args": [
+      [
+       4,
+       9,
+       19,
+       23,
+       24,
+       46,
+       47,
+       55
+      ],
+      29
+     ],
+     "expect": -1
+    },
+    {
+     "args": [
+      [
+       5,
+       47,
+       49
+      ],
+      5
+     ],
+     "expect": 0
+    }
+   ]
+  },
+  {
+   "entry": "chunk",
+   "id": "chunk",
+   "prompt": "Write `chunk(xs, k)` returning xs split into consecutive lists of at most k elements (k >= 1).",
+   "tests": [
+    {
+     "args": [
+      [
+       91,
+       80,
+       7,
+       69,
+       0,
+       46,
+       64
+      ],
+      3
+     ],
+     "expect": [
+      [
+       91,
+       80,
+       7
+      ],
+      [
+       69,
+       0,
+       46
+      ],
+      [
+       64
+      ]
+     ]
+    },
+    {
+     "args": [
+      [
+       22,
+       57,
+       87,
+       21,
+       36,
+       44,
+       47,
+       91,
+       21
+      ],
+      2
+     ],
+     "expect": [
+      [
+       22,
+       57
+      ],
+      [
+       87,
+       21
+      ],
+      [
+       36,
+       44
+      ],
+      [
+       47,
+       91
+      ],
+      [
+       21
+      ]
+     ]
+    },
+    {
+     "args": [
+      [],
+      3
+     ],
+     "expect": []
+    },
+    {
+     "args": [
+      [],
+      3
+     ],
+     "expect": []
+    },
+    {
+     "args": [
+      [
+       66
+      ],
+      1
+     ],
+     "expect": [
+      [
+       66
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "entry": "roman",
+   "id": "roman",
+   "prompt": "Write `roman(n)` returning the Roman numeral for an integer 1 <= n <= 3999, in uppercase.",
+   "tests": [
+    {
+     "args": [
+      2790
+     ],
+     "expect": "MMDCCXC"
+    },
+    {
+     "args": [
+      688
+     ],
+     "expect": "DCLXXXVIII"
+    },
+    {
+     "args": [
+      3315
+     ],
+     "expect": "MMMCCCXV"
+    },
+    {
+     "args": [
+      55
+     ],
+     "expect": "LV"
+    },
+    {
+     "args": [
+      2645
+     ],
+     "expect": "MMDCXLV"
+    }
+   ]
+  },
+  {
+   "entry": "edit_distance",
+   "id": "edit_distance",
+   "prompt": "Write `edit_distance(a, b)` returning the Levenshtein distance between strings a and b.",
+   "tests": [
+    {
+     "args": [
+      "",
+      "cbcbaa"
+     ],
+     "expect": 6
+    },
+    {
+     "args": [
+      "babcc",
+      "bc"
+     ],
+     "expect": 3
+    },
+    {
+     "args": [
+      "bcbb",
+      "bbbbcca"
+     ],
+     "expect": 4
+    },
+    {
+     "args": [
+      "aaa",
+      "caaab"
+     ],
+     "expect": 2
+    },
+    {
+     "args": [
+      "bcbbaba",
+      "bbaca"
+     ],
+     "expect": 3
+    }
+   ]
+  },
+  {
+   "entry": "matrix_transpose",
+   "id": "matrix_transpose",
+   "prompt": "Write `matrix_transpose(m)` returning the transpose of a rectangular list-of-lists m.",
+   "tests": [
+    {
+     "args": [
+      [
+       [
+        2,
+        -7,
+        7
+       ],
+       [
+        2,
+        -4,
+        9
+       ],
+       [
+        -7,
+        1,
+        -6
+       ]
+      ]
+     ],
+     "expect": [
+      [
+       2,
+       2,
+       -7
+      ],
+      [
+       -7,
+       -4,
+       1
+      ],
+      [
+       7,
+       9,
+       -6
+      ]
+     ]
+    },
+    {
+     "args": [
+      [
+       [
+        4,
+        2,
+        -5,
+        -6
+       ],
+       [
+        -6,
+        6,
+        -6,
+        -2
+       ],
+       [
+        -5,
+        5,
+        8,
+        1
+       ],
+       [
+        -6,
+        1,
+        -5,
+        9
+       ]
+      ]
+     ],
+     "expect": [
+      [
+       4,
+       -6,
+       -5,
+       -6
+      ],
+      [
+       2,
+       6,
+       5,
+       1
+      ],
+      [
+       -5,
+       -6,
+       8,
+       -5
+      ],
+      [
+       -6,
+       -2,
+       1,
+       9
+      ]
+     ]
+    },
+    {
+     "args": [
+      [
+       [
+        8,
+        -7
+       ],
+       [
+        -2,
+        -1
+       ],
+       [
+        3,
+        0
+       ]
+      ]
+     ],
+     "expect": [
+      [
+       8,
+       -2,
+       3
+      ],
+      [
+       -7,
+       -1,
+       0
+      ]
+     ]
+    },
+    {
+     "args": [
+      [
+       [
+        -7,
+        -1,
+        3,
+        -6
+       ],
+       [
+        -4,
+        2,
+        7,
+        2
+       ],
+       [
+        -1,
+        -1,
+        4,
+        -2
+       ]
+      ]
+     ],
+     "expect": [
+      [
+       -7,
+       -4,
+       -1
+      ],
+      [
+       -1,
+       2,
+       -1
+      ],
+      [
+       3,
+       7,
+       4
+      ],
+      [
+       -6,
+       2,
+       -2
+      ]
+     ]
+    },
+    {
+     "args": [
+      [
+       [
+        1,
+        -6,
+        -6,
+        -9
+       ],
+       [
+        6,
+        7,
+        1,
+        -3
+       ],
+       [
+        1,
+        -5,
+        -1,
+        -5
+       ]
+      ]
+     ],
+     "expect": [
+      [
+       1,
+       6,
+       1
+      ],
+      [
+       -6,
+       7,
+       -5
+      ],
+      [
+       -6,
+       1,
+       -1
+      ],
+      [
+       -9,
+       -3,
+       -5
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}
