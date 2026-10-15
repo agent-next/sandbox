@@ -287,8 +287,11 @@ def main():
         json_out = os.path.abspath(args[args.index("--json") + 1])
 
     gates = []
-    verdict = {"artifact": artifact, "gates": gates,
-               "all_gates_passed": False}
+    # The artifact path here is a per-grade mktemp dir (grade.sh), not user
+    # content — record only its basename so two same-seed grades give
+    # byte-identical verdict JSON (DEMO-STANDARD.md "Deterministic").
+    verdict = {"artifact": os.path.basename(artifact),
+               "gates": gates, "all_gates_passed": False}
 
     def gate(num, name, passed, detail):
         gates.append({"gate": num, "name": name, "passed": bool(passed),
