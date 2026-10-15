@@ -1,0 +1,224 @@
+{
+  "all_gates_passed": false,
+  "demo": "cad-to-usd",
+  "gates": {
+    "area_match": {
+      "detail": {
+        "Servo_Futaba_S3003_v6_iges": {
+          "area_oracle_mm2": 10199.8284,
+          "area_usd_mm2": 10196.0301,
+          "pass": true,
+          "rel_error": 0.000372
+        },
+        "Servo_Futaba_S3003_v6_step": {
+          "area_oracle_mm2": 10198.5433,
+          "area_usd_mm2": 10196.6041,
+          "pass": true,
+          "rel_error": 0.00019
+        },
+        "ShockTowerFront_stp": {
+          "error": "usd: usd: ShockTowerFront_stp.usda contains no Mesh prims"
+        }
+      },
+      "passed": false
+    },
+    "bbox_match": {
+      "detail": {
+        "Servo_Futaba_S3003_v6_iges": [
+          {
+            "axis": "x",
+            "delta_max": 4e-06,
+            "delta_min": 0.0,
+            "oracle_max": 28.786025,
+            "oracle_min": -27.25,
+            "pass": true,
+            "tol_mm": 0.56036,
+            "usd_max": 28.786021,
+            "usd_min": -27.25
+          },
+          {
+            "axis": "y",
+            "delta_max": 0.0,
+            "delta_min": 0.0,
+            "oracle_max": 47.8,
+            "oracle_min": -0.0,
+            "pass": true,
+            "tol_mm": 0.478,
+            "usd_max": 47.8,
+            "usd_min": 0.0
+          },
+          {
+            "axis": "z",
+            "delta_max": 4e-06,
+            "delta_min": 4e-06,
+            "oracle_max": 18.25,
+            "oracle_min": -18.25,
+            "pass": true,
+            "tol_mm": 0.365,
+            "usd_max": 18.249996,
+            "usd_min": -18.249996
+          }
+        ],
+        "Servo_Futaba_S3003_v6_step": [
+          {
+            "axis": "x",
+            "delta_max": 4e-06,
+            "delta_min": 0.0,
+            "oracle_max": 28.786025,
+            "oracle_min": -27.25,
+            "pass": true,
+            "tol_mm": 0.56036,
+            "usd_max": 28.786021,
+            "usd_min": -27.25
+          },
+          {
+            "axis": "y",
+            "delta_max": 0.0,
+            "delta_min": 0.0,
+            "oracle_max": 47.8,
+            "oracle_min": -0.0,
+            "pass": true,
+            "tol_mm": 0.478,
+            "usd_max": 47.8,
+            "usd_min": 0.0
+          },
+          {
+            "axis": "z",
+            "delta_max": 0.0,
+            "delta_min": 4e-06,
+            "oracle_max": 18.25,
+            "oracle_min": -18.25,
+            "pass": true,
+            "tol_mm": 0.365,
+            "usd_max": 18.25,
+            "usd_min": -18.249996
+          }
+        ],
+        "ShockTowerFront_stp": {
+          "error": "usd: usd: ShockTowerFront_stp.usda contains no Mesh prims"
+        }
+      },
+      "passed": false
+    },
+    "conversion_script": {
+      "detail": "skipped by --no-reconvert (self-test speed-up)",
+      "skipped": true
+    },
+    "file_set": {
+      "detail": {
+        "pairwise_distinct": true,
+        "parts": {
+          "Servo_Futaba_S3003_v6_iges": {
+            "bytes": 969145,
+            "present": true,
+            "sha256": "fc2f8f0cfcc1f9446ad8482b5a52140561313bc179017ec35408024483bf75a5"
+          },
+          "Servo_Futaba_S3003_v6_step": {
+            "bytes": 871844,
+            "present": true,
+            "sha256": "b1ec164a55761880b013ac4c99710996c75ebcc08b3c6ada6048adeecd5d7264"
+          },
+          "ShockTowerFront_stp": {
+            "bytes": 104,
+            "present": true,
+            "sha256": "46133f09fc50db5e299aa6edda1b52b0a16b95335e6d69db70bded7f39475ebf"
+          }
+        }
+      },
+      "passed": true
+    },
+    "geometry_counts": {
+      "detail": {
+        "Servo_Futaba_S3003_v6_iges": {
+          "meshes": 4,
+          "prims": 16,
+          "triangles": 13292
+        },
+        "Servo_Futaba_S3003_v6_step": {
+          "meshes": 4,
+          "prims": 16,
+          "triangles": 13188
+        }
+      },
+      "passed": false
+    },
+    "stage_meta": {
+      "detail": {
+        "Servo_Futaba_S3003_v6_iges": {
+          "default_prim": "/Servo_Futaba_S3003_v6_iges",
+          "meters_per_unit": 0.001,
+          "up_axis": "Z"
+        },
+        "Servo_Futaba_S3003_v6_step": {
+          "default_prim": "/Servo_Futaba_S3003_v6_step",
+          "meters_per_unit": 0.001,
+          "up_axis": "Z"
+        }
+      },
+      "passed": false
+    }
+  },
+  "measures": {
+    "Servo_Futaba_S3003_v6_iges": {
+      "area": 10196.030067,
+      "bbox_max": [
+        28.786021,
+        47.8,
+        18.249996
+      ],
+      "bbox_min": [
+        -27.25,
+        0.0,
+        -18.249996
+      ],
+      "default_prim": "/Servo_Futaba_S3003_v6_iges",
+      "meshes": 4,
+      "meters_per_unit": 0.001,
+      "prims": 16,
+      "triangles": 13292,
+      "up_axis": "Z"
+    },
+    "Servo_Futaba_S3003_v6_step": {
+      "area": 10196.604123,
+      "bbox_max": [
+        28.786021,
+        47.8,
+        18.25
+      ],
+      "bbox_min": [
+        -27.25,
+        0.0,
+        -18.249996
+      ],
+      "default_prim": "/Servo_Futaba_S3003_v6_step",
+      "meshes": 4,
+      "meters_per_unit": 0.001,
+      "prims": 16,
+      "triangles": 13188,
+      "up_axis": "Z"
+    },
+    "ShockTowerFront_stp": null
+  },
+  "per_part": {
+    "Servo_Futaba_S3003_v6_iges": {
+      "error": null,
+      "ok": true
+    },
+    "Servo_Futaba_S3003_v6_step": {
+      "error": null,
+      "ok": true
+    },
+    "ShockTowerFront_stp": {
+      "error": "usd: usd: ShockTowerFront_stp.usda contains no Mesh prims",
+      "ok": false
+    }
+  },
+  "seed": "42",
+  "timing": {
+    "conversion_script_s": 0.0,
+    "fetch_sources_s": 0.9,
+    "file_set_s": 0.0,
+    "gates_2_5_s": 18.1,
+    "total_s": 19.0
+  }
+}

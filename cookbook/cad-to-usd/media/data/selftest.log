@@ -1,0 +1,29 @@
+== selftest: known-good artifact ==
+known-good: PASS (expected)
+== selftest: generating known-bad mutants ==
+[mutant] wrong_units      killed_by=stage_meta + bbox_match: metersPerUnit 0.001 -> 1: mm scene read as metres
+[mutant] up_axis_y        killed_by=stage_meta: upAxis "Z" -> "Y"
+[mutant] axis_swap        killed_by=bbox_match: Y/Z point coordinates swapped on every mesh (geometry, not just metadata)
+[mutant] dropped_mesh     killed_by=bbox_match + area_match: largest Mesh prim removed
+[mutant] decimated_mesh   killed_by=area_match: half the faces of the largest mesh dropped
+[mutant] empty_stage      killed_by=geometry_counts: valid stage, no meshes at all
+[mutant] garbage_convert  killed_by=conversion_script: convert.sh feeds a garbage STEP to the converter (exit 1)
+[mutant] missing_part     killed_by=file_set: one part file deleted
+[mutant] cross_part_copy  killed_by=file_set: one part's output replaced by a copy of another part's
+[mutant] 9 mutants written to <scratch>/mutants
+mutant axis_swap: FAIL (expected) -- killed by gate: bbox_match
+mutant cross_part_copy: FAIL (expected) -- killed by gate: file_set
+mutant decimated_mesh: FAIL (expected) -- killed by gate: area_match
+mutant dropped_mesh: FAIL (expected) -- killed by gate: area_match, bbox_match
+mutant empty_stage: FAIL (expected) -- killed by gate: area_match, bbox_match, geometry_counts, stage_meta
+mutant garbage_convert: FAIL (expected) -- killed by gate: conversion_script
+mutant missing_part: FAIL (expected) -- killed by gate: file_set
+mutant up_axis_y: FAIL (expected) -- killed by gate: stage_meta
+mutant wrong_units: FAIL (expected) -- killed by gate: area_match, bbox_match, stage_meta
+== selftest summary ==
+known-good: passed
+kill rate: 9/9 (100%)
+== selftest: determinism (grade twice with --seed 42) ==
+determinism: PASS (two --seed 42 runs identical excluding "timing")
+selftest: PASS (470 s)
+selftest exit: 0

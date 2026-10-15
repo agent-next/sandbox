@@ -1,0 +1,63 @@
+{
+  "note": "Replayed fixing sequence (bad -> partly fixed -> good): an ordering of real grade.sh verdict JSONs (media/data/verdicts/*.json, seed 42) that a fixing agent would plausibly produce. This is a replay of real judge output, not a live agent trace.",
+  "seed": 42,
+  "steps": [
+    {
+      "iteration": 1,
+      "artifact": "empty_stage",
+      "verdict": "verdicts/empty_stage.json",
+      "gates_failed": [
+        "area_match",
+        "bbox_match",
+        "geometry_counts",
+        "stage_meta"
+      ],
+      "what_was_wrong": "converter emitted a valid stage but no meshes at all"
+    },
+    {
+      "iteration": 2,
+      "artifact": "wrong_units",
+      "verdict": "verdicts/wrong_units.json",
+      "gates_failed": [
+        "area_match",
+        "bbox_match",
+        "stage_meta"
+      ],
+      "what_was_wrong": "mm scene authored as metres (metersPerUnit = 1)"
+    },
+    {
+      "iteration": 3,
+      "artifact": "up_axis_y",
+      "verdict": "verdicts/up_axis_y.json",
+      "gates_failed": [
+        "stage_meta"
+      ],
+      "what_was_wrong": "upAxis = \"Y\" instead of \"Z\""
+    },
+    {
+      "iteration": 4,
+      "artifact": "axis_swap",
+      "verdict": "verdicts/axis_swap.json",
+      "gates_failed": [
+        "bbox_match"
+      ],
+      "what_was_wrong": "mesh point Y/Z coordinates swapped (geometry, not metadata)"
+    },
+    {
+      "iteration": 5,
+      "artifact": "decimated_mesh",
+      "verdict": "verdicts/decimated_mesh.json",
+      "gates_failed": [
+        "area_match"
+      ],
+      "what_was_wrong": "tessellation too coarse: half the faces of the largest mesh"
+    },
+    {
+      "iteration": 6,
+      "artifact": "good",
+      "verdict": "verdict-good.json",
+      "gates_failed": [],
+      "what_was_wrong": "all six gates PASS"
+    }
+  ]
+}

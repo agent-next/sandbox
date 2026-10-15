@@ -1,0 +1,35 @@
+{
+  "all_gates_passed": false,
+  "demo": "cad-to-usd",
+  "gates": {
+    "file_set": {
+      "detail": {
+        "pairwise_distinct": true,
+        "parts": {
+          "Servo_Futaba_S3003_v6_iges": {
+            "bytes": 969145,
+            "present": true,
+            "sha256": "fc2f8f0cfcc1f9446ad8482b5a52140561313bc179017ec35408024483bf75a5"
+          },
+          "Servo_Futaba_S3003_v6_step": {
+            "bytes": 871844,
+            "present": true,
+            "sha256": "b1ec164a55761880b013ac4c99710996c75ebcc08b3c6ada6048adeecd5d7264"
+          },
+          "ShockTowerFront_stp": {
+            "error": "missing",
+            "present": false
+          }
+        }
+      },
+      "passed": false
+    },
+    "skipped_reason": "file_set failed"
+  },
+  "seed": "42",
+  "timing": {
+    "fetch_sources_s": 1.2,
+    "file_set_s": 0.0,
+    "total_s": 1.2
+  }
+}
