@@ -21,8 +21,9 @@ import subprocess
 import sys
 
 MEDIA = os.path.dirname(os.path.abspath(__file__))
-DEMO = os.path.dirname(MEDIA)
-REPO = os.path.dirname(DEMO)
+DEMO = os.path.dirname(MEDIA)          # cookbook/physx-drop-test
+REPO = os.path.dirname(DEMO)          # cookbook/
+REPO = os.path.dirname(REPO)          # repo root
 RUNS = os.path.join(MEDIA, "judge_runs")
 
 sys.path.insert(0, os.path.join(REPO, "cookbook", "tools"))
@@ -61,8 +62,8 @@ def load(path):
     return json.load(open(p))
 
 
-def det(verdict, body, gate, key):
-    return verdict["bodies"][body][gate]["detail"][key]
+def det(verdict, body, gate):
+    return verdict["bodies"][body][gate]["detail"]
 
 
 def ffprobe_fields(path):
@@ -91,13 +92,15 @@ def build_result(seed, commit, killed, total):
     g2b = det(v, "Ball", "G2_freefall")
     g3b = det(v, "Box", "G3_contact_time")
     g3l = det(v, "Ball", "G3_contact_time")
-    g4 = det(v, "Box", "G4_resting")
+    g4b = det(v, "Box", "G4_resting")
+    g4l = det(v, "Ball", "G4_resting")
     g5 = det(v, "Ball", "G5_bounce_apex")
     g6b = det(v, "Box", "G6_energy")
     g6l = det(v, "Ball", "G6_energy")
     g7n = len(v["gates"]["G7_contract"]["detail"]["violations"])
-    m_box = det(v, "Box", "G1_loads", "mass_kg")
-    m_ball = det(v, "Ball", "G1_loads", "mass_kg")
+    m_box = det(v, "Box", "G1_loads")["mass_kg"]
+    m_ball = det(v, "Ball", "G1_loads")["mass_kg"]
+    e_mm = max(g4b["error_mm"], g4l["error_mm"])
     grade_cmd = (f"judge/grade.sh examples/good/scene.usda --seed {seed} "
                  f"--json media/judge_runs/verdicts/good.json")
     selftest_cmd = "bash judge/selftest.sh (timed; log in media/judge_runs/selftest.log)"
@@ -115,7 +118,8 @@ def build_result(seed, commit, killed, total):
                      f"ball {g3l['t_contact_sim_s']:.4f} s (Δ {g3l['delta_frames']:g} fr)",
          "threshold": "within 1 frame (4.17 ms) of √(2Δh/g)"},
         {"name": "G4 resting", "pass": v["gates"]["G4_resting"]["passed"],
-         "measured": f"{g4['y_final_m']:.3f} m, error {g4['error_mm']:g} mm (both bodies)",
+         "measured": f"{g4b['y_final_m']:.3f} m box / {g4l['y_final_m']:.3f} m ball, "
+                     f"max error {e_mm:g} mm",
          "threshold": "within 1 mm of the geometric 0.10 m"},
         {"name": "G5 bounce apex", "pass": v["gates"]["G5_bounce_apex"]["passed"],
          "measured": f"{g5['apex_sim_m']:.4f} m ({100 * g5['rel_error']:.2f} %)",
@@ -156,7 +160,7 @@ def build_result(seed, commit, killed, total):
         f"closed-form contact times, the ball rebounds to "
         f"{g5['apex_sim_m']:.4f} m of the analytic "
         f"{g5['apex_analytic_m']:.3f} m, both settle to the geometric "
-        f"resting height within {g4['error_mm']:g} mm, and mechanical energy "
+        f"resting height within {e_mm:g} mm, and mechanical energy "
         f"never gains more than "
         f"{100 * g6b['max_step_gain_J'] / g6b['E0_J']:.3f} % of E₀: all "
         f"{len(v['gates'])} judge gates pass, {killed}/{total} mutants killed."
