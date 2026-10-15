@@ -1325,6 +1325,28 @@ def rest_demand(clock, handler, repos=None, **kw):
                               ["self-hosted", "sbx"], clock=clock, **kw)
 
 
+@pytest.mark.parametrize("pool_labels,job_labels,expected", [
+    (["self-hosted", "sbx", "gpu"], ["self-hosted", "SBX"], 1),
+    (["self-hosted", "sbx"], ["self-hosted", "sbx", "gpu"], 0),
+    (["self-hosted", "sbx"], ["self-hosted"], 1),
+    (["self-hosted", "sbx"], ["ubuntu-latest"], 0),
+])
+def test_rest_demand_spawns_only_when_runner_includes_all_job_labels(pool_labels, job_labels, expected):
+    clock = Clock()
+
+    def handler(req):
+        if req.url.path.endswith("/runs"):
+            runs = [{"id": 1}] if req.url.params["status"] == "queued" else []
+            return httpx.Response(200, json={"workflow_runs": runs})
+        return httpx.Response(200, json={"jobs": [{"id": 1, "status": "queued", "labels": job_labels}]})
+
+    demand = runners.RestDemand(github(handler), ["acme/app"], pool_labels, clock=clock)
+    pool = make_pool(FakeGitHub(), clock, warm=0, maximum=1, demand=demand)
+    state = pool.tick()
+    assert state["queued"] == expected, "runner labels must include every job label"
+    assert state["spawned"] == expected, "eligible jobs must start even with --warm 0"
+
+
 @pytest.mark.parametrize("maximum,expected", [(10, 7), (9, 7), (5, 3), (2, 0)])
 @pytest.mark.parametrize("online", [False, True])
 def test_nine_queued_jobs_boot_the_shortfall_beyond_two_warm(maximum, expected, online, capsys):
