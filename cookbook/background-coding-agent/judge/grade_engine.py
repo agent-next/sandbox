@@ -207,13 +207,50 @@ def parse_patch(text: str) -> PatchInfo:
     return info
 
 
+REPO_PREFIX = "cookbook/background-coding-agent/fixture/"
+
+
 def normalise_path(path: str) -> str:
     """Map a patch path onto the fixture root (accept repo-rooted paths)."""
-    prefixes = ("cookbook/background-coding-agent/fixture/",)
-    for prefix in prefixes:
-        if path.startswith(prefix):
-            return path[len(prefix):]
+    if path.startswith(REPO_PREFIX):
+        return path[len(REPO_PREFIX):]
     return path
+
+
+def _reroot_path(path: str) -> str:
+    """Strip the leading a/ or b/ and the repository prefix, if present."""
+    prefix = ""
+    if path.startswith(("a/", "b/")):
+        prefix, path = path[:2], path[2:]
+    return prefix + normalise_path(path)
+
+
+def reroot_patch(text: str, files: list[str]) -> str:
+    """Strip the repository prefix from a repo-rooted patch.
+
+    A patch produced from the repository root has paths like
+    `cookbook/background-coding-agent/fixture/measurectl/cli.py`; the judge
+    grades against the fixture root, so those header paths are rewritten.
+    Returns the text unchanged unless every changed path carries the
+    prefix (a mixed patch is left for `git apply` to reject).
+    """
+    if not files or not all(f.startswith(REPO_PREFIX) for f in files):
+        return text
+    out = []
+    for line in text.splitlines(keepends=True):
+        stripped = line.rstrip("\n")
+        newline = line[len(stripped):]
+        header = DIFF_HEADER.match(stripped)
+        if header:
+            out.append(f"diff --git {_reroot_path('a/' + header.group('a'))} "
+                       f"{_reroot_path('b/' + header.group('b'))}{newline}")
+            continue
+        if stripped.startswith(("--- ", "+++ ")) and "/dev/null" not in stripped:
+            marker, _, path = stripped.partition(" ")
+            out.append(f"{marker} {_reroot_path(path)}{newline}")
+            continue
+        out.append(line)
+    return "".join(out)
 
 
 def check_paths(files: list[str]) -> list[str]:
@@ -523,13 +560,18 @@ def _grade(patch: Path, pr: Path, seed: int, gates: dict) -> None:
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         check_fixture(root, entries)
 
+        # Repo-rooted paths are re-rooted onto the fixture before applying.
+        apply_text = reroot_patch(text, info.files)
+        patch_file = workdir / "delivery.patch"
+        patch_file.write_text(apply_text)
+        rerooted = apply_text != text
         apply = subprocess.run(["git", "apply", "--check", "-p1",
-                                str(patch.resolve())],
+                                str(patch_file)],
                                cwd=str(root), capture_output=True, text=True)
         if apply.returncode != 0:
             raise GateFail("patch", "git apply --check failed: "
                                     + (apply.stderr.strip() or "unknown error"))
-        applied = subprocess.run(["git", "apply", "-p1", str(patch.resolve())],
+        applied = subprocess.run(["git", "apply", "-p1", str(patch_file)],
                                  cwd=str(root), capture_output=True, text=True)
         if applied.returncode != 0:
             raise GateFail("patch", "git apply failed: "
@@ -540,6 +582,7 @@ def _grade(patch: Path, pr: Path, seed: int, gates: dict) -> None:
             "added_lines": info.added,
             "removed_lines": info.removed,
             "hunks": info.hunks,
+            "repo_rooted": rerooted,
             "rule": f"1..{MAX_FILES} files, >=1 under measurectl/, "
                     f"<= {MAX_LINES} changed lines",
         }

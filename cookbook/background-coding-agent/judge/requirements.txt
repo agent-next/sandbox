@@ -1,0 +1,24 @@
+# Pinned tool wheels for the background-coding-agent judge.
+#
+# The judge engine itself is stdlib-only; these are the tools the test and
+# lint gates shell out to.  judge/setup.sh downloads exactly these files
+# (URL and sha256 are also in setup.sh) and installs them into two venvs
+# under $MEASURECTL_JUDGE_HOME (default $HOME/.local/share/measurectl-judge).
+#
+# pytest and its dependencies are pure-Python universal wheels.  ruff ships
+# platform wheels; this pin is the manylinux x86_64 build, which is what
+# judge/VERSIONS.txt records.  Everything here was published more than two
+# weeks before this demo merged (see SPEC.md "Tools").
+
+pytest==9.1.1 \
+    --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
+pluggy==1.6.0 \
+    --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
+iniconfig==2.3.1 \
+    --hash=sha256:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7
+packaging==26.3 \
+    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+pygments==2.21.0 \
+    --hash=sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9
+ruff==0.16.9 \
+    --hash=sha256:a21713e629d3e5bdb2f5c2def1cc7f04f47fa8e1a7eb0571b4a28e1da64bc728

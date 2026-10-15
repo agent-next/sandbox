@@ -67,8 +67,10 @@ else
     echo "setup: creating venvs"
     python3 -m venv --clear "$PYTEST_VENV"
     python3 -m venv --clear "$RUFF_VENV"
+    # --require-hashes: pip refuses any file whose sha256 is not in
+    # judge/requirements.txt, so a corrupted or swapped wheel cannot land.
     "$PYTEST_VENV/bin/pip" install -q --no-index --find-links "$ROOT/wheels" \
-        "pytest==$PYTEST_VERSION"
+        --require-hashes -r "$JDIR/requirements.txt"
     "$RUFF_VENV/bin/pip" install -q --no-index --find-links "$ROOT/wheels" \
         "ruff==$RUFF_VERSION"
 
