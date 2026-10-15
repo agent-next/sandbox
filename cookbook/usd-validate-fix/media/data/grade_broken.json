@@ -170,10 +170,10 @@
     "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
     "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
     "NormalsExistChecker: Either normals should be authored or subdivision should be set to Catmull-Clark or Loop ",
+    "DefaultPrimChecker: Stage has missing or invalid defaultPrim.",
     "ExtentsChecker: Prim does not have any extent value",
     "ExtentsChecker: Prim does not have any extent value",
-    "ExtentsChecker: Prim does not have any extent value",
-    "DefaultPrimChecker: Stage has missing or invalid defaultPrim."
+    "ExtentsChecker: Prim does not have any extent value"
    ],
    "issues_by_severity": {
     "FAILURE": 7,
@@ -194,10 +194,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.003,
-  "oracle_s": 0.365,
-  "recount_s": 0.01,
-  "total_s": 1.525,
-  "validator_s": 1.146
+  "geometry_s": 0.006,
+  "oracle_s": 0.701,
+  "recount_s": 0.023,
+  "total_s": 2.205,
+  "validator_s": 1.474
  }
 }

@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/upaxis_z.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/upaxis_z.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -212,10 +212,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.003,
-  "oracle_s": 0.323,
-  "recount_s": 0.015,
-  "total_s": 1.434,
-  "validator_s": 1.092
+  "geometry_s": 0.008,
+  "oracle_s": 0.972,
+  "recount_s": 0.03,
+  "total_s": 4.583,
+  "validator_s": 3.573
  }
 }

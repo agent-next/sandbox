@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/scale_points.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/scale_points.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -174,9 +174,9 @@
  "seed": 0,
  "timing": {
   "geometry_s": 0.004,
-  "oracle_s": 0.382,
+  "oracle_s": 0.36,
   "recount_s": 0.015,
-  "total_s": 1.597,
-  "validator_s": 1.197
+  "total_s": 2.124,
+  "validator_s": 1.745
  }
 }

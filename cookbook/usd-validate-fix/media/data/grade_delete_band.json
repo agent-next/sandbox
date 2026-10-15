@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/delete_band.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/delete_band.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -162,10 +162,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.004,
-  "oracle_s": 0.348,
-  "recount_s": 0.013,
-  "total_s": 1.564,
-  "validator_s": 1.199
+  "geometry_s": 0.006,
+  "oracle_s": 0.627,
+  "recount_s": 0.01,
+  "total_s": 2.755,
+  "validator_s": 2.11
  }
 }

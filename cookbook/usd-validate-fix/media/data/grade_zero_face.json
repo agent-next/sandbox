@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/zero_face.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/zero_face.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -232,10 +232,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.003,
-  "oracle_s": 0.256,
-  "recount_s": 0.009,
-  "total_s": 1.213,
-  "validator_s": 0.945
+  "geometry_s": 0.004,
+  "oracle_s": 0.506,
+  "recount_s": 0.022,
+  "total_s": 4.606,
+  "validator_s": 4.068
  }
 }

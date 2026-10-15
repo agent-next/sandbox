@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/short_normals.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/short_normals.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -225,9 +225,9 @@
  "seed": 0,
  "timing": {
   "geometry_s": 0.008,
-  "oracle_s": 0.533,
-  "recount_s": 0.018,
-  "total_s": 1.758,
-  "validator_s": 1.199
+  "oracle_s": 0.804,
+  "recount_s": 0.04,
+  "total_s": 2.789,
+  "validator_s": 1.935
  }
 }

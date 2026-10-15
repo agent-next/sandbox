@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/no_collision.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/no_collision.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -213,9 +213,9 @@
  "seed": 0,
  "timing": {
   "geometry_s": 0.004,
-  "oracle_s": 0.334,
-  "recount_s": 0.019,
-  "total_s": 1.482,
-  "validator_s": 1.124
+  "oracle_s": 0.41,
+  "recount_s": 0.012,
+  "total_s": 2.97,
+  "validator_s": 2.543
  }
 }

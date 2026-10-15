@@ -1,5 +1,5 @@
 {
- "artifact": "<mutant>/unbind.usda",
+ "artifact": "/home/user/w/cookbook/usd-validate-fix/media/judge_runs/replay/mutants/unbind.usda",
  "facts": {
   "crosscheck": {
    "errors": [],
@@ -212,10 +212,10 @@
  "passed": false,
  "seed": 0,
  "timing": {
-  "geometry_s": 0.003,
-  "oracle_s": 0.275,
-  "recount_s": 0.013,
-  "total_s": 1.631,
-  "validator_s": 1.34
+  "geometry_s": 0.006,
+  "oracle_s": 0.506,
+  "recount_s": 0.02,
+  "total_s": 2.898,
+  "validator_s": 2.366
  }
 }
