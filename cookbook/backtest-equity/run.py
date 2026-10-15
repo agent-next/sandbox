@@ -32,9 +32,11 @@ STEP_TIMEOUT_S = 900
 
 
 def sbx(*argv, timeout=STEP_TIMEOUT_S):
-    """Run one sbx CLI command; never raises (caller checks the exit code)."""
-    return subprocess.run(["sbx", *argv], capture_output=True, text=True,
-                          timeout=timeout)
+    """Run one sbx CLI command, return (output, exit code).  Never raises;
+    the caller checks the exit code."""
+    p = subprocess.run(["sbx", *argv], capture_output=True, text=True,
+                       timeout=timeout)
+    return (p.stdout + p.stderr).strip(), p.returncode
 
 
 def in_sandbox(sid, command, timeout=STEP_TIMEOUT_S):
@@ -119,16 +121,16 @@ def main() -> int:
                 print(f"kept sandbox {sid} (kill with: sbx kill {sid})")
             else:
                 try:
-                    killed = sbx("kill", sid, timeout=300)
-                    if killed.returncode != 0:
-                        print(f"WARNING: sbx kill exit {killed.returncode}",
-                              file=sys.stderr)
-                    listing = sbx("list", timeout=300)
+                    killed_out, killed_rc = sbx("kill", sid, timeout=300)
+                    if killed_rc != 0:
+                        print(f"WARNING: sbx kill exit {killed_rc}: "
+                              f"{killed_out}", file=sys.stderr)
+                    listing_out, _ = sbx("list", timeout=300)
                 except subprocess.TimeoutExpired:
                     print(f"cleanup timed out: run sbx kill {sid}",
                           file=sys.stderr)
                     sys.exit(2)
-                if sid in (listing.stdout or ""):
+                if sid in (listing_out or ""):
                     print(f"sandbox {sid} is still in sbx list", file=sys.stderr)
                     sys.exit(2)
                 print(f"sandbox {sid} killed and confirmed gone")
