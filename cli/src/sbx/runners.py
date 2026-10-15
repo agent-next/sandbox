@@ -243,7 +243,7 @@ class RestDemand:
                 if job["status"] == "completed" and job.get("conclusion") == "cancelled":
                     # Reclaim now, not after the remaining repositories have been polled.
                     on_cancel(repo, job)
-                if job["status"] == "queued" and self.labels <= {x.lower() for x in job["labels"]}:
+                if job["status"] == "queued" and {x.lower() for x in job["labels"]} <= self.labels:
                     count += 1
             self.backlog, self.failures = count, 0
             # Budget roughly 1,800 reads/hour, including conditional requests.

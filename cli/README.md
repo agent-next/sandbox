@@ -92,9 +92,8 @@ even while warm runners are idle or starting. The target ready count is the
 larger of `--warm` and queued demand, not their sum.
 Without an explicit watch list, an org pool checks its 20 most recently pushed
 repos for runs from the last hour, refreshing discovery every five minutes;
-a repo pool watches its own repo. Only jobs whose labels include all the
-pool's labels count. The snapshot/registration must also support any extra
-labels requested by those jobs.
+a repo pool watches its own repo. Only jobs whose requested labels are all
+included in the pool's registered labels count (case-insensitively).
 `--poll-interval` sets the minimum demand poll interval (default 5 seconds);
 it grows with request cost (roughly 1,800 reads/hour) and backs off on errors
 or rate limits. Conditional reads use ETags when GitHub supplies them.
