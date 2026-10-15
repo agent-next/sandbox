@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+
+# Generated at grade time, never committed
+judge/VERSIONS.txt
+corpus/
+examples/bad/

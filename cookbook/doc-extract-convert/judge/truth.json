@@ -1,0 +1,511 @@
+{
+  "page_height": 1270,
+  "page_width": 900,
+  "pages": [
+    {
+      "degradation": null,
+      "fields": {
+        "date": {
+          "bbox": [
+            112,
+            150,
+            206,
+            165
+          ],
+          "value": "2025-02-01"
+        },
+        "invoice_no": {
+          "bbox": [
+            166,
+            126,
+            242,
+            141
+          ],
+          "value": "INV-3654"
+        },
+        "total": {
+          "bbox": [
+            121,
+            174,
+            188,
+            189
+          ],
+          "value": "3189.50"
+        },
+        "vendor": {
+          "bbox": [
+            130,
+            102,
+            360,
+            117
+          ],
+          "value": "NORTHWIND TRADING COMPANY"
+        }
+      },
+      "layout": "structured",
+      "page_id": "inv-01",
+      "sha256": "23523968a18e27cff9430d19bc42638fe0bd3cfde1f224cf4cdc9cd6569a7d9c",
+      "status": "ok"
+    },
+    {
+      "degradation": null,
+      "fields": {
+        "date": {
+          "bbox": [
+            112,
+            150,
+            206,
+            165
+          ],
+          "value": "2026-12-04"
+        },
+        "invoice_no": {
+          "bbox": [
+            166,
+            126,
+            242,
+            141
+          ],
+          "value": "INV-3142"
+        },
+        "total": {
+          "bbox": [
+            121,
+            174,
+            188,
+            189
+          ],
+          "value": "8550.98"
+        },
+        "vendor": {
+          "bbox": [
+            130,
+            102,
+            333,
+            117
+          ],
+          "value": "ACME INDUSTRIAL SUPPLY"
+        }
+      },
+      "layout": "structured",
+      "page_id": "inv-02",
+      "sha256": "e80d0e86719b923d242f796c6648835a7360b2de6b2a067d588c34d1f357ce9a",
+      "status": "ok"
+    },
+    {
+      "degradation": null,
+      "fields": {
+        "date": {
+          "bbox": [
+            112,
+            150,
+            206,
+            165
+          ],
+          "value": "2025-07-02"
+        },
+        "invoice_no": {
+          "bbox": [
+            166,
+            126,
+            242,
+            141
+          ],
+          "value": "INV-3604"
+        },
+        "total": {
+          "bbox": [
+            121,
+            174,
+            179,
+            189
+          ],
+          "value": "402.44"
+        },
+        "vendor": {
+          "bbox": [
+            130,
+            102,
+            288,
+            117
+          ],
+          "value": "HELVETIA PARTS AG"
+        }
+      },
+      "layout": "structured",
+      "page_id": "inv-03",
+      "sha256": "e38ae65b747a6cbfd9cec027542c779f4bfec0c3e9aff38a5e918523d4a7d80a",
+      "status": "ok"
+    },
+    {
+      "degradation": null,
+      "fields": {
+        "date": {
+          "bbox": [
+            112,
+            150,
+            206,
+            165
+          ],
+          "value": "2026-09-20"
+        },
+        "invoice_no": {
+          "bbox": [
+            166,
+            126,
+            242,
+            141
+          ],
+          "value": "INV-3238"
+        },
+        "total": {
+          "bbox": [
+            121,
+            174,
+            179,
+            189
+          ],
+          "value": "438.21"
+        },
+        "vendor": {
+          "bbox": [
+            130,
+            102,
+            315,
+            117
+          ],
+          "value": "BLUE RIDGE LOGISTICS"
+        }
+      },
+      "layout": "structured",
+      "page_id": "inv-04",
+      "sha256": "b00f0822ae8e21758b21b35550fd78ede28f01f02b07e14ccac21ce203381601",
+      "status": "ok"
+    },
+    {
+      "degradation": "skew",
+      "fields": {
+        "date": {
+          "bbox": [
+            253,
+            258,
+            384,
+            278
+          ],
+          "value": "2025-11-23"
+        },
+        "invoice_no": {
+          "bbox": [
+            253,
+            218,
+            362,
+            238
+          ],
+          "value": "INV-3733"
+        },
+        "total": {
+          "bbox": [
+            428,
+            572,
+            559,
+            596
+          ],
+          "value": "6384.53"
+        },
+        "vendor": {
+          "bbox": [
+            58,
+            122,
+            525,
+            149
+          ],
+          "value": "ORION OFFICE SYSTEMS"
+        }
+      },
+      "layout": "three_block",
+      "page_id": "inv-05",
+      "sha256": "6bc84377215889b875dbe354ffeea73dc5ab2a5d1233fc7963a221db072582c2",
+      "status": "ok"
+    },
+    {
+      "degradation": "skew",
+      "fields": {
+        "date": {
+          "bbox": [
+            328,
+            152,
+            454,
+            171
+          ],
+          "value": "2026-10-09"
+        },
+        "invoice_no": {
+          "bbox": [
+            53,
+            152,
+            153,
+            171
+          ],
+          "value": "INV-3459"
+        },
+        "total": {
+          "bbox": [
+            428,
+            492,
+            536,
+            516
+          ],
+          "value": "169.61"
+        },
+        "vendor": {
+          "bbox": [
+            53,
+            53,
+            526,
+            79
+          ],
+          "value": "CASCADE BUILDING SUPPLY"
+        }
+      },
+      "layout": "wide_table",
+      "page_id": "inv-06",
+      "sha256": "7e9fae29dd555c752469bfbbb68ec076e293c1b2678104c5802f4364f462fb0d",
+      "status": "ok"
+    },
+    {
+      "degradation": "skew",
+      "fields": {
+        "date": {
+          "bbox": [
+            472,
+            242,
+            609,
+            262
+          ],
+          "value": "2025-05-05"
+        },
+        "invoice_no": {
+          "bbox": [
+            485,
+            198,
+            595,
+            218
+          ],
+          "value": "INV-3348"
+        },
+        "total": {
+          "bbox": [
+            480,
+            516,
+            621,
+            542
+          ],
+          "value": "2541.41"
+        },
+        "vendor": {
+          "bbox": [
+            210,
+            93,
+            689,
+            119
+          ],
+          "value": "MERIDIAN ELECTRIC WORKS"
+        }
+      },
+      "layout": "center_card",
+      "page_id": "inv-07",
+      "sha256": "d614e8377d18435e1e1964b15c93a4b5aa1cac3b7de3390e5b50637a734f4788",
+      "status": "ok"
+    },
+    {
+      "degradation": "speckle",
+      "detail": "date field prints 'SEE ATTACHED', not a date",
+      "layout": "three_block",
+      "page_id": "inv-08",
+      "reason_code": "MALFORMED_FIELD",
+      "sha256": "006327010b021d0d7da74a91380d7dd0b7b1e549013900dac37048059fd9d534",
+      "status": "quarantine"
+    },
+    {
+      "degradation": "speckle",
+      "fields": {
+        "date": {
+          "bbox": [
+            328,
+            152,
+            454,
+            171
+          ],
+          "value": "2025-01-24"
+        },
+        "invoice_no": {
+          "bbox": [
+            53,
+            152,
+            153,
+            171
+          ],
+          "value": "INV-3270"
+        },
+        "total": {
+          "bbox": [
+            428,
+            408,
+            555,
+            432
+          ],
+          "value": "5839.82"
+        },
+        "vendor": {
+          "bbox": [
+            53,
+            53,
+            549,
+            79
+          ],
+          "value": "PINEHURST MEDICAL SUPPLY"
+        }
+      },
+      "layout": "wide_table",
+      "page_id": "inv-09",
+      "sha256": "f3d0c60d1c44ca1fbbeda0d6256912735e2f00725058bb73735383dc19e85a87",
+      "status": "ok"
+    },
+    {
+      "degradation": "speckle",
+      "fields": {
+        "date": {
+          "bbox": [
+            472,
+            242,
+            609,
+            262
+          ],
+          "value": "2026-07-03"
+        },
+        "invoice_no": {
+          "bbox": [
+            485,
+            198,
+            595,
+            218
+          ],
+          "value": "INV-3996"
+        },
+        "total": {
+          "bbox": [
+            480,
+            628,
+            621,
+            654
+          ],
+          "value": "6363.54"
+        },
+        "vendor": {
+          "bbox": [
+            236,
+            93,
+            664,
+            119
+          ],
+          "value": "ATLAS FASTENER WORKS"
+        }
+      },
+      "layout": "center_card",
+      "page_id": "inv-10",
+      "sha256": "1e86b5c13d324188948ced80947e6c5e67bca4c25a9a767953b2b584f118470e",
+      "status": "ok"
+    },
+    {
+      "degradation": "lowcontrast",
+      "fields": {
+        "date": {
+          "bbox": [
+            253,
+            258,
+            384,
+            278
+          ],
+          "value": "2025-06-19"
+        },
+        "invoice_no": {
+          "bbox": [
+            253,
+            218,
+            362,
+            238
+          ],
+          "value": "INV-3906"
+        },
+        "total": {
+          "bbox": [
+            428,
+            542,
+            559,
+            566
+          ],
+          "value": "2106.29"
+        },
+        "vendor": {
+          "bbox": [
+            58,
+            122,
+            517,
+            149
+          ],
+          "value": "KESTREL PRINT & COPY"
+        }
+      },
+      "layout": "three_block",
+      "page_id": "inv-11",
+      "sha256": "c531f9e07d2dab1ac3fd0e0f2a74de5ca77142bee50340a0b940c7cf0bbd42ea",
+      "status": "ok"
+    },
+    {
+      "degradation": "lowcontrast",
+      "fields": {
+        "date": {
+          "bbox": [
+            328,
+            152,
+            454,
+            171
+          ],
+          "value": "2026-04-25"
+        },
+        "invoice_no": {
+          "bbox": [
+            53,
+            152,
+            153,
+            171
+          ],
+          "value": "INV-3677"
+        },
+        "total": {
+          "bbox": [
+            428,
+            436,
+            555,
+            460
+          ],
+          "value": "3124.45"
+        },
+        "vendor": {
+          "bbox": [
+            53,
+            53,
+            443,
+            79
+          ],
+          "value": "SUMMIT LAB SUPPLIES"
+        }
+      },
+      "layout": "wide_table",
+      "page_id": "inv-12",
+      "sha256": "e0b3602e240f9297c08caa1810c5af8565013bb6397d0ee5984570bcebab1fac",
+      "status": "ok"
+    }
+  ],
+  "seed": 42
+}
