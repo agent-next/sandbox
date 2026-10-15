@@ -1,0 +1,3 @@
+# The plotting venv and the lossless video master are build products.
+.venv/
+master/

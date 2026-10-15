@@ -1,0 +1,67 @@
+{
+  "demo": "cookbook/video-transcode-pipeline",
+  "regenerate": "bash media/make_media.sh",
+  "master": "media/master/ holds the lossless crf-0 master and the individual frames; both are git-ignored",
+  "tools": {
+    "ffmpeg": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "python3": "Python 3.12.15"
+  },
+  "files": [
+    {
+      "file": "result.png",
+      "shows": "The judge's measured gates on examples/good with their pass lines: the burned frame counter decoded back out of both renditions against the analytic frame index (G5), and the caption word error rate against its 0.20 limit (G8).",
+      "command": "media/make_media.sh (make_figures.py)",
+      "source_data": "media/data/good.json, media/data/counter.json",
+      "bytes": 197441,
+      "sha256": "e27784311859e22b72d5f6f56e5c8e3616a92abdfd48cc52ba35f59e7d07ad8c"
+    },
+    {
+      "file": "loop.png",
+      "shows": "The agent loop: gate outcome per iteration of a scripted fixing replay (wrong-resolution -> truncated -> dropped-segment -> wrong-keyframe -> good), plus the self-test kill-rate bars for the known-good artifact and each single-edit mutant.",
+      "command": "media/make_media.sh (make_figures.py)",
+      "source_data": "media/data/replay.json, media/data/mutants.json",
+      "bytes": 199177,
+      "sha256": "7f1d6e8a2ef442e951fb2b215ea72fac11e0f88fb4ffabf3d96a0b2d3b65b75d"
+    },
+    {
+      "file": "demo.mp4",
+      "shows": "30 s, 1920x1080, 30 fps, H.264. The source fixture with its burned frame counter, the 360p and 720p renditions, the counter decoded back out frame by frame, the caption WER, the kill-rate bars, and the final verdict.",
+      "command": "media/make_media.sh (make_video.py)",
+      "source_data": "media/data/*.json, fixtures/source.mp4, examples/good output",
+      "bytes": 312277,
+      "sha256": "5999b8c090a7df73e2d4b187cdaf386e7a4db4a128059c193f5adcea557dba25"
+    },
+    {
+      "file": "data/good.json",
+      "shows": "The full judge verdict for examples/good at seed 0, as grade.sh wrote it.",
+      "command": "judge/grade.sh examples/good --seed 0 --json data/good.json",
+      "source_data": "examples/good/pipeline.sh",
+      "bytes": 2236,
+      "sha256": "bab8b47b36c848e3831cf08049a60293f8e9180443462420c2f1d09d513d9897"
+    },
+    {
+      "file": "data/mutants.json",
+      "shows": "Verdict for each single-edit mutant of examples/good: which gate killed it, and the kill rate.",
+      "command": "judge/grade.sh <mutant> (driven by media/make_data.py)",
+      "source_data": "judge/mutants.py",
+      "bytes": 2279,
+      "sha256": "3f017a85a4009a27bede1f83d1cadcd124065729f265bbce9f741b1ec1d49698"
+    },
+    {
+      "file": "data/replay.json",
+      "shows": "The scripted fixing replay: one verdict per iteration until the pipeline passes.",
+      "command": "judge/grade.sh <artifact> (driven by media/make_data.py)",
+      "source_data": "examples/good/pipeline.sh, judge/mutants.py",
+      "bytes": 1280,
+      "sha256": "2a93f7faf7c40c22de15e5e6771dc20d6a8686f92c219175850ed496905e617e"
+    },
+    {
+      "file": "data/counter.json",
+      "shows": "The burned frame counter decoded from both renditions, sampled every 12 frames, against the expected frame index.",
+      "command": "media/make_data.py (uses judge/vtp_judge.py's decoder)",
+      "source_data": "examples/good output, fixtures/source.mp4",
+      "bytes": 3429,
+      "sha256": "a33dc80e2806da7a4b052daa3f53aed6a9ee591ab3b3b840990a0409debd1021"
+    }
+  ]
+}

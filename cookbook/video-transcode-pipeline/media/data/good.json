@@ -1,0 +1,116 @@
+{
+  "artifact": "/home/user/w/cookbook/video-transcode-pipeline/examples/good",
+  "seed": 0,
+  "source": {
+    "width": 640,
+    "height": 360,
+    "fps": 24,
+    "duration_s": 20.0
+  },
+  "passed": true,
+  "judge_unchanged": true,
+  "gates": {
+    "runs": {
+      "passed": true
+    },
+    "geometry": {
+      "passed": true,
+      "360p": {
+        "width": 640,
+        "height": 360,
+        "video": "h264",
+        "audio": "aac",
+        "segments": 10
+      },
+      "720p": {
+        "width": 1280,
+        "height": 720,
+        "video": "h264",
+        "audio": "aac",
+        "segments": 10
+      }
+    },
+    "duration": {
+      "passed": true,
+      "360p": {
+        "seconds": 20.0213,
+        "deviation_s": 0.0213
+      },
+      "720p": {
+        "seconds": 20.0213,
+        "deviation_s": 0.0213
+      }
+    },
+    "keyframes": {
+      "passed": true,
+      "360p": {
+        "keyframes": 5,
+        "gaps": [
+          4.0,
+          4.0,
+          4.0,
+          4.0
+        ],
+        "min_gap": 4.0,
+        "max_gap": 4.0
+      },
+      "720p": {
+        "keyframes": 5,
+        "gaps": [
+          4.0,
+          4.0,
+          4.0,
+          4.0
+        ],
+        "min_gap": 4.0,
+        "max_gap": 4.0
+      }
+    },
+    "counter": {
+      "passed": true,
+      "360p": {
+        "frames": 480,
+        "samples": 40,
+        "matched": 40,
+        "match_fraction": 1.0,
+        "misses": []
+      },
+      "720p": {
+        "frames": 480,
+        "samples": 40,
+        "matched": 40,
+        "match_fraction": 1.0,
+        "misses": []
+      }
+    },
+    "poster": {
+      "passed": true,
+      "width": 640,
+      "height": 360,
+      "distinct_levels": 251,
+      "distinct_fraction": 0.9805,
+      "nonmodal_fraction": 0.6821,
+      "background_luma": 0,
+      "centre_luma": 224
+    },
+    "captions": {
+      "passed": true,
+      "cues": 6,
+      "speech_seconds": 7.056,
+      "coverage": 0.9297,
+      "wer": 0.0588,
+      "ref_words": 17,
+      "errors": 1,
+      "echoed_transcript": false
+    }
+  },
+  "timing": {
+    "pipeline_s": 18.502,
+    "geometry_s": 0.806,
+    "duration_s": 0.368,
+    "keyframes_s": 0.607,
+    "counter_s": 12.263,
+    "poster_s": 0.788,
+    "captions_s": 0.729
+  }
+}

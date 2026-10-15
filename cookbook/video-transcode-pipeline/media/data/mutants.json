@@ -1,0 +1,91 @@
+{
+  "mutants": [
+    {
+      "name": "blank-poster",
+      "description": "poster.png has only 1/256 distinct luminance values (0.4%), need 5%",
+      "failed_gate": "poster",
+      "passed": false,
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": true,
+        "keyframes": true,
+        "counter": true,
+        "poster": false
+      }
+    },
+    {
+      "name": "dropped-segment",
+      "description": "360p has 3 keyframe gaps, need at least 4 (keyframes at [1.483333, 5.483333, 13.483333, 17.483333])",
+      "failed_gate": "keyframes",
+      "passed": false,
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": true,
+        "keyframes": false
+      }
+    },
+    {
+      "name": "empty-captions",
+      "description": "captions.vtt has 1 cue blocks, need at least 4",
+      "failed_gate": "captions",
+      "passed": false,
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": true,
+        "keyframes": true,
+        "counter": true,
+        "poster": true,
+        "captions": false
+      }
+    },
+    {
+      "name": "silent-renditions",
+      "description": "360p first has no audio stream",
+      "failed_gate": "geometry",
+      "passed": false,
+      "gates": {
+        "runs": true,
+        "geometry": false
+      }
+    },
+    {
+      "name": "truncated",
+      "description": "360p duration 10.0213 s deviates 9.9787 s from the source's 20.0000 s (limit 0.1 s)",
+      "failed_gate": "duration",
+      "passed": false,
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": false
+      }
+    },
+    {
+      "name": "wrong-keyframe",
+      "description": "360p has 2 keyframe gaps, need at least 4 (keyframes at [1.483333, 9.483333, 17.483333])",
+      "failed_gate": "keyframes",
+      "passed": false,
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": true,
+        "keyframes": false
+      }
+    },
+    {
+      "name": "wrong-resolution",
+      "description": "720p first is 1280x960, expected 1280x720",
+      "failed_gate": "geometry",
+      "passed": false,
+      "gates": {
+        "runs": true,
+        "geometry": false
+      }
+    }
+  ],
+  "total": 7,
+  "killed": 7,
+  "kill_rate": 1.0
+}

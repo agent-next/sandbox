@@ -1,0 +1,64 @@
+{
+  "replay": [
+    {
+      "iteration": 1,
+      "artifact": "wrong-resolution",
+      "passed": false,
+      "failed_gate": "geometry",
+      "gates": {
+        "runs": true,
+        "geometry": false
+      }
+    },
+    {
+      "iteration": 2,
+      "artifact": "truncated",
+      "passed": false,
+      "failed_gate": "duration",
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": false
+      }
+    },
+    {
+      "iteration": 3,
+      "artifact": "dropped-segment",
+      "passed": false,
+      "failed_gate": "keyframes",
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": true,
+        "keyframes": false
+      }
+    },
+    {
+      "iteration": 4,
+      "artifact": "wrong-keyframe",
+      "passed": false,
+      "failed_gate": "keyframes",
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": true,
+        "keyframes": false
+      }
+    },
+    {
+      "iteration": 5,
+      "artifact": "examples/good (fixed)",
+      "passed": true,
+      "failed_gate": null,
+      "gates": {
+        "runs": true,
+        "geometry": true,
+        "duration": true,
+        "keyframes": true,
+        "counter": true,
+        "poster": true,
+        "captions": true
+      }
+    }
+  ]
+}
