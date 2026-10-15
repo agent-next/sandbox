@@ -74,57 +74,6 @@ def load_policy(path, device="cuda"):
     return policy, meta
 
 
-def calibrate_output(out, log=print):
-    """Tune only the final affine gain on validation seed 4242, never test seeds.
-
-    PPO can learn a fast but needlessly hard-driving gait. The fixed gain
-    candidates are evaluated with CPU MuJoCo before the held-out judge sees
-    the artifact. No gate or held-out initial state enters this selection.
-    """
-    import _eval
-    import torch
-    torch.set_num_threads(1)
-    t0 = time.monotonic()
-    path = os.path.join(out, "policy.npz")
-    with np.load(path, allow_pickle=False) as z:
-        base = {k: z[k] for k in z.files}
-    last = max(int(k[1:]) for k in base if k.startswith("w"))
-    records, candidates = [], []
-    for gain in (1.0, 0.8, 0.6, 0.4):
-        arrays = dict(base)
-        for k in (f"w{last}", f"b{last}"):
-            arrays[k] = base[k] * gain
-        candidate = os.path.join(out, "gain-candidate.npz")
-        np.savez(candidate, **arrays)
-        policy, _ = _eval.load_policy(candidate)
-        metrics = _eval.evaluate(policy, 4242, 64, 500)
-        acceptable = (metrics["forward_mps"] >= 0.55 and
-                      metrics["fall_rate"] <= 0.025 and metrics["sat_frac"] <= 0.13)
-        row = {"gain": gain, "seed": 4242, "episodes": 64,
-               "acceptable": acceptable, **metrics}
-        records.append(row)
-        log("validation gain: " + json.dumps(row, sort_keys=True))
-        if acceptable:
-            candidates.append(row)
-    selected = max(candidates, key=lambda r: r["forward_mps"])["gain"] \
-        if candidates else 1.0
-    # Apply the same gain to the actual step-0 and short-training checkpoints.
-    # Those counterfactuals then differ in training duration, not action gain.
-    for name in ("policy.npz", "step0.npz", "short.npz"):
-        target = os.path.join(out, name)
-        with np.load(target, allow_pickle=False) as z:
-            arrays = {k: z[k] for k in z.files}
-        for k in (f"w{last}", f"b{last}"):
-            arrays[k] = arrays[k] * selected
-        meta = json.loads(arrays["__meta__"].tobytes())
-        meta["output_gain"] = selected
-        arrays["__meta__"] = np.frombuffer(json.dumps(meta).encode(), dtype=np.uint8)
-        np.savez(target, **arrays)
-    return {"seed": 4242, "candidates": records, "selected_gain": selected,
-            "acceptable_found": bool(candidates),
-            "wall_s": round(time.monotonic() - t0, 3)}
-
-
 class PPO:
     def __init__(self, cfg, device="cuda"):
         import torch
@@ -390,7 +339,6 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
     if best_iter:
         import shutil
         shutil.copyfile(os.path.join(out, "best.npz"), os.path.join(out, "policy.npz"))
-    calibration = calibrate_output(out, log) if cfg.get("calibrate_output", False) else None
     summary = {"iters": done_it, "env_steps": steps_per_it * done_it,
                "train_wall_s": round(train_wall, 1),
                "last_chunk_wall_s": round(time.time() - t0, 1),
@@ -404,8 +352,6 @@ def train(cfg, out, log=print, resume=None, max_wall_s=0.0,
     summary["selection_seed"] = 4242
     summary["torch_peak_allocated_bytes"] = torch.cuda.max_memory_allocated()
     summary["torch_peak_reserved_bytes"] = torch.cuda.max_memory_reserved()
-    if calibration is not None:
-        summary["calibration"] = calibration
     with open(os.path.join(out, "curve.json"), "w") as fh:
         json.dump(summary, fh, indent=1)
     return {**summary, **status}

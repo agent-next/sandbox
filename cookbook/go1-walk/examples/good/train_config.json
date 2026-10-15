@@ -7,7 +7,6 @@
   "cmd_vx": [0.4, 1.0],
   "cmd_yaw": [0.0, 0.0],
   "mass_scale": 1.0,
-  "calibrate_output": true,
   "reward": {"track_lin": 3.0, "track_ang": 1.0, "sigma": 0.25,
              "orientation": -2.0, "lin_vel_z": -2.0, "fall": -2.0},
   "ppo": {"hidden": [512, 256, 128], "lr": 3e-4, "gamma": 0.99,

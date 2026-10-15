@@ -48,6 +48,7 @@ class RegressionTests(unittest.TestCase):
         lease = grade.Lease("test-only")
         lease.id = "gl-test"
         executions = []
+        requests = 0
         with tempfile.TemporaryDirectory() as tmp:
             marker = Path(tmp) / "executions"
             code = (f"from pathlib import Path\np = Path({str(marker)!r})\n"
@@ -55,6 +56,10 @@ class RegressionTests(unittest.TestCase):
                     "report['value'] = 42\n")
 
             def request(key, method, path, body, timeout):
+                nonlocal requests
+                requests += 1
+                if 2 <= requests <= 8:
+                    return 409, {"message": "original job is still running"}
                 scope = {"report": {}}
                 exec(body["code"], scope)
                 executions.append(body["code"])
@@ -75,6 +80,8 @@ class RegressionTests(unittest.TestCase):
                              "recovering a lost reply must never repeat training")
             self.assertEqual(executions[0], executions[1],
                              "recovery must use the same execution token")
+            self.assertEqual(requests, 9,
+                             "recovery must wait for the original job, not stop after six busy replies")
 
     def test_interrupted_exec_is_never_repeated(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"HOME": tmp}):
@@ -223,54 +230,6 @@ class RegressionTests(unittest.TestCase):
             self.assertLess(summary["train_wall_s"], 2,
                             "training wall time must be elapsed seconds, not an epoch timestamp")
             self.assertGreater(summary["steps_per_s"], 1)
-
-    def test_training_calibrates_without_using_held_out_seeds(self):
-        fake = types.SimpleNamespace(
-            zeros=lambda *shape, **kw: np.zeros(shape),
-            arange=lambda n, **kw: array(np.arange(n)),
-            save=lambda *args: None, set_num_threads=lambda n: None,
-            cuda=types.SimpleNamespace(synchronize=lambda: None,
-                max_memory_allocated=lambda: 1, max_memory_reserved=lambda: 1))
-        env = module("gain_env", HERE / "env.py", fake)
-        evaluator = types.SimpleNamespace(
-            load_policy=lambda path: (path, []), evaluate=Mock())
-
-        def evaluate(policy, seed, episodes, steps):
-            self.assertEqual(seed, 4242, "calibration must never use held-out seeds")
-            with np.load(policy, allow_pickle=False) as z:
-                gain = float(z["w0"][0, 0])
-            return {"forward_mps": .6, "fall_rate": 0.0,
-                    "sat_frac": .1 if gain < .5 else .2}
-        evaluator.evaluate.side_effect = evaluate
-
-        def save_policy(actor, path, meta):
-            np.savez(path, w0=np.ones((12, 45), dtype=np.float32),
-                     b0=np.ones(12, dtype=np.float32),
-                     __meta__=np.frombuffer(json.dumps(meta).encode(), dtype=np.uint8))
-
-        with patch.dict(sys.modules, {"env": env, "torch": fake, "_eval": evaluator}):
-            trainer = module("gain_train", HERE / "train.py", fake)
-            batch = types.SimpleNamespace(qpos=array(np.zeros((2, 19))),
-                reset_all=lambda: None, step=lambda x: None,
-                gen=types.SimpleNamespace(get_state=lambda: None))
-            ppo = types.SimpleNamespace(actor=object(), rollout=lambda env: (None, None),
-                update=lambda *args: 1.0, state_dict=lambda: {})
-            cfg = {**trainer.DEFAULT_CFG, "num_envs": 2, "iters": 1,
-                   "calibrate_output": True}
-            with tempfile.TemporaryDirectory() as tmp, \
-                    patch.object(trainer.E, "Go1Batch", return_value=batch), \
-                    patch.object(trainer, "PPO", return_value=ppo), \
-                    patch.object(trainer, "save_policy", side_effect=save_policy):
-                summary = trainer.train(cfg, tmp, log=lambda *args: None,
-                    progress_file=str(Path(tmp) / "progress.json"))
-                self.assertIn("calibration", summary,
-                              "training must calibrate the saved policy on validation data")
-                self.assertEqual(summary["calibration"]["selected_gain"], .4)
-                self.assertEqual(evaluator.evaluate.call_count, 4)
-                for name in ("policy.npz", "step0.npz", "short.npz"):
-                    with np.load(Path(tmp) / name, allow_pickle=False) as z:
-                        np.testing.assert_array_equal(z["w0"], np.full((12, 45), .4,
-                                                                           dtype=np.float32))
 
     def test_determinism_ignores_only_timing(self):
         v = {"ok": True, "gates": {"g1": {"pass": True, "value": .8}},

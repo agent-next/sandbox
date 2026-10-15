@@ -220,7 +220,10 @@ class Lease:
         t0 = time.monotonic()
         token = uuid.uuid4().hex
         wrapped = ONCE.replace("__CODE__", repr(code)).replace("__TOKEN__", repr(token))
-        for attempt in range(6):
+        deadline = t0 + timeout_s + 900
+        for attempt in range(60):
+            if time.monotonic() >= deadline:
+                break
             try:
                 st, r = request(self.key, "POST", f"/sandboxes/{self.id}/exec",
                                 {"code": wrapped, "timeout_s": timeout_s},
@@ -239,7 +242,7 @@ class Lease:
             if st is None or st in (409, 500, 502, 503, 504) or (
                     st == 200 and "BlockingIOError" in str(result.get("stderr"))):
                 print(f"exec reply unavailable; recovering token {token}, "
-                      f"attempt {attempt + 1}/6 (HTTP {st})", file=sys.stderr, flush=True)
+                      f"attempt {attempt + 1}/60 (HTTP {st})", file=sys.stderr, flush=True)
                 time.sleep(min(5 * (attempt + 1), 30))
                 continue
             die(f"GPU exec: HTTP {st}; no confirmed execution result")
