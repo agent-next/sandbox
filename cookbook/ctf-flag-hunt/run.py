@@ -81,14 +81,24 @@ def detached(sid: str, name: str, cmd: str, log: str) -> None:
 
 def wait_step(sid: str, name: str, log: str,
               deadline: float = STEP_DEADLINE) -> None:
-    """Poll the detached step's log until it prints __RC__<n> or time runs out."""
+    """Poll the detached step's log until it prints __RC__<n> or time runs out.
+
+    A poll that returns non-zero is the sandbox being unreachable, not the
+    step failing: the step's own result is only ever the __RC__ marker.
+    Treat the first lost poll as such and fail only if none ever succeed.
+    """
     start = time.monotonic()
     last = ""
+    read_ok = False
     while time.monotonic() - start < deadline:
         time.sleep(POLL_INTERVAL)
         proc = sh(sid, f"cat {log} 2>/dev/null")
         if proc.returncode != 0:
-            raise Failure(f"{name}: could not read {log} in the sandbox")
+            if not read_ok:
+                continue
+            raise Failure(f"{name}: could not read {log} in the sandbox: "
+                          f"{(proc.stderr or '').strip()[-300:]}")
+        read_ok = True
         text = proc.stdout
         if "__RC__" in text:
             rc_line = text.rstrip().rsplit("__RC__", 1)[1].strip().split()[0]
