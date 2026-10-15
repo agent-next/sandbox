@@ -5,17 +5,19 @@ Parts:
   bracket.stl -- an L-bracket: a 40 x 20 x 4 base plate and a 24 x 20 x 11
       upright fused at its end into one solid, bounding box 40 x 20 x 15 mm,
       with a 5 mm through-hole bored vertically in the base and a 4 mm
-      through-hole bored horizontally along Y in the upright.  Origin at the
-      bed (min corner at 0,0,0).
-  cube.stl    -- a 25 mm calibration cube, same origin convention (judge
-      cross-check oracle only).
+      through-hole bored horizontally along Y in the upright.  Min corner at
+      (20, 20, 0) so the printed part sits inside the bed with room for a
+      skirt -- the judge slices with auto-arrange disabled, so the print
+      position on the bed equals the STL position.
+  cube.stl    -- a 25 mm calibration cube, min corner at (60, 60, 0)
+      (judge cross-check oracle only).
 
 The mesh is marching tetrahedra over the *analytic* signed distance function
 of each solid (boxes minus cylinders).  Distances are exact, so vertices
 land on edges and hole walls to bisection tolerance and flat faces are
 planar to ~1e-6 mm -- no voxel staircase.  The STL volume and footprint match
 the analytic solid to well under the judge's volume-band half-width.
-Grid pitch 1 mm -> bracket.stl is ~15k triangles (~1 MB ASCII).
+Grid pitch 1 mm -> bracket.stl is ~29k triangles (~5 MB ASCII).
 
 Usage: make_stl.py [--outdir DIR]
 """
@@ -188,7 +190,10 @@ def normal(a, b, c):
     return (nx / n, ny / n, nz / n)
 
 
-def write_ascii_stl(path, tris, name):
+def write_ascii_stl(path, tris, name, offset=(0.0, 0.0, 0.0)):
+    ox, oy, oz = offset
+    def sh(p):
+        return (p[0] + ox, p[1] + oy, p[2] + oz)
     with open(path, "w") as fh:
         fh.write("solid %s\n" % name)
         for a, b, c in tris:
@@ -196,7 +201,8 @@ def write_ascii_stl(path, tris, name):
             fh.write("  facet normal %.6g %.6g %.6g\n" % n)
             fh.write("    outer loop\n")
             for p_ in (a, b, c):
-                fh.write("      vertex %.6f %.6f %.6f\n" % p_)
+                q = sh(p_)
+                fh.write("      vertex %.6f %.6f %.6f\n" % q)
             fh.write("    endloop\n  endfacet\n")
         fh.write("endsolid %s\n" % name)
 
@@ -207,11 +213,13 @@ def main():
         outdir = sys.argv[2]
 
     tris = mesh_surface(sd_bracket, (0.0, 0.0, 0.0, 40.0, 20.0, 15.0))
-    write_ascii_stl(os.path.join(outdir, "bracket.stl"), tris, "bracket")
+    write_ascii_stl(os.path.join(outdir, "bracket.stl"), tris, "bracket",
+                    offset=(20.0, 20.0, 0.0))
     print("bracket.stl: %d triangles" % len(tris))
 
     tris = mesh_surface(sd_cube, (0.0, 0.0, 0.0, 25.0, 25.0, 25.0))
-    write_ascii_stl(os.path.join(outdir, "cube.stl"), tris, "cube")
+    write_ascii_stl(os.path.join(outdir, "cube.stl"), tris, "cube",
+                    offset=(60.0, 60.0, 0.0))
     print("cube.stl: %d triangles" % len(tris))
 
 
