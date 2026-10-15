@@ -1,0 +1,28 @@
+{
+  "artifact": "/tmp/gmut/writes-outside-out-dir/",
+  "failed_gate": "artifact",
+  "gates": {
+    "_meta": {
+      "artifact": "/tmp/gmut/writes-outside-out-dir/",
+      "passed": true,
+      "python": "/home/user/glacier-venv/bin/python",
+      "seed": 20261015,
+      "spec_constants": {
+        "L0": 15000.0,
+        "V0_continuum_km3": 6.0,
+        "V0_mask_km3": 6.0
+      }
+    },
+    "artifact": {
+      "passed": false,
+      "reason": "model.py wrote outside --out: volumes.csv.bak"
+    }
+  },
+  "passed": false,
+  "reason": "model.py wrote outside --out: volumes.csv.bak",
+  "seed": 20261015,
+  "timing": {
+    "first_run_seconds": 2.12,
+    "total_seconds": 2.14
+  }
+}
