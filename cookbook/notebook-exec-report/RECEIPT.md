@@ -116,6 +116,20 @@ The full verdict JSON of run 2 is byte-identical to run 1's (including the
 `metrics` and every gate number); a diff of the two run logs differs only
 in the sandbox ids, the mutants temp-dir name, and the per-step wall times.
 
+A third confirming run at the final branch head `0691b41` (after the
+media/REPRODUCE commits; `run.py` and the judge are unchanged by them)
+also exited 0 with the same SUMMARY line and identical numbers:
+
+    run: [   3.8s] sbx create --timeout-min 30 -> exit 0
+    run: sandbox 01a140b6-6fff-7b91-87d7-88cb1d69c2a3
+    run: [   8.7s] git clone -> exit 0
+    run: [ 151.8s] judge/setup.sh -> exit 0
+    run: [ 250.4s] judge/selftest.sh -> exit 0
+    run: [  27.6s] judge/grade.sh examples/good/analysis.ipynb -> exit 0
+    run: SUMMARY passed=True rmse_test=0.295283 (refit 0.29528270224052927) r2_test=0.877895157 coef_recovery=0.018015198777351894 blind_ratio=0.9933903285423452 figures=3
+    run: killed and confirmed gone: 01a140b6-6fff-7b91-87d7-88cb1d69c2a3
+    EXIT=0
+
 ## Both runs side by side
 
 | quantity | run 1 | run 2 |
