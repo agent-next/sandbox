@@ -48,7 +48,25 @@ def request(key, method, path, body=None, timeout=1200):
             raw = r.read()
             return r.status, json.loads(raw) if raw else None
     except HTTPError as exc:
-        return exc.code, None
+        raw = exc.read() or b""
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            parsed = raw.decode("utf-8", "replace")
+        return exc.code, parsed
+
+
+def fmt_body(b, limit=400):
+    """One-line error body for die(); never contains the API key (it is sent
+    in the request header, and API error bodies never echo headers)."""
+    if b is None:
+        return "(empty body)"
+    if not isinstance(b, str):
+        try:
+            b = json.dumps(b)
+        except Exception:
+            b = str(b)
+    return b.replace("\n", " ")[:limit]
 
 
 def pack_demo():
@@ -70,7 +88,7 @@ import base64, io, json, os, subprocess, sys, tarfile, tempfile, time
 
 root = os.path.expanduser('~/sim-tuner-demo')
 os.makedirs(root, exist_ok=True)
-tarfile.open(fileobj=io.BytesIO(base64.b64decode(PAYLOAD)), mode='r:gz').extractall(root)
+tarfile.open(fileobj=io.BytesIO(base64.b64decode(__PAYLOAD__)), mode='r:gz').extractall(root)
 j = os.path.join(root, 'judge')
 report['stages'] = stages = {}
 t0 = time.monotonic()
@@ -97,10 +115,10 @@ sys.exit(1 if bad else 0)
 '''], 300)
 
 if stages['stack-check']['rc'] == 0:
-    step('selftest', ['bash', 'judge/selftest.sh'], SELFTEST_TIMEOUT_S)
+    step('selftest', ['bash', 'judge/selftest.sh'], __SELFTEST_TIMEOUT_S__)
     rc, verdict = 1, None
     vr = subprocess.run(['bash', 'judge/grade.sh', 'examples/good/params.json',
-                         '--seed', str(SEED), '--json', '/tmp/verdict.json'],
+                         '--seed', str(__SEED__), '--json', '/tmp/verdict.json'],
                         capture_output=True, text=True, timeout=1200, cwd=root)
     if os.path.exists('/tmp/verdict.json'):
         verdict = json.load(open('/tmp/verdict.json'))
@@ -109,6 +127,20 @@ if stages['stack-check']['rc'] == 0:
     report['verdict'] = verdict
 report['total_s'] = round(time.monotonic() - t0, 1)
 """
+
+
+def render_job(payload, seed):
+    """Substitute every value the lease job needs into EXEC_SRC.
+
+    The exec sandbox runs the rendered source with only `report` injected;
+    every other name must be bound inside EXEC_SRC itself (a bare host-side
+    name left over renders as a NameError inside the lease — see
+    tools/test_rendered_job.py, which compiles and executes the rendered job
+    with stubs to prove no such name remains)."""
+    return (EXEC_SRC
+            .replace("__PAYLOAD__", repr(payload))
+            .replace("__SEED__", str(int(seed)))
+            .replace("__SELFTEST_TIMEOUT_S__", str(int(SELFTEST_TIMEOUT_S))))
 
 
 def main():
@@ -134,7 +166,8 @@ def main():
     t0 = time.monotonic()
     st, created = request(key, "POST", "/sandboxes", {"accel": {"vram_gb": 4, "reserve": "exec"}})
     if st != 201:
-        die(f"GPU create: HTTP {st}; check GPU access, credit and capacity")
+        die(f"GPU create: HTTP {st} {fmt_body(created)}; "
+            "check GPU access, credit and capacity")
     sid = created["sandboxID"]
     if not isinstance(sid, str) or not sid.startswith("gl-") or not all(
             c.isascii() and (c.isalnum() or c == "-") for c in sid):
@@ -144,14 +177,14 @@ def main():
 
     report = {}
     try:
-        job = EXEC_SRC.replace("PAYLOAD", repr(payload)).replace("SEED", str(args.seed))
+        job = render_job(payload, args.seed)
         print("exec judge on the lease (stack check, selftest, grade)...", flush=True)
         t0 = time.monotonic()
         st, executed = request(key, "POST", f"/sandboxes/{sid}/exec",
                                {"code": job, "timeout_s": SELFTEST_TIMEOUT_S}, timeout=SELFTEST_TIMEOUT_S + 60)
         dt = time.monotonic() - t0
         if st != 200 or not isinstance(executed, dict):
-            die(f"GPU exec: HTTP {st}")
+            die(f"GPU exec: HTTP {st} {fmt_body(executed)}")
         result = executed.get("result") or {}
         report = result.get("report") or {}
         if result.get("ok") is not True:
@@ -199,7 +232,8 @@ def main():
             raise RuntimeError(f"cleanup unconfirmed for {sid}; run sandbox_kill for this id") from exc
         if st != 404 and not (st == 200 and isinstance(remaining, dict)
                               and remaining.get("phase") == "dead"):
-            die(f"cleanup unconfirmed for {sid}: HTTP {st}; run sandbox_kill for this id")
+            die(f"cleanup unconfirmed for {sid}: HTTP {st} {fmt_body(remaining)}; "
+                "run sandbox_kill for this id")
         print(f"destroyed {sid}; verified absent or dead", flush=True)
 
     print(f"total: {time.monotonic() - total0:.0f} s")

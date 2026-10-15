@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .coverage
+
+# MuJoCo warning log dropped by any sim run (sim-tuner judge/tools)
+MUJOCO_LOG.TXT

@@ -141,7 +141,12 @@ def request(key, method, path, body=None, timeout=900):
             raw = r.read()
             return r.status, json.loads(raw) if raw else None
     except HTTPError as exc:
-        return exc.code, None
+        raw = exc.read() or b""
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            parsed = raw.decode("utf-8", "replace")
+        return exc.code, parsed
 
 
 class GpuLease:
@@ -215,7 +220,9 @@ def gate_gpu_agreement(lease, params, scen):
     for chunk in gpu_eval_chunks([params], scen["ics_train"]):
         rep = lease.exec(gpu_eval_code(chunk, scen["ics_train"], scen["refs_train"], scen["scale"]))
         if not rep.get("finite"):
-            raise RuntimeError("gpu evaluate returned non-finite errors")
+            return {"pass": False,
+                    "problems": ["gpu evaluate returned non-finite errors "
+                                 "(unstable simulation for this artifact)"]}
         errors = rep["err"]
         gpu_sim_s += rep["sim_s"]
         nworld = max(nworld, rep["nworld"])
@@ -224,9 +231,12 @@ def gate_gpu_agreement(lease, params, scen):
     gpu_err = float(errors[0])
     abs_diff = abs(gpu_err - cpu_err)
     rel_diff = abs_diff / cpu_err if cpu_err else float("inf")
-    ok = abs_diff <= GPU_CPU_ABS and rel_diff <= GPU_CPU_TOL and math.isfinite(gpu_err)
-    return {"pass": ok, "gpu_train_err": round(gpu_err, 6), "cpu_train_err": round(cpu_err, 6),
-            "abs_diff": round(abs_diff, 6), "rel_diff": round(rel_diff, 6),
+    ok = (abs_diff <= GPU_CPU_ABS and rel_diff <= GPU_CPU_TOL
+          and math.isfinite(gpu_err) and math.isfinite(cpu_err))
+    fin = lambda v: round(v, 6) if math.isfinite(v) else None
+    return {"pass": ok, "gpu_train_err": fin(gpu_err),
+            "cpu_train_err": fin(cpu_err),
+            "abs_diff": fin(abs_diff), "rel_diff": fin(rel_diff),
             "abs_tol": GPU_CPU_ABS, "rel_tol": GPU_CPU_TOL,
             "gpu_sim_s": round(gpu_sim_s, 3), "nworld": nworld,
             "lease_versions": versions}
@@ -250,17 +260,22 @@ def grade(artifact_path, seed, gpu=True, lease=None, expected_versions=None, wan
 
     cpu_train_err = None
     if params is not None:
+        fin = lambda v: round(v, 6) if math.isfinite(v) else None
         cpu_train_err = error_of(params, scen["refs_train"], scen["ics_train"], scen["scale"])
         cpu_hold_err = error_of(params, scen["refs_hold"], scen["ics_hold"], scen["scale"])
         cpu_hold_default = error_of(DEFAULT_PARAMS, scen["refs_hold"], scen["ics_hold"], scen["scale"])
         frac = cpu_hold_err / cpu_hold_default if cpu_hold_default else float("inf")
-        g3_ok = cpu_hold_err < ORACLE_ABS_ERR and frac < ORACLE_REL_FRAC
-        verdict["gates"]["G2_train"] = {"pass": True, "train_err": round(cpu_train_err, 6)}
+        # a non-finite error means the artifact's simulation went unstable: it
+        # fails the gate, never gates "informational" G2 (see SPEC)
+        g3_ok = (math.isfinite(cpu_hold_err) and cpu_hold_err < ORACLE_ABS_ERR
+                 and frac < ORACLE_REL_FRAC)
+        verdict["gates"]["G2_train"] = {"pass": True, "train_err": fin(cpu_train_err)}
         verdict["gates"]["G3_heldout"] = {
-            "pass": g3_ok, "heldout_err": round(cpu_hold_err, 6),
+            "pass": g3_ok, "heldout_err": fin(cpu_hold_err),
             "abs_threshold": ORACLE_ABS_ERR,
-            "frac_of_default": round(frac, 4), "rel_threshold": ORACLE_REL_FRAC,
-            "default_err": round(cpu_hold_default, 6)}
+            "frac_of_default": round(frac, 4) if math.isfinite(frac) else None,
+            "rel_threshold": ORACLE_REL_FRAC,
+            "default_err": fin(cpu_hold_default)}
 
     if params is not None and gpu:
         if lease is None:

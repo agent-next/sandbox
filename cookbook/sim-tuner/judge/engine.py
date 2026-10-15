@@ -391,7 +391,7 @@ def run_eval(payload):
     dd.qvel = wp.array(qvel.astype(np.float32), dtype=float)
     dd.ctrl = wp.array(ctrlA, dtype=float)
 
-    acc = np.zeros(NC, dtype=np.float64)
+    acc = np.zeros((NC, NSIG), dtype=np.float64)
     t0 = time.perf_counter()
     step, obs, zmin = 0, 0, float("inf")
     for blk in range(2):
@@ -407,11 +407,13 @@ def run_eval(payload):
                 sig = np.stack([qp[:, 0], qp[:, 2], qv[:, 2], qp[:, 7], qp[:, 8],
                                 qv[:, 6], qv[:, 7]], axis=1)
                 d = (sig.reshape(n_ic, NC, NSIG) - refs[:, obs, :].reshape(n_ic, 1, NSIG)) / scale
-                acc += (d ** 2).sum(axis=(0, 2))
+                acc += (d ** 2).sum(axis=0)
                 obs += 1
     wp.synchronize()
-    err = np.sqrt(acc / (n_ic * NSIG * nobs))
+    sig_err = np.sqrt(acc / (n_ic * nobs))
+    err = np.sqrt(acc.sum(axis=1) / (n_ic * NSIG * nobs))
     return {"err": [round(float(e), 6) for e in err],
+            "sig_err": [[round(float(s), 6) for s in row] for row in sig_err],
             "best": int(err.argmin()), "best_err": round(float(err.min()), 6),
             "nworld": NW, "sim_s": round(time.perf_counter() - t0, 3),
             "finite": bool(np.all(np.isfinite(err))),
