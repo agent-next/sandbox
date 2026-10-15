@@ -372,6 +372,16 @@ def drive_flows(port, ids, shots_dir=None):
                             problems.append(msg)
 
                     if name == "add":
+                        # the spec's element names are the DOM ids the judge
+                        # drives: with items on the page every one of them
+                        # must resolve to a real element. Checked here so a
+                        # spec/artifact id mismatch is named, not a selector
+                        # crash deeper in a later flow.
+                        missing = [n for n in sorted(set(ids.values()))
+                                   if not page.query_selector(f"#{n}")]
+                        expect(not missing,
+                               f"spec elements missing from the DOM: "
+                               f"{missing}")
                         expect([i["text"] for i in state["items"]] == texts,
                                f"items {[i['text'] for i in state['items']]} "
                                f"!= {texts}")
@@ -526,7 +536,15 @@ def main():
     with open(os.path.join(judge_dir, "spec.json")) as fh:
         elements = json.load(fh)["elements"]
     # The element names in spec.json are the DOM ids the judge drives; the
-    # values are descriptions for the agent, never selectors.
+    # values are descriptions for the agent, never selectors. A name that
+    # is not a single valid id token would make every selector silently
+    # wrong, so it is a judge-config error, caught here before any run.
+    bad = [n for n in elements
+           if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", n)]
+    if bad:
+        print(f"grade.sh: spec.json element names cannot be DOM ids: {bad}",
+              file=sys.stderr)
+        raise SystemExit(2)
     ids = {name: name for name in elements}
 
     sha_before = check_shas(judge_dir)
