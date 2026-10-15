@@ -1,7 +1,7 @@
 {
     "$schema": "https://schemas.kicad.org/drc.v1.json",
     "coordinate_units": "mm",
-    "date": "2026-10-14T21:14:28+0000",
+    "date": "2026-10-15T05:08:48+0000",
     "included_severities": [
         "error",
         "warning",
@@ -21,7 +21,7 @@
                         "x": 140.0,
                         "y": 100.0
                     },
-                    "uuid": "8891727d-c4c4-4ef0-b1e1-f7f52e1bfb16"
+                    "uuid": "66c2a945-48a1-4ab8-9b68-cea47c1f2930"
                 }
             ],
             "severity": "error",

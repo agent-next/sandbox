@@ -31,6 +31,29 @@
     "G3_netlist": {
       "details": {
         "floating_pins": 0,
+        "member_mismatch": {
+          "GND": {
+            "pcb_only": [],
+            "sch_only": [
+              [
+                "J1",
+                "1"
+              ],
+              [
+                "R1",
+                "2"
+              ],
+              [
+                "U1",
+                "4"
+              ],
+              [
+                "U1",
+                "8"
+              ]
+            ]
+          }
+        },
         "only_in_pcb": [
           "VCC"
         ],
@@ -69,7 +92,7 @@
         "B.Cu": {
           "apertures": 4,
           "file": "555-blinker-B_Cu.gbl",
-          "ops": 35
+          "ops": 23
         },
         "B.Mask": {
           "apertures": 2,
@@ -79,17 +102,17 @@
         "B.Silkscreen": {
           "apertures": 1,
           "file": "555-blinker-B_Silkscreen.gbo",
-          "ops": 186
+          "ops": 93
         },
         "Edge.Cuts": {
           "apertures": 1,
           "file": "555-blinker-Edge_Cuts.gm1",
-          "ops": 8
+          "ops": 4
         },
         "F.Cu": {
           "apertures": 9,
           "file": "555-blinker-F_Cu.gtl",
-          "ops": 85
+          "ops": 58
         },
         "F.Mask": {
           "apertures": 7,
@@ -99,7 +122,7 @@
         "F.Silkscreen": {
           "apertures": 2,
           "file": "555-blinker-F_Silkscreen.gto",
-          "ops": 352
+          "ops": 178
         },
         "extents_mm": {
           "board": [
@@ -131,11 +154,28 @@
         "tools": 2
       },
       "pass": true
+    },
+    "G7_limits": {
+      "details": {
+        "board_limit_mm": 50.0,
+        "board_size_mm": [
+          40.0,
+          30.0
+        ],
+        "board_size_ok": true,
+        "netclass_min_mm": {
+          "clearance": 0.2,
+          "track_width": 0.2,
+          "via_drill": 0.3
+        },
+        "netclass_ok": true
+      },
+      "pass": true
     }
   },
   "overall_pass": false,
   "seed": 42,
   "timing": {
-    "wall_seconds": 7.897
+    "wall_seconds": 30.833
   }
 }

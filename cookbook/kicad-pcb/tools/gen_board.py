@@ -135,8 +135,10 @@ def main():
           "C2", "10n", 133, 116, 90, {"1": GND, "2": CTRL})
     place(board, libdir, R0805, "R_0805_2012Metric",
           "R3", "470", 111, 116, 0, {"1": OUT, "2": LED})
+    # LED_SMD pad 1 = cathode, pad 2 = anode; the schematic drives
+    # pin 2 (A) from R3 and ties pin 1 (K) to GND — match that here.
     place(board, libdir, LED0805, "LED_0805_2012Metric",
-          "D1", "LED", 107, 119, 0, {"1": LED, "2": GND})
+          "D1", "LED", 107, 119, 0, {"1": GND, "2": LED})
 
     # VCC: B.Cu bus along the top, F.Cu stubs into SMD pads through vias
     add_track(board, VCC, B_Cu, 103, 106, 128, 106)
@@ -163,9 +165,9 @@ def main():
     add_via(board, GND, 133, 119.5)
     add_track(board, GND, B_Cu, 133, 119.5, 133, 124)
     add_track(board, GND, F_Cu, 133, 119.5, 133, 117.2)        # -> C2.2
-    add_via(board, GND, 107.938, 121.7)
-    add_track(board, GND, B_Cu, 107.938, 121.7, 107.938, 124)
-    add_track(board, GND, F_Cu, 107.938, 121.7, 107.938, 119.5)  # -> D1.2
+    add_via(board, GND, 106.0625, 121.7)
+    add_track(board, GND, B_Cu, 106.0625, 121.7, 106.0625, 124)
+    add_track(board, GND, F_Cu, 106.0625, 121.7, 106.0625, 119.5)  # -> D1.1
 
     # DIS: U1.7 -> R1.2 and R2.1
     add_track(board, DIS, F_Cu, 123.45, 112.365, 128, 112.365)
@@ -195,10 +197,10 @@ def main():
     add_track(board, OUT, F_Cu, 111, 114.8, 110.088, 114.8)
     add_track(board, OUT, F_Cu, 110.088, 114.8, 110.088, 115.6)
 
-    # LED: R3.2 -> D1.1 (leave pad 2 out the bottom)
+    # LED: R3.2 -> D1.2 (anode; pad 1 is the grounded cathode)
     add_track(board, LED, F_Cu, 111.912, 116.6, 111.912, 117.5)
-    add_track(board, LED, F_Cu, 111.912, 117.5, 106.2, 117.5)
-    add_track(board, LED, F_Cu, 106.2, 117.5, 106.2, 118.9)
+    add_track(board, LED, F_Cu, 111.912, 117.5, 107.9375, 117.5)
+    add_track(board, LED, F_Cu, 107.9375, 117.5, 107.9375, 118.9)
 
     # back-silk label so B.Silkscreen carries real content
     t = pcbnew.PCB_TEXT(board)

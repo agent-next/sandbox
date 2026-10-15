@@ -62,10 +62,12 @@ def main():
         sys.exit("export SBX_API_KEY (or E2B_API_KEY)")
 
     sid = sbx_out("create", "--timeout-min", "30").strip().splitlines()[-1]
-    print(f"sandbox: {sid}", flush=True)
     timing = {}
     rc = 1
     try:
+        # the first print can already fail (e.g. closed stdout); it must
+        # be inside the finally-guarded region or the sandbox leaks
+        print(f"sandbox: {sid}", flush=True)
         steps = [
             ("clone", f"git clone --depth 1 -b {shlex.quote(args.ref)} "
                       f"{REPO} repo", 600),

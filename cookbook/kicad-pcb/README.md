@@ -39,11 +39,12 @@ times, then always kills the sandbox and verifies it is gone.
 | gate | check | pass rule |
 |---|---|---|
 | G1 | `kicad-cli sch erc` JSON | 0 errors, and every warning type is in the allow-list (SPEC.md) |
-| G2 | `kicad-cli pcb drc` JSON | 0 violations, 0 unconnected items |
-| G3 | schematic vs PCB netlists | exact net-set equality, 0 unrouted, 555 + LED placed, same part references |
+| G2 | `kicad-cli pcb drc` JSON | 0 violations, 0 unconnected items — run with the judge's pinned rule severities, not the artifact's |
+| G3 | schematic vs PCB netlists | per-net `(ref, pin)` == `(ref, pad)` membership, 0 unrouted, 555 + LED placed, same part references |
 | G4 | Edge.Cuts parsed from `.kicad_pcb` | outline is a closed loop, no open segment ends |
-| G5 | gerber export (7 layers) | >=1 aperture + >=1 op per layer; Edge.Cuts extents match the board to 0.1 mm |
+| G5 | gerber export (7 layers) | >=1 aperture + >=1 draw/flash op per layer; Edge.Cuts extents match the board to 0.1 mm |
 | G6 | Excellon drill export | every through-hole pad/via has a drill, a matching tool exists, hits cover all holes |
+| G7 | `.kicad_pcb` + `.kicad_pro` | board <= 50x50 mm; netclass clearance/track >= 0.20 mm, via drill >= 0.30 mm |
 
 ## Measured wall time (this sandbox, 2 vCPU / 4 GB)
 
@@ -52,7 +53,7 @@ Two cold runs on different days; network speed dominates `setup.sh`.
 | step | time |
 |---|---|
 | `judge/setup.sh` (cold, downloads 208 MB) | 18-34 s |
-| `judge/selftest.sh` (good x2 + 8 mutants) | 26-46 s |
+| `judge/selftest.sh` (good x2 + unit tests + 11 mutants) | 60-120 s |
 | `judge/grade.sh` on the good example | 3-6 s |
 
 ## Rebuilding the media
@@ -75,8 +76,9 @@ judge/VERSIONS.txt        what setup.sh installed (tool --version output)
 judge/requirements.txt    hash-pinned pip deps (media only; judge is stdlib)
 judge/grade.sh            runs kicad-cli + oracle, emits verdict JSON
 judge/oracle.py           stdlib-only independent checker
-judge/selftest.sh         determinism + mutant kill-rate (>= 90%)
-judge/mutants.py          8 single-edit mutants of the good board
+judge/test_oracle.py      oracle unit tests (in-memory fixtures)
+judge/selftest.sh         determinism + unit tests + mutant kill-rate (>= 90%)
+judge/mutants.py          11 single-edit mutants of the good project
 examples/good/555-blinker/  known-good project (~83 KB, self-contained)
 tools/                    generators that produced the example
 media/                    result.png, loop.png, demo.mp4, make_media.sh

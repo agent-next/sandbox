@@ -56,6 +56,15 @@ SCH=$(one kicad_sch); PCB=$(one kicad_pcb); PRO=$(one kicad_pro)
 [[ -n "$SCH" && -n "$PCB" && -n "$PRO" ]] || {
     echo "Project needs exactly one .kicad_pro + .kicad_sch + .kicad_pcb at its top level" >&2; exit 2; }
 
+# The judge — not the artifact — owns ERC/DRC rule severities and
+# exclusions.  Reset them in the copied .kicad_pro to the judge's
+# pinned set and drop any artifact-supplied custom design-rule file, so
+# a submission cannot disable the checks it is graded by.
+rm -f "$PROJ"/*.kicad_dru
+PYTHONPATH="$SCRIPT_DIR" python3 -c \
+    'import oracle, sys; oracle.pin_design_rules(sys.argv[1])' "$PRO" \
+    || { echo "could not pin design rules in $PRO" >&2; exit 2; }
+
 mkdir -p "$WORK/gerbers" "$WORK/drill"
 T_START=$(date +%s.%N)
 
@@ -76,30 +85,24 @@ t "$CLI" pcb export drill "$PCB" -o "$WORK/drill"
 echo "== oracle"
 
 # Missing artifacts must fail the gate, so pass the paths as-is; oracle.py
-# reports oracle_error on any unreadable/missing file.
-ORA_ARGS=(--pcb "$PCB" --erc "$WORK/erc.json" --drc "$WORK/drc.json"
+# reports oracle_error on any unreadable/missing file.  The oracle writes
+# the verdict itself, stamping seed + wall time under 'timing' — per
+# DEMO-STANDARD.md two runs with the same seed must give identical
+# verdict JSON except the timing key.
+ORA_ARGS=(--pcb "$PCB" --pro "$PRO" --erc "$WORK/erc.json"
+          --drc "$WORK/drc.json"
           --sch-netlist "$WORK/sch.netlist.xml"
-          --gerber-dir "$WORK/gerbers" --drill-dir "$WORK/drill")
-[[ -n "$JSON_OUT" ]] && ORA_ARGS+=(--json "$WORK/verdict.json")
+          --gerber-dir "$WORK/gerbers" --drill-dir "$WORK/drill"
+          --seed "$SEED" --wall-start "$T_START")
+[[ -n "$JSON_OUT" ]] && ORA_ARGS+=(--json "$JSON_OUT")
 
 python3 "$SCRIPT_DIR/oracle.py" "${ORA_ARGS[@]}"
 RC=$?
 
-# Stamp seed + wall time under 'timing'. Per DEMO-STANDARD.md two runs with
-# the same seed must give identical verdict JSON except the timing key, so
-# nothing else here may vary between runs.
-if [[ -n "$JSON_OUT" && -f "$WORK/verdict.json" ]]; then
-    ELAPSED=$(python3 -c 'import sys; print(float(sys.argv[1]) - float(sys.argv[2]))' \
-              "$(date +%s.%N)" "$T_START")
-    python3 - "$WORK/verdict.json" "$JSON_OUT" "$SEED" "$ELAPSED" <<'PY'
-import json, sys
-src, dst, seed, secs = sys.argv[1], sys.argv[2], int(sys.argv[3]), float(sys.argv[4])
-v = json.load(open(src))
-v["seed"] = seed
-v["timing"] = {"wall_seconds": round(secs, 3)}
-with open(dst, "w") as f:
-    json.dump(v, f, indent=2, sort_keys=True)
-    f.write("\n")
-PY
+# A requested verdict that could not be written is a judge failure,
+# not a pass.
+if [[ -n "$JSON_OUT" && ! -f "$JSON_OUT" ]]; then
+    echo "grade.sh: verdict was not written to $JSON_OUT" >&2
+    exit 2
 fi
 exit $RC

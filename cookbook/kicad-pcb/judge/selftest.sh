@@ -47,25 +47,55 @@ else
     echo "FAIL: verdict JSON differs between identical runs"; exit 1
 fi
 
+echo "=== selftest: oracle unit tests"
+(cd "$DEMO_DIR" && python3 -m unittest judge/test_oracle.py) || {
+    echo "FAIL: oracle unit tests failed"; exit 1; }
+
 echo "=== selftest: mutants"
-python3 "$SCRIPT_DIR/mutants.py" "$GOOD_DIR" "$WORK/mutants"
+# Fail closed: a generator crash or an empty mutant set is a selftest
+# failure, never a kill.
+python3 "$SCRIPT_DIR/mutants.py" "$GOOD_DIR" "$WORK/mutants" \
+    || { echo "FAIL: mutant generation failed"; exit 1; }
+shopt -s nullglob
+mutdirs=("$WORK/mutants"/*/)
+[[ ${#mutdirs[@]} -gt 0 ]] || { echo "FAIL: no mutants generated"; exit 1; }
+EXPECTED=$(PYTHONPATH="$SCRIPT_DIR" \
+    python3 -c 'import mutants; print(len(mutants.MUTANTS))')
+[[ ${#mutdirs[@]} -eq $EXPECTED ]] || {
+    echo "FAIL: expected $EXPECTED mutants, got ${#mutdirs[@]}"; exit 1; }
 
 TOTAL=0
 KILLED=0
-for mdir in "$WORK/mutants"/*/; do
+INFRA=0
+for mdir in "${mutdirs[@]}"; do
     name=$(basename "$mdir")
     TOTAL=$((TOTAL + 1))
     if bash "$SCRIPT_DIR/grade.sh" "$mdir" --json "$WORK/$name.json" \
             >"$WORK/$name.log" 2>&1; then
         echo "    $name: SURVIVED (bad)"; cat "$WORK/$name.log"
-    else
-        failed=$(python3 -c "
-import json,sys
-v=json.load(open('$WORK/$name.json'))
-print(' '.join(k for k,g in v['gates'].items() if not g['pass']))" \
-            2>/dev/null || echo "?")
+        continue
+    fi
+    # A kill needs a real failing verdict: a grade crash, missing JSON
+    # or a verdict that shows no failed gate is a selftest failure.
+    if failed=$(python3 - "$WORK/$name.json" <<'PY'
+import json, sys
+try:
+    v = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(1)
+bad = [k for k, g in v.get("gates", {}).items() if not g["pass"]]
+if v.get("overall_pass") is False and bad:
+    print(" ".join(sorted(bad)))
+else:
+    sys.exit(1)
+PY
+    ); then
         echo "    $name: killed (failed: $failed)"
         KILLED=$((KILLED + 1))
+    else
+        echo "    $name: ERROR — non-zero exit but no valid failing verdict"
+        cat "$WORK/$name.log"
+        INFRA=$((INFRA + 1))
     fi
 done
 
@@ -76,6 +106,10 @@ AFTER=$(judge_sum)
 [[ "$BEFORE" == "$AFTER" ]] || { echo "FAIL: judge/ changed during grading"; exit 1; }
 echo "=== selftest: judge/ checksum unchanged"
 
+if [[ $INFRA -gt 0 ]]; then
+    echo "SELFTEST FAIL ($INFRA mutant(s) produced no valid failing verdict)"
+    exit 1
+fi
 if [[ $RATE -ge 90 ]]; then
     echo "SELFTEST PASS"
     exit 0

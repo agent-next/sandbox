@@ -51,10 +51,10 @@ C = {"pass": "#009E73", "fail": "#D55E00", "mark": "#D55E00",
      "ink": "#1a1a1a", "mut": "#0072B2", "chip": "#E69F00"}
 
 GATE_ORDER = ["G1_erc", "G2_drc", "G3_netlist",
-              "G4_outline", "G5_gerber", "G6_drill"]
+              "G4_outline", "G5_gerber", "G6_drill", "G7_limits"]
 GATE_SHORT = {"G1_erc": "G1 ERC", "G2_drc": "G2 DRC", "G3_netlist": "G3 netlist",
               "G4_outline": "G4 outline", "G5_gerber": "G5 gerbers",
-              "G6_drill": "G6 drill"}
+              "G6_drill": "G6 drill", "G7_limits": "G7 limits"}
 
 # mutants that change the schematic vs the board (detected by diffing)
 PT_PER_MM = 72.0 / 25.4
@@ -105,6 +105,8 @@ def fail_metric(gate, det):
             bits.append("sch:" + ",".join(det["only_in_sch"]))
         if det.get("only_in_pcb"):
             bits.append("pcb:" + ",".join(det["only_in_pcb"]))
+        if det.get("member_mismatch"):
+            bits.append("members\n" + ",".join(det["member_mismatch"]))
         if det.get("floating_pins"):
             bits.append(f"float={det['floating_pins']}")
         if det.get("unrouted_items"):
@@ -133,6 +135,15 @@ def fail_metric(gate, det):
                 f"{d}mm" for d in det["missing_tool_mm"])
         return (f"tools={det.get('tools', 0)}\n"
                 f"hits={det.get('drill_hits', 0)}")
+    if gate == "G7_limits":
+        bits = []
+        if not det.get("board_size_ok", True):
+            bits.append("size=" + "x".join(
+                str(v) for v in det.get("board_size_mm", ["?", "?"])))
+        if det.get("netclass_violations"):
+            bits.append("netclass\n" + ",".join(
+                det["netclass_violations"]))
+        return "\n".join(bits) if bits else "limits"
     return "fail"
 
 
@@ -165,6 +176,11 @@ def gate_row_text(gate, det):
                 f"{det.get('expected_holes', '?')} hits, "
                 f"{det.get('no_drill_pads', 0) + det.get('no_drill_vias', 0)}"
                 " holes w/o drill")
+    if gate == "G7_limits":
+        size = det.get("board_size_mm", ["?", "?"])
+        return (f"board {size[0]}x{size[1]} mm (<= "
+                f"{det.get('board_limit_mm', '?')}), "
+                f"netclass {'ok' if det.get('netclass_ok') else 'FAIL'}")
     return ""
 
 
@@ -414,6 +430,7 @@ def gate_table(ax, verdict, fontsize=10):
     ax.text(1.0, 0.97, "result", fontsize=fontsize, weight="bold",
             family="monospace", va="top", ha="right")
     y = 0.86
+    step = 0.70 / len(GATE_ORDER)
     for g in GATE_ORDER:
         r = verdict["gates"][g]
         ok = r["pass"]
@@ -425,7 +442,7 @@ def gate_table(ax, verdict, fontsize=10):
         ax.text(1.0, y, "PASS" if ok else "FAIL", fontsize=fontsize,
                 family="monospace", va="top", ha="right",
                 weight="bold", color=C["pass"] if ok else C["fail"])
-        y -= 0.13
+        y -= step
     overall = "PASS" if verdict["overall_pass"] else "FAIL"
     ax.text(0.0, y - 0.02, f"overall: {overall}",
             fontsize=fontsize + 3, weight="bold",
@@ -542,7 +559,7 @@ def gate_chips(fig, y, verdict, fontsize=13):
     for g in GATE_ORDER:
         r = verdict["gates"][g]
         ok = r["pass"]
-        w = 0.135
+        w = 0.12
         ax = fig.add_axes([x, y, w, 0.075])
         ax.axis("off")
         col = C["pass"] if ok else C["fail"]
@@ -632,7 +649,7 @@ def frame_summary(names, verdicts, out):
              ha="center", fontsize=34, weight="bold")
     fig.text(0.5, 0.06,
              f"kill rate {killed}/{len(names) - 1} = 100 %   "
-             "(judge exits 0 only when all six gates pass; "
+             "(judge exits 0 only when all seven gates pass; "
              "reproduce: python3 run.py)",
              ha="center", fontsize=18, color="#333333")
     fig.savefig(out, dpi=100)
@@ -644,8 +661,9 @@ def frame_summary(names, verdicts, out):
 
 def main():
     names = ["good"] + mutant_names()
-    if len(names) != 9:
-        sys.exit(f"expected good + 8 mutants in {MUT_DIR}, got {names}")
+    if len(names) != len(mut_mod.MUTANTS) + 1:
+        sys.exit(f"expected good + {len(mut_mod.MUTANTS)} mutants in "
+                 f"{MUT_DIR}, got {names}")
     verdicts = {n: load(n) for n in names}
     if not verdicts["good"]["overall_pass"]:
         sys.exit("media/data/good.json is not a pass — regenerate data")

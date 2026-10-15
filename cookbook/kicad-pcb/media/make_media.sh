@@ -48,8 +48,8 @@ need_json good.erc.json
 need_json good.drc.json
 MUTANTS=""
 for m in erc_unconnected_pin erc_power_short erc_off_grid \
-         netlist_mismatch drc_unconnected drc_short \
-         outline_open drill_no_tools; do
+         netlist_mismatch led_reversed drc_unconnected drc_short \
+         drc_rules_off outline_open board_oversize drill_no_tools; do
     need_json "$m.json"; need_json "$m.erc.json"; need_json "$m.drc.json"
     [[ -d "$DATA/mutants/$m" ]] \
         || die "missing media/data/mutants/$m — run media/make_data.sh"
