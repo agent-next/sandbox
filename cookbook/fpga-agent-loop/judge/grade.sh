@@ -179,7 +179,7 @@ if [[ "${GATE_PASS[G2]}" != false ]]; then
         sed 's/^/   /' "$G2_LOG" | tail -1
     else
         GATE_PASS[G2]=false
-        GATE_DETAIL[G2]="$(grep -m1 "G2:" "$G2_LOG" | json_escape)"
+        GATE_DETAIL[G2]="$(grep -m1 "G2:" "$G2_LOG" | json_escape || true)"
         echo "   G2: FAIL (first mismatch):"
         sed 's/^/   /' "$G2_LOG" | head -5
         echo "   G2: FAIL"
@@ -254,15 +254,23 @@ g5_rc=0
 yosys -p "read_verilog -I$PICORV32_DIR $CPU_V; read_verilog $JUDGE_DIR/g5_top.v; hierarchy -top top; synth_ecp5 -top top -json $G5_NET; stat" \
     >"$G5_LOG" 2>&1 || g5_rc=$?
 if [[ $g5_rc -eq 0 ]]; then
-    REPORT_LUT4=$(grep -oE '^ *[0-9]+ +LUT4$' "$G5_LOG" | tail -1 | awk '{print $1}')
-    REPORT_FF=$(grep -oE '^ *[0-9]+ +TRELLIS_FF$' "$G5_LOG" | tail -1 | awk '{print $1}')
+    # awk-based extraction: grep would exit 1 on no match and set -e would
+    # kill grade.sh before the verdict is written. A mutant that ties the
+    # top's only output constant (e.g. trap-stuck-lo) synthesizes to an
+    # empty netlist - yosys/nextpnr still exit 0 but there is no LUT4 line
+    # and "fmax" is {} - which must fail the gate, not crash it.
+    REPORT_LUT4=$(awk '/^ *[0-9]+ +LUT4$/ {v=$1} END {print v}' "$G5_LOG")
+    REPORT_FF=$(awk '/^ *[0-9]+ +TRELLIS_FF$/ {v=$1} END {print v}' "$G5_LOG")
     nextpnr-ecp5 --85k --package CABGA381 --json "$G5_NET" \
         --textcfg "$WORK/g5.config" --lpf-allow-unconstrained \
         --report "$G5_RPT" >>"$G5_LOG" 2>&1 || g5_rc=$?
     if [[ $g5_rc -eq 0 ]]; then
-        REPORT_FMAX=$(G5_RPT="$G5_RPT" python3 - <<'PY'
+        REPORT_FMAX=$(G5_RPT="$G5_RPT" python3 - <<'PY' 2>/dev/null || true
 import json, os
-f = json.load(open(os.environ["G5_RPT"]))["fmax"]
+try:
+    f = json.load(open(os.environ["G5_RPT"])).get("fmax") or {}
+except Exception:
+    f = {}
 print("%.2f" % min(v["achieved"] for v in f.values()) if f else "")
 PY
 )
@@ -276,8 +284,12 @@ if [[ $g5_rc -eq 0 && -n "${REPORT_LUT4:-}" && -n "${REPORT_FMAX:-}" ]]; then
     echo "   G5: PASS (LUT4=$REPORT_LUT4 FF=$REPORT_FF Fmax=${REPORT_FMAX} MHz)"
 else
     GATE_PASS[G5]=false
-    G5_ERR=$(grep -iE "ERROR:|fatal" "$G5_LOG" | head -1)
-    [[ -z "$G5_ERR" ]] && G5_ERR="g5 failed: $(tail -1 "$G5_LOG")"
+    if [[ $g5_rc -eq 0 ]]; then
+        G5_ERR="synth+P&R finished but no LUT4/Fmax to report (top optimized to nothing - constant output?)"
+    else
+        G5_ERR=$(grep -iE "ERROR:|fatal" "$G5_LOG" | head -1 || true)
+        [[ -z "$G5_ERR" ]] && G5_ERR="g5 failed: $(tail -1 "$G5_LOG")"
+    fi
     GATE_DETAIL[G5]="$(printf '%s' "$G5_ERR" | json_escape)"
     echo "   G5: FAIL"
     echo "   $G5_ERR"
@@ -306,9 +318,9 @@ else
         GATE_PASS[G6]=false
     fi
     GATE_META[G6]="$(cat "$G6_OUT")"
-    REPORT_CPI=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("cpi") or "")' "$G6_OUT")
-    GATE_DETAIL[G6]="$(python3 -c 'import json,sys; import json as j; print(j.dumps(json.load(open(sys.argv[1])).get("detail") or ""))' "$G6_OUT")"
-    echo "   G6: $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("detail") or "n/a")' "$G6_OUT")"
+    REPORT_CPI=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("cpi") or "")' "$G6_OUT" 2>/dev/null || true)
+    GATE_DETAIL[G6]="$(python3 -c 'import json,sys; import json as j; print(j.dumps(json.load(open(sys.argv[1])).get("detail") or ""))' "$G6_OUT" 2>/dev/null || true)"
+    echo "   G6: $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("detail") or "n/a")' "$G6_OUT" 2>/dev/null || echo "g6check produced no JSON")"
 fi
 
 # ---- verdict -------------------------------------------------------------------

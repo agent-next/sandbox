@@ -132,7 +132,9 @@ for m in $MUT_NAMES; do
         echo "  $m ... SURVIVOR"
     else
         KILLED=$((KILLED+1))
-        failed_gates=$(python3 - <<PY
+        # a missing verdict JSON (grade.sh itself crashed) still counts as
+        # killed but must not abort the selftest
+        failed_gates=$(python3 - <<PY 2>/dev/null || echo "grade-crashed"
 import json
 v = json.load(open("$WORK/verdict.$m.json"))
 print(",".join(g for g, e in v["gates"].items() if e.get("pass") is False))
