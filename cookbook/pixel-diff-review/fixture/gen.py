@@ -31,9 +31,13 @@ import sys
 VIEWPORT_W = 1280
 VIEWPORT_H = 720
 
-CARD_GAP = 16
-CARD_TOP = 168
-CARD_H = 104
+# Card geometry is snapped to the 32x24 judge block grid: CARD_TOP is a
+# multiple of 24, CARD_H a multiple of 24, and the card width a multiple of
+# 32, so a changed card covers an exact whole number of blocks and the
+# bounding box is a clean rectangle.
+CARD_GAP = 24
+CARD_TOP = 144
+CARD_H = 120
 CARD_COLS = 4
 CARD_W = (VIEWPORT_W - 2 * 32 - (CARD_COLS - 1) * CARD_GAP) // CARD_COLS
 
@@ -93,9 +97,9 @@ def css(font_family, variant):
                         "  transform: translateY(-3px);")
 
     if variant in ("head", "sneaky"):
-        intended = ("\n.card[data-card=\"signups\"] { color: #06331f;"
-                    " background: #e4f7ec; }\n"
-                    ".card[data-card=\"signups\"] .delta { color: #0a5c33; }\n")
+        intended = ("\n.card[data-card=\"signups\"] { color: #4e342e;"
+                    " background: #ffcc80; }\n"
+                    ".card[data-card=\"signups\"] .delta { color: #1b5e20; }\n")
     else:
         intended = ("\n.card[data-card=\"signups\"] { color: #0b2b45;"
                     " background: #eef6ff; }\n"
@@ -176,12 +180,8 @@ def card_html(card, variant):
 
 
 def sparkline_html(variant, seed):
-    """Deterministic bar heights; head lengthens the last bars so the change
-    reaches the bottom-right of the intended card."""
+    """Deterministic bar heights, identical in all three builds."""
     heights = seeded_numbers(seed, SPARK_BARS, 24, 96)
-    if variant in ("head", "sneaky"):
-        heights[-1] = 96
-        heights[-2] = 88
     bars = "".join(
         '        <div class="bar" style="height:%dpx"></div>\n' % h
         for h in heights)
