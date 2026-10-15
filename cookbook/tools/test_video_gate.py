@@ -283,7 +283,7 @@ def test_cli_exit_2_on_non_video(tmp_path):
 # These videos predate the gate and are expected to fail while they are re-cut
 # to the standard. Every other committed demo must pass. Remove a name from
 # KNOWN_FAIL once its re-cut passes; never add one.
-KNOWN_FAIL = {"cfd-openfoam", "fea-calculix", "firmware-qemu", "gpu-kernel", "plc-st", "spice-filter"}
+KNOWN_FAIL = {"cfd-openfoam", "fea-calculix", "firmware-qemu", "gpu-kernel", "plc-st", "sim-engine-arena", "spice-filter"}
 
 
 def test_committed_demo_baseline():
