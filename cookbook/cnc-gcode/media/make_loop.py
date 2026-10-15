@@ -159,12 +159,12 @@ def main():
     axK.axvline(90, color=CRIT, lw=1.6, ls=(0, (4, 3)))
     axK.text(88.5, 0.5, "90% -- the demo\nstandard's floor ", fontsize=8.5,
              color=CRIT, va="center", ha="right", linespacing=1.3)
-    axK.text(pct - 2, 0, f"{pct}%", va="center", ha="right", fontsize=15,
-             fontweight="bold", color=GOOD)
+    axK.text(4, 0, f"{pct}%", va="center", ha="left", fontsize=15,
+             fontweight="bold", color="white")
     axK.set_xlim(0, 104)
     axK.set_ylim(-0.55, 0.75)
     axK.set_yticks([])
-    axK.set_xticks([0, 25, 50, 75])
+    axK.set_xticks([0, 25, 50, 75, 100])
     axK.tick_params(axis="x", labelsize=8.5)
     axK.set_xlabel("self-test kill rate", fontsize=9.5)
     axK.set_title(
