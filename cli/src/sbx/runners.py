@@ -253,6 +253,7 @@ class Slot:
     finishing: bool = False
     sandbox_id: str | None = None
     kill: Callable[[], None] | None = field(default=None, repr=False)
+    state_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
 
 class Pool:
@@ -310,7 +311,12 @@ class Pool:
             return False
         if registered is not None and not self.gh.delete(registered["id"]):
             return False
-        slot.retiring = True
+        # Deregistration can block while boot() starts preserving the machine.
+        # Claim retirement atomically against that transition, not across the HTTP call.
+        with slot.state_lock:
+            if slot.finishing:
+                return False
+            slot.retiring = True
         if slot.kill:
             slot.kill()
         emit("retire", runner=slot.name, why=why, sandbox=slot.sandbox_id)
@@ -464,8 +470,11 @@ def sandbox_boot(gh: GitHub, sandbox_cls, *, snapshot: str, labels: list[str], g
             # bounded like the sandbox: a stream from a sandbox killed under the job never ends
             handle = sbx.commands.run(run, background=True, timeout=lifetime, user="root")
             exited = _wait_runner(sbx, handle, slot, deadline=time.monotonic() + lifetime)
-            if exited and keep_failed and not slot.retiring:
-                slot.finishing = True
+            with slot.state_lock:
+                preserve = exited and keep_failed and not slot.retiring
+                if preserve:
+                    slot.finishing = True
+            if preserve:
                 try:
                     job = gh.job(slot.name, repos or [])
                     if job["conclusion"] == "failure":
