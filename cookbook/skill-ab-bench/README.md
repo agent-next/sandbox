@@ -31,9 +31,9 @@ It creates a sandbox, clones this repo at `--ref`, installs the pinned tools,
 runs the bench, runs the judge self-test, grades both the fresh record and
 the committed example, prints the verdict with each gate's numbers, then
 kills the sandbox and confirms it is gone. Measured wall time per step on a
-2 vCPU sandbox (see RECEIPT.md): clone seconds, setup ~2 s (cold: ~17 s to
-download and verify the three pinned `.deb`s), bench ~9 s, self-test ~26 s,
-grade ~2 s.
+2 vCPU machine (see RECEIPT.md): clone seconds, setup ~1.4 s when jq is
+already present (cold: ~14 s to download, verify and install the three
+pinned `.deb`s), bench ~9 s, self-test ~24 s, grade ~2.3 s.
 
 To run the judge on your own machine instead:
 
