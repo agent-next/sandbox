@@ -216,10 +216,12 @@ class GitHub:
                     page += 1
 
         def search(repo: str):
-            """Yield after each request so other repositories get a turn."""
+            """Yield between requests; inaccessible Actions listings only end this search."""
             page = 1
             while True:
                 resp = get(f"/repos/{repo}/actions/runs", params={"per_page": 100, "page": page})
+                if resp.status_code in (403, 404):
+                    return
                 runs = self._check(resp, "list runs for failed runner").json()["workflow_runs"]
                 yield None
                 for run in runs:
@@ -227,6 +229,8 @@ class GitHub:
                     while True:
                         resp = get(f"/repos/{repo}/actions/runs/{run['id']}/jobs",
                                    params={"per_page": 100, "page": job_page, "filter": "all"})
+                        if resp.status_code in (403, 404):
+                            return
                         jobs = self._check(resp, "list jobs for failed runner").json()["jobs"]
                         for job in jobs:
                             if job.get("runner_name") == runner:
