@@ -13,10 +13,10 @@ The catalogue is deliberately awkward in the ways real sites are awkward:
 
 - **50 products over 5 pagination pages** — the scraper must follow every
   page, not just the first.
-- **JS-rendered prices** — each page's prices are written into the DOM by an
-  inline script after load, so the raw HTML contains a placeholder value.
-  Reading the placeholder instead of the rendered value is the classic
-  pre-JS-scrape bug, and it is a judged failure.
+- **JS-rendered prices** — each page's prices are written into the DOM by a
+  script that runs after the `load` event, so the served HTML contains only a
+  placeholder. Reading the placeholder instead of the rendered value is the
+  classic pre-JS-scrape bug, and it is a judged failure.
 - **A few malformed entries** — some product rows have an empty SKU or a
   non-numeric price. These must be **flagged**, not silently dropped and not
   silently invented.
@@ -42,8 +42,8 @@ run.
 - No concurrency requirement: the crawl is sequential and every run is
   deterministic given a seed, so wall time stays a few seconds.
 - No "clean the data" pass that invents values. A malformed row is reported
-  with its `ok=0` status; the judge checks the flags exist and name the right
-  fields.
+  with its `status=malformed` and a `notes` flag; the judge checks the flags
+  exist and name the right fields.
 
 ## The site (fixture)
 
