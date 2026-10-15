@@ -117,12 +117,15 @@ Example scene, mutants, judge and oracle were written for this repository
 
 ## Measured wall times (2 vCPU, ~4 GB RAM, Linux x86_64)
 
+All times are measured and pasted in
+[RECEIPT.md](RECEIPT.md) (two from-nothing installs, runs A and C):
+
 | step | wall time |
 |---|---|
-| `judge/setup.sh` (cold, ~390 MB download) | ~2 min 40 s |
+| `judge/setup.sh` (cold, ~390 MB download) | ~2 min |
 | `judge/setup.sh` (venv already installed) | ~1 s |
-| `judge/grade.sh` (one scene, grade.sh wall clock) | ~19–28 s |
-| `judge/selftest.sh` (good ×2 + 7 mutants + determinism check) | ~4 min 20 s |
+| `judge/grade.sh` (one scene, grade.sh wall clock) | ~12–22 s |
+| `judge/selftest.sh` (good ×2 + 7 mutants + determinism check) | ~2–3 min |
 
 ## Limits
 
