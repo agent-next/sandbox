@@ -3,8 +3,11 @@
 Real command output.  Nothing below is invented; every block is pasted from
 the command it names.  Two *fresh* one-command runs
 (`python3 cookbook/doc-extract-convert/run.py --ref
-sbx/demo-doc-extract-convert-f5`, each in its own brand-new sandbox created
-by that same command) are recorded side by side in §4.
+sbx/demo-doc-extract-convert-f5`, launched from outside any sandbox, each
+creating its own sandbox and killing it at the end) are recorded side by
+side in §4.  They graded `a938680` and `820bb36`; the only difference
+between those two commits is README prose (the media-regeneration section),
+so both runs exercised identical judge, artifact and corpus bytes.
 
 ## 1. `bash judge/setup.sh` (cold, inside run.py's first sandbox)
 
@@ -19,7 +22,9 @@ python3 Python 3.12.15
 Pillow 11.3.0
 ```
 
-**exit 0**, wall **34.5 s** (run 1) / **32.2 s** (run 2).  Every `.deb` is
+**exit 0**, wall **16.5 s** (run 1) / **19.4 s** (run 2) — faster than the
+34.5 s measured in an earlier pass because these sandboxes' apt lists were
+already warm.  Every `.deb` is
 sha256-checked against `judge/package-sha256.txt` and the Pillow wheel
 against `judge/requirements.txt` before anything is installed.  All 16
 Pillow digests and the three named Debian packages were re-verified against
@@ -50,7 +55,7 @@ checked by setup.sh itself whenever apt downloads them).
 [selftest] OK
 ```
 
-**exit 0**, wall **450.9 s** (run 1) / **352.3 s** (run 2) — the spread is
+**exit 0**, wall **256.4 s** (run 1) / **250.5 s** (run 2) — the spread is
 the 2 vCPU sandbox being busy, not a different result.  Kill rate
 **6/6 = 100 %** (rule ≥ 90 %, ≥ 5 mutants), plus the judge-guard mutant
 and the determinism check.
@@ -62,7 +67,7 @@ Run 1 (run 2 differs only in `timing`, as the determinism gate requires):
 ```json
 {
   "all_gates_passed": true,
-  "artifact": "/tmp/docgrade.GNsJT5/artifact",
+  "artifact": "/tmp/docgrade.EA4e0J/artifact",
   "gates": [
     {"gate": "G0", "passed": true,
      "detail": "11 record(s) + 1 quarantined, all well formed",
@@ -79,14 +84,14 @@ Run 1 (run 2 differs only in `timing`, as the determinism gate requires):
      "violations": []}
   ],
   "seed": 42,
-  "timing": {"corrupt_corpus": 0.51, "extract_clean": 23.77,
-             "extract_corrupt": 19.56, "generate_corpus": 3.27}
+  "timing": {"corrupt_corpus": 0.44, "extract_clean": 12.75,
+             "extract_corrupt": 12.76, "generate_corpus": 1.94}
 }
 ```
 
-**exit 0**, wall **51.9 s** (run 1) / **56.1 s** (run 2).  Run 2's timing:
-`corrupt_corpus 0.52, extract_clean 23.73, extract_corrupt 21.67,
-generate_corpus 3.45` — same verdict, same numbers, only wall times moved.
+**exit 0**, wall **30.8 s** (run 1) / **29.6 s** (run 2).  Run 2's verdict
+is identical except for the timing block — same verdict, same numbers, only
+wall times moved, which is what the determinism gate requires.
 
 Key numbers: field accuracy **48/48**, totals exact **11/11**, grounding
 failures **0**, negative control **2/2 quarantined + 12/12 accounted**,
@@ -95,30 +100,62 @@ selftest kill rate **6/6**.
 ## 4. Two fresh one-command runs
 
 `python3 cookbook/doc-extract-convert/run.py --ref
-sbx/demo-doc-extract-convert-f5` at commit `4a88886`, launched from outside
-any sandbox, each creating its own sandbox and killing it at the end:
+sbx/demo-doc-extract-convert-f5`, launched from outside any sandbox:
 
-| step | run 1 (sandbox `01a14071-571b…`) | run 2 (sandbox `01a1407c-9efd…`) |
+| step | run 1 | run 2 |
 |---|---|---|
-| `sbx create --timeout-min 30` | exit 0, 4.6 s | exit 0, 3.0 s |
-| `git clone --depth 1 -b <ref>` | exit 0, 7.6 s | exit 0, 5.9 s |
-| `judge/setup.sh` | exit 0, 34.5 s | exit 0, 32.2 s |
-| `judge/selftest.sh` | exit 0, 450.9 s | exit 0, 352.3 s |
-| `grade.sh examples/good` | exit 0, 51.9 s | exit 0, 56.1 s |
+| sandbox id | `01a14091-18f6-7cf0-b410-873396f5dd25` | `01a14092-2838-7a50-8eb4-d07a28538daa` |
+| commit graded | `a9386809ed60af81c4ea06805aaf42ec0d1f2308` | `820bb36d6b5e55c8222d521f69a0f88f04813d5e` |
+| `sbx create --timeout-min 30` | exit 0, 2.1 s | exit 0, 2.4 s |
+| `git clone --depth 1 -b <ref>` | exit 0, 4.1 s | exit 0, 5.2 s |
+| `judge/setup.sh` | exit 0, 16.5 s | exit 0, 19.4 s |
+| `judge/selftest.sh` | exit 0, 256.4 s | exit 0, 250.5 s |
+| selftest kill rate | 6/6 = 100 % | 6/6 = 100 % |
+| judge-guard mutant | killed | killed |
+| determinism (two runs, seed 42) | identical apart from `timing` | identical apart from `timing` |
+| `grade.sh examples/good` | exit 0, 30.8 s | exit 0, 29.6 s |
 | verdict | `all_gates_passed: true` | `all_gates_passed: true` |
 | field accuracy | 48/48 = 1.000 | 48/48 = 1.000 |
 | exact totals | 11/11 | 11/11 |
 | `sbx kill` + `sbx list` | confirmed gone | confirmed gone |
 | **run.py exit code** | **0** | **0** |
 
-Tail of run 1 (run 2's tail is identical apart from the ids and timings):
+Run 1 in full (run 2's output is the same apart from ids, the commit and
+wall times):
 
 ```
+[run] sbx create --timeout-min 30     2.1s  exit=0
+[run] sandbox id: 01a14091-18f6-7cf0-b410-873396f5dd25
+Cloning into 'repo'...
+[run] git clone --depth 1 -b sbx/demo-doc-extract-convert-f5    4.1s  exit=0
+[run] git rev-parse HEAD              1.7s  exit=0
+[run] commit: a9386809ed60af81c4ea06805aaf42ec0d1f2308
+[setup] all tools present; versions recorded to judge/VERSIONS.txt
+[run] judge/setup.sh                 16.5s  exit=0
+[run] judge/selftest.sh             256.4s  exit=0
+[selftest] judge-guard: weakened ink check fails the good artifact (as it must)
+[selftest] determinism: two runs at seed 42 identical (apart from timing)
+[selftest] kill rate: 6/6 mutants killed (100%)
+[selftest] OK
+[run] grade examples/good            30.8s  exit=0
+[run] ======== verdict ========
+{
+  "all_gates_passed": true,
+  ...
+  "seed": 42,
+  "timing": {
+    "corrupt_corpus": 0.44,
+    "extract_clean": 12.75,
+    "extract_corrupt": 12.76,
+    "generate_corpus": 1.94
+  }
+}
 [run] PASS
-[run] sbx kill                        2.7s  exit=0
-killed 01a14071-571b-7551-9c93-1d5c98df6845
-[run] sbx list                        1.0s  exit=0
-[run] confirmed: 01a14071-571b-7551-9c93-1d5c98df6845 is gone
+[run] sbx kill                        2.1s  exit=0
+killed 01a14091-18f6-7cf0-b410-873396f5dd25
+[run] sbx list                        0.6s  exit=0
+[run] confirmed: 01a14091-18f6-7cf0-b410-873396f5dd25 is gone
+EXIT=0
 ```
 
 `run.py`'s failure paths were checked separately with a stub `sbx` CLI:
@@ -146,6 +183,8 @@ the tamper check; they are now excluded and the judge runs with
   resolve host instance` warning (no hostname in /etc/hosts).  It does not
   affect any exit code.
 - The `media/` figures and video were regenerated in a separate fresh
-  sandbox (same setup, same seed 42) by `bash media/make_media.sh`; the
-  verdict JSONs they were drawn from are listed in
-  `media/MANIFEST.json`.
+  sandbox at commit `a938680` by a full `bash media/make_media.sh`
+  (setup + seven grading runs + render + encode, seed 42); the result is
+  **byte-identical** to the files committed here (sha256 of `result.png`,
+  `loop.png`, `demo.mp4` and `MANIFEST.json` all match).  The verdict
+  JSONs they were drawn from are listed in `media/MANIFEST.json`.
