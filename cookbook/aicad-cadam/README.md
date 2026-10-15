@@ -18,6 +18,22 @@ manufacturability rule. A sandbox helps because the whole CAD/OCCT
 toolchain is heavy, GPL-licensed and disposable here — nothing touches
 your machine.
 
+## Results
+
+All three parts pass every gate, and the self-test kills 11/11
+single-edit mutants. Renders of the shipped meshes with each part's
+measured gate numbers:
+
+![result — the three parts with their measured gate lines](media/result.png)
+
+The judge's kill matrix (known-good + mutants × every gate, measured vs
+limit) and the graded fixing loop:
+
+![loop — kill matrix and the agent's fixing loop](media/loop.png)
+
+A 37 s walkthrough (real turntable renders of the parts, the kill
+matrix, the result): [media/demo.mp4](media/demo.mp4).
+
 ## Ask your agent
 
 Paste this to your agent (plugin users; it designs the parts itself and
