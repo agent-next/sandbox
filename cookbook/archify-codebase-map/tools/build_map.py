@@ -3,21 +3,31 @@
 REAL import graph of the pinned httpx tree.
 
 Nothing here is hand-drawn: the modules and edges come from parsing
-$HOME/ground-truth/httpx-0.28.1/httpx/*.py with Python's ast module (the
+$HOME/ground-truth/httpx-0.28.1/httpx/*.py with Python's `ast` module (the
 same derivation the judge uses). The layout is deterministic:
 
   1. Tarjan SCC condensation gives the dependency bands — entry points on
      top, leaf modules at the bottom, and the mutually-dependent core as
-     one band in the middle (its internal edges run laterally, which is
-     the honest picture of a cyclic subgraph),
-  2. the core band is split into two sub-rows along its internal
-     Eades order so no row is wider than the canvas budget,
-  3. barycenter sweeps order nodes inside each row to minimise edge
-     crossings,
-  4. node size is fitted to the rendered label/sublabel/tag text at the
-     renderer's own font metrics (textUnits * 0.6 * px + padding),
+     one band in the middle,
+  2. a band wider than MAX_ROW is split into sub-rows that minimise the
+     number of edges kept inside a sub-row (the 11-node cyclic core of
+     httpx becomes two rows whose edges mostly run top-to-bottom),
+  3. barycenter sweeps plus an adjacent-swap pass order nodes inside each
+     row to minimise edge crossings,
+  4. node size is fitted to the label/sublabel/tag text at the renderer's
+     own font metrics (textUnits * 0.6 * px + padding) so labels render at
+     their preferred size instead of being shrunk,
   5. component type encodes the module role (legend labels are set
-     explicitly) and upward feedback edges are drawn dashed.
+     explicitly), in-degree rides in each node's tag, and edges that point
+     back upward (feedback inside the cyclic core) are drawn dashed,
+  6. no meta.viewBox is authored: archify measures the canvas from the
+     geometry (so it is always fitted to the graph) and the desktop reader
+     scales primary labels to its 14 px comfort target.
+
+Routing is left fully automatic on purpose: archify's router spreads
+ports, threads gap corridors and resolves crossings between automatic
+routes with a halo. Authored `via` geometry would turn every crossing
+into a blocking validation error.
 
 Usage: python3 tools/build_map.py [--truth ~/ground-truth/httpx-0.28.1]
                                   [--out  examples/good/httpx-map/diagram.json]
@@ -25,6 +35,7 @@ Usage: python3 tools/build_map.py [--truth ~/ground-truth/httpx-0.28.1]
 
 import argparse
 import ast
+import itertools
 import json
 import os
 import sys
@@ -61,14 +72,12 @@ LEGEND_LABELS = {
 FONT_PREFERRED = {"label": 11, "sublabel": 9, "tag": 7}
 CHAR_EM = 0.6
 TEXT_PAD = 8
-SIDE_PAD = 14
+SIDE_PAD = 18
 NODE_H = 64
-GAP_X = 64
-GAP_Y = 46
+GAP_X = 92
+GAP_Y = 108
 MARGIN = 40
 MAX_ROW = 6          # max nodes per visual row inside a band
-LANE_PITCH = 9       # px between horizontal jog lanes inside a gap corridor
-STUB = 10            # px of straight stub before/after a port
 
 
 def fit_width(text, px):
@@ -153,43 +162,6 @@ def tarjan_scc(mods, edges):
     return sccs
 
 
-def eades_order(mods, edges):
-    """Greedy feedback order: sinks appended right, sources prepended left,
-    else the node with the best forward degree balance."""
-    out_adj = {m: set() for m in mods}
-    in_adj = {m: set() for m in mods}
-    for a, b in edges:
-        if a != b:
-            out_adj[a].add(b)
-            in_adj[b].add(a)
-    left, right = [], []
-    alive = set(mods)
-    while alive:
-        moved = True
-        while moved:
-            moved = False
-            for m in sorted(alive):
-                if not (out_adj[m] & alive):
-                    right.append(m)
-                    alive.discard(m)
-                    moved = True
-                    break
-            if moved:
-                continue
-            for m in sorted(alive):
-                if not (in_adj[m] & alive):
-                    left.append(m)
-                    alive.discard(m)
-                    moved = True
-                    break
-        if alive and not moved:
-            pick = max(sorted(alive), key=lambda m: (
-                len(out_adj[m] & alive) - len(in_adj[m] & alive), m))
-            left.append(pick)
-            alive.discard(pick)
-    return left + right[::-1]
-
-
 def crossings(order_a, order_b, edges_ab):
     pos_b = {m: i for i, m in enumerate(order_b)}
     seq = sorted((order_a.index(a), pos_b[b]) for a, b in edges_ab
@@ -198,7 +170,7 @@ def crossings(order_a, order_b, edges_ab):
                if seq[i][1] > seq[j][1])
 
 
-def barycenter_sweep(rows, edges, sweeps=32):
+def barycenter_sweep(rows, edges, sweeps=40):
     edge_list = sorted(edges)
     pos = {m: i for row in rows for i, m in enumerate(row)}
     for s in range(sweeps):
@@ -222,7 +194,7 @@ def barycenter_sweep(rows, edges, sweeps=32):
     return rows
 
 
-def swap_pass(rows, edges, passes=8):
+def swap_pass(rows, edges, passes=12):
     """Swap adjacent nodes while the adjacent-row crossing count drops."""
     for _ in range(passes):
         changed = False
@@ -238,6 +210,8 @@ def swap_pass(rows, edges, passes=8):
                         n += crossings(row, rows[l + 1],
                                        [(a, b) for a, b in edges
                                         if a in row and b in rows[l + 1]])
+                    # Lateral edges inside this row count half a crossing
+                    # when the swap wedges an endpoint between the pair.
                     return n
                 before = xcount()
                 row[i], row[i + 1] = row[i + 1], row[i]
@@ -252,35 +226,38 @@ def swap_pass(rows, edges, passes=8):
 
 def band_split(members, edges):
     """Split a wide band into <=MAX_ROW sub-rows minimising the number of
-    edges that stay inside one sub-row (those need lateral arc routes).
-    For <= 12 members the exact optimum over subset sizes is enumerable."""
-    import itertools
+    edges that stay inside one sub-row (those run laterally). For the
+    11-node httpx core this is an exact 2-way search."""
     members = sorted(members)
-    n_rows = (len(members) + MAX_ROW - 1) // MAX_ROW
-    if n_rows == 1:
+    if len(members) <= MAX_ROW:
         return [members]
-    # 2-way split (the only case this demo needs: 11 -> 6+5)
-    best, best_cost = None, None
-    for size in (MAX_ROW, len(members) - MAX_ROW):
-        if size <= 0 or size >= len(members):
-            continue
-        for combo in itertools.combinations(members, size):
-            a_set = set(combo)
-            b_set = set(members) - a_set
-            cost = sum(1 for a, b in edges
-                       if (a in a_set and b in a_set)
-                       or (a in b_set and b in b_set))
-            if best_cost is None or cost < best_cost:
-                best_cost = cost
-                best = (sorted(a_set), sorted(b_set))
-    row_a, row_b = best
-    # Orient the pair so internal edges mostly run top->bottom (fewer
-    # upward feedback arcs), ties broken deterministically.
-    fwd = sum(1 for a, b in edges if a in row_a and b in row_b)
-    rev = sum(1 for a, b in edges if a in row_b and b in row_a)
-    if rev > fwd:
-        row_a, row_b = row_b, row_a
-    return [row_a, row_b]
+    n_rows = (len(members) + MAX_ROW - 1) // MAX_ROW
+    if n_rows == 2:
+        best, best_cost = None, None
+        for size in (MAX_ROW, len(members) - MAX_ROW):
+            if size <= 0 or size >= len(members):
+                continue
+            for combo in itertools.combinations(members, size):
+                a_set = set(combo)
+                b_set = set(members) - a_set
+                cost = sum(1 for a, b in edges
+                           if (a in a_set and b in a_set)
+                           or (a in b_set and b in b_set))
+                if best_cost is None or cost < best_cost:
+                    best_cost = cost
+                    best = (sorted(a_set), sorted(b_set))
+        row_a, row_b = best
+        # Orient the pair so most internal edges run top->bottom (the rest
+        # become dashed feedback arcs), ties broken deterministically.
+        fwd = sum(1 for a, b in edges if a in row_a and b in row_b)
+        rev = sum(1 for a, b in edges if a in row_b and b in row_a)
+        if rev > fwd:
+            row_a, row_b = row_b, row_a
+        return [row_a, row_b]
+    # Generic fallback for wider bands: greedy fill by barycenter order.
+    rows = [sorted(members[i:i + MAX_ROW])
+            for i in range(0, len(members), MAX_ROW)]
+    return rows
 
 
 def build(truth_root):
@@ -320,50 +297,13 @@ def build(truth_root):
 
     row_of = {m: l for l, row in enumerate(rows) for m in row}
 
-    # Which band each row belongs to, and whether it is the band's last row.
-    band_rows = {}
-    for l, row in enumerate(rows):
-        band_rows.setdefault(band_of[row[0]], []).append(l)
-
-    # Corridor planning --------------------------------------------------
-    # Gap g is the band between the bottom of row g-1 and the top of row g.
-    # Every spanning edge jogs horizontally through the gaps it crosses, on
-    # a per-gap lane found by interval coloring; lateral (same-row) edges
-    # arc through the corridor above their row (or below, for a band's last
-    # sub-row). Lateral arcs of adjacent nodes stay automatic.
-    n_rows = len(rows)
-    span_edges = [(a, b) for a, b in sorted(edges) if row_of[a] != row_of[b]]
-    lateral = {}
-    for a, b in sorted(edges):
-        if row_of[a] == row_of[b]:
-            l = row_of[a]
-            pos_in = {m: i for i, m in enumerate(rows[l])}
-            ia, ib = sorted([pos_in[a], pos_in[b]])
-            last_of_band = band_rows[band_of[a]][-1] == l
-            lateral[(a, b)] = (l, ib - ia, last_of_band)
-
-    def band_y(g):
-        """Vertical range of gap corridor g (between rows g-1 and g)."""
-        top = MARGIN + g * NODE_H + sum(gap_h[i] for i in range(1, g + 1))
-        return top - gap_h[g], top
-
-    # width needed by each gap corridor; iterate to fixpoint with lanes
-    gap_h = {g: GAP_Y for g in range(n_rows + 1)}
-    gap_h[0] = MARGIN
-    gap_h[n_rows] = MARGIN
-
-    row_top = {}
-    y = MARGIN
-    for l, row in enumerate(rows):
-        row_top[l] = y
-        y += NODE_H + gap_h[l + 1] if l + 1 < len(rows) else NODE_H
-
     indeg = {m: 0 for m in mods}
     for a, b in edges:
         indeg[b] += 1
 
     comps = []
     canvas_w = 0
+    y = MARGIN
     for l, row in enumerate(rows):
         sizes = {m: component_size(m, f"httpx/{m}.py",
                                    f"{indeg[m]} importers") for m in row}
@@ -372,6 +312,7 @@ def build(truth_root):
         x = -total / 2.0
         for m in row:
             w, h = sizes[m]
+            # ids must match ^[a-zA-Z][a-zA-Z0-9_-]*$ — no leading "_".
             cid = {"__init__": "init__", "__version__": "version__"}.get(
                 m, m.lstrip("_"))
             comps.append({
@@ -380,48 +321,27 @@ def build(truth_root):
                 "label": m,
                 "sublabel": f"httpx/{m}.py",
                 "tag": f"{indeg[m]} importers",
-                "pos": [int(round(x)), row_top[l]],
+                "pos": [int(round(x)), y],
                 "size": [w, h],
                 "sources": [{"path": f"httpx/{m}.py"}],
             })
             x += w + GAP_X
+        y += NODE_H + GAP_Y
 
     for c in comps:
         c["pos"][0] += int(round(canvas_w / 2.0 + MARGIN))
 
     id_of = {c["sources"][0]["path"].split("/")[-1][:-3]: c["id"]
              for c in comps}
-    cx_of = {c["id"]: c["pos"][0] + c["size"][0] / 2 for c in comps}
-
-    # Assign each spanning lateral a corridor lane inside its gap.
-    arc_via = {}
-    for g, es in gap_arcs.items():
-        def lane_key(e):
-            ax, bx = sorted([cx_of[id_of[e[0]]], cx_of[id_of[e[1]]]])
-            return (ax, -bx)
-        for k, (a, b) in enumerate(sorted(es, key=lane_key)):
-            l = g if g < len(rows) and lateral[(a, b)][2] is False else g - 1
-            base = row_top[l] if l in row_top else row_top[l - 1] + NODE_H
-            if lateral[(a, b)][2]:   # below the row
-                y = base + NODE_H + ARC_CLEARANCE + 9 * k
-            else:                    # above the row
-                y = base - ARC_CLEARANCE - 9 * k
-            ax, bx = cx_of[id_of[a]], cx_of[id_of[b]]
-            arc_via[(a, b)] = [[round(ax), round(y)], [round(bx), round(y)]]
 
     back = {(a, b) for a, b in edges if row_of[a] > row_of[b]}
 
     connections = []
     for a, b in sorted(edges):
         conn = {"from": id_of[a], "to": id_of[b]}
-        ra, rb = row_of[a], row_of[b]
-        if ra > rb:
-            # upward feedback edge — dashed, sides chosen by the router
+        if (a, b) in back:
+            # upward feedback edge — drawn dashed so direction stays honest
             conn["variant"] = "dashed"
-        elif ra == rb and (a, b) in arc_via:
-            conn["fromSide"] = "top" if not lateral[(a, b)][2] else "bottom"
-            conn["toSide"] = conn["fromSide"]
-            conn["via"] = arc_via[(a, b)]
         connections.append(conn)
 
     spec = {

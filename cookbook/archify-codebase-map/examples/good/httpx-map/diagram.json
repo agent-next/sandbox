@@ -39,11 +39,11 @@
       "sublabel": "httpx/__init__.py",
       "tag": "0 importers",
       "pos": [
-        509,
+        599,
         40
       ],
       "size": [
-        128,
+        136,
         64
       ],
       "sources": [
@@ -59,11 +59,11 @@
       "sublabel": "httpx/_main.py",
       "tag": "1 importers",
       "pos": [
-        432,
-        150
+        504,
+        212
       ],
       "size": [
-        112,
+        120,
         64
       ],
       "sources": [
@@ -79,11 +79,11 @@
       "sublabel": "httpx/_api.py",
       "tag": "1 importers",
       "pos": [
-        608,
-        150
+        716,
+        212
       ],
       "size": [
-        106,
+        114,
         64
       ],
       "sources": [
@@ -99,16 +99,36 @@
       "sublabel": "httpx/_client.py",
       "tag": "3 importers",
       "pos": [
-        512,
-        260
+        602,
+        384
       ],
       "size": [
-        122,
+        130,
         64
       ],
       "sources": [
         {
           "path": "httpx/_client.py"
+        }
+      ]
+    },
+    {
+      "id": "urls",
+      "type": "database",
+      "label": "_urls",
+      "sublabel": "httpx/_urls.py",
+      "tag": "7 importers",
+      "pos": [
+        40,
+        556
+      ],
+      "size": [
+        120,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_urls.py"
         }
       ]
     },
@@ -119,11 +139,11 @@
       "sublabel": "httpx/_content.py",
       "tag": "2 importers",
       "pos": [
-        40,
-        370
+        252,
+        556
       ],
       "size": [
-        128,
+        136,
         64
       ],
       "sources": [
@@ -139,11 +159,11 @@
       "sublabel": "httpx/_auth.py",
       "tag": "3 importers",
       "pos": [
-        232,
-        370
+        480,
+        556
       ],
       "size": [
-        112,
+        120,
         64
       ],
       "sources": [
@@ -159,11 +179,11 @@
       "sublabel": "httpx/_config.py",
       "tag": "4 importers",
       "pos": [
-        408,
-        370
+        692,
+        556
       ],
       "size": [
-        122,
+        130,
         64
       ],
       "sources": [
@@ -179,36 +199,16 @@
       "sublabel": "httpx/_multipart.py",
       "tag": "2 importers",
       "pos": [
-        594,
-        370
+        914,
+        556
       ],
       "size": [
-        139,
+        147,
         64
       ],
       "sources": [
         {
           "path": "httpx/_multipart.py"
-        }
-      ]
-    },
-    {
-      "id": "urls",
-      "type": "database",
-      "label": "_urls",
-      "sublabel": "httpx/_urls.py",
-      "tag": "7 importers",
-      "pos": [
-        797,
-        370
-      ],
-      "size": [
-        112,
-        64
-      ],
-      "sources": [
-        {
-          "path": "httpx/_urls.py"
         }
       ]
     },
@@ -219,16 +219,36 @@
       "sublabel": "httpx/_decoders.py",
       "tag": "2 importers",
       "pos": [
-        973,
-        370
+        1153,
+        556
       ],
       "size": [
-        133,
+        141,
         64
       ],
       "sources": [
         {
           "path": "httpx/_decoders.py"
+        }
+      ]
+    },
+    {
+      "id": "models",
+      "type": "database",
+      "label": "_models",
+      "sublabel": "httpx/_models.py",
+      "tag": "8 importers",
+      "pos": [
+        147,
+        728
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "sources": [
+        {
+          "path": "httpx/_models.py"
         }
       ]
     },
@@ -239,11 +259,11 @@
       "sublabel": "httpx/_types.py",
       "tag": "9 importers",
       "pos": [
-        129,
-        480
+        369,
+        728
       ],
       "size": [
-        117,
+        125,
         64
       ],
       "sources": [
@@ -259,11 +279,11 @@
       "sublabel": "httpx/_utils.py",
       "tag": "6 importers",
       "pos": [
-        309,
-        480
+        585,
+        728
       ],
       "size": [
-        117,
+        125,
         64
       ],
       "sources": [
@@ -279,11 +299,11 @@
       "sublabel": "httpx/_exceptions.py",
       "tag": "8 importers",
       "pos": [
-        491,
-        480
+        803,
+        728
       ],
       "size": [
-        144,
+        152,
         64
       ],
       "sources": [
@@ -299,36 +319,16 @@
       "sublabel": "httpx/_urlparse.py",
       "tag": "1 importers",
       "pos": [
-        699,
-        480
+        1047,
+        728
       ],
       "size": [
-        133,
+        141,
         64
       ],
       "sources": [
         {
           "path": "httpx/_urlparse.py"
-        }
-      ]
-    },
-    {
-      "id": "models",
-      "type": "database",
-      "label": "_models",
-      "sublabel": "httpx/_models.py",
-      "tag": "8 importers",
-      "pos": [
-        895,
-        480
-      ],
-      "size": [
-        122,
-        64
-      ],
-      "sources": [
-        {
-          "path": "httpx/_models.py"
         }
       ]
     },
@@ -339,11 +339,11 @@
       "sublabel": "httpx/__version__.py",
       "tag": "2 importers",
       "pos": [
-        391,
-        615
+        463,
+        900
       ],
       "size": [
-        144,
+        152,
         64
       ],
       "sources": [
@@ -359,11 +359,11 @@
       "sublabel": "httpx/_status_codes.py",
       "tag": "4 importers",
       "pos": [
-        599,
-        615
+        707,
+        900
       ],
       "size": [
-        155,
+        163,
         64
       ],
       "sources": [
@@ -504,19 +504,7 @@
     },
     {
       "from": "config",
-      "to": "urls",
-      "fromSide": "top",
-      "toSide": "top",
-      "via": [
-        [
-          469,
-          347
-        ],
-        [
-          853,
-          347
-        ]
-      ]
+      "to": "urls"
     },
     {
       "from": "content",
@@ -524,19 +512,7 @@
     },
     {
       "from": "content",
-      "to": "multipart",
-      "fromSide": "top",
-      "toSide": "top",
-      "via": [
-        [
-          104,
-          356
-        ],
-        [
-          664,
-          356
-        ]
-      ]
+      "to": "multipart"
     },
     {
       "from": "content",
@@ -552,19 +528,7 @@
     },
     {
       "from": "exceptions",
-      "to": "models",
-      "fromSide": "bottom",
-      "toSide": "bottom",
-      "via": [
-        [
-          563,
-          585
-        ],
-        [
-          956,
-          585
-        ]
-      ]
+      "to": "models"
     },
     {
       "from": "main",
@@ -594,19 +558,7 @@
     },
     {
       "from": "models",
-      "to": "exceptions",
-      "fromSide": "bottom",
-      "toSide": "bottom",
-      "via": [
-        [
-          956,
-          594
-        ],
-        [
-          563,
-          594
-        ]
-      ]
+      "to": "exceptions"
     },
     {
       "from": "models",
@@ -619,19 +571,7 @@
     },
     {
       "from": "models",
-      "to": "types",
-      "fromSide": "bottom",
-      "toSide": "bottom",
-      "via": [
-        [
-          956,
-          558
-        ],
-        [
-          188,
-          558
-        ]
-      ]
+      "to": "types"
     },
     {
       "from": "models",
@@ -640,19 +580,7 @@
     },
     {
       "from": "models",
-      "to": "utils",
-      "fromSide": "bottom",
-      "toSide": "bottom",
-      "via": [
-        [
-          956,
-          576
-        ],
-        [
-          368,
-          576
-        ]
-      ]
+      "to": "utils"
     },
     {
       "from": "multipart",
@@ -674,19 +602,7 @@
     },
     {
       "from": "types",
-      "to": "models",
-      "fromSide": "bottom",
-      "toSide": "bottom",
-      "via": [
-        [
-          188,
-          567
-        ],
-        [
-          956,
-          567
-        ]
-      ]
+      "to": "models"
     },
     {
       "from": "types",
