@@ -73,10 +73,12 @@ runs under `python -I` while the judge's PNG decode competes for the same
 two cores. The 300 s gate timeout leaves a wide margin. Wall times on this
 2 vCPU box vary by ~2× run to run; the *numbers*, not the times, are stable.
 
-Self-test kill rate: **8/8 = 100 %** — off-by-one row filter, wrong groupby
-key, mean-vs-median swap, unit error, blank chart, flat trend line, the
-`World` aggregate double-counted, and a missing answer are each caught by at
-least one gate. The good example's answers:
+Self-test kill rate: **12/12 = 100 %**. Every gate has at least one mutant
+that trips it — off-by-one row filter, wrong groupby key, mean-vs-median
+swap, unit error, blank chart, missing answer (all six named in the brief),
+plus a flat trend line, the `World` aggregate double-counted, a PNG written
+outside `--out-dir`, a NaN in `charts.json`, a script that never uses pandas,
+and a script that crashes. The good example's answers:
 
 | answer | value |
 | --- | --- |

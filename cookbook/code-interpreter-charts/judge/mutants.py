@@ -49,6 +49,29 @@ EDITS = [
      "G4",
      "the trend line drawn on C1 is flat, so the chart disagrees with the "
      "answer it plots"),
+    ("chart-not-written",
+     '    fig.savefig(out_dir / "c3_top_emitters_2024.png")',
+     '    fig.savefig("c3_top_emitters_2024.png")',
+     "G3",
+     "C3 is saved to the working directory, so the declared file is absent"),
+    ("not-a-pandas-script",
+     "import pandas as pd  # noqa: E402",
+     "pd = None  # noqa: E402",
+     "G1",
+     "matplotlib is used but pandas never is: not the script the brief asks "
+     "for, however good the numbers"),
+    ("crash-on-bad-column",
+     '    window = df[(df["year"] >= ML_YEAR_MIN) & (df["year"] <= ML_YEAR_MAX)]',
+     '    window = df[(df["Year"] >= ML_YEAR_MIN) & (df["year"] <= ML_YEAR_MAX)]',
+     "G1",
+     "the artifact crashes (KeyError on a mis-cased column) instead of "
+     "running: the judge must report the artifact's own stderr"),
+    ("non-finite-value",
+     '    (out_dir / "charts.json").write_text(',
+     '    charts["C1"]["quality"] = [float("nan")]\n'
+     '    (out_dir / "charts.json").write_text(',
+     "G5",
+     "a NaN smuggled into charts.json under a key no other gate reads"),
     ("world-row-in-total",
      '    iso = df["Code"].astype("string").str.fullmatch(r"[A-Z]{3}")'
      ".fillna(False)",

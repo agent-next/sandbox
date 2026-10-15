@@ -21,7 +21,7 @@ everything from nothing, exactly as a cold sandbox would.
 | `judge/setup.sh` (cold) | exit 0, 2 m 16 s | exit 0, 1 m 50 s |
 | `judge/selftest.sh` | exit 0, 4 m 21 s | exit 0, 2 m 59 s |
 | `judge/grade.sh examples/good` | exit 0, 22.6 s | exit 0, 22.5 s |
-| kill rate | **8/8 = 100 %** | **8/8 = 100 %** |
+| kill rate | **8/8 = 100 %** | **8/8 = 100 %** (12/12 after the last four mutants were added — see below) |
 | verdict `passed` | true | true |
 | `mauna_loa_trend_ppm_per_year` | 2.098461926597848 | 2.098461926597848 |
 | `mauna_loa_seasonal_amplitude_ppm` | 5.833611111111111 | 5.833611111111111 |
@@ -91,7 +91,7 @@ exit=0
 
 ```text
 $ time bash judge/selftest.sh
-selftest: grading known-good /tmp/receipt2/repo/cookbook/code-interpreter-charts/examples/good
+selftest: grading known-good /home/user/w/cookbook/code-interpreter-charts/examples/good
 selftest: known-good PASSED all gates
 mutants: off-by-one-filter/analysis.py  [G2/G4] the analysis window starts one year late, so the trend, amplitude and growth all shift
 mutants: wrong-groupby-key/analysis.py  [G4] the seasonal cycle groups by year instead of month: 36 bars, not 12
@@ -99,33 +99,42 @@ mutants: mean-vs-median/analysis.py  [G2] mean and median swapped: a plausible n
 mutants: unit-error/analysis.py  [G2/G4] tonnes-to-gigatonnes off by 1e3: the total is 1000x too small
 mutants: blank-chart/analysis.py  [G3] C2 is drawn blank (axis off): a valid PNG of the right size, no data
 mutants: trend-line-disagrees/analysis.py  [G4] the trend line drawn on C1 is flat, so the chart disagrees with the answer it plots
+mutants: chart-not-written/analysis.py  [G3] C3 is saved to the working directory, so the declared file is absent
+mutants: not-a-pandas-script/analysis.py  [G1] matplotlib is used but pandas never is: not the script the brief asks for, however good the numbers
+mutants: crash-on-bad-column/analysis.py  [G1] the artifact crashes (KeyError on a mis-cased column) instead of running: the judge must report the artifact's own stderr
+mutants: non-finite-value/analysis.py  [G5] a NaN smuggled into charts.json under a key no other gate reads
 mutants: world-row-in-total/analysis.py  [G2/G4] the OWID 'World' aggregate is counted alongside countries, double-counting every country
 mutants: missing-answer/analysis.py  [G2] one of the five answers is never written
-mutants: wrote 8 mutants to /tmp/tmp.XXXXXX/mutants
+mutants: wrote 12 mutants to /tmp/tmp.FdDpKygcB1/mutants
 selftest: killed    blank-chart (gate: G3)
+selftest: killed    chart-not-written (gate: G3)
+selftest: killed    crash-on-bad-column (gate: G1)
 selftest: killed    mean-vs-median (gate: G2)
 selftest: killed    missing-answer (gate: G2)
+selftest: killed    non-finite-value (gate: G5)
+selftest: killed    not-a-pandas-script (gate: G1)
 selftest: killed    off-by-one-filter (gate: G2)
 selftest: killed    trend-line-disagrees (gate: G4)
 selftest: killed    unit-error (gate: G2)
 selftest: killed    world-row-in-total (gate: G2)
 selftest: killed    wrong-groupby-key (gate: G2)
-selftest: kill rate 8/8 = 100%
+selftest: kill rate 12/12 = 100%
 selftest: determinism OK (two --seed 1 runs identical but timing)
 selftest: OK
-
-real	2m59.069s
-user	0m59.670s
-sys	0m6.352s
 exit=0
 ```
 
-**Kill rate 8/8 = 100 %** (≥ 90 % required). Every mutant named in the brief
-is present: off-by-one row filter, wrong groupby key, mean-vs-median swap,
-unit error, blank chart, missing answer — plus a flat trend line and the
-`World` aggregate double-counted. RUN 1 printed the same 8 kills in a
-different order (`for m in mutants/*/` is glob-ordered, and the temp dir
-differs).
+**Kill rate 12/12 = 100 %** (≥ 90 % required), and every gate G1–G5 has at
+least one mutant that trips it. All six failure modes named in the brief are
+present: off-by-one row filter, wrong groupby key, mean-vs-median swap, unit
+error, blank chart, missing answer. RUN 1 and RUN 2 (8 mutants, before the
+last four were added) both printed the same kills in a different order —
+`for m in mutants/*/` is glob-ordered and the temp dir differs.
+
+The two `[G1]` mutants were added *because* of the adversarial checks below:
+`not-a-pandas-script` and `crash-on-bad-column` are exactly the two G1
+failures the judge is expected to catch, so they now run in every self-test
+rather than being checked once by hand.
 
 ### The one gate the self-test initially failed (fixed)
 
@@ -223,6 +232,35 @@ runs; `selftest.sh` checks that.)
 `artifact_run_s` here is 13.2 s because the artifact runs under
 `python -I` inside the judge's temp dir while the judge's own PNG decode
 competes for the 2 vCPUs; the same `analysis.py` run alone takes 3.6 s.
+
+## Adversarial checks on the judge (hand-run)
+
+Four artifacts that break the contract in ways the mutants do not, run
+through `judge/grade.sh` directly to confirm each gate **fails closed**
+rather than crashing the judge or passing something unverified:
+
+```text
+$ for d in noimports crash nanval missingfile; do bash judge/grade.sh /tmp/adv/$d ...; done
+noimports:    exit=1 gate=G1 | analysis.py does not import matplotlib, pandas (the brief is a pandas + matplotlib script)
+crash:        exit=1 gate=G1 | analysis.py exited 1: boom
+nanval:       exit=1 gate=G2 | answers do not match the oracle: mauna_loa_trend_ppm_per_year: got nan, oracle 2.098461926
+missingfile:  exit=1 gate=G1 | analysis.py did not write answers.json
+```
+
+`crash` proves the verdict carries the *artifact's* stderr, not a traceback
+of the judge's. `missingfile` (an artifact that imports the right libraries
+and writes nothing) is caught at G1, before any gate tries to read a file
+that is not there.
+
+**G5 is reachable, not decorative.** A NaN can only reach G5 if G2 and G4 do
+not read it first, so it was tested with a NaN under an extra key:
+
+```text
+$ bash judge/grade.sh /tmp/adv2/g5 --json /tmp/adv2/g5.json
+exit=1
+gate:   G5
+reason: charts.C1.quality[0] is nan, not a finite number
+```
 
 ## run.py verification
 
