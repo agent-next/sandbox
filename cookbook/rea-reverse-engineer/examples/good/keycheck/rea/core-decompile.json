@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "evidence_id": "ev_938b79c4d5a328eda3954d0b1577e01279bff0676056b461850761ca440b48b0",
+  "subject": {
+    "name": "keycheck",
+    "digest": {
+      "sha256": "63d64ba64a2cda236d6407a5c4d196da03432eb87f4f3c4e8aa94b6913f6c893"
+    },
+    "format": "elf",
+    "architecture": "x86_64",
+    "local_path": "/home/user/w/cookbook/rea-reverse-engineer/targets/keycheck"
+  },
+  "provider": {
+    "id": "ghidra",
+    "name": "Ghidra",
+    "version": "12.1.2"
+  },
+  "predicate_type": "rea.analysis/v2",
+  "operation": "procedure_pseudo_code",
+  "parameters": {
+    "procedure": "0x1011f0"
+  },
+  "raw_result": "\nbool FUN_001011f0(char *param_1)\n\n{\n  uint uVar1;\n  size_t sVar2;\n  char *pcVar3;\n  long lVar4;\n  uint uVar5;\n  ulong uVar6;\n  uint local_78 [5];\n  int local_64;\n  uint local_5c;\n  int local_50;\n  uint local_40;\n  \n  sVar2 = strlen(param_1);\n  if (((sVar2 == 0x11) && (param_1[5] == '-')) && (param_1[0xb] == '-')) {\n    uVar6 = 0;\n    lVar4 = 0;\n    uVar5 = 0;\n    do {\n      if ((0x820UL >> (uVar6 & 0x3f) & 1) == 0) {\n        pcVar3 = strchr(\"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\",(uint)(byte)param_1[uVar6]);\n        if (pcVar3 == (char *)0x0) {\n          return false;\n        }\n        uVar1 = (int)pcVar3 - 0x102020;\n        local_78[(int)uVar5] = uVar1;\n        if ((int)uVar1 < 0) {\n          return false;\n        }\n        lVar4 = lVar4 + (long)(int)uVar1 * (long)(int)(uVar5 % 5 + 1);\n        uVar5 = uVar5 + 1;\n      }\n      uVar6 = uVar6 + 1;\n    } while (uVar6 != 0x11);\n    if (((local_64 + local_78[0] + local_50 & 0x8000001f) == 9) &&\n       (local_5c == (local_78[0] ^ local_40))) {\n      return lVar4 % 0x1d == 0xb;\n    }\n  }\n  return false;\n}\n\n",
+  "normalized_result": "\nbool FUN_001011f0(char *param_1)\n\n{\n  uint uVar1;\n  size_t sVar2;\n  char *pcVar3;\n  long lVar4;\n  uint uVar5;\n  ulong uVar6;\n  uint local_78 [5];\n  int local_64;\n  uint local_5c;\n  int local_50;\n  uint local_40;\n  \n  sVar2 = strlen(param_1);\n  if (((sVar2 == 0x11) && (param_1[5] == '-')) && (param_1[0xb] == '-')) {\n    uVar6 = 0;\n    lVar4 = 0;\n    uVar5 = 0;\n    do {\n      if ((0x820UL >> (uVar6 & 0x3f) & 1) == 0) {\n        pcVar3 = strchr(\"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\",(uint)(byte)param_1[uVar6]);\n        if (pcVar3 == (char *)0x0) {\n          return false;\n        }\n        uVar1 = (int)pcVar3 - 0x102020;\n        local_78[(int)uVar5] = uVar1;\n        if ((int)uVar1 < 0) {\n          return false;\n        }\n        lVar4 = lVar4 + (long)(int)uVar1 * (long)(int)(uVar5 % 5 + 1);\n        uVar5 = uVar5 + 1;\n      }\n      uVar6 = uVar6 + 1;\n    } while (uVar6 != 0x11);\n    if (((local_64 + local_78[0] + local_50 & 0x8000001f) == 9) &&\n       (local_5c == (local_78[0] ^ local_40))) {\n      return lVar4 % 0x1d == 0xb;\n    }\n  }\n  return false;\n}\n\n",
+  "confidence": "observed",
+  "authority": "shipped-artifact",
+  "environment": null,
+  "limitations": [
+    "The session serves operations only after default Ghidra auto-analysis completes; an analysis timeout fails the open instead of exposing partial results.",
+    "The imported Program and temporary project are ephemeral, read-only to REA, and deleted on close.",
+    "Default-space addresses use lowercase 0x-prefixed hexadecimal; other address spaces use <percent-encoded-space>:0x<hex>.",
+    "Pseudocode is Ghidra decompiler output, not original source and not text-equivalent to Hopper output; each decompile has a 30-second native deadline.",
+    "External functions and functions without an analyzable body return null; other decompiler failures remain explicit."
+  ],
+  "locations": [],
+  "evidence_links": [],
+  "analysis_profile": {
+    "schema_version": 1,
+    "provider": {
+      "id": "ghidra",
+      "name": "Ghidra",
+      "version": "12.1.2"
+    },
+    "provider_profile_schema_version": 1,
+    "parameters": {
+      "target_kind": "executable",
+      "target_format": "elf",
+      "architecture": "x86_64",
+      "available_architectures": [
+        "x86_64"
+      ],
+      "import_mode": "ephemeral-read-only",
+      "loader": "auto-from-header",
+      "language_id": "auto-from-header",
+      "compiler_spec_id": "auto-default",
+      "analyzer_preset": "ghidra-default",
+      "analysis_timeout_seconds": 300,
+      "max_cpu": 2,
+      "max_heap": "2G"
+    },
+    "digest": "23dcb73ea71f6d26a482f2da179c560da6bbcce30c225afccf77425d0231cfc4"
+  }
+}

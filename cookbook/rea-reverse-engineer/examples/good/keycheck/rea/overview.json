@@ -1,0 +1,140 @@
+{
+  "schema_version": 2,
+  "evidence_id": "ev_75fa8f66d1af928a191431ddf8173f36a60c823b7aac64177188c9b86849c63f",
+  "subject": {
+    "name": "keycheck",
+    "digest": {
+      "sha256": "63d64ba64a2cda236d6407a5c4d196da03432eb87f4f3c4e8aa94b6913f6c893"
+    },
+    "format": "elf",
+    "architecture": "x86_64",
+    "local_path": "/home/user/w/cookbook/rea-reverse-engineer/targets/keycheck"
+  },
+  "provider": {
+    "id": "rea-workflow",
+    "name": "REA composed investigation workflow",
+    "version": "1"
+  },
+  "predicate_type": "rea.analysis/v2",
+  "operation": "binary_overview",
+  "parameters": {
+    "detail": "detailed",
+    "limit": 10
+  },
+  "raw_result": null,
+  "normalized_result": {
+    "document": "target-63d64ba64a2c.bin",
+    "detail": "detailed",
+    "segments": [
+      {
+        "name": "segment_2.1",
+        "start": "0x100000",
+        "end": "0x100318",
+        "length": 792
+      },
+      {
+        "name": ".interp",
+        "start": "0x100318",
+        "end": "0x100334",
+        "length": 28
+      },
+      {
+        "name": ".note.gnu.property",
+        "start": "0x100338",
+        "end": "0x100358",
+        "length": 32
+      },
+      {
+        "name": ".note.gnu.build-id",
+        "start": "0x100358",
+        "end": "0x10037c",
+        "length": 36
+      },
+      {
+        "name": ".note.ABI-tag",
+        "start": "0x10037c",
+        "end": "0x10039c",
+        "length": 32
+      },
+      {
+        "name": ".gnu.hash",
+        "start": "0x1003a0",
+        "end": "0x1003c8",
+        "length": 40
+      },
+      {
+        "name": ".dynsym",
+        "start": "0x1003c8",
+        "end": "0x1004e8",
+        "length": 288
+      },
+      {
+        "name": ".dynstr",
+        "start": "0x1004e8",
+        "end": "0x100597",
+        "length": 175
+      },
+      {
+        "name": ".gnu.version",
+        "start": "0x100598",
+        "end": "0x1005b0",
+        "length": 24
+      },
+      {
+        "name": ".gnu.version_r",
+        "start": "0x1005b0",
+        "end": "0x1005e0",
+        "length": 48
+      }
+    ],
+    "segment_count": 31,
+    "procedure_count": 35,
+    "string_count": 46
+  },
+  "confidence": "derived",
+  "authority": "shipped-artifact",
+  "environment": null,
+  "limitations": [
+    "Derived by an REA composed workflow."
+  ],
+  "locations": [],
+  "evidence_links": [],
+  "analysis_profile": {
+    "schema_version": 1,
+    "provider": {
+      "id": "rea-workflow",
+      "name": "REA composed investigation workflow",
+      "version": "1"
+    },
+    "provider_profile_schema_version": 1,
+    "parameters": {
+      "upstream_analysis_profile": {
+        "schema_version": 1,
+        "provider": {
+          "id": "ghidra",
+          "name": "Ghidra",
+          "version": "12.1.2"
+        },
+        "provider_profile_schema_version": 1,
+        "parameters": {
+          "target_kind": "executable",
+          "target_format": "elf",
+          "architecture": "x86_64",
+          "available_architectures": [
+            "x86_64"
+          ],
+          "import_mode": "ephemeral-read-only",
+          "loader": "auto-from-header",
+          "language_id": "auto-from-header",
+          "compiler_spec_id": "auto-default",
+          "analyzer_preset": "ghidra-default",
+          "analysis_timeout_seconds": 300,
+          "max_cpu": 2,
+          "max_heap": "2G"
+        },
+        "digest": "23dcb73ea71f6d26a482f2da179c560da6bbcce30c225afccf77425d0231cfc4"
+      }
+    },
+    "digest": "aa64d43f268064a74144c8e0ec44e58a49b3ac09774b1e165b301ed61da82b7a"
+  }
+}

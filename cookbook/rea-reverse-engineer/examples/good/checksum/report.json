@@ -1,0 +1,22 @@
+{
+  "schema": "rea-demo/report/1",
+  "target": "checksum",
+  "sha256": "8f827dae20e69d532d13b73c67ca67efdf450cebe09cd501d143ce15a9422353",
+  "core_function": {
+    "label": "checksum loop (FUN_001011a0)",
+    "address": "0x1011a0"
+  },
+  "functions": [
+    {
+      "label": "entry + read + printf",
+      "address": "0x101060",
+      "role": "main: reads up to 1 MiB from stdin into .bss buffer at 0x104040, calls the core, printf \"%016llx\" of the 64-bit result"
+    },
+    {
+      "label": "checksum_update loop",
+      "address": "0x1011a0",
+      "role": "core: h = 0xCBF29CE484222325; per byte: h ^= b; h = rotl64(h, 5); h += 0x9E3779B97F4A7C15; h ^= h >> 29"
+    }
+  ],
+  "algorithm": "Reads all of stdin. Initialises a 64-bit state h = 0xCBF29CE484222325 (the FNV-1a offset basis). For each input byte b: h ^= b; h = rotl64(h, 5); h += 0x9E3779B97F4A7C15 (the golden-ratio constant, as seen in movabs at 0x1011b6); h ^= h >> 29. Prints h as 16 lowercase hex digits and a newline. Always exits 0. The -O2 decompile of the loop looks degenerate (Ghidra reduced it to pointer arithmetic), but the raw instructions at 0x1011cf-0x1011de show xor/rol $5/lea golden-ratio/shr 29 exactly."
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "evidence_id": "ev_7da6aa06863221055e29d918119d3c665a8e12539e44d97ce81745ee41a25509",
+  "subject": {
+    "name": "proto",
+    "digest": {
+      "sha256": "1c7329b2ce82619527fd4c29f67c6d977951ec5759fbb464b10aa62a81514b5f"
+    },
+    "format": "elf",
+    "architecture": "x86_64",
+    "local_path": "/home/user/w/cookbook/rea-reverse-engineer/targets/proto"
+  },
+  "provider": {
+    "id": "ghidra",
+    "name": "Ghidra",
+    "version": "12.1.2"
+  },
+  "predicate_type": "rea.analysis/v2",
+  "operation": "procedure_pseudo_code",
+  "parameters": {
+    "procedure": "0x101190"
+  },
+  "raw_result": "\nint FUN_00101190(int param_1)\n\n{\n  int iVar1;\n  byte bVar2;\n  long lVar3;\n  int iVar4;\n  ulong uVar5;\n  ulong uVar6;\n  int iVar7;\n  uint uVar8;\n  uint uVar9;\n  \n  if (param_1 < 1) {\n    iVar7 = 0;\n  }\n  else {\n    iVar7 = 0;\n    uVar9 = 0;\n    do {\n      if ((&DAT_00104040)[(int)uVar9] != -0x56) {\n        printf(\"ERR %d sync\\n\",(ulong)uVar9);\n        return iVar7;\n      }\n      if (param_1 <= (int)(uVar9 + 2)) {\nLAB_00101277:\n        printf(\"ERR %d trunc\\n\",(ulong)uVar9);\n        return iVar7;\n      }\n      bVar2 = (&DAT_00104041)[(int)uVar9];\n      uVar8 = (uint)(byte)(&DAT_00104042)[(int)uVar9];\n      if ((0x40 < uVar8) || (iVar1 = uVar8 + 3 + uVar9, param_1 <= iVar1)) goto LAB_00101277;\n      uVar6 = (ulong)(((uint)bVar2 * 8 - (uint)bVar2) + uVar8 * 3);\n      if ((&DAT_00104042)[(int)uVar9] != 0) {\n        uVar5 = 1;\n        do {\n          lVar3 = uVar5 + (long)(int)uVar9;\n          iVar4 = (int)uVar5;\n          uVar5 = uVar5 + 1;\n          uVar6 = (ulong)((int)uVar6 + (uint)(byte)(&DAT_00104042)[lVar3] * iVar4);\n        } while (uVar8 + 1 != uVar5);\n      }\n      if ((&DAT_00104040)[iVar1] != (char)uVar6) {\n        printf(\"ERR %d chk\\n\",(ulong)uVar9);\n        return iVar7;\n      }\n      uVar9 = uVar8 + 4 + uVar9;\n      iVar7 = iVar7 + 1;\n      printf(\"OK cmd=%02x len=%d chk=%02x\\n\",(ulong)(uint)bVar2,(ulong)uVar8,uVar6 & 0xff);\n    } while ((int)uVar9 < param_1);\n  }\n  return iVar7;\n}\n\n",
+  "normalized_result": "\nint FUN_00101190(int param_1)\n\n{\n  int iVar1;\n  byte bVar2;\n  long lVar3;\n  int iVar4;\n  ulong uVar5;\n  ulong uVar6;\n  int iVar7;\n  uint uVar8;\n  uint uVar9;\n  \n  if (param_1 < 1) {\n    iVar7 = 0;\n  }\n  else {\n    iVar7 = 0;\n    uVar9 = 0;\n    do {\n      if ((&DAT_00104040)[(int)uVar9] != -0x56) {\n        printf(\"ERR %d sync\\n\",(ulong)uVar9);\n        return iVar7;\n      }\n      if (param_1 <= (int)(uVar9 + 2)) {\nLAB_00101277:\n        printf(\"ERR %d trunc\\n\",(ulong)uVar9);\n        return iVar7;\n      }\n      bVar2 = (&DAT_00104041)[(int)uVar9];\n      uVar8 = (uint)(byte)(&DAT_00104042)[(int)uVar9];\n      if ((0x40 < uVar8) || (iVar1 = uVar8 + 3 + uVar9, param_1 <= iVar1)) goto LAB_00101277;\n      uVar6 = (ulong)(((uint)bVar2 * 8 - (uint)bVar2) + uVar8 * 3);\n      if ((&DAT_00104042)[(int)uVar9] != 0) {\n        uVar5 = 1;\n        do {\n          lVar3 = uVar5 + (long)(int)uVar9;\n          iVar4 = (int)uVar5;\n          uVar5 = uVar5 + 1;\n          uVar6 = (ulong)((int)uVar6 + (uint)(byte)(&DAT_00104042)[lVar3] * iVar4);\n        } while (uVar8 + 1 != uVar5);\n      }\n      if ((&DAT_00104040)[iVar1] != (char)uVar6) {\n        printf(\"ERR %d chk\\n\",(ulong)uVar9);\n        return iVar7;\n      }\n      uVar9 = uVar8 + 4 + uVar9;\n      iVar7 = iVar7 + 1;\n      printf(\"OK cmd=%02x len=%d chk=%02x\\n\",(ulong)(uint)bVar2,(ulong)uVar8,uVar6 & 0xff);\n    } while ((int)uVar9 < param_1);\n  }\n  return iVar7;\n}\n\n",
+  "confidence": "observed",
+  "authority": "shipped-artifact",
+  "environment": null,
+  "limitations": [
+    "The session serves operations only after default Ghidra auto-analysis completes; an analysis timeout fails the open instead of exposing partial results.",
+    "The imported Program and temporary project are ephemeral, read-only to REA, and deleted on close.",
+    "Default-space addresses use lowercase 0x-prefixed hexadecimal; other address spaces use <percent-encoded-space>:0x<hex>.",
+    "Pseudocode is Ghidra decompiler output, not original source and not text-equivalent to Hopper output; each decompile has a 30-second native deadline.",
+    "External functions and functions without an analyzable body return null; other decompiler failures remain explicit."
+  ],
+  "locations": [],
+  "evidence_links": [],
+  "analysis_profile": {
+    "schema_version": 1,
+    "provider": {
+      "id": "ghidra",
+      "name": "Ghidra",
+      "version": "12.1.2"
+    },
+    "provider_profile_schema_version": 1,
+    "parameters": {
+      "target_kind": "executable",
+      "target_format": "elf",
+      "architecture": "x86_64",
+      "available_architectures": [
+        "x86_64"
+      ],
+      "import_mode": "ephemeral-read-only",
+      "loader": "auto-from-header",
+      "language_id": "auto-from-header",
+      "compiler_spec_id": "auto-default",
+      "analyzer_preset": "ghidra-default",
+      "analysis_timeout_seconds": 300,
+      "max_cpu": 2,
+      "max_heap": "2G"
+    },
+    "digest": "23dcb73ea71f6d26a482f2da179c560da6bbcce30c225afccf77425d0231cfc4"
+  }
+}

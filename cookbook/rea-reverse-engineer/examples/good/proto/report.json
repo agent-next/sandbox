@@ -1,0 +1,22 @@
+{
+  "schema": "rea-demo/report/1",
+  "target": "proto",
+  "sha256": "1c7329b2ce82619527fd4c29f67c6d977951ec5759fbb464b10aa62a81514b5f",
+  "core_function": {
+    "label": "frame parser (FUN_00101190)",
+    "address": "0x101190"
+  },
+  "functions": [
+    {
+      "label": "main: read + call parser + DONE line",
+      "address": "0x101060",
+      "role": "reads up to 1 MiB from stdin, calls the parser, prints \"DONE <count>\""
+    },
+    {
+      "label": "frame parser",
+      "address": "0x101190",
+      "role": "core: walks the stream; at offset o requires p[o] == 0xAA, else prints \"ERR <o> sync\" and stops; needs 3 header bytes and len <= 64 (\"ERR <o> trunc\"); check byte chk = (cmd*7 + len*3 + sum(p[o+3+i]*(i+1))) & 0xFF must equal the trailing byte (\"ERR <o> chk\"); prints \"OK cmd=%02x len=%d chk=%02x\" per good frame"
+    }
+  ],
+  "algorithm": "Frame format 0xAA <cmd> <len> <payload[len]> <chk> with len <= 64 and chk = (cmd*7 + len*3 + sum(payload[i]*(i+1))) & 0xFF. The parser emits one verdict line per frame (OK/ERR with the failing offset and reason: sync/trunc/chk) and stops at the first bad frame; after the loop main prints \"DONE <n>\" with the count of valid frames. All of this is visible directly in the decompile at 0x101190: the (uVar8 + 4 + uVar9) stride (3 header + len + 1 check byte), the bVar2*8 - bVar2 product (cmd*7), and the weighted payload sum (byte * loop index)."
+}

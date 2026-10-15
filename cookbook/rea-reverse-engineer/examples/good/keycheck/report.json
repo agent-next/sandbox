@@ -1,0 +1,22 @@
+{
+  "schema": "rea-demo/report/1",
+  "target": "keycheck",
+  "sha256": "63d64ba64a2cda236d6407a5c4d196da03432eb87f4f3c4e8aa94b6913f6c893",
+  "core_function": {
+    "label": "licence verify (FUN_001011f0)",
+    "address": "0x1011f0"
+  },
+  "functions": [
+    {
+      "label": "main: fgets + strip newline + verdict",
+      "address": "0x101090",
+      "role": "main: reads one line (fgets, 64-byte buffer), strips \\r\\n via strcspn, prints OK and exits 0 if the verifier accepts, else DENIED and exit 1"
+    },
+    {
+      "label": "licence verifier",
+      "address": "0x1011f0",
+      "role": "core: strlen must be 17 with dashes at positions 5 and 11; each of the 15 other chars must be in the 32-symbol alphabet \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\" (strchr at 0x101208; alphabet stored at 0x102020); v[i] = alphabet index; weighted sum w = sum(v[i]*(i%5+1)); accepts iff (v[0]+v[5]+v[10]) % 32 == 9, v[7] == v[0] ^ v[14], and w % 29 == 11"
+    }
+  ],
+  "algorithm": "Licence key XXXXX-XXXXX-XXXXX over the alphabet \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\" (no I, O, 0, 1). With v[0..14] the alphabet indices of the 15 key characters, the key is accepted iff (v[0]+v[5]+v[10]) % 32 == 9 AND v[7] == (v[0] ^ v[14]) AND sum(v[i]*(i%5+1)) % 29 == 11. The three comparisons are visible as the return chain in the decompile at 0x1011f0: the & 0x8000001f masked-add against 9, the xor equality between local_5c and (local_78[0] ^ local_40), and lVar4 % 0x1d == 0xb (mod 29 == 11). A valid key is AAAAA-KAYAA-AAAAY."
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "evidence_id": "ev_4f8cd3a81b79be5b224743b2147c801d28e8d5d17658da3d9ec39073e0e29fe5",
+  "subject": {
+    "name": "checksum",
+    "digest": {
+      "sha256": "8f827dae20e69d532d13b73c67ca67efdf450cebe09cd501d143ce15a9422353"
+    },
+    "format": "elf",
+    "architecture": "x86_64",
+    "local_path": "/home/user/w/cookbook/rea-reverse-engineer/targets/checksum"
+  },
+  "provider": {
+    "id": "ghidra",
+    "name": "Ghidra",
+    "version": "12.1.2"
+  },
+  "predicate_type": "rea.analysis/v2",
+  "operation": "procedure_pseudo_code",
+  "parameters": {
+    "procedure": "0x1011a0"
+  },
+  "raw_result": "\nvoid FUN_001011a0(long param_1)\n\n{\n  undefined1 *puVar1;\n  \n  if (param_1 != 0) {\n    puVar1 = &DAT_00104040;\n    do {\n      puVar1 = puVar1 + 1;\n    } while (&DAT_00104040 + param_1 != puVar1);\n  }\n  return;\n}\n\n",
+  "normalized_result": "\nvoid FUN_001011a0(long param_1)\n\n{\n  undefined1 *puVar1;\n  \n  if (param_1 != 0) {\n    puVar1 = &DAT_00104040;\n    do {\n      puVar1 = puVar1 + 1;\n    } while (&DAT_00104040 + param_1 != puVar1);\n  }\n  return;\n}\n\n",
+  "confidence": "observed",
+  "authority": "shipped-artifact",
+  "environment": null,
+  "limitations": [
+    "The session serves operations only after default Ghidra auto-analysis completes; an analysis timeout fails the open instead of exposing partial results.",
+    "The imported Program and temporary project are ephemeral, read-only to REA, and deleted on close.",
+    "Default-space addresses use lowercase 0x-prefixed hexadecimal; other address spaces use <percent-encoded-space>:0x<hex>.",
+    "Pseudocode is Ghidra decompiler output, not original source and not text-equivalent to Hopper output; each decompile has a 30-second native deadline.",
+    "External functions and functions without an analyzable body return null; other decompiler failures remain explicit."
+  ],
+  "locations": [],
+  "evidence_links": [],
+  "analysis_profile": {
+    "schema_version": 1,
+    "provider": {
+      "id": "ghidra",
+      "name": "Ghidra",
+      "version": "12.1.2"
+    },
+    "provider_profile_schema_version": 1,
+    "parameters": {
+      "target_kind": "executable",
+      "target_format": "elf",
+      "architecture": "x86_64",
+      "available_architectures": [
+        "x86_64"
+      ],
+      "import_mode": "ephemeral-read-only",
+      "loader": "auto-from-header",
+      "language_id": "auto-from-header",
+      "compiler_spec_id": "auto-default",
+      "analyzer_preset": "ghidra-default",
+      "analysis_timeout_seconds": 300,
+      "max_cpu": 2,
+      "max_heap": "2G"
+    },
+    "digest": "23dcb73ea71f6d26a482f2da179c560da6bbcce30c225afccf77425d0231cfc4"
+  }
+}

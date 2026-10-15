@@ -12,3 +12,12 @@ temurin jdk 21.0.9+10
 ghidra 12.1.2 PUBLIC 20260605
   url    : https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.2_build/ghidra_12.1.2_PUBLIC_20260605.zip
   sha256 : b62e81a0390618466c019c60d8c2f796ced2509c4c1aea4a37644a77272cf99d
+  application.version=12.1.2
+rea-agents 3.1.0
+  url    : https://registry.npmjs.org/rea-agents/-/rea-agents-3.1.0.tgz
+  sha512 : 8a9f637633af4ec2b034be57a2bf69860919a93c48fb8a08e3436bfd2743126e734d3c06bf12213b4e661d43f208e37c49c6ca7bf2826256780d320f768e7444
+  3.1.0
+python3
+  Python 3.12.15
+procps ps
+  ps from procps-ng 4.0.2
