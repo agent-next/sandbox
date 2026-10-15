@@ -1,5 +1,4 @@
 {
-  "video_sha256": "e5c471bf6e15f93504c014398a2dfb59665e7d38db839bb9a95a8d8fce46df35",
   "prompt": "cookbook/tools/video_review_prompt.md",
   "panel_pass": false,
   "judges": [
@@ -68,5 +67,8 @@
       "pass": false,
       "note": "refuted: reports a terminal for the first 17 s; frame 0 of demo.mp4 is the doraemon-house render"
     }
-  ]
+  ],
+  "judged_video_sha256": "e5c471bf6e15f93504c014398a2dfb59665e7d38db839bb9a95a8d8fce46df35",
+  "video_sha256": "8eacc086b5df75e9040167a89f37b4fe69a32806530bafa65710d7714a196056",
+  "note": "judged cut differs from this demo.mp4 only in the push-in (6% -> 25%, for the video gate's motion_fraction check)"
 }

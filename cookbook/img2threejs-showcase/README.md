@@ -80,7 +80,7 @@ Full per-target table and run log: `RECEIPT.md`.
 H.264 crf 18, 54 s; slots and sources in `media/STORYBOARD.md`: one rendered scene, the command
 beside the result grid, the first 450 s of one target's recording at 50x speed, the last 2.5 s of 9
 more targets' recordings, every screenshot on three pages, the verdicts with the controls, and the
-launch prompt; the blurred backdrop and the 6% push-in are added in post; it passes
+launch prompt; the blurred backdrop and the 25% push-in are added in post; it passes
 `cookbook/tools/video_gate.py`), `media/REVIEW.json` (two blind judges, see Review panel in
 `cookbook/DEMO-STANDARD.md`), `media/MANIFEST.json` (sources and sha256). Regenerate from run
 outputs, oldest first:
