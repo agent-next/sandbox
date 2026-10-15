@@ -16,6 +16,7 @@ encode to media/demo.mp4.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -72,6 +73,9 @@ class Renderer:
         self.n = 0
 
     def save(self) -> None:
+        if OFFLINE:
+            self.n += 1
+            return
         self.fig.savefig(self.work / f"f{self.n:05d}.png")
         self.n += 1
 
@@ -80,6 +84,9 @@ class Renderer:
             self.save()
 
     def title(self, text: str, sub: str, frames: int) -> None:
+        if FAST and (self.work / f"f{self.n + frames - 1:05d}.png").is_file():
+            self.n += frames
+            return
         for _ in range(frames):
             self.fig.clear()
             ax = self.fig.add_axes((0, 0, 1, 1)); ax.axis("off")
