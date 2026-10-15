@@ -35,23 +35,20 @@ def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
                           timeout=timeout)
 
 
-def step(name: str, fn) -> subprocess.CompletedProcess:
+def step(name: str, fn, echo: bool = False) -> subprocess.CompletedProcess:
     start = time.monotonic()
     proc = fn()
     dt = time.monotonic() - start
     print(f"run: [{dt:6.1f}s] {name} -> exit {proc.returncode}", flush=True)
+    # Echo before raising: on a failed grade the judge's verdict JSON is the
+    # most useful thing to show, and a bare "exit 1" would hide it.
+    if echo and proc.stdout:
+        print(proc.stdout.rstrip(), flush=True)
     if proc.returncode != 0:
         tail = (proc.stdout or "") + (proc.stderr or "")
         raise Failure(f"{name} failed (exit {proc.returncode}):\n"
                       f"{tail.strip()[-2000:]}")
     return proc
-
-
-def show(proc: subprocess.CompletedProcess) -> None:
-    """Echo a step's stdout so the user sees the judge's own lines
-    (each 'killed <mutant> (gate: ...)', the kill rate, the verdict)."""
-    if proc.stdout:
-        print(proc.stdout.rstrip(), flush=True)
 
 
 def main() -> int:
@@ -85,12 +82,10 @@ def main() -> int:
                        echo: bool = False) -> subprocess.CompletedProcess:
             # `timeout` is the sandbox-side limit; the local subprocess gets
             # a buffer on top so a slow-but-working step is not killed here.
-            proc = step(name, lambda: sbx(
+            return step(name, lambda: sbx(
                 "exec", sid, "--timeout", str(timeout), "--",
-                f"cd {CLONE_DIR}/{DEMO} && {cmd}", timeout=timeout + 60))
-            if echo:
-                show(proc)
-            return proc
+                f"cd {CLONE_DIR}/{DEMO} && {cmd}", timeout=timeout + 60),
+                echo=echo)
 
         in_sandbox("judge/setup.sh", "bash judge/setup.sh", 900)
         in_sandbox("judge/selftest.sh", "bash judge/selftest.sh", 900,
