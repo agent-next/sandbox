@@ -141,11 +141,11 @@
     "worst_gouge_mm": 0.0
   },
   "timing": {
-    "cam_s": 0.08,
-    "simulate_s": 1.58,
-    "selfcheck_s": 0.29,
-    "reference_s": 0.59,
-    "total_s": 18.01
+    "cam_s": 0.16,
+    "simulate_s": 1.43,
+    "selfcheck_s": 0.4,
+    "reference_s": 0.42,
+    "total_s": 13.74
   },
   "pass": true
 }

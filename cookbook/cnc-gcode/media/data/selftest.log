@@ -1,5 +1,5 @@
 selftest: known-good PASS
-mutate: wrote 7 mutants to /tmp/tmp.UcAHqseyrr/mutants
+mutate: wrote 7 mutants to /tmp/tmp.DxEKlVaISo/mutants
 selftest: mutant KILLED: deep_pass  (caught by: stepdown)
 selftest: mutant KILLED: hot_feed  (caught by: process)
 selftest: mutant KILLED: inch_mode  (caught by: units)
