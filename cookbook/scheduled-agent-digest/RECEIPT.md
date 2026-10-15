@@ -18,7 +18,7 @@ $ bash judge/setup.sh
   python3 -> /usr/local/bin/python3
   versions -> .../cookbook/scheduled-agent-digest/judge/VERSIONS.txt
 exit=0
-real  0m0.654s
+real  0m0.869s
 ```
 
 ```
@@ -34,15 +34,16 @@ selftest: mutant KILLED: mean-unrounded (failed gates: digest)
 selftest: mutant KILLED: no-events-as-zero (failed gates: negative)
 selftest: mutant KILLED: p95-off-by-one (failed gates: digest)
 selftest: mutant KILLED: paused-skipped (failed gates: schedule)
-selftest: kill rate 10/10 (100%)
+selftest: mutant KILLED: silent-no-output (failed gates: digest)
+selftest: kill rate 11/11 (100%)
 selftest: determinism PASS (same seed -> identical verdict)
 selftest: PASS
 exit=0
-real  0m39.903s
+real  0m37.525s
 ```
 
 ```
-$ bash judge/grade.sh examples/good --json /tmp/G1/v.json
+$ bash judge/grade.sh examples/good --json /tmp/GFIN/v.json
 {
   "artifact": "examples/good",
   "seed": 20261015,
@@ -81,7 +82,11 @@ $ bash judge/grade.sh examples/good --json /tmp/G1/v.json
     "schedule": {"passed": true, "cron": "0 2 * * *",
       "steps": ["sleep_until_fire", "resume", "digest", "collect", "pause"]},
     "lifecycle": {"passed": true, "fires": ["2026-10-12", "2026-10-13", "2026-10-14"],
-      "states_between_runs": ["paused", "paused", "paused"], "pause_seconds": 0.05, "sandbox": null},
+      "states_between_runs": ["paused", "paused", "paused"], "pause_seconds": 0.05,
+      "sandbox": "local-sandbox", "sbx_shim_resumes": 3,
+      "sbx_shim_calls": ["connect judge-sbx", "resume judge-sbx", "pause judge-sbx",
+        "connect judge-sbx", "resume judge-sbx", "pause judge-sbx",
+        "connect judge-sbx", "resume judge-sbx", "pause judge-sbx"]},
     "negative": {"passed": true, "status": "no events", "events": 0},
     "failure": {"passed": true, "exit_code": 1, "names_log": true, "names_row": true},
     "integrity": {"passed": true, "copied_to": "<temp>/artifact", "judge_untouched": true}
@@ -89,12 +94,12 @@ $ bash judge/grade.sh examples/good --json /tmp/G1/v.json
   "passed": true,
   "failed_gate": null,
   "reason": "",
-  "timing": {"wall_seconds": 3.654},
+  "timing": {"wall_seconds": 1.78},
   "failed_gates": []
 }
 grade: PASS (all gates; judge integrity verified)
 exit=0
-real  0m4.700s
+real  0m2.486s
 ```
 
 ## Run 2 — fresh clone, `$HOME` cleared, pinned debs downloaded and sha256-checked
@@ -103,23 +108,23 @@ real  0m4.700s
 takes its download branch; `$HOME` was an empty directory.
 
 ```
-$ PATH="/tmp/shadow:$PATH" HOME=/tmp/FH bash judge/setup.sh
+$ PATH="/tmp/shadow:$PATH" HOME=/tmp/FH2 bash judge/setup.sh
 [setup] python3 3.12.15 present
 [setup] downloading sqlite3_3.40.1-2+deb12u2_amd64.deb
 [setup] downloading libsqlite3-0_3.40.1-2+deb12u2_amd64.deb
-[setup] installed /tmp/FH/.scheduled-agent-digest/bin/sqlite3 (3.40.1-2+deb12u2)
+[setup] installed /tmp/FH2/.scheduled-agent-digest/bin/sqlite3 (3.40.1-2+deb12u2)
 [setup] done.
-  sqlite3 -> /tmp/FH/.scheduled-agent-digest/bin/sqlite3 (3.40.1)
+  sqlite3 -> /tmp/FH2/.scheduled-agent-digest/bin/sqlite3 (3.40.1)
   python3 -> /usr/local/bin/python3
   versions -> .../judge/VERSIONS.txt
 
-  add the pinned tools to PATH: export PATH="/tmp/FH/.scheduled-agent-digest/bin:$PATH"
+  add the pinned tools to PATH: export PATH="/tmp/FH2/.scheduled-agent-digest/bin:$PATH"
 exit=0
-real  0m3.038s
+real  0m1.286s
 ```
 
 ```
-$ PATH="/tmp/FH/.scheduled-agent-digest/bin:$PATH" bash judge/selftest.sh
+$ PATH="/tmp/FH2/.scheduled-agent-digest/bin:$PATH" bash judge/selftest.sh
 selftest: known-good PASS
 selftest: mutant KILLED: all-rows-counted (failed gates: digest,dates)
 selftest: mutant KILLED: busiest-tie-wrong (failed gates: digest)
@@ -131,31 +136,32 @@ selftest: mutant KILLED: mean-unrounded (failed gates: digest)
 selftest: mutant KILLED: no-events-as-zero (failed gates: negative)
 selftest: mutant KILLED: p95-off-by-one (failed gates: digest)
 selftest: mutant KILLED: paused-skipped (failed gates: schedule)
-selftest: kill rate 10/10 (100%)
+selftest: mutant KILLED: silent-no-output (failed gates: digest)
+selftest: kill rate 11/11 (100%)
 selftest: determinism PASS (same seed -> identical verdict)
 selftest: PASS
 exit=0
-real  0m50.121s
+real  0m36.706s
 ```
 
 ```
-$ PATH="/tmp/FH/.scheduled-agent-digest/bin:$PATH" bash judge/grade.sh examples/good --json /tmp/G2/v.json
+$ PATH="/tmp/FH2/.scheduled-agent-digest/bin:$PATH" bash judge/grade.sh examples/good --json /tmp/GFIN2/v.json
 ... (verdict JSON byte-identical to Run 1 except the timing key) ...
-"timing": {"wall_seconds": 3.098},
+"timing": {"wall_seconds": 2.984},
 "failed_gates": []
 grade: PASS (all gates; judge integrity verified)
 exit=0
-real  0m3.807s
+real  0m3.624s
 ```
 
 ## Two fresh runs side by side
 
 | | Run 1 (system sqlite3) | Run 2 (pinned sqlite3 from `$HOME`) |
 |---|---|---|
-| `setup.sh` exit / wall | 0 / 0.654 s | 0 / 3.038 s |
-| `selftest.sh` exit / wall | 0 / 39.903 s | 0 / 50.121 s |
-| kill rate | 10/10 (100 %) | 10/10 (100 %) |
-| `grade.sh` exit / wall | 0 / 4.700 s | 0 / 3.807 s |
+| `setup.sh` exit / wall | 0 / 0.869 s | 0 / 1.286 s |
+| `selftest.sh` exit / wall | 0 / 37.525 s | 0 / 36.706 s |
+| kill rate | 11/11 (100 %) | 11/11 (100 %) |
+| `grade.sh` exit / wall | 0 / 2.486 s | 0 / 3.624 s |
 | night 1 events / errors / p50 / p95 | 128 / 16 / 281 / 16447 | 128 / 16 / 281 / 16447 |
 | night 2 events / errors / p50 / p95 | 141 / 18 / 281 / 16098 | 141 / 18 / 281 / 16098 |
 | night 3 events / errors / p50 / p95 | 96 / 15 / 292 / 14552 | 96 / 15 / 292 / 14552 |
@@ -164,7 +170,7 @@ real  0m3.807s
 | verdict JSON, `timing` removed | byte-identical | byte-identical |
 
 The two verdict JSONs compare equal after removing the `timing` key
-(`a == b` → `True`); only `timing.wall_seconds` differs (3.654 vs 3.098),
+(`a == b` → `True`); only `timing.wall_seconds` differs (1.780 vs 2.984),
 which SPEC.md excludes from the determinism check.
 
 ## Tool versions actually installed
