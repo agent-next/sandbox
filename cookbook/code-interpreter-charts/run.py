@@ -25,6 +25,25 @@ DEMO = "cookbook/code-interpreter-charts"
 ARTIFACT = "examples/good"
 CLONE_DIR = "charts-demo-repo"
 
+# A sandbox step whose command never ran: the connect to the sandbox failed,
+# not the command.  The CLI prints these as `sbx: <ExceptionType>: ...` with
+# exit 1 — the same exit a real command failure gives — so run.py must tell
+# them apart by error text before retrying (LESSONS.md: a transport error is
+# not a process exit; reattach instead of failing).  Every step run.py sends
+# is an idempotent shell line, so retrying the whole step is safe: a step
+# that really ran keeps its real failure once the gateway answers.
+TRANSIENT_HINTS = (
+    "ConnectError",     # httpx could not reach the sandbox gateway
+    "ConnectTimeout",   # connect timed out before the tunnel was up
+    "tunnel error",     # the sandbox's connect tunnel refused the exec
+    "connection error", # e2b SDK wording for a dropped connection
+    "ReadTimeout",      # reply lost in transit
+    "502", "503", "504",  # gateway blips
+    "429",              # quota/rate limit: back off, then retry
+)
+RETRIES = 4                 # retries after the first attempt
+BACKOFFS = (5, 15, 30, 60)  # seconds slept before each retry
+
 
 class Failure(RuntimeError):
     pass
@@ -34,9 +53,35 @@ def sbx(*args: str, timeout: float = 120.0) -> subprocess.CompletedProcess:
     """Run one sbx CLI command; never raises, caller checks exit code."""
     return subprocess.run(["sbx", *args], capture_output=True, text=True,
                           timeout=timeout)
+
+
+def transient(proc: subprocess.CompletedProcess) -> bool:
+    """True when an sbx failure looks like the gateway, not the command.
+
+    The CLI exits 1 both for "your command failed" and for "the sandbox was
+    never reached"; only the latter is retried.  The hints match the
+    exception type or gateway wording the CLI prints on stderr.
+    """
+    if proc.returncode == 0:
+        return False
+    tail = ((proc.stderr or "") + (proc.stdout or "")).lower()
+    return any(hint.lower() in tail for hint in TRANSIENT_HINTS)
+
+
 def step(name: str, fn) -> subprocess.CompletedProcess:
+    """Run one step, retrying transport-level failures with backoff."""
     start = time.monotonic()
     proc = fn()
+    attempt = 0
+    while proc.returncode != 0 and transient(proc) and attempt < RETRIES:
+        wait = BACKOFFS[min(attempt, len(BACKOFFS) - 1)]
+        why = ((proc.stderr or "") + (proc.stdout or "")).strip()
+        print(f"run: {name}: transport error (retry {attempt + 1}/{RETRIES} "
+              f"in {wait}s): {why.splitlines()[-1][:200] if why else '?'}",
+              flush=True)
+        time.sleep(wait)
+        attempt += 1
+        proc = fn()
     dt = time.monotonic() - start
     print(f"run: [{dt:6.1f}s] {name} -> exit {proc.returncode}", flush=True)
     if proc.returncode != 0:
@@ -75,8 +120,11 @@ def main() -> int:
         sid = created.stdout.strip().splitlines()[-1].strip()
         print(f"run: sandbox {sid}", flush=True)
 
+        # Clone is retried on transport errors, so it must be idempotent:
+        # a tunnel drop mid-clone can leave a partial tree behind.
         step("git clone",
              lambda: sbx("exec", sid, "--timeout", "300", "--",
+                         "rm", "-rf", CLONE_DIR, "&&",
                          "git", "clone", "--depth", "1", "-b", args.ref,
                          REPO, CLONE_DIR))
 
@@ -138,8 +186,22 @@ def main() -> int:
                 print(f"run: --keep: sandbox {sid} left running "
                       "(remember: sbx kill when done)", flush=True)
             else:
+                # Kill with retries (a kill lost to a gateway blip leaves
+                # the sandbox holding a quota slot), then confirm via list.
+                # sbx kill is idempotent: an already-gone id is not an error.
+                killed = None
                 try:
-                    killed = sbx("kill", sid, timeout=180)
+                    for attempt in range(RETRIES):
+                        killed = sbx("kill", sid, timeout=180)
+                        if killed.returncode == 0 or not transient(killed):
+                            break
+                        print(f"run: kill attempt {attempt + 1} hit a "
+                              f"transport error, retrying in "
+                              f"{BACKOFFS[min(attempt, len(BACKOFFS) - 1)]}s",
+                              file=sys.stderr, flush=True)
+                        time.sleep(BACKOFFS[min(attempt, len(BACKOFFS) - 1)])
+                    else:
+                        killed = sbx("kill", sid, timeout=180)
                     if killed.returncode != 0:
                         print(f"run: WARNING kill exit {killed.returncode}",
                               file=sys.stderr)
