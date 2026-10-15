@@ -45,11 +45,14 @@ def strip_comments(text):
     """Remove Lean comments from a source, keeping everything else.
 
     Handles `--` line comments and `/- -/` block comments (which nest).
-    A `--` or `/-` inside a string literal is not comment syntax; Lean
-    string literals cannot span lines, so scan each line up to its
-    newline, guarding `--` / `/-` that appear inside a literal. All
-    newlines outside comments are preserved, so line anchors in the
-    stripped text still line up with the original file.
+    String literals are not treated specially; that is sound here
+    because the frozen statements contain no string literals (so a
+    literal cannot shift the freeze), and an admission hidden from
+    this text scan by one would still be caught by the build gate
+    (sorry warning) or the axioms gate (sorryAx / ofReduceBool /
+    extra axiom in the audit). All newlines outside comments are
+    preserved, so line anchors in the stripped text still line up
+    with the original file.
     """
     out = []
     i, n = 0, len(text)
@@ -160,7 +163,7 @@ def gate_structure(artifact, fixture, verdict):
                 g["problems"].append(f"{name}: no theorem {tname!r} "
                                       "found")
                 continue
-            stmt = text[lm.start():lm.start(1)].rstrip()
+            stmt = code[lm.start():lm.start(1)].rstrip()
             if stmt != frozen:
                 g["pass"] = False
                 g["problems"].append(f"{name}: theorem statement "
