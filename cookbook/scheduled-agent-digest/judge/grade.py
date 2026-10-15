@@ -258,7 +258,9 @@ def gate_lifecycle(work: Path, records: list[dict]) -> Gate:
             return gate
     gate.note(fires=[r["night"] for r in records],
               states_between_runs=[r["state_between_runs"] for r in records],
-              pause_seconds=0.05, sandbox=records[-1].get("sandbox"))
+              pause_seconds=0.05, sandbox=records[-1].get("sandbox"),
+              sbx_shim_resumes=records[-1].get("shim_resumes"),
+              sbx_shim_calls=records[-1].get("shim_calls"))
     return gate
 
 

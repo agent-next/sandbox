@@ -181,7 +181,8 @@ def run_night(*, log: Path, date: str, fire_on: str, workdir: Path,
     """
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
-    record = {"night": date, "fire_on": fire_on, "log": str(log)}
+    record = {"night": date, "fire_on": fire_on, "log": str(log),
+              "sandbox": getattr(transport, "sandbox_id", None)}
 
     # sleep_until_fire: the host-side timer.  Deterministic in the grader —
     # the real wait is the transport's business.
