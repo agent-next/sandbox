@@ -61,12 +61,17 @@ def main():
     finite = bool(np.isfinite(pos).all() and np.isfinite(vel).all()
                   and np.isfinite(r2["pos"]).all())
     vmax = float(np.linalg.norm(vel[-1], axis=1).max())
-    wall = max(float(meta["wall_run_s"]), float(meta2["wall_run_s"]))
+    # Wall-clock numbers are measured, not physics: they go under the
+    # top-level 'timing' key (excluded from verdict determinism) while the
+    # gate still enforces the budget.
+    wall1 = float(meta["wall_run_s"])
+    wall2 = float(meta2["wall_run_s"])
+    wall = max(wall1, wall2)
     passed = finite and vmax <= 50.0 and wall <= 480.0
     gates.append(gate_record(1, "completes, no NaN, bounded speed",
                              passed,
                              {"finite": finite, "final_vmax_m_s": round(vmax, 4),
-                              "wall_run_s": wall, "wall_limit_s": 480.0}))
+                              "wall_limit_s": 480.0}))
 
     # ---------------- Gate 2: mass conservation ---------------------------
     n0 = int(r1["n_particles0"])
@@ -169,6 +174,8 @@ def main():
         "gates": gates,
         "spec": {k: s[k] for k in ("gravity", "dt", "substeps", "steps",
                                    "particle_size", "grid_density")},
+        "timing": {"run1_wall_s": round(wall1, 3),
+                   "run2_wall_s": round(wall2, 3)},
     }
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)

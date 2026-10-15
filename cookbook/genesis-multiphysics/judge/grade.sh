@@ -102,7 +102,7 @@ path, seed, secs = sys.argv[1], int(sys.argv[2]), float(sys.argv[3])
 with open(path) as f:
     v = json.load(f)
 v['seed'] = seed
-v['timing'] = {'wall_seconds': round(secs, 3)}
+v.setdefault('timing', {})['wall_seconds'] = round(secs, 3)
 with open(path, 'w') as f:
     json.dump(v, f, indent=2)
     f.write('\n')
