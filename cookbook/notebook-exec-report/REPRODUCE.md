@@ -7,7 +7,7 @@ VERDICT: **REPRODUCED**
 - Debian GNU/Linux 12 (bookworm), Linux 6.1.175 x86_64, 2 vCPU / ~3 GB
 - `python3 3.12.15`, pip 25.0.1
 - `sbx` CLI installed with the README's command, entry point
-  `/home/user/.local/bin/sbx` (`export PATH="$HOME/.local/bin:$PATH"`)
+  `~/.local/bin/sbx` (`export PATH="$HOME/.local/bin:$PATH"`)
 - Working dir `/tmp/nbrepro`, **outside** the repo tree; `run.py` itself
   runs inside a fresh disposable sandbox, per the README
 - Reproducer process: a subagent — an independent agent session with none

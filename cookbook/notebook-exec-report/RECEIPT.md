@@ -18,7 +18,7 @@ local `sbx` CLI 0.0.1.
     run: [   5.0s] git clone -> exit 0
     run: [ 137.2s] judge/setup.sh -> exit 0
     run: [ 221.8s] judge/selftest.sh -> exit 0
-    selftest: grading known-good /home/user/notebook-demo-repo/cookbook/notebook-exec-report/examples/good/analysis.ipynb
+    selftest: grading known-good <sandbox-home>/notebook-demo-repo/cookbook/notebook-exec-report/examples/good/analysis.ipynb
     selftest: known-good PASSED all gates
     mutants: error-cell.ipynb  edit: 'assert len(df) == 1600'
     mutants: train-not-test.ipynb  edit: 'rmse_test = float(np.sqrt(np.mean((log_y[test_idx] - pred_lo'
