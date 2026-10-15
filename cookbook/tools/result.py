@@ -25,6 +25,11 @@ manifest's parent's parent when it lives in `media/`), and checks that
 
     model3d -> glTF/glb,  video -> mp4/webm,  image -> png/jpg/webp/gif
 
+`path` fields are checked against their kind's formats, while `poster`,
+`before` and `after` must always be images. An MP4 is only accepted when
+its ftyp brands fit MP4 *and* a `vide` track handler shows up in the
+first few MB — so AVIF stills and audio-only M4A do not pass as video.
+
 It exits non-zero and prints every reason found.
 """
 
@@ -42,12 +47,22 @@ SCHEMA_FILE = Path(__file__).resolve().with_name("result.schema.json")
 _IMAGE_TYPES = {"png", "jpeg", "webp", "gif"}
 _VIDEO_TYPES = {"mp4", "webm"}
 _MODEL3D_TYPES = {"glb", "gltf"}
+_ALL_TYPES = _IMAGE_TYPES | _VIDEO_TYPES | _MODEL3D_TYPES
 _KIND_TYPES = {
     "image": _IMAGE_TYPES,
     "video": _VIDEO_TYPES,
     "model3d": _MODEL3D_TYPES,
 }
 _PATH_FIELDS = ("path", "poster", "before", "after")
+
+# ftyp major/compatible brands that may carry MP4 video. Brands such as
+# avif, heic, mif1 or msf1 are still images, and M4A is audio-only — none
+# of those are in this set.
+_MP4_BRANDS = {b"isom", b"iso2", b"iso3", b"iso4", b"iso5", b"iso6",
+               b"mp41", b"mp42", b"avc1", b"dash", b"M4V "}
+# A video track must also show up: scan the first few MB for an mdia/hdlr
+# box whose handler type is 'vide'.
+_SNIFF_WINDOW = 4 * 1024 * 1024
 
 
 # ---------------------------------------------------------------- schema
@@ -74,7 +89,8 @@ def _check_type(value, expected):
 def _validate(value, schema, loc, errors, root_schema):
     """Validate `value` against the draft 2020-12 subset used by
     result.schema.json: type, enum, const, pattern, minLength, minItems,
-    required, properties, additionalProperties, items, anyOf, $ref."""
+    required, properties, additionalProperties, items, anyOf, oneOf,
+    $ref."""
     if "$ref" in schema:
         ref = schema["$ref"]
         if ref.startswith("#/$defs/"):
@@ -114,9 +130,17 @@ def _validate(value, schema, loc, errors, root_schema):
             elif schema.get("additionalProperties") is False:
                 errors.append(f"{loc}: unexpected field {key!r}")
         if "anyOf" in schema:
-            if not any(_sub_valid(value, s, root_schema) for s in schema["anyOf"]):
-                errors.append(f"{loc}: does not satisfy anyOf "
-                              f"(need one of: path, url, before+after)")
+            if not any(_sub_valid(value, s, root_schema)
+                       for s in schema["anyOf"]):
+                errors.append(f"{loc}: does not satisfy anyOf")
+        if "oneOf" in schema:
+            matched = sum(_sub_valid(value, s, root_schema)
+                          for s in schema["oneOf"])
+            if matched != 1:
+                errors.append(
+                    f"{loc}: kind {value.get('kind')!r} does not satisfy "
+                    f"its field rules (image/video/model3d need path or "
+                    f"url; compare needs before+after; app needs url)")
     return errors
 
 
@@ -131,10 +155,38 @@ def validate_manifest(doc):
 
 # ------------------------------------------------------------- file check
 
+def _sniff_ftyp(head):
+    """Classify an ISO-BMFF file by its ftyp box. 'mp4' only when a brand
+    known to carry MP4 video appears *and* a 'vide' track handler shows up
+    inside the scanned prefix — so AVIF/HEIC stills and audio-only M4A
+    return None."""
+    size = int.from_bytes(head[:4], "big")
+    if size < 16:
+        return None
+    brands = [head[8:12]] + [head[i:i + 4]
+                             for i in range(16, min(size, len(head)), 4)]
+    if not any(b in _MP4_BRANDS for b in brands):
+        return None
+    pos = 0
+    while True:
+        i = head.find(b"hdlr", pos)
+        if i < 0:
+            return None
+        # hdlr box: size+type, then version/flags(4), pre_defined(4),
+        # handler_type(4) — so the handler sits 12 bytes past 'hdlr'.
+        if head[i + 12:i + 16] == b"vide":
+            return "mp4"
+        pos = i + 4
+
+
 def _sniff(path):
     """Return the format tag from magic bytes, or None if unknown."""
     try:
-        head = path.open("rb").read(64)
+        with path.open("rb") as f:
+            head = f.read(64)
+            if len(head) >= 12 and head[4:8] == b"ftyp":
+                head += f.read(_SNIFF_WINDOW - len(head))
+                return _sniff_ftyp(head)
     except OSError:
         return None
     if head[:8] == b"\x89PNG\r\n\x1a\n":
@@ -145,8 +197,6 @@ def _sniff(path):
         return "gif"
     if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
         return "webp"
-    if len(head) >= 12 and head[4:8] == b"ftyp":
-        return "mp4"
     if head[:4] == b"\x1a\x45\xdf\xa3":
         return "webm"
     if head[:4] == b"glTF":
@@ -181,6 +231,20 @@ def _referenced_paths(doc):
     return refs
 
 
+def _resolve_quiet(root, ref):
+    """Resolve `ref` under root without reporting; None when unusable —
+    absolute, escaping the root, missing or not a regular file."""
+    p = Path(ref)
+    if p.is_absolute():
+        return None
+    resolved = (root / p).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return resolved if resolved.is_file() else None
+
+
 def _resolve(root, loc, ref, errors):
     """Resolve a referenced path under root; return it or None."""
     p = Path(ref)
@@ -197,36 +261,47 @@ def _resolve(root, loc, ref, errors):
     if not resolved.exists():
         errors.append(f"{loc}: {ref!r} does not exist under {root}")
         return None
+    if not resolved.is_file():
+        errors.append(f"{loc}: {ref!r} is not a regular file")
+        return None
     return resolved
 
 
 def _check_kind(loc, entry, root, errors):
-    """Check the entry's kind against the referenced files' magic bytes."""
+    """Check the entry's kind against the referenced files' magic bytes.
+
+    Fields required per kind (mirroring result.schema.json):
+    image/video/model3d need path or url, compare needs before+after,
+    app needs url. Every local file field is magic-checked: `path`
+    against the kind's formats, `poster`/`before`/`after` as images.
+    Paths were already resolved (and reported) by the first pass, so
+    this resolves silently to avoid duplicate diagnostics."""
     kind = entry.get("kind")
-    if kind in _KIND_TYPES:
-        ref = entry.get("path")
-        if isinstance(ref, str) and ref:
-            resolved = _resolve(root, f"{loc}.path", ref, errors)
-            if resolved is not None:
-                found = _sniff(resolved)
-                want = _KIND_TYPES[kind]
-                if found not in want:
-                    errors.append(
-                        f"{loc}.path: kind {kind!r} but {ref!r} sniffs as "
-                        f"{found or 'unknown'} (expected one of "
-                        f"{sorted(want)})")
-    for field in ("poster", "before", "after"):
+    if kind in _KIND_TYPES and not (entry.get("path") or entry.get("url")):
+        errors.append(f"{loc}: kind {kind!r} needs 'path' or 'url'")
+    elif kind == "compare" and \
+            not (entry.get("before") and entry.get("after")):
+        errors.append(f"{loc}: kind 'compare' needs 'before' and 'after'")
+    elif kind == "app" and not entry.get("url"):
+        errors.append(f"{loc}: kind 'app' needs 'url'")
+    for field in _PATH_FIELDS:
         ref = entry.get(field)
-        if isinstance(ref, str) and ref:
-            resolved = _resolve(root, f"{loc}.{field}", ref, errors)
-            if resolved is not None and _sniff(resolved) not in _IMAGE_TYPES:
-                errors.append(f"{loc}.{field}: {ref!r} is not an image "
-                              f"(png/jpg/webp/gif)")
-    if kind == "compare" and "path" not in entry and \
-            not ("before" in entry and "after" in entry) and \
-            "url" not in entry:
-        errors.append(f"{loc}: kind 'compare' needs before+after (or "
-                      f"path/url)")
+        if not (isinstance(ref, str) and ref):
+            continue
+        resolved = _resolve_quiet(root, ref)
+        if resolved is None:
+            continue
+        found = _sniff(resolved)
+        if field == "path":
+            want = _KIND_TYPES.get(kind, _ALL_TYPES)
+            if found not in want:
+                errors.append(
+                    f"{loc}.path: kind {kind!r} but {ref!r} sniffs as "
+                    f"{found or 'unknown'} (expected one of "
+                    f"{sorted(want)})")
+        elif found not in _IMAGE_TYPES:
+            errors.append(f"{loc}.{field}: {ref!r} is not an image "
+                          f"(png/jpg/webp/gif)")
 
 
 def check_manifest(path, root=None):

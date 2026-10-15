@@ -137,10 +137,27 @@
         },
         "caption": {"type": "string"}
       },
-      "anyOf": [
-        {"required": ["path"]},
-        {"required": ["url"]},
-        {"required": ["before", "after"]}
+      "oneOf": [
+        {
+          "properties": {"kind": {"const": "image"}},
+          "anyOf": [{"required": ["path"]}, {"required": ["url"]}]
+        },
+        {
+          "properties": {"kind": {"const": "video"}},
+          "anyOf": [{"required": ["path"]}, {"required": ["url"]}]
+        },
+        {
+          "properties": {"kind": {"const": "model3d"}},
+          "anyOf": [{"required": ["path"]}, {"required": ["url"]}]
+        },
+        {
+          "properties": {"kind": {"const": "compare"}},
+          "required": ["before", "after"]
+        },
+        {
+          "properties": {"kind": {"const": "app"}},
+          "required": ["url"]
+        }
       ]
     }
   }

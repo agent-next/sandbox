@@ -58,18 +58,17 @@ def _gates_from_verdict(verdict):
                       "measured": "", "threshold": ""}]
 
 
-def write_result_manifest(verdict, ok):
+def write_result_manifest(verdict, ok, commit):
     """Refresh media/result.json from the grade JSON (schema:
     cookbook/tools/result.schema.json). The manifest feeds the in-chat
     result card, the demo gallery and the storyboard — keep headline,
-    numbers and the ask_agent prompt in sync with README/RECEIPT."""
+    numbers and the ask_agent prompt in sync with README/RECEIPT.
+    `commit` is the sandbox clone's HEAD the numbers were produced at."""
     tool = Path(__file__).resolve().parents[1] / "tools" / "result.py"
     spec = importlib.util.spec_from_file_location("cookbook_result", tool)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     demo_dir = Path(__file__).resolve().parent
-    commit = subprocess.run(["git", "rev-parse", "HEAD"],
-                            capture_output=True, text=True).stdout.strip()
     out = demo_dir / "media" / "result.json"
     mod.write_result(
         out,
@@ -130,6 +129,10 @@ def main():
             return out
 
         step("clone", f"git clone --depth 1 -b {args.ref} {REPO} /tmp/repo")
+        # The numbers are produced by the clone's judge, so the manifest
+        # records the clone's commit — not the caller's local HEAD.
+        out = step("clone-commit", "git -C /tmp/repo rev-parse HEAD")
+        commit = out.split()[-1] if out.split() else ""
         d = f"/tmp/repo/{DEMO}"
         step("setup", f"cd {d} && bash judge/setup.sh")
         selftest_out = step("selftest", f"cd {d} && bash judge/selftest.sh")
@@ -140,7 +143,7 @@ def main():
         verdict = json.loads(out[out.index("{"):])
         print(json.dumps(verdict, indent=2))
         ok = verdict.get("verdict") == "PASS"
-        manifest = write_result_manifest(verdict, ok)
+        manifest = write_result_manifest(verdict, ok, commit)
         print(f"manifest: {manifest}")
         print(f"verdict: {verdict.get('verdict')}")
         sys.exit(0 if ok else 1)

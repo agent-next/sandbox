@@ -196,6 +196,12 @@ BAD_HEROES = [
      {"kind": "compare", "path": "media/demo.mp4"}),
     ("app without url",
      {"kind": "app", "path": "media/result.png"}),
+    ("compare before is a video",
+     {"kind": "compare", "before": "media/demo.mp4",
+      "after": "media/result.png"}),
+    ("video poster is a video",
+     {"kind": "video", "path": "media/demo.mp4",
+      "poster": "media/demo.mp4"}),
 ]
 
 
@@ -207,6 +213,30 @@ def test_kind_rule_violations_fail(tmp_path, hero):
     doc["hero"] = hero[1]
     errors = result.check_manifest(write(root, doc), root)
     assert errors, f"{hero[0]}: expected check errors, got OK"
+
+
+GOOD_HEROES = [
+    {"kind": "image", "url": "https://example.com/h.png"},
+    {"kind": "video", "url": "https://example.com/v.mp4"},
+    {"kind": "video", "path": "media/demo.mp4",
+     "poster": "media/result.png"},
+    {"kind": "model3d", "path": "media/model.glb"},
+    {"kind": "model3d", "url": "https://example.com/m.glb"},
+    {"kind": "compare", "before": "media/result.png",
+     "after": "media/loop.png"},
+    {"kind": "app", "url": "https://example.com/app",
+     "poster": "media/result.png"},
+]
+
+
+@pytest.mark.parametrize("hero", GOOD_HEROES,
+                         ids=[h["kind"] for h in GOOD_HEROES])
+def test_kind_rule_valid_heroes_pass(tmp_path, hero):
+    root = make_demo(tmp_path)
+    doc = valid_manifest()
+    doc["hero"] = hero
+    errors = result.check_manifest(write(root, doc), root)
+    assert errors == [], f"{hero['kind']}: {errors}"
 
 
 # -- ISO-BMFF sniffing: ftyp alone is not proof of MP4 video ---------------
@@ -231,6 +261,11 @@ def test_audio_only_m4a_is_not_sniffed_as_video(tmp_path):
     doc["hero"] = {"kind": "video", "path": "media/voice.m4a"}
     errors = result.check_manifest(write(root, doc), root)
     assert errors, "audio-only M4A accepted as kind 'video'"
+
+
+def test_ftyp_with_video_track_sniffs_mp4(tmp_path):
+    root = make_demo(tmp_path)
+    assert result._sniff(root / "media" / "demo.mp4") == "mp4"
 
 
 # -- path hygiene -----------------------------------------------------------
