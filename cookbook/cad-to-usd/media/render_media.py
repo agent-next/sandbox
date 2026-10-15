@@ -244,7 +244,7 @@ def slot_hook(meshes, keys, seg_dir):
     frames_write(framed, 60, os.path.join(seg_dir, "s1_%03d.png"))
 
 
-def slot_in_out(meshes, seg_dir, src_path, key, title, caption_text,
+def slot_in_out(meshes, seg_dir, seg, src_path, key, title, caption_text,
                 count, angle0, color):
     tris = meshes[key]
     panel_w = 800
@@ -267,7 +267,7 @@ def slot_in_out(meshes, seg_dir, src_path, key, title, caption_text,
                 y=40, x=panel_w + vw // 2, band=True)
         return img
 
-    frames_write(framed, count, os.path.join(seg_dir, "s2_%03d.png"))
+    frames_write(framed, count, os.path.join(seg_dir, f"{seg}_%03d.png"))
 
 
 def slot_closeup(meshes, seg_dir, counts_text):
@@ -280,7 +280,7 @@ def slot_closeup(meshes, seg_dir, counts_text):
         caption(img, counts_text)
         return img
 
-    frames_write(framed, 105, os.path.join(seg_dir, "s3_%03d.png"))
+    frames_write(framed, 105, os.path.join(seg_dir, "s4_%03d.png"))
 
 
 def wrap_log_lines(log_paths, max_lines=26):
@@ -320,7 +320,7 @@ def slot_terminal(seg_dir, data, run_seconds, seg_seconds):
                 font=CAP2_FONT, y=H - 100, band=True)
         return img
 
-    frames_write(framed, total_frames, os.path.join(seg_dir, "s4_%03d.png"))
+    frames_write(framed, total_frames, os.path.join(seg_dir, "s5_%03d.png"))
 
 
 def slot_verdict(seg_dir, verdict):
@@ -351,7 +351,7 @@ def slot_verdict(seg_dir, verdict):
                 font=CAP2_FONT, y=H - 116, band=True)
         return img
 
-    frames_write(framed, 75, os.path.join(seg_dir, "s5_%03d.png"))
+    frames_write(framed, 75, os.path.join(seg_dir, "s6_%03d.png"))
 
 
 def slot_matrix(seg_dir, mutant_rows, kill_rate_line):
@@ -375,7 +375,7 @@ def slot_matrix(seg_dir, mutant_rows, kill_rate_line):
         d.text((90, H - 150), kill_rate_line, font=load_font(56), fill=GREEN)
         return img
 
-    frames_write(framed, 135, os.path.join(seg_dir, "s6_%03d.png"))
+    frames_write(framed, 135, os.path.join(seg_dir, "s7_%03d.png"))
 
 
 def slot_endcard(seg_dir):
@@ -397,7 +397,7 @@ def slot_endcard(seg_dir):
             y += 66
         return img
 
-    frames_write(framed, 90, os.path.join(seg_dir, "s7_%03d.png"))
+    frames_write(framed, 90, os.path.join(seg_dir, "s8_%03d.png"))
 
 
 # ---------------------------------------------------------------- stills
@@ -591,13 +591,13 @@ def main():
     print("[render] slot 1: hook")
     slot_hook(meshes, None, frames)
     print("[render] slot 2-3: input -> output")
-    slot_in_out(meshes, frames,
+    slot_in_out(meshes, frames, "s2",
                 os.path.join(data_dir, "sources",
                              "Servo Futaba S3003 v6.step"),
                 "Servo_Futaba_S3003_v6_step",
                 "Servo Futaba S3003 v6.step",
                 "same servo, converted from STEP", 120, 40, BLUE)
-    slot_in_out(meshes, frames,
+    slot_in_out(meshes, frames, "s3",
                 os.path.join(data_dir, "sources",
                              "ShockTowerFront/_ShockTowerFront.stp"),
                 "ShockTowerFront_stp",
@@ -628,8 +628,9 @@ def main():
         "-i", os.path.join(frames, "s5_%03d.png"),
         "-i", os.path.join(frames, "s6_%03d.png"),
         "-i", os.path.join(frames, "s7_%03d.png"),
+        "-i", os.path.join(frames, "s8_%03d.png"),
         "-filter_complex",
-        "[0:v][1:v][2:v][3:v][4:v][5:v][6:v]concat=n=7:v=1:a=0[v]",
+        "[0:v][1:v][2:v][3:v][4:v][5:v][6:v][7:v]concat=n=8:v=1:a=0[v]",
         "-map", "[v]", "-c:v", "libx264", "-crf", "0",
         "-preset", "veryfast", "-pix_fmt", "yuv420p", master],
         check=True)
