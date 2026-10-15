@@ -1,0 +1,13 @@
+{
+  "swatch_rgb": [
+    51.0,
+    128.0,
+    230.0
+  ],
+  "swatch_tol": [
+    12,
+    12,
+    12
+  ],
+  "source": "3 renders of examples/good/panel.py, ovui 0.3.0 headless Vulkan/lavapipe"
+}
