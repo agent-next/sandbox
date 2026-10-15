@@ -178,7 +178,7 @@ class Lease:
             die(f"GPU exec: HTTP {st}; {message}")
         return r.get("result") or {}
 
-    def fetch_file(self, remote_path, chunk=524288):
+    def fetch_file(self, remote_path, chunk=65536):
         """Fetch a lease file as bytes via chunked exec (report channel)."""
         out = b""
         while True:
@@ -193,8 +193,16 @@ class Lease:
             rep = res.get("report") or {}
             if res.get("ok") is not True or "n" not in rep:
                 die(f"fetch {remote_path}: {res.get('stderr', '')[-200:]}")
-            out += base64.b64decode(rep.get("chunk") or "")
-            if len(out) >= rep["n"]:
+            size = rep["n"]
+            if type(size) is not int or size < len(out):
+                die(f"fetch {remote_path}: invalid or changing file size")
+            part = base64.b64decode(rep.get("chunk") or "", validate=True)
+            if len(part) > chunk or len(out) + len(part) > size:
+                die(f"fetch {remote_path}: invalid chunk length")
+            if not part and len(out) < size:
+                die(f"fetch {remote_path}: empty chunk before end of file")
+            out += part
+            if len(out) == size:
                 return out
 
     def __exit__(self, *exc):
@@ -209,12 +217,12 @@ class Lease:
             return
         for attempt in range(5):
             try:
-                request(self.key, "DELETE", f"/sandboxes/{self.id}")
+                request(self.key, "DELETE", f"/sandboxes/{self.id}", timeout=30)
             except Exception:
                 pass
             try:
                 st, remaining = request(self.key, "GET",
-                                         f"/sandboxes/{self.id}")
+                                         f"/sandboxes/{self.id}", timeout=30)
             except Exception:
                 st = None
             if st == 404:

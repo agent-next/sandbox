@@ -1,8 +1,10 @@
 """Regression tests, with generated arrays and no GPU/API calls."""
 
 import importlib.util
+import base64
 import io
 import json
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -41,6 +43,30 @@ def module(name, path, torch):
 
 
 class RegressionTests(unittest.TestCase):
+    def test_checkpoint_transfer_bounds_report_size(self):
+        data = b"x" * 70_000
+        lease = grade.Lease("test-only")
+
+        def execute(code, timeout):
+            offset = int(re.search(r"off = (\d+)", code)[1])
+            chunk = int(re.search(r"off\+(\d+)", code)[1])
+            self.assertLessEqual(chunk, 65536,
+                                 "checkpoint transfer must bound each report chunk to 64 KiB")
+            return {"ok": True, "report": {"n": len(data),
+                "chunk": base64.b64encode(data[offset:offset+chunk]).decode()}}
+
+        with patch.object(lease, "exec", side_effect=execute) as calls:
+            self.assertEqual(lease.fetch_file("~/policy.npz"), data)
+        self.assertEqual(calls.call_count, 2)
+
+    def test_checkpoint_transfer_rejects_empty_progress(self):
+        lease = grade.Lease("test-only")
+        with patch.object(lease, "exec", return_value={
+                "ok": True, "report": {"n": 100, "chunk": ""}}), \
+                patch("sys.stderr", io.StringIO()):
+            with self.assertRaises(SystemExit):
+                lease.fetch_file("~/policy.npz")
+
     def test_reset_writes_indexed_positions_back(self):
         env = module("reset_env", HERE / "env.py", types.SimpleNamespace())
         obj = env.Go1Batch.__new__(env.Go1Batch)
