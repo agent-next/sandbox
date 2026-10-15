@@ -1,5 +1,9 @@
 import json
+import os
+import shlex
+import subprocess
 import threading
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -7,6 +11,11 @@ import pytest
 
 from sbx import cli, runners
 from sbx.runner_debug import FailedJobs
+
+
+WORKER_LOG = Path(__file__).parent / "fixtures/worker_diag/Worker_20260731-172150-utc.log"
+IDENTITY = {"repository": "acme/app", "run_id": 9, "run_attempt": 2,
+            "job": "test", "sha": "a" * 40}
 
 
 def job(jid=123, conclusion="failure"):
@@ -35,6 +44,9 @@ class Sandbox:
 
     def run(self, command, **kwargs):
         self.executed.append((command, kwargs))
+        if not kwargs.get("background") and command.startswith("python3 "):
+            assert self.killed == 0, "read the worker log before killing the sandbox"
+            return SimpleNamespace(stdout=json.dumps(IDENTITY), exit_code=0)
         return SimpleNamespace(pid=42, wait=lambda: SimpleNamespace(exit_code=0),
                                stdout="preserved\n", stderr="", exit_code=0)
 
@@ -64,11 +76,10 @@ def setup(tmp_path, monkeypatch):
 
 def boot(store, conclusion="failure", maximum=5):
     gh = SimpleNamespace(jit=lambda *a: "<FAKE>",
-                         job=lambda name, repos: job(conclusion=conclusion))
+                         job=lambda name, identity: job(conclusion=conclusion))
     runners.sandbox_boot(
         gh, Sandbox, snapshot="base", labels=["sbx"], group_id=1,
         job_timeout_s=60, idle_ttl_s=60, failed_jobs=store, keep_failed=maximum,
-        repos=["acme/app"],
     )(runners.Slot("sbx-test", 0))
     return Sandbox.made[-1]
 
@@ -118,7 +129,7 @@ def test_job_lookup_error_does_not_hold_pool_capacity(setup, capsys):
     gh = SimpleNamespace(jit=lambda *a: "<FAKE>", job=fail)
     runners.sandbox_boot(gh, Sandbox, snapshot="base", labels=["sbx"], group_id=1,
                          job_timeout_s=60, idle_ttl_s=60, failed_jobs=setup,
-                         keep_failed=5, repos=["acme/app"])(runners.Slot("sbx-test", 0))
+                         keep_failed=5)(runners.Slot("sbx-test", 0))
     assert Sandbox.made[-1].killed == 1 and setup.list() == []
     assert '"event": "keep_failed_error"' in capsys.readouterr().out
 
@@ -148,159 +159,124 @@ def test_debug_list_delete_and_missing_job(setup, monkeypatch, capsys):
     assert "no retained snapshot" in capsys.readouterr().err
 
 
-def test_github_matches_runner_across_run_and_job_pages():
+def test_boot_reads_identity_once_before_lookup_and_snapshot(setup):
+    seen = []
+
+    def lookup(name, identity):
+        sbx = Sandbox.made[-1]
+        assert len(sbx.executed) == 2, "read worker identity in one command after runner exit"
+        assert sbx.killed == sbx.snapshots == 0
+        seen.append((name, identity))
+        return job()
+
+    gh = SimpleNamespace(jit=lambda *a: "<FAKE>", job=lookup)
+    runners.sandbox_boot(gh, Sandbox, snapshot="base", labels=["sbx"], group_id=1,
+                         job_timeout_s=60, idle_ttl_s=60, failed_jobs=setup,
+                         keep_failed=5)(runners.Slot("sbx-test", 0))
+    assert seen == [("sbx-test", IDENTITY)], "lookup must use identity from the live sandbox"
+    assert (Sandbox.made[-1].snapshots, Sandbox.made[-1].killed) == (1, 1)
+
+
+@pytest.mark.parametrize("broken", ["", "no-message", "rotated", "truncated", "invalid-repo", "invalid-run"])
+def test_worker_log_command_extracts_only_identity_from_real_format(setup, tmp_path, broken):
+    diag = tmp_path / "_diag"
+    diag.mkdir()
+    old = diag / "Worker_old.log"
+    old.write_text(WORKER_LOG.read_text().replace('"9"', '"8"'))
+    latest = diag / "Worker_new.log"
+    text = WORKER_LOG.read_text()
+    if broken == "no-message":
+        text = "incomplete log\n"
+        old.write_text("no earlier job message\n")
+    elif broken == "rotated":
+        old.write_text(WORKER_LOG.read_text())
+        text = "[2026-07-31 17:22:00Z INFO Worker] Continued after log rotation.\n"
+    elif broken == "truncated":
+        text = text[:text.index('"run_id"')] + "\n[2026-07-31 INFO Worker] truncated\n"
+    elif broken == "invalid-repo":
+        text = text.replace("acme/app", "../app")
+    elif broken == "invalid-run":
+        text = text.replace('"9"', '"not-a-run"')
+    latest.write_text(text)
+    # Newest message by mtime, not lexical order. Rotation can create later pages.
+    os.utime(old, (1, 1))
+    os.utime(latest, (2, 2))
+    sbx = boot(setup)
+    assert len(sbx.executed) == 2, "worker identity must be read in one sandbox command"
+    command, kwargs = sbx.executed[1]
+    assert kwargs["timeout"] <= 10 and kwargs["user"] == "root"
+    args = shlex.split(command)
+    assert args[0] == "python3"
+    args[-1] = str(tmp_path)
+    result = subprocess.run(args, capture_output=True, text=True, timeout=10)
+    if broken and broken != "rotated":
+        assert result.returncode != 0 and result.stdout == ""
+        assert "identity" in result.stderr and "Traceback" not in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == IDENTITY
+
+
+def test_missing_worker_identity_logs_error_and_kills_without_history_fallback(setup, monkeypatch, capsys):
+    run = Sandbox.run
+
+    def missing(self, command, **kwargs):
+        if not kwargs.get("background"):
+            raise RuntimeError("runner job identity unavailable")
+        return run(self, command, **kwargs)
+
+    monkeypatch.setattr(Sandbox, "run", missing)
+    sbx = boot(setup)
+    assert (sbx.snapshots, sbx.killed, setup.list()) == (0, 1, [])
+    assert "runner job identity unavailable" in capsys.readouterr().out
+
+
+def test_retention_disabled_does_not_read_worker_logs(setup):
+    sbx = boot(setup, maximum=0)
+    assert len(sbx.executed) == 1 and sbx.killed == 1
+
+
+@pytest.mark.parametrize("scope", ["repos/acme/app", "orgs/acme"])
+def test_github_uses_only_exact_attempt_and_matches_runner_across_pages(scope):
     calls = []
 
     def handler(req):
-        calls.append(str(req.url))
-        if req.url.path.endswith("/runs"):
-            page = int(req.url.params["page"])
-            runs = [{"id": n, "head_sha": "a" * 40} for n in range(100)] if page == 1 else [{"id": 999}]
-            return httpx.Response(200, json={"workflow_runs": runs})
-        rid = int(req.url.path.split("/")[-2])
-        page = int(req.url.params["page"])
-        if rid == 999:
-            jobs = [{"runner_name": "other"}] * 100 if page == 1 else [job()]
-        else:
-            jobs = []
-        return httpx.Response(200, json={"jobs": jobs})
-
-    gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
-        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
-    assert gh.job("sbx-test", ["acme/app"]) == job()
-    assert any("filter=all" in call and "page=2" in call for call in calls)
-
-
-@pytest.mark.parametrize("discover_repos", [False, True])
-@pytest.mark.parametrize("history", ["runs", "jobs"])
-def test_github_job_lookup_shares_budget_across_repositories(monkeypatch, discover_repos, history):
-    now, calls = [0.0], []
-    monkeypatch.setattr(runners.time, "monotonic", lambda: now[0])
-    repos = ["acme/noise", "acme/app"]
-
-    def handler(req):
-        calls.append(req.url.path)
-        now[0] += 1
-        if req.url.path == "/orgs/acme/repos":
-            return httpx.Response(200, json=[{"full_name": repo} for repo in repos])
-        if req.url.path.endswith("/runs"):
-            count = 100 if history == "runs" and "/acme/noise/" in req.url.path else 1
-            return httpx.Response(200, json={
-                "workflow_runs": [{"id": n, "head_sha": "a" * 40} for n in range(count)],
-            })
-        jobs = [job()] if "/acme/app/" in req.url.path else (
-            [{"runner_name": "other"}] * 100 if history == "jobs" else []
+        calls.append(req)
+        assert req.url.path == "/repos/acme/app/actions/runs/9/attempts/2/jobs", (
+            "job identity must avoid repository discovery and run-history scanning"
         )
-        return httpx.Response(200, json={"jobs": jobs})
+        assert "filter" not in req.url.params
+        batch = [{"runner_name": "other"}] * 100 if req.url.params["page"] == "1" else [job()]
+        return httpx.Response(200, json={"jobs": batch, "total_count": 101})
+
+    gh = runners.GitHub("<FAKE>", scope, client=httpx.Client(
+        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
+    assert gh.job("sbx-test", IDENTITY) == job()
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("initially_pending", [False, True])
+def test_attempt_lookup_stops_at_matched_runner_without_fetching_later_pages(monkeypatch, initially_pending):
+    calls = []
+    monkeypatch.setattr(runners.time, "sleep", lambda seconds: None)
+
+    def handler(req):
+        calls.append(req)
+        assert req.url.params["page"] == "1", "do not fetch unrelated jobs after matching our runner"
+        conclusion = None if initially_pending and len(calls) == 1 else "failure"
+        return httpx.Response(200, json={
+            "total_count": 1000, "jobs": [job(conclusion=conclusion)] + [{"runner_name": "other"}] * 99,
+        })
 
     gh = runners.GitHub("<FAKE>", "orgs/acme", client=httpx.Client(
         base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
-    assert gh.job("sbx-test", [] if discover_repos else repos) == job()
-    assert len(calls) <= 5
+    assert gh.job("sbx-test", IDENTITY) == job()
+    assert len(calls) == (2 if initially_pending else 1)
 
 
-@pytest.mark.parametrize("discover_repos", [False, True])
-@pytest.mark.parametrize("denied_at", ["runs", "jobs"])
-@pytest.mark.parametrize("status", [403, 404])
-def test_github_job_lookup_skips_inaccessible_repositories(discover_repos, denied_at, status):
-    paths = []
-    repos = ["acme/blocked", "acme/app"]
-    denied_path = "/repos/acme/blocked/actions/runs"
-    if denied_at == "jobs":
-        denied_path += "/9/jobs"
-
-    def handler(req):
-        paths.append(req.url.path)
-        if req.url.path == "/orgs/acme/repos":
-            return httpx.Response(200, json=[{"full_name": repo} for repo in repos])
-        if req.url.path == denied_path:
-            return httpx.Response(status, json={"message": "Actions unavailable"})
-        if req.url.path.endswith("/runs"):
-            return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
-        return httpx.Response(200, json={"jobs": [job()]})
-
-    gh = runners.GitHub("<FAKE>", "orgs/acme", client=httpx.Client(
-        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
-    result, error = None, None
-    try:
-        result = gh.job("sbx-test", [] if discover_repos else repos)
-    except cli.SbxError as exc:
-        error = str(exc)
-    assert error is None, f"an inaccessible repository must not abort other job searches: {error}"
-    assert result == job()
-    assert denied_path in paths
-    assert paths[-1] == "/repos/acme/app/actions/runs/9/jobs"
-
-
-@pytest.mark.parametrize("failed_at", ["runs", "jobs"])
-@pytest.mark.parametrize("status", [401, 429, 500])
-def test_github_job_lookup_does_not_hide_other_http_errors(failed_at, status):
-    def handler(req):
-        if req.url.path.endswith(f"/{failed_at}"):
-            return httpx.Response(status, json={"message": "request failed"})
-        return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
-
-    gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
-        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
-    with pytest.raises(cli.SbxError, match=f"HTTP {status}"):
-        gh.job("sbx-test", [])
-
-
-def test_github_waits_for_terminal_conclusion(monkeypatch):
-    responses = [job(conclusion=None), job()]
-    monkeypatch.setattr(runners.time, "sleep", lambda s: None)
-
-    def handler(req):
-        if req.url.path.endswith("/runs"):
-            return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
-        if req.url.path == "/repos/acme/app/actions/jobs/123":
-            return httpx.Response(200, json=responses.pop(0))
-        return httpx.Response(200, json={"jobs": [responses.pop(0)]})
-
-    gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
-        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
-    assert gh.job("sbx-test", ["acme/app"])["conclusion"] == "failure"
-    assert responses == []
-
-
-@pytest.mark.parametrize("terminal_after", [6, 58, None])
-def test_github_retries_matching_job_until_terminal_or_deadline(monkeypatch, terminal_after):
-    now, calls = [0.0], []
-    monkeypatch.setattr(runners.time, "monotonic", lambda: now[0])
-
-    def sleep(seconds):
-        now[0] += seconds
-
-    monkeypatch.setattr(runners.time, "sleep", sleep)
-
-    def handler(req):
-        calls.append(req.url.path)
-        now[0] += 0.1
-        if req.url.path.endswith("/runs"):
-            return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
-        if req.url.path.endswith("/runs/9/jobs"):
-            return httpx.Response(200, json={"jobs": [job(conclusion=None)]})
-        assert req.url.path == "/repos/acme/app/actions/jobs/123"
-        conclusion = "failure" if terminal_after is not None and now[0] >= terminal_after else None
-        return httpx.Response(200, json=job(conclusion=conclusion))
-
-    gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
-        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
-    if terminal_after is None:
-        with pytest.raises(cli.SbxError, match="lookup timed out"):
-            gh.job("sbx-test", [])
-        assert now[0] == pytest.approx(60)
-    else:
-        assert gh.job("sbx-test", []) == job()
-        assert terminal_after <= now[0] < 60
-    assert calls.count("/repos/acme/app/actions/runs") == 1
-    assert calls.count("/repos/acme/app/actions/runs/9/jobs") == 1
-    assert "/repos/acme/app/actions/jobs/123" in calls
-
-
-@pytest.mark.parametrize("visible_after", [6, 58, None])
-@pytest.mark.parametrize("visibility", ["runs", "jobs"])
-def test_github_retries_job_discovery_until_match_or_deadline(monkeypatch, visibility, visible_after):
+@pytest.mark.parametrize("visibility", ["missing", "pending"])
+@pytest.mark.parametrize("ready_after", [6, 58, None])
+def test_exact_attempt_is_retried_until_conclusion_or_deadline(monkeypatch, visibility, ready_after):
     now, calls, sleeps = [0.0], [], []
     monkeypatch.setattr(runners.time, "monotonic", lambda: now[0])
 
@@ -312,30 +288,40 @@ def test_github_retries_job_discovery_until_match_or_deadline(monkeypatch, visib
 
     def handler(req):
         calls.append(req.url.path)
+        assert req.url.path == "/repos/acme/app/actions/runs/9/attempts/2/jobs", (
+            "poll only the run attempt obtained from the worker log"
+        )
         assert 0 < req.extensions["timeout"]["read"] <= min(30, 60 - now[0])
         now[0] += 0.1
-        visible = visible_after is not None and now[0] >= visible_after
-        if req.url.path.endswith("/runs"):
-            runs = [{"id": 9}] if visibility == "jobs" or visible else []
-            return httpx.Response(200, json={"workflow_runs": runs})
-        return httpx.Response(200, json={"jobs": [job()] if visible else []})
+        ready = ready_after is not None and now[0] >= ready_after
+        batch = [job()] if ready else ([] if visibility == "missing" else [job(conclusion=None)])
+        return httpx.Response(200, json={"jobs": batch, "total_count": len(batch)})
 
-    gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
+    gh = runners.GitHub("<FAKE>", "orgs/acme", client=httpx.Client(
         base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
-    result, error = None, None
-    try:
-        result = gh.job("sbx-test", [])
-    except cli.SbxError as exc:
-        error = str(exc)
-    if visible_after is None:
-        assert error and "lookup timed out" in error, "missing jobs must exhaust the lookup budget"
-        assert now[0] == pytest.approx(60), "job discovery must retry until the deadline"
+    if ready_after is None:
+        with pytest.raises(cli.SbxError, match="lookup timed out"):
+            gh.job("sbx-test", IDENTITY)
+        assert now[0] == pytest.approx(60)
     else:
-        assert error is None, f"job discovery stopped before the job became visible: {error}"
-        assert result == job()
-        assert visible_after <= now[0] < 60
-    assert calls.count("/repos/acme/app/actions/runs") > 3
-    assert sleeps and all(0 < seconds <= 2 for seconds in sleeps)
+        assert gh.job("sbx-test", IDENTITY) == job()
+        assert ready_after <= now[0] < 60
+    assert len(calls) > 3 and sleeps and all(0 < s <= 2 for s in sleeps)
+
+
+@pytest.mark.parametrize("status", [401, 403, 404, 429, 500])
+def test_exact_attempt_http_errors_fail_without_searching_other_repositories(status):
+    paths = []
+
+    def handler(req):
+        paths.append(req.url.path)
+        return httpx.Response(status, json={"message": "request failed"})
+
+    gh = runners.GitHub("<FAKE>", "orgs/acme", client=httpx.Client(
+        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
+    with pytest.raises(cli.SbxError, match=f"HTTP {status}"):
+        gh.job("sbx-test", IDENTITY)
+    assert paths == ["/repos/acme/app/actions/runs/9/attempts/2/jobs"]
 
 
 def test_keep_failed_parser_default_and_explicit_cap():
@@ -480,25 +466,7 @@ def test_malformed_job_metadata_cannot_leak_a_snapshot(setup):
     assert sbx.snapshots == 0 and setup.list() == []
 
 
-def test_org_lookup_discovers_repositories_when_not_watched():
-    paths = []
-
-    def handler(req):
-        paths.append(req.url.path)
-        if req.url.path == "/orgs/acme/repos":
-            return httpx.Response(200, json=[{"full_name": "acme/app"}])
-        if req.url.path.endswith("/runs"):
-            return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
-        return httpx.Response(200, json={"jobs": [job()]})
-
-    gh = runners.GitHub("<FAKE>", "orgs/acme", client=httpx.Client(
-        base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
-    assert gh.job("sbx-test", []) == job()
-    assert paths == ["/orgs/acme/repos", "/repos/acme/app/actions/runs",
-                     "/repos/acme/app/actions/runs/9/jobs"]
-
-
-def test_job_lookup_budget_bounds_missing_runner(monkeypatch):
+def test_attempt_pagination_is_bounded_by_lookup_deadline(monkeypatch):
     now = [0]
     monkeypatch.setattr(runners.time, "monotonic", lambda: now[0])
     monkeypatch.setattr(runners.time, "sleep", lambda s: None)
@@ -506,15 +474,15 @@ def test_job_lookup_budget_bounds_missing_runner(monkeypatch):
 
     def handler(req):
         calls.append(req.url.path)
+        assert req.url.path == "/repos/acme/app/actions/runs/9/attempts/2/jobs"
+        assert 0 < req.extensions["timeout"]["read"] <= 60 - now[0]
         now[0] += 31
-        if req.url.path.endswith("/runs"):
-            return httpx.Response(200, json={"workflow_runs": [{"id": 9}]})
-        return httpx.Response(200, json={"jobs": []})
+        return httpx.Response(200, json={"jobs": [{"runner_name": "other"}] * 100, "total_count": 1000})
 
     gh = runners.GitHub("<FAKE>", "repos/acme/app", client=httpx.Client(
         base_url="https://api.github.com", transport=httpx.MockTransport(handler)))
     with pytest.raises(cli.SbxError, match="lookup timed out"):
-        gh.job("missing", [])
+        gh.job("missing", IDENTITY)
     assert len(calls) == 2
 
 
