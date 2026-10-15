@@ -1,9 +1,79 @@
 {
-  "rendered_frames_checked": 1980,
+  "rendered_states_checked": 3663,
   "qpos_tolerance": 1e-09,
   "qvel_tolerance": 1e-09,
   "interpolation": false,
   "source": "trajectories.npz captured during CPU grading",
+  "trajectory_sha256": "b526369dd0371c17f3276d3dea7ca90f3d2465a5ecede49f5a765837e63a8b20",
   "timestep_s": 0.002,
-  "duration_s": 25
+  "duration_s": 26.2,
+  "end_card_s": 2.2,
+  "shots": [
+    {
+      "start_s": 0,
+      "duration_s": 4,
+      "view": "box",
+      "presentation_rank": 1,
+      "source_recording": 2,
+      "first_state": 75,
+      "last_state": 194,
+      "state_stride": 1,
+      "playback_speed": 0.06
+    },
+    {
+      "start_s": 4,
+      "duration_s": 4,
+      "view": "box",
+      "presentation_rank": 2,
+      "source_recording": 3,
+      "first_state": 60,
+      "last_state": 179,
+      "state_stride": 1,
+      "playback_speed": 0.06
+    },
+    {
+      "start_s": 8,
+      "duration_s": 4,
+      "view": "box",
+      "presentation_rank": 3,
+      "source_recording": 0,
+      "first_state": 30,
+      "last_state": 149,
+      "state_stride": 1,
+      "playback_speed": 0.06
+    },
+    {
+      "start_s": 12,
+      "duration_s": 4,
+      "view": "box",
+      "presentation_rank": 4,
+      "source_recording": 1,
+      "first_state": 0,
+      "last_state": 119,
+      "state_stride": 1,
+      "playback_speed": 0.06
+    },
+    {
+      "start_s": 16,
+      "duration_s": 5,
+      "view": "arm",
+      "presentation_rank": 1,
+      "source_recording": 2,
+      "first_state": 251,
+      "last_state": 400,
+      "state_stride": 1,
+      "playback_speed": 0.06
+    },
+    {
+      "start_s": 21,
+      "duration_s": 3,
+      "view": "box",
+      "presentation_rank": 1,
+      "source_recording": 2,
+      "first_state": 110,
+      "last_state": 199,
+      "state_stride": 1,
+      "playback_speed": 0.06
+    }
+  ]
 }

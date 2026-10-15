@@ -23,10 +23,7 @@ ffmpeg -y -v error -i "$MEDIA/master/demo.mp4" \
     -movflags +faststart -map_metadata -1 -an "$MEDIA/demo.mp4"
 python3 "$ROOT/cookbook/tools/video_gate.py" "$MEDIA/demo.mp4" --json "$MEDIA/video-gate.json"
 "$PY" -c 'import os,sys; assert os.path.getsize(sys.argv[1]) < 8_000_000, "web video must be under 8 MB"' "$MEDIA/demo.mp4"
-for seconds in 0.3 3.65 6.65 11.53 16.4 21.6 24; do
-    ffmpeg -y -v error -ss "$seconds" -i "$MEDIA/demo.mp4" \
-        -frames:v 1 "$MEDIA/.frames/review-$seconds.png"
-done
+ffmpeg -y -v error -i "$MEDIA/demo.mp4" -vf fps=1 "$MEDIA/.frames/review-%02d.png"
 "$PY" "$MEDIA/manifest.py"
 ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate,pix_fmt \
     -show_entries format=duration,size -of default=noprint_wrappers=1 "$MEDIA/demo.mp4"

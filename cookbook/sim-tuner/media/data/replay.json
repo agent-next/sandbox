@@ -112,5 +112,31 @@
       "rel_tol": 0.1,
       "version_check": "pass"
     }
-  }
+  },
+  "presentation_order": [
+    {
+      "source_recording": 2,
+      "max_default_box_gap_cm": 6.97802225949656,
+      "default_error": 0.14292238694348522,
+      "tuned_error": 0.014406519820112255
+    },
+    {
+      "source_recording": 3,
+      "max_default_box_gap_cm": 5.96190563869419,
+      "default_error": 0.14832487136905279,
+      "tuned_error": 0.01967284920176754
+    },
+    {
+      "source_recording": 0,
+      "max_default_box_gap_cm": 3.7086996153894436,
+      "default_error": 0.09371228267897648,
+      "tuned_error": 0.023453850062998466
+    },
+    {
+      "source_recording": 1,
+      "max_default_box_gap_cm": 2.7539365964996954,
+      "default_error": 0.07039244094379137,
+      "tuned_error": 0.02831835511723374
+    }
+  ]
 }

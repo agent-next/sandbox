@@ -69,6 +69,26 @@ def collect():
                 "initial_conditions": scenario["ics_hold"],
                 "source": "Captured inside _grade.grade CPU scoring; G1-G3 equal data/run-1.json",
                 "gates": accepted["gates"]}
+    # Rank presentation by the largest actual horizontal miss, not an invented
+    # dramatic trajectory. Preserve the original held-out recording identifiers.
+    cases = []
+    for i in range(len(scenario["ics_hold"])):
+        errors = {}
+        for role in ("default", "tuned"):
+            qp, qv = arrays[f"{role}_{i}_qpos"], arrays[f"{role}_{i}_qvel"]
+            signals = np.column_stack((qp[4::4, 0], qp[4::4, 2], qv[4::4, 2],
+                                       qp[4::4, 7:9], qv[4::4, 6:8]))
+            errors[role] = float(np.sqrt(np.mean(
+                ((signals - scenario["refs_hold"][i]) / scenario["scale"]) ** 2)))
+        gap = np.abs(arrays[f"default_{i}_qpos"][:, 0] -
+                     arrays[f"truth_{i}_qpos"][:, 0])
+        cases.append({"source_recording": i, "max_default_box_gap_cm": float(gap.max() * 100),
+                      "default_error": errors["default"], "tuned_error": errors["tuned"]})
+    metadata["presentation_order"] = sorted(
+        cases, key=lambda c: c["max_default_box_gap_cm"], reverse=True)
+    for role, name in (("default", "default_err"), ("tuned", "heldout_err")):
+        aggregate = np.sqrt(np.mean([c[f"{role}_error"] ** 2 for c in cases]))
+        assert round(float(aggregate), 6) == accepted["gates"]["G3_heldout"][name]
     (HERE / "data/replay.json").write_text(json.dumps(metadata, indent=2) + "\n")
     paths = [DEMO / "run.py", *sorted((DEMO / "judge").glob("*")),
              *sorted((DEMO / "examples/good").glob("*.json"))]

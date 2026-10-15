@@ -1,55 +1,51 @@
 # Media inspection
 
-Inspected the final `result.png`, `loop.png`, and full-size video frames at
-0.30, 3.65, 6.65, 11.53, 16.40, 21.60 and 24.00 seconds.
-Regenerate them with `bash cookbook/sim-tuner/media/make_media.sh`.
+The recut replaces the old three-panel comparison with one close, overlaid
+MuJoCo view. Orange default outlines visibly overshoot the solid teal box
+and white truth outlines. Traces use actual past positions, not decorative
+curves. Surface outlines eliminate coplanar-face flicker without modifying
+geometry or physics.
 
-- The hero uses actual MuJoCo renders, with default, tuned and truth columns,
-  box and arm close-ups, the measured held-out errors and the 0.025 pass line.
-- The loop figure labels the inherited CPU search honestly. Its history and
-  final rounded-artifact score are distinct; all eighteen real mutant failures
-  appear alongside it.
-- The video opens on three physical box close-ups, not a title or terminal.
-  The box close-up, arm close-up and overhead held-out command are visible.
-  Captions and role colours remain consistent.
-- The opening already displays `PASS: tuned error 0.02206 < 0.025 limit`.
-  The proof HUD reads `PASS 0.02206 < 0.025 held-out error` and
-  `Judge rejected all 18 broken fits. CPU / GPU agree.` on the moving scene.
-  The final frame shows the one-command launch.
-- Limits: the calibrated and truth poses are deliberately close. Differences
-  are subtle at full-rig scale. Translucent target ghosts make the box gap
-  visible, but coincident surfaces can produce colour artifacts. An arm tip
-  can leave a panel during a wide shot. Camera motion contributes to the
-  motion-gate score. This is not
-  hardware footage or evidence that every parameter is visually identifiable.
+All four held-out tests play in descending maximum box-miss order,
+sequentially labelled 1/4 through 4/4. The receipt preserves their original
+recording identities. The subsequent arm view and box proof replay test 1/4.
+The five-parameter HUD names each quantity, gives its units, and shows the
+actual default, tuned and truth values. The shot advances one exact graded
+state per video frame, labelled 0.06x speed. Every video caption has at
+least 44 px cap height at 1080p, checked by the media tests.
 
-## Mechanical and physics checks
+Every second before the sole 2.2 s end card is moving real 3D output.
+There are no slides, still plots, screenshots, Ken-Burns moves or invented
+search captures. The aggregate error remains normalized RMS, not cm;
+the separately labelled live misses are horizontal box distances.
 
-25 s, 1920×1080, 30 fps, H.264 yuv420p, faststart, 7,026,691 bytes.
-`video-gate.json` passes every check: 1.2 cuts per 10 s, motion fraction
-0.5457, final static-tail YDIF 0.0001.
-`data/render-checks.json` records exact-state checks without interpolation.
-`collect.py` requires every CPU gate to equal the fresh lease receipt.
+Regenerate with `bash cookbook/sim-tuner/media/make_media.sh`.
+The script extracts one frame per second to `.frames/review-*.png`.
+`video-gate.json` records mechanical checks; `data/render-checks.json`
+binds the trajectory hash, state indices and exact-state assertions.
+`DEVIATIONS.md` records the compositor fallback and validation retries.
 
-The independent panel is recorded in `REVIEW.json`, including its actual
-review method and any unmet standard. Frame-sequence review is not native
-full-frame-rate playback; no stronger claim is made.
+## Final inspection and checks
 
-## Independent panel result: not accepted
+Opened every extracted one-second frame, `review-01.png` through
+`review-26.png`. The first 24 show changing real 3D views, poses and traces;
+none is a slide, still plot or screenshot. The final two show the sole
+static end card. The default/truth box gap is visible directly in the
+overlaid geometry, not only in the readout. The actual arm discrepancy is
+smaller and is not exaggerated.
 
-| blind model | craft | wow | clarity | payoff | muted |
-|---|---:|---:|---:|---:|---|
-| Opus 5.5 | 6 | 4 | 6 | 0 s | yes |
-| Gemini 3.1 Pro | 7 | 7 | 9 | 0 s | yes |
-| required minimum | 8 | 7 | 7 | ≤ 2 s | yes |
+- `make_media.sh`: exit 0.
+- Final media contracts: 16 passed. Full demo regression run: 44 passed;
+  the standalone rendered-job check also passed.
+- 26.2 s, 1920×1080, 30 fps, H.264 yuv420p, faststart,
+  **7,911,485 bytes**.
+- Video gate: all checks pass; motion **0.7821**, cuts per 10 s
+  **1.9084**, static-tail YDIF **0.0014**.
+- 3,663 exact rendered-state checks, no interpolation; the source array
+  SHA-256 and complete shot indices are in `data/render-checks.json`.
 
-The first Opus review exposed an unclear result; adding true-state ghosts,
-cm gap readouts, closer cameras and an opening PASS improved that, but did
-not meet the panel's craft/wow bar. Both final raw verdicts are retained,
-including their inaccuracies and suggestions, not edited into a passing
-score. In particular, converting normalized RMS into cm would be false
-and was **not** done. GLM vision failed with HTTP 502 and supplied no score.
+## Panel status
 
-**The mechanical gate is green; the media standard is not. Keep this PR
-draft.** Native video panel acceptance and independent README reproduction
-remain pre-merge work.
+**Pending a new blind panel from the lead.** `REVIEW.json` is bound to
+the new video hash and contains no verdicts copied from the previous cut.
+A green mechanical gate is not blind-panel acceptance. Keep the PR draft.

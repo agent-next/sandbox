@@ -11,6 +11,7 @@ HERE = Path(__file__).resolve().parent
 def main():
     report = json.loads((HERE / "data/run-1.json").read_text())
     verdict = report["verdict"]
+    replay = json.loads((HERE / "data/replay.json").read_text())
     kills = re.findall(r"selftest: mutant (\S+): killed", report["stages"]["selftest"]["stdout_tail"])
     assert len(kills) == len(set(kills)) == 18
     assert "selftest: kill rate: 18/18 = 100%" in report["stages"]["selftest"]["stdout_tail"]
@@ -47,7 +48,37 @@ def main():
                    "ask_agent": "Fit the five rig parameters from six training recordings; grade on four held-out commands and require CPU/GPU agreement. See README.md."},
         "receipt": "RECEIPT.md", "sandbox_commit": commit,
     }
+    units = {"mu": "coefficient", "solref_tc": "s", "solref_dr": "ratio",
+             "damping": "N*m*s/rad", "armature": "kg*m^2"}
+    for role, params in replay["roles"].items():
+        for name, value in params.items():
+            result["numbers"].append({
+                "label": f"{role} {name}", "value": value, "unit": units[name],
+                "source": f"media/data/replay.json roles.{role}.{name}; collect.py inside seed-7 CPU regrade",
+            })
+    for rank, case in enumerate(replay["presentation_order"], 1):
+        result["numbers"].append({
+            "label": f"Presentation test {rank}/4 maximum default box gap",
+            "value": case["max_default_box_gap_cm"], "unit": "cm",
+            "source": f"media/data/replay.json presentation_order; source recording {case['source_recording'] + 1}/4; max(100*abs(default_x-truth_x))",
+        })
+    result["numbers"].extend([
+        {"label": "Animated box miss readouts",
+         "value": "100 * abs(role_qpos[k,0] - truth_qpos[k,0]), rounded to 0.001 cm",
+         "unit": "cm", "source": "media/data/trajectories.npz; SHA-256 in media/data/render-checks.json; exact state k in shots"},
+        {"label": "Slow-motion playback", "value": 0.06, "unit": "x real time",
+         "source": "media/data/render-checks.json: 30 fps * one captured 0.002 s step per frame"},
+    ])
     (HERE / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    video_hash = hashlib.sha256((HERE / "demo.mp4").read_bytes()).hexdigest()
+    review_path = HERE / "REVIEW.json"
+    review = json.loads(review_path.read_text()) if review_path.exists() else {}
+    if review.get("video_sha256") != video_hash:
+        review_path.write_text(json.dumps({
+            "video_sha256": video_hash, "status": "pending",
+            "passed": None, "native_video_panel_complete": False, "judges": [],
+            "disposition": "New cut awaits a fresh blind panel run by the lead. Previous-cut verdicts do not apply. Keep PR draft.",
+        }, indent=2) + "\n")
     entries = {}
     for path in sorted(HERE.rglob("*")):
         if not path.is_file() or any(p.startswith(".") or p in ("master", "work", "__pycache__")
@@ -56,15 +87,15 @@ def main():
         if path.name == "MANIFEST.json" or path.suffix in (".npz", ".xml"):
             continue
         entries[str(path.relative_to(HERE))] = {
-            "shows": {"result.png": "Default, tuned and truth: graded box and arm states",
+            "shows": {"result.png": "Default, tuned and truth: overlaid graded box states",
                       "loop.png": "Recorded CPU search and eighteen mutant gate failures",
-                      "demo.mp4": "Synchronized real-time MuJoCo replay with judge HUD"}.get(path.name, path.stem),
+                      "demo.mp4": "Single-view overlaid MuJoCo slow motion, exact path traces, five-parameter HUD and receipt proof"}.get(path.name, path.stem),
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             "command": "bash cookbook/sim-tuner/media/make_media.sh" if path.suffix in (".png", ".mp4") else "See file / RECEIPT.md",
             "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json",
         }
     manifest = {"source_commit": commit,
-                "trajectory_note": "trajectories.npz is regenerated inside CPU grading; render-checks.json records frame checks",
+                "trajectory_note": "trajectories.npz is regenerated inside CPU grading; render-checks.json binds its SHA-256 and records exact state indices, frame checks and playback speed",
                 "files": entries}
     (HERE / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
 

@@ -198,11 +198,11 @@ not represented as the unrun three-agent simplify panel.
   passed.
 - Result-card schema, JSON/plugin manifests, source hashes, media hashes and
   public-hygiene checks are checked before delivery.
-- Native full-frame-rate two-family vision playback: not available in this
-  harness. Blind sampled-frame reviews are explicitly identified as such
-  in `media/REVIEW.json`, not passed off as native playback. Final scores
-  (craft/wow/clarity) are Opus 5.5 **6/4/6**, Gemini 3.1 Pro **7/7/9**.
-  **Neither passes the complete panel bar. This PR remains draft.**
+- Previous-cut panel: blind sampled-frame reviews, not native playback,
+  scored Opus 5.5 **6/4/6** and Gemini 3.1 Pro **7/7/9**
+  (craft/wow/clarity). Neither passed. Those historical scores do not
+  apply to the new overlaid cut: `media/REVIEW.json` is pending a fresh
+  lead-run panel, not passed. **This PR remains draft.**
 - Independent README-only reproduction: **not run**, reserved for another
   agent. No `REPRODUCE.md` was created.
 - No PR merge, release or deployment was attempted.
@@ -227,11 +227,18 @@ gate objects and all accepted GPU/CPU error numbers match exactly.
 3. CPU-only grading is incomplete, not a demo PASS, even when its partial
    checks exit 0. Require JSON `pass: true` for full acceptance. CPU and GPU implement
    the same MuJoCo equations, not independent physical reality.
-4. The video replays real graded states, at labelled real time, with a
-   translucent same-timestep truth ghost. Its opening includes the PASS
-   threshold. Camera motion contributes to the motion metric. There is no
+4. The recut replays real graded states at labelled 0.06x speed, with
+   orange default and white same-timestep truth outlines over solid teal.
+   Its opening includes the PASS threshold. Camera motion contributes to
+   the motion metric. There is no
    fabricated sped-up agent screen recording; the real CPU search history
    and per-mutant matrix are in `loop.png` instead.
 5. Semantic simplification after the independent code gate was skipped to
    preserve its verified behavior. The full three-reviewer simplify fan-out
    was not run; code review and targeted tests are reported separately.
+
+The media-only recut and its validation retries are logged in
+`media/DEVIATIONS.md`. It adds a trajectory SHA-256 binding to
+`media/data/render-checks.json`, resolving the then-current media
+provenance limitation noted by the earlier code review. Grading source,
+accepted errors, all four gate results and the 18/18 evidence are unchanged.

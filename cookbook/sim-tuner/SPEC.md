@@ -119,4 +119,5 @@ Default, tuned and noiseless truth use the same model, initial state,
 timestep and command. Rendering adds only lights, textures and a
 non-colliding zero-mass mount. Every displayed state is selected from that
 captured array without interpolation and checked within 1e-9.
-The 25 s video is 1080p30; repeated real-time replay is labelled.
+The 26.2 s video is 1080p30. Exact-state slow motion is labelled 0.06x;
+the sole static end card lasts 2.2 s. See `media/STORYBOARD.md`.

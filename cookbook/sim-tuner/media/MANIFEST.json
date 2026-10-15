@@ -1,46 +1,52 @@
 {
-  "source_commit": "602f4d60c5879e39f9dbc04f1a460d7240ef7351",
-  "trajectory_note": "trajectories.npz is regenerated inside CPU grading; render-checks.json records frame checks",
+  "source_commit": "73128bc3b3f9cd87158434e01737badabe3ef319",
+  "trajectory_note": "trajectories.npz is regenerated inside CPU grading; render-checks.json binds its SHA-256 and records exact state indices, frame checks and playback speed",
   "files": {
+    "DEVIATIONS.md": {
+      "shows": "DEVIATIONS",
+      "sha256": "2a25d2926be50d9c1fdf36d75846a466e5e0a714315fb6ff068a6df1800b9af8",
+      "command": "See file / RECEIPT.md",
+      "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
+    },
     "REVIEW.json": {
       "shows": "REVIEW",
-      "sha256": "a5ba6a1a11c66b96a302b4398792441b771c7b20c24bb83eb33e146de5c1322a",
+      "sha256": "b3253227189b8ec5dd8bf86aee3b1bacbb52c1f5cfa83f02266528fe73574174",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "REVIEW.md": {
       "shows": "REVIEW",
-      "sha256": "dd2472bda9483eb4cfebd96884962089e5bc868db48dc383a6b167a1addcd241",
+      "sha256": "14bf463a09b999aa1e92e80e5450a062f8aee585445df1debef67d7b50061fe8",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "STORYBOARD.md": {
       "shows": "STORYBOARD",
-      "sha256": "b4c08c4c585dea9a2d931531fdd514cc991a208c79bcacebfd86905d48f8a238",
+      "sha256": "bd9e073b47b78d66fca850debfe65ea64034500b51241ac98ed6c225b01777de",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "collect.py": {
       "shows": "collect",
-      "sha256": "f3db93dd95be085ed894f4557ab439c222d0970bbfca265e9a80dd490de9fe96",
+      "sha256": "db263b9a3ccf461487566d2f154475ba23d1a00d5c74b6c15e593a11248a10be",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "data/provenance.json": {
       "shows": "provenance",
-      "sha256": "f8aaa15a6e5af08811a94e1952382b78bad81a54ae67c560e2bf6f255a002437",
+      "sha256": "93ec5f598ec60f5abde9a478bd714b6a12359dc01d3e007c92241f5d26f49c4f",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "data/render-checks.json": {
       "shows": "render-checks",
-      "sha256": "d9078604266c642e1af1ef507f0a9bd53da4a32a119fe4796a021053106cb2c9",
+      "sha256": "0c20f532e41ceae00e6e63364e661c5b5fdb8f47a392c8229d92cec048d74270",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "data/replay.json": {
       "shows": "replay",
-      "sha256": "016a02ca17aa03cb45a51560f9d1df931bab7f12b368c9e65ab8dc7611f2497e",
+      "sha256": "53d12df625ed52379e3dbb0faff20531cb7772e76eb0af6ca7f8eebe09f9519a",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
@@ -57,8 +63,8 @@
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "demo.mp4": {
-      "shows": "Synchronized real-time MuJoCo replay with judge HUD",
-      "sha256": "0370f4e0efdd9189f8b26d493ac7fab556c277baea33a6819df9ab4453ca3b20",
+      "shows": "Single-view overlaid MuJoCo slow motion, exact path traces, five-parameter HUD and receipt proof",
+      "sha256": "bde693f27e9fff47ac8a68602d328ac5967a906e8393d46688c2a263d9d85dff",
       "command": "bash cookbook/sim-tuner/media/make_media.sh",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
@@ -70,19 +76,19 @@
     },
     "make_media.sh": {
       "shows": "make_media",
-      "sha256": "869f2d8d053856dab59b3bd18acc66b421618f4c9eb092e3fd905f72f89487dd",
+      "sha256": "a48073b196177f5da427f3331cf11612409d0403f28157b58320e3e6bd6688bd",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "manifest.py": {
       "shows": "manifest",
-      "sha256": "fcd195d4cb6324b177ddf804353732190e6a72571521c08262ecfcd028862263",
+      "sha256": "5c8e0acf7dd3d586b3961d3f48e69cb864c79958e24dd10372073bb0c3305460",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "render.py": {
       "shows": "render",
-      "sha256": "7fca72296d1281f0e42cdf7695f72545211e496fb4b4595d19c3f2a3fc845fcc",
+      "sha256": "7cb44f172664f410bd591a7cb88b2d5e9d92f286354f7bf39e1d91a79db3e5e3",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
@@ -94,25 +100,25 @@
     },
     "result.json": {
       "shows": "result",
-      "sha256": "c409210b58fa344056bf2685273c071838116438fc69d866ad29a6d96f45b625",
+      "sha256": "206eabc67c189be90403fdd6d5762aacc8b71781d0861cdbfccc1284b628017a",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "result.png": {
-      "shows": "Default, tuned and truth: graded box and arm states",
-      "sha256": "19aad9dcc654ae8e400c599823055a576d059646a29ea08b3f67a366fd99613b",
+      "shows": "Default, tuned and truth: overlaid graded box states",
+      "sha256": "2f68320f0dbb17516c345ae6f7dac89b07fc526bb84fb1b2423d3ae41b9b05b2",
       "command": "bash cookbook/sim-tuner/media/make_media.sh",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "test_media.py": {
       "shows": "test_media",
-      "sha256": "91ed5bd250b1ef31e1489f5e90b7b3e82465fec0a0518587a3bb23f647378d6f",
+      "sha256": "14e7922ca04f0b278e73448fc48c33a5bad99b8f7597214cdf58aea4b1fe974b",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     },
     "video-gate.json": {
       "shows": "video-gate",
-      "sha256": "a9be5093838e7d2a5d0c4c2b7ca3cbf31b868e60a349ad8532b7498be578c1c3",
+      "sha256": "f56d121c6538ab5fca129de8684e3e7c6655d47f8f06f60224402a5291512cf3",
       "command": "See file / RECEIPT.md",
       "source": "data/run-1.json + data/replay.json + ../examples/good/loop.json"
     }

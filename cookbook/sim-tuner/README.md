@@ -10,7 +10,7 @@ after the run.
 
 ![Default, tuned and hidden-truth MuJoCo motion](media/result.png)
 
-[Watch the synchronized 3D replay](media/demo.mp4) ·
+[Watch the overlaid slow-motion 3D replay](media/demo.mp4) ·
 [Recorded search and mutant kills](media/loop.png)
 
 ## One-command run
@@ -105,7 +105,7 @@ bash cookbook/sim-tuner/media/make_media.sh
 
 Requires Python 3.10–3.13 with venv/pip, ffmpeg/ffprobe, DejaVu Sans, and EGL
 (OSMesa fallback). The script installs the pinned rendering environment.
-The three-way replay uses actual states captured *inside* a CPU regrade;
+The single-view, three-way overlay uses actual states captured *inside* a CPU regrade;
 all gated CPU numbers must equal the fresh lease receipt. Each rendered
 qpos/qvel is checked against the captured data at 1e-9. See
 `media/STORYBOARD.md`, `media/REVIEW.md` and `media/MANIFEST.json`.
@@ -126,5 +126,5 @@ qpos/qvel is checked against the captured data at 1e-9. See
   stack validation, not a cold pip installation. G4 uses this same fresh lease.
 - Small workloads can run on CPU. No speedup, hardware transfer or secure
   hold-out claim is made.
-- The video passes the mechanical gate but not the blind panel's quality bar.
-  See `media/REVIEW.md`; this is not yet merge-ready.
+- The recut awaits a new blind panel from the lead. Mechanical checks alone
+  do not establish panel acceptance. See `media/REVIEW.md`; the PR stays draft.

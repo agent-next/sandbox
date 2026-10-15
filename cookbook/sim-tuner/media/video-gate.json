@@ -23,7 +23,7 @@
     },
     {
       "name": "duration_s",
-      "measured": 25.0,
+      "measured": 26.2,
       "threshold": "25-60 s",
       "pass": true
     },
@@ -47,49 +47,49 @@
     },
     {
       "name": "size_mib",
-      "measured": 6.7012,
+      "measured": 7.545,
       "threshold": "<= 8 MiB",
       "pass": true
     },
     {
       "name": "faststart",
-      "measured": "moov@32 mdat@9892",
+      "measured": "moov@32 mdat@10344",
       "threshold": "moov atom before mdat",
       "pass": true
     },
     {
       "name": "first_frame_luma_mean",
-      "measured": 120.8376,
+      "measured": 53.7581,
       "threshold": ">= 20",
       "pass": true
     },
     {
       "name": "first_frame_luma_std",
-      "measured": 96.0183,
+      "measured": 57.4261,
       "threshold": ">= 12",
       "pass": true
     },
     {
       "name": "first_frame_not_solid",
-      "measured": 248,
+      "measured": 255,
       "threshold": ">= 8 (luma max-min)",
       "pass": true
     },
     {
       "name": "scene_cuts_per_10s",
-      "measured": 1.2,
+      "measured": 1.9084,
       "threshold": ">= 0.8",
       "pass": true
     },
     {
       "name": "motion_fraction",
-      "measured": 0.5457,
+      "measured": 0.7821,
       "threshold": ">= 0.2 (frames with YDIF >= 1, before the last 2 s)",
       "pass": true
     },
     {
       "name": "endcard_static",
-      "measured": 0.0001,
+      "measured": 0.0014,
       "threshold": "<= 0.5 (mean YDIF, last 2 s)",
       "pass": true
     },

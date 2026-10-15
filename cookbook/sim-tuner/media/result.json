@@ -59,6 +59,132 @@
       "value": "18/18 = 100%",
       "unit": "",
       "source": "media/data/run-1.json (python3 cookbook/sim-tuner/run.py --seed 7)"
+    },
+    {
+      "label": "default mu",
+      "value": 0.5,
+      "unit": "coefficient",
+      "source": "media/data/replay.json roles.default.mu; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "default solref_tc",
+      "value": 0.01,
+      "unit": "s",
+      "source": "media/data/replay.json roles.default.solref_tc; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "default solref_dr",
+      "value": 1.0,
+      "unit": "ratio",
+      "source": "media/data/replay.json roles.default.solref_dr; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "default damping",
+      "value": 0.15,
+      "unit": "N*m*s/rad",
+      "source": "media/data/replay.json roles.default.damping; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "default armature",
+      "value": 0.02,
+      "unit": "kg*m^2",
+      "source": "media/data/replay.json roles.default.armature; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned mu",
+      "value": 0.61875,
+      "unit": "coefficient",
+      "source": "media/data/replay.json roles.tuned.mu; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned solref_tc",
+      "value": 0.018484,
+      "unit": "s",
+      "source": "media/data/replay.json roles.tuned.solref_tc; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned solref_dr",
+      "value": 1.354557,
+      "unit": "ratio",
+      "source": "media/data/replay.json roles.tuned.solref_dr; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned damping",
+      "value": 0.168593,
+      "unit": "N*m*s/rad",
+      "source": "media/data/replay.json roles.tuned.damping; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned armature",
+      "value": 0.021237,
+      "unit": "kg*m^2",
+      "source": "media/data/replay.json roles.tuned.armature; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth mu",
+      "value": 0.61882,
+      "unit": "coefficient",
+      "source": "media/data/replay.json roles.truth.mu; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth solref_tc",
+      "value": 0.01846,
+      "unit": "s",
+      "source": "media/data/replay.json roles.truth.solref_tc; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth solref_dr",
+      "value": 1.42055,
+      "unit": "ratio",
+      "source": "media/data/replay.json roles.truth.solref_dr; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth damping",
+      "value": 0.09432,
+      "unit": "N*m*s/rad",
+      "source": "media/data/replay.json roles.truth.damping; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth armature",
+      "value": 0.02151,
+      "unit": "kg*m^2",
+      "source": "media/data/replay.json roles.truth.armature; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "Presentation test 1/4 maximum default box gap",
+      "value": 6.97802225949656,
+      "unit": "cm",
+      "source": "media/data/replay.json presentation_order; source recording 3/4; max(100*abs(default_x-truth_x))"
+    },
+    {
+      "label": "Presentation test 2/4 maximum default box gap",
+      "value": 5.96190563869419,
+      "unit": "cm",
+      "source": "media/data/replay.json presentation_order; source recording 4/4; max(100*abs(default_x-truth_x))"
+    },
+    {
+      "label": "Presentation test 3/4 maximum default box gap",
+      "value": 3.7086996153894436,
+      "unit": "cm",
+      "source": "media/data/replay.json presentation_order; source recording 1/4; max(100*abs(default_x-truth_x))"
+    },
+    {
+      "label": "Presentation test 4/4 maximum default box gap",
+      "value": 2.7539365964996954,
+      "unit": "cm",
+      "source": "media/data/replay.json presentation_order; source recording 2/4; max(100*abs(default_x-truth_x))"
+    },
+    {
+      "label": "Animated box miss readouts",
+      "value": "100 * abs(role_qpos[k,0] - truth_qpos[k,0]), rounded to 0.001 cm",
+      "unit": "cm",
+      "source": "media/data/trajectories.npz; SHA-256 in media/data/render-checks.json; exact state k in shots"
+    },
+    {
+      "label": "Slow-motion playback",
+      "value": 0.06,
+      "unit": "x real time",
+      "source": "media/data/render-checks.json: 30 fps * one captured 0.002 s step per frame"
     }
   ],
   "hero": {
@@ -82,5 +208,5 @@
     "ask_agent": "Fit the five rig parameters from six training recordings; grade on four held-out commands and require CPU/GPU agreement. See README.md."
   },
   "receipt": "RECEIPT.md",
-  "sandbox_commit": "602f4d60c5879e39f9dbc04f1a460d7240ef7351"
+  "sandbox_commit": "73128bc3b3f9cd87158434e01737badabe3ef319"
 }
