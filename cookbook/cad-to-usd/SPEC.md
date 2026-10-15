@@ -21,6 +21,19 @@ just "the tool ran".
 | required up-axis | `upAxis = "Z"` |
 | output format | `.usda` (ASCII USDA) per part |
 
+Each part has a fixed output key (its source file name with every run of
+non-alphanumeric characters replaced by `_`, leading `_` stripped):
+
+| part | output file |
+|---|---|
+| `Servo Futaba S3003 v6.step` | `Servo_Futaba_S3003_v6_step.usda` |
+| `Servo Futaba S3003 v6.iges` | `Servo_Futaba_S3003_v6_iges.usda` |
+| `_ShockTowerFront.stp` | `ShockTowerFront_stp.usda` |
+
+The two servo sources (STEP and IGES of the same assembly) are distinct
+parts with distinct outputs; their keys differ by the source-format
+suffix.
+
 ## Non-goals
 
 - modifying, repairing or re-authoring the CAD geometry — conversion only
@@ -32,15 +45,22 @@ just "the tool ran".
 
 ## Artifact
 
-A directory containing, per part (named after the part's stem):
+A directory containing:
 
-1. `<part>.usda` — the converted USDA stage for that part.
-2. `convert.sh` — the conversion script that produced it: one
-   `usd-convert-cad -i <src> -o <part>.usda` invocation per part, with
-   any converter flags the agent chose to set (e.g. `--up-axis Z`), plus
-   the pinned tool version. The judge re-runs `convert.sh` on fresh
-   copies of the source files and grades the USDA files it regenerates, so
-   the artifact is reproducible from the script alone.
+1. `<key>.usda` for each of the three parts (keys in the table above) —
+   the converted USDA stage for that part.
+2. `convert.sh` — the conversion script that produced them: one
+   `usd-convert-cad -i <src> -o <key>.usda` invocation per part, with
+   any converter flags the agent chose to set (e.g. `--up-axis z
+   --instancing-style none`), plus the pinned tool version in a comment.
+   Contract: the judge runs it with a working directory that contains
+   fresh copies of the three pinned sources under `sources/` (original
+   file names), the converter binary in `$USD_CONVERT_CAD`, and the two
+   judge venvs on `$PATH` (see `judge/setup.sh`); it must write the three
+   `<key>.usda` files into the working directory and exit 0 only if every
+   conversion succeeded. The judge re-runs `convert.sh` on fresh copies
+   of the source files and grades the USDA files it regenerates, so the
+   artifact is reproducible from the script alone.
 
 ## Judge gates (all must pass)
 
@@ -51,10 +71,14 @@ A directory containing, per part (named after the part's stem):
    1e-9), `upAxis = "Z"`, and the default prim resolves.
 3. **geometry_counts** — for every part: `prim count > 0` and
    `mesh count > 0` in the parsed stage.
-4. **bbox_match** — for every part: mesh bounding box from the USD,
-   converted to source (mm) units, agrees with the OpenCASCADE oracle
-   bounding box on the same STEP source within **1%** per axis (relative
-   to the oracle extent; a flat axis uses an absolute 0.1 mm floor).
+4. **bbox_match** — for every part: the world-space mesh bounding box
+   from the USD, converted to source (mm) units, agrees with the
+   OpenCASCADE oracle bounding box on the same source: for each axis,
+   both endpoint deltas `|usd_min − oracle_min|` and
+   `|usd_max − oracle_max|` are within **1%** of that axis's oracle
+   extent, with an absolute floor of 0.1 mm (a tessellated mesh
+   inscribes curved surfaces, so its box can sit slightly inside the
+   exact one; the floor also covers near-flat axes).
 5. **area_match** — for every part: total triangle area of the USD mesh,
    converted to source (mm) units, agrees with the OpenCASCADE oracle
    total face area within **3%**.
@@ -68,10 +92,10 @@ A directory containing, per part (named after the part's stem):
 Independent of the converter under test:
 
 - **OpenCASCADE** (`cadquery-ocp` wheel, exact pin in `judge/setup.sh`)
-  reads the same STEP/IGES source and computes the exact analytic
-  bounding box (via `Shape.BoundingBox()`) and exact total surface area
-  (sum of `Face.Area()` over `Shape.Faces()`). This is the reference
-  geometry.
+  reads the same STEP/IGES source and computes a tight exact bounding
+  box (`BRepBndLib.AddOptimal`) and exact total surface area
+  (`BRepGProp.SurfaceProperties` summed over faces). This is the
+  reference geometry.
 - **usd-core** (the `usd-core` pip wheel — NOT the converter's bundled
   `pxr`, which conflicts in-process) reads the USD stage and computes the
   mesh bounding box and total triangle area by walking every `Mesh` prim
@@ -85,11 +109,13 @@ with the oracle beyond tolerance fails every gate.
 ## Self-test
 
 `judge/mutants.py` writes scripted single-edit mutants of `examples/good`
-(wrong units `metersPerUnit = 1`, Y/Z axis swap via an authored transform,
-a dropped mesh, a decimated mesh beyond the area tolerance, an empty
-stage, the garbage STEP as input, a missing part file, a copy of another
-part's output). Each mutant and the gate that kills it is listed in
-`examples/bad/README.md`.
+(wrong units `metersPerUnit = 1`; the Y/Z axis swap in two forms — the
+`upAxis = "Y"` metadata edit and the geometry edit that swaps Y/Z point
+coordinates; a dropped mesh; a decimated mesh beyond the area tolerance;
+an empty stage; the garbage STEP as converter input via a broken
+`convert.sh`; a missing part file; one part's output replaced by a copy
+of another part's). Each mutant and the gate that kills it is listed in
+`judge/mutants.py` and in the self-test output.
 
 `judge/selftest.sh` requires the good artifact to pass, >= 90 % of the
 mutants to fail at least one gate, and two grades of the good artifact
