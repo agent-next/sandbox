@@ -1,0 +1,140 @@
+{
+  "artifact": "/tmp/gmut/volume-in-cubic-metres-over-km/",
+  "failed_gate": "final_volume",
+  "gates": {
+    "_meta": {
+      "artifact": "/tmp/gmut/volume-in-cubic-metres-over-km/",
+      "passed": true,
+      "python": "/home/user/glacier-venv/bin/python",
+      "seed": 20261015,
+      "spec_constants": {
+        "L0": 15000.0,
+        "V0_continuum_km3": 6.0,
+        "V0_mask_km3": 6.0
+      }
+    },
+    "artifact": {
+      "passed": true,
+      "rows": 303
+    },
+    "crossing": {
+      "passed": true,
+      "scenarios": {
+        "warm_2p0": {
+          "csv_deviation_years": 0.0006622751760545498,
+          "csv_year": 96.00764818355641,
+          "deviation_years": 0.0006622751760545498,
+          "passed": true,
+          "reference_year": 96.00698590838036,
+          "reported_year": 96.00764818355641
+        },
+        "warm_2p4": {
+          "csv_deviation_years": -0.06465542862589757,
+          "csv_year": 81.60555821753714,
+          "deviation_years": -0.06465542862589757,
+          "passed": true,
+          "reference_year": 81.67021364616303,
+          "reported_year": 81.60555821753714
+        },
+        "warm_2p8": {
+          "csv_deviation_years": -0.02058507876472504,
+          "csv_year": 71.40555289612254,
+          "deviation_years": -0.02058507876472504,
+          "passed": true,
+          "reference_year": 71.42613797488727,
+          "reported_year": 71.40555289612254
+        }
+      },
+      "tolerance_years": 3.0
+    },
+    "determinism": {
+      "passed": true,
+      "reason": null
+    },
+    "figure": {
+      "bytes": 172360,
+      "dpi": 200.0,
+      "height_px": 1100,
+      "legend": [
+        "warm_2p0",
+        "warm_2p4",
+        "warm_2p8"
+      ],
+      "note": "the judge checks the PNG header and run.json, not the pixels: it does not OCR the plot",
+      "passed": true,
+      "width_px": 1800
+    },
+    "final_volume": {
+      "passed": false,
+      "reason": "warm_2p0 V(100) = 2832.0000 km3, analytic 2.8320 km3 (99900.68% off, tolerance 2%); warm_2p4 V(100) = 2042.8800 km3, analytic 2.0429 km3 (99901.21% off, tolerance 2%); warm_2p8 V(100) = 1201.9200 km3, analytic 1.2019 km3 (99902.55% off, tolerance 2%)",
+      "scenarios": {
+        "warm_2p0": {
+          "measured_km3": 2832.0,
+          "passed": false,
+          "reference_km3": 2.8319807504132917,
+          "relative_deviation": 999.0067972166497
+        },
+        "warm_2p4": {
+          "measured_km3": 2042.88,
+          "passed": false,
+          "reference_km3": 2.0428553314704203,
+          "relative_deviation": 999.0120755146974
+        },
+        "warm_2p8": {
+          "measured_km3": 1201.92,
+          "passed": false,
+          "reference_km3": 1.201889389519038,
+          "relative_deviation": 999.0254686339933
+        }
+      },
+      "tolerance_relative": 0.02
+    },
+    "shape": {
+      "passed": false,
+      "reason": "warm_2p0 deviates 100051.97% from the analytic volume at year 9 (tolerance 2%); warm_2p0 V(100) = 2832.000000 km3 is not the mask sum of any whole cell count near the analytic 240 cells (got None); warm_2p4 deviates 100110.07% from the analytic volume at year 98 (tolerance 2%); warm_2p4 V(100) = 2042.880000 km3 is not the mask sum of any whole cell count near the analytic 168 cells (got None); warm_2p8 deviates 100280.29% from the analytic volume at year 99 (tolerance 2%); warm_2p8 V(100) = 1201.920000 km3 is not the mask sum of any whole cell count near the analytic 96 cells (got None)",
+      "scenarios": {
+        "warm_2p0": {
+          "increases_at_years": [],
+          "mask_cells": null,
+          "passed": false,
+          "reference_cells": 240,
+          "worst_relative_deviation": 1000.5196623405687,
+          "worst_year": 9
+        },
+        "warm_2p4": {
+          "increases_at_years": [],
+          "mask_cells": null,
+          "passed": false,
+          "reference_cells": 168,
+          "worst_relative_deviation": 1001.1006721855688,
+          "worst_year": 98
+        },
+        "warm_2p8": {
+          "increases_at_years": [],
+          "mask_cells": null,
+          "passed": false,
+          "reference_cells": 96,
+          "worst_relative_deviation": 1002.8029067127055,
+          "worst_year": 99
+        }
+      },
+      "tolerance_relative": 0.02
+    },
+    "zero_melt": {
+      "passed": true,
+      "reported_crossings": {},
+      "tolerance_relative": 1e-09,
+      "worst_at": null,
+      "worst_relative_deviation": 0.0
+    }
+  },
+  "passed": false,
+  "reason": "warm_2p0 V(100) = 2832.0000 km3, analytic 2.8320 km3 (99900.68% off, tolerance 2%); warm_2p4 V(100) = 2042.8800 km3, analytic 2.0429 km3 (99901.21% off, tolerance 2%); warm_2p8 V(100) = 1201.9200 km3, analytic 1.2019 km3 (99902.55% off, tolerance 2%)",
+  "seed": 20261015,
+  "timing": {
+    "first_run_seconds": 3.59,
+    "second_run_seconds": 2.94,
+    "total_seconds": 8.07,
+    "zero_melt_seconds": 1.5
+  }
+}

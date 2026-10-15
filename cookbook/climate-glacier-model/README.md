@@ -52,17 +52,34 @@ one-line summary, then kills the sandbox and confirms it is gone. Stdlib
 only; exits non-zero on any failure, naming the sandbox id if cleanup
 cannot be confirmed.
 
+## See the result without running anything
+
+`media/` holds the figures and a short video, all regenerated from the
+judge's own outputs by `bash media/make_media.sh` (never hand-edited):
+
+- `media/result.png` — the three measured volume curves against the analytic
+  oracle, the 50 %-crossing rule line, and the shape gate's ±2 % pass band
+  with the measured deviation inside it.
+- `media/loop.png` — the agent loop (gates failing per iteration of a real
+  fix sequence, ending in PASS) and the self-test kill matrix (13/13).
+- `media/demo.mp4` — 23 s, 1920×1080: the sweep animating year by year.
+- `media/MANIFEST.json` — what each file shows, its command, source data and
+  sha256.
+
 ## Measured wall time (Debian sandbox, 2 vCPU / 4 GB)
 
 | step | wall time |
 |---|---|
-| `git clone --depth 1` | ~1 s |
-| `judge/setup.sh` (fresh venv) | 63–107 s (idempotent re-run: 4 s) |
-| `judge/grade.sh examples/good` | 12 s |
-| `judge/selftest.sh` (good + 13 mutants + determinism) | 3 m 38 s |
+| `sbx create` | ~3–4 s |
+| `git clone --depth 1` | ~5 s |
+| `judge/setup.sh` (fresh venv) | 32–36 s (idempotent re-run: a few s) |
+| `judge/grade.sh examples/good` | 11 s |
+| `judge/selftest.sh` (good + 13 mutants + determinism) | 83 s |
+| `run.py` end to end | ~2 m 15 s |
 
 Grading runs the model three times (nominal, repeat, zero-melt); each run
-is ~4 s. `run.py` prints a per-step timing line.
+is ~3 s. `run.py` prints a per-step timing line. Times vary with machine
+load; the graded numbers do not (see `RECEIPT.md`).
 
 ## Limits, plainly
 

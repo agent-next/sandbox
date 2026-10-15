@@ -1,0 +1,135 @@
+{
+  "artifact": "/tmp/gmut/mask-frozen-at-year-zero/",
+  "failed_gate": "crossing",
+  "gates": {
+    "_meta": {
+      "artifact": "/tmp/gmut/mask-frozen-at-year-zero/",
+      "passed": true,
+      "python": "/home/user/glacier-venv/bin/python",
+      "seed": 20261015,
+      "spec_constants": {
+        "L0": 15000.0,
+        "V0_continuum_km3": 6.0,
+        "V0_mask_km3": 6.0
+      }
+    },
+    "artifact": {
+      "passed": true,
+      "rows": 303
+    },
+    "crossing": {
+      "passed": false,
+      "reason": "warm_2p0 reported no crossing but the analytic reference crosses at year 96.007; warm_2p4 reported no crossing but the analytic reference crosses at year 81.670; warm_2p8 reported no crossing but the analytic reference crosses at year 71.426",
+      "scenarios": {
+        "warm_2p0": {
+          "csv_year": null,
+          "passed": false,
+          "reference_year": 96.00698590838036,
+          "reported_year": null
+        },
+        "warm_2p4": {
+          "csv_year": null,
+          "passed": false,
+          "reference_year": 81.67021364616303,
+          "reported_year": null
+        },
+        "warm_2p8": {
+          "csv_year": null,
+          "passed": false,
+          "reference_year": 71.42613797488727,
+          "reported_year": null
+        }
+      },
+      "tolerance_years": 3.0
+    },
+    "determinism": {
+      "passed": true,
+      "reason": null
+    },
+    "figure": {
+      "bytes": 84580,
+      "dpi": 200.0,
+      "height_px": 1100,
+      "legend": [
+        "warm_2p0",
+        "warm_2p4",
+        "warm_2p8"
+      ],
+      "note": "the judge checks the PNG header and run.json, not the pixels: it does not OCR the plot",
+      "passed": true,
+      "width_px": 1800
+    },
+    "final_volume": {
+      "passed": false,
+      "reason": "warm_2p0 V(100) = 6.0000 km3, analytic 2.8320 km3 (111.87% off, tolerance 2%); warm_2p4 V(100) = 6.0000 km3, analytic 2.0429 km3 (193.71% off, tolerance 2%); warm_2p8 V(100) = 6.0000 km3, analytic 1.2019 km3 (399.21% off, tolerance 2%)",
+      "scenarios": {
+        "warm_2p0": {
+          "measured_km3": 6.0,
+          "passed": false,
+          "reference_km3": 2.8319807504132917,
+          "relative_deviation": 1.1186584686793426
+        },
+        "warm_2p4": {
+          "measured_km3": 6.0,
+          "passed": false,
+          "reference_km3": 2.0428553314704203,
+          "relative_deviation": 1.9370655413378093
+        },
+        "warm_2p8": {
+          "measured_km3": 6.0,
+          "passed": false,
+          "reference_km3": 1.201889389519038,
+          "relative_deviation": 3.992139919299088
+        }
+      },
+      "tolerance_relative": 0.02
+    },
+    "shape": {
+      "passed": false,
+      "reason": "warm_2p0 deviates 111.87% from the analytic volume at year 100 (tolerance 2%); warm_2p0 V(100) = 6.000000 km3 is not the mask sum of any whole cell count near the analytic 240 cells (got 600); warm_2p4 deviates 193.71% from the analytic volume at year 100 (tolerance 2%); warm_2p4 V(100) = 6.000000 km3 is not the mask sum of any whole cell count near the analytic 168 cells (got 600); warm_2p8 deviates 399.21% from the analytic volume at year 100 (tolerance 2%); warm_2p8 V(100) = 6.000000 km3 is not the mask sum of any whole cell count near the analytic 96 cells (got 600)",
+      "scenarios": {
+        "warm_2p0": {
+          "increases_at_years": [],
+          "mask_cells": 600,
+          "passed": false,
+          "reference_cells": 240,
+          "worst_relative_deviation": 1.1186584686793426,
+          "worst_year": 100
+        },
+        "warm_2p4": {
+          "increases_at_years": [],
+          "mask_cells": 600,
+          "passed": false,
+          "reference_cells": 168,
+          "worst_relative_deviation": 1.9370655413378093,
+          "worst_year": 100
+        },
+        "warm_2p8": {
+          "increases_at_years": [],
+          "mask_cells": 600,
+          "passed": false,
+          "reference_cells": 96,
+          "worst_relative_deviation": 3.992139919299088,
+          "worst_year": 100
+        }
+      },
+      "tolerance_relative": 0.02
+    },
+    "zero_melt": {
+      "passed": true,
+      "reported_crossings": {},
+      "tolerance_relative": 1e-09,
+      "worst_at": null,
+      "worst_relative_deviation": 0.0
+    }
+  },
+  "passed": false,
+  "reason": "warm_2p0 reported no crossing but the analytic reference crosses at year 96.007; warm_2p4 reported no crossing but the analytic reference crosses at year 81.670; warm_2p8 reported no crossing but the analytic reference crosses at year 71.426",
+  "seed": 20261015,
+  "timing": {
+    "first_run_seconds": 3.98,
+    "second_run_seconds": 2.5,
+    "total_seconds": 7.8,
+    "zero_melt_seconds": 1.28
+  }
+}

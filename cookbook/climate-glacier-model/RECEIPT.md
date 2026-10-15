@@ -450,3 +450,21 @@ matplotlib 3.10.6
   (Recinos et al. 2019, doi:10.5194/gmd-12-909-2019), which the model is
   *in the spirit of* — it is not OGGM, does not use OGGM code, and reports
   no OGGM numbers.
+
+## Media
+
+`media/` is regenerated from the judge's own outputs by
+`bash media/make_media.sh` (run after `judge/setup.sh`, with `ffmpeg` on
+`PATH`). Nothing is hand-edited. The files and their provenance are in
+`media/MANIFEST.json`:
+
+| file | shows | bytes |
+|---|---|---|
+| `result.png` | measured vs. analytic curves + shape gate ±2 % band | 292 259 |
+| `loop.png` | agent loop (artifact→zero_melt→final_volume→figure→PASS) + 13/13 kill matrix | 224 079 |
+| `demo.mp4` | 23 s, 1920×1080, H.264: the sweep animating year by year | 336 961 |
+
+The committed source data is small (the good run's `volumes.csv`, the
+`good.json` verdict and one verdict JSON per mutant, and the five loop
+artifacts + verdicts); the video frames and the lossless master under
+`media/master/` are rebuilt, not committed.
