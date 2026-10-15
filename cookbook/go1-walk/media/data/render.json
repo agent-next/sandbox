@@ -1,0 +1,60 @@
+{
+  "frames": 900,
+  "duration_s": 30,
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "backend": "egl",
+  "graphics": {
+    "vendor": "NVIDIA Corporation",
+    "renderer": "NVIDIA GeForce RTX 5090/PCIe/SSE2",
+    "version": "4.6.0 NVIDIA 580.95.05"
+  },
+  "lighting": "render-only world lights follow robot xy for shadow-map coverage",
+  "camera": "MuJoCo tracking camera, trackbodyid=trunk, distance 0.98\u20131.15 m",
+  "scenes": [
+    {
+      "name": "hook",
+      "frames": 150
+    },
+    {
+      "name": "train",
+      "frames": 90
+    },
+    {
+      "name": "fall",
+      "frames": 58
+    },
+    {
+      "name": "walk-202",
+      "frames": 122
+    },
+    {
+      "name": "walk-303",
+      "frames": 120
+    },
+    {
+      "name": "gates",
+      "frames": 165
+    },
+    {
+      "name": "selftest",
+      "frames": 120
+    },
+    {
+      "name": "end",
+      "frames": 75
+    }
+  ],
+  "state_checks": {
+    "trained-101": 241,
+    "trained-202": 243,
+    "trained-303": 286,
+    "untrained-101": 1,
+    "untrained-202": 59,
+    "untrained-303": 1
+  },
+  "episode_selection": "episode 0, fixed before grading",
+  "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+  "render_model_sha256": "2a14edaf88fa45bdc8fcad01944b201ee96aced52a5206efbb9330e968e371d4"
+}

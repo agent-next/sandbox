@@ -1,0 +1,12 @@
+# local side (2026-10-15)
+python3 3.12.3
+venv $HOME/.venvs/go1-walk:
+numpy==2.2.6
+pip==24.0
+lease stack (asserted by _eval.py at grade time):
+  warp-lang 1.13.0
+  mujoco 3.8.1
+  mujoco-warp 3.8.1
+  torch 2.10.0+cu128
+  numpy 1.26.4
+  GPU: RTX 5090 slice, 4 GiB VRAM

@@ -1,0 +1,14 @@
+## pinned local toolchain for the judge self-test (judge/mutants.py).
+## Grading itself needs nothing local beyond stdlib: it runs on the GPU
+## lease. numpy is only used to re-pack .npz weight files into mutants.
+## Install with: pip install --require-hashes -r requirements.lock
+## (x86-64 Linux, CPython 3.10-3.13; regenerate via pip download +
+## sha256sum if extending platform coverage)
+numpy==2.2.6 ; python_version == "3.10" \
+    --hash=sha256:fc7b73d02efb0e18c000e9ad8b83480dfcd5dfd11065997ed4c6747470ae8915
+numpy==2.2.6 ; python_version == "3.11" \
+    --hash=sha256:ba10f8411898fc418a521833e014a77d3ca01c15b0c6cdcce6a0d2897e6dbbdf
+numpy==2.2.6 ; python_version == "3.12" \
+    --hash=sha256:fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249
+numpy==2.2.6 ; python_version == "3.13" \
+    --hash=sha256:1bc23a79bfabc5d056d106f9befb8d50c31ced2fbc70eedb8155aec74a45798f

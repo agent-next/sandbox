@@ -1,0 +1,19 @@
+{
+  "seed": 1,
+  "num_envs": 4096,
+  "iters": 1200,
+  "rollout_steps": 24,
+  "episode_steps": 500,
+  "cmd_vx": [0.4, 1.0],
+  "cmd_yaw": [0.0, 0.0],
+  "mass_scale": 1.0,
+  "reward": {"track_lin": 3.0, "track_ang": 1.0, "sigma": 0.25,
+             "orientation": -2.0, "lin_vel_z": -2.0, "fall": -2.0},
+  "ppo": {"hidden": [512, 256, 128], "lr": 3e-4, "gamma": 0.99,
+          "lam": 0.95, "clip": 0.2, "entropy": 0.005, "vf": 1.0,
+          "epochs": 5, "minibatches": 4},
+  "eval_every": 100, "eval_start": 400,
+  "walk_mps": 0.7,
+  "walk_checks": 1,
+  "min_iters": 400
+}
