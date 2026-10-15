@@ -1,4 +1,5 @@
 import json
+import threading
 from types import SimpleNamespace
 
 import httpx
@@ -224,6 +225,61 @@ def test_pool_drain_cannot_kill_a_machine_being_snapshotted(setup):
     pool.drain()
     assert killed == [] and not slot.retiring
     assert pool.tick()["spawned"] == 0 and slot.name in pool.slots
+
+
+def test_pool_drain_cannot_kill_snapshot_started_during_deregistration(setup, monkeypatch, capsys):
+    deleting, snapshotting, release_snapshot = (threading.Event() for _ in range(3))
+    slot = runners.Slot("sbx-test", 0)
+    errors = []
+
+    def delete(rid):
+        deleting.set()
+        assert snapshotting.wait(5)
+        return True
+
+    def wait_runner(*args, **kwargs):
+        assert deleting.wait(5)
+        return True
+
+    create_snapshot = Sandbox.create_snapshot
+
+    def snapshot(sbx):
+        snapshotting.set()
+        assert release_snapshot.wait(5)
+        return create_snapshot(sbx)
+
+    monkeypatch.setattr(runners, "_wait_runner", wait_runner)
+    monkeypatch.setattr(Sandbox, "create_snapshot", snapshot)
+    gh = SimpleNamespace(
+        jit=lambda *a: "<FAKE>", job=lambda *a: job(), delete=delete,
+        runners=lambda prefix: {slot.name: {"id": 1}},
+    )
+    boot_slot = runners.sandbox_boot(
+        gh, Sandbox, snapshot="base", labels=["sbx"], group_id=1,
+        job_timeout_s=60, idle_ttl_s=60, failed_jobs=setup, keep_failed=5,
+    )
+    pool = runners.Pool(gh, boot_slot, warm=0, maximum=1)
+    pool.slots[slot.name] = slot
+
+    def run():
+        try:
+            boot_slot(slot)
+        except BaseException as exc:
+            errors.append(exc)
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    try:
+        pool.drain()
+        assert slot.finishing and not slot.retiring
+        assert Sandbox.made[-1].killed == 0
+    finally:
+        release_snapshot.set()
+        worker.join(5)
+    assert not worker.is_alive() and errors == []
+    assert setup.find("123")["snapshot_id"] == "snap-1"
+    assert Sandbox.made[-1].killed == 1
+    assert "keep_failed_error" not in capsys.readouterr().out
 
 
 def test_runner_timeout_does_not_attempt_snapshot(setup, monkeypatch):
