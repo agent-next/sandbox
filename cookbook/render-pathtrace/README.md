@@ -9,9 +9,11 @@ lighting and the environment are procedural; rendering uses no network assets.
 
 ![render and gate results](media/result.png)
 
-Two fresh GPU leases passed every gate with byte-identical HDR output. The whole
-run took 100 s and 124 s end to end: about 38 s uploading, 30 s self-test, 6 s
-grade, the rest lease creation and cleanup (`RECEIPT.md`). The self-test rejects
+Two fresh GPU leases passed every gate with byte-identical HDR output, and an
+independent agent from another model family reproduced it exactly
+(`REPRODUCE.md`). One run takes 100–273 s end to end: 30–34 s self-test and
+6–7 s grade; the rest is uploading MuTracer, downloading outputs and the lease
+lifecycle (`RECEIPT.md`). The self-test rejects
 8/8 bad scenes plus a halved-albedo renderer control. `media/demo.mp4` shows
 real renders converging from 1 to 256 samples per pixel.
 The CPU/SwiftShader alternative is a known limitation, not a passing backend.
