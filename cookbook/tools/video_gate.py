@@ -265,16 +265,24 @@ def motion_fraction(path: str, duration: float) -> float:
         raise GateError(
             f"motion measurement failed: {_text(proc.stderr).strip()[:400]}"
         )
-    end = duration - END_WINDOW_S
-    values, pts = [], None
+    frames, pts = [], None
     for line in (_text(proc.stdout) + _text(proc.stderr)).splitlines():
         if line.startswith("frame:") and "pts_time:" in line:
-            pts = float(line.split("pts_time:")[1].split()[0])
+            try:
+                pts = float(line.split("pts_time:")[1].split()[0])
+            except ValueError:  # NOPTS
+                pts = None
         elif "lavfi.signalstats.YDIF=" in line and pts is not None:
-            if 0 < pts < end:  # frame 0 has no predecessor
-                values.append(float(line.rsplit("=", 1)[1]))
+            frames.append((pts, float(line.rsplit("=", 1)[1])))
+    if not frames:
+        raise GateError("no YDIF frames measured")
+    # Timestamps are taken relative to the first video frame (a stream can
+    # start after 0, e.g. video delayed behind audio); the first frame has no
+    # predecessor, so its YDIF is skipped.
+    start, end = frames[0][0], duration - END_WINDOW_S
+    values = [v for t, v in frames[1:] if t - start < end]
     if not values:
-        raise GateError("no YDIF frames measured before the end window")
+        return 0.0
     return sum(v >= MOTION_YDIF for v in values) / len(values)
 
 
