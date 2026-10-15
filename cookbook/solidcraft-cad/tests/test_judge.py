@@ -64,10 +64,11 @@ class StlCheck(unittest.TestCase):
 SPEC = json.loads((Path(__file__).resolve().parent.parent / "spec.json").read_text())
 
 
-def part(spec=SPEC, turn_deg=0.0, web=None):
+def part(spec=SPEC, turn_deg=0.0, web=None, bulge=None):
     """A measured part as occt_measure() reports it, with a classifier for an
     ideal plate built from the same cylinders; `web` = (z0, z1) fills every
-    bolt hole over that height."""
+    bolt hole over that height; `bulge` = (amplitude, lobes) makes the bore
+    wall r = R + a*sin(lobes*theta)^2 while its faces still read as R."""
     p, T, H = spec["plate"], spec["plate"]["thickness"], spec["boss"]["height"]
     hx, hy, r = p["length"] / 2, p["width"] / 2, p["corner_radius"]
     a = math.radians(turn_deg)
@@ -81,9 +82,10 @@ def part(spec=SPEC, turn_deg=0.0, web=None):
 
     def material(x, y, z):
         rho = math.hypot(x, y)
+        rb = br if bulge is None else br + bulge[0] * math.sin(bulge[1] * math.atan2(y, x)) ** 2
         if T < z < T + H:
-            return br < rho < Rb
-        if not 0 < z < T or rho < br:
+            return rb < rho < Rb
+        if not 0 < z < T or rho < rb:
             return False
         if any(math.hypot(x - bx, y - by) < hr for bx, by in bolts):
             return web is not None and web[0] < z < web[1]
@@ -111,6 +113,18 @@ class Features(unittest.TestCase):
         self.assertIn("bolt hole", " ".join(info["problems"]))
 
 
+    def test_thin_web_between_probe_levels_fails(self):
+        for t in (6, 8):
+            spec = json.loads(json.dumps(SPEC))
+            spec["plate"]["thickness"] = t
+            ok, _ = J.features(part(spec, web=(3.1, 3.2)), spec)
+            self.assertFalse(ok, f"bolt holes blocked by a 0.1 mm web at z 3.1..3.2 passed (T={t})")
+
+    def test_bore_bulging_between_samples_fails(self):
+        ok, _ = J.features(part(bulge=(0.05, 36)), SPEC)
+        self.assertFalse(ok, "a bore reaching 22.1 mm between the sampled angles passed")
+
+
 class CheckCommands(unittest.TestCase):
     def text(self, font):
         return {"commands": [{"command": "sketch.create", "params": {"plane": "XY"}},
@@ -128,6 +142,25 @@ class CheckCommands(unittest.TestCase):
         d = {"commands": [{"command": "timeline.redefine", "params": {
             "feature": "Extrude1", "commands": [{"command": "file.export", "params": {"path": "/tmp/x.step"}}]}}]}
         self.assertIsNotNone(J.check_commands(d), "a file command nested in timeline params was accepted")
+
+    def nested(self, depth):
+        d = {"command": "solid.box", "params": {}}
+        for _ in range(depth):
+            d = {"command": "timeline.redefine", "params": {"commands": [d]}}
+        return {"commands": [d]}
+
+    def test_nested_commands_are_walked_once(self):
+        import time
+        t0 = time.monotonic()
+        J.check_commands(self.nested(24))
+        self.assertLess(time.monotonic() - t0, 0.5, "nested commands are re-walked at every level")
+
+    def test_deep_nesting_is_a_rejection_not_a_crash(self):
+        try:
+            err = J.check_commands(self.nested(300))
+        except RecursionError:
+            self.fail("deeply nested params crashed the command check")
+        self.assertIsNotNone(err, "300 nested commands accepted")
 
 
 if __name__ == "__main__":

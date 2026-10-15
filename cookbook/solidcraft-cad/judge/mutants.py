@@ -133,6 +133,14 @@ def csg_blocked_holes(cmds):
             "diameter": 3.5, "height": 0.5, "base": [x, y, 3], "operation": "join", "targets": ["MotorAdapter"]}})
 
 
+def csg_thin_web(cmds):
+    # a 0.1 mm web at z 3.1..3.2 inside each bolt hole: +0.02 % volume
+    for c in circles_csg(cmds, 3.4):
+        x, y, _ = c["params"]["base"]
+        cmds.append({"command": "solid.cylinder", "params": {
+            "diameter": 3.5, "height": 0.1, "base": [x, y, 3.1], "operation": "join", "targets": ["MotorAdapter"]}})
+
+
 def csg_shift_on_rebuild(cmds):
     # unchanged at thickness 6; moves 20 mm sideways when the judge sets 8
     cmds.append({"command": "solid.move", "params": {
@@ -144,7 +152,7 @@ def circles_csg(cmds, diameter):
             and math.isclose(c["params"].get("diameter", -1), diameter)]
 
 
-CSG_MUTANTS = [csg_bore_shifted, csg_corner_missing, csg_blocked_holes, csg_shift_on_rebuild]
+CSG_MUTANTS = [csg_bore_shifted, csg_corner_missing, csg_blocked_holes, csg_thin_web, csg_shift_on_rebuild]
 MUTANTS = [hole_small, hole_off_pcd, hole_rotated, hole_missing, hole_extra, bore_missing,
            too_thick, boss_height, no_fillet, literal_thickness, broken_command, file_export,
            holes_all_rotated, font_outside]
