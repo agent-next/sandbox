@@ -37,7 +37,8 @@ def render_step(sid, command, budget=5400):
                                          "python3 -c " + shlex.quote(probe)))
         except RuntimeError as exc:
             if recoveries == 3 or not any(message in str(exc) for message in (
-                    "gateway is restarting", "sbx exec timed out")):
+                    "gateway is restarting", "sbx exec timed out",
+                    "no result within --timeout")):
                 raise
             recoveries += 1
             print(f"media-render: status transport interrupted; reattach {recoveries}/3 "
@@ -51,7 +52,7 @@ def render_step(sid, command, budget=5400):
             if state["code"]:
                 raise RuntimeError(f"media-render failed in sandbox {sid}")
             return
-        time.sleep(2)
+        time.sleep(30)
     raise RuntimeError(f"media-render exceeded {budget}s in sandbox {sid}")
 
 

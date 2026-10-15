@@ -25,11 +25,13 @@ class MediaTests(unittest.TestCase):
     def test_render_reattaches_without_relaunching(self):
         replies = ["", RuntimeError("gateway is restarting"),
                    RuntimeError("sbx exec timed out"),
+                   RuntimeError("no result within --timeout 120s; "
+                                "the command may still be running in the sandbox"),
                    json.dumps({"done": True, "code": 0, "log": "MEDIA_DONE"})]
         with patch.object(capture.runner, "sbx", side_effect=replies) as remote, \
                 patch.object(capture.time, "sleep"):
             capture.render_step("sandbox-test", "render-command")
-        self.assertEqual(remote.call_count, 4)
+        self.assertEqual(remote.call_count, 5)
         self.assertEqual(sum("nohup" in call.args[-1] for call in remote.call_args_list), 1)
 
     def test_render_probe_recovery_is_bounded(self):
