@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
 """result.png -- the three delivered parts vs the spec-built reference.
 
-One row per good part.  Left: the delivered model.stl (what the tool
-wrote).  Middle: the reference solid, rebuilt from judge/spec.json by
-the judge's own build_reference().  Right: the delivered part again
-with the boolean-XOR difference vs the reference highlighted in red
-(gate 7's own boolean, manifold3d ^, run on the real meshes) -- for the
-good parts the XOR volume is exactly 0, so nothing is red and the panel
-says so with the measured number from the verdict JSON.
+Layout, top to bottom, one band per known-good part:
 
-The readout column prints, per part, the gate numbers from the real
-verdict JSON (grade.sh --seed 42 --json) and draws the pass lines:
-three tolerance gates as measured/limit bars with the limit (=pass
-line) at 1.0, and min wall as a bar with the spec floor line.  All
-rules are "<=", so a bar at or below the line passes; that rule is
-printed on the panel.
+  * three renders of the REAL meshes: the delivered model.stl (what the
+    tool wrote), the reference solid rebuilt from judge/spec.json by the
+    judge's own build_reference(), and the delivered part again with the
+    boolean-XOR difference vs the reference painted red (gate 7's own
+    boolean, manifold3d ^, on the real meshes -- for the good parts the
+    XOR volume is exactly 0, so nothing is red and the panel says so with
+    the measured number from the verdict JSON);
+  * the gate numbers, printed from the verdict JSON of
+    `grade.sh examples/good/<part> --seed 42 --json`;
+  * a pass-line bar chart of the three tolerance gates, measured as a
+    fraction of the gate limit, with the limit (= pass line) at 1.0:
+    all rules are <=, so a bar at or left of the line passes.
+
+Pass/fail colours are Okabe-Ito bluish green / vermillion, which pass the
+CVD checks for a two-status palette (validated).  A static overlap check
+refuses to write the figure while any two text artists overlap; it is
+re-run by make_media.sh over the saved PNG.
+
+Every number printed here comes from a judge verdict JSON (or is recomputed
+by the judge's own code path and asserted equal to the verdict).
 """
 import json
 import os
@@ -35,16 +43,13 @@ TITLES = {"bushing": "bushing", "adapter_plate": "adapter plate",
           "bracket": "L-bracket"}
 
 GATE_COLS = [
-    ("bbox", "bbox"),
-    ("volume_analytic", "volume"),
-    ("xor_volume", "XOR"),
-    ("min_wall", "min wall"),
+    ("bbox", "bbox dev\n/ 0.05 mm"),
+    ("volume_analytic", "vol rel err\n/ 0.005"),
+    ("xor_volume", "XOR rel\n/ 0.010"),
 ]
 LIMITS = {"bbox": 0.05, "volume_analytic": 0.005, "xor_volume": 0.010}
 INK = "#1b1b1b"
-GREEN = "#007756"       # pass
-RED = "#b2182b"         # fail
-GRAY = "0.55"
+GRAY = "#6b6b6b"
 
 
 def verdict(part):
@@ -54,89 +59,103 @@ def verdict(part):
     return json.load(open(p))
 
 
-def gate_line(part, v):
-    """(label, text) rows printed per part, straight from the verdict."""
+def gate_rows(part, v):
+    """(tag, text) rows: the numbers of five gates, from the verdict."""
     g = v["gates"]
+    rows = []
+    for tag, gate, fmt in (
+            ("gate 1  tool_runs", "tool_runs",
+             "cadgen 0.7.2 executes the model.py, exit {exit}, wrote "
+             "model.step + model.stl"),
+            ("gate 2  delivery_matches", "delivery_matches",
+             "sha256 of the delivered files == a fresh run: "
+             "model.step {model.step[delivered]}, model.stl "
+             "{model.stl[delivered]} -- byte-identical"),
+            ("gate 3  step_valid", "step_valid",
+             "OCP STEP re-import ok, BRepCheck valid, {solids} solid"),
+            ("gate 4  stl_valid", "stl_valid",
+             "watertight, winding consistent, {bodies} body, {facets} facets"),
+            ("gate 10  judge_intact", "judge_intact",
+             "sha256 of every judge/ file unchanged ({files} files)"),
+    ):
+        m = g[gate]["measured"]
+        rows.append((tag, fmt.format(**m) if "{" in fmt else fmt))
     b = g["bbox"]["measured"]
-    row_b = (f"bbox   {b['step_extents'][0]:g}x{b['step_extents'][1]:g}x"
-             f"{b['step_extents'][2]:g} vs spec "
-             f"{b['spec'][0]:g}x{b['spec'][1]:g}x{b['spec'][2]:g}"
-             f"\n       max dev {b['step_max_dev_mm']:g} mm  "
-             f"(rule: each axis <= 0.05 mm)")
+    rows.append(("gate 5  bbox",
+                 f"extents {b['step_extents'][0]:g}x{b['step_extents'][1]:g}x"
+                 f"{b['step_extents'][2]:g} mm vs spec "
+                 f"{b['spec'][0]:g}x{b['spec'][1]:g}x{b['spec'][2]:g} -- "
+                 f"max dev {b['step_max_dev_mm']:g} mm\n"
+                 f"          rule: each axis <= 0.05 mm of spec "
+                 f"(STL vs STEP {b['stl_max_dev_vs_step_mm']:g} mm)"))
     q = g["volume_analytic"]["measured"]
-    row_v = (f"volume {q['volume_mm3']:.3f} vs analytic "
-             f"{q['analytic_mm3']:.3f} mm3"
-             f"\n       rel err {q['rel_err'] * 100:.4f} %  "
-             f"(rule: <= 0.5 %)")
+    rows.append(("gate 6  volume",
+                 f"{q['volume_mm3']:.3f} mm3 vs analytic "
+                 f"{q['analytic_mm3']:.3f} -- rel err "
+                 f"{q['rel_err'] * 100:.4f} %\n"
+                 f"          rule: <= 0.5 %"))
     x = g["xor_volume"]["measured"]
-    row_x = (f"XOR    {x['xor_volume_mm3']:.3f} mm3 = "
-             f"{x['rel'] * 100:.3f} % of reference "
-             f"{x['reference_volume_mm3']:.1f}"
-             f"\n       (rule: <= 1.0 % of reference)")
+    rows.append(("gate 7  XOR",
+                 f"{x['xor_volume_mm3']:.3f} mm3 = {x['rel'] * 100:.3f} % "
+                 f"of the reference {x['reference_volume_mm3']:.1f}\n"
+                 f"          rule: <= 1.0 % of reference"))
+    f = g["features"]["measured"]
+    feats = "  ".join(
+        f"{cls} x{d['count']} (want {d['count_expected']})"
+        + (f" r{d['radius_mm'][0]:g}" if d["radius_mm"] else "")
+        for cls, d in sorted(f["classes"].items()))
+    rows.append(("gate 8  features", feats))
     w = g["min_wall"]["measured"]
     if w.get("applicable") is False:
-        row_w = ("min wall  not graded for this part\n"
-                 "         (spec.json sets min_wall_mm = null)")
+        rows.append(("gate 9  min wall", "not graded for this part "
+                                         "(spec.json: min_wall_mm = null)"))
     else:
-        row_w = (f"min wall {w['min_wall_mm']:.3f} mm over {w['rays']} "
-                 f"seeded rays\n"
-                 f"         (rule: >= {w['spec_min_wall_mm']:g} - 0.1 mm)")
-    f = g["features"]["measured"]
-    feats = []
-    for cls, d in f["classes"].items():
-        n = d["count"]
-        r = d["radius_mm"][0] if d["radius_mm"] else float("nan")
-        feats.append(f"{cls} x{n} r{r:g}")
-    row_f = ("features " + "  ".join(feats) +
-             f"\n         (rule: counts/radii exact, centres <= 0.05 mm)")
-    return [("gate 5", row_b), ("gate 6", row_v), ("gate 7", row_x),
-            ("gate 9", row_w), ("gate 8", row_f)]
+        rows.append(("gate 9  min wall",
+                     f"{w['min_wall_mm']:.3f} mm over {w['rays']} seeded "
+                     f"rays\n"
+                     f"          rule: >= {w['spec_min_wall_mm']:g} - 0.1 "
+                     f"mm (hole edge to next face)"))
+    return rows
 
 
-def bars_panel(ax, v, part):
-    """Pass-line bars: tolerance gates as fraction-of-limit; min wall mm."""
+def bars_panel(ax, v):
+    """The three tolerance gates as fractions of their limits."""
     g = v["gates"]
-    labels, fracs, meas = [], [], []
-    for gate, lab in GATE_COLS[:3]:
+    y, fracs, texts = [], [], []
+    for gate, _lab in GATE_COLS:
         m = g[gate]["measured"]
         val = {"bbox": lambda: m["step_max_dev_mm"],
                "volume_analytic": lambda: m["rel_err"],
                "xor_volume": lambda: m["rel"]}[gate]()
-        labels.append(lab)
+        y.append(len(y))
         fracs.append(val / LIMITS[gate])
-        meas.append(val)
-    y = np.arange(3)[::-1]
-    cols = [GREEN if fr <= 1.0 else RED for fr in fracs]
-    ax.barh(y, fracs, height=0.62, color=cols, alpha=0.9)
-    ax.axvline(1.0, color=RED, lw=1.6, ls=(0, (5, 3)))
+        texts.append({"bbox": f"{val * 1000:.1f} um",
+                      "volume_analytic": f"{val * 100:.4f} %",
+                      "xor_volume": f"{val * 100:.3f} %"}[gate])
+    y = np.array(y)[::-1]                     # first gate at the top
+    ax.barh(y, fracs, height=0.6, color=cadviz.PASS, alpha=0.9)
+    ax.axvline(1.0, color=cadviz.FAIL, lw=1.6, ls=(0, (5, 3)), zorder=3)
+    for yi, fr, tx in zip(y, fracs, texts):
+        ax.text(fr + 0.03, yi, tx, va="center", fontsize=7.5, color=INK)
     ax.set_yticks(y)
-    lab_map = {"bbox": "bbox dev\n/ 0.05 mm",
-               "volume": "vol rel err\n/ 0.005",
-               "XOR": "XOR rel\n/ 0.010"}
-    ax.set_yticklabels([lab_map[l] for l in labels], fontsize=7.5)
-    for yi, fr, mv, l in zip(y, fracs, meas, labels):
-        txt = {"bbox": f"{mv * 1000:.1f} um", "volume": f"{mv * 100:.4f} %",
-               "XOR": f"{mv * 100:.3f} %"}[l]
-        ax.text(min(fr, 1.0) + 0.03, yi, txt + "  (0.0 % of limit used)"
-                if fr == 0 else txt, va="center", fontsize=7.5, color=INK)
-    ax.set_xlim(0, 1.45)
+    ax.set_yticklabels([lab for _g, lab in GATE_COLS][::-1], fontsize=7.5)
+    ax.set_xlim(0, 1.6)
     ax.set_xticks([0, 1.0])
-    ax.set_xticklabels(["0", "1.0"], fontsize=7)
-    ax.set_xlabel("fraction of the limit used -- at or left of the dashed "
-                  "line passes (rules are <=)", fontsize=7.5)
-    ax.text(1.0, 2.62, " limit = pass line", color=RED, fontsize=7.5,
-            ha="left", va="center")
+    ax.set_xticklabels(["0", "1.0 = pass line"], fontsize=7.5)
+    ax.set_xlabel("fraction of the gate limit used -- the rule is '<=', so a "
+                  "bar ending at or left of the dashed line passes",
+                  fontsize=7.5, color=GRAY)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     ax.tick_params(length=2)
 
 
 def main():
-    fig = plt.figure(figsize=(15.0, 12.6), dpi=200)
-    gs = fig.add_gridspec(3, 2, width_ratios=[2.62, 1.0],
+    fig = plt.figure(figsize=(15.6, 12.6), dpi=200)
+    gs = fig.add_gridspec(3, 2, width_ratios=[2.72, 1.0],
                           height_ratios=[1.0] * 3,
-                          left=0.015, right=0.985, top=0.930, bottom=0.028,
-                          wspace=0.04, hspace=0.14)
+                          left=0.008, right=0.992, top=0.942, bottom=0.022,
+                          wspace=0.02, hspace=0.16)
 
     for r, part in enumerate(PARTS):
         v = verdict(part)
@@ -145,84 +164,74 @@ def main():
         ref, ref_vol = cadviz.reference_mesh(part)
         diff, xor_vol = cadviz.xor_solid(delivered, ref)
 
-        # cross-check our recomputation against the judge's own numbers
+        # cross-check the recomputation against the judge's own numbers
         xg = v["gates"]["xor_volume"]["measured"]
-        assert abs(xor_vol - xg["xor_volume_mm3"]) < 1e-3 * max(
-            1.0, xg["reference_volume_mm3"] * 0.01) + 1e-6, \
+        assert abs(xor_vol - xg["xor_volume_mm3"]) <= max(1e-6, 1e-6 * ref_vol), \
             f"{part}: XOR recompute {xor_vol} != verdict {xg['xor_volume_mm3']}"
-        assert abs(ref_vol - xg["reference_volume_mm3"]) < 1e-6, \
-            f"{part}: reference volume drift"
+        assert abs(ref_vol - xg["reference_volume_mm3"]) <= 1e-6 * ref_vol
 
         hi = cadviz.faces_in_solid(delivered, diff)
-        elev, azim = (24, -55) if part != "adapter_plate" else (28, -60)
+        elev, azim = (24, -55) if part != "adapter_plate" else (30, -62)
 
-        ax0 = fig.add_subplot(gs[r, 0], projection="3d")
+        gs_row = gs[r, 0].subgridspec(1, 3, wspace=0.005)
         fc = cadviz.shaded_facecolors(delivered)
-        cadviz.draw_mesh(ax0, delivered, fc=fc, elev=elev, azim=azim,
-                         title=f"delivered model.stl  ({len(delivered.faces)} "
-                               f"facets, from the tool run)")
-        ax1 = fig.add_subplot(gs[r, 0], projection="3d")  # placeholder swap
-        # (matplotlib gridspec cells are reused via add_subplot below)
-        plt.delaxes(ax1)
-
-        # three renders side by side inside the wide cell: use subgridspec
-        # (recreate: remove placeholder approach)
-        gs_row = gs[r, 0].subgridspec(1, 3, wspace=0.01)
         axA = fig.add_subplot(gs_row[0, 0], projection="3d")
         cadviz.draw_mesh(axA, delivered, fc=fc, elev=elev, azim=azim,
-                         title="delivered model.stl\n(tool output, judged)")
+                         title=f"delivered model.stl\n(the tool's output, "
+                               f"-- what was judged)")
         axB = fig.add_subplot(gs_row[0, 1], projection="3d")
-        cadviz.draw_mesh(axB, ref, fc=cadviz.shaded_facecolors(
-            ref, base=(0.78, 0.82, 0.87)), elev=elev, azim=azim,
-            title="reference solid\n(built from spec.json only)")
+        cadviz.draw_mesh(
+            axB, ref, fc=cadviz.shaded_facecolors(ref, base=(0.80, 0.84, 0.88)),
+            elev=elev, azim=azim,
+            title="reference solid\n(built from spec.json alone)")
         axC = fig.add_subplot(gs_row[0, 2], projection="3d")
         fc2 = fc.copy()
-        fc2[hi] = cadviz.RED + (1.0,)
+        fc2[hi] = cadviz.FAIL_RGB + (1.0,)
+        nred = len(np.flatnonzero(hi))
         cadviz.draw_mesh(axC, delivered, fc=fc2, elev=elev, azim=azim,
-                         title=f"XOR difference highlighted\n"
-                               f"{len(np.flatnonzero(hi))} of "
-                               f"{len(delivered.faces)} facets in red")
+                         title=f"XOR difference vs reference\n"
+                               f"{nred} of {len(delivered.faces)} facets "
+                               f"flagged red")
         xrel = xg["rel"]
-        axC.text2D(0.5, 0.02,
+        axC.text2D(0.5, 0.015,
                    f"XOR {xg['xor_volume_mm3']:.3f} mm3 = "
-                   f"{xrel * 100:.3f} % of reference  "
-                   f"(rule <= 1.0 % -> {'PASS' if xrel <= 0.01 else 'FAIL'})",
+                   f"{xrel * 100:.3f} % of the reference\n"
+                   f"rule <= 1.0 % -> "
+                   f"{'PASS' if xrel <= 0.01 else 'FAIL'}",
                    transform=axC.transAxes, ha="center", fontsize=8,
-                   color=GREEN if xrel <= 0.01 else RED)
+                   color=cadviz.PASS if xrel <= 0.01 else cadviz.FAIL)
 
-        # row label + readout
+        # right column: the numbers of this part, then its pass-line bars
         axT = fig.add_subplot(gs[r, 1])
         axT.axis("off")
-        name = TITLES[part]
         npass = sum(1 for gg in v["gates"].values() if gg["pass"] is True)
-        axT.text(0.0, 1.0, f"{name}  --  {npass}/10 gates PASS "
-                           f"(exit 0, seed {v['seed']})",
+        axT.text(0.0, 0.985,
+                 f"{TITLES[part]} -- {npass}/10 gates PASS\n"
+                 f"grade.sh exit {0 if v['pass'] else 1}, seed {v['seed']}, "
+                 f"grade.sh --json",
                  fontsize=10.5, fontweight="bold", va="top", color=INK)
-        y = 0.925
-        for tag, line in gate_line(part, v):
-            axT.text(0.0, y, tag, fontsize=7.6, va="top", color=GRAY,
+        y = 0.865
+        for tag, text in gate_rows(part, v):
+            axT.text(0.0, y, tag, fontsize=7.8, va="top", color=GRAY,
                      family="monospace")
-            axT.text(0.075, y, line, fontsize=7.6, va="top", color=INK,
-                     family="monospace", linespacing=1.35)
-            y -= 0.052 * (line.count("\n") + 1) + 0.012
-        gs_in = gs[r, 1].subgridspec(1, 1)
-        axB2 = fig.add_subplot(
-            fig.add_gridspec(1, 1, left=0.40, right=0.99,
-                             top=0.10 + 0.30 * (2 - r),
-                             bottom=0.02 + 0.30 * (2 - r))[0, 0])
-        bars_panel(axB2, v, part)
+            axT.text(0.335, y, text, fontsize=7.8, va="top", color=INK,
+                     family="monospace", linespacing=1.4)
+            y -= 0.062 * text.count("\n") + 0.030
+        bars_bottom = y - 0.035
+        gs_bars = gs[r, 1].subgridspec(
+            1, 1, top=min(0.62, max(0.20, bars_bottom)), bottom=0.0)
+        bars_panel(fig.add_subplot(gs_bars[0, 0]), v)
 
     fig.suptitle("text-to-CAD judged: the delivered STEP/STL vs the "
                  "spec-built reference -- all 10 gates pass on all three parts",
-                 fontsize=13.5, fontweight="bold", y=0.975)
-    fig.text(0.015, 0.005,
+                 fontsize=14, fontweight="bold", y=0.978)
+    fig.text(0.008, 0.006,
              "source: judge/grade.sh examples/good/<part> --seed 42 --json "
-             "(media/data/verdicts/good_*.json); reference solids and the XOR "
-             "boolean are the judge's own code (check_gates.build_reference, "
-             "manifold3d ^).  'gates 1-4, 10' (tool reruns, byte-identical "
-             "delivery, STEP/STL validity, judge intact) pass and are not "
-             "barred: their rules are printed in loop.png.",
-             fontsize=7.2, color="0.35")
+             "(media/data/verdicts/good_*.json); the reference solids and the "
+             "XOR boolean are the judge's own code path "
+             "(check_gates.build_reference + tessellate, manifold3d ^), "
+             "recomputed here and asserted equal to the verdict.",
+             fontsize=7.5, color="0.4")
     fig.savefig(OUT)
     print(f"wrote {OUT}")
 
