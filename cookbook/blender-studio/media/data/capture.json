@@ -1,6 +1,6 @@
 {
   "mode": "single_sandbox",
-  "sandbox": "01a13f64-e3c8-7212-b22b-337a431caa5f",
+  "sandbox": "01a1409e-c832-7602-9ef9-2b0e56e37582",
   "proof_command": "sh judge/selftest.sh --seed 17",
   "proof_backend": "blender sandbox"
 }

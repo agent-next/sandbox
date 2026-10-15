@@ -169,10 +169,12 @@ This code review is **not** the independent README reproduction or media panel.
 ## Media
 
 **Fresh complete capture, one sandbox.** `sh media/make_media.sh` created
-sandbox `01a13f64-e3c8-7212-b22b-337a431caa5f`, uploaded the source snapshot
+sandbox `01a1409e-c832-7602-9ef9-2b0e56e37582` with a 180-minute lifetime,
+uploaded the source snapshot
 (sha256 `ae8e9e7a46fa60fcbef87c503282e742b571757540207b5cd20528bb16688cff`),
-ran setup and the ten-mutant self-test, then rendered all thirteen 1920×1080
-images at seed 17, 8 samples, Cycles CPU, four threads:
+ran setup and the ten-mutant self-test, then rendered 48 turntable poses
+(quarter-frame samples of the same 12-frame animation) and the unlinked-rim
+probe at 1920×1080, seed 17, 8 samples, Cycles CPU, four threads:
 
 ```sh
 blender -b --factory-startup --python-exit-code 1 -t 4 \
@@ -182,41 +184,29 @@ blender -b --factory-startup --python-exit-code 1 -t 4 \
 Real output excerpts:
 
 ```text
-setup: exit=0 wall=37.2s
-SELFTEST killed=10/10 kill_rate=100.0% exit=0 wall=108.186s
-selftest: exit=0 wall=117.4s
-media-render: exit=0 wall=838.4s
-cleanup confirmed: 01a13f64-e3c8-7212-b22b-337a431caa5f absent from sbx list
+setup: exit=0 wall=14.7s
+SELFTEST killed=10/10 kill_rate=100.0% exit=0 wall=155.778s
+selftest: exit=0 wall=158.8s
+media-render: exit=0 wall=4196.4s
+cleanup confirmed: 01a1409e-c832-7602-9ef9-2b0e56e37582 absent from sbx list
 ```
 
-All 37 collected files (renders, render.json, self-test verdicts and mutant
-heroes) were transferred in bounded CLI chunks and each matched its remote
-size and SHA-256 before replacing local evidence (`media/data/transfers.json`).
-The proof data in the video (`media/data/selftest.json`) is this sandbox's
-self-test output, not a local run. Per-image render seconds
-(`media/source/render.json`, total 824.6 s):
+Per-image render seconds are in `media/source/render.json` and MANIFEST
+`render_frames`: 48 poses total 4078.1 s (min 40.838 s,
+max 227.926 s on the shared CPU pool), unlinked
+probe 102.854 s. All 73 collected files (renders, render.json,
+self-test verdicts and mutant heroes) were transferred in bounded CLI chunks,
+and each matched its remote size and SHA-256 before replacing local evidence
+(`media/data/transfers.json`). The video's proof data (`media/data/selftest.json`)
+is this sandbox's self-test output. The capture was driven from a host with a
+fast route to the service; an earlier attempt from a slow route lost its render
+when the sandbox reached its 90-minute lifetime, and nothing from it is
+shipped.
 
-| source file | measured seconds |
-| --- | --- |
-| frame-01.png | 44.679 |
-| frame-02.png | 55.052 |
-| frame-03.png | 46.229 |
-| frame-04.png | 44.084 |
-| frame-05.png | 51.307 |
-| frame-06.png | 68.0 |
-| frame-07.png | 66.908 |
-| frame-08.png | 70.623 |
-| frame-09.png | 60.92 |
-| frame-10.png | 89.003 |
-| frame-11.png | 83.601 |
-| frame-12.png | 69.163 |
-| unlinked.png | 75.019 |
-
-An earlier attempt the same day rendered successfully but lost its collection
-to a service-side interruption; nothing from it is shipped. Media PNGs need
-not be byte-identical across re-renders; only verdict JSON must be
-byte-identical excluding `timing`. `result.png` and `loop.png` regenerated
-byte-identical from this capture.
+The video plays the 48 real poses at 24 poses/second inside a 30 fps master;
+no frames are interpolated or synthesized. Media PNGs need not be
+byte-identical across re-renders; only verdict JSON must be byte-identical
+excluding `timing`.
 
 Composition and gate:
 
@@ -240,16 +230,16 @@ uses CRF 0; the web encode uses CRF 18, preset slow, yuv420p and faststart.
     {"name": "width", "measured": 1920, "threshold": ">= 1920", "pass": true},
     {"name": "height", "measured": 1080, "threshold": ">= 1080", "pass": true},
     {"name": "aspect_ratio", "measured": 1.7778, "threshold": "16:9 +/- 1%", "pass": true},
-    {"name": "duration_s", "measured": 30.0, "threshold": "25-60 s", "pass": true},
+    {"name": "duration_s", "measured": 32.0, "threshold": "25-60 s", "pass": true},
     {"name": "fps", "measured": 30.0, "threshold": "29.969-30.001", "pass": true},
     {"name": "codec", "measured": "h264", "threshold": "== h264", "pass": true},
     {"name": "pix_fmt", "measured": "yuv420p", "threshold": "== yuv420p", "pass": true},
-    {"name": "size_mib", "measured": 3.1902, "threshold": "<= 8 MiB", "pass": true},
-    {"name": "faststart", "measured": "moov@32 mdat@11672", "threshold": "moov atom before mdat", "pass": true},
-    {"name": "first_frame_luma_mean", "measured": 122.9183, "threshold": ">= 20", "pass": true},
-    {"name": "first_frame_luma_std", "measured": 30.0096, "threshold": ">= 12", "pass": true},
+    {"name": "size_mib", "measured": 4.2518, "threshold": "<= 8 MiB", "pass": true},
+    {"name": "faststart", "measured": "moov@32 mdat@12380", "threshold": "moov atom before mdat", "pass": true},
+    {"name": "first_frame_luma_mean", "measured": 111.7772, "threshold": ">= 20", "pass": true},
+    {"name": "first_frame_luma_std", "measured": 45.116, "threshold": ">= 12", "pass": true},
     {"name": "first_frame_not_solid", "measured": 255, "threshold": ">= 8 (luma max-min)", "pass": true},
-    {"name": "scene_cuts_per_10s", "measured": 2.6667, "threshold": ">= 0.8", "pass": true},
+    {"name": "scene_cuts_per_10s", "measured": 2.5, "threshold": ">= 0.8", "pass": true},
     {"name": "endcard_static", "measured": 0.0, "threshold": "<= 0.5 (mean YDIF, last 2 s)", "pass": true},
     {"name": "audio", "measured": "absent", "threshold": "optional", "pass": true}
   ]
@@ -257,7 +247,7 @@ uses CRF 0; the web encode uses CRF 18, preset slow, yuv420p and faststart.
 ```
 
 Whitespace is compacted above; values are unchanged. Composition exited 0:
-`media: 900 frames / 30 s / 3345167 bytes`.
+`media: 960 frames / 32 s / 4458377 bytes`.
 
 ## Repository tests
 

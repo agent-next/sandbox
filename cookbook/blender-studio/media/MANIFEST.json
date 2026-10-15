@@ -26,15 +26,15 @@
     },
     {
       "file": "demo.mp4",
-      "shows": "30 s real Cycles scene, turntable, light probes and proof",
+      "shows": "32 s real Cycles scene, turntable, light probes and proof",
       "command": "sh media/make_media.sh",
       "source": [
         "media/data/selftest.json",
         "media/source/render.json"
       ],
       "seed": 17,
-      "bytes": 3351949,
-      "sha256": "c63aae7d4c253e2b9061dac94548684f6147a6e1c0758c0909a382f58fb776ba"
+      "bytes": 4458377,
+      "sha256": "4788c97926a5f356e1ae96e25219cff0b9f496c83fa4b59ef31efd992ae0083e"
     }
   ],
   "render_command": "blender -b --factory-startup --python-exit-code 1 -t 4 -P media/render.py -- --out media/source --seed 17",
@@ -48,90 +48,409 @@
     "engine": "CYCLES",
     "device": "CPU"
   },
+  "turntable": {
+    "poses": 48,
+    "poses_per_second": 24,
+    "sampling": "existing animation at quarter-frame steps",
+    "interpolation": "none; repeats of actual Cycles renders",
+    "judge_frames": 12
+  },
   "capture": {
     "mode": "single_sandbox",
-    "sandbox": "01a13f64-e3c8-7212-b22b-337a431caa5f",
+    "sandbox": "01a1409e-c832-7602-9ef9-2b0e56e37582",
     "proof_command": "sh judge/selftest.sh --seed 17",
     "proof_backend": "blender sandbox"
   },
   "render_frames": [
     {
       "file": "frame-01.png",
-      "frame": 1,
-      "seconds": 44.679,
-      "sha256": "a283384bfd06440a4a66b9302c70c98b16596468ef664e196b20852c127de2c2"
+      "pose": 1,
+      "frame": 1.0,
+      "angle_radians": 0.0,
+      "seconds": 45.81,
+      "sha256": "1bfbb5a0de1dec193c028f936289495656f1106be2311492e79737aa0b6753d7"
     },
     {
       "file": "frame-02.png",
-      "frame": 2,
-      "seconds": 55.052,
-      "sha256": "e2cd01741d18de542cb6c55d7f3cab1d00946e0a50d9519af2054d145093f7d7"
+      "pose": 2,
+      "frame": 1.25,
+      "angle_radians": 0.1308997,
+      "seconds": 47.341,
+      "sha256": "87fba4d807e9c68f6c3ca6f42536bd86b4e7b996ce459b6fb106c4a43ab28f64"
     },
     {
       "file": "frame-03.png",
-      "frame": 3,
-      "seconds": 46.229,
-      "sha256": "78da1e832c2f5911cc28af0d6a653d88ecfcc158c8acf2503263849b816dda5b"
+      "pose": 3,
+      "frame": 1.5,
+      "angle_radians": 0.2617994,
+      "seconds": 46.221,
+      "sha256": "a8180b636b03f372b4513ab475a5791c00240d72e50eb81fc1cc831eb79b9803"
     },
     {
       "file": "frame-04.png",
-      "frame": 4,
-      "seconds": 44.084,
-      "sha256": "077e646cd5d2b27bffb81aaecf8f34b6b489bd869c6d09967438d3e4b8a714d1"
+      "pose": 4,
+      "frame": 1.75,
+      "angle_radians": 0.39269909,
+      "seconds": 50.023,
+      "sha256": "4f0e37f97fa799ed1f5f26fe52ab483e0d3aab045d03c323ec57f1512aad9fe2"
     },
     {
       "file": "frame-05.png",
-      "frame": 5,
-      "seconds": 51.307,
-      "sha256": "c6b92b727b3231954571c3919be89e393f35739c03f177e528b5365c7d0a62f5"
+      "pose": 5,
+      "frame": 2.0,
+      "angle_radians": 0.52359879,
+      "seconds": 44.832,
+      "sha256": "da3155f93bdc90e688953c1469ece920103561c753f029858b37f346a21abd00"
     },
     {
       "file": "frame-06.png",
-      "frame": 6,
-      "seconds": 68.0,
-      "sha256": "23350168d4258343441301b3534593db4e02fa6a79a15ff4d4e062876c776981"
+      "pose": 6,
+      "frame": 2.25,
+      "angle_radians": 0.65449852,
+      "seconds": 40.838,
+      "sha256": "b5308dc029c6d9ff1ca0992e34dcee79a0f4028ccbbf04d3048bf457097c49a2"
     },
     {
       "file": "frame-07.png",
-      "frame": 7,
-      "seconds": 66.908,
-      "sha256": "4db1e0529d8e051e63beb1b68c88e14b8731e8747e7c2e36c95ebdd76b25b4dd"
+      "pose": 7,
+      "frame": 2.5,
+      "angle_radians": 0.78539819,
+      "seconds": 45.971,
+      "sha256": "bb32f41e33a9d499bb6c1b405c222bed152bc186d5327ac3706cc5f1c0bc5aa9"
     },
     {
       "file": "frame-08.png",
-      "frame": 8,
-      "seconds": 70.623,
-      "sha256": "cdac5403e5023043f667dbeb75aa24bf54be5e7290fa2c3e174c4a68e2fce795"
+      "pose": 8,
+      "frame": 2.75,
+      "angle_radians": 0.91629785,
+      "seconds": 58.019,
+      "sha256": "219e8dd2b0cc928b2dce7a88fe28f41a636ea8f55d5bbe0414821d31a7766603"
     },
     {
       "file": "frame-09.png",
-      "frame": 9,
-      "seconds": 60.92,
-      "sha256": "a6a8688e9923dabe7a111c5158bea3b6c284a44aa483ccae61fe438cb0fdcd29"
+      "pose": 9,
+      "frame": 3.0,
+      "angle_radians": 1.04719758,
+      "seconds": 61.257,
+      "sha256": "ef9f0130e216b698590dcacb33c22eb856b4a78e946a101cb43162270b16c443"
     },
     {
       "file": "frame-10.png",
-      "frame": 10,
-      "seconds": 89.003,
-      "sha256": "763fe8f157e022069ee9a46896bf7f0cb6860587bbea9634187b9fa3e11c04a6"
+      "pose": 10,
+      "frame": 3.25,
+      "angle_radians": 1.17809725,
+      "seconds": 65.634,
+      "sha256": "a722517de345f680d46b76d4edb45276bf434a7fbc9864844d139cfda980884d"
     },
     {
       "file": "frame-11.png",
-      "frame": 11,
-      "seconds": 83.601,
-      "sha256": "489458df6a0a1ee8b59edb51a1082751cb917099e10c8725f6ba0909b14fec2e"
+      "pose": 11,
+      "frame": 3.5,
+      "angle_radians": 1.30899692,
+      "seconds": 60.966,
+      "sha256": "736aa414d4d1fe7a0e71df71ed11b6dba09d644bf62d462ee40b088159394940"
     },
     {
       "file": "frame-12.png",
-      "frame": 12,
-      "seconds": 69.163,
-      "sha256": "da5fae0238e8ba5156f2b679045c6023c72076355292646e9a76405f8813252b"
+      "pose": 12,
+      "frame": 3.75,
+      "angle_radians": 1.43989658,
+      "seconds": 63.768,
+      "sha256": "241986441caaf47592d56718e22be7ba7ca289ed59a8d700c885932fa387b197"
+    },
+    {
+      "file": "frame-13.png",
+      "pose": 13,
+      "frame": 4.0,
+      "angle_radians": 1.57079637,
+      "seconds": 59.279,
+      "sha256": "4f6fb38be27751ea298c900386de0b58b3f9c495fb985fd3be4b69d4a6983303"
+    },
+    {
+      "file": "frame-14.png",
+      "pose": 14,
+      "frame": 4.25,
+      "angle_radians": 1.70169604,
+      "seconds": 64.396,
+      "sha256": "166097d07ebc4d3a39d15fad7b09cc41dcc09afc30e1995b2b89ce0cd78ba2b6"
+    },
+    {
+      "file": "frame-15.png",
+      "pose": 15,
+      "frame": 4.5,
+      "angle_radians": 1.83259571,
+      "seconds": 56.091,
+      "sha256": "2ed54c1d52011da607a1e447cd1ce58410818db20446940af00885f99e0afe29"
+    },
+    {
+      "file": "frame-16.png",
+      "pose": 16,
+      "frame": 4.75,
+      "angle_radians": 1.96349537,
+      "seconds": 68.151,
+      "sha256": "251209e786d55afd431e19115dc697bce2fadb6321259d318a11cc5c202b2253"
+    },
+    {
+      "file": "frame-17.png",
+      "pose": 17,
+      "frame": 5.0,
+      "angle_radians": 2.09439516,
+      "seconds": 56.185,
+      "sha256": "522fd3f16466cfb6ce3859eed3f683cdf3e3740ffbf9975807b24e0199ffafba"
+    },
+    {
+      "file": "frame-18.png",
+      "pose": 18,
+      "frame": 5.25,
+      "angle_radians": 2.22529483,
+      "seconds": 53.02,
+      "sha256": "3c8718e598b59b9b9748e84cba1cbd04b182c8420d4004e82730036f5a83271b"
+    },
+    {
+      "file": "frame-19.png",
+      "pose": 19,
+      "frame": 5.5,
+      "angle_radians": 2.3561945,
+      "seconds": 60.771,
+      "sha256": "436ea29dbf4cb233a1eae3b1d90a2153aca1c96b780b34cd8073e9ae4bcc7170"
+    },
+    {
+      "file": "frame-20.png",
+      "pose": 20,
+      "frame": 5.75,
+      "angle_radians": 2.48709416,
+      "seconds": 59.053,
+      "sha256": "8067b491489bbb17f1883c38da6bd627d50ef98783980ea0986fb7c1ba9023f2"
+    },
+    {
+      "file": "frame-21.png",
+      "pose": 21,
+      "frame": 6.0,
+      "angle_radians": 2.61799383,
+      "seconds": 62.811,
+      "sha256": "46f8b2593b165fb2ca56287edbb6321adfc5d5a297e3de9bcdb92a9a4a84a016"
+    },
+    {
+      "file": "frame-22.png",
+      "pose": 22,
+      "frame": 6.25,
+      "angle_radians": 2.7488935,
+      "seconds": 81.169,
+      "sha256": "702b0c75c9d76fb080b5cfd7fe5a9e3028b2965aaa850f1d637e8e18432e5854"
+    },
+    {
+      "file": "frame-23.png",
+      "pose": 23,
+      "frame": 6.5,
+      "angle_radians": 2.87979317,
+      "seconds": 88.573,
+      "sha256": "d10adeabd047202dc7d6c80660a80d277dfde98293c9585524fa20105382ca73"
+    },
+    {
+      "file": "frame-24.png",
+      "pose": 24,
+      "frame": 6.75,
+      "angle_radians": 3.01069307,
+      "seconds": 79.504,
+      "sha256": "e9a2e7cf0e69375d86e59f3f1e0857ad1b26188ce911386551cfe19529f7116c"
+    },
+    {
+      "file": "frame-25.png",
+      "pose": 25,
+      "frame": 7.0,
+      "angle_radians": 3.14159274,
+      "seconds": 81.928,
+      "sha256": "c979d46f78187d4c9011b2e7025cd6eb1763e5cee3afbb27efa629abdfb0c3da"
+    },
+    {
+      "file": "frame-26.png",
+      "pose": 26,
+      "frame": 7.25,
+      "angle_radians": 3.27249241,
+      "seconds": 73.936,
+      "sha256": "b5571cd876618284e98bcfef0cdbffe6de50107eef16ccd671a9669af9f0ee92"
+    },
+    {
+      "file": "frame-27.png",
+      "pose": 27,
+      "frame": 7.5,
+      "angle_radians": 3.40339208,
+      "seconds": 71.348,
+      "sha256": "24690e7844c34def2cce39b5c2edba50d1ed47886542a09d4fba3264f27f0df1"
+    },
+    {
+      "file": "frame-28.png",
+      "pose": 28,
+      "frame": 7.75,
+      "angle_radians": 3.53429174,
+      "seconds": 70.14,
+      "sha256": "de855a312ae189383418a68941b92c82a7b321f6b9da18c16ab852deebc23ab9"
+    },
+    {
+      "file": "frame-29.png",
+      "pose": 29,
+      "frame": 8.0,
+      "angle_radians": 3.66519141,
+      "seconds": 59.428,
+      "sha256": "14fe822da6413bb438a77708e6c44fc667e9ec4338390961275bc273f0c4c930"
+    },
+    {
+      "file": "frame-30.png",
+      "pose": 30,
+      "frame": 8.25,
+      "angle_radians": 3.79609108,
+      "seconds": 58.442,
+      "sha256": "58ce2710d8b90b7b88da1f1b5c8d052ef8ca336d010e064fab6df2ea13f70e57"
+    },
+    {
+      "file": "frame-31.png",
+      "pose": 31,
+      "frame": 8.5,
+      "angle_radians": 3.92699075,
+      "seconds": 85.693,
+      "sha256": "4ddff175f4567d53eed14b876d6d0e5bdb5bb448c51ab7fe131fbb3d761d2f66"
+    },
+    {
+      "file": "frame-32.png",
+      "pose": 32,
+      "frame": 8.75,
+      "angle_radians": 4.05789042,
+      "seconds": 97.536,
+      "sha256": "5e61571b381771977e98ec6d7e87e78fc4d9d3d1c755a9334755c9a35ce078f2"
+    },
+    {
+      "file": "frame-33.png",
+      "pose": 33,
+      "frame": 9.0,
+      "angle_radians": 4.18879032,
+      "seconds": 95.575,
+      "sha256": "b68cdfb1b80b0467fbce509e5fc29ed56eb983ee6fb15a87ea65c980db53570b"
+    },
+    {
+      "file": "frame-34.png",
+      "pose": 34,
+      "frame": 9.25,
+      "angle_radians": 4.31968975,
+      "seconds": 81.439,
+      "sha256": "bb992399861fca74786bd0a837e93b5ddcf08e3cb213560da18eca6b4f1841f9"
+    },
+    {
+      "file": "frame-35.png",
+      "pose": 35,
+      "frame": 9.5,
+      "angle_radians": 4.45058966,
+      "seconds": 123.068,
+      "sha256": "42e2b7220cb275043ee2705038148d7e53a197acc3b2c81c279f3fd2c630fbb2"
+    },
+    {
+      "file": "frame-36.png",
+      "pose": 36,
+      "frame": 9.75,
+      "angle_radians": 4.58148909,
+      "seconds": 138.043,
+      "sha256": "1cf318f2867ef1c340ecc38fdd432382ffdf76b36018a058efcb55c37d0b84b4"
+    },
+    {
+      "file": "frame-37.png",
+      "pose": 37,
+      "frame": 10.0,
+      "angle_radians": 4.71238899,
+      "seconds": 135.99,
+      "sha256": "a2fc04b6563432e552067858ff32999501341c1da0d34507ea0475a78444389d"
+    },
+    {
+      "file": "frame-38.png",
+      "pose": 38,
+      "frame": 10.25,
+      "angle_radians": 4.8432889,
+      "seconds": 126.409,
+      "sha256": "e96ed3e0d7c62757b8a8bd8b2119d9467e168ad3e2787629ac9ffe5d9b445bd6"
+    },
+    {
+      "file": "frame-39.png",
+      "pose": 39,
+      "frame": 10.5,
+      "angle_radians": 4.97418833,
+      "seconds": 141.075,
+      "sha256": "89ed2dd74669225edf9604493283186f8797dea58563f82ff949b6590f3eb62b"
+    },
+    {
+      "file": "frame-40.png",
+      "pose": 40,
+      "frame": 10.75,
+      "angle_radians": 5.10508823,
+      "seconds": 227.926,
+      "sha256": "4bffe1a1f197cbf9f1a9f985ac34437607f782990906f347dd0ba03439fe1215"
+    },
+    {
+      "file": "frame-41.png",
+      "pose": 41,
+      "frame": 11.0,
+      "angle_radians": 5.23598766,
+      "seconds": 213.857,
+      "sha256": "ca751f2ee1297ab89c51c3306b6db9ba1a0e5874c9ac058094dd47a3f437ae62"
+    },
+    {
+      "file": "frame-42.png",
+      "pose": 42,
+      "frame": 11.25,
+      "angle_radians": 5.36688757,
+      "seconds": 149.108,
+      "sha256": "ad91a9d5cda2af64b0c6098de5647a536fb3a8bec7594addf54425bbc5731597"
+    },
+    {
+      "file": "frame-43.png",
+      "pose": 43,
+      "frame": 11.5,
+      "angle_radians": 5.497787,
+      "seconds": 117.651,
+      "sha256": "2793a778cbe6048cc17de0d55f7ad2eb740f27082c4cb797675b82470dd9792d"
+    },
+    {
+      "file": "frame-44.png",
+      "pose": 44,
+      "frame": 11.75,
+      "angle_radians": 5.6286869,
+      "seconds": 111.854,
+      "sha256": "4665fccf7889bc0d3d445f7e27331d5467bea136bab70fd4ac6aba035b7e572e"
+    },
+    {
+      "file": "frame-45.png",
+      "pose": 45,
+      "frame": 12.0,
+      "angle_radians": 5.75958633,
+      "seconds": 102.178,
+      "sha256": "1d46a012ebbce34effc604607d519f08161e508c62478c9403cc11476e3703ed"
+    },
+    {
+      "file": "frame-46.png",
+      "pose": 46,
+      "frame": 12.25,
+      "angle_radians": 5.89048624,
+      "seconds": 100.233,
+      "sha256": "88acfc301568f11e34dad3ece83f55ab7bfda3c69ff90faa650487df57026120"
+    },
+    {
+      "file": "frame-47.png",
+      "pose": 47,
+      "frame": 12.5,
+      "angle_radians": 6.02138615,
+      "seconds": 104.607,
+      "sha256": "349b83c995b4db24c4e82f184ae26d658c1bc826bc1ae4009243cd5368c64d28"
+    },
+    {
+      "file": "frame-48.png",
+      "pose": 48,
+      "frame": 12.75,
+      "angle_radians": 6.15228558,
+      "seconds": 90.982,
+      "sha256": "5ecc3adbc7b407f0c367920441dfef35197994d2c4288371dbbea2429ea42b48"
     },
     {
       "file": "unlinked.png",
       "frame": 1,
-      "seconds": 75.019,
-      "sha256": "471935ca143dddff2f1119913b39067a7429613b0c2ddcad7cfa3fcff4643f99"
+      "seconds": 102.854,
+      "sha256": "2825004544ac4db7790d7f0e97ddd55dfee9951888ac95a6ac7a40ba9a613a38"
     }
   ],
   "tools": {
@@ -155,13 +474,13 @@
     "judge/grade.sh": "e9cf1409554684c3d2f6431310ff4ac5825c88a5ca6d7dc3792040ffacdf8cd1",
     "judge/selftest.sh": "3c602318fb072ab46751a644c5802665eec63cd310245da07fed28adab73d0d8",
     "judge/setup.sh": "5bce378cadc6e039ed34df4a079efa33459bb78abae09ce17ee5f144b2819f0b",
-    "media/render.py": "b147c8c6342d8eca91c95d885419573504ea0e5eba6056a343a34cf4150c51ea",
-    "media/compose.py": "188180ac22ce8c33c8fb278611e6993eba4ae2a28a1b1c8834407f394f8e6900",
-    "media/capture.py": "154ce22e2fa2e1fbd673d58e23d0c7fde95f866b1d6fab164730859f7568543f",
+    "media/render.py": "c556368ee94a92ac91afb30997a6483f03fa72715f613b25a71e2b6cb4e28ace",
+    "media/compose.py": "8608657e159b1879f87fb3e47ea0e3e17bcddb22790ffcc66933c29b13ca6495",
+    "media/capture.py": "bf710ce845db7e25167708ba0a094d4c61d9ff262eb20c4bde125feb38f40661",
     "media/make_media.sh": "dc96881b01631c43a89d4a8e29af265e79036549c536bea95b9e518cc3bd6112",
-    "media/data/selftest.json": "932182d49b2c019e4e3f4ca46da6bbd30ebfe875af71b43fd613e5b29f4b0799",
-    "media/data/transfers.json": "e4b6d2df59d309fe5ef676bb5139d99e79eac12a8d9a3251fdc071a8c18c8a6c",
-    "media/data/capture.json": "f65eea24c9b28fbbdeae48db39a34606f56b84ddd88595c4b31619f407e792ed"
+    "media/data/selftest.json": "c87be7fa940c0a6bdbf4b1e5b08de93c3a3e026489ffc91ec0035c6ca42df845",
+    "media/data/transfers.json": "d6aa30205a632d2a076caa93597c7034cecd7e315a769d20d30427e3635c6e51",
+    "media/data/capture.json": "27f67210aee357bf34d6595d2d8acacc413f448caccc2c021270f0b500d02fa1"
   },
   "media_reproducibility": "Regenerate the complete frame set in one sandbox run. Source sha256s identify this capture, not guaranteed byte-identical future PNGs. The judge requires identical verdict JSON excluding timing."
 }
