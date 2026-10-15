@@ -100,17 +100,20 @@ def fail_metric(gate, det):
         return (f"viol={det.get('drc_violations', 0)}\n"
                 f"unconn={det.get('drc_unconnected_items', 0)}")
     if gate == "G3_netlist":
-        bits = []
-        if det.get("only_in_sch"):
-            bits.append("sch:" + ",".join(det["only_in_sch"]))
-        if det.get("only_in_pcb"):
-            bits.append("pcb:" + ",".join(det["only_in_pcb"]))
-        if det.get("member_mismatch"):
-            bits.append("members\n" + ",".join(det["member_mismatch"]))
-        if det.get("floating_pins"):
-            bits.append(f"float={det['floating_pins']}")
+        top = []
+        if det.get("only_in_sch") or det.get("only_in_pcb"):
+            top.append(f"nets sch+{len(det.get('only_in_sch') or [])}"
+                       f"/pcb+{len(det.get('only_in_pcb') or [])}")
         if det.get("unrouted_items"):
-            bits.append(f"unrouted={det['unrouted_items']}")
+            top.append(f"unrouted={det['unrouted_items']}")
+        bits = [" ".join(top)] if top else []
+        low = []
+        if det.get("member_mismatch"):
+            low.append("pins: " + ",".join(list(det["member_mismatch"])[:3]))
+        if det.get("floating_pins"):
+            low.append(f"float={det['floating_pins']}")
+        if low:
+            bits.append(" ".join(low))
         return "\n".join(bits) if bits else "nets differ"
     if gate == "G4_outline":
         return f"open={det.get('open_endpoints', '?')}\nclosed={det.get('closed')}"

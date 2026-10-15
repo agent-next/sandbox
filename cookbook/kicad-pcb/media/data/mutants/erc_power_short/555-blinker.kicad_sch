@@ -1773,7 +1773,7 @@
   )
     (wire (pts (xy 54.61 80.01) (xy 54.61 82.55))
     (stroke (width 0) (type solid))
-    (uuid e7b512f3-e1be-4fb7-b77f-f6a4b1f85362)
+    (uuid f90debc6-dcc9-4939-af46-61e1d2cbaa13)
   )
 (sheet_instances
     (path "/" (page "1"))
