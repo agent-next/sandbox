@@ -39,10 +39,11 @@ def main():
         "loop.png": "Pillow config-fixing replay of two measured bad grades and the "
                     "good grade (explicitly not a live agent trace), all six final "
                     "gates and the 8/8 self-test kill rate.",
-        "demo.mp4": "26 s simulator-native MuJoCo CPU reference replay of world 0; "
-                    "native 3D camera orbits of the arm reaching and eight boxes "
-                    "falling/settling; single, 2x2 and 4x4 animated identical-world "
-                    "replays; measured ladder reveal; moving PASS/kill-matrix HUD; "
+        "demo.mp4": "30 s native MuJoCo renders of CPU reference and retained GPU "
+                    "world-0 states; matched-clock CPU/GPU comparison with measured "
+                    "common-scale throughput bars; spatial 1/4/16/64-instance grids "
+                    "with honest identical-start captions, depth and moving cameras; "
+                    "plain-English rejection HUD over real moving simulation; "
                     "static launch frame only in the last 2 s.",
     }
     manifest = {
@@ -54,11 +55,13 @@ def main():
         "render_backend": "mujoco.Renderer; EGL preferred, OSMesa fallback",
         "state_checks": "All CPU states re-run with judge cpu_reference; graded CPU "
                         "oracle within 1e-9; every rendered qpos within 1e-9 of the "
-                        "CPU data; retained float32 GPU samples within judge tolerance 0.05.",
-        "video": {"width": 1920, "height": 1080, "fps": 30, "seconds": 26,
+                        "CPU data or exact retained GPU samples; translated grid "
+                        "instances preserve every pose; retained float32 GPU samples "
+                        "within judge tolerance 0.05.",
+        "video": {"width": 1920, "height": 1080, "fps": 30, "seconds": 30,
                   "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p "
-                                "-maxrate 2100k -bufsize 2100k -movflags +faststart",
-                  "simulator_clips": "media/clips/shot-00.mp4 through shot-09.mp4 "
+                                "-maxrate 1900k -bufsize 1900k -movflags +faststart",
+                  "simulator_clips": "media/clips/shot-00.mp4 through shot-11.mp4 "
                                      "(lossless, git-ignored; concatenated into master)",
                   "lossless_master": "media/master/demo.mp4 (-crf 0, git-ignored)"},
         "outputs": {},

@@ -1,30 +1,48 @@
-# MuJoCo replay storyboard
+# MuJoCo replay storyboard, panel recut
 
 Every shot uses `mujoco.Renderer`, the good config's CPU reference states,
-and Pillow captions. No interpolated poses or randomized worlds.
+retained GPU states where labelled, and Pillow captions. No interpolated
+poses, randomized worlds, or altered physics. Planned before rendering.
 Throughput and mutant outcomes are from the 2026-10-15 acceptance run,
 seed 0 (`data/report.json`, command `python3 run.py --ref sbx/sweep-r4 --gpu`).
 
 | Time | Real rendered content | Caption / evidence |
 |---|---|---|
-| 0–2 s | Camera orbits the finished arm pose and eight landed boxes, lit floor and shadows | 686,725 steps/s; physics PASS; 25.8× CPU |
-| 2–8 s | Full-scene orbit, arm moving toward its joint target while boxes fall | CPU reference replay of world 0; 7.5× slow; exact dt and solver |
-| 8–11 s | Opposite-angle elevated close-up orbit of falling boxes and table contact | 3.75× slow; measured CPU resting box z vs tunnelling bound |
-| 11–13 s | Single reference replay with orbit, first ladder endpoint | nworld 1; measured endpoint; count-up is a reveal, not a live meter |
-| 13–15 s | Cut to 2×2 animated reference replays from another angle | nworld 64; identical initial states; repeated tiles; 2.5× slow |
-| 15–17 s | Cut to 4×4 animated reference replays | nworld 512; measured endpoint; repeated tiles; 2.5× slow |
-| 17–19 s | Opposite-angle contact close-ups in all sixteen animated tiles | nworld 2048; measured endpoint; repeated tiles; 2.5× slow |
-| 19–21 s | Wide-angle orbit in all sixteen animated tiles | nworld 8192; measured endpoint; repeated tiles; 2.5× slow |
-| 21–24 s | Full-scene orbit and replay with judge proof HUD and mutant kill matrix | GPU 686,725 vs CPU 26,574; 25.8×; floor 4×; parity 0.00811 < 0.05 rad; 8/8 killed |
-| 24–26 s | Static real rendered finished scene, launch command | `python3 run.py --gpu`; CPU reference replay; 4 GiB RTX 5090 slice |
+| 0–2 s | Close native 3D orbit of finished arm and landed boxes, studio lighting | 25.8× CPU; 686,725 steps/s; physics PASS |
+| 2–6 s | Arm reaches while eight coloured boxes fall; smooth wider orbit | Reach. Drop. Settle.; one physics step = 0.001 s; 5× slow |
+| 6–9 s | Elevated opposite-angle contact close-up, real falling and landing | All eight boxes land; 0.315 m measured box centre, > 0.255 m required; 3.75× slow |
+| 9–14 s | Side-by-side real CPU reference and retained GPU world-0 poses, matched camera motion | Same physics. 25.8× the throughput.; 26,574 vs 686,725 steps/s; common-scale measured bars; both 6.25× slow |
+| 14–16 s | One real reference world, native orbit | 1 world; 134 steps/s |
+| 16–18 s | Four spatially instanced reference worlds, lit in one 3D scene | 64 worlds measured; 4 shown; same config, same start |
+| 18–20 s | Sixteen instanced worlds with perspective, shadows and depth | 512 worlds measured; 16 shown; same config, same start |
+| 20–22 s | Sixty-four instanced worlds, sweeping overhead camera | 2,048 worlds measured; 64 shown; same config, same start |
+| 22–24 s | Low diagonal fly-over of the same 64-world grid | 8,192 worlds measured; 686,725 steps/s; 64 shown |
+| 24–26 s | Moving real replay beside four plain-English rejected-config labels | 8 broken configs. All rejected.; fake results, flipped gravity, missing contact limit, too-small timestep |
+| 26–28 s | Opposite-angle moving replay beside remaining four rejection labels | Stops too soon, weak solver, contact overflow, out of memory; all six checks PASS; measured CPU/GPU agreement |
+| 28–30 s | Static finished real render, no motion | `python3 run.py --gpu`; 25.8× CPU; 4 GiB RTX 5090 slice |
 
-The GPU worlds are initialized identically in `judge/_sweep.py`; tiling
-represents scale, not sixteen separately measured or varied trajectories.
-Each tile advances through the real trajectory; the shared render is reused
-because every world has the same initial state. Camera movement is a native
-3D orbit, not a pan/zoom over a still. Slow-motion factors describe the
+The GPU worlds are initialized identically in `judge/_sweep.py`. Grid
+instances use the exact verified CPU pose, translated only for display,
+in one native 3D render with perspective and shadows. They represent scale,
+not varied trajectories or separately retained recordings. No state is
+randomized. Ladder values are fixed measured endpoints, not live meters.
+The infinite collision plane's drawing extent is enlarged for the grid;
+its location, orientation and collision physics do not change. Render-only
+shadow coverage expands to encompass the instances. Matte floor materials
+avoid distracting reflections. Light studio task/contact/overhead views
+contrast with the dark hero, comparison and final grid.
+The comparison uses the 201 actual retained GPU samples from the first
+ladder point (one world), explicitly labelled “GPU 1-world recording”.
+The GPU bar separately shows the measured 8,192-world aggregate rate,
+not a claim that the retained poses came from that ladder point.
+Nearest GPU samples (no interpolation) and the CPU reference share one
+replay clock, not throughput-scaled motion. GPU sample i is one physics step after CPU i,
+as in the judge. Bars compare aggregate world-steps/s, not single-world speed.
+Camera movement is native 3D, not a pan/zoom over a still.
+Slow-motion factors describe the
 replayed 0.800 s trajectory; camera time is independent of simulation time.
 `data/cpu-qpos.npy` is regenerated by the judge's own `cpu_reference`.
 `render.py` verifies every retained CPU state against a fresh reference,
-each frame against that data at 1e-9, and the reference against retained
+each CPU frame against that data at 1e-9, each GPU frame against the exact
+retained GPU sample at 1e-9, and the reference against retained
 GPU samples at the judge's 0.05 parity tolerance.

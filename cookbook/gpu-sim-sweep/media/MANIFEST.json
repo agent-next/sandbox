@@ -4,16 +4,16 @@
   "measurement_date": "2026-10-15",
   "outputs": {
     "demo.mp4": {
-      "bytes": 6471097,
+      "bytes": 6640581,
       "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
-      "sha256": "e5d616c2d80f1e4adc632046f3898148367c74ea0a12aefbb9cf6dc0256cf6d0",
+      "sha256": "e05581b55e406ea2e25d5d431516aed5cbaa207a4252837d42945c09bae3fd86",
       "source_data": [
         "media/data/report.json",
         "media/data/cpu-qpos.npy",
         "media/data/model.xml",
         "media/data/loop.json"
       ],
-      "what": "26 s simulator-native MuJoCo CPU reference replay of world 0; native 3D camera orbits of the arm reaching and eight boxes falling/settling; single, 2x2 and 4x4 animated identical-world replays; measured ladder reveal; moving PASS/kill-matrix HUD; static launch frame only in the last 2 s."
+      "what": "30 s native MuJoCo renders of CPU reference and retained GPU world-0 states; matched-clock CPU/GPU comparison with measured common-scale throughput bars; spatial 1/4/16/64-instance grids with honest identical-start captions, depth and moving cameras; plain-English rejection HUD over real moving simulation; static launch frame only in the last 2 s."
     },
     "loop.png": {
       "bytes": 203144,
@@ -28,9 +28,9 @@
       "what": "Pillow config-fixing replay of two measured bad grades and the good grade (explicitly not a live agent trace), all six final gates and the 8/8 self-test kill rate."
     },
     "result.png": {
-      "bytes": 932867,
+      "bytes": 830960,
       "command": "bash cookbook/gpu-sim-sweep/media/make_media.sh",
-      "sha256": "f7af1df44a84eea658dab3ffe7523a2a4991ff28c5bf6c96066f553a4fe4048f",
+      "sha256": "744c5c6a4f14a589a5e635a2ba464fcf7cb2cbe03cd0976f6b57d0b893a97412",
       "source_data": [
         "media/data/report.json",
         "media/data/cpu-qpos.npy",
@@ -54,20 +54,20 @@
     "media/data/replay.json": "44021fdb82e4991c562316d70998e850c175749e1198923cf5e268bfac7bbe57",
     "media/data/report.json": "e5e9c9b39371c809e6aa91fc2bcbf5b53ab1df0a3b063953fe59846d5357bd26",
     "media/evidence.py": "4686295f7bd2349109116d6ea3d19d8c3422e35499bd30b30f997bc23c139e2f",
-    "media/make_media.sh": "e277a392da3e4b80994cfd3bd1c4412c68f771cb786ac640373409f5613e0491",
-    "media/manifest.py": "dffa1c77d4d72b3841bc922ccceca282a442faff47454c115c7500d0650a93e3",
-    "media/render.py": "d0493437fd3c6b81dc4ee246b19cb403e6b72f130902a38dc5a13e4506e5ef92",
+    "media/make_media.sh": "ee1dc36c4afc60c2c6fc166480c7cae4b5262aa9afd3427f158cb659e313a685",
+    "media/manifest.py": "b5ea2c543169093f48fbd0be7676ff6ec08c687b359786241a6a5d79ae0018ea",
+    "media/render.py": "7260739c818ae0b5252a373b7725db1353d971a984083f27d2efa49befcc2bca",
     "media/requirements.txt": "76a8e7ab75315d6fdb5ddfefb6bed31c5e02408dc7aa68fe5972131969b69c66",
-    "media/test_media.py": "1e3cc516e3d9e7688b6f186f7fb6c1a6db549edb2b872bd015647bdfc3fdaa3c"
+    "media/test_media.py": "1b10a1293d3845f37fd31e7564340baae866d89b20361cbd62b6d527241aea8a"
   },
-  "state_checks": "All CPU states re-run with judge cpu_reference; graded CPU oracle within 1e-9; every rendered qpos within 1e-9 of the CPU data; retained float32 GPU samples within judge tolerance 0.05.",
+  "state_checks": "All CPU states re-run with judge cpu_reference; graded CPU oracle within 1e-9; every rendered qpos within 1e-9 of the CPU data or exact retained GPU samples; translated grid instances preserve every pose; retained float32 GPU samples within judge tolerance 0.05.",
   "video": {
     "fps": 30,
     "height": 1080,
     "lossless_master": "media/master/demo.mp4 (-crf 0, git-ignored)",
-    "seconds": 26,
-    "simulator_clips": "media/clips/shot-00.mp4 through shot-09.mp4 (lossless, git-ignored; concatenated into master)",
-    "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -maxrate 2100k -bufsize 2100k -movflags +faststart",
+    "seconds": 30,
+    "simulator_clips": "media/clips/shot-00.mp4 through shot-11.mp4 (lossless, git-ignored; concatenated into master)",
+    "web_encode": "-crf 18 -preset slow -pix_fmt yuv420p -maxrate 1900k -bufsize 1900k -movflags +faststart",
     "width": 1920
   }
 }

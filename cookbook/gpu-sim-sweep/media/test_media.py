@@ -2,6 +2,7 @@
 
 import ast
 import copy
+import inspect
 import json
 from pathlib import Path
 import subprocess
@@ -93,6 +94,10 @@ class MediaTests(unittest.TestCase):
         visual.geom_friction[0, 0] += .1
         with self.assertRaisesRegex(AssertionError, "physics geom_friction"):
             render.assert_physics(original, visual)
+        visual = render.visual_model(xml)
+        visual.geom_size[1, 0] += .1
+        with self.assertRaisesRegex(AssertionError, "physics geom_size"):
+            render.assert_physics(original, visual)
 
     def test_camera_orbit_changes_view_without_changing_pose(self):
         replay = render.Replay()
@@ -102,26 +107,87 @@ class MediaTests(unittest.TestCase):
             self.assertGreater(np.mean(np.abs(first.astype(float) - second)), 5,
                                "Native 3D orbit must change the rendered view")
             np.testing.assert_array_equal(replay.data.qpos, replay.expected[200])
+            render.assert_physics(replay.original, replay.model)
             replay.states[200, 7] += .01
             with self.assertRaisesRegex(AssertionError, "rendered-state mismatch"):
                 replay.frame(200, azimuth=160)
         finally:
             replay.close()
 
-    def test_tiles_advance_the_verified_reference_replay(self):
+    def test_grid_instances_real_poses_in_one_perspective_scene(self):
+        self.assertIn("side", inspect.signature(render.Replay.frame).parameters,
+                      "Scale shot must render spatial instances, not a flat repeated tile")
         replay = render.Replay()
         try:
-            first = render.tiled_frame(replay, 0, 4, azimuth=115)
-            second = render.tiled_frame(replay, 200, 4, azimuth=115)
+            replay.frame(200)
+            original = replay.renderer.scene
+            count = original.ngeom
+            geoms = [i for i in range(count)
+                     if original.geoms[i].type != render.mujoco.mjtGeom.mjGEOM_PLANE]
+            positions = np.array([original.geoms[i].pos.copy() for i in geoms])
+            first = replay.frame(0, side=4, azimuth=115)
+            second = replay.frame(200, side=4, azimuth=115)
             self.assertNotEqual(first.tobytes(), second.tobytes(),
-                                "Tiles must animate the real arm and falling boxes")
+                                "Grid must animate the real arm and falling boxes")
+            view = replay.renderer.scene
+            self.assertEqual(view.ngeom, count + 15 * len(geoms))
+            self.assertGreaterEqual(replay.renderer._mjr_context.shadowClip, 12,
+                                    "Shadow coverage must include display instances")
+            np.testing.assert_allclose(
+                [view.geoms[i].pos for i in geoms], positions + [-2.775, -2.775, 0],
+                atol=1e-6)
+            for instance in range(1, 16):
+                row, col = divmod(instance, 4)
+                offset = np.array([col * 1.85 - 2.775, row * 1.85 - 2.775, 0])
+                for j, i in enumerate(geoms):
+                    dest = view.geoms[count + (instance - 1) * len(geoms) + j]
+                    np.testing.assert_allclose(dest.pos, positions[j] + offset, atol=1e-6)
+                    np.testing.assert_array_equal(dest.mat, view.geoms[i].mat)
             np.testing.assert_array_equal(replay.data.qpos, replay.expected[200])
-            np.testing.assert_array_equal(np.asarray(second)[150:330, 320:640],
-                                          np.asarray(second)[330:510, 640:960])
-            np.testing.assert_array_equal(np.asarray(second)[:140], np.asarray(first)[:140])
-            np.testing.assert_array_equal(np.asarray(second)[910:], np.asarray(first)[910:])
+            replay.states[200, 7] += .01
+            with self.assertRaisesRegex(AssertionError, "rendered-state mismatch"):
+                replay.frame(200, side=8)
         finally:
             replay.close()
+
+    def test_comparison_uses_recorded_gpu_states_and_measured_bars(self):
+        self.assertIn("gpu", inspect.signature(render.Replay.frame).parameters,
+                      "Comparison must render the retained GPU trajectory")
+        replay = render.Replay()
+        try:
+            recorded = np.asarray(replay.report["good"]["world0_traj"]["traj"])
+            image = render.comparison(replay, 200, 1)
+            self.assertEqual(image.size, (1920, 1080))
+            np.testing.assert_array_equal(replay.data.qpos, recorded[50])
+            pixels = np.asarray(image)
+            np.testing.assert_array_equal(pixels[965, 80], [255, 193, 123])
+            np.testing.assert_array_equal(pixels[965, 200], [43, 58, 77])
+            np.testing.assert_array_equal(pixels[965, 1800], [101, 216, 236])
+            replay.gpu_states[50, 7] += .01
+            with self.assertRaisesRegex(AssertionError, "rendered-state mismatch"):
+                render.comparison(replay, 200, 1)
+        finally:
+            replay.close()
+
+    def test_plain_english_rejections_cover_every_real_mutant(self):
+        self.assertTrue(hasattr(render, "BROKEN"),
+                        "Proof must explain rejected configs in plain English")
+        self.assertEqual({name for name, _ in render.BROKEN},
+                         set(evidence.load_report()["mutants"]))
+        for name, plain in render.BROKEN:
+            self.assertNotIn("_", plain)
+            self.assertNotEqual(name, plain)
+
+    def test_primary_caption_cap_height_and_bright_scene_contrast(self):
+        box = render.font(60, True).getbbox("H")
+        self.assertGreaterEqual(box[3] - box[1], render.H * .04)
+        image = render.hud(Image.new("RGB", (render.W, render.H), "white"),
+                           "Primary caption", "Provenance", "Measured result", "Source")
+        pixels = np.asarray(image)
+        self.assertLess(pixels[915, 1800].mean(), 50,
+                        "Footer needs a dark backing even over a white studio floor")
+        self.assertLess(pixels[125, 1800].mean(), 50,
+                        "Secondary caption needs contrast over a white scene")
 
     def test_cookbook_video_gate(self):
         gate = HERE.parents[1] / "tools/video_gate.py"
@@ -163,8 +229,8 @@ class MediaTests(unittest.TestCase):
         stream = probe["streams"][0]
         self.assertEqual((stream["codec_name"], stream["width"], stream["height"],
                           stream["r_frame_rate"], stream["pix_fmt"], int(stream["nb_frames"])),
-                         ("h264", 1920, 1080, "30/1", "yuv420p", 780))
-        self.assertEqual(float(probe["format"]["duration"]), 26)
+                         ("h264", 1920, 1080, "30/1", "yuv420p", 900))
+        self.assertEqual(float(probe["format"]["duration"]), 30)
         self.assertLess(int(probe["format"]["size"]), 8_000_000)
         self.assertIn(b"qp=0", (HERE / "master/demo.mp4").read_bytes()[:10000])
         raw = (HERE / "demo.mp4").read_bytes()

@@ -29,7 +29,7 @@ echo "== MuJoCo 3D clips ($MUJOCO_GL), Pillow overlays, lossless master cut =="
 echo "== H.264 web encode from crf 0 master =="
 ffmpeg -y -v error -i "$MEDIA/master/demo.mp4" -an \
     -c:v libx264 -threads 2 -crf 18 -preset slow -pix_fmt yuv420p \
-    -maxrate 2100k -bufsize 2100k \
+    -maxrate 1900k -bufsize 1900k \
     -movflags +faststart -map_metadata -1 "$MEDIA/demo.mp4"
 "$PY" "$MEDIA/manifest.py"
 "$PY" -m unittest discover -s "$MEDIA" -p test_media.py -v

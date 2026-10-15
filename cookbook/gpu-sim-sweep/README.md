@@ -121,14 +121,20 @@ its own judge. A judge crash exits 2; a graded failure exits 1.
 
 ![Recorded config-fixing replay using real judge verdicts, final gate results and 8/8 self-test kills](media/loop.png)
 
-**[Watch the 3D replay](media/demo.mp4)**, 26 s, 1920×1080 at 30 fps:
+**[Watch the 3D replay](media/demo.mp4)**, 30 s, 1920×1080 at 30 fps:
 the arm reaches its joint target and eight boxes fall and settle, rendered
 by MuJoCo's own offscreen renderer with textures, lights and shadows.
 Native 3D camera orbits keep the scene moving, including the opening result
-and judge proof. The scale view cuts from one world to 2×2 and 4×4 animated
-replays, repeating the reference world honestly: the judge initializes
-every GPU world identically. Its count-up reveals measured endpoints, not
-a live performance meter. Only the final two-second launch frame is static.
+and judge proof. A side-by-side CPU/GPU replay shows the actual retained
+GPU world-0 states beside the CPU reference. Common-scale bars compare
+measured aggregate throughput; replay clocks match, not throughput-scaled
+motion. The scale view grows from one world to 4, 16 and 64 spatial
+instances in a single lit 3D scene, with depth and shadows. These repeat
+the reference pose honestly: the judge initializes every GPU world
+identically. Captions say “same config, same start”; fixed ladder numbers
+are measured endpoints, not a live performance meter. Plain-English
+labels explain all eight rejected configs. Only the final two-second
+launch frame is static.
 
 The 2026-10-15 acceptance run (`python3 run.py --ref sbx/sweep-r4 --gpu`,
 seed 0, 383 s) measured **686,725 steps/s at nworld 8192 vs 26,574 CPU,
@@ -136,13 +142,17 @@ seed 0, 383 s) measured **686,725 steps/s at nworld 8192 vs 26,574 CPU,
 on a 4 GiB RTX 5090 slice. The ladder was 134 / 10,785 / 77,008 / 248,064 /
 686,725 steps/s; cold Warp compile was 104.945 s.
 
-Frames are labelled **“MuJoCo CPU reference replay of world 0”**, not GPU
-renders. The exact config, timestep, initial state and controls are replayed
+Frames are labelled **“CPU reference”**, except the comparison's explicitly
+labelled **“GPU 1-world recording”** view (the first ladder point; its
+throughput bar separately represents the measured 8,192-world endpoint).
+The exact config, timestep, initial state and controls are replayed
 through the judge's `cpu_reference`; its measured CPU oracle must match
-within 1e-9. Every rendered pose must match the CPU data within 1e-9.
-Retained GPU samples are checked at the judge's 0.05 parity tolerance,
-not claimed equal to CPU floating-point states. `loop.png` is an explicitly
-labelled config-fixing replay of two real mutant verdicts and the good
+within 1e-9. Every CPU-rendered pose must match the CPU data within 1e-9.
+The comparison renders the exact retained GPU samples without pose
+interpolation, asserting each GPU-rendered pose against those samples
+within 1e-9. Their parity with CPU is checked at the judge's 0.05
+tolerance, not claimed equal to CPU floating-point states. `loop.png` is
+an explicitly labelled config-fixing replay of two real mutant verdicts and the good
 verdict, not an invented live agent history.
 
 Regenerate without a lease (Python 3.11+, ffmpeg/ffprobe, DejaVu fonts,
@@ -154,7 +164,7 @@ bash cookbook/gpu-sim-sweep/media/make_media.sh
 
 The script installs the pinned MuJoCo/Pillow media dependencies, replays and
 checks the physics, renders every frame into lossless simulator clips,
-cuts them into a git-ignored lossless master, encodes H.264 (CRF 18 with a 2.1 Mbit/s
+cuts them into a git-ignored lossless master, encodes H.264 (CRF 18 with a 1.9 Mbit/s
 ceiling to stay below 8 MB), and runs the media tests. Source measurements:
 [`media/data/report.json`](media/data/report.json). Provenance and visual
 inspection: [MANIFEST.json](media/MANIFEST.json), [STORYBOARD.md](media/STORYBOARD.md),
