@@ -143,6 +143,21 @@ def parse_counts(output: str) -> dict:
     return counts
 
 
+NODEID_RE = re.compile(r"^(?:FAILED|ERROR) (\S+)")
+
+
+def parse_nodeids(output: str) -> list[str]:
+    """The failing/erroring test ids, from pytest's short summary.
+
+    Only names go in the verdict: pytest's own output carries wall-clock
+    times and, for a timing-dependent failure, the observed value -- neither
+    is reproducible, and the SPEC requires a byte-identical verdict.
+    """
+    return sorted({m.group(1) for m in
+                   (NODEID_RE.match(line) for line in output.splitlines())
+                   if m})
+
+
 def run_test(python: Path, tree: Path, test_file: Path) -> dict:
     """Run one reviewer test module inside ``tree`` and report the counts."""
     dest = tree / "tests" / test_file.name
@@ -156,11 +171,12 @@ def run_test(python: Path, tree: Path, test_file: Path) -> dict:
          str(dest.relative_to(tree))],
         cwd=tree, env=env, capture_output=True, text=True, timeout=300,
     )
-    tail = (proc.stdout or "") + (proc.stderr or "")
+    output = (proc.stdout or "") + (proc.stderr or "")
     return {
         "exit_code": proc.returncode,
-        "counts": parse_counts(tail),
-        "output_tail": "\n".join(tail.strip().splitlines()[-12:]),
+        "counts": parse_counts(output),
+        "failed_tests": parse_nodeids(output),
+        "output": output,
     }
 
 
@@ -274,13 +290,14 @@ def false_positives(reviews: dict[int, list[dict]], oracle: dict) -> dict:
             "clean_prs": oracle["clean_prs"]}
 
 
-def grade(artifact: Path, seed: int) -> dict:
+def grade(artifact: Path, seed: int) -> tuple[dict, dict[tuple[int, str], str]]:
     started = time.monotonic()
     oracle = read_oracle()
     python = pytest_python()
 
     gates: dict[str, dict] = {}
     timing: dict[str, float] = {}
+    raw: dict[tuple[int, str], str] = {}
     tmp = Path(tempfile.mkdtemp(prefix="pr-review-grade-"))
     try:
         trees = tmp / "trees"
@@ -354,14 +371,13 @@ def grade(artifact: Path, seed: int) -> dict:
                     "pr": pr,
                     "buggy_exit": buggy["exit_code"],
                     "buggy_counts": buggy["counts"],
+                    "buggy_failed_tests": buggy["failed_tests"],
                     "fixed_exit": fixed_run["exit_code"],
                     "fixed_counts": fixed_run["counts"],
+                    "fixed_failed_tests": fixed_run["failed_tests"],
                 }
-                if pr in defect_prs:
-                    per_pr[pr]["buggy_output_tail"] = buggy["output_tail"]
-                    if not (buggy["exit_code"] == PYTEST_TESTS_FAILED
-                            and buggy["counts"]["failed"] >= 1):
-                        per_pr[pr]["fixed_output_tail"] = fixed_run["output_tail"]
+                raw[(pr, "buggy")] = buggy["output"]
+                raw[(pr, "fixed")] = fixed_run["output"]
             timing["g4_g5_pytest_s"] = round(time.monotonic() - t0, 3)
 
             g4_fail = [
@@ -425,7 +441,7 @@ def grade(artifact: Path, seed: int) -> dict:
         "timing": timing,
         "tool": {"pytest_python": str(python),
                  "python": sys.version.split()[0]},
-    }
+    }, raw
 
 
 def main() -> int:
@@ -443,12 +459,23 @@ def main() -> int:
                          indent=2))
         return 1
     try:
-        verdict = grade(artifact, args.seed)
+        verdict, raw = grade(artifact, args.seed)
     except JudgeError as exc:
         print(json.dumps({"artifact": str(artifact), "passed": False,
                           "failed_gate": "judge_error", "reason": str(exc)},
                          indent=2))
         return 1
+    # The verdict on stdout is deterministic; pytest's own output (which
+    # carries wall-clock times and observed values) goes to stderr, so a
+    # human can still see *why* a gate failed without polluting the JSON.
+    for (pr, side), output in sorted(raw.items()):
+        if not output.strip():
+            continue
+        keep = [line for line in output.splitlines()
+                if line.startswith(("FAILED", "ERROR"))]
+        if keep:
+            print(f"grade: PR {pr} {side} tree -- {'; '.join(keep)}",
+                  file=sys.stderr)
     text = json.dumps(verdict, indent=2, sort_keys=False)
     print(text)
     if args.json:
