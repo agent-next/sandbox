@@ -41,6 +41,7 @@ read from the environment.
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |
 | `sbx runners image` | Bake a GitHub Actions runner snapshot (runner + Docker) and print its id. |
 | `sbx runners serve ...` | Serve GitHub Actions jobs from a warm pool of disposable sandboxes (see below). |
+| `sbx runners debug JOB [--exec CMD]` | Restore a failed job's snapshot and print access commands. `--list` lists retained jobs; `--delete JOB` deletes a snapshot. |
 
 Environment: `E2B_API_KEY` (or `SBX_API_KEY`) is required. `E2B_DOMAIN`
 defaults to `sbx.agent-next.com`.
@@ -108,6 +109,11 @@ Idle runners are recycled after `--idle-min`; other than confirmed cancellations
 a runner GitHub reports busy is never removed. Ctrl-C (or SIGTERM) deregisters
 the idle runners and lets busy ones finish; a second Ctrl-C kills the busy ones
 too. Every event is one JSON line on stdout.
+
+Add `--keep-failed` to retain snapshots of failed jobs (default cap five,
+or `--keep-failed=N`). Resume one with `sbx runners debug JOB --exec CMD`.
+See [Debug a failed job](../cookbook/github-ci-runners/README.md#debug-a-failed-job)
+for retention, cleanup and local state details.
 
 With `--webhook-port PORT` (and `GH_WEBHOOK_SECRET`), `serve` also takes
 GitHub `workflow_job` webhooks: point an org or repo webhook (content type
