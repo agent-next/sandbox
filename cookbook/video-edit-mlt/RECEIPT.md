@@ -476,5 +476,7 @@ the ignored lossless master were removed with their disposable sandboxes.
 - Post-receipt robustness fixes parse silent audio's `-inf` true peak
   without crashing and checksum every judge file, including bytecode.
   These add three unit tests without changing the good edit's numbers.
-- Independent reproduction and two-family blind video review remain
-  explicitly unperformed in REPRODUCE.md and media/REVIEW.json.
+- The runs above predate the last judge fixes (`e54f77ae`). Two further
+  fresh runs at `5ef90b8c`, by an independent reproducer, passed in
+  322.5 and 323.0 s with the same verdict numbers (REPRODUCE.md). The blind
+  review panel is recorded in media/REVIEW.json.

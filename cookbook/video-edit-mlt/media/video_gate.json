@@ -47,25 +47,25 @@
     },
     {
       "name": "size_mib",
-      "measured": 1.7933,
+      "measured": 1.791,
       "threshold": "<= 8 MiB",
       "pass": true
     },
     {
       "name": "faststart",
-      "measured": "moov@32 mdat@16152",
+      "measured": "moov@32 mdat@16336",
       "threshold": "moov atom before mdat",
       "pass": true
     },
     {
       "name": "first_frame_luma_mean",
-      "measured": 93.3114,
+      "measured": 83.5941,
       "threshold": ">= 20",
       "pass": true
     },
     {
       "name": "first_frame_luma_std",
-      "measured": 49.2037,
+      "measured": 63.8422,
       "threshold": ">= 12",
       "pass": true
     },

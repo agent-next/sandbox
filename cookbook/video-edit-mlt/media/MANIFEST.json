@@ -43,7 +43,7 @@
   },
   "demo.mp4": {
     "command": "bash cookbook/video-edit-mlt/media/make_media.sh",
-    "sha256": "debb45e9d504cd598dbfe2fd8814ab9ca49214494e6c5248c8f4f7d7ee0611ce",
+    "sha256": "73af2f6471c144f20f2c8b0814ad684650a9e3b8b679c30ee4dd43b6c7daed7d",
     "shows": "44-second storyboard with real rendered edit",
     "source": "data/render.mp4 + data/frames.json + data/run.log"
   },
@@ -55,7 +55,7 @@
   },
   "result.json": {
     "command": "bash cookbook/video-edit-mlt/media/make_media.sh",
-    "sha256": "5f94a4a185be82dd9e6aefdb9ce41dee7c8faf0773cfb9bebc9b273467aebe87",
+    "sha256": "2bf0df0100f6e2e02fef32e2b90f412e8001b9bea504045783ea1ef234162950",
     "shows": "Result card from grade output",
     "source": "data/verdict.json + data/selftest.json"
   },
@@ -67,7 +67,7 @@
   },
   "video_gate.json": {
     "command": "bash cookbook/video-edit-mlt/media/make_media.sh",
-    "sha256": "44e40843f4f38e49b0e9ab2cd6f9d8c532cfecbcb1e28eeedaa3c9626c3cea7f",
+    "sha256": "55a13e4eff57f1d3879cd5dd0d57842d56eb86ed9aa31d69c6c32a3f6fcdcc96",
     "shows": "Mechanical video checks",
     "source": "demo.mp4"
   }
