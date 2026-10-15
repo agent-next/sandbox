@@ -32,6 +32,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -48,8 +49,10 @@ LOAD_INCREASE_MAX = 4.0
 PROC_DELTA_MAX = 32
 MEM_RETAINED_MIN = 0.50
 WALL_TOLERANCE = 2.5         # multiple of the policy wall clock
+WALL_EARLY_FRAC = 0.8        # a CPU spinner must stop before this fraction
 CAP_TOLERANCE = 1.05         # multiple of the policy output cap
 FSIZE_TOLERANCE = 1.10       # multiple of the policy file-size limit
+NPROC_PEAK_MULT = 2.0        # multiple of the policy process cap
 CPU_BOUNDED_MAX_S = 2.0
 
 VERDICTS = ("ok", "killed", "denied", "timeout", "error")
@@ -58,7 +61,7 @@ REQUIRED_KEYS = ("snippet", "verdict", "reason", "exit_code", "signal",
 # `perm` is the runner's own name for a permission refusal; the judge decides
 # from the effect which of read/write it was, so both spellings are accepted.
 CONTAIN_REASON = {
-    "fork_bomb": ("killed", "denied"),
+    "fork_bomb": ("killed", "denied", "timeout"),
     "memory_balloon": ("killed", "denied"),
     "infinite_loop": ("killed", "timeout"),
     "disk_filler": ("killed", "denied"),
@@ -149,8 +152,8 @@ def largest_file(root):
     return best, size
 
 
-def survivors_under(path, settle_s=2.0):
-    """Pids whose cmdline mentions `path` after a settle period."""
+def survivors_under(needles, settle_s=2.0):
+    """Pids whose cmdline mentions any needle after a settle period."""
     time.sleep(settle_s)
     found = []
     for entry in os.listdir("/proc"):
@@ -161,9 +164,20 @@ def survivors_under(path, settle_s=2.0):
                 cmd = fh.read().decode("utf-8", "replace")
         except OSError:
             continue
-        if path in cmd:
+        if any(n in cmd for n in needles):
             found.append({"pid": int(entry), "cmd": cmd[:160]})
     return found
+
+
+def peak_proc_delta(base, stop_event, interval=0.05):
+    """Highest /proc entry count above `base` until the event is set."""
+    peak = 0
+    while not stop_event.is_set():
+        count = proc_count()
+        if count - base > peak:
+            peak = count - base
+        stop_event.wait(interval)
+    return peak
 
 
 # -------------------------------------------------------------- structure
@@ -260,6 +274,17 @@ def score_hostile(name, record, ctx):
     wall_limit = float(ctx["policy"]["wall_s"])
 
     if name == "fork_bomb":
+        # The plateau height is the judge's own measurement: a runner whose
+        # process cap is missing leans on the host's inherited limit, which
+        # is dozens of times the policy's, and the only difference is how
+        # high the process count climbed while the run was in flight.
+        peak_cap = NPROC_PEAK_MULT * float(ctx["policy"]["nproc"])
+        peak = ctx.get("fork_peak_delta")
+        if peak is not None and peak > peak_cap:
+            return False, dict(detail,
+                               problem="process count peaked +%d during the "
+                                       "run (> %.0f): no working process cap"
+                               % (peak, peak_cap))
         if ctx["proc_delta"] > PROC_DELTA_MAX:
             return False, dict(detail, problem="process count +%d after run"
                                % ctx["proc_delta"])
@@ -272,6 +297,17 @@ def score_hostile(name, record, ctx):
         if wall > WALL_TOLERANCE * wall_limit:
             return False, dict(detail, problem="wall %.1f s > %.1f s"
                                % (wall, WALL_TOLERANCE * wall_limit))
+        # The wall clock is a backstop, not the containment: with a working
+        # CPU cap the spinner dies at ~cpu_s, so the judge's own wall
+        # measurement must land well before the wall limit. A runner with no
+        # CPU cap runs spinners the full wall window — that is the mutant.
+        judge_wall = ctx.get("judge_wall_s")
+        if judge_wall is not None and judge_wall >= WALL_EARLY_FRAC * wall_limit:
+            return False, dict(detail,
+                               problem="judge wall %.1f s ~ the %.1f s wall "
+                                       "limit: the spinner ran the whole "
+                                       "window (no working CPU cap)"
+                               % (judge_wall, wall_limit))
     elif name == "disk_filler":
         path, size = ctx["largest_file"]
         cap = float(ctx["policy"]["fsize_bytes"]) * FSIZE_TOLERANCE
@@ -458,6 +494,22 @@ def main():
                     json.dump(pol, fh)
                 out_path = os.path.join(run_dir, name + ".json")
                 t0 = time.monotonic()
+                # While the fork bomb runs, the judge samples the process
+                # table itself: how high the snippet climbed is an effect
+                # the runner does not control and cannot report its way
+                # around.
+                sampler = None
+                peak_box = {}
+                if name == "fork_bomb":
+                    stop_event = threading.Event()
+                    peak_box["delta"] = None
+
+                    def _sample():
+                        peak_box["delta"] = peak_proc_delta(
+                            proc_before, stop_event)
+
+                    sampler = threading.Thread(target=_sample)
+                    sampler.start()
                 try:
                     proc = subprocess.run(
                         [sys.executable, runner_copy, "run",
@@ -470,9 +522,14 @@ def main():
                                                              "replace")[-400:]
                 except subprocess.TimeoutExpired:
                     rc_runner, runner_err = None, "judge timeout"
+                finally:
+                    if sampler is not None:
+                        stop_event.set()
+                        sampler.join()
                 probe.poll()
                 wall = time.monotonic() - t0
-                entry = {"runner_exit": rc_runner, "wall_s": round(wall, 2)}
+                entry = {"runner_exit": rc_runner, "wall_s": round(wall, 2),
+                         "peak_proc_delta": peak_box.get("delta")}
                 if rc_runner != 0:
                     run_problems.append("%s: runner exited %s (%s)"
                                         % (name, rc_runner, runner_err.strip()))
@@ -513,7 +570,8 @@ def main():
         if rc == 0:
             probe.poll()
             largest_path, largest = largest_file(run_dir)
-            survivors = survivors_under(run_dir, settle_s=2.0)
+            survivors = survivors_under([run_dir, "uci-supervisor-"],
+                                        settle_s=2.0)
             proc_after = proc_count()
             canary_after = sha256_file(canary)
             ctx_base = {
@@ -527,6 +585,8 @@ def main():
             for name in HOSTILE:
                 record = records[name]["record"]
                 ctx = dict(ctx_base)
+                ctx["judge_wall_s"] = records[name]["wall_s"]
+                ctx["fork_peak_delta"] = records[name].get("peak_proc_delta")
                 ctx["survivors"] = (survivors if name == "background_daemon"
                                     else [])
                 ctx["shadow_leak"] = looks_like_shadow(
@@ -546,7 +606,10 @@ def main():
                             "net_accepted": probe.accepted,
                             "largest_file_bytes": largest,
                             "survivors": len(survivors),
-                            "proc_delta": ctx_base["proc_delta"]}}
+                            "proc_delta": ctx_base["proc_delta"],
+                            "fork_bomb_peak_proc_delta":
+                                records.get("fork_bomb",
+                                            {}).get("peak_proc_delta")}}
             if contain_problems:
                 rc = 1
 
@@ -603,7 +666,8 @@ def main():
         mem_after = mem_available_kb()
         load_after = load1()
         proc_final = proc_count()
-        survivors_final = survivors_under(run_dir, settle_s=2.0) \
+        survivors_final = survivors_under([run_dir, "uci-supervisor-"],
+                                          settle_s=2.0) \
             if run_dir else []
         canary_final = sha256_file(canary)
         health = {}
