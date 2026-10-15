@@ -57,9 +57,11 @@ def main():
     gates = []
 
     # ---------------- Gate 1: completion, finiteness, bounded velocity ----
-    finite = bool(np.isfinite(pos).all() and np.isfinite(vel).all())
+    meta2 = json.loads(str(r2["meta"]))
+    finite = bool(np.isfinite(pos).all() and np.isfinite(vel).all()
+                  and np.isfinite(r2["pos"]).all())
     vmax = float(np.linalg.norm(vel[-1], axis=1).max())
-    wall = float(meta["wall_run_s"])
+    wall = max(float(meta["wall_run_s"]), float(meta2["wall_run_s"]))
     passed = finite and vmax <= 50.0 and wall <= 480.0
     gates.append(gate_record(1, "completes, no NaN, bounded speed",
                              passed,
@@ -105,7 +107,12 @@ def main():
                               "t_fall_s": round(t_fall, 5)}))
 
     # ---------------- Gate 4: no penetration ------------------------------
-    tol = 1.5 * ps
+    # MPM rigid contact is resolved at grid nodes, so a particle *centre*
+    # may legitimately sit up to ~1 grid cell inside a boundary; the
+    # tolerance is the larger of 1.5 particle pitches and 1.5 grid cells —
+    # it accepts numerical contact, not interpenetration (a real pass-
+    # through is many cells deep).
+    tol = max(1.5 * ps, 1.5 / float(s["grid_density"]))
     floor_min = float(pos[..., 2].min())
     lo = opos - osz / 2; hi = opos + osz / 2
     q = pos - 0.5 * (lo + hi)          # centred coords

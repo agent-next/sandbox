@@ -106,10 +106,12 @@ must pass.
   ballistics to integrator accuracy.
 
 ### Gate 4 — no penetration
-- At every sampled frame (every 25 frames), with `tol = 1.5·particle_size`
-  (the MPM kernel support is ≈ 1 pitch, so a particle *centre* may
-  legitimately sit within one pitch of a surface; this tolerance only
-  accepts numerical contact, not interpenetration):
+- At every sampled frame, with `tol = max(1.5·particle_size,
+  1.5·grid_cell)` where `grid_cell = 1/grid_density` (MPM rigid contact is
+  resolved at grid nodes, so a particle *centre* may legitimately sit
+  within about one grid cell of a surface; this tolerance accepts
+  numerical contact, not interpenetration — a real pass-through is many
+  cells deep):
   - no particle z below `floor_z − tol` (floor_z = 0);
   - no particle strictly inside the obstacle AABB by more than tol, i.e.
     for `q = centre − pos`, `pen = min(|q| − size/2)` component-wise max

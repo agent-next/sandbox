@@ -161,14 +161,22 @@ def run(scenario_path: Path, out_prefix: Path, seed: int,
     build_s = time.monotonic() - t0
     n0 = int(column.n_particles)
 
-    sample_every = max(1, steps // 48)  # <= 49 samples
+    # Free-fall window from the spec geometry (same formula as gate 3):
+    # sample EVERY frame until the column bottom reaches the obstacle top
+    # so the ballistic fit has >= 20 samples, then coarsen to ~48 more.
+    g_abs = abs(float(s["gravity"]))
+    obs_top = float(s["obstacle_pos"][2]) + float(s["obstacle_size"][2]) / 2
+    t_fall = (float("inf") if g_abs < 1e-12 else
+              float(np.sqrt(2 * max(0.0, float(s["column_pos"][2]) - obs_top)
+                            / g_abs)))
+    late_every = max(1, steps // 48)
     pos_s, vel_s, fr_s = [], [], []
     t1 = time.monotonic()
     for f in range(steps):
         if f == 0:
             scene.sim.set_gravity(np.array([0.0, 0.0, float(s["gravity"])]))
         scene.step()
-        if f % sample_every == 0 or f == steps - 1:
+        if f * dt <= t_fall or f % late_every == 0 or f == steps - 1:
             pos_s.append(column.get_particles_pos().cpu().numpy().copy())
             vel_s.append(column.get_particles_vel().cpu().numpy().copy())
             fr_s.append(f)
@@ -185,7 +193,7 @@ def run(scenario_path: Path, out_prefix: Path, seed: int,
     run_s = time.monotonic() - t1
 
     meta = {"wall_build_s": round(build_s, 3), "wall_run_s": round(run_s, 3),
-            "sample_every": sample_every, "dt": dt, "substeps": sub,
+            "late_sample_every": late_every, "dt": dt, "substeps": sub,
             "steps": steps, "seed": int(s["seed"]),
             "scenario": str(scenario_path)}
     out = Path(str(out_prefix))
