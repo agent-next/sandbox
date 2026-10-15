@@ -101,7 +101,7 @@ def main() -> int:
             "--json /tmp/verdict.json", 900, echo=True)
 
         try:
-            verdict = json.loads(graded.stdout[graded.stdout.index("{"):])
+            verdict = json.loads(graded.stdout[graded.stdout.rindex("{"):])
         except (ValueError, json.JSONDecodeError) as exc:
             raise Failure(f"could not parse the verdict JSON: {exc}\n"
                           f"{graded.stdout[-1500:]}") from exc

@@ -10,9 +10,15 @@ For each task the judge
 
   1. regenerates the fixture tree from the seed into a temp dir,
   2. runs the agent's solutions/<task>/apply.sh against a *copy* of the
-     broken work/ tree, with cwd = the copy's parent,
-  3. runs fixtures/<task>/verify.sh against the repaired copy,
+     broken work/ tree, with cwd = the copy's parent and a minimal
+     environment (only PATH, LANG, HOME, TMPDIR and WORK -- nothing that
+     names the judge, the seed or the seeded tree),
+  3. runs the seeded fixtures/<task>/verify.sh against the repaired copy,
   4. records pass/fail, wall time and the verifier's own output.
+
+Gate G5 checksums judge/, the committed fixtures/ tree and the seeded
+fixture tree before and after the agent runs: the oracle is read-only for
+the agent, and a single changed byte in any of them fails the run.
 
 It then applies the gates from SPEC.md and prints one JSON verdict.  Exit 0
 only if every gate passes.
@@ -32,6 +38,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -62,6 +69,10 @@ TASKS = [
 # Gate thresholds (SPEC.md)
 SOLVE_FRACTION = 0.8        # G1: >= 80 % of the graded tasks (8 of 10)
 MAX_TOTAL_VERIFY_SECONDS = 300.0
+
+# apply.sh runs with only these variables -- nothing that names the judge,
+# the seeded tree or the seed is passed to the agent under test.
+AGENT_ENV_ALLOWLIST = ("PATH", "LANG", "LC_ALL", "HOME", "TMPDIR")
 
 
 def sha256_tree(root: str) -> str:
@@ -107,6 +118,19 @@ def agent_solution(agent: str, task: str) -> str:
     return os.path.join(os.path.abspath(agent), "solutions", task, "apply.sh")
 
 
+def agent_env(work: str) -> dict:
+    """The only environment apply.sh sees: the workdir plus five variables.
+
+    The judge, the seeded tree and the seed itself are not named anywhere
+    in this environment, and the scratch workdir is 0700 so no other local
+    user can find or touch it either.
+    """
+    env = {k: v for k, v in os.environ.items() if k in AGENT_ENV_ALLOWLIST}
+    env["WORK"] = work
+    env["TMPDIR"] = os.path.dirname(work)
+    return env
+
+
 def grade_task(agent: str, fixtures: str, scratch_root: str, task: str):
     """Repair one task in its own copy of the fixture and verify it."""
     src = os.path.join(fixtures, task)
@@ -131,11 +155,8 @@ def grade_task(agent: str, fixtures: str, scratch_root: str, task: str):
         return result
 
     work = os.path.join(dst, "work")
-    env = dict(os.environ)
-    env["WORK"] = work
-
     rc, out, secs = run(["bash", apply_sh], cwd=dst, timeout=APPLY_TIMEOUT,
-                        env=env)
+                        env=agent_env(work))
     result["apply_exit"] = rc
     result["apply_output"] = out[-4000:]
     result["apply_seconds"] = round(secs, 3)
@@ -171,6 +192,7 @@ def make_negative_control(dest: str) -> str:
     return dest
 
 
+
 def grade(agent: str, seed: int, tasks, jobs: int, verbose: bool) -> dict:
     workdir = tempfile.mkdtemp(prefix="ttb-judge-")
     try:
@@ -184,10 +206,18 @@ def grade(agent: str, seed: int, tasks, jobs: int, verbose: bool) -> dict:
             pristine[task] = {"verify_exit": rc, "fails": rc != 0,
                               "output": out}
 
+        # --- snapshot the oracle trees before the agent runs --------------
+        # G5 checksums all three: judge/, the committed fixtures/ tree, and
+        # the seeded fixture tree.  Any change to any of them during the
+        # agent's run fails the gate.
+        judge_before = sha256_tree(HERE)
+        fixtures_before = sha256_tree(FIXTURES)
+        seeded_before = sha256_tree(fixtures)
+
         # --- the agent under test ----------------------------------------
         scratch = os.path.join(workdir, "scratch")
         os.makedirs(scratch, exist_ok=True)
-        judge_before = sha256_tree(HERE)
+
         results = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
             futures = {pool.submit(grade_task, agent, fixtures, scratch, t): t
@@ -200,7 +230,10 @@ def grade(agent: str, seed: int, tasks, jobs: int, verbose: bool) -> dict:
                     print(f"judge: {task}: apply={r['apply_exit']} "
                           f"verify={r['verify_exit']} "
                           f"solved={r['solved']}", flush=True)
+
         judge_after = sha256_tree(HERE)
+        fixtures_after = sha256_tree(FIXTURES)
+        seeded_after = sha256_tree(fixtures)
 
         # --- G3: the negative control must score 0/10 ---------------------
         negctl = make_negative_control(os.path.join(workdir, "negctl"))
@@ -244,7 +277,9 @@ def grade(agent: str, seed: int, tasks, jobs: int, verbose: bool) -> dict:
         g2 = not bad_pristine
         g3 = neg_solved == 0
         g4 = total_verify <= MAX_TOTAL_VERIFY_SECONDS
-        g5 = judge_before == judge_after
+        g5 = (judge_before == judge_after
+              and fixtures_before == fixtures_after
+              and seeded_before == seeded_after)
 
         gates = {
             "G1_solve_count": {
@@ -269,8 +304,13 @@ def grade(agent: str, seed: int, tasks, jobs: int, verbose: bool) -> dict:
                 "over_budget": total_verify > MAX_TOTAL_VERIFY_SECONDS,
             },
             "G5_judge_untouched": {
-                "passed": g5, "judge_sha256_before": judge_before[:16],
+                "passed": g5,
+                "judge_sha256_before": judge_before[:16],
                 "judge_sha256_after": judge_after[:16],
+                "fixtures_sha256_before": fixtures_before[:16],
+                "fixtures_sha256_after": fixtures_after[:16],
+                "seeded_sha256_before": seeded_before[:16],
+                "seeded_sha256_after": seeded_after[:16],
             },
         }
 

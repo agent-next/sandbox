@@ -61,9 +61,9 @@ for tool in bash python3 git tar awk sed grep sha256sum cmp; do
 done
 [ -n "$missing" ] && { echo "setup: missing tools:$missing" >&2; exit 1; }
 
-python3 - <<'EOF' || { echo "setup: python3 >= 3.10 required" >&2; exit 1; }
+python3 - <<'EOF'
 import sys
-assert sys.version_info >= (3, 10), sys.version
+assert sys.version_info >= (3, 10), f"python3 >= 3.10 required, have {sys.version}"
 EOF
 
 echo "setup: tool versions"

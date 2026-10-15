@@ -764,7 +764,6 @@ def build(src: str, out: str, seed: int) -> None:
         taskdir = os.path.join(out, task)
         work = os.path.join(taskdir, "work")
         if os.path.exists(taskdir):
-            subprocess.run(["sudo", "-n", "rm", "-rf", taskdir], check=False)
             shutil.rmtree(taskdir, ignore_errors=True)
         os.makedirs(work, exist_ok=True)
         for name in ("task.md", "verify.sh"):

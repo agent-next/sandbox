@@ -91,9 +91,9 @@ array.
   this gate: the bench is worthless otherwise. (Checked every run, not
   only in the self-test.)
 - **G3 negative control.** A `true`-only agent built by the judge itself
-  (`judge/negctl.sh`, 10 × `apply.sh` containing only `true`) must score
-  **0/10** under the same code path. This is the sabotage control: if any
-  verifier can be satisfied by doing nothing, G3 fails.
+  (`bench_judge.make_negative_control`, 10 × `apply.sh` containing only
+  `true`) must score **0/10** under the same code path. This is the sabotage
+  control: if any verifier can be satisfied by doing nothing, G3 fails.
 - **G4 budget.** Total verifier wall time across the ten tasks
   `<= 300 s` on 2 vCPU (the per-task `apply.sh` timeout is 60 s). Bounds
   the bench so it stays usable; the timing table is reported either way.
