@@ -229,6 +229,101 @@ $ bash judge/grade.sh /tmp/evil/panel2.py --json /tmp/ve.json
 grade.sh exit=1
 ```
 
+## Media build
+
+The media are not hand-drawn: `media/make_media.sh` re-runs the judge and
+builds every shipped file from its outputs. Commands, from a fresh sandbox
+in this same image, `judge/setup.sh` already run:
+
+```
+$ bash judge/setup.sh
+...
+generated stubs: 34 cudart + 8 driver symbols
+omni.ui import OK
+setup OK: /home/user/tools/ovui-native-ui
+exit code: 0
+real	0m58.028s
+```
+
+```
+$ bash judge/selftest.sh
+wrote 11 mutants to <scratch>: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
+good: PASS (verdict byte-identical across 2 runs)
+mutant baked_png: FAILS (widget_tree,pixels)
+mutant empty_window: FAILS (render 1 failed)
+mutant missing_checkbox: FAILS (render 1 failed)
+mutant missing_slider: FAILS (widget_tree)
+mutant missing_swatch: FAILS (widget_tree,pixels)
+mutant nondeterministic: FAILS (determinism)
+mutant swatch_overflow: FAILS (widget_tree,pixels)
+mutant wrong_button_text: FAILS (widget_tree)
+mutant wrong_range: FAILS (widget_tree)
+mutant wrong_swatch_color: FAILS (widget_tree,pixels)
+mutant wrong_swatch_size: FAILS (widget_tree,pixels)
+kill rate: 11/11 = 100%
+self-test OK
+exit code: 0
+real	0m44.344s
+```
+
+```
+$ bash judge/grade.sh examples/good/panel.py --json /tmp/v.json
+{ ...same JSON as the grade section above... }
+real	0m3.566s
+exit code: 0
+```
+
+```
+$ time bash media/make_media.sh
+grade.sh examples/good/panel.py: pass=True
+selftest.sh: kill rate: 11/11 = 100%
+mutants: 11/11 fail a gate
+render.png: sha256 0d8e03dcb161d859 == graded determinism sha
+make_data.py: done
+make_figures: result.png
+make_figures: loop.png
+make_video: 7 stages, 1155 frames, 38.5 s
+make_video: demo.mp4 0.76 MB, 38.5 s, 1920x1080@30
+make_video: done
+make_manifest: 3 entries
+make_media.sh: done
+real	13m0s (two full runs recorded: 9m18s with the aborted first
+          video encode, 13m0s end to end after the fix below)
+```
+
+`make_data.py` re-runs `grade.sh` on the known-good (verdict → `grade_good.json`
+), `selftest.sh`, `grade.sh` on all 11 mutants (`mutants.json`), and one
+`judge/render.py` of the known-good. That render is **not** trusted on
+faith: it is sha256-checked against the `determinism` gate's sha in the
+grade verdict (`0d8e03dcb161d859` in both), so the shipped `data/render.png`
+is provably the image the judge graded. Every number on the figures comes
+from those files; the swatch median `[51, 128, 230]` was additionally
+re-measured by hand from `data/render.png` (median over the swatch rect
+inset 3 px: `[51.0, 128.0, 230.0]`, per-channel std `0.0`), matching
+`check_gates.py`'s own measurement.
+
+The video encodes twice, both verified with `ffprobe`:
+
+| property | lossless master (`media/master/`, git-ignored) | `media/demo.mp4` |
+|---|---|---|
+| codec | h264, `-crf 0 -preset veryslow` | h264, `-crf 18 -preset slow` |
+| pixel format | `yuv444p` | `yuv420p` |
+| size | 1920×1080 | 1920×1080 |
+| frame rate | 30/1 | 30/1 |
+| duration | 38.5 s | 38.5 s |
+| bytes | 2 675 234 | 762 216 (0.76 MB, cap 8 MB) |
+
+`-movflags +faststart` confirmed by inspecting the mp4 boxes directly: `moov`
+at byte offset 36, before `mdat`. Frames were extracted with `ffmpeg -ss`
+and inspected one per scene (title card, plain render, bboxes, PASS stamp,
+swatch chart, loop replay, kill table); each shows only values present in
+`media/data/`, and the stamp/kill table read the same kill rate and
+per-mutant gates the selftest printed above.
+
+The media venv is `media/.venv` (pinned in `media/requirements.txt` with
+hashes: matplotlib 3.9.4, numpy 2.5.4, pillow 12.3.0 and their deps),
+separate from the judge venv; ffmpeg is the distro build (5.1.9).
+
 ## Deviations
 
 1. **`ovui 0.3.0` is newer than the standard's two-week freshness rule.**

@@ -84,11 +84,12 @@ From the receipt (2 vCPU, ~4 GB RAM, no GPU; Debian 12, Python 3.12):
 
 | step | wall time |
 |---|---|
-| `judge/setup.sh` (cold: apt + pinned wheels + stubs) | 56–92 s |
+| `judge/setup.sh` (cold: apt + pinned wheels + stubs) | 44–92 s |
 | `judge/setup.sh` (warm, idempotent) | 8 s |
-| `judge/selftest.sh` (13 graded runs, 26 renders) | 86–123 s |
-| `judge/grade.sh examples/good/panel.py` (2 renders + gates) | 5–12 s |
-| one render (`judge/render.py`) | ~4.5 s |
+| `judge/selftest.sh` (13 graded runs, 26 renders) | 44–123 s |
+| `judge/grade.sh examples/good/panel.py` (2 renders + gates) | 3–12 s |
+| one render (`judge/render.py`) | ~2–4.5 s |
+| `media/make_media.sh` (13 graded runs + 2 encodes) | ~13 min |
 
 The render itself is CPU rasterisation of a 1280x720 offscreen Vulkan target
 on Mesa lavapipe; a 420x360 panel is ~4 s, and the selftest's 26 renders
@@ -134,7 +135,8 @@ not provide it; 0.3.0 falls back instead. See `RECEIPT.md` "Deviations".
   ovui version on lavapipe, but a different Mesa or ovui version could change
   rasterisation or layout, so `judge/reference.json`'s bboxes and swatch
   target are pinned to the versions in `judge/VERSIONS.txt`.
-- No media are shipped yet (a later task adds `media/`).
+- No interactive media: `media/demo.mp4` is a walkthrough of judge outputs,
+  not a recording of someone using the panel.
 
 ## Media
 
@@ -150,8 +152,8 @@ chart](media/result.png)
 - `media/loop.png` — the agent loop: a scripted replay of real judge verdicts
   (build error → pixel mismatch → nondeterminism → PASS) and the self-test
   kill table, one row per mutant with the gate(s) that failed it.
-- `media/demo.mp4` — a 40 s, 1920×1080, 30 fps walkthrough of the same
-  judge outputs.
+- `media/demo.mp4` — a 38.5 s, 1920×1080, 30 fps walkthrough of the same
+  judge outputs (0.76 MB H.264, from a lossless `-crf 0` master).
 - `media/MANIFEST.json` — what each file shows, the command that makes it,
   its source data, and its sha256.
 

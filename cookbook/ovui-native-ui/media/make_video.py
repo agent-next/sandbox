@@ -234,28 +234,38 @@ def main():
           f"{len(frames)/FPS:.1f} s")
 
     # -- lossless master, then the web encode ------------------------------
+    # ffmpeg's stderr is *not* captured: an unbounded PIPE with no thread
+    # draining it fills its 64 KB buffer and wedges the encoder mid-run,
+    # which on a slow CPU-only box reads as a failed encode.  Instead stderr
+    # goes to a file, so a real failure can still report why.
     master_mp4 = MASTER / "demo_master.mp4"
     web_mp4 = MEDIA / "demo.mp4"
-    raw = subprocess.Popen(
-        ["ffmpeg", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
-         "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-         "-c:v", "libx264", "-crf", "0", "-preset", "veryslow",
-         "-pix_fmt", "yuv444p", master_mp4.name],
-        cwd=MASTER, stdin=subprocess.PIPE,
-        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    for f in frames:
-        raw.stdin.write(f.tobytes())
-    raw.stdin.close()
-    rc = raw.wait()
-    if rc != 0:
-        raise SystemExit(f"lossless master encode failed:\n{raw.stderr.read().decode()[-2000:]}")
+    # Absolute paths, not bare names: the two encodes run with different
+    # cwds (master/, then the media dir), and a bare master name in the
+    # second command resolves against the wrong directory.
+    with open(MASTER / "master_encode.log", "w") as master_log:
+        raw = subprocess.Popen(
+            ["ffmpeg", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
+             "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+             "-c:v", "libx264", "-crf", "0", "-preset", "veryslow",
+             "-pix_fmt", "yuv444p", str(master_mp4)],
+            cwd=MASTER, stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL, stderr=master_log)
+        for f in frames:
+            raw.stdin.write(f.tobytes())
+        raw.stdin.close()
+        rc = raw.wait()
+    if rc != 0 or not master_mp4.exists():
+        raise SystemExit("lossless master encode failed:\n"
+                         + (MASTER / "master_encode.log").read_text()[-2000:])
 
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", master_mp4.name, "-c:v", "libx264",
-         "-crf", "18", "-preset", "slow", "-pix_fmt", "yuv420p",
-         "-movflags", "+faststart", "-an", web_mp4.name],
-        cwd=MEDIA, check=True, stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE)
+    with open(MEDIA / "web_encode.log", "w") as web_log:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(master_mp4), "-c:v", "libx264",
+             "-crf", "18", "-preset", "slow", "-pix_fmt", "yuv420p",
+             "-movflags", "+faststart", "-an", str(web_mp4)],
+            cwd=MEDIA, check=True, stdout=subprocess.DEVNULL,
+            stderr=web_log)
     size = web_mp4.stat().st_size
     print(f"make_video: demo.mp4 {size/1e6:.2f} MB, "
           f"{len(frames)/FPS:.1f} s, {W}x{H}@{FPS}")
