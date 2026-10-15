@@ -1,0 +1,136 @@
+1
+00:00:00,000 --> 00:00:02,000
+Why is the quadratic formula true?
+
+2
+00:00:02,960 --> 00:00:05,040
+A square, completed.
+
+3
+00:00:05,446 --> 00:00:08,379
+Take x squared plus b x, and set it equal
+
+4
+00:00:08,379 --> 00:00:08,886
+to c.
+
+5
+00:00:09,199 --> 00:00:12,799
+x squared is a square of side x, and b x
+
+6
+00:00:12,799 --> 00:00:16,319
+is two rectangles, each b over two by x.
+
+7
+00:00:16,513 --> 00:00:19,761
+It almost makes one bigger square — only
+
+8
+00:00:19,761 --> 00:00:23,043
+this corner is missing: b over two,
+
+9
+00:00:23,043 --> 00:00:23,393
+squared.
+
+10
+00:00:23,592 --> 00:00:25,432
+Add that corner to both sides.
+
+11
+00:00:25,630 --> 00:00:28,350
+Now the pieces are one square of side x
+
+12
+00:00:28,350 --> 00:00:29,790
+plus b over two.
+
+13
+00:00:29,992 --> 00:00:32,972
+Take the square root, then subtract b over
+
+14
+00:00:32,972 --> 00:00:33,272
+two.
+
+15
+00:00:33,945 --> 00:00:36,665
+The same square solves every quadratic.
+
+16
+00:00:36,871 --> 00:00:40,711
+Divide by a, and move c over a across.
+
+17
+00:00:40,920 --> 00:00:43,096
+Complete the square, gather the right
+
+18
+00:00:43,096 --> 00:00:46,200
+side, take the root, and subtract b over
+
+19
+00:00:46,200 --> 00:00:46,840
+two a.
+
+20
+00:00:47,189 --> 00:00:48,549
+The quadratic formula.
+
+21
+00:00:49,278 --> 00:00:53,118
+Try it on x squared plus six x plus five
+
+22
+00:00:53,118 --> 00:00:53,998
+equals zero.
+
+23
+00:00:54,189 --> 00:00:57,509
+The formula gives minus six, plus or minus
+
+24
+00:00:57,509 --> 00:01:00,189
+the root of thirty-six minus twenty, over
+
+25
+00:01:00,189 --> 00:01:00,429
+two.
+
+26
+00:01:00,615 --> 00:01:04,423
+The root of sixteen is four: minus six,
+
+27
+00:01:04,423 --> 00:01:08,522
+plus or minus four, over two — minus one,
+
+28
+00:01:08,522 --> 00:01:09,335
+or minus five.
+
+29
+00:01:09,444 --> 00:01:12,944
+And check it on the parabola: y equals x
+
+30
+00:01:12,944 --> 00:01:15,925
+squared plus six x plus five.
+
+31
+00:01:16,053 --> 00:01:18,840
+It crosses the x-axis at minus five and
+
+32
+00:01:18,840 --> 00:01:19,573
+minus one.
+
+33
+00:01:20,440 --> 00:01:23,640
+That is why it is true: the formula is a
+
+34
+00:01:23,640 --> 00:01:26,760
+picture — a square, completed.
+
