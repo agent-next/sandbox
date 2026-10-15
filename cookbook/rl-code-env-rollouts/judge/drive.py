@@ -19,6 +19,7 @@ import json
 import os
 import random
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -119,6 +120,28 @@ def load_env_module(artifact_dir, workdir):
 def make_env(module, tasks_path, seed, timeout_s):
     return module.CodeTaskEnv(tasks_path=tasks_path, seed=seed,
                               timeout_s=timeout_s)
+
+
+def make_env_from_path(env_path, tasks_path, seed, timeout_s):
+    """Same as `make_env`, but loads the module from an explicit file path.
+
+    Used where the judge needs a *second* instance of the same artifact in a
+    directory it owns, without going through `load_env_module` again.
+    """
+    spec = importlib.util.spec_from_file_location("artifact_env_%d" % _next_id(),
+                                                 env_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.CodeTaskEnv(tasks_path=tasks_path, seed=seed,
+                              timeout_s=timeout_s)
+
+
+_ID = [0]
+
+
+def _next_id():
+    _ID[0] += 1
+    return _ID[0]
 
 
 def parse_jsonl(path):
@@ -380,11 +403,19 @@ def gate_partial_exact(v, module, tasks_path, seed, bank):
              if not mismatches else "; ".join(mismatches[:3]))
 
 
-def gate_reset_isolation(v, module, tasks_path, seed, solutions, bank):
-    """6. A hostile episode must not change the next episode's rewards."""
+def gate_reset_isolation(v, env_path, tasks_path, seed, solutions, bank):
+    """6. A hostile episode must not change the next episode's rewards.
+
+    The hostile step is run through `hostile_probe.py` -- its own process, its
+    own process group -- exactly as the hostile gate does.  It must not run
+    inside the judge: an artifact whose kill aims at a process group it shares
+    with its caller would otherwise take the judge down, and the judge would
+    report its own death as a failure of this gate.
+    """
     entry = {t["id"]: t["entry"] for t in bank["tasks"]}
 
-    def full_episode(env):
+    def full_episode():
+        env = make_env_from_path(env_path, tasks_path, seed, STEP_TIMEOUT_S)
         obs, _ = env.reset()
         out = {}
         while True:
@@ -396,18 +427,54 @@ def gate_reset_isolation(v, module, tasks_path, seed, solutions, bank):
             obs = obs2
         return out
 
-    fresh = full_episode(make_env(module, tasks_path, seed, STEP_TIMEOUT_S))
+    def hostile_step():
+        """One hostile action in an isolated probe; returns True if it ran."""
+        proc = subprocess.Popen(
+            [sys.executable, "-I", os.path.join(HERE, "hostile_probe.py"),
+             env_path, tasks_path, str(seed), "infinite-loop",
+             str(STEP_TIMEOUT_S)],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+            preexec_fn=_probe_limits)
+        group, session = _probe_identity(proc)
+        try:
+            proc.communicate(timeout=HOSTILE_S)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc, None, group, session)
+            return False
+        return True
 
-    # Same env, but run a hostile episode in between.
-    reused = make_env(module, tasks_path, seed, STEP_TIMEOUT_S)
-    full_episode(reused)
-    reused.reset()
-    hostile = "def %s(*a, **k):\n    while True:\n        pass\n" % "f"
-    obs, _ = reused.reset()
-    tid = obs["task_id"]
-    src = "def %s(*a, **k):\n    while True:\n        pass\n" % entry[tid]
-    reused.step(src)
-    after = full_episode(reused)
+    fresh = full_episode()
+
+    # The same env instance is reused for the hostile episode and the one after
+    # it, so a counter that reset() fails to clear shows up in `after`.
+    workdir = tempfile.mkdtemp(prefix="rl-iso-")
+    try:
+        reused_path = os.path.join(workdir, "code_task_env.py")
+        shutil.copy2(env_path, reused_path)
+        shutil.copy2(os.path.join(DEMO, "tasks", "tasks.json"),
+                     os.path.join(workdir, "tasks.json"))
+        reused = make_env_from_path(reused_path, tasks_path, seed,
+                                    STEP_TIMEOUT_S)
+        obs, _ = reused.reset()
+        while True:
+            tid = obs["task_id"]
+            obs2, r, term, trunc, info = reused.step(solutions[tid])
+            if term:
+                break
+            obs = obs2
+        # The hostile action goes through the isolated probe, not `reused`.
+        hostile_step()
+        after = {}
+        obs, _ = reused.reset()
+        while True:
+            tid = obs["task_id"]
+            obs2, r, term, trunc, info = reused.step(solutions[tid])
+            after[tid] = r
+            if term:
+                break
+            obs = obs2
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
 
     diff = {t: (fresh[t], after[t]) for t in fresh if fresh[t] != after[t]}
     v.record("reset_isolation", not diff,
@@ -467,62 +534,195 @@ def gate_reward_determinism(v, module, tasks_path, seed, solutions):
 def gate_hostile_zero(v, artifact_env, tasks_path, seed, bank):
     """9. Infinite loop, fork bomb and file deleter each score exactly 0.0.
 
-    Each action runs in a separate process group (`hostile_probe.py`) with a
-    hard wall-clock limit, so an artifact that never returns from `step`, or
-    that fork-bombs, cannot hang or exhaust the judge.  When the limit
-    expires the judge kills the probe's whole process group and records a
-    failure for that shape.
+    Each action runs in its own process (`hostile_probe.py`), in its own process
+    group and session, with a hard wall-clock limit -- so an artifact that never
+    returns from `step`, or that fork-bombs, can neither hang the judge nor
+    exhaust the machine.  Sibling actions in this list run sequentially, and
+    each is swept for leftovers before the next starts.
+
+    Three things are checked per shape, not just the reward:
+
+    - the reward is exactly 0.0;
+    - the step returned inside `HOSTILE_S`, and the judge is still running;
+    - **nothing the action started is still running.**  An artifact that forks
+      children and lets its parent die is not contained, and the gate says so
+      rather than absorbing the cost.  The judge cleans up after a failure, but
+      a failure it is.
+
+    The task bank's checksum is taken before the first shape and after the last,
+    so an artifact that deletes or rewrites the bank it is graded against fails.
     """
     bank_path = os.path.join(DEMO, "tasks", "tasks.json")
-    before = sha256_file(bank_path)
+    bank_before = sha256_file(bank_path)
     probe = os.path.join(HERE, "hostile_probe.py")
 
     problems = []
     results = {}
     for shape in ("infinite-loop", "fork-bomb", "file-deleter"):
+        # what was running before this action, so a leak is a process that
+        # appeared during it rather than something that happened to be there.
+        before = _pid_snapshot()
         t0 = time.time()
         proc = subprocess.Popen(
             [sys.executable, "-I", probe, artifact_env, tasks_path,
              str(seed), shape, str(STEP_TIMEOUT_S)],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
             preexec_fn=_probe_limits)
+        # Read the probe's own group and session while she is alive: once
+        # communicate() returns she is gone and /proc/<pid> cannot be read.
+        group, session = _probe_identity(proc)
         timed_out = False
         try:
             out, _ = proc.communicate(timeout=HOSTILE_S)
         except subprocess.TimeoutExpired:
             timed_out = True
-            _kill_group(proc)
+            _kill_tree(proc, before, group, session)
             out = ""
         dt = time.time() - t0
+
+        leaked = _leftovers(proc, before)
+        if leaked:
+            _kill_tree(proc, before, group, session)
+            still = [pid for pid in leaked
+                     if _state(pid) not in ("Z", "")]
+            if still:
+                problems.append(
+                    "%s: left %d process(es) running after step returned "
+                    "(pids %s)"
+                    % (shape, len(still), ",".join(str(p) for p in still[:4])))
+            results.setdefault(shape, {})["leaked"] = len(leaked)
 
         if timed_out:
             problems.append("%s: judge killed it after %.0fs (step never "
                             "returned)" % (shape, HOSTILE_S))
-            results[shape] = {"reward": None, "wall_s": round(dt, 3),
-                              "timed_out": True}
+            results.setdefault(shape, {}).update(
+                {"reward": None, "wall_s": round(dt, 3), "timed_out": True})
             continue
         try:
             payload = json.loads(out.strip().splitlines()[-1])
         except (ValueError, IndexError):
             problems.append("%s: probe produced no verdict" % shape)
-            results[shape] = {"reward": None, "wall_s": round(dt, 3),
-                              "timed_out": False}
+            results.setdefault(shape, {}).update(
+                {"reward": None, "wall_s": round(dt, 3), "timed_out": False})
             continue
         reward = payload.get("reward")
-        results[shape] = {"reward": reward, "wall_s": round(dt, 3),
-                          "timed_out": payload.get("timed_out")}
+        results.setdefault(shape, {}).update(
+            {"reward": reward, "wall_s": round(dt, 3),
+             "timed_out": bool(payload.get("timed_out"))})
         if reward != 0.0:
             problems.append("%s: reward %r, want 0.0" % (shape, reward))
         if dt > HOSTILE_S:
             problems.append("%s: took %.1fs > %.0fs" % (shape, dt, HOSTILE_S))
 
-    after = sha256_file(bank_path)
-    if after != before:
+    if sha256_file(bank_path) != bank_before:
         problems.append("task bank changed during the hostile gate")
     v.record("hostile_zero", not problems,
              "3 hostile actions scored 0.0, judge alive, bank unchanged"
              if not problems else "; ".join(problems[:3]))
     return results
+
+
+def _leftovers(proc, before):
+    """Processes the hostile action left running, excluding the judge's own.
+
+    `before` is the pid snapshot taken just before the probe was spawned, so
+    anything alive now that was not alive then was started by the action.  This
+    is the only membership test that survives an artifact that reshapes its own
+    process groups: a fork bomb's children are orphaned and reparented to pid 1
+    the moment their parent dies, so neither their parent nor their group is
+    still there to walk.  The judge's own lineage is excluded, so the judge's
+    helpers are never mistaken for a leak.
+    """
+    mine = _own_lineage()
+    out = []
+    for pid in _all_pids():
+        if pid in before or pid in mine or pid == 1:
+            continue
+        if pid == proc.pid or pid == os.getpid():
+            continue
+        if _state(pid) in ("Z", ""):
+            continue
+        out.append(pid)
+    return out
+
+
+# /proc/<pid>/stat field names, in order, counted after the "(comm)" part.
+_STATE, _PPID, _PGID, _SID = 1, 2, 3, 4
+
+
+def _field(pid, index):
+    """A field of /proc/<pid>/stat, 1-based after the comm.  `None` if the
+    process is gone or its stat cannot be parsed -- an unreadable process is
+    assumed gone, never blamed on the artifact."""
+    try:
+        with open("/proc/%d/stat" % pid) as fh:
+            fields = fh.read().rsplit(")", 1)[1].split()
+        return int(fields[index - 1])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _state(pid):
+    try:
+        with open("/proc/%d/stat" % pid) as fh:
+            return fh.read().rsplit(")", 1)[1].split()[_STATE - 1]
+    except (OSError, ValueError, IndexError):
+        return ""
+
+
+def _all_pids():
+    try:
+        return [int(e) for e in os.listdir("/proc") if e.isdigit()]
+    except OSError:
+        return []
+
+
+def _pid_snapshot():
+    """Every live, non-zombie pid at this instant."""
+    return set(pid for pid in _all_pids() if _state(pid) not in ("Z", ""))
+
+
+def _own_lineage():
+    """This process and every ancestor of it, so none of them is ever treated
+    as something the artifact started."""
+    out = {os.getpid()}
+    cursor = _field(os.getpid(), _PPID)
+    seen = set()
+    while cursor and cursor > 1 and cursor not in seen:
+        seen.add(cursor)
+        out.add(cursor)
+        cursor = _field(cursor, _PPID)
+    return out
+
+
+def _descendants(root_pid):
+    """Every pid descended from `root_pid` by parentage, excluding the judge.
+
+    Walks /proc from the root outward, so it works even when an intermediate
+    parent has already died and its children have been reparented to pid 1 --
+    the shape a fork bomb leaves behind, and the reason a purely group-based
+    kill is not enough.
+    """
+    parents = {}
+    for pid in _all_pids():
+        ppid = _field(pid, _PPID)
+        if ppid is None:
+            continue
+        parents[pid] = ppid
+    mine = _own_lineage()
+    out = []
+    for pid, ppid in parents.items():
+        if pid == root_pid or pid in mine:
+            continue
+        seen = set()
+        cursor = ppid
+        while cursor and cursor not in seen:
+            seen.add(cursor)
+            if cursor == root_pid:
+                out.append(pid)
+                break
+            cursor = parents.get(cursor, 0)
+    return out
 
 
 def _probe_limits():
@@ -537,19 +737,76 @@ def _probe_limits():
     os.setsid()
 
 
-def _kill_group(proc):
-    import signal
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
+# The judge's own process group.  A group kill is the only way to take out a
+# fork bomb's descendants at once, so the hostile gate does use killpg -- but
+# it must never aim killpg at a group that contains the judge itself.  That is
+# exactly what happens when the artifact under test forgets setsid(): the child
+# then shares the judge's group, and killing the group kills the judge.
+JUDGE_PGID = os.getpgrp()
+
+
+def _kill_tree(proc, before=None, group=None, session=None):
+    """Kill the probe and everything she spawned, without ever touching the
+    judge's own process group.
+
+    `group` and `session` are the probe's own ids, captured by `_probe_identity`
+    while she was still alive.  They are what actually reaches a fork bomb: its
+    parent is killed, the kernel reparents the children to pid 1, and their
+    group and session still point at the dead probe -- which is the only thing
+    left that identifies them as hers.
+
+    Order: the process-group sweep, then the session sweep, then her descendants
+    by parentage, then the probe herself.  A sweep is never aimed at the judge's
+    own group or session, and `before` -- the pid snapshot from before she
+    started -- bounds every sweep so it cannot reach the judge's own children.
+    """
+    mine = _own_lineage()
+    own_group = JUDGE_PGID
+    own_session = _session_id(os.getpid())
+    targets = set()
+    for index, theirs, ours in ((_PGID, group, own_group),
+                                (_SID, session, own_session)):
+        if theirs is None or theirs == ours:
+            continue
+        for pid in _all_pids():
+            if pid in mine or (before and pid in before):
+                continue
+            if _field(pid, index) == theirs:
+                targets.add(pid)
+    for pid in _descendants(proc.pid):
+        if pid in mine:
+            continue
+        targets.add(pid)
+
+    for pid in targets:
         try:
-            proc.kill()
-        except ProcessLookupError:
+            os.kill(pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
             pass
+    try:
+        proc.kill()
+    except (ProcessLookupError, PermissionError):
+        pass
     try:
         proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
         pass
+
+
+def _session_id(pid):
+    """The session id of `pid`, or None if it is gone."""
+    return _field(pid, _SID)
+
+
+def _probe_identity(proc):
+    """The group and session the probe started in, captured while it is alive.
+
+    This is read immediately after `Popen` returns, because by the time the
+    judge needs it the probe is usually gone: `communicate` having returned means
+    `/proc/<pid>` is closed, and a reaped process has no group to read.  The
+    probe's `preexec_fn` calls `os.setsid()`, so both numbers are hers.
+    """
+    return (_field(proc.pid, _PGID), _field(proc.pid, _SID))
 
 
 def gate_no_leak(v, module, tasks_path, seed, solutions, bank):
@@ -738,7 +995,7 @@ def main(argv):
                     ("partial_exact", lambda: gate_partial_exact(
                         v, module, tasks_path, args.seed, bank)),
                     ("reset_isolation", lambda: gate_reset_isolation(
-                        v, module, tasks_path, args.seed, solutions, bank)),
+                        v, env_path, tasks_path, args.seed, solutions, bank)),
                     ("reset_determinism", lambda: gate_reset_determinism(
                         v, module, tasks_path, args.seed)),
                     ("reward_determinism", lambda: gate_reward_determinism(
