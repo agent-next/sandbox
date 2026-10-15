@@ -58,6 +58,17 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '        "busiest_project": busiest,\n'
         '        "generated_at": "2026-10-15T02:00:00Z",',
     ),
+    (
+        # bad input must not be silently swallowed: this one skips malformed
+        # rows instead of failing, so the judge must catch it at G7
+        "malformed-swallowed",
+        "digest.py",
+        "            except ValueError:\n"
+        "                raise LogError(f\"{log}:{lineno}: ms={ms!r} and/or code={code!r}\"\n"
+        "                               f\" are not integers\") from None",
+        "            except ValueError:\n"
+        "                continue",
+    ),
     # --- schedule.json mutants ----------------------------------------------
     (
         "paused-skipped",

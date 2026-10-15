@@ -320,7 +320,12 @@ def gate_failure(work: Path, artifact: Path) -> Gate:
         gate.fail(f"the error does not name the log it failed on: {text[:200]!r}",
                   stderr=text[-200:])
         return gate
-    gate.note(exit_code=proc.returncode, names_log=True)
+    # the malformed row is line 3 (header + 1 good row); the error must name it
+    if "malformed.csv:3" not in text:
+        gate.fail(f"the error names the log but not the bad row (line 3): "
+                  f"{text[:200]!r}", stderr=text[-200:])
+        return gate
+    gate.note(exit_code=proc.returncode, names_log=True, names_row=True)
     return gate
 
 
