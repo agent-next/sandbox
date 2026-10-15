@@ -18,6 +18,25 @@ WHITE, INK, MUTED, GREEN, ORANGE = "#f4f8fb", "#172e40", "#526777", "#087852", "
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 GRAPHICS = {}
+# Only the final 2.5 s may freeze. Everything else replays scored states.
+SCENES = (("hook", 150), ("train", 90), ("fall", 58), ("walk-202", 122),
+          ("walk-303", 120), ("gates", 165), ("selftest", 120), ("end", 75))
+SHOTS = {
+    "hook": ("trained", 101, 75, 108, .98),
+    "train": ("trained", 101, 300, 70, 1.02),
+    "fall": ("untrained", 202, 0, 120, 1.15),
+    "walk-202": ("trained", 202, 100, 100, 1.02),
+    "walk-303": ("trained", 303, 100, 55, 1.02),
+    "gates": ("trained", 303, 125, 112, 1.1),
+    "selftest": ("trained", 202, 200, 65, 1.15),
+}
+
+
+def replay_index(scene, frame, first_fall=None):
+    if scene == "fall":
+        assert first_fall is not None
+        return round(frame * first_fall / (dict(SCENES)[scene]-1))
+    return SHOTS[scene][2] + round(frame / 30 / .02)
 
 
 def sha(path):
@@ -46,7 +65,7 @@ def visual_model():
     root = ET.fromstring(source)
     visual = ET.SubElement(root, "visual")
     ET.SubElement(visual, "global", offwidth="1920", offheight="1080")
-    ET.SubElement(visual, "quality", shadowsize="2048", offsamples="4")
+    ET.SubElement(visual, "quality", shadowsize="4096", offsamples="4")
     ET.SubElement(visual, "headlight", ambient=".2 .2 .2",
                   diffuse=".45 .45 .45", specular=".3 .3 .3")
     asset = ET.SubElement(root, "asset")
@@ -121,10 +140,12 @@ class Replay:
         self.option = mujoco.MjvOption()
         self.option.geomgroup[:] = 1  # The shipped robot uses collision group 3.
         self.camera = mujoco.MjvCamera()
-        self.camera.type = mujoco.mjtCamera.mjCAMERA_FREE
+        self.camera.type = mujoco.mjtCamera.mjCAMERA_TRACKING
+        self.camera.trackbodyid = model.body("trunk").id
         self.camera.distance = 1.45
         self.camera.azimuth, self.camera.elevation = 120, -19
         self.renderer = None
+        self.viewport_shift = 0
         self.checked = 0
         # Recompute plotted aggregate numbers directly from the saved states.
         speed = float(np.mean((final_qpos[:, 0] - initial_qpos[:, 0]) / 10))
@@ -154,6 +175,10 @@ class Replay:
         self.camera.lookat[:] = [state[0], state[1], .19]
         self.renderer.update_scene(self.data, camera=self.camera,
                                    scene_option=self.option)
+        # Truck the tracking view sideways to leave room for the gate HUD.
+        # This changes the rendered viewpoint only, never the replay state.
+        for camera in self.renderer.scene.camera:
+            camera.pos += self.viewport_shift * np.cross(camera.forward, camera.up)
         self.renderer.scene.flags[mujoco.mjtRndFlag.mjRND_SHADOW] = True
         image = Image.fromarray(self.renderer.render())
         if not GRAPHICS:
@@ -250,31 +275,52 @@ def loop():
 
 
 def video(replays):
-    """Cut lossless simulator clips, then concatenate without re-encoding."""
+    """Full-frame moving MuJoCo footage with an animated, measured HUD."""
     clips = HERE / "clips"
     clips.mkdir(exist_ok=True)
     curve = json.loads((DEMO / "examples/good/curve.json").read_text())
     test = json.loads((DATA / "selftest.json").read_text())
     measured = replays["trained", 101].verdict["measured"]
-    scenes = (("hook", 60), ("spec", 180), ("compare-202", 180),
-              ("compare-303", 180), ("proof", 210), ("end", 90))
     end_background = None
     global_frame = 0
 
-    def view(name, seed, index, width, height, azimuth=120, distance=1.45):
+    def view(name, seed, index, azimuth, distance, scene):
         replay = replays[name, seed]
         if replay.renderer is not None and (
-                replay.renderer.width != width or replay.renderer.height != height):
+                replay.renderer.width != 1920 or replay.renderer.height != 1080):
             replay.close()
         replay.camera.azimuth, replay.camera.distance = azimuth, distance
-        return replay.frame(index, width, height)
+        replay.camera.elevation = -25 if scene == "selftest" else -16
+        replay.viewport_shift = .18 if scene == "gates" else 0
+        # A charcoal render-only floor distinguishes the untrained comparison.
+        replay.model.mat_rgba[replay.model.mat("ground").id] = \
+            (.22, .25, .29, 1) if scene == "fall" else (1, 1, 1, 1)
+        # Frozen terminated states must never become a moving video shot.
+        assert replay.first_fall is None or index <= replay.first_fall
+        return replay.frame(index, 1920, 1080)
 
     def panel(image, box):
         layer = Image.new("RGBA", image.size)
-        ImageDraw.Draw(layer).rounded_rectangle(box, radius=20, fill=(244, 248, 251, 235))
+        ImageDraw.Draw(layer).rounded_rectangle(box, radius=20, fill=(244, 248, 251, 225))
         image.paste(layer, (0, 0), layer)
 
-    for scene, count in scenes:
+    def heading(image, title, subtitle, color=GREEN):
+        panel(image, (32, 26, 1888, 208))
+        text(image, (62, 42), title, 66, bold=True)
+        text(image, (62, 128), subtitle, 46, color)
+
+    def check(image, x, y, progress):
+        points = [(x, y+15), (x+14, y+29), (x+44, y)]
+        # Draw the two strokes in order, rather than swapping a static card.
+        draw = ImageDraw.Draw(image)
+        if progress < .35:
+            end = (x+14*progress/.35, y+15+14*progress/.35)
+            draw.line([points[0], end], fill=GREEN, width=8)
+        else:
+            end = (x+14+30*(progress-.35)/.65, y+29-29*(progress-.35)/.65)
+            draw.line([points[0], points[1], end], fill=GREEN, width=8)
+
+    for scene, count in SCENES:
         command = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
                    "-s", "1920x1080", "-r", "30", "-i", "-", "-an", "-c:v", "libx264",
                    "-threads", "2", "-crf", "0", "-preset", "ultrafast", "-pix_fmt", "yuv444p",
@@ -282,91 +328,69 @@ def video(replays):
         with subprocess.Popen(command, stdin=subprocess.PIPE) as encoder:
             try:
                 for frame in range(count):
-                    index = round(frame / 30 / .02)
-                    if scene in ("hook", "proof"):
-                        image = view("trained", 101, index, 1920, 1080,
-                                     132 if scene == "proof" else 120 + 6*frame/count,
-                                     1.7 if scene == "proof" else 1.45)
-                        if scene == "hook":
-                            panel(image, (24, 18, 1350, 190))
-                            text(image, (50, 32), "4 GiB → Go1 learns to walk", 64, bold=True)
-                            text(image, (50, 112),
-                                 f"{measured['mean_forward_mps']:.3f} m/s • {measured['fall_rate']:.1%} falls • held-out judge", 58, GREEN)
-                        else:
-                            end_background = image.copy()
-                            panel(image, (20, 15, 1900, 120))
-                            text(image, (45, 28), f"Judge PASS • all {test['total']} mutants rejected", 64, GREEN, True)
-                            panel(image, (20, 145, 635, 1055))
-                            panel(image, (1320, 145, 1900, 1055))
-                            text(image, (45, 166), "Five policy gates", 60, bold=True)
-                            rows = (("Speed ≥ 0.500", f"{measured['mean_forward_mps']:.3f} m/s"),
-                                    ("Falls ≤ 5%", f"{measured['fall_rate']:.1%}"),
-                                    ("Torque sat ≤ 15%", f"{measured['max_sat_frac']:.2%}"),
-                                    ("Margin ≥ 0.30", f"{measured['mean_forward_mps'] - measured['best_baseline_forward_mps']:.3f} m/s"),
-                                    ("Same seed", "Identical"))
-                            for i, (rule, value) in enumerate(rows):
-                                y = 265 + 150*i
-                                text(image, (45, y), rule, 60)
-                                text(image, (45, y+64), value, 64, GREEN, True)
-                            text(image, (1345, 162), f"{test['killed']}/{test['total']} killed", 64, GREEN, True)
-                            labels = {"short-training": "short training", "reward-flipped": "reward −vx",
-                                      "random-init": "random init", "zero-output": "zero",
-                                      "negated-output": "negated", "shuffled-output": "shuffled",
-                                      "noisy-weights": "noisy", "weak-output": "weak", "mass2x": "mass ×2"}
-                            for i, (name, row) in enumerate(test["mutants"].items()):
-                                assert row["failed_gates"], "a crash is not a mutation kill"
-                                text(image, (1345, 250+i*70), "× " + labels.get(name, name),
-                                     60, ORANGE, True)
-                    elif scene == "spec":
-                        image = Image.new("RGB", (1920, 1080), WHITE)
-                        image.paste(view("trained", 101, index+100, 1240, 1080,
-                                         140), (680, 0))
-                        for y, value in ((35, "PPO → WALK"), (140, "4 GiB GPU slice"),
-                                         (235, "vx = 1.0 m/s"), (330, "Held-out seeds"),
-                                         (410, "101 / 202 / 303")):
-                            text(image, (35, y), value, 60, bold=y == 35)
-                        panel(image, (705, 20, 1400, 115))
-                        text(image, (730, 30), "Final policy / seed 101", 52, GREEN, True)
-                        speed = curve["train_wall_s"] / (count/30)
-                        text(image, (35, 560), "PPO telemetry", 60, bold=True)
-                        text(image, (35, 640), f"{speed:.0f}× overview", 60, MUTED)
-                        values = curve["curve"]
-                        visible = [r for r in values if
-                                   r["wall_s"] <= curve["train_wall_s"]*(frame+1)/count]
-                        lo = min(r["mean_reward"] for r in values)
-                        hi = max(r["mean_reward"] for r in values)
-                        points = [(45+580*r["it"]/values[-1]["it"],
-                                   900-150*(r["mean_reward"]-lo)/(hi-lo)) for r in visible]
-                        ImageDraw.Draw(image).line(points, fill="#0072b2", width=6)
-                        text(image, (35, 950), f"{values[-1]['it']} recorded iterations", 48, MUTED)
-                    elif scene.startswith("compare-"):
-                        seed = int(scene.split("-")[1])
-                        index = round(frame / 30 * (10/6) / .02)
-                        image = Image.new("RGB", (1920, 1080), WHITE)
-                        text(image, (30, 18), f"Seed {seed} • 1.67× speed • exact scored states", 60, bold=True)
-                        for x, name in ((0, "trained"), (960, "untrained")):
-                            replay = replays[name, seed]
-                            image.paste(view(name, seed, index, 960, 740,
-                                             120 if seed == 202 else 55), (x, 170))
-                            color = GREEN if name == "trained" else ORANGE
-                            text(image, (x+25, 100), "TRAINED / PASS" if name == "trained" else "RANDOM INIT / FAIL",
-                                 58, color, True)
-                            text(image, (x+25, 920), f"{replay.metrics['forward_mps']:.3f} m/s  |  ≥ 0.500", 60)
-                            text(image, (x+25, 1000), f"Falls {replay.metrics['fall_rate']:.0%}  |  ≤ 5%", 60, color)
-                            if replay.first_fall is not None and index >= replay.first_fall:
-                                panel(image, (x+12, 185, x+730, 280))
-                                text(image, (x+30, 195), "FALL / state frozen", 56, ORANGE, True)
+                    if scene != "end":
+                        name, seed, _, azimuth, distance = SHOTS[scene]
+                        replay = replays[name, seed]
+                        index = replay_index(scene, frame, replay.first_fall)
+                        image = view(name, seed, index, azimuth, distance, scene)
+                    if scene == "hook":
+                        episodes = len(replays["trained", 101].verdict["eval"]["seeds"]) * 64
+                        heading(image, "It learned to walk.",
+                                f"{measured['mean_forward_mps']:.3f} m/s  •  falls 0/{episodes}  •  independent judge")
+                    elif scene == "train":
+                        heading(image, "Learned from random weights.",
+                                f"{curve['train_wall_s']:.1f} s PPO training  •  4 GiB GPU slice")
+                    elif scene == "fall":
+                        heading(image, "Before training: it falls.",
+                                f"Random weights  •  {replay.metrics['fall_rate']:.0%} falls in the judge", ORANGE)
+                    elif scene.startswith("walk-"):
+                        heading(image, "After training: it keeps walking." if seed == 202
+                                else "Tested on starts it never trained on.",
+                                f"Judge seed {seed}  •  {replay.metrics['forward_mps']:.3f} m/s  •  falls 0/64")
+                    elif scene == "gates":
+                        heading(image, "The judge checks the walk.",
+                                "Fresh CPU simulation. Not the training reward.")
+                        rows = (("Speed", f"{measured['mean_forward_mps']:.3f} m/s ≥ 0.500"),
+                                ("Falls", "0% ≤ 5%"),
+                                ("Torque saturation", f"{measured['max_sat_frac']:.2%} ≤ 15%"),
+                                ("Beats baseline", f"+{measured['mean_forward_mps'] - measured['best_baseline_forward_mps']:.3f} m/s ≥ 0.30"),
+                                ("Repeat test", "Identical result"))
+                        panel(image, (1240, 235, 1888, 1038))
+                        for i, (label, value) in enumerate(rows):
+                            progress = min(1, max(0, (frame-i*30)/12))
+                            if progress <= 0:
+                                continue
+                            y = 266+i*150
+                            check(image, 1270, y+19, progress)
+                            text(image, (1340, y), label, 39, bold=True)
+                            text(image, (1340, y+57), value, 38, GREEN)
+                    elif scene == "selftest":
+                        end_background = image.copy()
+                        heading(image, f"Judge failed all {test['total']} deliberately",
+                                "broken policies. A bad walk cannot bluff a PASS.")
+                        panel(image, (32, 915, 1888, 1045))
+                        text(image, (64, 922), f"{test['killed']}/{test['total']} failed the test", 42, GREEN, True)
+                        for i, row in enumerate(test["mutants"].values()):
+                            assert row["failed_gates"], "a crash is not a mutation kill"
+                            progress = min(1, max(0, (frame-i*8)/7))
+                            if progress > 0:
+                                check(image, 80+i*160, 978, progress)
                     else:
                         assert end_background is not None
                         image = end_background.copy()
-                        panel(image, (20, 740, 1900, 1060))
-                        text(image, (50, 765), "Train it. Grade it. Destroy the lease.", 64, bold=True)
-                        text(image, (50, 870), "python3 cookbook/go1-walk/run.py", 72, GREEN, True)
-                        text(image, (50, 980), "MuJoCo-Warp PPO / independent CPU MuJoCo judge", 48, MUTED)
+                        panel(image, (32, 26, 1888, 208))
+                        text(image, (62, 42), "Train it. Test it. GPU released after the run.", 62, bold=True)
+                        panel(image, (32, 844, 1888, 1045))
+                        text(image, (62, 865), "python3 cookbook/go1-walk/run.py", 72, GREEN, True)
+                        text(image, (62, 965), "Run the real simulation, not a canned animation.", 42, MUTED)
+                    if scene != "end":
+                        # A trace-derived clock/progress HUD, never synthetic telemetry.
+                        panel(image, (32, 225, 545, 316))
+                        text(image, (57, 236), f"REPLAY  {index*.02:.2f} s", 38, MUTED, True)
+                        ImageDraw.Draw(image).rounded_rectangle(
+                            (57, 297, 58+int(460*(frame+1)/count), 303), radius=3, fill=GREEN)
                     assert image.size == (1920, 1080)
                     encoder.stdin.write(image.tobytes())
-                    if global_frame in (0, 30, 120, 330, 750, 840):
-                        image.save(HERE / "work" / f"frame-{global_frame:04}.png")
                     global_frame += 1
                 encoder.stdin.close()
                 if encoder.wait() != 0:
@@ -377,7 +401,8 @@ def video(replays):
         for replay in replays.values():
             replay.close()
     listing = clips / "concat.txt"
-    listing.write_text("".join(f"file '{name}.mp4'\n" for name, _ in scenes))
+    assert global_frame == 900
+    listing.write_text("".join(f"file '{name}.mp4'\n" for name, _ in SCENES))
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
                     "-i", str(listing), "-c", "copy", str(HERE / "master/demo.mp4")], check=True)
 
@@ -400,6 +425,8 @@ def main():
               "fps": 30, "backend": os_backend(),
               "graphics": GRAPHICS,
               "lighting": "render-only world lights follow robot xy for shadow-map coverage",
+              "camera": "MuJoCo tracking camera, trackbodyid=trunk, distance 0.98–1.15 m",
+              "scenes": [{"name": n, "frames": c} for n, c in SCENES],
               "state_checks": {f"{n}-{s}": r.checked for (n, s), r in replays.items()},
               "episode_selection": "episode 0, fixed before grading",
               "model_sha256": sha(DEMO / "model/go1_meshless.xml"),

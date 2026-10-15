@@ -72,7 +72,7 @@ def main():
                   "duration_s": float(probe["format"]["duration"]),
                   "bytes": video.stat().st_size,
                   "master": "media/master/demo.mp4 (ignored, CRF 0)",
-                  "web_encode": "-crf 18 -preset slow -tune animation -pix_fmt yuv420p -movflags +faststart"},
+                  "web_encode": "-crf 22 -preset slow -tune animation -pix_fmt yuv420p -movflags +faststart"},
         "files": {}}
     inputs = ["env.py", "judge/_eval.py", "judge/grade.py", "judge/selftest.py",
               "judge/mutants.py", "model/go1_meshless.xml",
@@ -91,7 +91,7 @@ def main():
                        ["data/trained.json", "data/untrained.json", "data/*.npz"]),
         "loop.png": ("PPO reward curve, independently graded checkpoints, real mutation kills",
                      ["../examples/good/curve.json", "../examples/good/loop.json", "data/selftest.json"]),
-        "demo.mp4": ("Three held-out episodes, trained versus untrained, exact-state 3D replay",
+        "demo.mp4": ("Close trunk-tracking replay, real fall, animated judge checks; one 2.5 s end card",
                      ["data/trained.json", "data/untrained.json", "data/*.npz"]),
         "result.json": ("Shared gallery/result-card numbers written from the real grade",
                         ["data/trained.json", "data/selftest.json", "../examples/good/curve.json"])}

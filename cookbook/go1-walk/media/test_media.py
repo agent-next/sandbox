@@ -65,13 +65,45 @@ class MediaTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "checkpoint differs"):
                 render.Replay(model, "trained", 101)
 
+    def test_video_has_only_one_short_static_end_card(self):
+        self.assertEqual(sum(count for _, count in render.SCENES), 900)
+        self.assertEqual(render.SCENES[-1], ("end", 75))
+        self.assertEqual({scene for scene, _ in render.SCENES[:-1]}, set(render.SHOTS))
+        self.assertLessEqual(dict(render.SCENES)["train"], 90)
+
+    def test_replay_camera_tracks_the_trunk(self):
+        model = render.visual_model()
+        replay = render.Replay(model, "trained", 101)
+        self.assertEqual(replay.camera.type, mujoco.mjtCamera.mjCAMERA_TRACKING,
+                         "video camera must track the trunk body")
+        self.assertEqual(replay.camera.trackbodyid, model.body("trunk").id)
+        replay.close()
+
+    def test_every_moving_shot_advances_exact_states_without_freezing(self):
+        model = render.visual_model()
+        for scene, count in render.SCENES[:-1]:
+            name, seed, _, _, distance = render.SHOTS[scene]
+            replay = render.Replay(model, name, seed)
+            self.assertEqual(replay.camera.type, mujoco.mjtCamera.mjCAMERA_TRACKING)
+            self.assertEqual(replay.camera.trackbodyid, model.body("trunk").id)
+            self.assertLessEqual(distance, 1.15)
+            indices = [render.replay_index(scene, frame, replay.first_fall)
+                       for frame in range(count)]
+            self.assertTrue(all(b > a for a, b in zip(indices, indices[1:])))
+            self.assertLess(max(indices), len(replay.qpos))
+            self.assertTrue(all(np.max(np.abs(replay.qpos[b]-replay.qpos[a])) > 1e-9
+                                for a, b in zip(indices, indices[1:])))
+            if replay.first_fall is not None:
+                self.assertLessEqual(max(indices), replay.first_fall)
+            replay.close()
+
     def test_media_contract_and_checks(self):
         manifest = json.loads((HERE / "MANIFEST.json").read_text())
         video = manifest["video"]
         self.assertEqual((video["width"], video["height"], video["fps"]), (1920, 1080, 30))
         self.assertEqual(video["duration_s"], 30)
         self.assertLess(video["bytes"], 8_000_000)
-        self.assertGreaterEqual(sum(manifest["render"]["state_checks"].values()), 1176)
+        self.assertEqual(sum(manifest["render"]["state_checks"].values()), 831)
         self.assertTrue(manifest["render"]["graphics"]["renderer"])
         for name, digest in manifest["source_sha256"].items():
             self.assertEqual(hashlib.sha256((HERE.parent / name).read_bytes()).hexdigest(),

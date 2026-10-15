@@ -1,76 +1,95 @@
-# Media review
+# Close-tracking recut review, 2026-10-15
 
-## Builder inspection, 2026-10-15
+This review supersedes the previous 7,200,578-byte cut. The current video
+is **7,262,402 bytes**, 30 s, 1920×1080, 30 fps, H.264 yuv420p with
+faststart. It uses CRF 22/preset slow/animation tuning from a CRF 0
+lossless master.
 
-Opened `result.png` and `loop.png` at full size, and opened six frames
-decoded from the final H.264 file at **0, 1, 4, 11, 25 and 28 seconds**.
-These are the `media/work/review-*s.png` files written by
-`make_media.sh`, not just the lossless render inputs.
+## Builder visual inspection
 
-- The hero figure contains six actual MuJoCo views: trained and random
-  initialization, seeds 101/202/303 at 2/5/8 s. Speed and fall limits
-  are readable. The figure is 2400 px wide, 200 dpi.
-- The loop figure has the measured PPO curve, all five retained policy
-  grades (including failures), and all eleven actual mutant kills.
-  Labels, rows and the 90% pass line do not overlap.
-- The video opens on a real walking robot. Orange body, blue legs,
-  textured lit floor, visible contact shadows and sky give an
-  unambiguous 3D scene.
-- The comparison shows the trained gait and an actual random-init fall.
-  “FALL / state frozen” explains the terminated episode. The model has
-  foot-only contacts, so fallen non-foot geometry can intersect the
-  floor. This is disclosed, not concealed with a replacement animation.
-- The proof shot leaves the robot visible between the two readable HUD
-  panels. Gate values and mutation names match the real JSON.
-- The last three seconds are static and display the exact launch command.
-  No title-only opening, fabricated conversation or fake terminal
-  recording appears.
+Extracted every second of the **decoded final web encode** using
+`ffmpeg -i demo.mp4 -vf fps=1`, then opened all 30 frames in five
+high-resolution, six-frame contact sheets. Inspected the earlier
+full-size close-up and gate/HUD compositions too.
 
-The shipped primitive collision geometry has a deliberately simple
-appearance and a few self-shadow speckles. It is not a downloaded,
-retouched or mesh-substituted robot.
-
-### Resumed inspection of the final decoded frames
-
-Opened both full-resolution figures and all six decoded 1920×1080 frames
-again before publication:
-
-| File / time | Visible content |
+| Video seconds | What I saw |
 |---|---|
-| `result.png` | Six lit, shadowed 3D robot views. The trained row is upright; the random-init row has fallen. Each tile names its seed, time, measured speed/falls and pass limits. |
-| `loop.png` | Pillow-drawn PPO reward curve, five real policy grades and eleven killed-mutant rows. The kill-rate bar has a visible 90% pass line. |
-| 0 s | Orange-and-blue 3D Go1 on the checker floor, with the walking-result headline and measured 0.768 m/s / 0.0% falls. |
-| 1 s | A different leg pose and floor position under the same readable headline, with shadows below the feet. |
-| 4 s | Real robot replay beside the command, held-out seeds and archived PPO telemetry. This is not a terminal recording. |
-| 11 s | Seed-202 split view: trained robot upright on the left, random-init robot tipped into a frozen fall on the right. Speed and fall limits are unobstructed below both views. |
-| 25 s | The trained robot remains visible between the five measured gate results and eleven rejected mutants. |
-| 28 s | Final simulator still above the large one-command launch caption; no terminal or title-only replacement. |
+| 0–4 | A large orange-and-blue Go1 already walking in frame one. Each sampled frame has a new leg pose, shadow and floor position. The 0.768 m/s and falls 0/192 headline is readable muted. |
+| 5–7 | A close side-angle walk, with only the measured 486.1 s PPO / 4 GiB training caption. No tiny plot, terminal, or telemetry card. |
+| 8–9 | An actual random-initialization tumble on a charcoal floor. The shot cuts at the first failed control step, not after a frozen hold. |
+| 10–13 | Seed 202 walks from the saved scored states. The 0.770 m/s, falls 0/64 caption stays separate from the moving legs. |
+| 14–17 | Seed 303 walks from another close angle. Caption: 0.761 m/s, falls 0/64. |
+| 18–23 | The robot keeps walking on the left. Five gate checks draw in individually on the right. The HUD does not cover the trunk or the gait. |
+| 24–27 | The robot keeps walking. Plain-language broken-policy explanation, actual 11/11 result, and successively drawn checkmarks. No mutant jargon. |
+| 28–29 | The single static final simulator frame, exact command, “GPU released after the run.” The end card begins at 27.5 s. |
 
-## Automated checks
+Rejected the old slide-like specification/proof layouts and the 3 s
+static tail. There are no pre-end-card stills, screenshot pans, image
+zooms, plots, or text-only cards in this recut. The hero is a true MuJoCo
+tracking camera bound to the trunk, at 0.98 m rather than the old 1.45 m.
+The more distant shots remain within 1.15 m.
+
+The primitive model and foot-only contacts remain unchanged. Charcoal
+floor material, lighting/shadow resolution, camera angles and the gate
+shot's sideways camera offset are render-only. No flattering episode
+selection, replacement poses, retraining, or new grading took place.
+
+## Machine evidence
 
 `bash cookbook/go1-walk/media/make_media.sh --render-only` exited 0:
-six media tests passed. The web encode is **7,200,578 bytes**, 30 s,
-1920×1080, 30 fps, H.264 yuv420p, CRF 18/preset slow with animation
-tuning and faststart, derived from a CRF 0 lossless master.
+**9 media tests passed**. All **831 rendered views** match the original
+judge qpos and qvel to 1e-9. The model, checkpoints, traces, trained and
+untrained verdicts, and mutation self-test remain unchanged.
 
-Current-main `cookbook/tools/video_gate.py` passed every check:
-1.3333 scene cuts/10 s, motion fraction 0.2217, and last-two-second
-mean luma difference 0.0003. Exact-state checks cover **1176 rendered
-views**; every qpos and qvel agrees with the saved judged state to 1e-9.
-Rendering used EGL on NVIDIA RTX 5090, OpenGL 4.6, driver 580.95.05.
+The unchanged upstream video gate passed all 16 checks:
 
-The media manifest binds every displayed metric to judge outputs,
-checkpoint/model/trace hashes, source code and pinned render tools.
-Uncompressed clips, master and decoded review frames are ignored.
+| Check | Measured |
+|---|---:|
+| Duration | 30.0 s |
+| Resolution / frame rate | 1920×1080 / 30 fps |
+| Web size | 6.926 MiB, strictly below 8,000,000 bytes |
+| Detected cuts per 10 s | 1.0 |
+| Motion fraction | 0.9249 |
+| Final 2 s mean luma difference | 0.0005 |
+| Faststart | moov@32 before mdat@9436 |
 
-## Blind panel
+The new tracking-camera regression test rejects the old free-camera
+renderer with the explicit assertion “video camera must track the trunk
+body”; the current renderer passes. The scene-schedule test also checks
+every pre-card frame advances to a different scored state and never
+replays past a fall.
 
-Two saved reviews used the current-main blind prompt and thirty sampled
-frames, isolated from the README. Their raw answers and method are in
-`REVIEW.json`. One scored quality/wow/clarity 8/8/9. The other scored
-6/4/4 but described an opening terminal and eight seconds of logs that
-do not exist in this video. Its account is inconsistent with the decoded
-frames, so this is **not claimed as a passing blind panel**. Neither
-review used native video playback. Continuous motion is checked
-separately by the machine video gate. No builder score replaces either
-saved answer.
+### Resumed-worker verification
+
+Kept the inherited renderer and final encode after inspecting their full
+diff and source hashes. Reran the required gate suite: **20 passed**
+in 1085.15 s. The final MP4 again passed all 16 gate checks with the
+values above. All **9 media tests** and **16 Go1 regression tests**
+passed in the existing pinned render environment.
+
+Independently extracted another 30 decoded 1 fps frames and opened all
+five contact sheets. The opening walk is already readable, the falling
+comparison changes pose, and the gate and self-test overlays leave the
+moving robot visible. No slide-like pre-card shot was accepted.
+Temporary review frames and the verified upstream gate-tool copies were
+removed after verification; cached scored states and the lossless master
+remain available for rebuilding.
+
+## Blind panel status
+
+The owner's prior cut scored Gemini 8/7/8 and Opus 7/6/7. This recut
+addresses the named issues, but **Gemini/Opus have not rescored it**.
+No builder score or code-review result is claimed as a blind-panel pass.
+The older reviews in `REVIEW.json` concern a superseded encode.
+
+## Deviations
+
+- Neither Remotion nor HyperFrames was installed; used the explicitly
+  allowed existing MuJoCo/Pillow/ffmpeg compositor.
+- CRF 18 produced an 11,996,858-byte first candidate. CRF 22 keeps the
+  full-motion recut below the owner's strict 8 MB limit. The lossless
+  master, 1080p30 output and original measured results are retained.
+- This branch predates `cookbook/tools/`. Verification temporarily used
+  the unchanged `video_gate.py` and `test_video_gate.py` from upstream
+  commit `ecfbcfa1f67718a55a651e487b149be686ca0712`, without changing
+  thresholds or adding unrelated tool sources to the PR.

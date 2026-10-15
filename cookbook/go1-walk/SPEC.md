@@ -97,8 +97,10 @@ fetches these states, and replays
 them with `mujoco.Renderer`. It never interpolates or re-simulates poses.
 Every frame checks qpos within 1e-9 against that graded data. Render-only
 materials, lights and textures cannot alter the model's physics.
-The video is 1920x1080, 30 fps, 30 s, H.264 CRF 18 from a CRF 0 master,
-under 8 MB. Hero stills and training/judge-loop graphics use Pillow.
+The video is 1920x1080, 30 fps, 30 s, H.264 CRF 22 from a CRF 0 master,
+under 8 MB (the close-up moving cut exceeded 8 MB at CRF 18). It uses a
+trunk-tracking camera, moving scored states and animated HUD checks until
+the single 2.5 s end card. Hero stills and training/judge-loop graphics use Pillow.
 The random-initialization network uses seed 20260707 and weights drawn
 from N(0, 0.3); it has never trained. It is not the PPO step-0 mean
 network, which the self-test also grades and which can stand still.

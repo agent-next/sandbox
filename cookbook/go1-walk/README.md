@@ -87,7 +87,10 @@ that were graded**, not a newly simulated or interpolated animation.
 MuJoCo renders the robot, textured floor, sky and shadows; Pillow adds
 labels and draws the training/judge-loop figure. Each video frame
 asserts qpos agreement within 1e-9. The 30 s, 1080p, 30 fps web video
-comes from an ignored lossless master. Provenance and visual inspection:
+opens on a close trunk-tracking walk. Every shot moves until the single
+2.5 s end card; gate checkmarks animate over the scored gait.
+The CRF 22 web encode comes from an ignored lossless master (CRF 18
+exceeded 8 MB for this close-up cut). Provenance and visual inspection:
 [MANIFEST](media/MANIFEST.json), [REVIEW](media/REVIEW.md).
 The falling comparison is a genuinely untrained network with broad
 random initial weights, not the PPO step-0 mean network (which can stand).

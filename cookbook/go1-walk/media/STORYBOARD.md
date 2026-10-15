@@ -1,19 +1,36 @@
-# Go1, from PPO to an independently judged walk
+# Go1: the walk, the fall, the independent test
 
-Written before the final cut. Every robot pose is episode zero of a saved
-judge trajectory. Camera moves and lighting are render-only. There is no
-fabricated agent conversation or terminal recording.
+Every frame before the single 2.5 s end card is a newly rendered, moving
+MuJoCo view of recorded judge states. A MuJoCo tracking camera follows
+the trunk at 0.98–1.15 m. No interpolated poses, frozen-fall inserts,
+screenshots, plots, slides, or image pans appear in the video.
+Numbers are measured results, not animated estimates.
 
-| Seconds | Real moving output | Caption and source |
+| Seconds | Moving simulation | Muted-readable HUD and source |
 |---|---|---|
-| 0–2 | Full-frame trained Go1 walking, seed 101; gentle camera move | “4 GiB → Go1 learns to walk”, measured held-out mean speed and no falls. `data/trained.json`. |
-| 2–8 | Final trained policy beside the input specification | Command 1.0 m/s, 4 GiB, held-out seeds. Actual PPO reward telemetry progressively revealed, labelled “81× overview”, from `examples/good/curve.json`. This is archived telemetry, not a screen recording. |
-| 8–14 | Side-by-side trained and random-initialized robots, seed 202 | “1.67× speed”, per-seed 64-episode speed/fall numbers and pass limits. A fallen episode explicitly freezes. `data/{trained,untrained}-202.npz` and verdicts. |
-| 14–20 | New angle, held-out seed 303, same genuine comparison | Same readouts for seed 303. `data/{trained,untrained}-303.npz`. |
-| 20–27 | Still-moving trained Go1 behind a five-gate PASS HUD and all eleven rejected mutants | Real gate values from `data/trained.json`; actual killed mutants from `data/selftest.json`. |
-| 27–30 | Static final simulator frame | `python3 cookbook/go1-walk/run.py`. |
+| 0–5 | Close tracking shot of trained seed 101, starting mid-walk | “It learned to walk.” 0.768 m/s, falls 0/192. `data/trained.json`. |
+| 5–8 | Close side angle of the same scored walk | Random-weights training, 486.1 s PPO, 4 GiB allocation. `examples/good/curve.json`, `RECEIPT.md`. No tiny curve. |
+| 8–9.933 | Real random-initialization fall, seed 202, charcoal floor | “Before training: it falls.” The 64-episode judge measured 100% falls. Cut on the first failed control step, never hold a terminated state. `data/untrained-202.npz`. |
+| 9.933–14 | Trained seed 202 walking | “After training: it keeps walking.” Per-seed 0.770 m/s, falls 0/64. `data/trained.json`. |
+| 14–18 | Trained seed 303, new close angle | “Tested on starts it never trained on.” Per-seed 0.761 m/s, falls 0/64. |
+| 18–23.5 | Trained seed 303 still walking behind a compact HUD | Five checkmarks draw in one by one: speed, falls, torque saturation, baseline margin, repeatability. Values and limits from `data/trained.json`. |
+| 23.5–27.5 | Trained seed 202 still walking | “Judge failed all 11 deliberately broken policies.” Eleven checks animate in, with the real 11/11 result always labelled. `data/selftest.json`. |
+| 27.5–30 | The only static shot, final simulator frame | Exact launch command; “GPU released after the run.” |
 
-`bash cookbook/go1-walk/media/make_media.sh` writes lossless 30 fps clips
-under ignored `media/clips/`, concatenates them into the CRF 0 master,
-and produces the CRF 18 H.264 animation-tuned web encode. `--render-only` uses the same
-hash-verified cached states. No plotting library is used.
+Every moving shot has an advancing replay clock taken from the exact
+trace index and a progress bar. All footage plays at real time (the
+1.9 s fall occupies 58 frames). All three trained seeds remain episode
+zero, fixed before grading.
+
+Neither Remotion nor HyperFrames was installed. The existing Pillow HUD
+and ffmpeg compositor writes CRF 0 clips and master, then the CRF 22
+H.264 web encode. The more active, close-up cut exceeded 8 MB at CRF 18.
+The charcoal floor and sideways gate-shot framing are render-only;
+neither changes the robot, physics, poses, or numbers. Rebuild without a lease:
+
+```bash
+bash cookbook/go1-walk/media/make_media.sh --render-only
+```
+
+The script extracts all 30 decoded 1 fps review frames into ignored
+`media/work/review-1fps/`.

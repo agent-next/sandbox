@@ -4,7 +4,7 @@
   "files": {
     "data/render.json": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
-      "sha256": "4e14e0c7a5b494dabd8d80d029088eacd9b16180519d0479f2a3d9b2b6b70129",
+      "sha256": "ed67621559fd611a18cffa8f017c2bbcd3d3bf6404235b5abb9c8d6c6ba1c139",
       "what": "Machine-produced evidence"
     },
     "data/selftest.json": {
@@ -24,13 +24,13 @@
     },
     "demo.mp4": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
-      "sha256": "6f8a0e4975a5af212df4e5a9cdebc7b345c73c4aed7d567cbebf9d691c493e4e",
+      "sha256": "50f499e860e68ac79e7bb06f812f2737958eb1aba172b62432ed7a2a2d690589",
       "source_data": [
         "data/trained.json",
         "data/untrained.json",
         "data/*.npz"
       ],
-      "what": "Three held-out episodes, trained versus untrained, exact-state 3D replay"
+      "what": "Close trunk-tracking replay, real fall, animated judge checks; one 2.5 s end card"
     },
     "loop.png": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
@@ -44,7 +44,7 @@
     },
     "result.json": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
-      "sha256": "bb549d740bcccbc1428219491de0ac7464acc57258282e84e5efef3bde52a77b",
+      "sha256": "f9b5793d4a42e71ef314f7b7cd55658227aac156c0567a932da1141f5d11b0f8",
       "source_data": [
         "data/trained.json",
         "data/selftest.json",
@@ -54,7 +54,7 @@
     },
     "result.png": {
       "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
-      "sha256": "048eb518d795c30a3ad94dfe03e7e81a19c89f7baf245ea865260189b1e7335d",
+      "sha256": "45fb3b2bcbbdacf58dd3427828575744e97e86cd2f55da15a9e35c3ab70e9dde",
       "source_data": [
         "data/trained.json",
         "data/untrained.json",
@@ -66,6 +66,7 @@
   "python": "3.12.3",
   "render": {
     "backend": "egl",
+    "camera": "MuJoCo tracking camera, trackbodyid=trunk, distance 0.98\u20131.15 m",
     "duration_s": 30,
     "episode_selection": "episode 0, fixed before grading",
     "fps": 30,
@@ -78,14 +79,48 @@
     "height": 1080,
     "lighting": "render-only world lights follow robot xy for shadow-map coverage",
     "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
-    "render_model_sha256": "0b33a68e08554f3218b6428729b5d2cc2bb71e3cf1533cf092d7517a0ef89256",
+    "render_model_sha256": "2a14edaf88fa45bdc8fcad01944b201ee96aced52a5206efbb9330e968e371d4",
+    "scenes": [
+      {
+        "frames": 150,
+        "name": "hook"
+      },
+      {
+        "frames": 90,
+        "name": "train"
+      },
+      {
+        "frames": 58,
+        "name": "fall"
+      },
+      {
+        "frames": 122,
+        "name": "walk-202"
+      },
+      {
+        "frames": 120,
+        "name": "walk-303"
+      },
+      {
+        "frames": 165,
+        "name": "gates"
+      },
+      {
+        "frames": 120,
+        "name": "selftest"
+      },
+      {
+        "frames": 75,
+        "name": "end"
+      }
+    ],
     "state_checks": {
-      "trained-101": 451,
-      "trained-202": 181,
-      "trained-303": 181,
+      "trained-101": 241,
+      "trained-202": 243,
+      "trained-303": 286,
       "untrained-101": 1,
-      "untrained-202": 181,
-      "untrained-303": 181
+      "untrained-202": 59,
+      "untrained-303": 1
     },
     "width": 1920
   },
@@ -102,7 +137,7 @@
     "judge/grade.py": "8a440a04ad73eada43ceb20298807a8b40efc46975b36087636af3057debfb90",
     "judge/mutants.py": "c5eecf5e4381cd5414e4ba5e09bc38030fa6ea5f30533611c692287e9769f27b",
     "judge/selftest.py": "1e8fea1a8b39b3ecfe661fcda9a9bbaaccfc8c65416c2d49a906ccd7bcb8a7bf",
-    "media/STORYBOARD.md": "1b6fd9bbd130aff39eac994ab558abcabd505df61c4d0760431673aefd94860d",
+    "media/STORYBOARD.md": "e8b6734bb74d1f8444ea10665a5edb6a03a851cb1feb4d3c242590055be49d9e",
     "media/collect.py": "fbcf391e72276fbce91276e6c1edd2bbe6483beca732334fcdbdcef8fcc2e6a7",
     "media/data/trained-101.npz": "26f8ec54c101d6835e0dd2304ab9e3b228a13668ca4ec4bbabb5914120ffeae9",
     "media/data/trained-202.npz": "8267ae46b8af5fd29a75c8beeeffc9f5e99007a305441984c9de20428385d5d8",
@@ -111,9 +146,9 @@
     "media/data/untrained-202.npz": "7be256b3b2666c501d8d0655e39066983b56099750410ca5b5568a67fe091830",
     "media/data/untrained-303.npz": "777598488ada6e877566a0bc37b8e1754ed4e0a473fef6af33f3040d36e24a81",
     "media/data/untrained-policy.npz": "1eea981e4d736af98595dff55eb938db92b0556927337b2cbf8ebdab6b47d854",
-    "media/make_media.sh": "d655bbcbd175a44a41d24798ebe6f294ecbfa35d49dad9c74d6e81e0e0723aad",
-    "media/manifest.py": "4e870757fae9bc199521d56c6f4f98218e60a52ee336c2e5aeae5bb9772d6733",
-    "media/render.py": "077158dc3962ed4b96e9769471cecf2da88367b3739d7aba1b3a317110755773",
+    "media/make_media.sh": "16d0fa509d73446b29061bb6e033ca98b54324fb7ce0e22774ade0e421af6794",
+    "media/manifest.py": "cbdf2f00671814a4359f6ce032b824cc77abdb7c990def1f1af5bdcbba73ba0e",
+    "media/render.py": "cc6d299e92b04313cc5776ff14eceaa23a2d186116e602db40c03e0940d9d744",
     "media/requirements.lock": "39c8f1ad9c5893b4f18854cafe9dd0e77372dce865793e45609db2f6a03959c7",
     "model/go1_meshless.xml": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90"
   },
@@ -124,13 +159,13 @@
     "numpy": "2.2.6"
   },
   "video": {
-    "bytes": 7200578,
+    "bytes": 7262402,
     "codec": "h264",
     "duration_s": 30.0,
     "fps": 30,
     "height": 1080,
     "master": "media/master/demo.mp4 (ignored, CRF 0)",
-    "web_encode": "-crf 18 -preset slow -tune animation -pix_fmt yuv420p -movflags +faststart",
+    "web_encode": "-crf 22 -preset slow -tune animation -pix_fmt yuv420p -movflags +faststart",
     "width": 1920
   }
 }

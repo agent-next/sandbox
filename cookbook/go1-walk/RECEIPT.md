@@ -170,6 +170,10 @@ need or exercise it. No judge threshold was relaxed.
 
 ## Media and provenance
 
+The collection and raw render output in this section describe the
+previous cut. The close-tracking recut below supersedes its video size,
+camera, shot timing, state-check count and web-encode setting.
+
 ```bash
 env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy \
   GO1_LEASE_WAIT_S=7200 bash cookbook/go1-walk/media/make_media.sh
@@ -343,3 +347,85 @@ cleanup_process_exit=0
 - Every lease created by these final commands was deleted and GET 404
   was confirmed. Earlier owned gl-0626f0-3 and gl-0626f0-4 were also
   independently confirmed 404. No unrelated inventory was deleted.
+
+## Close-tracking media recut, 2026-10-15
+
+```text
+$ bash cookbook/go1-walk/media/make_media.sh --render-only
+== reuse hash-verified judge states (no new grade) ==
+== MuJoCo 3D replay (egl), Pillow labels, lossless master ==
+== web encode from CRF 0 master ==
+media verified: 30.0 s, 7262402 bytes
+Ran 9 tests in 1.048s
+OK
+codec_name=h264
+width=1920
+height=1080
+pix_fmt=yuv420p
+r_frame_rate=30/1
+duration=30.000000
+size=7262402
+make_media: done
+```
+
+This excerpt omits the long render JSON and individual successful test
+names; the complete render report is `media/data/render.json`.
+Every one of 831 rendered views matches saved judge qpos/qvel within
+1e-9. No source checkpoint, scored trace, verdict, model physics, training
+number, or mutation result changed. No lease was created.
+
+The new opener is a close MuJoCo trunk-tracking shot. Training numbers
+occupy 3 s, without a plot. The actual random-initialization fall ends on
+the terminating step rather than holding a frozen state. Five checks
+draw in over a walking robot, followed by the plain-language 11/11
+broken-policy result. The only static shot is the 2.5 s end card.
+Opened all 30 decoded 1 fps frames in five contact sheets: no slide-like
+pre-card shot. See `media/STORYBOARD.md` and `media/REVIEW.md`.
+
+```text
+$ python cookbook/tools/video_gate.py cookbook/go1-walk/media/demo.mp4
+passed: true
+failed: []
+duration_s: 30.0
+fps: 30.0
+size_mib: 6.926
+scene_cuts_per_10s: 1.0
+motion_fraction: 0.9249
+endcard_static: 0.0005
+```
+
+This is an excerpt of the gate's JSON fields, not an alternative gate.
+All 16 checks passed, including H.264, yuv420p, 1920×1080, faststart
+and first-frame luma. The size is below both 8 MiB and 8,000,000 bytes.
+
+The resumed worker inspected and retained the inherited recut, then
+reran `python3 -m pytest -q cookbook/tools/test_video_gate.py`:
+**20 passed in 1085.15 s**. The MP4 gate passed again with the values
+above, along with all **9 media tests** and **16 Go1 regression tests**.
+A fresh extraction of all 30 decoded 1 fps frames was visually inspected
+in five contact sheets. No slide-like pre-card shot was found. Temporary
+review frames and unchanged upstream gate-tool copies were cleaned up;
+the cached judge states and ignored lossless master were retained.
+
+### Recut deviations and validation limits
+
+- Existing compositor used because Remotion and HyperFrames were absent.
+- CRF 22 replaces CRF 18 for the web encode. The first close-up candidate
+  at CRF 18 was 11,996,858 bytes and failed both size and scene-cut checks.
+  The final cut uses a render-only charcoal floor for the untrained
+  comparison, then returns to the bright walking shot; no physics changes.
+- The branch lacks `cookbook/tools/`. The requested verification used
+  unchanged tools temporarily materialized from upstream
+  `ecfbcfa1f67718a55a651e487b149be686ca0712`. They are not PR changes.
+- A first gate-suite run scored the intermediate oversized candidate
+  and reported 19 passed, 1 failed (the Go1 committed-video baseline).
+- A first extra demo-test attempt used a Python environment without
+  NumPy and failed collection. Running the correct existing render
+  environment's unittest command passed all 16 Go1 regression tests.
+- Old-versus-new test power: the old renderer fails the new camera test
+  with `0 != mjCAMERA_TRACKING: video camera must track the trunk body`;
+  the current renderer passes.
+- No fresh sandbox run or CLI test matrix was run for this media-only
+  recut. The two recorded real runs above are unchanged.
+- Gemini/Opus blind rescoring was not run. The owner-provided prior
+  scores are not claimed as scores for the new video.

@@ -94,5 +94,5 @@
     "ask_agent": "Read cookbook/go1-walk/SPEC.md. Train the Go1 on a 4 GiB GPU lease, pass every independent judge gate and the mutation self-test, then delete the lease and confirm GET 404."
   },
   "receipt": "RECEIPT.md",
-  "sandbox_commit": "070f8a5c30c017ba81109f0907a29dc1bd681a9b"
+  "sandbox_commit": "922296c1d5355782f0d6703c53ed3596ece8783e"
 }
