@@ -50,10 +50,12 @@ The judge merges `profile.ini` on top of a fixed base preset
 filament, 0.20 mm process defaults, marlin flavor, absolute E, Klipper-safe
 start/end G-code owned by the judge) and re-slices `bracket.stl` with
 `orca-slicer --slice 0 --arrange 0 --orient 0`. The artifact's `part.gcode`
-must match what the judge's re-slice produces, and the replayed G-code is
-what is graded. An agent cannot hand-craft pretty G-code whose profile would
-slice something else, and cannot ship a profile whose actual output would
-fail — both are measured.
+must match what the judge's re-slice produces, and every behavioural gate
+is measured on **both** the artifact's `part.gcode and the judge's
+re-slice**: a hand-edited G-code fails on the artifact file, a profile
+whose actual output would fail fails on its re-slice. An agent can
+therefore neither hand-craft pretty G-code whose profile would slice
+something else, nor ship a profile that only looks right.
 
 Placement: with `--arrange 0 --orient 0` the model prints at its native STL
 coordinates, so the analytic footprint is computed directly from
@@ -114,19 +116,21 @@ oracles:
 ## Gates
 
 The judge prints exactly one verdict JSON object; exit 0 only if every gate
-passes. `P` = measured, `R` = rule.
+passes. `P` = measured, `R` = rule. Gates 3-6, 8 and 9 are measured on
+**both** the artifact's `part.gcode` and the judge's re-slice of the same
+profile; the rule must hold on each.
 
 | # | gate | measured | pass rule |
 |---|---|---|---|
 | 1 | `slice_clean` | OrcaSlicer exit code slicing `bracket.stl` with `<dir>/profile.ini` | exit 0 **and** non-empty G-code |
-| 2 | `artifact_matches_profile` | judge-re-sliced G-code vs `<dir>/part.gcode`, comment lines stripped, whitespace-normalised | identical content hash (proves profile and G-code belong together) |
+| 2 | `artifact_matches` | judge-re-sliced G-code vs `<dir>/part.gcode`, comment lines stripped, whitespace-normalised | identical content hash (proves profile and G-code belong together) |
 | 3 | `moves_inside_bed` | every extruding move endpoint and segment | 0 <= x <= 250, 0 <= y <= 210, z >= 0 |
 | 4 | `moves_near_part` | every extruding move at z <= 15.6 (part top) | distance from XY segment to part footprint <= `brim_max_mm` |
 | 5 | `layer_z_sequence` | measured Z of every extrusion layer | Z non-decreasing between extrusion layers (dip > 0.05 mm fails); first layer Z in [0.10, 0.30] and <= 1.5 x nozzle; every steady layer height in [0.10, 0.30] and <= 0.8 x nozzle |
 | 6 | `volume_matches_model` | deposited volume = sum(dE) x pi x (1.75/2)^2 vs analytic model from gate geometry | within +-30 % band + skirt allowance, and mass <= 12 g |
 | 7 | `cube_crosscheck` | same volume measurement on judge-sliced `cube.stl` | inside the cube's analytic band (judge self-consistency) |
 | 8 | `pla_temperatures` | M104/M109/M140/M190 set points in order | every nozzle set point in [180, 230] °C while extrusion follows; every bed set point in [35, 70] °C; first bed heat command precedes first extrusion |
-| 9 | `time_estimate_consistent` | interpreter feedrate integration (constant-velocity lower bound) vs slicer's `model printing time` comment | within +-25 % band and <= `max_print_time_s` |
+| 9 | `time_estimate` | interpreter feedrate integration (constant-velocity lower bound) vs slicer's `model printing time` comment | within +-25 % band and <= `max_print_time_s` |
 | 10 | `klipper_batch` | klippy exit code + log scan on the normalized G-code | exit 0, zero ERROR/WARNING lines outside the benign whitelist |
 | 11 | `profile_contract` | `wall_loops`, `sparse_infill_density` (and filament/nozzle fields) parsed from `profile.ini` | wall_loops >= 2, infill in [10 %, 40 %], nozzle diameter 0.4, filament diameter 1.75 |
 | 12 | `judge_intact` | sha256 over `judge/` before vs after | identical |
@@ -163,7 +167,7 @@ Every mutant is a one-spot edit from the good artifact; `mutants.py` writes
 each as a fresh directory holding a complete `profile.ini` + `part.gcode`.
 Mutants that edit the profile are re-sliced by gate 2 itself; mutants that
 edit the G-code diverge from the profile and therefore also fail
-`artifact_matches_profile`, but each must *additionally* fail the
+`artifact_matches`, but each must *additionally* fail the
 behavioural gate named in its row — the self-test classifies kills and
 requires every target gate to fire.
 
