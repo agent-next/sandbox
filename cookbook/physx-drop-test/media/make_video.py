@@ -844,13 +844,16 @@ def main():
     ap.add_argument("--fps", type=int, default=FPS)
     ap.add_argument("--only", help="render just this shot")
     ap.add_argument("--preview", help="comma-separated seconds, one frame each")
+    ap.add_argument("--resume", action="store_true",
+                    help="keep already-rendered frames and skip them")
     args = ap.parse_args()
 
     scn = Scene()
     os.makedirs(FRAMES, exist_ok=True)
-    for f in os.listdir(FRAMES):
-        if f.startswith("f") and f.endswith(".png"):
-            os.remove(os.path.join(FRAMES, f))
+    if not (args.resume or args.preview or args.only):
+        for f in os.listdir(FRAMES):
+            if f.startswith("f") and f.endswith(".png"):
+                os.remove(os.path.join(FRAMES, f))
 
     if args.preview:
         plan = [(None, float(x)) for x in args.preview.split(",")]
@@ -866,10 +869,12 @@ def main():
     for idx, (name, t) in enumerate(plan):
         if name is None:
             name = next(n for n, a, b in SHOTS if a <= t < b)
+        out = os.path.join(FRAMES, f"f{idx:05d}.png")
+        if args.resume and os.path.exists(out):
+            continue
         t0, t1 = BOUNDS[name]
         canvas = SHOT_FN[name](scn, t, t0, t1)
-        Image.fromarray(canvas).save(os.path.join(FRAMES, f"f{idx:05d}.png"),
-                                     compress_level=1)
+        Image.fromarray(canvas).save(out, compress_level=1)
         if idx % 90 == 0:
             print(f"[video]   frame {idx}/{len(plan)} ({name}, t={t:.2f}s)")
 
