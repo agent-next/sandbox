@@ -1,0 +1,9 @@
+cmake: cmake version 3.31.6
+ninja: 1.11.1
+gcc: gcc (Debian 12.2.0-14+deb12u1) 12.2.0
+omniverse-labs commit: ea045a027c4d0cc717174ed92f13ba56fffeb39d
+  tarball sha256: 6b15c9cef649abf43e097906c4df68bfc6d1d376993c7cf79583fad1a2cbfeee
+usd-core: 25.5
+numpy: 2.2.6
+pillow: 11.2.1
+mesa: 22.3.6-1+deb12u2
