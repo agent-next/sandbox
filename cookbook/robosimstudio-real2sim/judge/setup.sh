@@ -77,7 +77,13 @@ for name in names:
     stem = name.split("-py3")[0].split("-cp3")[0]
     pkg, _, version = stem.rpartition("-")
     subprocess.run(
+        # The lease is Python 3.13 on manylinux; without this a host running
+        # 3.12 would fetch cp312 wheels that never match wheels.sha256.
         [sys.executable, "-m", "pip", "download", "--no-deps", "--only-binary=:all:",
+         "--python-version", "3.13",
+         "--platform", "manylinux2014_x86_64", "--platform", "manylinux_2_28_x86_64",
+         "--platform", "manylinux_2_27_x86_64", "--platform", "manylinux_2_24_x86_64",
+         "--platform", "manylinux_2_17_x86_64",
          "--dest", wheels, f"{pkg}=={version}"],
         check=True,
     )
