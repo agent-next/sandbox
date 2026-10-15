@@ -1,0 +1,23 @@
+{
+  "artifact": "build_broken",
+  "demo": "app-builder-preview",
+  "flows": {},
+  "gates": {
+    "build": {
+      "pass": false,
+      "problems": [
+        "npm run build exited 1: hunks/node.js:35137:19)\n    at async Object.buildApp (file:///tmp/appbuilder-artifact-i6l1c9ln/app/node_modules/vite/dist/node/chunks/node.js:35134:153)\n    at async CAC.<anonymous> (file:///tmp/appbuilder-artifact-i6l1c9ln/app/node_modules/vite/dist/node/cli.js:780:3) {\n  errors: [Getter/Setter]\n}\n"
+      ]
+    },
+    "structure": {
+      "pass": true,
+      "problems": []
+    }
+  },
+  "judge_intact": true,
+  "seed": 0,
+  "timing": {
+    "build_s": 3.4,
+    "structure_s": 0.0
+  }
+}

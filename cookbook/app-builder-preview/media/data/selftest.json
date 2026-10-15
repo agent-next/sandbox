@@ -1,0 +1,49 @@
+{
+  "kill_rate": "6/6",
+  "known_good_passes": true,
+  "mutants": [
+    {
+      "failed_gates": [
+        "flows"
+      ],
+      "killed": true,
+      "name": "broken_delete"
+    },
+    {
+      "failed_gates": [
+        "flows"
+      ],
+      "killed": true,
+      "name": "stats_wrong_span"
+    },
+    {
+      "failed_gates": [
+        "flows"
+      ],
+      "killed": true,
+      "name": "no_persist"
+    },
+    {
+      "failed_gates": [
+        "hygiene"
+      ],
+      "killed": true,
+      "name": "console_error"
+    },
+    {
+      "failed_gates": [
+        "flows"
+      ],
+      "killed": true,
+      "name": "wrong_element_id"
+    },
+    {
+      "failed_gates": [
+        "build"
+      ],
+      "killed": true,
+      "name": "build_broken"
+    }
+  ],
+  "source": "judge/grade.sh over judge/mutants.py"
+}
