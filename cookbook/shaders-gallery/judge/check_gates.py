@@ -100,11 +100,11 @@ def make_server(scratch, vendor):
 # browser grading
 # --------------------------------------------------------------------------
 
-async def grade(artifact, seed, vendor):
+async def grade(artifact, seed, vendor, display):
     from playwright.async_api import async_playwright
 
     verdict = {
-        "artifact": os.path.basename(artifact.rstrip("/")),
+        "artifact": display,
         "seed": seed,
         "backend": {"readback": "copyTextureToBuffer",
                     "renderer": "createRendererFromJSON/frame-locked"},
@@ -136,7 +136,7 @@ async def grade(artifact, seed, vendor):
 
             # ---- mounts + pixel gates + perf ----
             manifest = json.load(open(os.path.join(artifact, "artist.json")))
-            mounts, per_fx = {}, {}
+            mounts, per_fx, timing_fx = {}, {}, {}
             for fx in manifest["effects"]:
                 name = f"{fx['type']}#{fx['region']}"
                 sel = f"#{fx['region']} canvas"
@@ -174,7 +174,9 @@ async def grade(artifact, seed, vendor):
                     except Exception as e:
                         entry["error"] = str(e)[:200]
                 per_fx[name] = entry
-                entry["wall_s"] = round(time.monotonic() - t0, 3)
+                timing_fx[name] = {
+                    "wall_s": round(time.monotonic() - t0, 3),
+                    "frameTimes": entry.pop("frameTimes", None)}
 
             # ---- gate 5 layout at 1440 and 375 ----
             lay = {}
@@ -239,11 +241,12 @@ async def grade(artifact, seed, vendor):
 
     perf = {k: (sum(e["frameTimes"]) / len(e["frameTimes"])
                 if e.get("frameTimes") else None)
-            for k, e in per_fx.items()}
+            for k, e in timing_fx.items()}
     verdict["timing"]["performance"] = {
         "meanFrameTimeS": perf,
         "thresholdS": FRAME_TIME_MAX,
     }
+    verdict["timing"]["effects"] = timing_fx
     verdict["gates"]["g6_performance"] = {
         "pass": all(v is not None and v <= FRAME_TIME_MAX for v in perf.values())
                 and bool(per_fx),
@@ -291,7 +294,9 @@ def main():
             src = os.path.join(args.artifact, f)
             if os.path.isfile(src):
                 shutil.copy2(src, scratch)
-        verdict = asyncio.run(grade(scratch, args.seed, args.vendor))
+        verdict = asyncio.run(grade(
+            scratch, args.seed, args.vendor,
+            os.path.basename(os.path.abspath(args.artifact))))
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
