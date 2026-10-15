@@ -1,0 +1,6 @@
+.venv/
+.tools/
+work/
+master/
+data/traj_*.csv
+data/versions.txt
