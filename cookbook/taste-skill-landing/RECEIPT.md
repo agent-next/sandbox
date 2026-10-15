@@ -473,3 +473,53 @@ killed, 0 survivors**:
    `undercasetype/Fraunces` `OFL.txt` (master) has the identical
    `embedded, ` trailing space at line 21 — stripping it would make the
    copy diverge from the licence text.
+
+## Review round 2 — 2026-10-15 (cross-model findings on `9dc6e80`)
+
+Re-verified in a fresh sandbox on the real toolchain (Playwright 1.63.0 /
+Chromium 153.0.8010.12 / axe-core 4.10.3, `judge/VERSIONS.txt`
+re-recorded by the run below). `bash judge/setup.sh` — exit 0, 82 s
+from nothing; `bash judge/selftest.sh` — exit 0, 2 m 12 s, **23/23
+mutants killed, 0 survivors**; `bash judge/grade.sh
+examples/good/site --seed 42` — exit 0, 7.4 s, 7/7 gates:
+
+```
+[selftest]   ws_external  killed (clean_load; failed: clean_load)
+             (3 external WebSocket(s) mocked, 0 request(s) escaped;
+              zero bytes left the box)
+[selftest] ============================================
+[selftest] good passed     : 1
+[selftest] determinism     : 1
+[selftest] baseline fails  : 1 (contract: rc != 0 + verdict JSON)
+[selftest] mutants killed  : 23/23 (100%)
+[selftest] ============================================
+[selftest] SUCCESS
+```
+
+1. **[P1] `ctx.route()` intercepts HTTP only — WebSocket egress was
+   invisible.** `check_gates.py` now also installs
+   `ctx.route_web_socket("**")` before `goto`. The handler never calls
+   `connect_to_server()`, so every WebSocket is fully mocked — the page
+   still sees `onopen` — and zero bytes leave the box (it never calls
+   `close()` either, which deadlocks the playwright 1.63.0 sync shim).
+   Attempts are bucketed per verdict key: `websocket_remote` (non-scratch
+   origin) fails `clean_load`; `websocket_local` (exact scratch
+   host+port, cannot exfiltrate) is recorded only. The remaining
+   non-HTTP channel, WebRTC, cannot honour routing either, so Chromium
+   launches with `--force-webrtc-ip-handling-policy=
+   disable_non_proxied_udp` — with no proxy configured no ICE channel can
+   connect. EventSource and `navigator.sendBeacon` are plain HTTP and
+   already pass through the existing route guard.
+   New mutant `ws_external` opens `new
+   WebSocket("wss://cdn.taste-mutant.invalid/socket")` and, in `onopen`,
+   fires a fetch() tripwire to a second external URL. The selftest
+   asserts a kill requires `websocket_remote` non-empty (a socket that
+   bypassed the route would leave it empty) **and**
+   `external_unblocked` empty — i.e. the tripwire fetch and every other
+   non-local request were route-aborted. Real verdict excerpt:
+
+   ```
+   "websocket_remote": ["wss://cdn.taste-mutant.invalid/socket"],
+   "external_requests": ["https://cdn.taste-mutant.invalid/onopen"],
+   "external_unblocked": []
+   ```

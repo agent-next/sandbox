@@ -82,6 +82,20 @@ def main():
           '<script src="https://cdn.taste-mutant.invalid/remote.js">'
           '</script>\n</body>')
 
+    # external WebSocket (gate 1: clean_load — ctx.route() matches HTTP
+    # only, so the judge's WebSocket route must mock the socket). The
+    # mocked socket still reports open to the page, so the onopen
+    # tripwire fires a fetch() to an external URL; the selftest asserts
+    # the attempt was recorded under websocket_remote and every external
+    # request was route-aborted — zero bytes left the box.
+    d = declare("ws_external", "clean_load")
+    patch(os.path.join(d, HTML), "</body>",
+          '<script>/* mutant: external WebSocket */\n'
+          'var ws = new WebSocket("wss://cdn.taste-mutant.invalid/socket");\n'
+          'ws.onopen = function () {\n'
+          '  fetch("https://cdn.taste-mutant.invalid/onopen");\n'
+          '};</script>\n</body>')
+
     # default browser font (5.2: no_default_fonts)
     d = declare("default_font", "no_default_fonts")
     append(os.path.join(d, CSS),

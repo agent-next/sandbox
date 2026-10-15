@@ -82,6 +82,27 @@ sys.exit(0 if blocked > 0 and leaked == 0 else 1)
 EOF
 }
 
+# $1 = verdict json — the ws_external extra proof: at least one external
+# WebSocket attempt was intercepted and recorded (a socket that bypassed
+# the route would leave websocket_remote empty), and every non-local
+# request — the onopen tripwire fetch included — was route-aborted
+# (external_unblocked empty) => zero bytes left the box.
+assert_ws_mocked() {
+    python3 - "$1" <<'EOF'
+import json, sys
+try:
+    v = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(2)
+d = next((g["detail"] for g in v.get("gates", [])
+          if g["gate"] == "clean_load"), {})
+seen = sum(len(e.get("websocket_remote", [])) for e in d.values())
+leaked = sum(len(e.get("external_unblocked", [])) for e in d.values())
+print(f"{seen} external WebSocket(s) mocked, {leaked} request(s) escaped")
+sys.exit(0 if seen > 0 and leaked == 0 else 1)
+EOF
+}
+
 echo "[selftest] Regenerating mutants..."
 python3 "$SCRIPT_DIR/mutants.py"
 
@@ -182,6 +203,15 @@ else
                 echo "[selftest]   $m  clean_load failed but a request"
                 echo "[selftest]      escaped the box — not a kill"
                 SURVIVED+=("$m (request escaped)")
+                continue
+            fi
+        elif [[ "$m" == "ws_external" ]]; then
+            if extra="$(assert_ws_mocked "$OUT/$m.json")"; then
+                extra=" ($extra; zero bytes left the box)"
+            else
+                echo "[selftest]   $m  clean_load failed but the socket"
+                echo "[selftest]      really connected — not a kill"
+                SURVIVED+=("$m (ws connected)")
                 continue
             fi
         fi

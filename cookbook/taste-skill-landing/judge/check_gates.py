@@ -5,8 +5,8 @@ Loads the artifact in pinned headless Chromium (Playwright 1.63.0) at 375,
 768 and 1440 px and measures every gate of SPEC.md from the live DOM:
 
   gate 1  clean load        zero console errors, zero failed/blocked/4xx
-                            requests, zero non-localhost requests, and
-                            no WebSocket connection attempt (any origin)
+                            requests, zero non-localhost requests, no
+                            WebSocket attempt to a non-localhost host
   gate 2  no overflow       scrollWidth <= clientWidth + 1 at each width
   gate 3  WCAG AA contrast  computed color vs nearest background, 4.5:1 /
                             3:1 large text (skill references/colour.md §8)
@@ -330,19 +330,6 @@ def load_brief(path):
 # ---------------------------------------------------------------------------
 
 def _ws_local(url, origin):
-    """A WebSocket URL is scratch-local only if it resolves to the scratch
-    server's exact host and port on http(s) or ws(s)."""
-    o = urlsplit(origin)
-    p = urlsplit(url)
-    if p.scheme in ("ws", "wss") and p.hostname == o.hostname \
-            and (p.port or 443 if p.scheme == "wss" else 80) == o.port:
-        return True
-    if p.scheme in ("http", "https"):
-        return f"{p.scheme}://{p.netloc}" == origin
-    return False  # any other scheme (or a parse failure) is never local
-
-
-def _ws_local(url, origin):
     """A WebSocket URL is scratch-local only if it is ws(s) with the exact
     hostname and port of the scratch server's origin."""
     try:
@@ -423,7 +410,14 @@ def main():
     data = {}   # per-width measurements
     events = {}  # console/network bookkeeping
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        # WebRTC does not honour HTTP(S) routing: an RTCPeerConnection
+        # could open ICE channels (STUN/TURN, then DTLS/SCTP) straight to
+        # an external host. With no proxy configured this policy forbids
+        # all non-proxied UDP, so no WebRTC channel can ever connect.
+        browser = pw.chromium.launch(
+            headless=True,
+            args=["--force-webrtc-ip-handling-policy="
+                  "disable_non_proxied_udp"])
         for w in WIDTHS:
             ctx = browser.new_context(
                 viewport={"width": w, "height": 900},
@@ -432,7 +426,7 @@ def main():
             page = ctx.new_page()
             console_errors, failed, bad_status = [], [], []
             external, requests_seen = [], []
-            ws_remote, ws_suspicious = [], []
+            ws_remote, ws_local = [], []
             page.on("console", lambda m: console_errors.append(m.text)
                     if m.type == "error" else None)
             # aborted external requests also fire requestfailed; they are
@@ -445,7 +439,8 @@ def main():
 
             # Route-abort every request outside the scratch server's exact
             # origin, before it can leave the box; still record it for
-            # gate 1.
+            # gate 1. EventSource and navigator.sendBeacon are plain HTTP
+            # requests, so they pass through this guard too.
             def _route_guard(route):
                 url = route.request.url
                 if _same_origin(url, server_origin):
@@ -458,15 +453,15 @@ def main():
 
             # WebSocket connections bypass ctx.route() (it matches HTTP
             # only). Intercept every WebSocket instead: the handler never
-            # calls connect_to_server(), so the socket is mocked and zero
-            # bytes leave the box; it also never calls close(), which
+            # calls connect_to_server(), so the socket is fully mocked —
+            # the page still sees onopen — and zero bytes leave the box;
+            # the handler also never calls close(), which
             # deadlocks the playwright 1.63.0 sync shim. An external URL
-            # is a clean-load violation; a scratch-local one should not
-            # exist on a static artifact either and is measured the same
-            # way, under its own bucket.
+            # is a clean-load violation; a scratch-local one cannot
+            # exfiltrate anything but is still recorded in the verdict.
             def _ws_guard(ws):
                 if _ws_local(ws.url, server_origin):
-                    ws_suspicious.append(ws.url)
+                    ws_local.append(ws.url)
                 else:
                     ws_remote.append(ws.url)
 
@@ -494,7 +489,9 @@ def main():
                          "request_failed": failed,
                          "status_ge_400": bad_status,
                          "external_requests": external,
-                         "external_unblocked": leaked}
+                         "external_unblocked": leaked,
+                         "websocket_remote": ws_remote,
+                         "websocket_local": ws_local}
             if shots:
                 os.makedirs(shots, exist_ok=True)
                 page.screenshot(path=os.path.join(shots, f"site-{w}.png"),
@@ -519,6 +516,7 @@ def main():
          not any(events[w]["console_errors"] or events[w]["request_failed"]
                  or events[w]["status_ge_400"] or events[w]["external_requests"]
                  or events[w]["external_unblocked"]
+                 or events[w]["websocket_remote"]
                  for w in WIDTHS),
          g1)
 
