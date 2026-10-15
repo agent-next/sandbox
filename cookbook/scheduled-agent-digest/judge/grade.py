@@ -362,8 +362,6 @@ def run_three_nights(artifact: Path, work: Path) -> tuple[list[dict], list[dict]
     """Walk the canonical lifecycle three times through the default transport,
     then once through the sbx shims against a fake client (which proves the
     shim wiring the same way)."""
-    import shutil as _shutil
-
     digests: list[dict] = []
     records: list[dict] = []
     transport = PausedSleepTransport(pause_seconds=0.0)
@@ -384,14 +382,14 @@ def run_three_nights(artifact: Path, work: Path) -> tuple[list[dict], list[dict]
         shim.wait_for_fire(fire)
         shim.resume()
         if shim.state() != RUNNING:
-            raise RuntimeError(f"sbx shim left the sandbox "
-                               f"{shim.state()!r} after resume")
+            raise _night.OracleError(f"sbx shim left the sandbox "
+                                     f"{shim.state()!r} after resume")
         if not (artifact / "digest.py").is_file():
-            raise RuntimeError("digest.py vanished")
+            raise _night.OracleError("digest.py vanished mid-run")
         shim.pause()
         if shim.state() != PAUSED:
-            raise RuntimeError(f"sbx shim left the sandbox "
-                               f"{shim.state()!r} after pause")
+            raise _night.OracleError(f"sbx shim left the sandbox "
+                                     f"{shim.state()!r} after pause")
     records[-1]["shim_calls"] = list(fake.calls)
     records[-1]["shim_resumes"] = fake.connected
     return records, digests
