@@ -32,7 +32,8 @@ C_BAD = "#D55E00"        # Okabe-Ito vermillion (failed iteration)
 C_GOOD = "#0072B2"       # Okabe-Ito blue (pass)
 
 # replay order = the order a fixing agent plausibly works through the
-# design mistakes (make_data.sh grades in this order).
+# design mistakes (make_data.sh grades in this order); the adversarial
+# anti-fake mutants are not agent-loop steps — panel B lists them all.
 REPLAY = [
     ("bad_nan_er",          'er = float("nan")'),
     ("bad_substrate_er",    "er = 2.2 (out of range)"),
@@ -42,6 +43,15 @@ REPLAY = [
     ("bad_no_ground",       "ground plane deleted"),
     ("bad_feed_center",     "feed_inset = 12 mm (voltage node)"),
     ("good",                "all parameters fixed"),
+]
+
+# every mutant, in targeted-gate order, for the kill table (panel B)
+KILL_ORDER = [
+    "bad_nan_er", "bad_substrate_er", "bad_thick_substrate",
+    "bad_coarse_mesh", "bad_patch_length", "bad_no_ground",
+    "bad_feed_center", "bad_no_result", "bad_lie_scalars",
+    "bad_replay_cached", "bad_fake_curve", "bad_oracle_tamper",
+    "bad_fine_geometry", "bad_fine_fabricated", "bad_plant_pyc",
 ]
 
 GATE_LIMITS = {            # from judge/oracle.py ANTENNA_GATES
@@ -97,6 +107,17 @@ def kill_row(case):
                "bad_coarse_mesh": "mesh_res"}[case]
         return (f"G2 {var} = {p[var]}",
                 f"outside {GATE_LIMITS[var]}")
+    if case == "bad_no_result":
+        return ("G3 sim contract",
+                "results JSON written but no raw solver data")
+    if case == "bad_lie_scalars":
+        s = num(r"reported S11=([-\d.]+) dB", d)
+        j = num(r"judge ([-\d.]+) dB", d)
+        return ("G3 scalar cross-check",
+                f"reported {s} dB vs judge-derived {j} dB")
+    if case == "bad_replay_cached":
+        return ("G3 provenance",
+                "fabricated port files — no recorded solver run")
     if gate == "G5_resonance":
         f = num(r"f_res=([\d.]+) GHz", d)
         return (f"G5 f_res = {f} GHz",
@@ -106,6 +127,23 @@ def kill_row(case):
         return (f"G4 S11 @ 2.45 GHz = {s} dB",
                 "vs ≤ −10 dB (G6/G7 still pass: curve is real, the "
                 "match is not)")
+    if case == "bad_fake_curve":
+        s = num(r"= ([-\d.]+) dB", d)
+        return (f"G6 judge-vs-reported Δ = {s} dB",
+                "vs ≤ 1.5 dB (sweep doctored, scalars honest)")
+    if case == "bad_oracle_tamper":
+        return ("G7 oracle integrity",
+                "judge module copy rewritten mid-run — refused")
+    if case == "bad_fine_geometry":
+        f = num(r"f_res=([\d.]+) GHz", d)
+        return (f"G8 fine-mesh f_res = {f} GHz",
+                "different geometry at the fine mesh — out of band")
+    if case == "bad_fine_fabricated":
+        return ("G8 fine-mesh provenance",
+                "canned result returned without a solver run")
+    if case == "bad_plant_pyc":
+        return ("G9 judge integrity",
+                "forged .pyc planted under judge/__pycache__")
     raise SystemExit(f"unexpected killer gate for {case}: {gate}")
 
 
@@ -134,22 +172,23 @@ def check_layout(fig, items):
 
 def main():
     st = open(need(os.path.join(DATA, "selftest.txt"))).read()
-    m2 = re.search(r"selftest: good=(\d)/1, mutants_killed=(\d)/(\d)",
+    m2 = re.search(r"selftest: good=(\d+)/1, mutants_killed=(\d+)/(\d+)",
                    st)
     if not m2:
         raise SystemExit("selftest.txt has no summary line")
     good_n, killed_n, mutant_n = m2.groups()
-    m = re.search(r"kill rate: (\d+)% \(required >= 90%\)", st)
+    m = re.search(r"kill rate: (\d+)%", st)
     if not m:
         raise SystemExit("selftest.txt has no kill-rate line")
     kill_rate = m.group(1)
 
-    vs = {c: verdict(c) for c, _ in REPLAY}
+    vs = {c: verdict(c) for c in dict.fromkeys(
+        [n for n, _ in REPLAY] + KILL_ORDER)}
 
-    fig = plt.figure(figsize=(15.5, 7.6), dpi=200)
+    fig = plt.figure(figsize=(15.5, 10.6), dpi=200)
     gs = fig.add_gridspec(
-        2, 1, height_ratios=[0.75, 1.2], left=0.055, right=0.985,
-        top=0.91, bottom=0.075, hspace=0.12)
+        2, 1, height_ratios=[0.55, 1.55], left=0.055, right=0.985,
+        top=0.945, bottom=0.05, hspace=0.12)
     texts = []
 
     def reg(art, ax, tag):
@@ -191,7 +230,7 @@ def main():
 
     # ---------------- panel B: kill table ------------------------------
     axB = fig.add_subplot(gs[1])
-    rows = [c for c, _ in REPLAY if c != "good"]
+    rows = KILL_ORDER
     n = len(rows) + 1 + 1               # mutants + good + header
     axB.set_xlim(0, 1)
     axB.set_ylim(-0.9, n)
@@ -207,8 +246,8 @@ def main():
                                 facecolor="#e8ecef", edgecolor="none"))
     cell(x_name, n - 0.5, "mutant / artifact", fontsize=10.5,
          fontweight="bold")
-    cell(x_gate, n - 0.5, "failing gate + measured value (from the "
-         "verdict JSON)", fontsize=10.5, fontweight="bold")
+    cell(x_gate, n - 0.5, "targeted gate that failed + measured value "
+         "(from the verdict JSON)", fontsize=10.5, fontweight="bold")
     cell(x_verdict, n - 0.5, "verdict", fontsize=10.5,
          fontweight="bold")
 
@@ -245,8 +284,8 @@ def main():
 
     reg(axB.text(0.015, -0.55,
                  f"selftest (media/data/selftest.txt): good {good_n}/1, "
-                 f"mutants killed {killed_n}/{mutant_n}, kill rate "
-                 f"{kill_rate} % (required ≥ 90 %) — deterministic "
+                 f"mutants killed {killed_n}/{mutant_n} at their targeted "
+                 f"gates, kill rate {kill_rate} % — deterministic "
                  f"verdicts: yes", fontsize=10.5, fontweight="bold"),
         axB, "killrate")
 

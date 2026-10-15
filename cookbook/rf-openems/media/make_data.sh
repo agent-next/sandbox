@@ -66,10 +66,18 @@ run bad_coarse_mesh     examples/bad/bad_coarse_mesh.py     fail
 run bad_patch_length    examples/bad/bad_patch_length.py    fail
 run bad_no_ground       examples/bad/bad_no_ground.py       fail
 run bad_feed_center     examples/bad/bad_feed_center.py     fail
+run bad_no_result       examples/bad/bad_no_result.py       fail
+run bad_lie_scalars     examples/bad/bad_lie_scalars.py     fail
+run bad_replay_cached   examples/bad/bad_replay_cached.py   fail
+run bad_fake_curve      examples/bad/bad_fake_curve.py      fail
+run bad_oracle_tamper   examples/bad/bad_oracle_tamper.py   fail
+run bad_fine_geometry   examples/bad/bad_fine_geometry.py   fail
+run bad_fine_fabricated examples/bad/bad_fine_fabricated.py fail
+run bad_plant_pyc       examples/bad/bad_plant_pyc.py       fail
 run good                examples/good/antenna.py            pass
 
 if [ "${FORCE:-0}" = 1 ] || [ ! -s "$MEDIA/data/selftest.txt" ]; then
-    echo "== selftest (good + 7 mutants + determinism, ~11-15 min) =="
+    echo "== selftest (good + 15 mutants + determinism, ~25-35 min) =="
     bash judge/selftest.sh 2>&1 | tee "$MEDIA/data/selftest.txt"
 else
     echo "== selftest: log exists, skipping =="

@@ -19,5 +19,8 @@ export MPLBACKEND=Agg MPLCONFIGDIR="$BASE/.mpl"
 # DFT post-processing non-deterministic at the last-ulp level (verdict JSON
 # must be byte-identical across runs)
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+# the judge never reads or writes cached bytecode (planted .pyc must not
+# be able to change judge behaviour; see grade.py _isolate)
+export PYTHONDONTWRITEBYTECODE=1
 RF_FFMPEG="$BASE/bin/ffmpeg"
 export RF_PY RF_FFMPEG

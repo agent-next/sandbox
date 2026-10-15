@@ -52,8 +52,16 @@ ANTENNA_GATES = dict(
     # G4/G5 RF spec
     s11_target_db=-10.0,
     f_target_ghz=2.45, f_res_tol=0.02,       # resonance within +/-2 %
-    # G6 raw-data cross-check (judge re-derives S11 from openEMS port files)
+    # G3/G6 anti-fake: artifact-reported scalars must agree with the
+    # judge's own S11 derivation from the provenance-checked raw files
+    scalar_s11_tol_db=1.5,                    # |S11_reported - S11_judge|
+    scalar_fres_tol_ghz=0.025,                # |f_res_reported - f_res_judge|
     crosscheck_tol_db=1.5,
+    # solver-run provenance: port-file mtime must land inside a recorded
+    # FDTD.Run window (+/- slack; CalcPort writes the files just after Run
+    # returns) and the child must burn real CPU
+    provenance_slack_s=30.0,
+    min_sim_cpu_s=5.0,
     # G7 oracle: simulated microstrip eeff vs Hammerstad-Jensen
     eeff_tol=0.04,                            # <= 4 %
     # G8 convergence: spec must still hold at mesh_res*0.75

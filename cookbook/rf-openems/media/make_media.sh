@@ -36,7 +36,10 @@ export RF_FFMPEG="$FFMPEG_BIN"
 
 # --- judge outputs (must exist; never re-run the solver here) ---------------
 for f in good bad_nan_er bad_substrate_er bad_thick_substrate \
-         bad_coarse_mesh bad_patch_length bad_no_ground bad_feed_center; do
+         bad_coarse_mesh bad_patch_length bad_no_ground bad_feed_center \
+         bad_no_result bad_lie_scalars bad_replay_cached bad_fake_curve \
+         bad_oracle_tamper bad_fine_geometry bad_fine_fabricated \
+         bad_plant_pyc; do
     [ -s "media/data/verdicts/$f.json" ] || die "missing verdict $f.json"
 done
 for t in good__s11_artifact good__s11_judge good__s11_fine \

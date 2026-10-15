@@ -216,7 +216,7 @@ def scene_close(rec, kill_line):
     fig.text(0.5, 0.62, "every bad design was caught", ha="center",
              fontsize=40, fontweight="bold")
     fig.text(0.5, 0.50, kill_line, ha="center", fontsize=22, color="0.2")
-    fig.text(0.5, 0.38, "replay of real judge runs: 7 single-edit "
+    fig.text(0.5, 0.38, "replay of real judge runs: 15 single-edit "
              "mutants, every one killed at the gate that measures its\n"
              "actual mistake -- the good design passes all 9 gates, "
              "including the fine-mesh convergence re-run", ha="center",
@@ -233,7 +233,7 @@ def main():
         os.makedirs(d)
 
     st = open(need(os.path.join(DATA, "selftest.txt"))).read()
-    m = re.search(r"selftest: good=(\d/1), mutants_killed=(\d/\d).*\n"
+    m = re.search(r"selftest: good=(\d+/1), mutants_killed=(\d+/\d+).*\n"
                   r"kill rate: (\d+)%", st)
     if not m:
         raise SystemExit("selftest.txt missing kill-rate lines")

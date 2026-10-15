@@ -30,19 +30,18 @@ ffmpeg:      4.2.2-static
 |---|---|---|
 | git clone | ~10-30 s | 300 s |
 | setup.sh | 46 s (run A), ~40 s (run B) | 600 s |
-| selftest.sh | ~14 min (run A) | 2700 s |
+| selftest.sh | ~14 min (run A); ~25–35 min after hardening | 5400 s |
 | grade.sh (good, full) | 298 s (run A) | 1500 s |
 
 `run.py` passes `--timeout` to every `sbx exec` (the sbx default of 60 s is
-what timed out the lead's run). Verified end-to-end plumbing with a stub
-`sbx` (no SBX_API_KEY on the build box); each exec carried its timeout:
+what timed out the lead's run).
 
-```
-+ sbx exec mock-sbx-123 --timeout 300 -- bash -c 'git clone ...'
-+ sbx exec mock-sbx-123 --timeout 600 -- bash -c 'bash w/.../setup.sh'
-+ sbx exec mock-sbx-123 --timeout 2700 -- bash -c 'bash w/.../selftest.sh'
-+ sbx exec mock-sbx-123 --timeout 1500 -- bash -c 'bash w/.../grade.sh ...'
-```
+End-to-end `run.py` evidence (real `sbx` create/clone/setup/selftest/grade
++ teardown) is **not fabricated here**: the hardening pass cannot spawn
+sandboxes from this box, so the real run transcript is attached by the
+lead at PR time — see acceptance §3. The per-step timeouts above are what
+that transcript must exercise (`T_CLONE`/`T_SETUP`/`T_SELFTEST`/`T_GRADE`
+in `run.py`).
 
 ## 3. Kill rate (selftest, both runs)
 

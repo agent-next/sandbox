@@ -9,4 +9,4 @@ if [ ! -f "$BASE/sysroot/.debs_done" ]; then
     exit 2
 fi
 source "$HERE/env.sh"
-exec "$RF_PY" "$HERE/grade.py" "$@"
+exec "$RF_PY" -B "$HERE/grade.py" "$@"
