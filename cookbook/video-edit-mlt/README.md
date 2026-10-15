@@ -23,9 +23,7 @@ as a recording of an autonomous editing agent.
 
 ## Ask your agent
 
-> Clone https://github.com/agent-next/sandbox, checking out
-> `sbx/demo-video-edit-mlt` while this demo is on its development branch.
-> Run `bash cookbook/video-edit-mlt/judge/setup.sh` in a fresh sandbox.
+> Clone https://github.com/agent-next/sandbox and run `bash cookbook/video-edit-mlt/judge/setup.sh` in a fresh sandbox.
 > Read `cookbook/video-edit-mlt/SPEC.md` and `spec.json`, then write your
 > own `edit.mlt`: A frames 0–99, a 25-frame dissolve A100–124 to B0–24,
 > B25–99, then C50–74. Overlay the logo in its specified bottom-right
@@ -33,7 +31,8 @@ as a recording of an autonomous editing agent.
 > duck music at least 8 dB in each voice window, master to −16 ±1 LUFS,
 > and keep true peak at or below −1 dBTP.
 > Use only relative `assets/` resources and the services allowed in
-> `judge/security.py`. Relative resources resolve beside the XML, not
+> `judge/security.py`; name every producer's `mlt_service` and point the
+> root `<mlt producer="...">` at your output tractor. Relative resources resolve beside the XML, not
 > beside the shell's current directory; the judge stages assets for you.
 > The wrappers are under `$HOME/.local/video-edit-mlt/Shotcut.app/`;
 > set `QT_QPA_PLATFORM=offscreen`. Use an affine transition on a separate
@@ -51,10 +50,10 @@ From the repository root:
 ```bash
 pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 # Set SBX_API_KEY (or E2B_API_KEY) in your environment.
-python3 cookbook/video-edit-mlt/run.py --ref sbx/demo-video-edit-mlt
+python3 cookbook/video-edit-mlt/run.py
 ```
 
-After merge, omit `--ref` to clone `main` (the runner's required default).
+`--ref <branch>` clones another branch instead of `main`.
 `--keep` deliberately leaves the sandbox up and prints its id.
 
 The runner creates a **fresh** 120-minute sandbox, clones the requested
@@ -67,15 +66,16 @@ Measured on the default CPU sandbox, seed 1:
 
 | step | measured wall time |
 |---|---|
-| fresh setup | 118.9–189.1 s |
-| complete selftest (24 tests in receipts, now 27; 11 mutants) | 277.4–634.7 s |
-| final grade, successful runs | 28.7–30.7 s (19.292–24.112 s in the sandbox) |
-| complete successful one-command runs | 439.2–890.4 s |
+| fresh setup | 77.7–83.2 s |
+| complete selftest (27 unit tests, 11 mutants, determinism, integrity) | 196.1–203.0 s |
+| final grade | 23.8–25.7 s |
+| complete one-command run | 322.5–323.0 s |
 
-Two fresh runs passed completely with identical non-timing verdicts.
-An intervening run lost access to its final grade during an API outage
-and is recorded as failed, not counted as a pass. The full mutation proof
-exceeds the five-minute CPU target. See RECEIPT.md for all output and deviations.
+Two fresh runs at the merged judge passed completely with identical
+non-timing verdicts. Earlier builder runs, including one that lost its
+final grade to an API outage, are kept in RECEIPT.md. The full mutation
+proof takes about 5.4 min, just over the five-minute CPU target; a single
+grade of your own timeline takes about 25 s. See RECEIPT.md for all output and deviations.
 
 ## How the judge works
 

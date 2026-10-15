@@ -56,9 +56,9 @@ def paste_fit(im, frame, box):
 def metric(im, xy, label, value, limit, width=800):
     x, y = xy
     text(im, (x, y), label, 64, MUTED)
-    text(im, (x, y+66), value, 70, GREEN, True)
-    text(im, (x, y+156), limit, 64, INK)
-    ImageDraw.Draw(im).line((x, y+220, x+width, y+220), fill="#344155", width=2)
+    text(im, (x, y+70), value, 110, GREEN, True)
+    text(im, (x, y+200), limit, 64, INK)
+    ImageDraw.Draw(im).line((x, y+280, x+width, y+280), fill="#344155", width=2)
 
 
 def summarize():
@@ -145,10 +145,14 @@ def shot(t, verdict, measurements, matrix, loglines, run_seconds):
     if t < 2:
         index = int(t*25)
         im = movie_frame(index).resize((W, H), Image.Resampling.LANCZOS)
-        if t > .3:
-            panel(im, (70, 780, 1250, 925), BG)
-            text(im, (110, 805), "THE CUT. EVERY FRAME.", 78, INK, True)
-            readout(im, index, (110, 120))
+        panel(im, (40, 40, 1880, 250), BG)
+        text(im, (80, 60), "AN AGENT CUT THIS VIDEO IN CODE", 78, INK, True)
+        text(im, (80, 160), "Open-source Premiere (MLT) / judged frame by frame", 60, MUTED)
+        panel(im, (1290, 780, 1850, 925), "#0b6e4f")
+        text(im, (1330, 805), "PASS 225/225", 78, INK, True)
+        panel(im, (70, 780, 1250, 925), BG)
+        text(im, (110, 805), "THE CUT. EVERY FRAME.", 78, INK, True)
+        readout(im, index, (110, 300))
         return im
     if t < 6:
         im = canvas("#f4f1e8")
@@ -211,11 +215,11 @@ def shot(t, verdict, measurements, matrix, loglines, run_seconds):
         text(im, (65, 855), f'{g["ducking"]["measured"]:.2f} dB duck / required >= 8 dB', 68, BG, True)
         text(im, (65, 955), "Orange line: maximum music under voice", 64, "#9c4100")
         return im
-    if t < 30:
+    if t < 28:
         im = canvas()
         text(im, (65, 40), "SANDBOX RUN", 84, INK, True)
-        text(im, (65, 155), f"{run_seconds/5:.1f}x speed / log replay", 64, ORANGE)
-        elapsed = (t-25)/5*run_seconds
+        text(im, (65, 155), f"{run_seconds/3:.1f}x speed / log replay", 64, ORANGE)
+        elapsed = (t-25)/3*run_seconds
         active = [line for stamp, line in loglines if stamp <= elapsed][-7:]
         for j, line in enumerate(active):
             text(im, (75, 300+j*95), line.split(" (", 1)[0], 64,
@@ -231,7 +235,7 @@ def shot(t, verdict, measurements, matrix, loglines, run_seconds):
         metric(im, (65, 660), "Integrated loudness", f'{g["loudness"]["measured"]["integrated_lufs"]} LUFS', "target: -16 +/- 1 LUFS")
         metric(im, (1030, 660), "True peak", f'{g["loudness"]["measured"]["true_peak_dbtp"]} dBTP', "limit: <= -1 dBTP")
         return im
-    if t < 41:
+    if t < 40:
         im = canvas("#f4f1e8")
         text(im, (65, 45), "11 / 11 BAD EDITS REJECTED", 82, BG, True)
         names = [(name, matrix["mutants"][name]) for name in INTENDED]
