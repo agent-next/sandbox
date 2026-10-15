@@ -1,0 +1,13 @@
+{
+  "name": "cookbook-hyperframes-template",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reusable HyperFrames composition that turns a cookbook demo's real clips and result numbers into an animated demo.mp4",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "hyperframes": "0.8.99"
+  }
+}
