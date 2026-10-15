@@ -1,0 +1,50 @@
+{
+  "seed": 42,
+  "qr_text": "VIRAL-MICROGEN-42",
+  "palette": [
+    [
+      24,
+      26,
+      38
+    ],
+    [
+      60,
+      110,
+      200
+    ],
+    [
+      86,
+      207,
+      165
+    ],
+    [
+      235,
+      87,
+      87
+    ],
+    [
+      242,
+      201,
+      76
+    ]
+  ],
+  "wav": {
+    "sample_rate": 22050,
+    "duration_s": 22.0,
+    "f_start_hz": 40.0,
+    "f_end_hz": 640.0,
+    "octaves_spanned": 4.0,
+    "n_slices": 10
+  },
+  "gif": {
+    "n_frames": 60,
+    "size": [
+      480,
+      270
+    ],
+    "ball_radius_px": 16,
+    "floor_row_px": 269,
+    "n_bounces": 7,
+    "x_travel_px": 172.708
+  }
+}
