@@ -147,7 +147,19 @@ HARNESS_RESULT {"script": "examples/03_rope/00_cable.py", "device": "cpu",
  "state": {"body_q": {"n": 44, "finite": true}}, "state_finite": true,
  "render": {"ok": true, "s": 0.81, "channels": {"rgb": [540, 960, 3]}},
  "ok": true, "total_wall_s": 109.831}
+HARNESS_RESULT {"script": "examples/01_cloth/00_towel.py", "device": "cpu",
+ "steps_in_view": 10, "run_wall_s": 604.064, "step_wall_s": 136.715, "steps_per_s": 0.073,
+ "state": {"particle_q": {"n": 1922, "finite": true, "spread": 0.175},
+           "particle_qd": {"n": 1922, "finite": true, "max_abs": 0.00154},
+           "body_q": {"n": 16, "finite": true}},
+ "state_finite": true,
+ "render": {"ok": true, "s": 4.188, "channels": {"rgb": [540, 960, 3]}},
+ "ok": true, "total_wall_s": 744.974}
 ```
+
+The towel builds a **1922-particle** sheet on the `bench_0728` cell (the
+earlier round's `bench_0728`-family scene had 5766 particles at `cells=30`; the
+count follows the cell's preset), and it renders headless on CPU too.
 
 - hello_world: **5.55 control steps/s** (vs 4.12 on the 8-vCPU box — the
   difference is noise plus a differently-warm kernel cache, not vCPU count:
