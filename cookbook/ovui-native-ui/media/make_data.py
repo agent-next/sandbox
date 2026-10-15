@@ -69,6 +69,13 @@ def stable_verdict(path):
     return json.dumps(v, indent=2, sort_keys=True) + "\n"
 
 
+def scrub(text):
+    """Replace host-specific paths (this repo is public) so committed data
+    carries no builder-machine paths and is stable across regenerations."""
+    text = text.replace(str(DEMO), "<demo>")
+    return re.sub(r"/tmp/[^\s:\"'/]+", "<scratch>", text)
+
+
 def main():
     DATA.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="ovui-media."))
@@ -101,10 +108,10 @@ def main():
                  str(mut_dir / f"mut_{name}.py"), "--json", str(out)],
                 cwd=DEMO, env=ENV, capture_output=True, text=True)
             if out.exists():
-                v = json.loads(stable_verdict(out))
+                v = json.loads(scrub(stable_verdict(out)))
             else:   # the run itself failed before a verdict was written
                 v = {"pass": None,
-                     "error": (r.stdout + r.stderr)[-300:]}
+                     "error": scrub((r.stdout + r.stderr)[-300:])}
             v["exit"] = r.returncode
             mutants[name] = v
         (DATA / "mutants.json").write_text(

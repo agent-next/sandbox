@@ -95,18 +95,25 @@ def draw_render_overlay(ax, show_bboxes=True, pass_stamp=True,
         y1 = win["position_y"] + win["height"] - 4
         ax.plot([x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0],
                 color=SURFACE, lw=1.4, ls=(0, (4, 3)), alpha=0.9)
-        ax.text(x1, y0 - 10, "content region (title bar 26 px + border 4 px)",
-                ha="right", fontsize=8, color=SURFACE)
+        ax.text(x1, y1 + 16, "content region (title bar 26 px + border 4 px)",
+                ha="right", va="top", fontsize=8, color=SURFACE)
 
-        for name, f in facts.items():
-            if name in ("window", "_ref_names"):
-                continue
+        # label targets staggered to the left of the window; measured
+        # widgets sit in two x-columns, so labels pick the near column edge
+        names = [n for n in facts if n not in ("window", "_ref_names")]
+        for i, name in enumerate(names):
+            f = facts[name]
             x, y = f["screen_position_x"], f["screen_position_y"]
             w, h = f["computed_width"], f["computed_height"]
             ax.add_patch(plt.Rectangle(
                 (x, y), w, h, fill=False, ec=S1, lw=1.6, zorder=4))
-            ax.text(x, y - 5, name, ha="left", fontsize=7.5, color=S1,
-                    bbox=dict(fc=SURFACE, ec="none", pad=1.2), zorder=5)
+            cy = y + h / 2
+            ly = y0 - 32 + i * 24
+            ax.annotate(name, xy=(x, cy), xytext=(x0 - 14, ly),
+                        fontsize=7.5, color=S1, ha="right", va="center",
+                        zorder=5,
+                        bbox=dict(fc=SURFACE, ec="none", pad=1.2),
+                        arrowprops=dict(arrowstyle="-", color=S1, lw=0.8))
 
     if pass_stamp:
         det = [g for g in good["gates"] if g["gate"] == "determinism"][0]
@@ -114,7 +121,7 @@ def draw_render_overlay(ax, show_bboxes=True, pass_stamp=True,
         lines = [
             "PASS — all 4 gates",
             f"render 1280x720, determinism sha256 {det['sha256']}…",
-            f"swatch median RGB {pix['swatch_median']}",
+            f"swatch median RGB {[round(v) for v in pix['swatch_median']]}",
             f"bg luminance {pix['bg_lum']:.0f}, button face {pix['button_face_lum']:.0f}",
         ]
         ax.text(1272, 14, "\n".join(lines), ha="right", va="top",
@@ -155,23 +162,25 @@ def result_png():
     target = ref["swatch_rgb"]
     ax.bar(xs, med, width=0.62, color=S1, edgecolor=SURFACE, lw=1.5,
            label=f"measured median (std {list(std)})")
-    ax.bar(xs, std, width=0.62, bottom=med, color=CRIT, lw=0,
-           label="measured std deviation")
+    if any(s > 0 for s in std):
+        ax.bar(xs, std, width=0.62, bottom=med, color=CRIT, lw=0)
     # the ±tol band the judge allows around the analytic target
     ax.errorbar(xs, target, yerr=tol, fmt="none", ecolor=TEXT2,
                 elinewidth=1.4, capsize=5,
-                label=f"judge mask: target ± tol ({tol} per channel)")
+                label=f"judge mask: target ± tol "
+                      f"({list(tol)[0]} per channel)")
     ax.scatter(xs, target, marker="_", s=260, color=TEXT2, zorder=5,
                linewidths=1.6)
     for x, m, t in zip(xs, med, target):
-        ax.text(x + 0.30, m, f"{m:.0f}", va="center", fontsize=9, color=TEXT)
-        ax.text(x + 0.30, t, f"target {t:.0f}", va="center", fontsize=7.6,
-                color=TEXT2)
+        ax.text(x, min(m - 12, 240), f"{m:.0f}", ha="center", va="top",
+                fontsize=10, color=SURFACE, fontweight="bold", zorder=6)
+        ax.text(x, t - list(tol)[0] - 30, f"target {t:.0f}", ha="center",
+                va="top", fontsize=8, color=TEXT2)
     ax.set_xticks(xs)
     ax.set_xticklabels(chans, fontsize=10)
     ax.set_ylabel("8-bit value")
     ax.set_ylim(0, 268)
-    ax.set_xlim(-0.5, 2.95)
+    ax.set_xlim(-0.5, 3.6)
     ax.grid(True, axis="y", color=GRID, lw=0.6)
     ax.set_axisbelow(True)
     ax.legend(loc="upper right", fontsize=8.4, frameon=False)
@@ -248,6 +257,9 @@ def loop_png():
 
     # --- bottom: self-test kill strip -------------------------------------
     ax = fig.add_subplot(gs[1])
+    # the failed gates per mutant are named in the top panel's replay
+    # (one per gate class) -- a per-bar gate list would collide at this
+    # bar pitch
     ax.set_title(f"Self-test kill rate: {rate}  "
                  "(requirement ≥ 90%)", fontsize=11)
     ax.bar([0], [1], width=0.72, color=GOOD, edgecolor=SURFACE, lw=2)
@@ -255,16 +267,13 @@ def loop_png():
             color=TEXT2)
     for i, name in enumerate(MUTANT_ORDER, 1):
         v = mutants[name]
-        crashed = v.get("pass") is None
-        failed_txt = "build error" if crashed else \
-            ", ".join(g["gate"] for g in v["gates"] if not g["ok"])
-        # wrap the gate list: bars are only ~0.7 apart, a bare
-        # "widget_tree, pixels" runs into its neighbours
-        ax.text(i, -0.42, "\n".join(textwrap.wrap(failed_txt, 14)),
-                ha="center", va="top", fontsize=7,
-                color=CRIT, fontweight="bold")
+        ax.bar([i], [1], width=0.72, color=CRIT, edgecolor=SURFACE, lw=2)
+        ax.text(i, 0.5, "killed", ha="center", fontsize=7.4,
+                color=SURFACE, rotation=90)
+        ax.text(i, -0.13, MUTANT_LABELS[name].replace(" ", "\n", 1),
+                ha="center", fontsize=6.8, color=TEXT2)
     ax.set_xlim(-0.6, len(MUTANT_ORDER) + 0.6)
-    ax.set_ylim(-1.35, 1.3)
+    ax.set_ylim(-0.62, 1.3)
     ax.set_yticks([])
     ax.set_xticks([])
     for s in ("top", "right", "left"):

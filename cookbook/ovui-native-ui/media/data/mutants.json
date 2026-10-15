@@ -49,7 +49,7 @@
     "seed": 1234
   },
   "empty_window": {
-    "error": "ll last):\\n  File \\\"/home/user/w/cookbook/ovui-native-ui/judge/render.py\\\", line 91, in _main\\n    built = build()\\n            ^^^^^^^\\n  File \\\"/tmp/tmp.ifNrikO0Nc/panel.py\\\", line 49, in build_panel\\n    \\\"slider1\\\": sliders[0],\\n               ~~~~~~~^^^\\nIndexError: list index out of range\\n\"}\n",
+    "error": "ll last):\\n  File \\\"<demo>/judge/render.py\\\", line 91, in _main\\n    built = build()\\n            ^^^^^^^\\n  File \\\"<scratch>/panel.py\\\", line 49, in build_panel\\n    \\\"slider1\\\": sliders[0],\\n               ~~~~~~~^^^\\nIndexError: list index out of range\\n\"}\n",
     "exit": 1,
     "pass": null
   },
@@ -247,7 +247,7 @@
       {
         "gate": "determinism",
         "ok": false,
-        "sha256": "2b7adad966603481"
+        "sha256": "8f0361b816897f5a"
       }
     ],
     "pass": false,
