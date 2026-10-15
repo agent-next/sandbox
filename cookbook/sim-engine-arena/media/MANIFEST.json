@@ -13,8 +13,8 @@
         "judge/spec.json",
         "judge/_grade.py"
       ],
-      "sha256": "91f335bc8c0c8662ccb39bca836f040f92a0f8d68ca22037f119e35cd900d0d5",
-      "bytes": 398351
+      "sha256": "71aba7cfeb21c0aa7515c6415215ba25be031f4b83b513a626355009c70dc596",
+      "bytes": 394448
     },
     {
       "file": "loop.png",
@@ -56,7 +56,7 @@
     "examples/loop.py": "c4575e0b35cbabad903ded0ba8d3d682272ddeb87ceff7bb32fc72dd7e2873c5",
     "media/requirements.txt": "7fea3b57fa9c7de6ff99b025fcd8ba27b1656a74ecf838adcd12629050529040",
     "media/collect.py": "51fe3d3c12333fefa84e77edd074962a85c2a739cf9cbf03670eb54ed8f7cf84",
-    "media/render.py": "e1c772b14e8323e94dc82c36d55ad9206f3519041b4a2c3ccde64d5018eccaa3",
+    "media/render.py": "576c3acf87845bd8075567f37c5a1f3b5cb83efb6618e1ab685c1ca2026aabec",
     "media/manifest.py": "1efe2ce77b2c98b8ce3ae70332bef2da9ab6c6731460eee8db9c5a2cd6e6fb5a",
     "media/make_media.sh": "29d509d7b86674bf14a24f939e5899b27cbd4bfcff17f797139ac2d3794c40d8",
     "media/test_media.py": "731c09e638d71972b6a5890ab181a747ea9f02a06eebdb0bfb94e9b2dda7947c",

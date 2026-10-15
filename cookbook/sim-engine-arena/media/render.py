@@ -126,17 +126,13 @@ def result():
           ylabel="Downhill travel s (m)", ylim=(-.04, 1.25), xlim=(0, 1))
     b.legend(loc="upper left", fontsize=10)
     rows = TRAJ["pendulum"]
-    c.plot(rows["t"], rows["theta"], color=BLUE, lw=2.5, label="MuJoCo angle")
+    c.plot(rows["t"], rows["theta"], color=BLUE, lw=2.5, label=f"MuJoCo angle, measured T = {METRIC['pendulum']['period']:.7f} s")
     c.plot(rows["t"], theta_guide(rows["t"]), "--", color=ORANGE, lw=1.8,
-           label="Cosine guide using oracle period")
+           label=f"Cosine guide, oracle T = {ORACLE['pendulum']['period']:.7f} s")
     c.set(title="C  Pendulum about the anchor", xlabel="Time (s)",
           ylabel="Angle θ (rad)", xlim=(0, SCENES["pendulum"]["duration_s"]),
           ylim=(-.14, .21))
     c.legend(loc="upper right", fontsize=10)
-    c.text(.03, .12, f"Measured T = {METRIC['pendulum']['period']:.7f} s\n"
-           f"Oracle T = {ORACLE['pendulum']['period']:.7f} s",
-           transform=c.transAxes, fontsize=10,
-           bbox={"facecolor": "white", "edgecolor": "none", "alpha": .95})
     values = [
         METRIC["drop"]["t_contact_err"] / grade.TOL["contact_time"],
         METRIC["incline_slide"]["accel_err"] / grade.TOL["accel"],
