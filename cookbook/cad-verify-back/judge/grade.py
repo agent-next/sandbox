@@ -29,8 +29,8 @@ import oracle          # noqa: E402  (judge's own closed-form oracle)
 
 TOL_BBOX = 0.01        # mm, gate G2
 TOL_VOL_STEP = 0.001   # relative, gate G3
-TOL_DIAM = 0.01        # mm, gates G4 / G9
-TOL_POS = 0.02         # mm, gates G4 / G5 / G6 / G9
+TOL_DIAM = 0.01        # mm, gates G4 / G11
+TOL_POS = 0.02         # mm, gates G4 / G5 / G6 / G11
 TOL_ANG = 0.05         # deg, gates G5 / G6
 TOL_VOL_STL = 0.01     # relative, gate G10
 TOL_XOR = 0.01         # relative, gate G7 (symmetric difference vs reference)
@@ -259,8 +259,8 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
                      if abs(c[0] - spec["bolt_d"]) <= TOL_DIAM
                      and abs(c[3]) <= TOL_BBOX and abs(c[4] - plate_top) <= TOL_BBOX]
         if len(bolt_hits) != spec["bolt_n"]:
-            g.fail(f"{len(bolt_hits)} bolt-diameter through-holes found, "
-                   f"expected {spec['bolt_n']}")
+            g.fail(f"feature count: {len(bolt_hits)} bolt-diameter "
+                   f"through-holes found, expected {spec['bolt_n']}")
         centres = [(c[1], c[2]) for c in bolt_hits]
         g.ok(bore_d=round(bore[0], 4), bolt_d=round(bolt_hits[0][0], 4),
              bolt_centres=[(round(x, 4), round(y, 4)) for x, y in centres])
@@ -304,29 +304,69 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
              expected_step_deg=want,
              max_deviation_deg=round(dev, 5))
 
-    # ---- G6/G7/G8: STL with the judge's own parser ----------------------
+    # ---- G7: XOR symmetric-difference volume vs the reference solid -------
+    with Gate(gates, "step_xor",
+              "tessellated XOR volume vs the spec-built reference solid "
+              "<= 1% of the reference volume") as g:
+        if solid is None:
+            g.fail("skipped: no re-imported solid (G1)")
+        ref_mesh = _tessellate_solid(build_reference(spec))
+        art_mesh = _tessellate_solid(solid)
+        ref_v = ref_mesh.volume
+        xor_v = xor_volume_mm3(art_mesh, ref_mesh)
+        rel = xor_v / ref_v
+        if rel > TOL_XOR:
+            g.fail(f"XOR symmetric-difference volume {xor_v:.2f} mm^3 "
+                   f"({rel:.3%} of the {ref_v:.2f} mm^3 reference solid) "
+                   f"> {TOL_XOR:.0%}")
+        g.ok(xor_volume_mm3=round(xor_v, 3),
+             reference_volume_mm3=round(ref_v, 3),
+             rel_err=round(rel, 6))
+
+    # ---- G8/G9/G10: STL parsed with trimesh ------------------------------
+    # (m from a previous gate run is not reused: each gate must fail on its
+    # own evidence, so a watertight but unreadable STL fails G8 directly)
+    m = None
     with Gate(gates, "stl_watertight",
-              "own parser: every edge shared by exactly 2 triangles") as g:
+              "trimesh: mesh loads, is watertight with consistent winding") as g:
+        import trimesh
         try:
-            tris = stllib.parse_stl(stl_path)
-        except SystemExit:
-            g.fail("STL could not be parsed by the judge's own parser")
-        errs, m = stllib.check_mesh(tris)
-        if errs:
-            g.fail("; ".join(errs[:3]))
-        g.ok(**m)
+            mesh = trimesh.load_mesh(stl_path, force="mesh")
+        except Exception as e:
+            g.fail(f"STL could not be parsed by trimesh: "
+                   f"{type(e).__name__}: {e}")
+        if not isinstance(mesh, trimesh.Trimesh) or len(mesh.faces) == 0:
+            g.fail("STL does not contain a triangle mesh")
+        if not mesh.is_watertight:
+            g.fail("mesh is not watertight "
+                   f"(trimesh is_watertight=False, "
+                   f"euler_number={mesh.euler_number})")
+        if not mesh.is_winding_consistent:
+            g.fail("mesh winding is inconsistent between adjacent faces")
+        m = {"vertices": int(len(mesh.vertices)),
+             "faces": int(len(mesh.faces)),
+             "signed_volume_mm3": float(mesh.volume),
+             "volume_mm3": float(mesh.volume),
+             "watertight": bool(mesh.is_watertight),
+             "winding_consistent": bool(mesh.is_winding_consistent)}
+        g.ok(**{k: (round(v, 4) if isinstance(v, float) else v)
+                for k, v in m.items()})
 
     with Gate(gates, "stl_orient",
-              "consistent winding; divergence volume positive") as g:
+              "trimesh: outward-facing facets (positive mesh volume)") as g:
+        if m is None:
+            g.fail("skipped: STL could not be parsed (G8)")
         if m["signed_volume_mm3"] <= 0:
             g.fail(f"mesh has inverted orientation (signed volume "
                    f"{m['signed_volume_mm3']:.2f} <= 0)")
         g.ok(signed_volume_mm3=m["signed_volume_mm3"])
 
     with Gate(gates, "stl_volume",
-              "divergence-theorem STL volume within 1% of STEP volume") as g:
+              "trimesh STL volume within 1% of STEP volume") as g:
         if solid is None:
             g.fail("skipped: no re-imported solid (G1)")
+        if m is None:
+            g.fail("skipped: STL could not be parsed (G8)")
         v_stl = m["volume_mm3"]
         v_step = solid.Volume()
         rel = abs(v_stl - v_step) / v_step
@@ -335,7 +375,7 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
                    f"(rel err {rel:.4%} > {TOL_VOL_STL:.2%})")
         g.ok(stl_volume_mm3=v_stl, step_volume_mm3=v_step, rel_err=rel)
 
-    # ---- G9/G10: DXF ------------------------------------------------------
+    # ---- G11/G12: DXF ------------------------------------------------------
     with Gate(gates, "dxf_circles",
               "DXF circles: count, diameters, positions match spec") as g:
         import ezdxf
@@ -402,7 +442,7 @@ def grade(art_dir, spec_path, seed, json_out, artifact_name=None):
             g.fail(f"outline corners {sorted(corners)} vs expected {sorted(want)}")
         g.ok(corners=sorted(corners))
 
-    # ---- G11: design rules ------------------------------------------------
+    # ---- G13: design rules ------------------------------------------------
     with Gate(gates, "design_rules",
               "min edge distance and ligament meet the spec") as g:
         if centres is None:
