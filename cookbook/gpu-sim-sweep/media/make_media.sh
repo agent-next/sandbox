@@ -45,17 +45,39 @@ def sha(path):
         return hashlib.sha256(fh.read()).hexdigest()
 
 outputs = {
-    "result.png": ["data/report.json"],
-    "loop.png": ["data/report.json"],
-    "demo.mp4": ["data/report.json"],
+    "result.png": {
+        "what": "Measured GPU steps/s vs nworld on the 4 GiB slice (log-log) "
+                "with the measured CPU baseline and the throughput pass "
+                "floor drawn on it; plus the physics oracle per nworld "
+                "(landed box z band, arm error vs tolerance).",
+        "command": "media/make_figures.py",
+    },
+    "loop.png": {
+        "what": "Gate x artifact verdict matrix (good config + every "
+                "mutant) from the real grade runs, plus the self-test "
+                "kill-rate bar.",
+        "command": "media/make_figures.py",
+    },
+    "demo.mp4": {
+        "what": "The 8 boxes falling onto the table in world 0, rendered "
+                "from the judge-measured settle trajectory, then the "
+                "nworld ladder filling in with measured steps/s.",
+        "command": "media/make_video.py + ffmpeg "
+                   "(lossless crf-0 master in git-ignored media/master/)",
+    },
 }
 manifest = {"generated_by": "media/make_media.sh",
+            "note": "every number plotted comes from the judge's own "
+                    "measurements in data/report.json (a real "
+                    "run.py --gpu exec report)",
             "data": {p: {"sha256": sha(p)} for p in ("data/report.json",)},
             "outputs": {}}
-for out, sources in outputs.items():
+for out, meta in outputs.items():
     manifest["outputs"][out] = {
+        **meta,
         "sha256": sha(out),
-        "source_data": {s: sha(s) for s in sources}}
+        "bytes": os.path.getsize(out),
+        "source_data": {"data/report.json": sha("data/report.json")}}
 with open("MANIFEST.json", "w") as fh:
     json.dump(manifest, fh, indent=2, sort_keys=True)
     fh.write("\n")

@@ -1,0 +1,38 @@
+{
+  "data": {
+    "data/report.json": {
+      "sha256": "a0107802df2a957cf53b69c1f1dc4258f07e41c2e8fd7299b6479c814e2a9183"
+    }
+  },
+  "generated_by": "media/make_media.sh",
+  "note": "every number plotted comes from the judge's own measurements in data/report.json (a real run.py --gpu exec report)",
+  "outputs": {
+    "demo.mp4": {
+      "bytes": 381231,
+      "command": "media/make_video.py + ffmpeg (lossless crf-0 master in git-ignored media/master/)",
+      "sha256": "f11ac6334b0898e300783a2b15ee13603321914cc458a8ba6fa00e8fc8c7dcf7",
+      "source_data": {
+        "data/report.json": "a0107802df2a957cf53b69c1f1dc4258f07e41c2e8fd7299b6479c814e2a9183"
+      },
+      "what": "The 8 boxes falling onto the table in world 0, rendered from the judge-measured settle trajectory, then the nworld ladder filling in with measured steps/s."
+    },
+    "loop.png": {
+      "bytes": 126324,
+      "command": "media/make_figures.py",
+      "sha256": "01da60acda937eb53e9211f1aa003a0c9479ed39d29f547b2c8f3499d97d914d",
+      "source_data": {
+        "data/report.json": "a0107802df2a957cf53b69c1f1dc4258f07e41c2e8fd7299b6479c814e2a9183"
+      },
+      "what": "Gate x artifact verdict matrix (good config + every mutant) from the real grade runs, plus the self-test kill-rate bar."
+    },
+    "result.png": {
+      "bytes": 204314,
+      "command": "media/make_figures.py",
+      "sha256": "4ba64536b72789def60a52066c60a5d3f6c26acc9bce87bf7e000954e398c38e",
+      "source_data": {
+        "data/report.json": "a0107802df2a957cf53b69c1f1dc4258f07e41c2e8fd7299b6479c814e2a9183"
+      },
+      "what": "Measured GPU steps/s vs nworld on the 4 GiB slice (log-log) with the measured CPU baseline and the throughput pass floor drawn on it; plus the physics oracle per nworld (landed box z band, arm error vs tolerance)."
+    }
+  }
+}
