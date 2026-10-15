@@ -1,0 +1,4 @@
+media/master/
+__pycache__/
+*.step
+*.stl
