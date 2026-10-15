@@ -1,0 +1,52 @@
+{
+ "format": "sim-engine-arena/1",
+ "gravity": 9.81,
+ "timestep_s": 0.001,
+ "rules": [
+  "Simulate each scenario with the given timestep and duration; SI units; gravity along -z.",
+  "Write one CSV per scenario with the exact `output` filename and `columns` header; t starts at 0 with one row per timestep.",
+  "Keep the engine's default contact/solver settings unless a parameter is given here (friction coefficient mu IS given - apply it to every geom in that scenario's contact pairs, not just one). No added damping, drag, or perturbations.",
+  "Do not hardcode or invent results: just simulate and record the true trajectory."
+ ],
+ "scenarios": [
+  {
+   "name": "drop",
+   "output": "traj_drop.csv",
+   "columns": ["t", "z", "vz"],
+   "duration_s": 1.5,
+   "description": "Rigid sphere released from rest onto a static horizontal plane at z=0, no air drag. Record the sphere center height z (m) and its vertical velocity vz (m/s) each step.",
+   "body": {"name": "mover", "shape": "sphere", "radius": 0.05, "mass_kg": 1.0, "pos": [0, 0, 1.0]}
+  },
+  {
+   "name": "incline_stick",
+   "output": "traj_incline_stick.csv",
+   "columns": ["t", "x", "z", "vx", "vz"],
+   "duration_s": 1.0,
+   "description": "Rigid box placed at rest on a static plane inclined tilt_deg about the y axis (the plane descends toward +x). Coulomb friction coefficient mu between box and plane. Record box center x,z (m) and vx,vz (m/s).",
+   "body": {"name": "mover", "shape": "box", "half_extents": [0.05, 0.05, 0.05], "mass_kg": 1.0},
+   "plane": {"tilt_deg": 20.0, "axis": "y", "descends_toward": "+x", "friction_mu": 0.5},
+   "placement": "box resting on the plane surface at the origin"
+  },
+  {
+   "name": "incline_slide",
+   "output": "traj_incline_slide.csv",
+   "columns": ["t", "x", "z", "vx", "vz"],
+   "duration_s": 1.0,
+   "description": "Same incline setup as incline_stick, different tilt.",
+   "body": {"name": "mover", "shape": "box", "half_extents": [0.05, 0.05, 0.05], "mass_kg": 1.0},
+   "plane": {"tilt_deg": 35.0, "axis": "y", "descends_toward": "+x", "friction_mu": 0.5},
+   "placement": "box resting on the plane surface at the origin"
+  },
+  {
+   "name": "pendulum",
+   "output": "traj_pendulum.csv",
+   "columns": ["t", "theta", "omega"],
+   "duration_s": 10.0,
+   "description": "Point mass m on a massless rigid link of length L, hinged about the y axis AT anchor (0,0,H). The pivot (hinge) is exactly at the anchor; the point mass hangs at distance L straight below the pivot (at (0,0,H-L) when theta=0). Released from rest at theta0 rad from straight down, swinging in the x-z plane toward +x. Record theta (rad, signed angle from straight down, + toward +x) and omega=dtheta/dt (rad/s). NOTE: if the model puts the body/joint origin at the mass instead of the anchor, gravity produces no torque and the pendulum will not move.",
+   "link": {"L_m": 1.0, "mass_kg": 1.0, "kind": "point mass on a massless link"},
+   "anchor": [0, 0, 2.0],
+   "theta0_rad": 0.1,
+   "moving_body_name": "mover"
+  }
+ ]
+}

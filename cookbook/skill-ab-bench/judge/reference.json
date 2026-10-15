@@ -1,0 +1,244 @@
+{
+  "schema": "skill-ab-bench/reference/1",
+  "tasks": {
+    "kv01": {
+      "bad": [
+        "\t4500",
+        " 4500",
+        "0500",
+        "450",
+        "4500\n",
+        "4500 ",
+        "500",
+        "5400"
+      ],
+      "expected": "4500",
+      "naive": "4500",
+      "placebo": "4500"
+    },
+    "kv02": {
+      "bad": [
+        "\t3",
+        " 3",
+        "0",
+        "3\n",
+        "3 "
+      ],
+      "expected": "3",
+      "naive": "7",
+      "placebo": "7"
+    },
+    "kv03": {
+      "bad": [
+        "\t90",
+        " 90",
+        "0",
+        "00",
+        "09",
+        "9",
+        "90\n",
+        "90 "
+      ],
+      "expected": "90",
+      "naive": "12",
+      "placebo": "12"
+    },
+    "kv04": {
+      "bad": [
+        "\tTLSv1.3",
+        " TLSv1.3",
+        "LSv1.3",
+        "LTSv1.3",
+        "TLSV1.3",
+        "TLSv0.3",
+        "TLSv1.",
+        "TLSv1.3\n",
+        "TLSv1.3 ",
+        "tlsv1.3"
+      ],
+      "expected": "TLSv1.3",
+      "naive": "TLSv1.2",
+      "placebo": "TLSv1.2"
+    },
+    "kv05": {
+      "bad": [
+        "\ton",
+        " on",
+        "ON",
+        "n",
+        "no",
+        "o",
+        "on\n",
+        "on "
+      ],
+      "expected": "on",
+      "naive": "off",
+      "placebo": "on"
+    },
+    "kv06": {
+      "bad": [
+        "\tap-south-1",
+        " ap-south-1",
+        "AP-SOUTH-1",
+        "ap-south-",
+        "ap-south-0",
+        "ap-south-1\n",
+        "ap-south-1 ",
+        "p-south-1",
+        "pa-south-1"
+      ],
+      "expected": "ap-south-1",
+      "naive": "ap-south-1",
+      "placebo": "ap-south-1"
+    },
+    "kv07": {
+      "bad": [
+        "\t16",
+        " 16",
+        "06",
+        "1",
+        "16\n",
+        "16 ",
+        "6",
+        "61"
+      ],
+      "expected": "16",
+      "naive": "4",
+      "placebo": "4"
+    },
+    "kv08": {
+      "bad": [
+        "\t\"release/2.0\"",
+        " \"release/2.0\"",
+        "\"RELEASE/2.0\"",
+        "\"release/0.0\"",
+        "\"release/2.0",
+        "\"release/2.0\"\n",
+        "\"release/2.0\" ",
+        "r\"elease/2.0\"",
+        "release/2.0\""
+      ],
+      "expected": "\"release/2.0\"",
+      "naive": "\"release/2.0\"   # keep",
+      "placebo": "\"release/2.0\"   # keep"
+    },
+    "re01": {
+      "bad": [
+        "\t10|22|30",
+        " 10|22|30",
+        "00|22|30",
+        "01|22|30",
+        "0|22|30",
+        "10|22|3",
+        "10|22|30\n",
+        "10|22|30 "
+      ],
+      "expected": "10|22|30",
+      "naive": "10|22|30",
+      "placebo": "10|22|30"
+    },
+    "re02": {
+      "bad": [
+        "\t8000",
+        " 8000",
+        "000",
+        "0000",
+        "0800",
+        "800",
+        "8000\n",
+        "8000 "
+      ],
+      "expected": "8000",
+      "naive": "8000,8001",
+      "placebo": "8000,8001"
+    },
+    "re03": {
+      "bad": [
+        "\t\"ab\\\"cd\"",
+        " \"ab\\\"cd\"",
+        "\"AB\\\"CD\"",
+        "\"ab\\\"cd",
+        "\"ab\\\"cd\"\n",
+        "\"ab\\\"cd\" ",
+        "a\"b\\\"cd\"",
+        "ab\\\"cd\""
+      ],
+      "expected": "\"ab\\\"cd\"",
+      "naive": "\"ab\\\"",
+      "placebo": "\"ab\\\""
+    },
+    "re04": {
+      "bad": [
+        "\t10.0.0.1",
+        " 10.0.0.1",
+        "0.0.0.1",
+        "00.0.0.1",
+        "01.0.0.1",
+        "10.0.0.",
+        "10.0.0.1\n",
+        "10.0.0.1 "
+      ],
+      "expected": "10.0.0.1",
+      "naive": "::1",
+      "placebo": "::1"
+    },
+    "re05": {
+      "bad": [
+        "\t2.10",
+        " 2.10",
+        ".10",
+        ".210",
+        "0.10",
+        "2.1",
+        "2.10\n",
+        "2.10 "
+      ],
+      "expected": "2.10",
+      "naive": "2.10.",
+      "placebo": "2.10."
+    },
+    "re06": {
+      "bad": [
+        "\t2",
+        " 2",
+        "0",
+        "2\n",
+        "2 "
+      ],
+      "expected": "2",
+      "naive": "3",
+      "placebo": "3"
+    },
+    "re07": {
+      "bad": [
+        "\tAda+L",
+        " Ada+L",
+        "ADA+L",
+        "Ada+",
+        "Ada+L\n",
+        "Ada+L ",
+        "ada+l",
+        "dAa+L",
+        "da+L"
+      ],
+      "expected": "Ada+L",
+      "naive": "L",
+      "placebo": "L"
+    },
+    "re08": {
+      "bad": [
+        "\t42",
+        " 42",
+        "02",
+        "2",
+        "24",
+        "4",
+        "42\n",
+        "42 "
+      ],
+      "expected": "42",
+      "naive": "42",
+      "placebo": "42"
+    }
+  }
+}

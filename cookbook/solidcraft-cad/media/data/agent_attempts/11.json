@@ -1,0 +1,479 @@
+{
+ "commands": [
+  {
+   "command": "document.units",
+   "params": {
+    "units": "mm"
+   }
+  },
+  {
+   "command": "parameters.add",
+   "params": {
+    "name": "thickness",
+    "expression": "6 mm",
+    "unit": "mm"
+   }
+  },
+  {
+   "command": "solid.box",
+   "params": {
+    "length": 60,
+    "width": 40,
+    "height": "thickness",
+    "corner": [
+     -30,
+     -20,
+     0
+    ],
+    "operation": "new",
+    "name": "Plate",
+    "body_name": "MotorAdapter"
+   }
+  },
+  {
+   "command": "solid.box",
+   "params": {
+    "length": 50,
+    "width": 50,
+    "height": "thickness",
+    "corner": [
+     -25,
+     -25,
+     0
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "PlateMiddle"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XZ",
+    "name": "CornerNESection"
+   }
+  },
+  {
+   "command": "sketch.rectangle.two_point",
+   "params": {
+    "p0": [
+     0,
+     0
+    ],
+    "p1": [
+     5,
+     1
+    ]
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.revolve",
+   "params": {
+    "axis": "Z",
+    "angle": 90,
+    "operation": "new",
+    "body_name": "CornerNE"
+   }
+  },
+  {
+   "command": "solid.scale",
+   "params": {
+    "bodies": [
+     "CornerNE"
+    ],
+    "factors": [
+     1,
+     1,
+     "thickness / 1 mm"
+    ]
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerNE"
+    ],
+    "translate": [
+     25,
+     20,
+     0
+    ]
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "CornerNE"
+    ],
+    "operation": "join"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XZ",
+    "name": "CornerNWSection"
+   }
+  },
+  {
+   "command": "sketch.rectangle.two_point",
+   "params": {
+    "p0": [
+     0,
+     0
+    ],
+    "p1": [
+     5,
+     1
+    ]
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.revolve",
+   "params": {
+    "axis": "Z",
+    "angle": 90,
+    "operation": "new",
+    "body_name": "CornerNW"
+   }
+  },
+  {
+   "command": "solid.scale",
+   "params": {
+    "bodies": [
+     "CornerNW"
+    ],
+    "factors": [
+     1,
+     1,
+     "thickness / 1 mm"
+    ]
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerNW"
+    ],
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "angle": 90
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerNW"
+    ],
+    "translate": [
+     -25,
+     20,
+     0
+    ]
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "CornerNW"
+    ],
+    "operation": "join"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XZ",
+    "name": "CornerSWSection"
+   }
+  },
+  {
+   "command": "sketch.rectangle.two_point",
+   "params": {
+    "p0": [
+     0,
+     0
+    ],
+    "p1": [
+     5,
+     1
+    ]
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.revolve",
+   "params": {
+    "axis": "Z",
+    "angle": 90,
+    "operation": "new",
+    "body_name": "CornerSW"
+   }
+  },
+  {
+   "command": "solid.scale",
+   "params": {
+    "bodies": [
+     "CornerSW"
+    ],
+    "factors": [
+     1,
+     1,
+     "thickness / 1 mm"
+    ]
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerSW"
+    ],
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "angle": 180
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerSW"
+    ],
+    "translate": [
+     -25,
+     -20,
+     0
+    ]
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "CornerSW"
+    ],
+    "operation": "join"
+   }
+  },
+  {
+   "command": "sketch.create",
+   "params": {
+    "plane": "XZ",
+    "name": "CornerSESection"
+   }
+  },
+  {
+   "command": "sketch.rectangle.two_point",
+   "params": {
+    "p0": [
+     0,
+     0
+    ],
+    "p1": [
+     5,
+     1
+    ]
+   }
+  },
+  {
+   "command": "sketch.finish",
+   "params": {}
+  },
+  {
+   "command": "solid.revolve",
+   "params": {
+    "axis": "Z",
+    "angle": 90,
+    "operation": "new",
+    "body_name": "CornerSE"
+   }
+  },
+  {
+   "command": "solid.scale",
+   "params": {
+    "bodies": [
+     "CornerSE"
+    ],
+    "factors": [
+     1,
+     1,
+     "thickness / 1 mm"
+    ]
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerSE"
+    ],
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "angle": 270
+   }
+  },
+  {
+   "command": "solid.move",
+   "params": {
+    "bodies": [
+     "CornerSE"
+    ],
+    "translate": [
+     25,
+     -20,
+     0
+    ]
+   }
+  },
+  {
+   "command": "solid.combine",
+   "params": {
+    "target": "MotorAdapter",
+    "tools": [
+     "CornerSE"
+    ],
+    "operation": "join"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 32,
+    "height": 3,
+    "base": [
+     0,
+     0,
+     "thickness"
+    ],
+    "operation": "join",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 22,
+    "height": "thickness + 5 mm",
+    "base": [
+     0,
+     0,
+     -1
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ]
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltNE"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltNW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     -15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltSW"
+   }
+  },
+  {
+   "command": "solid.cylinder",
+   "params": {
+    "diameter": 3.4,
+    "height": "thickness",
+    "base": [
+     15.5,
+     -15.5,
+     0
+    ],
+    "operation": "cut",
+    "targets": [
+     "MotorAdapter"
+    ],
+    "name": "BoltSE"
+   }
+  },
+  {
+   "command": "material.assign",
+   "params": {
+    "bodies": [
+     "MotorAdapter"
+    ],
+    "material": "Aluminum"
+   }
+  }
+ ]
+}

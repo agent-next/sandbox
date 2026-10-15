@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import shlex
@@ -206,6 +207,8 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
         raise SbxError("runners serve: need 0 <= --warm <= --max")
     if not args.prefix.strip():
         raise SbxError("runners serve: --prefix must not be empty (it decides which runners this pool owns)")
+    if args.keep_failed < 0:
+        raise SbxError("--keep-failed must be a positive snapshot cap")
     if args.webhook_port is not None and args.watch:
         raise SbxError("runners serve: --watch and --webhook-port are alternatives; give one")
     secret = os.environ.get("GH_WEBHOOK_SECRET")
@@ -220,6 +223,8 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     boot = runners.sandbox_boot(
         gh, _sandbox_cls(), snapshot=args.snapshot, labels=labels, group_id=args.group_id,
         job_timeout_s=round(args.job_timeout_min * 60), idle_ttl_s=round(args.idle_min * 60),
+        failed_jobs=_failed_jobs(key, domain) if args.keep_failed else None,
+        keep_failed=args.keep_failed,
     )
     wake = threading.Event()
     if args.webhook_port is not None:
@@ -239,6 +244,123 @@ def cmd_runners_serve(args: argparse.Namespace) -> int:
     )
     runners.sweep(gh, _sandbox_cls(), args.prefix)
     runners.serve(pool, interval=args.interval, stop=threading.Event(), wake=wake)
+    return 0
+
+
+def cmd_runners_migrate(args: argparse.Namespace) -> int:
+    from . import migrate, runners
+
+    jobs = {x.strip() for x in args.jobs.split(",") if x.strip()} if args.jobs else None
+    _say(migrate.run(
+        args.repo, runners.github_token(), apply=args.apply, labels=migrate.parse_labels(args.label),
+        only=args.only, jobs=jobs, base=args.base))
+    return 0
+
+
+def cmd_runners_stats(args: argparse.Namespace) -> int:
+    from datetime import datetime, timedelta, timezone
+    import json
+    import re
+
+    from . import runners, runner_stats
+
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo):
+        raise SbxError("runners stats: --repo must be OWNER/REPO")
+    if not args.prefix.strip():
+        raise SbxError("runners stats: --prefix must not be empty")
+    if args.run is not None and args.run < 1:
+        raise SbxError("runners stats: --run must be a positive ID")
+    if not math.isfinite(args.price_per_vcpu_min) or args.price_per_vcpu_min < 0:
+        raise SbxError("--price-per-vcpu-min must be finite and nonnegative")
+    since = None
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    if args.run is None:
+        duration = re.fullmatch(r"(\d+(?:\.\d+)?)([mhd])", args.since or "24h")
+        if not duration:
+            raise SbxError("runners stats: --since needs a duration such as 30m, 24h or 7d")
+        seconds = float(duration[1]) * {"m": 60, "h": 3600, "d": 86400}[duration[2]]
+        _positive_seconds(seconds, "--since", 365 * 86400)
+        since = (now - timedelta(seconds=seconds)).isoformat().replace("+00:00", "Z")
+    events = []
+    if args.serve_log:
+        line_no = 0
+        try:
+            with open(args.serve_log) as stream:
+                for line_no, line in enumerate(stream, 1):
+                    if not line.strip():
+                        continue
+                    event = json.loads(line)
+                    if not isinstance(event, dict):
+                        raise ValueError("expected event object")
+                    events.append(event)
+        except (OSError, ValueError) as exc:
+            detail = f"invalid JSONL at line {line_no}" if isinstance(exc, ValueError) else "cannot read file"
+            raise SbxError(f"runners stats: --serve-log {detail}") from exc
+    gh = runners.GitHub(runners.github_token(access="Actions read access on the repo"), f"repos/{args.repo}")
+    try:
+        runs = [gh.workflow_run(args.repo, args.run)] if args.run is not None else gh.workflow_runs(
+            args.repo, since, now.isoformat().replace("+00:00", "Z"),
+        )
+        jobs = [job for run in runs for job in gh.jobs(args.repo, run["id"], run["run_attempt"])]
+    finally:
+        gh.http.close()
+    report = runner_stats.build_report(
+        args.repo, jobs, prefix=args.prefix, size=args.size,
+        price_per_vcpu_min=args.price_per_vcpu_min, events=events,
+    )
+    report["selection"] = {"run": args.run, "since": since, "attempts": "latest"}
+    _say(json.dumps(report, allow_nan=False) if args.json else runner_stats.format_report(report))
+    return 0
+
+
+def _failed_jobs(key: str, domain: str):
+    from .runner_debug import FailedJobs, state_directory
+
+    endpoint = os.environ.get("E2B_API_URL") or f"https://api.{domain}"
+    return FailedJobs(state_directory(key, endpoint), _sandbox_cls())
+
+
+def cmd_runners_debug(args: argparse.Namespace) -> int:
+    from .runner_debug import job_reference
+
+    if sum(bool(x) for x in (args.job, args.list, args.delete)) != 1:
+        raise SbxError("runners debug: give one job, --list, or --delete JOB")
+    if args.exec is not None and not args.job:
+        raise SbxError("--exec needs a job to restore")
+    _positive_seconds(args.timeout_min, "--timeout-min", MAX_TIMEOUT_MIN)
+    _positive_seconds(args.timeout, "--timeout")
+    if args.job or args.delete:
+        job_reference(args.job or args.delete)
+    key, domain = _credentials()
+    store = _failed_jobs(key, domain)
+    if args.list:
+        for record in store.list():
+            _say(json.dumps(record))
+        return 0
+    if args.delete:
+        record = store.delete(args.delete)
+        _say(f"deleted snapshot {record['snapshot_id']} for job {record['job_id']}")
+        return 0
+    record = store.find(args.job)
+    sbx = _sandbox_cls().create(
+        record["snapshot_id"], timeout=max(1, round(args.timeout_min * 60)),
+        metadata={"sbx-debug-job": str(record["job_id"])}, lifecycle={"on_timeout": "kill"},
+    )
+    sid = shlex.quote(sbx.sandbox_id)
+    _say(sbx.sandbox_id)
+    _say(f"sbx exec {sid} -- 'cd /opt/actions-runner/_work && pwd && ls -la'")
+    _say(f"sbx exec {sid} -- 'cat /path/to/file'")
+    _say(f"sbx kill {sid}")
+    if args.exec is not None:
+        from e2b import CommandExitException
+
+        try:
+            result = sbx.commands.run(args.exec, timeout=args.timeout)
+        except CommandExitException as exc:
+            result = exc
+        sys.stdout.write(_scrub(result.stdout))
+        sys.stderr.write(_scrub(result.stderr))
+        return result.exit_code
     return 0
 
 
@@ -310,8 +432,44 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--job-timeout-min", type=float, default=360, help="longest job; bounds sandbox lifetime (default 360)")
     r.add_argument("--prefix", default="sbx-", help="runner name prefix this pool owns (default sbx-)")
     r.add_argument("--interval", type=float, default=5, help="seconds between pool checks (default 5)")
+    r.add_argument("--keep-failed", type=int, nargs="?", const=5, default=0, metavar="N",
+                   help="snapshot failed jobs; retain the newest N (default 5 when enabled)")
     r.epilog = "Ctrl-C drains (idle runners go, busy ones finish their job); a second Ctrl-C kills them all."
     r.set_defaults(func=cmd_runners_serve)
+
+    r = rsub.add_parser("migrate", help="propose moving a repo's ubuntu-* jobs onto sbx runners (diff, or a pull request)")
+    r.add_argument("--repo", required=True, help="OWNER/REPO whose workflows to migrate")
+    mode = r.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="print the diff and a job table only (default)")
+    mode.add_argument("--apply", action="store_true", help="push branch sbx-runners-migrate and open a pull request")
+    r.add_argument("--label", default="[self-hosted, sbx]", help="new runs-on labels (default '[self-hosted, sbx]')")
+    r.add_argument("--only", default=None, help="only this workflow file (name or path)")
+    r.add_argument("--jobs", default=None, help="only these comma-separated job ids")
+    r.add_argument("--base", default=None, help="branch to read and target (default: the repo's default branch)")
+    r.set_defaults(func=cmd_runners_migrate)
+
+    r = rsub.add_parser("stats", help="job/step timing, runtime cost and hosted comparison (Actions read access)")
+    r.add_argument("--repo", required=True, help="OWNER/REPO to inspect")
+    selection = r.add_mutually_exclusive_group()
+    selection.add_argument("--run", type=int, help="workflow run ID (latest attempt)")
+    selection.add_argument("--since", help="runs created in this duration: 30m, 24h, 7d (default 24h)")
+    r.add_argument("--prefix", default="sbx-", help="runner name prefix used by serve (default sbx-)")
+    r.add_argument("--size", choices=["small", "standard"], default="small",
+                   help="assumed size when jobs lack a small/standard size label (default small, 2 vCPU)")
+    r.add_argument("--price-per-vcpu-min", type=float, default=0.002,
+                   help="estimated dollars per vCPU-minute of job runtime (default 0.002)")
+    r.add_argument("--serve-log", help="serve stdout JSONL, joined by runner name for VM-ready/reclaim timing")
+    r.add_argument("--json", action="store_true", help="machine-readable report; unknown timings are null")
+    r.set_defaults(func=cmd_runners_stats)
+
+    r = rsub.add_parser("debug", help="restore, list, or delete retained failed-job snapshots")
+    r.add_argument("job", nargs="?", help="job id or GitHub Actions job URL")
+    r.add_argument("--list", action="store_true", help="print retained jobs as JSONL")
+    r.add_argument("--delete", metavar="JOB", help="delete a job's snapshot")
+    r.add_argument("--exec", metavar="CMD", help="run CMD in the restored machine")
+    r.add_argument("--timeout-min", type=float, default=30, help="debug sandbox lifetime (default 30 minutes)")
+    r.add_argument("--timeout", type=float, default=60, help="--exec command timeout (default 60 seconds)")
+    r.set_defaults(func=cmd_runners_debug)
     return ap
 
 

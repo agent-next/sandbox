@@ -1,0 +1,13 @@
+{
+  "part": "NEMA 17 motor-mount adapter plate",
+  "units": "mm",
+  "plate": {"length": 60.0, "width": 50.0, "thickness": 6.0, "corner_radius": 5.0},
+  "origin": "plate centred on the origin in XY, bottom face on Z = 0, boss on top (+Z)",
+  "bore": {"diameter": 22.0},
+  "boss": {"outer_diameter": 32.0, "height": 3.0},
+  "bolt_holes": {"count": 4, "diameter": 3.4, "pitch_circle_diameter": 43.84062043356595, "first_angle_deg": 45.0},
+  "min_edge_distance": 5.0,
+  "material": {"name": "6061-T6 aluminium", "density_g_cm3": 2.70},
+  "mass_limit_g": 52.0,
+  "parametric": {"parameter": "thickness", "delta": 2.0}
+}

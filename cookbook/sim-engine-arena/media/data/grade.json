@@ -1,0 +1,94 @@
+{
+  "artifact": "sim.py",
+  "demo": "sim-engine-arena",
+  "gates": {
+    "agreement": {
+      "metrics": {
+        "drop": {
+          "max_dev": 0.0,
+          "scale": 0.05
+        },
+        "incline_slide": {
+          "max_dev": 0.0,
+          "scale": 0.05
+        },
+        "incline_stick": {
+          "max_dev": 0.0,
+          "scale": 0.05
+        },
+        "pendulum": {
+          "max_dev": 0.0,
+          "scale": 0.02
+        }
+      },
+      "pass": true,
+      "problems": []
+    },
+    "run": {
+      "pass": true,
+      "problems": []
+    },
+    "structure": {
+      "pass": true,
+      "problems": []
+    }
+  },
+  "judge_intact": true,
+  "scenarios": {
+    "drop": {
+      "csv_shape": {
+        "pass": true,
+        "problems": []
+      },
+      "oracle": {
+        "pass": true,
+        "penetration_m": 0.030193652691982768,
+        "rebound_m": 0.0,
+        "t_contact": 0.4405908164210919,
+        "t_contact_err": 0.0011361504543011172
+      }
+    },
+    "incline_slide": {
+      "csv_shape": {
+        "pass": true,
+        "problems": []
+      },
+      "oracle": {
+        "accel": 1.608249455710321,
+        "accel_err": 0.0003695868788500686,
+        "end_m": 0.8012394925837607,
+        "pass": true,
+        "state": "slide",
+        "travel_m": 0.8012394925837607,
+        "v_end": 1.5484840899384824
+      }
+    },
+    "incline_stick": {
+      "csv_shape": {
+        "pass": true,
+        "problems": []
+      },
+      "oracle": {
+        "accel": null,
+        "end_m": 0.00178852535729963,
+        "pass": true,
+        "state": "stick",
+        "travel_m": 0.00178852535729963,
+        "v_end": 0.0017996004472917665
+      }
+    },
+    "pendulum": {
+      "csv_shape": {
+        "pass": true,
+        "problems": []
+      },
+      "oracle": {
+        "energy_drift": 0.00035511771080137306,
+        "pass": true,
+        "period": 2.0073203848961487,
+        "period_err": 4.3585438645036074e-08
+      }
+    }
+  },
+  "seed": 0
+}

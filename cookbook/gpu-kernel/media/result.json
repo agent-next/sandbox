@@ -1,0 +1,106 @@
+{
+  "demo": "gpu-kernel",
+  "headline": "The agent's fused Triton softmax passes all 10 correctness cases against torch.softmax (worst error 1.19e-07, limit 1e-5) and compiles to sm_80 and sm_90 cubins.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "structure",
+      "pass": true,
+      "measured": "softmax/KERNEL/SIGNATURE/CONSTEXPRS contract; no delegation names",
+      "threshold": "<= 64 KiB, byte-compiles, contract exact"
+    },
+    {
+      "name": "device-compile",
+      "pass": true,
+      "measured": "cubins produced for sm_80 and sm_90",
+      "threshold": "both compiles succeed"
+    },
+    {
+      "name": "correctness",
+      "pass": true,
+      "measured": "10/10 cases; worst max_abs 1.19e-07, rowsum 1.19e-07, shift 1.05e-06",
+      "threshold": "max_abs <= 1e-5; rowsum <= 1e-4; shift <= 1e-5"
+    },
+    {
+      "name": "judge_intact",
+      "pass": true,
+      "measured": "judge/ sha256 unchanged",
+      "threshold": "identical before and after"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "correctness cases passed",
+      "value": 10,
+      "unit": "cases",
+      "source": "RECEIPT.md:88"
+    },
+    {
+      "label": "worst max-abs error vs torch.softmax",
+      "value": 1.19e-07,
+      "unit": "",
+      "source": "RECEIPT.md:89"
+    },
+    {
+      "label": "worst row-sum error",
+      "value": 1.19e-07,
+      "unit": "",
+      "source": "RECEIPT.md:90"
+    },
+    {
+      "label": "shift-invariance error",
+      "value": 1.05e-06,
+      "unit": "",
+      "source": "RECEIPT.md:91"
+    },
+    {
+      "label": "kernel time",
+      "value": 0.075,
+      "unit": "ms",
+      "source": "RECEIPT.md:198"
+    },
+    {
+      "label": "eager time",
+      "value": 0.079,
+      "unit": "ms",
+      "source": "RECEIPT.md:198"
+    },
+    {
+      "label": "speedup vs eager",
+      "value": "x1.05",
+      "unit": "",
+      "source": "RECEIPT.md:198"
+    },
+    {
+      "label": "mutant kill rate",
+      "value": "11/11 = 100%",
+      "unit": "",
+      "source": "RECEIPT.md:345"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "Correctness of the judged kernel across the case grid, and the kernel-vs-eager timing on the GPU slice."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "agent loop and the 11-mutant self-test matrix"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "the demo video built from report.json and the GPU run log"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/gpu-kernel/run.py",
+    "ask_agent": "Create a fresh sandbox (GPU lease, `vram_gb: 1` if GPU access is on\nmy key; otherwise a plain sandbox and the judge's `--cpu-check` mode).\nInside it, clone https://github.com/agent-next/sandbox at ref `main`,\nthen read `cookbook/gpu-kernel/SPEC.md` carefully: you are to implement\n`cookbook/gpu-kernel`'s fused row-wise softmax as a single Triton kernel\nin one file, `kernel.py`, exposing `softmax(x)`, `KERNEL`, `SIGNATURE`\nand `CONSTEXPRS` exactly as the spec's artifact contract says. Do not\ndelegate to torch's own softmax \u2014 the judge greps for it and counts\nkernel launches. First run `cookbook/gpu-kernel/judge/setup.sh`, then\nwrite your kernel, then iterate: `bash cookbook/gpu-kernel/judge/grade.sh\n/path/to/your/kernel.py --json /tmp/v.json` and read the verdict JSON\nuntil every gate passes. The judge's self-test shows what it rejects \u2014\nrun `judge/selftest.sh` once to see 10 broken mutants die. When every\ngate passes, report the verdict JSON (worst max-abs error, row-sum\nerror, and \u2014 GPU only \u2014 kernel vs eager milliseconds and the speedup),\nthen kill the sandbox and confirm it is gone. If you cannot get a gate\nto pass, say exactly which gate and what you tried, and stop."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "37aa646ff4eeaae0c65cd1ca17d0a22d6208df51",
+  "schema": "agent-next/result@1"
+}
