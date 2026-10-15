@@ -5,7 +5,8 @@ Loads the artifact in pinned headless Chromium (Playwright 1.63.0) at 375,
 768 and 1440 px and measures every gate of SPEC.md from the live DOM:
 
   gate 1  clean load        zero console errors, zero failed/blocked/4xx
-                            requests, zero non-localhost requests
+                            requests, zero non-localhost requests, and
+                            no WebSocket connection attempt (any origin)
   gate 2  no overflow       scrollWidth <= clientWidth + 1 at each width
   gate 3  WCAG AA contrast  computed color vs nearest background, 4.5:1 /
                             3:1 large text (skill references/colour.md §8)
@@ -328,6 +329,37 @@ def load_brief(path):
 # main
 # ---------------------------------------------------------------------------
 
+def _ws_local(url, origin):
+    """A WebSocket URL is scratch-local only if it resolves to the scratch
+    server's exact host and port on http(s) or ws(s)."""
+    o = urlsplit(origin)
+    p = urlsplit(url)
+    if p.scheme in ("ws", "wss") and p.hostname == o.hostname \
+            and (p.port or 443 if p.scheme == "wss" else 80) == o.port:
+        return True
+    if p.scheme in ("http", "https"):
+        return f"{p.scheme}://{p.netloc}" == origin
+    return False  # any other scheme (or a parse failure) is never local
+
+
+def _ws_local(url, origin):
+    """A WebSocket URL is scratch-local only if it is ws(s) with the exact
+    hostname and port of the scratch server's origin."""
+    try:
+        o = urlsplit(origin)
+        p = urlsplit(url)
+    except ValueError:
+        return False
+    if p.scheme not in ("ws", "wss"):
+        return False
+    default_port = 443 if p.scheme == "wss" else 80
+    try:
+        port = p.port or default_port
+    except ValueError:  # malformed port
+        return False
+    return p.hostname == o.hostname and port == o.port
+
+
 def _same_origin(url, origin):
     """A request is in-scope only if it targets the scratch server's exact
     origin. data:/blob:/about: URLs never reach the network at all."""
@@ -400,6 +432,7 @@ def main():
             page = ctx.new_page()
             console_errors, failed, bad_status = [], [], []
             external, requests_seen = [], []
+            ws_remote, ws_suspicious = [], []
             page.on("console", lambda m: console_errors.append(m.text)
                     if m.type == "error" else None)
             # aborted external requests also fire requestfailed; they are
@@ -422,6 +455,22 @@ def main():
                     route.abort()
 
             ctx.route("**/*", _route_guard)
+
+            # WebSocket connections bypass ctx.route() (it matches HTTP
+            # only). Intercept every WebSocket instead: the handler never
+            # calls connect_to_server(), so the socket is mocked and zero
+            # bytes leave the box; it also never calls close(), which
+            # deadlocks the playwright 1.63.0 sync shim. An external URL
+            # is a clean-load violation; a scratch-local one should not
+            # exist on a static artifact either and is measured the same
+            # way, under its own bucket.
+            def _ws_guard(ws):
+                if _ws_local(ws.url, server_origin):
+                    ws_suspicious.append(ws.url)
+                else:
+                    ws_remote.append(ws.url)
+
+            ctx.route_web_socket("**", _ws_guard)
             page.goto(base_url, wait_until="load")
             page.evaluate("() => document.fonts.ready")
             page.wait_for_timeout(400)
