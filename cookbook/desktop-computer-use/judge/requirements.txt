@@ -1,0 +1,10 @@
+# sha256 pins for the desktop-computer-use judge's python deps.
+# The judge is stdlib-only; openpyxl is the library the judge reads the
+# saved workbook back with (a different library than the one that wrote it).
+# Resolved from PyPI on 2026-10-15 (CPython 3.12 manylinux x86_64);
+# hashes verified against the downloaded wheels by judge/setup.sh.
+--require-hashes
+openpyxl==3.1.5 \
+    --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2
+et_xmlfile==2.0.0 \
+    --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa
