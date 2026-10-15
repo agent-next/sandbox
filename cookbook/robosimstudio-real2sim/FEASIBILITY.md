@@ -56,7 +56,12 @@ GUI element in these examples) with a fixed-step run + state checks, and sets
 `ROBOSIMSTUDIO_RENDERER=tiled`. So the examples run *unmodified*; only the
 viewer call is intercepted.
 
-### `examples/00_getting_started/00_hello_world.py` — PASS
+> Two CPU sandboxes were used across the two attempts, and they are not the
+> same machine. The numbers under **A1** are from the 8-vCPU sandbox of the
+> first attempt; **A2** re-measured the same three examples on the 2-vCPU
+> sandbox this round, which is why its throughput is lower. Both are real.
+
+### `examples/00_getting_started/00_hello_world.py` — PASS (8-vCPU sandbox)
 
 ```
 the cube came to rest at z=0.775 m, on a bench whose top is at 0.750 m
@@ -78,7 +83,7 @@ HARNESS_RESULT {"script": "examples/00_getting_started/00_hello_world.py",
   in `~/.cache/warp/1.18.0`. No GPU call anywhere fails — Warp just warns
   `Could not find or load the NVIDIA CUDA driver` and runs cpu.
 
-### `examples/03_rope/00_cable.py` — PASS
+### `examples/03_rope/00_cable.py` — PASS (8-vCPU sandbox)
 
 ```
 HARNESS_RESULT {"script": "examples/03_rope/00_cable.py", "device": "cpu",
@@ -98,7 +103,7 @@ HARNESS_RESULT {"script": "examples/03_rope/00_cable.py", "device": "cpu",
   pathological); cartesian tracking runs the FD solver instead` — an RSS
   fallback notice, not a failure.
 
-### `examples/01_cloth/00_towel.py` — PASS (slow: the CPU path's limit)
+### `examples/01_cloth/00_towel.py` — PASS (slow: the CPU path's limit) (8-vCPU sandbox)
 
 ```
 HARNESS_RESULT {"script": "examples/01_cloth/00_towel.py", "device": "cpu",
@@ -122,6 +127,54 @@ HARNESS_RESULT {"script": "examples/01_cloth/00_towel.py", "device": "cpu",
 - The earlier 60-step attempt exceeded a 900 s timeout while still at ~78 %
   CPU; 20 steps then took 320 s of stepping + ~940 s of one-time Warp CPU
   kernel compilation (fresh `~/.cache/warp` this round).
+
+### A2. Re-measurement on the 2-vCPU sandbox (this round, 2026-10-15)
+
+The same three examples, same harness, on the machine this branch was written
+on (`nproc` = 2, Python 3.12.15, `uv sync --frozen` into `.venv`). Warp's
+kernel cache was warm from the runs above only for the modules they touched;
+this round still recompiled most of them, so `run_wall_s` below is again
+dominated by compilation, not stepping.
+
+```
+HARNESS_RESULT {"script": "examples/00_getting_started/00_hello_world.py", "device": "cpu",
+ "steps_in_view": 20, "run_wall_s": 143.751, "step_wall_s": 3.605, "steps_per_s": 5.548,
+ "state": {"body_q": {"n": 17, "finite": true}}, "state_finite": true,
+ "render": {"ok": true, "s": 8.639, "channels": {"rgb": [540, 960, 3]}},
+ "ok": true, "total_wall_s": 155.999}
+HARNESS_RESULT {"script": "examples/03_rope/00_cable.py", "device": "cpu",
+ "steps_in_view": 20, "run_wall_s": 96.148, "step_wall_s": 12.872, "steps_per_s": 1.554,
+ "state": {"body_q": {"n": 44, "finite": true}}, "state_finite": true,
+ "render": {"ok": true, "s": 0.81, "channels": {"rgb": [540, 960, 3]}},
+ "ok": true, "total_wall_s": 109.831}
+```
+
+- hello_world: **5.55 control steps/s** (vs 4.12 on the 8-vCPU box — the
+  difference is noise plus a differently-warm kernel cache, not vCPU count:
+  the rigid scene is a few hundred bodies and does not fill 8 cores either).
+- cable: **1.55 control steps/s** (vs 1.35). The VBD cable + YAM contact
+  history is the cost, and it is mostly serial.
+- `state` now reports `body_q` (17 and 44 bodies, all finite); the earlier
+  round reported `particle_q`, which is empty for both scenes — a rod is a
+  capsule chain and hello_world has no deformable. Both are finite.
+
+Also measured this round, and load-bearing for the demo's design:
+
+**The arm does not need PyRoKi to step.** With `jax`, `jaxlib`, `jaxls`,
+`pyroki`, `jaxlie`, `jax_dataclasses` and `yourdfpy` all blocked by an import
+hook, `00_hello_world.py` still builds, steps and settles at the same
+`z=0.775 m`:
+
+```
+HARNESS_RESULT {"script": "examples/00_getting_started/00_hello_world.py", "device": "cpu",
+ "steps_in_view": 5, "run_wall_s": 44.046, "step_wall_s": 0.912, "steps_per_s": 5.482,
+ "state": {"body_q": {"n": 17, "finite": true}}, "state_finite": true,
+ "ok": true, "total_wall_s": 44.959}
+```
+
+That is RSS's documented fallback (`an arm that ships no URDF falls back to
+Newton's own solver`), and it is what makes the minimal GPU payload in B3
+possible: **no jax, no jaxlib (85 MB), no pyroki, no jaxls, no yourdfpy.**
 
 ### CPU verdict
 
