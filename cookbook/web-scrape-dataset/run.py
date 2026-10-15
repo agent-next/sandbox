@@ -140,7 +140,7 @@ def main() -> int:
         if rc != 0:
             raise RuntimeError(f"git clone failed (exit {rc})")
 
-        demo = f"/w/repo/{DEMO_DIR}"
+        demo = f"/tmp/repo/{DEMO_DIR}"
 
         # ---- 3. setup ------------------------------------------------------
         rc = timed("setup.sh", lambda: sbx_exec(
