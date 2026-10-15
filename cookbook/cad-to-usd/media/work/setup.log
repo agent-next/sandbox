@@ -1,0 +1,10 @@
+[setup] cad2usd-convert already installed and matches /home/user/w/cookbook/cad-to-usd/judge/requirements-convert.txt
+[setup] cad2usd-judge already installed and matches /home/user/w/cookbook/cad-to-usd/judge/requirements-judge.txt
+recorded: 2026-10-15T15:18:19Z by judge/setup.sh
+python: Python 3.12.15
+usd-convert-cad: 0.3.0
+usd-core (pxr): 0.26.8
+cadquery-ocp: 7.9.3.1.1
+vtk: 9.6.2
+converter banner: usage: usd-convert-cad [-h] -i INPUT -o OUTPUT [--global-xforms]
+[setup] done

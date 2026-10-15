@@ -279,9 +279,9 @@
   "seed": "42",
   "timing": {
     "conversion_script_s": 0.0,
-    "fetch_sources_s": 0.9,
+    "fetch_sources_s": 0.1,
     "file_set_s": 0.0,
-    "gates_2_5_s": 18.7,
-    "total_s": 19.6
+    "gates_2_5_s": 18.4,
+    "total_s": 18.5
   }
 }

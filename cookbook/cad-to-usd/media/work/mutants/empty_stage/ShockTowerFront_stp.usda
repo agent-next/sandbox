@@ -1,0 +1,10 @@
+#usda 1.0
+(
+    defaultPrim = "root"
+    metersPerUnit = 0.001
+    upAxis = "Z"
+)
+
+def Xform "root"
+{
+}

@@ -6,6 +6,7 @@
 master/          # lossless crf 0 master, input to the web encode
 frames/          # rendered per-slot PNG frames
 work/            # make_media.sh build scratch (judge logs, mutant dirs)
+data/mutants.log # make_media.sh byproduct (mutant generation trace)
 
 __pycache__/
 *.pyc

@@ -211,7 +211,27 @@
             "ok": true
           }
         },
-        "reproduced": true
+        "reproduced": true,
+        "sources_converted": {
+          "Servo Futaba S3003 v6.iges": {
+            "converted": true,
+            "outputs": [
+              "Servo_Futaba_S3003_v6_iges.usda"
+            ]
+          },
+          "Servo Futaba S3003 v6.step": {
+            "converted": true,
+            "outputs": [
+              "Servo_Futaba_S3003_v6_step.usda"
+            ]
+          },
+          "ShockTowerFront/_ShockTowerFront.stp": {
+            "converted": true,
+            "outputs": [
+              "ShockTowerFront_stp.usda"
+            ]
+          }
+        }
       },
       "passed": true
     },
@@ -354,10 +374,10 @@
   },
   "seed": "42",
   "timing": {
-    "conversion_script_s": 50.1,
-    "fetch_sources_s": 1.4,
+    "conversion_script_s": 46.4,
+    "fetch_sources_s": 0.1,
     "file_set_s": 0.0,
-    "gates_2_5_s": 15.2,
-    "total_s": 66.7
+    "gates_2_5_s": 19.0,
+    "total_s": 65.5
   }
 }

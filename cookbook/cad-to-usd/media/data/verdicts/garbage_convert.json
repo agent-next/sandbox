@@ -281,10 +281,10 @@
   },
   "seed": "42",
   "timing": {
-    "conversion_script_s": 45.5,
-    "fetch_sources_s": 0.9,
+    "conversion_script_s": 57.0,
+    "fetch_sources_s": 0.1,
     "file_set_s": 0.0,
-    "gates_2_5_s": 16.6,
-    "total_s": 63.1
+    "gates_2_5_s": 17.1,
+    "total_s": 74.3
   }
 }
