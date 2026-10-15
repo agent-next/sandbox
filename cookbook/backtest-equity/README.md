@@ -78,12 +78,20 @@ python3 cookbook/backtest-equity/run.py          # --ref main --keep supported
 
 Creates a sandbox with `--timeout-min 45`, clones the repo at `--ref`
 (default `main`), runs `judge/setup.sh`, `judge/selftest.sh` and
-`judge/grade.sh examples/good --seed 42`, prints the verdict JSON and a
-summary line, then kills the sandbox and confirms with `sbx list` that its
-id is gone. Stdlib only. Exits non-zero if any step fails, naming the
-sandbox id if cleanup could not be confirmed.
+`judge/grade.sh examples/good --seed 42` (the seed is fixed in `run.py`),
+prints the verdict JSON and a summary line, then kills the sandbox and
+confirms with `sbx list` that its id is gone. Stdlib only. Exits non-zero if
+any step fails, naming the sandbox id if cleanup could not be confirmed.
 
-Without the `sbx` CLI or a key, the same steps run in any Debian 12 box:
+`--ref` defaults to `main`, which is correct once this demo is merged. Until
+then the demo only exists on its own branch, so pass the branch ref:
+
+```bash
+python3 cookbook/backtest-equity/run.py --ref <the demo's branch>
+```
+
+Without the `sbx` CLI or a key, the same steps run in any Debian 12 box,
+from the demo directory (`cookbook/backtest-equity/`):
 
 ```bash
 bash judge/setup.sh

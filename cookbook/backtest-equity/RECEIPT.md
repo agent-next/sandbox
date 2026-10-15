@@ -116,7 +116,7 @@ numpy 2.2.6
 matplotlib 3.9.4
 contourpy 1.4.0
 cycler 0.12.1
-fonttools 4.67.0
+fonttools 4.66.1
 kiwisolver 1.5.1
 packaging 26.3
 pillow 12.3.0
