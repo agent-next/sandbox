@@ -15,17 +15,58 @@ from __future__ import annotations
 
 import argparse
 import base64
+from http.client import HTTPException
 import json
 import os
 import sys
 import threading
 import time
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+import uuid
 
 API = "https://api.sbx.agent-next.com"
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEMO = os.path.dirname(HERE)
+
+# A transport failure does not mean the code stopped. A stable request token
+# and a lease-local lock let a later exec recover the original result without
+# running the submitted code twice.
+ONCE = """
+import contextlib, fcntl, io, json, os, traceback
+root = os.path.expanduser('~/.go1-exec-results')
+os.makedirs(root, exist_ok=True)
+path = os.path.join(root, __TOKEN__)
+with open(path + '.lock', 'a') as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    try:
+        if os.path.exists(path + '.json'):
+            with open(path + '.json') as saved:
+                result = json.load(saved)
+        elif os.path.exists(path + '.started'):
+            result = {'ok': False, 'report': {}, 'stdout': '',
+                      'stderr': 'Execution was interrupted before its result was saved; not repeated'}
+        else:
+            open(path + '.started', 'x').close()
+            output, errors = io.StringIO(), io.StringIO()
+            scope = {'report': {}}
+            ok = True
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                try:
+                    exec(compile(__CODE__, '<go1-exec>', 'exec'), scope)
+                except BaseException:
+                    ok = False
+                    traceback.print_exc()
+            result = {'ok': ok, 'report': scope['report'],
+                      'stdout': output.getvalue()[-8000:],
+                      'stderr': errors.getvalue()[-8000:]}
+            with open(path + '.tmp', 'w') as out:
+                json.dump(result, out, allow_nan=False)
+            os.replace(path + '.tmp', path + '.json')
+        report['go1_cached_result'] = result
+    finally:
+        fcntl.flock(lock, fcntl.LOCK_UN)
+"""
 
 JOB = """
 import base64, hashlib, json, os, subprocess, sys, time
@@ -106,6 +147,12 @@ def request(key, method, path, body=None, timeout=900):
                 time.sleep(min(5 * (attempt + 1), 30))
                 continue
             return exc.code, error
+        except (URLError, OSError, HTTPException) as exc:
+            # GET/DELETE are safe to repeat. POST recovery requires the
+            # stable execution token in Lease.exec; create is never retried.
+            if method not in ("GET", "DELETE") or attempt == 4:
+                raise
+            time.sleep(min(5 * (attempt + 1), 30))
     return last.code, error
 
 
@@ -166,17 +213,32 @@ class Lease:
 
     def exec(self, code, timeout_s=600):
         t0 = time.monotonic()
-        st, r = request(self.key, "POST", f"/sandboxes/{self.id}/exec",
-                        {"code": code, "timeout_s": timeout_s},
-                        timeout=timeout_s + 60)
-        self.events.append({"kind": "exec", "status": st,
-                            "wall_s": round(time.monotonic()-t0, 3)})
-        if st != 200 or not isinstance(r, dict):
-            message = "capacity unavailable" if isinstance(r, dict) and \
-                str(r.get("message", "")).startswith("GPU plane at capacity") \
-                else "no confirmed execution result"
-            die(f"GPU exec: HTTP {st}; {message}")
-        return r.get("result") or {}
+        token = uuid.uuid4().hex
+        wrapped = ONCE.replace("__CODE__", repr(code)).replace("__TOKEN__", repr(token))
+        for attempt in range(6):
+            try:
+                st, r = request(self.key, "POST", f"/sandboxes/{self.id}/exec",
+                                {"code": wrapped, "timeout_s": timeout_s},
+                                timeout=timeout_s + 60)
+            except (URLError, OSError, HTTPException):
+                st, r = None, None
+            self.events.append({"kind": "exec", "status": st,
+                                "attempt": attempt + 1, "token": token,
+                                "wall_s": round(time.monotonic()-t0, 3)})
+            result = (r.get("result") or {}) if isinstance(r, dict) else {}
+            cached = (result.get("report") or {}).get("go1_cached_result")
+            if st == 200 and result.get("ok") is True and isinstance(cached, dict):
+                return cached
+            # Only ambiguous transport/server failures are recoverable. The
+            # same token holds the lock or returns its atomically saved reply.
+            if st is None or st in (409, 500, 502, 503, 504) or (
+                    st == 200 and "BlockingIOError" in str(result.get("stderr"))):
+                print(f"exec reply unavailable; recovering token {token}, "
+                      f"attempt {attempt + 1}/6 (HTTP {st})", file=sys.stderr, flush=True)
+                time.sleep(min(5 * (attempt + 1), 30))
+                continue
+            die(f"GPU exec: HTTP {st}; no confirmed execution result")
+        die(f"GPU exec recovery exhausted for {self.id}, token {token}")
 
     def fetch_file(self, remote_path, chunk=65536):
         """Fetch a lease file as bytes via chunked exec (report channel)."""

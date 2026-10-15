@@ -44,7 +44,8 @@ def selftest_on_lease(lease, good, out_json, seeds=SEEDS):
     # Four checkpoints together exceed a 4 MB JSON request. Ship each file
     # separately so mutation setup cannot turn into one oversized RPC.
     for name, path in files.items():
-        payload = base64.b64encode(open(path, "rb").read()).decode()
+        with open(path, "rb") as source:
+            payload = base64.b64encode(source.read()).decode()
         code = f"""
 import base64, os
 root = os.path.expanduser('~/go1mutants')

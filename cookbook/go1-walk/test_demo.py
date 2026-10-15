@@ -4,6 +4,7 @@ import base64
 import importlib.util
 import io
 import json
+import os
 import re
 from pathlib import Path
 import sys
@@ -43,6 +44,74 @@ def module(name, path, torch):
 
 
 class RegressionTests(unittest.TestCase):
+    def test_lost_exec_reply_recovers_without_repeating_work(self):
+        lease = grade.Lease("test-only")
+        lease.id = "gl-test"
+        executions = []
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "executions"
+            code = (f"from pathlib import Path\np = Path({str(marker)!r})\n"
+                    "p.write_text(p.read_text() + 'x' if p.exists() else 'x')\n"
+                    "report['value'] = 42\n")
+
+            def request(key, method, path, body, timeout):
+                scope = {"report": {}}
+                exec(body["code"], scope)
+                executions.append(body["code"])
+                if len(executions) == 1:
+                    raise TimeoutError("reply lost after execution")
+                return 200, {"result": {"ok": True, "report": scope["report"]}}
+
+            with patch.dict(os.environ, {"HOME": tmp}), \
+                    patch.object(grade, "request", side_effect=request), \
+                    patch.object(grade.time, "sleep"), patch("sys.stderr", io.StringIO()):
+                try:
+                    result = lease.exec(code, 120)
+                except (Exception, SystemExit) as exc:
+                    self.fail(f"a lost exec reply must recover its saved result: {exc}")
+            self.assertEqual(result["report"]["value"], 42,
+                             "a lost exec reply must recover its saved result")
+            self.assertEqual(marker.read_text(), "x",
+                             "recovering a lost reply must never repeat training")
+            self.assertEqual(executions[0], executions[1],
+                             "recovery must use the same execution token")
+
+    def test_interrupted_exec_is_never_repeated(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"HOME": tmp}):
+            root = Path(tmp) / ".go1-exec-results"
+            root.mkdir()
+            (root / "test.started").touch()
+            code = grade.ONCE.replace("__TOKEN__", repr("test")).replace(
+                "__CODE__", repr("report['should_not_run'] = True"))
+            scope = {"report": {}}
+            exec(code, scope)
+            result = scope["report"]["go1_cached_result"]
+            self.assertFalse(result["ok"])
+            self.assertNotIn("should_not_run", result["report"],
+                             "an interrupted execution must not run a second time")
+
+    def test_failed_exec_is_cached_not_retried_as_success(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"HOME": tmp}):
+            code = grade.ONCE.replace("__TOKEN__", repr("test")).replace(
+                "__CODE__", repr("raise ValueError('real job failure')"))
+            for _ in range(2):
+                scope = {"report": {}}
+                exec(code, scope)
+                result = scope["report"]["go1_cached_result"]
+                self.assertFalse(result["ok"])
+                self.assertIn("ValueError: real job failure", result["stderr"])
+
+    def test_read_transport_failure_is_retried(self):
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.status, response.read.return_value = 200, b'{}'
+        with patch.object(grade, "urlopen", side_effect=[TimeoutError(), response]) as call, \
+                patch.object(grade.time, "sleep"):
+            self.assertEqual(grade.request("test-only", "GET", "/sandboxes/gl-test"),
+                             (200, {}))
+        self.assertEqual(call.call_count, 2)
+
     def test_mutant_setup_does_not_bundle_all_checkpoints(self):
         lease = Mock()
 
