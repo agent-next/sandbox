@@ -1,0 +1,9 @@
+--- a/orders/store.py
++++ b/orders/store.py
+@@ -54,6 +54,4 @@
+ def order_total_with_tax(conn, order_id, rate):
+     """Return one order's total with tax, or ``None`` when it is absent."""
+     total = order_total(conn, order_id)
+-    if total is None:
+-        return None
+     return int(total * (1 + rate))

@@ -1,0 +1,6 @@
+# fixture and artifact scratch
+__pycache__/
+*.pyc
+.pytest_cache/
+judge/venv/
+judge/.venv/

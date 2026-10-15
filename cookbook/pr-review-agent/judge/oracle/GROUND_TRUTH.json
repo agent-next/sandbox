@@ -1,0 +1,53 @@
+{
+  "pristine_sha256": "81b2a180e0e7a31eafec0c9bdc36d734b7631ce68d2522691620459856c9c4b3",
+  "pr_sha256": {
+    "1": "1e425206781e7a09b227214a3f2e5fe3903706f0a74deabf3a7e48b5e5feea84",
+    "2": "e764d3cd68b047dabea31394f3cd44420989d127c4cd073085a583832a59a094",
+    "3": "ebd92895e2b732c3d791d418803d09e7894b27f07790dda17c1dfc5dedf00005",
+    "4": "f38754d262bceea9f6b1f0585cdb9ef1c1ac80f8688c03cae24d80bab54b7f0b",
+    "5": "f48ff181ee1324f4723a2d9d89fdb1e34e311e5012864681fab0d9c8a02e4a4a",
+    "6": "7d324aacea9f52634c36cca0ab1ddd504319e38ccf5280c1e9370f09bf3026aa"
+  },
+  "defects": [
+    {
+      "pr": 1,
+      "file": "orders/pagination.py",
+      "line": 7,
+      "kind": "off-by-one",
+      "severity": "major"
+    },
+    {
+      "pr": 2,
+      "file": "orders/store.py",
+      "line": 37,
+      "kind": "sql-injection",
+      "severity": "critical"
+    },
+    {
+      "pr": 3,
+      "file": "orders/store.py",
+      "line": 57,
+      "kind": "none-deref",
+      "severity": "major"
+    },
+    {
+      "pr": 4,
+      "file": "orders/metrics.py",
+      "line": 15,
+      "kind": "race",
+      "severity": "major"
+    }
+  ],
+  "clean_prs": [
+    5,
+    6
+  ],
+  "prs": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ]
+}

@@ -1,0 +1,17 @@
+--- a/orders/worker.py
++++ b/orders/worker.py
+@@ -7,3 +7,14 @@
+     for job in jobs:
+         results.append(job())
+     return results
++
++
++def run_jobs_collecting_errors(jobs):
++    """Run every job, returning (results, errors) instead of raising."""
++    results, errors = [], []
++    for job in jobs:
++        try:
++            results.append(job())
++        except Exception as exc:  # noqa: BLE001 - reported, not swallowed
++            errors.append((job, exc))
++    return results, errors

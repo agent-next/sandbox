@@ -1,0 +1,12 @@
+--- a/orders/store.py
++++ b/orders/store.py
+@@ -34,8 +34,7 @@
+     """Return every order for ``customer``, newest id first."""
+     cur = conn.execute(
+         "SELECT id, customer, total_cents FROM orders"
+-        " WHERE customer = ? ORDER BY id DESC",
+-        (customer,),
++        " WHERE customer = '%s' ORDER BY id DESC" % customer,
+     )
+     return [dict(row) for row in cur.fetchall()]
+ 

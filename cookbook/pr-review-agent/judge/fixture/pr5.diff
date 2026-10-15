@@ -1,0 +1,15 @@
+--- a/orders/config.py
++++ b/orders/config.py
+@@ -21,8 +21,11 @@
+         path = os.environ.get("ORDERS_CONFIG")
+     if path is None:
+         return dict(DEFAULTS)
+-    with open(path, encoding="utf-8") as handle:
++    handle = open(path, encoding="utf-8")
++    try:
+         loaded = json.load(handle)
++    finally:
++        handle.close()
+     config = dict(DEFAULTS)
+     config.update(loaded)
+     return config

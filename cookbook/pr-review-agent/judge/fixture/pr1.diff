@@ -1,0 +1,11 @@
+--- a/orders/pagination.py
++++ b/orders/pagination.py
+@@ -4,7 +4,7 @@
+ def page_bounds(page, page_size):
+     """Return the ``(start, stop)`` slice for a 1-based ``page``."""
+     start = (page - 1) * page_size
+-    stop = start + page_size
++    stop = start + page_size - 1
+     return start, stop
+ 
+ 

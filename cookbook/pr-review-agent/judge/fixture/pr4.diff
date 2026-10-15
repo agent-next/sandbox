@@ -1,0 +1,12 @@
+--- a/orders/metrics.py
++++ b/orders/metrics.py
+@@ -12,8 +12,7 @@
+ 
+     def increment(self, amount=1):
+         """Add ``amount`` to the counter, atomically."""
+-        with self._lock:
+-            self._value += amount
++        self._value += amount
+ 
+     @property
+     def value(self):
