@@ -4,9 +4,12 @@
 #   - the same seed twice gives a byte-identical verdict (except 'timing')
 #   - the no-skill baseline exits non-zero AND yields a verdict JSON
 #     (the exit-code contract: any failed gate => grade.sh rc != 0)
-#   - every scripted mutant fails at least one gate  -> kill rate >= 90 %
+#   - every scripted mutant declares the check it must trip in
+#     examples/bad/manifest.json; a kill needs a non-zero grade AND a
+#     readable verdict JSON in which that check failed — a crash, a
+#     missing verdict or a kill by the wrong check is a survivor
 # Exit non-zero unless good passes, determinism holds, the baseline fails
-# the right way, and kill rate >= 90 %.
+# the right way, and every mutant is killed (0 survivors allowed).
 
 set -euo pipefail
 
@@ -21,7 +24,7 @@ SEED="${SEED:-42}"
 OUT="$(mktemp -d /tmp/taste-selftest.XXXXXX)"
 trap 'rm -rf "$OUT"' EXIT
 
-failed_gates() {  # $1 = verdict json
+failed_gates() {  # $1 = verdict json — print failed gate/sub-check names
     python3 - "$1" <<'EOF'
 import json, sys
 try:
@@ -36,6 +39,46 @@ for g in v.get("gates", []):
         else:
             names.append(g["gate"])
 print(",".join(names) or "?")
+EOF
+}
+
+# $1 = verdict json, $2 = intended check. Prints every failed check name;
+# exits 2 if the verdict JSON is unreadable (a crash, not a verdict),
+# 0 if the intended check is among the failed, 1 otherwise.
+check_failed() {
+    python3 - "$1" "$2" <<'EOF'
+import json, sys
+try:
+    v = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(2)
+names = []
+for g in v.get("gates", []):
+    if not g["passed"]:
+        if g["gate"] == "taste_rules":
+            names += [s["rule"] for s in g["detail"] if not s["passed"]]
+        else:
+            names.append(g["gate"])
+print(",".join(names))
+sys.exit(0 if sys.argv[2] in names else 1)
+EOF
+}
+
+# $1 = verdict json — the remote_asset extra proof: at least one external
+# request was route-aborted and none escaped the box.
+assert_blocked() {
+    python3 - "$1" <<'EOF'
+import json, sys
+try:
+    v = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(2)
+d = next((g["detail"] for g in v.get("gates", [])
+          if g["gate"] == "clean_load"), {})
+blocked = sum(len(e.get("external_requests", [])) for e in d.values())
+leaked = sum(len(e.get("external_unblocked", [])) for e in d.values())
+print(f"{blocked} external request(s) route-aborted, {leaked} escaped")
+sys.exit(0 if blocked > 0 and leaked == 0 else 1)
 EOF
 }
 
@@ -97,24 +140,61 @@ else
 fi
 
 echo ""
-echo "[selftest] Known-bad mutants (must FAIL):"
-MUTANTS=(low_contrast fixed_container missing_section console_error
-         default_font tiny_taps img_no_alt wind_sign_bug gradient_button
-         clipped_control)
+echo "[selftest] Known-bad mutants (must FAIL their declared check):"
 KILLED=0; TOTAL=0; SURVIVED=()
-for m in "${MUTANTS[@]}"; do
-    d="$BAD/$m"
-    [[ -d "$d" ]] || { echo "[selftest]   $m missing — skipped"; continue; }
-    TOTAL=$((TOTAL + 1))
-    if "$SCRIPT_DIR/grade.sh" "$d" --seed "$SEED" --json "$OUT/$m.json" \
-            >"$OUT/$m.log" 2>&1; then
-        echo "[selftest]   $m  PASSED (missed kill!)"
-        SURVIVED+=("$m")
-    else
+if [[ ! -f "$BAD/manifest.json" ]]; then
+    echo "[selftest]   $BAD/manifest.json missing — mutants.py did not"
+    echo "[selftest]   declare each mutant's intended check"
+    TOTAL=1  # forces the final assertion to fail
+else
+    while IFS=$'\t' read -r m want; do
+        [[ -n "$m" ]] || continue
+        TOTAL=$((TOTAL + 1))
+        d="$BAD/$m"
+        if [[ ! -d "$d" ]]; then
+            echo "[selftest]   $m  missing — mutant dir not generated"
+            SURVIVED+=("$m (missing)")
+            continue
+        fi
+        if "$SCRIPT_DIR/grade.sh" "$d" --seed "$SEED" --json "$OUT/$m.json" \
+                >"$OUT/$m.log" 2>&1; then
+            echo "[selftest]   $m  PASSED (missed kill — wanted $want)"
+            SURVIVED+=("$m")
+            continue
+        fi
+        fails=""; rc=0
+        fails="$(check_failed "$OUT/$m.json" "$want")" || rc=$?
+        if [[ $rc -eq 2 ]]; then
+            echo "[selftest]   $m  rc != 0 but no verdict JSON (crash, not a kill)"
+            SURVIVED+=("$m (no verdict)")
+            continue
+        fi
+        if [[ $rc -eq 1 ]]; then
+            echo "[selftest]   $m  wrong kill — wanted $want, failed: ${fails:-none}"
+            SURVIVED+=("$m (wrong gates: ${fails:-none})")
+            continue
+        fi
+        extra=""
+        if [[ "$m" == "remote_asset" ]]; then
+            if extra="$(assert_blocked "$OUT/$m.json")"; then
+                extra=" ($extra; nothing left the box)"
+            else
+                echo "[selftest]   $m  clean_load failed but a request"
+                echo "[selftest]      escaped the box — not a kill"
+                SURVIVED+=("$m (request escaped)")
+                continue
+            fi
+        fi
         KILLED=$((KILLED + 1))
-        echo "[selftest]   $m  killed (failed: $(failed_gates "$OUT/$m.json"))"
-    fi
-done
+        echo "[selftest]   $m  killed ($want; failed: $fails)$extra"
+    done < <(python3 - "$BAD/manifest.json" <<'EOF'
+import json, sys
+m = json.load(open(sys.argv[1]))
+for k in sorted(m):
+    print(f"{k}\t{m[k]}")
+EOF
+    )
+fi
 
 RATE=0
 [[ $TOTAL -gt 0 ]] && RATE=$((KILLED * 100 / TOTAL))
@@ -134,7 +214,8 @@ echo "[selftest] mutants killed  : $KILLED/$TOTAL ($RATE%)"
 [[ ${#SURVIVED[@]} -gt 0 ]] && echo "[selftest] survived       : ${SURVIVED[*]}"
 echo "[selftest] ============================================"
 
-[[ $GOOD_OK -eq 1 && $DET_OK -eq 1 && $BASE_OK -eq 1 && $RATE -ge 90 ]] && {
+[[ $GOOD_OK -eq 1 && $DET_OK -eq 1 && $BASE_OK -eq 1 \
+   && $TOTAL -gt 0 && $KILLED -eq $TOTAL ]] && {
     echo "[selftest] SUCCESS"; exit 0; }
 echo "[selftest] FAILURE"
 exit 1
