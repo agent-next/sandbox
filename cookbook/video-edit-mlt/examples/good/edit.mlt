@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mlt LC_NUMERIC="C" version="7.41.0" title="video-edit-mlt" producer="tractor0">
+  <profile description="HD 720p 25 fps" width="1280" height="720" progressive="1" sample_aspect_num="1" sample_aspect_den="1" display_aspect_num="16" display_aspect_den="9" frame_rate_num="25" frame_rate_den="1" colorspace="709"/>
+  <producer id="clip_a" in="0" out="149">
+    <property name="resource">assets/clip_a.mp4</property>
+    <property name="mlt_service">avformat</property>
+  </producer>
+  <producer id="clip_b" in="0" out="149">
+    <property name="resource">assets/clip_b.mp4</property>
+    <property name="mlt_service">avformat</property>
+  </producer>
+  <producer id="clip_c" in="0" out="149">
+    <property name="resource">assets/clip_c.mp4</property>
+    <property name="mlt_service">avformat</property>
+  </producer>
+  <producer id="music" in="0" out="224">
+    <property name="resource">assets/music.wav</property>
+    <property name="mlt_service">avformat</property>
+    <filter id="duck">
+      <property name="mlt_service">volume</property>
+      <property name="gain">0=-6;24=-6;25=-18;49=-18;50=-6;124=-6;125=-18;149=-18;150=-6</property>
+    </filter>
+  </producer>
+  <producer id="voice" in="0" out="224">
+    <property name="resource">assets/voice.wav</property>
+    <property name="mlt_service">avformat</property>
+    <filter id="voice_gain">
+      <property name="mlt_service">volume</property>
+      <property name="gain">-6</property>
+    </filter>
+  </producer>
+  <producer id="logo" in="0" out="99">
+    <property name="resource">assets/logo.png</property>
+    <property name="mlt_service">qimage</property>
+  </producer>
+  <playlist id="xfade_a">
+    <entry producer="clip_a" in="100" out="124"/>
+  </playlist>
+  <playlist id="xfade_b">
+    <entry producer="clip_b" in="0" out="24"/>
+  </playlist>
+  <tractor id="xfade" in="0" out="24">
+    <track producer="xfade_a"/>
+    <track producer="xfade_b"/>
+    <transition id="xfade_luma">
+      <property name="mlt_service">luma</property>
+      <property name="a_track">0</property>
+      <property name="b_track">1</property>
+      <property name="in">0</property>
+      <property name="out">24</property>
+    </transition>
+    <transition id="xfade_mix">
+      <property name="mlt_service">mix</property>
+      <property name="a_track">0</property>
+      <property name="b_track">1</property>
+      <property name="in">0</property>
+      <property name="out">24</property>
+      <property name="start">0</property>
+      <property name="end">1</property>
+    </transition>
+  </tractor>
+  <playlist id="video_track">
+    <entry producer="clip_a" in="0" out="99"/>
+    <entry producer="xfade" in="0" out="24"/>
+    <entry producer="clip_b" in="25" out="99"/>
+    <entry producer="clip_c" in="50" out="74"/>
+  </playlist>
+  <playlist id="music_track">
+    <entry producer="music" in="0" out="224"/>
+  </playlist>
+  <playlist id="voice_track">
+    <entry producer="voice" in="0" out="224"/>
+  </playlist>
+  <playlist id="logo_track">
+    <entry producer="logo" in="0" out="99"/>
+  </playlist>
+  <tractor id="tractor0" in="0" out="224">
+    <track producer="video_track"/>
+    <track producer="music_track" hide="video"/>
+    <track producer="voice_track" hide="video"/>
+    <track producer="logo_track" hide="audio"/>
+    <transition id="mix_music">
+      <property name="mlt_service">mix</property>
+      <property name="a_track">0</property>
+      <property name="b_track">1</property>
+      <property name="always_active">1</property>
+      <property name="sum">1</property>
+    </transition>
+    <transition id="mix_voice">
+      <property name="mlt_service">mix</property>
+      <property name="a_track">0</property>
+      <property name="b_track">2</property>
+      <property name="always_active">1</property>
+      <property name="sum">1</property>
+    </transition>
+    <transition id="logo_affine">
+      <property name="mlt_service">affine</property>
+      <property name="a_track">0</property>
+      <property name="b_track">3</property>
+      <property name="rect">1100 620 160 80 1</property>
+      <property name="distort">1</property>
+    </transition>
+    <filter id="master_gain">
+      <property name="mlt_service">volume</property>
+      <property name="gain">-4</property>
+    </filter>
+  </tractor>
+</mlt>
