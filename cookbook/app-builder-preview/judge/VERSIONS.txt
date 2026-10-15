@@ -1,0 +1,12 @@
+## installed by judge/setup.sh on 2026-10-15T16:33:35Z
+
+```
+node v22.23.3
+npm  10.9.9
+playwright (python binding) 1.63.0
+chromium 153.0.8010.12 rev 1243 (sha256-checked CDN zips)
+react 19.3.0
+react-dom 19.3.0
+vite 8.3.4
+@vitejs/plugin-react 6.1.1
+```
