@@ -1,0 +1,102 @@
+{
+  "verdict": "FAIL",
+  "seed": 42,
+  "artifact": "/tmp/looprun/mutants/travel-cuts-part",
+  "gates": {
+    "slice_clean": {
+      "pass": true,
+      "detail": "orca rc=0 gcode=plate_1.gcode"
+    },
+    "artifact_matches": {
+      "pass": false,
+      "detail": "re-slice 8a21cd052ed7 != artifact 1406646c7e54 (normalised)"
+    },
+    "moves_inside_bed": {
+      "pass": true,
+      "detail": "all 8008 extruding moves inside bed"
+    },
+    "moves_near_part": {
+      "pass": false,
+      "detail": "artifact: max extrusion distance from footprint 212.60 mm (tol 10.00)"
+    },
+    "layer_z_sequence": {
+      "pass": false,
+      "detail": "artifact: steady layer heights out of band: [10.0]"
+    },
+    "volume_matches_model": {
+      "pass": true,
+      "detail": "deposited 3368.5 mm3 vs expected 3771.1 (band 2339.7..5202.4), mass 4.18 g (max 12.0 g)"
+    },
+    "cube_crosscheck": {
+      "pass": true,
+      "detail": "cube deposited 4858.3 mm3 vs expected 5958.2 (band 3870.7..8045.6); stl vol 15552.0"
+    },
+    "pla_temperatures": {
+      "pass": false,
+      "detail": "artifact: nozzle temps out of PLA window: [0.0]; bed temps out of PLA window: [0.0]"
+    },
+    "time_estimate": {
+      "pass": true,
+      "detail": "judge 1746s vs slicer 1855s (band +-25%), max 5400s"
+    },
+    "klipper_batch": {
+      "pass": true,
+      "detail": "klippy rc=0, 0 bad lines"
+    },
+    "profile_contract": {
+      "pass": true,
+      "detail": "wall_loops=2 infill=15% filament=1.75 nozzle=0.40"
+    },
+    "judge_intact": {
+      "pass": true,
+      "detail": "judge/ sha256 unchanged"
+    }
+  },
+  "metrics": {
+    "resliced_gcode": "plate_1.gcode",
+    "artifact_hash": "1406646c7e54",
+    "reslice_hash": "8a21cd052ed7",
+    "stl_volume_mm3": 8052.8,
+    "max_dist_from_footprint_mm": 212.6,
+    "first_layer_z_mm": 0.2,
+    "layer_count": 76,
+    "steady_layer_height_mm": [
+      0.2,
+      10.0
+    ],
+    "deposited_volume_mm3": 3368.5,
+    "expected_volume_mm3": 3771.1,
+    "volume_band_mm3": [
+      2339.7,
+      5202.4
+    ],
+    "filament_mass_g": 4.18,
+    "nozzle_setpoints_c": [
+      0.0,
+      210.0
+    ],
+    "bed_setpoints_c": [
+      0.0,
+      60.0
+    ],
+    "judge_time_s": 1745.6,
+    "slicer_time_s": 1855,
+    "profile_wall_loops": 2,
+    "profile_infill_pct": 15.0,
+    "cube_deposited_mm3": 4858.3,
+    "cube_expected_mm3": 5958.2,
+    "cube_stl_volume_mm3": 15552.0,
+    "klipper_exit": 0,
+    "klipper_bad_lines": 0
+  },
+  "timing": {
+    "grade_start_epoch": 1792075750.6978676,
+    "slice_bracket_s": 0.5,
+    "replay_s": 4.1,
+    "behavioural_gates_s": 46.6,
+    "cube_gate_s": 30.2,
+    "klipper_gate_s": 20.8,
+    "profile_gate_s": 20.8,
+    "grade_wall_s": 360.0
+  }
+}
