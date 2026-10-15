@@ -1,0 +1,116 @@
+{
+ "all_pass": false,
+ "artifact": "controller.py",
+ "findings": [
+  "upstream mirror-sign joint ranges (consistent URDF/MJCF): right_elbow_joint, right_hip_roll_joint, right_knee_joint, right_shoulder_pitch_joint, right_shoulder_roll_joint"
+ ],
+ "gates": {
+  "effort": {
+   "mechanical_energy_j": 114.514,
+   "pass": true,
+   "peak_tau_nm": 21.981,
+   "rms_tau_nm": 15.027,
+   "verdict": "info"
+  },
+  "effort_match": {
+   "actuators": 24,
+   "out_of_tol": [],
+   "pass": true,
+   "verdict": "pass",
+   "worst_rel": 0.0
+  },
+  "gravity_statics": {
+   "feet_fz_n": 384.704,
+   "m_times_g_n": 383.662,
+   "pass": true,
+   "probe": "reference hold, CoM over support centre, soles touching",
+   "quietest_instant_s": 9.295,
+   "quietest_max_qvel": 0.0214,
+   "ratio": 1.002716,
+   "tol": 0.02,
+   "verdict": "pass"
+  },
+  "integrity": {
+   "artifact_violations": [],
+   "ctypes_loaded": false,
+   "judge_sha256_after": "a1dca4506f784ab5",
+   "judge_sha256_before": "a1dca4506f784ab5",
+   "pass": true,
+   "verdict": "pass"
+  },
+  "joint_match": {
+   "mirrored_right_joints": [
+    "right_elbow_joint",
+    "right_hip_roll_joint",
+    "right_knee_joint",
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint"
+   ],
+   "mjcf_joints": 24,
+   "pass": true,
+   "same_order": true,
+   "urdf_joints": 24,
+   "verdict": "pass",
+   "worst_range_delta_rad": 0.0
+  },
+  "limits": {
+   "pass": false,
+   "q_tol_rad": 0.001,
+   "verdict": "fail",
+   "worst_ctrl_over_limit_nm": 0.0,
+   "worst_force_over_limit_nm": 0.0,
+   "worst_qpos_over_range_rad": 0.00669
+  },
+  "mass_match": {
+   "links_checked": 25,
+   "out_of_tol": [],
+   "pass": true,
+   "total_mjcf_kg": 39.1093,
+   "total_rel": 0.0,
+   "total_urdf_kg": 39.1093,
+   "verdict": "pass",
+   "worst_link_rel": 0.0
+  },
+  "model_loads": {
+   "nq": 31,
+   "nu": 24,
+   "nv": 30,
+   "pass": true,
+   "timestep": 0.0005,
+   "total_mass_kg": 39.109318,
+   "verdict": "pass"
+  },
+  "push": {
+   "max_tilt_after_recovery_deg": 180.0,
+   "max_tilt_in_window_deg": 180.0,
+   "pass": false,
+   "recover_from_s": 7.0,
+   "recover_limit_deg": 5.0,
+   "verdict": "fail",
+   "window_s": [
+    5.0,
+    10.0
+   ]
+  },
+  "stand": {
+   "max_tilt_deg": 180.0,
+   "nonfoot_floor_contact": [
+    2.565,
+    [
+     "right_wrist_link"
+    ]
+   ],
+   "pass": false,
+   "tilt_limit_deg": 10.0,
+   "verdict": "fail",
+   "worst_tilt_at_s": 3.055,
+   "z0_m": 0.78,
+   "z_floor_m": 0.702,
+   "zmin_m": 0.6485
+  }
+ },
+ "seed": 20261014,
+ "timing": {
+  "grade_wall_s": 48.72
+ }
+}

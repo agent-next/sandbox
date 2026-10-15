@@ -1,0 +1,10 @@
+# Pinned Python deps for media generation (the judge's own venv is separate).
+#
+# mujoco/numpy match judge/requirements.txt exactly, so the renders use the
+# same pinned simulator that graded the trajectory.  matplotlib/pillow are
+# pinned by version; ffmpeg is taken from the distro (Debian bookworm:
+# ffmpeg 5.1.x) and libEGL_mesa from the distro (headless EGL rendering).
+mujoco==3.14.0
+numpy==2.2.6
+matplotlib==3.10.7
+pillow==11.3.0

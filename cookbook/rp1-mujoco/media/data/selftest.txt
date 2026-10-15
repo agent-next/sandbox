@@ -1,0 +1,13 @@
+selftest: known-good PASS
+selftest: mutant KILLED: controller_cancels_push (failed: limits push stand)
+selftest: mutant KILLED: controller_clamp_1pct (failed: limits push stand)
+selftest: mutant KILLED: controller_gains_100x (failed: limits push stand)
+selftest: mutant KILLED: controller_no_balance (failed: limits push stand)
+selftest: mutant KILLED: controller_sign_flip_knee (failed: limits push stand)
+selftest: mutant KILLED: controller_wrong_joint_order (failed: limits push stand)
+selftest: mutant KILLED: controller_zero_gains (failed: limits push stand)
+selftest: mutant KILLED: controller_zero_torque (failed: limits push stand)
+selftest: kill rate 8/8 (100%), physics kills 8/8 (100%)
+selftest: zero-torque oracle fails the stand gate (as it must)
+selftest: determinism OK (same seed -> identical verdict)
+selftest: PASS
