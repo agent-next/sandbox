@@ -2,9 +2,13 @@
 .tools/
 work/
 master/
+clips/
 data/traj_*.csv
 data/versions.txt
 data/model_*.xml
 data/state_*.npy
+data/clip_*.xml
 data/render_*.xml
 data/render-checks.json
+video/node_modules/
+video/dist/

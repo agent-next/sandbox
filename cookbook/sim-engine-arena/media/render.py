@@ -61,13 +61,21 @@ def assert_state(actual, expected, context):
         f"{context}: rendered-state mismatch"
 
 
-def visual_model(name, source):
-    """Only materials, textures, lighting and zero-mass noncontact scenery."""
+def visual_model(name, source, offsamples="4", shadowsize="2048",
+                 outfile=None):
+    """Only materials, textures, lighting and zero-mass noncontact scenery.
+
+    offsamples/shadowsize are offscreen-quality knobs only: they change
+    neither the scene nor the physics, and assert_physics still runs on the
+    result. The animated clip renderer lowers them for throughput and writes
+    its XML under a separate name, so this module's own output is untouched.
+    """
     root = ET.fromstring(source)
     ET.SubElement(root, "visual")
     visual = root.find("visual")
     ET.SubElement(visual, "global", offwidth="1920", offheight="1080")
-    ET.SubElement(visual, "quality", shadowsize="2048", offsamples="4")
+    ET.SubElement(visual, "quality", shadowsize=shadowsize,
+                  offsamples=offsamples)
     ET.SubElement(visual, "headlight", ambient=".25 .25 .25",
                   diffuse=".55 .55 .55", specular=".3 .3 .3")
     asset = ET.SubElement(root, "asset")
@@ -101,7 +109,7 @@ def visual_model(name, source):
                       size="5 5 .1", mass="0", contype="0", conaffinity="0",
                       material="ground")
     xml = ET.tostring(root, encoding="unicode")
-    (DATA / f"render_{name}.xml").write_text(xml + "\n")
+    (outfile or DATA / f"render_{name}.xml").write_text(xml + "\n")
     return mujoco.MjModel.from_xml_string(xml)
 
 
@@ -127,13 +135,13 @@ def assert_physics(original, rendered):
 
 
 class Replay:
-    def __init__(self, name):
+    def __init__(self, name, offsamples="4", shadowsize="2048"):
         self.name = name
         self.scene = SCENES[name]
         self.rows = grade.parse_traj(DATA / self.scene["output"])
         source = (DATA / f"model_{name}.xml").read_text()
         self.original = mujoco.MjModel.from_xml_string(source)
-        self.model = visual_model(name, source)
+        self.model = visual_model(name, source, offsamples, shadowsize)
         assert_physics(self.original, self.model)
         self.data = mujoco.MjData(self.model)
         self.states = self.replay()
