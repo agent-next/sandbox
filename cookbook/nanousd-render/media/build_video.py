@@ -159,15 +159,18 @@ def check_frame_has_content(im, eye, target, up, fov_v_deg):
 def lookat(eye, target, up):
     """Column-vector view matrix (p' = V @ p) whose ROWS are the camera
     basis (right / up / -fwd), exactly as the judge's camera_math writes
-    them (judge/judge.py): putting the basis in the COLUMNS instead maps
-    the scene behind the camera and the renderer culls it all -- that
-    was the black-video bug (finding 1)."""
+    them (judge/judge.py): putting the basis into the COLUMNS instead
+    (the old `V[:3,0], V[:3,1], V[:3,2] = r, u, -f` shape) transposes the
+    rotation, maps the scene behind the camera and the renderer culls
+    everything -- that was the black-video bug. `view[:3, :3] =
+    np.array([r, u, -f])` is the row layout; keep it and judge.py in
+    lockstep."""
     f = normalize(np.array(target, float) - np.array(eye, float))
     r = normalize(np.cross(f, np.array(up, float)))
     u = np.cross(r, f)
     V = np.eye(4)
-    V[:3, 0], V[:3, 1], V[:3, 2] = r, u, -f
-    V[:3, 3] = -np.array([r @ eye, u @ eye, f @ eye], float)
+    V[:3, :3] = np.array([r, u, -f])
+    V[:3, 3] = V[:3, :3] @ -np.array(eye, float)
     return V
 
 
@@ -269,7 +272,11 @@ def wrap(d, text, f, max_w):
 
 def caption(img: Image.Image, text: str, y=None) -> None:
     """Burn a wrapped (<= 2 line) caption with a scrim; 72 px bold, cap
-    height ~53 px, always inside the frame."""
+    height ~53 px, always inside the frame.
+
+    The scrim is the CAPTION'S OWN bounding box (never a full-width band),
+    and the badge sits top-RIGHT well above it, so it can never be hidden
+    by the scrim (finding 2)."""
     f = font("bold", CAPTION_PX)
     d = ImageDraw.Draw(img, "RGBA")
     lines = wrap(d, text, f, CAPTION_MAX_W)
