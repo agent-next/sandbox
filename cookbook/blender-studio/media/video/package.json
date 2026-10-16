@@ -1,0 +1,13 @@
+{
+  "name": "blender-studio-demo-video",
+  "private": true,
+  "scripts": {
+    "render": "remotion render src/index.ts Demo ../master/remotion.mp4 --props=../master/props.json --public-dir=../source --codec=h264 --crf=1 --concurrency=2"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.531",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.531"
+  }
+}

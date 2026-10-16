@@ -16,7 +16,7 @@ WHITE = (245, 249, 255)
 BLUE = (83, 189, 232)
 ORANGE = (245, 158, 65)
 POSE_COUNT = 48
-POSES_PER_SECOND = 30
+POSES_PER_SECOND = 24
 VIDEO_SECONDS = 28
 FAILURE_LABELS = {
     "clipped_hero": "Cropped hero",
@@ -54,47 +54,8 @@ def panel(image, box, fill=BG):
     ImageDraw.Draw(image).rectangle(box, fill=fill)
 
 
-def hero(pose=1):
-    return Image.open(SOURCE / f"frame-{pose:02}.png").convert("RGB")
-
-
-def split_hero(pose=1):
-    image = Image.new("RGB", (1920, 1080), BG)
-    image.paste(hero(pose).crop((490, 0, 1450, 1080)), (960, 0))
-    return image
-
-
-def card(title, lines, pose=1):
-    image = split_hero(pose)
-    draw = ImageDraw.Draw(image)
-    text(draw, (60, 70), title, 80, BLUE)
-    for i, line in enumerate(lines):
-        text(draw, (60, 230 + 105 * i), line, 64)
-    return image
-
-
-def kill_matrix(data):
-    image = Image.new("RGB", (1920, 1080), BG)
-    draw = ImageDraw.Draw(image)
-    text(draw, (65, 20), f"JUDGE PROOF · {data['killed']}/{data['total']} caught", 84, BLUE)
-    text(draw, (65, 130), "Deliberately broken versions", 64)
-    names = list(data["good"]["gates"])
-    for j, label in enumerate(("Frame", "Light", "Sweep", "Loop", "Rim")):
-        x = 925 + 210*j - draw.textlength(label, font=font(64)) / 2
-        text(draw, (x, 225), label, 64)
-    for i, (name, verdict) in enumerate(data["mutants"].items()):
-        y = 315 + 61*i
-        text(draw, (65, y), FAILURE_LABELS[name], 64)
-        for j, gate in enumerate(names):
-            color = BLUE if verdict["gates"][gate]["pass"] else ORANGE
-            draw.rounded_rectangle((855+210*j, y+13, 995+210*j, y+59),
-                                   radius=8, fill=color)
-    text(draw, (65, 975), "Blue = pass. Orange = fail.", 64)
-    return image
-
-
-def pose_index(output_frame):
-    return output_frame * POSES_PER_SECOND // 30 % POSE_COUNT
+def hero():
+    return Image.open(SOURCE / "frame-01.png").convert("RGB")
 
 
 def prepare_media():
@@ -159,130 +120,29 @@ def prepare_media():
     return data, capture, render_rows
 
 
-def video_shots(data, capture):
-    shots = []
-
-    def hook(pose):
-        image = hero(pose)
-        panel(image, (0, 0, 1920, 130))
-        text(ImageDraw.Draw(image), (40, 28),
-             "An AI agent built this in Blender. A judge checked it.", 64)
-        panel(image, (1450, 900, 1880, 1035))
-        text(ImageDraw.Draw(image), (1490, 925), "PASS 5/5", 64, BLUE)
-        return image
-    # Held shots keep the real turntable spinning behind their captions.
-    shots.append((60, hook))
-    shots.append((60, lambda pose: card("THE BRIEF", [
-        "Center the hero", "Keep the highlights", "Use a smooth backdrop",
-        "Make a full turn", "Rim light: products only"], pose)))
-    close = hero().crop((490, 190, 1450, 730)).resize(
-        (1920, 1080), Image.Resampling.LANCZOS)
-    panel(close, (0, 960, 1920, 1080))
-    text(ImageDraw.Draw(close), (60, 975), "Red car paint. Real reflections.", 76)
-    details = Image.new("RGB", (1920, 1080), BG)
-    for x, box in ((0, (100, 400, 650, 950)), (960, (1350, 500, 1900, 1050))):
-        details.paste(hero().crop(box).resize((960, 960), Image.Resampling.LANCZOS), (x, 0))
-    text(ImageDraw.Draw(details), (60, 975), "Glass and gold. Same scene.", 76)
-    shots.append((90, [close, details]))
-    poses = []
-    for i in range(1, POSE_COUNT+1):
-        frame = Image.open(SOURCE / f"frame-{i:02}.png").convert("RGB")
-        panel(frame, (0, 960, 1920, 1080))
-        text(ImageDraw.Draw(frame), (50, 976),
-             f"{POSE_COUNT} real Cycles poses · {POSES_PER_SECOND} poses/s", 64)
-        poses.append(frame)
-    shots.append((96, poses))
-    linking = Image.new("RGB", (1920, 1080), BG)
-    for x, name in ((0, "good"), (960, "unlinked_rim")):
-        image = Image.open(SOURCE / name / "rim-on.png").convert("RGB")
-        linking.paste(image.resize((960, 540), Image.Resampling.NEAREST), (x, 240))
-    draw = ImageDraw.Draw(linking)
-    text(draw, (60, 55), "The judge isolates the rim light", 80, BLUE)
-    text(draw, (50, 830), "Backdrop stays dark:", 68)
-    text(draw, (50, 920), "PASS", 84, BLUE)
-    text(draw, (1010, 830), "Backdrop lights up:", 68)
-    text(draw, (1010, 920), "FAIL", 84, ORANGE)
-    unlinked = Image.open(SOURCE / "unlinked.png").convert("RGB").resize((960, 540))
-
-    def before_after(pose):
-        image = Image.new("RGB", (1920, 1080), BG)
-        image.paste(hero(pose).resize((960, 540)), (0, 235))
-        image.paste(unlinked, (960, 235))
-        draw = ImageDraw.Draw(image)
-        text(draw, (60, 25), "The judge: an automatic render checker", 80, BLUE)
-        text(draw, (60, 130), "It measures the image.", 76)
-        text(draw, (50, 830), "Products only", 76, BLUE)
-        text(draw, (1010, 830), "Hits everything", 76, ORANGE)
-        text(draw, (50, 950), "Same scene. Only the rim light changes.", 64)
-        return image
-    shots.append((90, before_after))
-    shots.append((60, [linking]))
-
-    repair = Image.new("RGB", (1920, 1080), BG)
-    repair.paste(Image.open(SOURCE / "off_center/hero.png").convert("RGB").resize((960, 540)),
-                 (0, 155))
-    repair.paste(hero().resize((960, 540)), (960, 155))
-    draw = ImageDraw.Draw(repair)
-    count = sum(g["pass"] for g in data["mutants"]["off_center"]["gates"].values())
-    text(draw, (40, 35), "Broken → repaired", 84, BLUE)
-    text(draw, (55, 740), f"Off-center: {count}/5", 64, ORANGE)
-    text(draw, (1040, 740), "Centered: 5/5", 64, BLUE)
-    speed = data["timing"]["total_seconds"] / 3
-    text(draw, (55, 940), f"Local self-test replay / {speed:.1f}x speed" if
-         capture["proof_backend"] == "local pinned Blender" else
-         f"Sandbox self-test replay / {speed:.1f}x speed", 64)
-    # Real process rows revealed over the three-second slot.
-    repairs = []
-    for i in range(data["total"]):
-        r = repair.copy()
-        name = list(data["mutants"])[i]
-        text(ImageDraw.Draw(r), (55, 815), f"Caught: {FAILURE_LABELS[name]}", 64, BLUE)
-        repairs.append(r)
-    shots.append((90, repairs))
-    def proof(pose):
-        image = split_hero(pose)
-        draw = ImageDraw.Draw(image)
-        text(draw, (55, 70), "PASS 5/5", 180, BLUE)
-        text(draw, (55, 295), "All five checks passed", 76)
-        text(draw, (55, 445), f"{data['killed']}/{data['total']} deliberately", 76)
-        text(draw, (55, 545), "broken versions caught", 76)
-        text(draw, (55, 705), "Same seed. Same verdict.", 64)
-        return image
-    shots.append((90, proof))
-    shots.append((144, [kill_matrix(data)]))
-    end = hero()
-    panel(end, (0, 0, 1920, 340))
-    text(ImageDraw.Draw(end), (100, 75), "Build it. Check it. Run it.", 84, BLUE)
-    text(ImageDraw.Draw(end), (100, 210), "python3 run.py", 82)
-    shots.append((60, [end]))
-    if sum(duration for duration, _ in shots) != VIDEO_SECONDS * 30:
-        raise RuntimeError(f"storyboard must fill exactly {VIDEO_SECONDS} seconds")
-    return shots
+def video_props(data):
+    good = data["good"]["gates"]
+    gates = [
+        ("Hero centered and in frame", f"box {good['G1_framing']['bbox_fraction']:.4f} of frame, 12/12 poses"),
+        ("Highlights not clipped", f"clipped {good['G2_exposure']['clipped_fraction']:.4f}"),
+        ("Smooth backdrop sweep", f"max 2nd difference {good['G3_backdrop']['max_second_difference']:.4f}"),
+        ("Seamless full turn", f"endpoint difference {good['G4_loop']['endpoint_mean_abs_diff']:.6f}"),
+        ("Rim light on products only", f"products +{good['G5_linking']['product_direct_delta']:.4f}, "
+                                        f"backdrop +{good['G5_linking']['backdrop_direct_delta']:.4f}"),
+    ]
+    mutants = [{"name": name, "label": FAILURE_LABELS[name],
+                "failed": [not verdict["gates"][gate]["pass"] for gate in good]}
+               for name, verdict in data["mutants"].items()]
+    return {"gates": [{"label": label, "value": value} for label, value in gates],
+            "mutants": mutants, "killed": data["killed"], "total": data["total"]}
 
 
 def main():
     data, capture, render_rows = prepare_media()
-    shots = video_shots(data, capture)
+    (MASTER / "props.json").write_text(json.dumps(video_props(data), indent=2) + "\n")
+    # Remotion animates real Cycles poses with a measured HUD; ffmpeg only encodes.
+    subprocess.run(["npm", "run", "render"], cwd=HERE / "video", check=True)
 
-    # Stream actual losslessly decoded PNG images, repeated into the 30 fps master.
-    command = ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
-               "-s", "1920x1080", "-r", "30", "-i", "-", "-an", "-c:v", "libx264",
-               "-threads", "4", "-crf", "0", "-preset", "fast", "-pix_fmt", "yuv420p",
-               str(MASTER / "demo.mp4")]
-    proc = subprocess.Popen(command, stdin=subprocess.PIPE)
-    try:
-        for duration, images in shots:
-            if callable(images):
-                images = [images(pose) for pose in range(1, POSE_COUNT+1)]
-            buffers = [image.tobytes() for image in images]
-            for i in range(duration):
-                index = pose_index(i) if len(images) == POSE_COUNT else min(
-                    len(images)-1, i * len(images) // duration)
-                proc.stdin.write(buffers[index])
-    finally:
-        proc.stdin.close()
-    if proc.wait():
-        raise RuntimeError("lossless master encode failed")
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(MASTER / "demo.mp4"),
                     "-an", "-c:v", "libx264", "-threads", "4", "-crf", "18",
                     "-preset", "slow", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
@@ -309,11 +169,11 @@ def main():
                            "engine": "CYCLES", "device": "CPU"},
                 "turntable": {"poses": POSE_COUNT, "poses_per_second": POSES_PER_SECOND,
                               "sampling": "existing animation at quarter-frame steps",
-                              "interpolation": "none; repeats of actual Cycles renders",
+                              "interpolation": "none; actual Cycles renders in pose order",
                               "judge_frames": 12},
                 "capture": capture,
                 "render_frames": render_rows,
-                "tools": {"pillow": "10.2.0",
+                "tools": {"pillow": "10.2.0", "remotion": "4.0.531",
                           "font": {"file": "DejaVuSans.ttf", "sha256": FONT_SHA256},
                           "blender": data["good"]["blender"],
                           "transfer": "sbx CLI, stdlib base64 chunks",
@@ -325,7 +185,8 @@ def main():
                   *sorted((HERE.parent / "judge").glob("*.py")),
                   *sorted((HERE.parent / "judge").glob("*.sh")),
                   HERE / "render.py", HERE / "compose.py", HERE / "capture.py",
-                  HERE / "make_media.sh", HERE / "data/selftest.json",
+                  HERE / "make_media.sh", HERE / "video/src/Demo.tsx",
+                  HERE / "video/package-lock.json", HERE / "data/selftest.json",
                   HERE / "data/transfers.json", HERE / "data/capture.json"]}
     manifest["media_reproducibility"] = (
         "Regenerate the complete frame set in one sandbox run. Source sha256s "
