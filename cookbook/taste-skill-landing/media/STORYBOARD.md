@@ -11,23 +11,26 @@ Total: **44 s** = 41.5 s of moving footage + a 2.5 s static end card.
 
 | # | slot | in–out (s) | what fills the frame | source | caption / HUD |
 |---|---|---|---|---|---|
-| 1 | **hook — the result, moving** | 0.0–2.0 | The finished Kestrel site, hero at 1440×900, filling the frame; a slow camera push over the compass image (`CameraPush` over `scroll-hero.mp4`), wind form auto-filling | `media/clips/scroll-hero.mp4` (real Chromium recording) | HUD chip: `ALL 7 GATES PASS` + one-line lead |
-| 2 | **input → output** | 2.0–10.0 | Left half: the **brief** (`brief.md`) scrolling inside a browser window; right half: the **built site** at 1440×900 scrolling beside it — the same section headings appear on both sides | `media/clips/brief-scroll.mp4` + `media/clips/site-scroll-full.mp4` | split-screen wipe; captions `brief → site` |
-| 3 | **escalate — the browser drives it** | 10.0–16.5 | Close-up of the live wind widget: the range slider is dragged, the `<select>` cycles through 8 wind directions, the honest minutes re-render on every change | `media/clips/widget-scrub.mp4` (real interaction) | HUD counter: wind speed value + the site's own computed sentence |
-| 4 | **escalate — every breakpoint** | 16.5–23.5 | Three side-by-side panes at 375 / 768 / 1440 px, each scrolling independently (real responsive layout + reveal animations) | `media/clips/resp-375.mp4`, `resp-768.mp4`, `resp-1440.mp4` | width labels 375 / 768 / 1440 |
-| 5 | **escalate — the agent, sped up** | 23.5–30.5 | A terminal recording of the judge actually grading both sites inside the sandbox, played at **8× speed** with a `8× speed` badge | `media/clips/grade-run.mp4` (real `judge/grade.sh` output, both artifacts) | `8× speed` chip + elapsed numbers from the receipt |
-| 6 | **escalate — the same brief, without the skill** | 30.5–36.0 | `examples/baseline/site` scrolling beside the good site at the same viewport — the fixed-width overflow and grey body text are visible without a caption | `media/clips/baseline-scroll.mp4` + `site-scroll-full.mp4` | labels `with the skill` / `without` |
-| 7 | **proof — HUD over moving footage** | 36.0–41.5 | The good site keeps scrolling underneath; gate rows slide in one by one, each naming the rule it enforces, then a PASS badge stamps in | `media/clips/site-scroll-slow.mp4` underneath; gate rows from the seed-42 verdict JSON | `SEED 42 · PASS 7/7`, rows slide in, `PASS` badge |
-| 8 | **end card (static)** | 41.5–44.0 | Static frame: `python3 run.py` plus the one-command line and the pinned tool versions | none (static, allowed) | `python3 run.py` |
+| 1 | **hook — the result, moving** | 0.0–2.0 | The finished site, hero at 1440×900, filling the frame on a zoom-and-ping-pong pan (1.3→1.55 zoom, window bounces ±700/±450 px) — real scrolling, the wind form live | `media/clips/scroll-hero.mp4` (real Chromium recording) | chip `examples/good/site — judged live in headless Chromium 153`; kinetic serif headline `Kestrel — all 7 gates pass`, words sliding up one by one |
+| 2 | **input → output** | 2.0–10.0 | `brief.md` scrolls full-frame under a zoom+pan, then the built site **wipes in from the right** (2.3–3.7 s) and takes 56% of the frame, still scrolling and panning | `brief-scroll.mp4`, then `site-scroll-full.mp4` | chip `brief.md — the product, in the agent's own words`; `the built site` tag on the incoming pane |
+| 3 | **escalate — the browser drives it** | 10.0–16.5 | Close-up push (1.6→2.0 zoom) and ping-pong pan over the live wind widget: the slider is dragged, the `<select>` cycles directions, the honest minutes re-render | `media/clips/widget-scrub.mp4` (real interaction) | two counting-up HUD counters: the still-air 40 km loop minutes, then the real saving from the verdict (`68 min`) |
+| 4 | **escalate — every breakpoint** | 16.5–23.5 | Three side-by-side panes at 375 / 768 / 1440 px, each a real recording ping-pong-panning independently | `resp-375.mp4`, `resp-768.mp4`, `resp-1440.mp4` | width labels `375 px` / `768 px` / `1440 px`; chip `no horizontal overflow … measured, not claimed` |
+| 5 | **escalate — the agent, sped up** | 23.5–30.5 | The judge actually grading, in a terminal, under a sustained ping-pong pan | `media/clips/grade-run.mp4` (real `judge/grade.sh` output) | rotated `8× speed` badge; footer with the real selftest kill count and the baseline's real failure count |
+| 6 | **escalate — the same brief, without the skill** | 30.5–36.0 | Split viewport: the good site scrolling on the left, `examples/baseline/site` scrolling on the right, each ping-pong panning | `site-scroll-full.mp4` + `baseline-scroll.mp4` | `with the skill` / `without it` tags; footer `the same brief: 4 of 7 gates fail without the taste rules` |
+| 7 | **proof — HUD over moving footage** | 36.0–41.5 | The good site keeps scrolling underneath (1.35→1.7 zoom, ping-pong pan) while the 7 gate rows slide in from the left one by one, then the PASS badge stamps in | `site-scroll-slow.mp4` underneath; rows read from the seed-42 verdict | chip with the real verdict numbers (`ALL 7 GATES PASS · contrast AA 5.19:1 · taste rules 15/15 · axe-core 4.10.3 clean`); `PASS · 7/7` badge |
+| 8 | **end card (static)** | 41.5–44.0 | Static frame: the wordmark, `python3 run.py`, and the pinned tool versions | none (static, allowed) | `python3 run.py` |
 
 Notes
 
-- Every number on screen (gate count, contrast ratio 5.19:1, the
-  `min 92 px` type scale, `Nx speed`, wall seconds) is read at render time
-  from `media/verdict-good.json` / `verdict-baseline.json` /
-  `media/selftest-kills.txt` produced by `judge/grade.sh` and
-  `judge/selftest.sh` in the same `make_media.sh` run — no invented values.
+- **Every number on screen is read at render time** from the judge
+  outputs of the *same* run, via `media/make_facts.py` →
+  `media/video/src/facts.json` → `src/facts.ts`. Nothing is hand-typed:
+  the gate count and pass text, the 5.19:1 contrast ratio, the 15/15
+  taste-rule tally, the 68-minute wind saving, the `23/23` mutant kill
+  count and the baseline's 4 failing gates are all read out of
+  `judge/grade.sh` and `judge/selftest.sh` output.
 - The end card is the only static window (2.5 s); `endcard_static` is
   measured over the final 2 s of the 44 s file.
-- Scene cuts: every slot change plus the split-screen wipe is a hard cut,
-  giving ≈ 13 cuts in 44 s (≈ 3.0 per 10 s, above the gate's 0.8).
+- Scene cuts: one per slot change (7 cuts) plus the wipes, giving ≈ 9
+  cuts in 44 s (≈ 2.0 per 10 s, above the gate's 0.8). Measured on the
+  encoded file — see the gate JSON in the commit message.

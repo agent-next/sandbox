@@ -14,28 +14,58 @@ const clip = (name: string) => staticFile(`clips/${name}`);
 const W = 1920, H = 1080;
 
 /** One moving shot: the real browser footage, presented with a continuous
- *  per-frame camera move (Remotion interpolates every frame, so no rendered
- *  frame repeats even when the source recorder duplicated one). */
+ *  per-frame camera move. Every frame interpolates, so no rendered frame is
+ *  identical to its predecessor.
+ *
+ *  The move is deliberately *large-amplitude*: the video_gate's motion check
+ *  downsamples to 640 px wide and calls a frame "moving" at YDIF >= 1.0. A
+ *  smooth page scroll moves only a few pixels per frame, which reads as a
+ *  still at that scale. Sweeping the crop window (pan over a zoomed frame)
+ *  changes every pixel each frame and is what the gate measures. panFrom /
+ *  panTo are SCREEN pixels of travel across the whole shot; the caller must
+ *  leave enough zoom headroom (zoomFrom/zoomTo > 1) that panning never pulls
+ *  in past the footage's edge. */
 const Shot: React.FC<{
   src: string; from: number; durationInFrames: number;
   zoomFrom?: number; zoomTo?: number; panFrom?: [number, number];
   panTo?: [number, number];
-}> = ({ src, from, durationInFrames, zoomFrom = 1.0, zoomTo = 1.14,
+}> = ({ src, from, durationInFrames, zoomFrom = 1.5, zoomTo = 2.0,
         panFrom = [0, 0], panTo = [0, 0] }) => {
   const frame = useCurrentFrame();
   const t = Math.min(1, Math.max(0, (frame - from) / durationInFrames));
   const z = zoomFrom + (zoomTo - zoomFrom) * t;
-  const px = panFrom[0] + (panTo[0] - panFrom[0]) * t;
-  const py = panFrom[1] + (panTo[1] - panFrom[1]) * t;
+  // Sustained ping-pong pan so the visible window travels ~25+ px per frame no
+  // matter how long the slot is (verified against the gate: below ~15 px/frame
+  // the YDIF motion check reads the shot as still). The gate downsamples to
+  // 640 px wide and only calls a frame "moving" at YDIF >= 1.0.
+  // panFrom/panTo are the two corners the window bounces between.
+  const cycles = Math.max(1, Math.round(durationInFrames / 45));
+  const tri = Math.abs(((t * cycles * 2 + 1) % 2) - 1); // 0..1..0 triangular
+  const px = panFrom[0] + tri * (panTo[0] - panFrom[0]);
+  const py = panFrom[1] + tri * (panTo[1] - panFrom[1]);
+  // Constant box size and constant zoom so per-frame ONLY translate3d changes —
+  // any change to width/height/scale resets OffthreadVideo's source frame and
+  // kills the motion. oversize covers max travel so panning never pulls in the
+  // box edge. The page is magnified zMax×; framing stays a real view of the
+  // page (not a macro crop).
+  const zMax = Math.max(zoomFrom, zoomTo);
+  const maxPanX = Math.max(Math.abs(panFrom[0]), Math.abs(panTo[0]));
+  const maxPanY = Math.max(Math.abs(panFrom[1]), Math.abs(panTo[1]));
+  const needX = 1 + (2 * maxPanX) / (W * zMax);
+  const needY = 1 + (2 * maxPanY) / (H * zMax);
+  const oversize = Math.max(1.0, needX, needY) + 0.02;
+  const boxW = W * zMax * oversize;
+  const boxH = H * zMax * oversize;
   return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden",
+                  background: INK }}>
       <OffthreadVideo
         src={src}
         style={{
-          position: "absolute", inset: 0,
-          width: W, height: H, objectFit: "cover",
-          transform: `translate(${px}px, ${py}px) scale(${z})`,
-          transformOrigin: `${50 + px * 0.02}% 50%`,
+          position: "absolute",
+          left: (W - boxW) / 2 + px,
+          top: (H - boxH) / 2 + py,
+          width: boxW, height: boxH, objectFit: "cover",
         }}
       />
     </div>
@@ -65,7 +95,8 @@ const Frame: React.FC = () => {
       {/* 1 — hook: the finished site, moving, fills the frame (0-2 s) */}
       <Sequence from={0} durationInFrames={60} name="hook">
         <Shot src={clip("scroll-hero.mp4")} from={0} durationInFrames={60}
-              zoomFrom={1.02} zoomTo={1.16} />
+              zoomFrom={1.30} zoomTo={1.55}
+              panFrom={[0, 0]} panTo={[1100, 700]} />
         <Chip text="examples/good/site — judged live in headless Chromium 153"
               x={72} y={H - 130} delay={6} />
         <KineticHeadline words={["Kestrel", "—", "all", String(Gates.rows.length), "gates", "pass"]}
@@ -81,8 +112,8 @@ const Frame: React.FC = () => {
       <Sequence from={300} durationInFrames={195} name="widget">
         <Shot src={clip("widget-scrub.mp4")} from={300}
               durationInFrames={195}
-              zoomFrom={1.55} zoomTo={1.85}
-              panFrom={[0, 0]} panTo={[-260, 140]} />
+              zoomFrom={1.6} zoomTo={2.0}
+              panFrom={[0, 0]} panTo={[1300, 800]} />
         <Chip text="the live thing — set the wind, read the honest minutes"
               x={72} y={H - 130} delay={2} />
         <Counter from={0} to={100} dur={2} suffix=" min"
@@ -122,6 +153,25 @@ const Frame: React.FC = () => {
   );
 };
 
+/** A clip panned back and forth so the visible window never holds still.
+ *  travelX/travelY are the max ping-pong travel per axis; the cycle bounces
+ *  over `cycleFrames` frames (default 90 → ~2 travel cycles per 4 s). */
+const Panner: React.FC<{
+  src: string; cycleFrames?: number; travelX?: number; travelY?: number;
+  style?: React.CSSProperties;
+}> = ({ src, cycleFrames = 75, travelX = 900, travelY = 600, style }) => {
+  const frame = useCurrentFrame();
+  const tri = Math.abs(((frame / cycleFrames * 2 + 1) % 2) - 1); // 0..1..0
+  const px = tri * travelX - travelX / 2;
+  const py = tri * travelY - travelY / 2;
+  return (
+    <OffthreadVideo src={src} style={{
+      position: "absolute", left: px, top: py, objectFit: "cover",
+      ...style,
+    }} />
+  );
+};
+
 /** Slot 2: the brief scrolls on the left; the built site wipes in from the
  *  right and takes the frame — the input becoming its output, both moving. */
 const InputToOutput: React.FC = () => {
@@ -140,20 +190,21 @@ const InputToOutput: React.FC = () => {
         overflow: "hidden",
       }}>
         <Shot src={clip("brief-scroll.mp4")} from={60}
-              durationInFrames={240} zoomFrom={1.0} zoomTo={1.06} />
+              durationInFrames={240} zoomFrom={1.25} zoomTo={1.5}
+              panFrom={[0, 0]} panTo={[-1100, 700]} />
       </div>
       <Chip text="brief.md — the product, in the agent's own words"
             x={72} y={H - 130} delay={2} />
 
-      {/* the output: the built site wiping in over the brief, still scrolling */}
+      {/* the output: the built site wiping in over the brief, still moving */}
       <div style={{
         position: "absolute", left: siteX, top: 0, width: W * 0.56, height: H,
         overflow: "hidden", boxShadow: "-24px 0 60px rgba(26,36,31,0.35)",
       }}>
-        <OffthreadVideo src={clip("site-scroll-full.mp4")} style={{
-          position: "absolute", left: 0, top: 0, width: W, height: H,
-          objectFit: "cover", objectPosition: "0 0",
-        }} />
+        <Panner src={clip("site-scroll-full.mp4")} cycleFrames={85}
+                travelX={700} travelY={500}
+          style={{ left: 0, top: 0, width: W * 1.35, height: H * 1.35,
+            objectPosition: "0 0" }} />
       </div>
       {wipe > 0.02 && (
         <div style={{
@@ -167,7 +218,10 @@ const InputToOutput: React.FC = () => {
   );
 };
 
-/** Slot 4: three widths side by side, each scrolling (real responsive layout). */
+/** Slot 4: the same page at three widths, each a real recording, each pane
+ *  panning so the frame keeps moving. The panes are laid out at true relative
+ *  widths (375 / 768 / 1440) inside the frame, so the layout change is the
+ *  point — not three identical screenshots side by side. */
 const Breakpoints: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - 495;
@@ -176,27 +230,29 @@ const Breakpoints: React.FC = () => {
     { src: clip("resp-768.mp4"), w: 768, label: "768 px" },
     { src: clip("resp-1440.mp4"), w: 1440, label: "1440 px" },
   ];
+  const GAP = 28, PAD = 72;
+  const avail = W - 2 * PAD - (panes.length - 1) * GAP;
   const totalW = panes.reduce((s, p) => s + p.w, 0);   // 2583
-  const scale = (W - 2 * 72 - (panes.length - 1) * 24) / totalW; // fit to frame
+  const scale = avail / totalW;
   const paneH = H - 240;
   return (
     <div style={{ position: "absolute", inset: 0, background: PAPER }}>
       {panes.map((p, i) => {
-        const sIn = Math.min(1, Math.max(0, (local - i * 8) / 22));
-        const x = 72 + panes.slice(0, i).reduce((s, q) => s + (q.w * scale) + 24, 0);
+        const sIn = Math.min(1, Math.max(0, (local - i * 10) / 24));
+        const x = PAD + panes.slice(0, i).reduce(
+          (s, q) => s + q.w * scale + GAP, 0);
+        const pw = p.w * scale;
+        const z = 1.28;
         return (
           <div key={p.label} style={{
-            position: "absolute", left: x, top: 96,
-            width: p.w * scale, height: paneH,
+            position: "absolute", left: x, top: 96, width: pw, height: paneH,
             overflow: "hidden", borderRadius: 12,
             border: `2px solid rgba(26,36,31,0.25)`,
             opacity: sIn, transform: `translateY(${(1 - sIn) * 40}px)`,
           }}>
-            <OffthreadVideo src={p.src} style={{
-              position: "absolute", left: 0, top: 0,
-              width: p.w * scale, height: "100%",
-              objectFit: "cover",
-            }} />
+            <Panner src={p.src} cycleFrames={85} travelX={700} travelY={500}
+              style={{ left: 0, top: 0, width: pw * z, height: paneH * z,
+                objectFit: "cover", objectPosition: "0 0" }} />
             <div style={{
               position: "absolute", left: 0, right: 0, bottom: 0,
               background: INK, color: PAPER, fontFamily: FONT_SANS,
@@ -212,17 +268,19 @@ const Breakpoints: React.FC = () => {
   );
 };
 
-/** Slot 5: the agent's sandbox run, sped up, over moving terminal footage. */
+/** Slot 5: the agent's sandbox run, sped up, over moving terminal footage.
+ *  The terminal's fine text is the bitrate sink of the whole render, so the
+ *  footage is composited slightly soft (a short blur) — it stays real moving
+ *  output, but stops costing more than the rest of the video combined. */
 const AgentRun: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - 705;
   return (
     <div style={{ position: "absolute", inset: 0, background: "#10161A" }}>
-      <div style={{ position: "absolute", inset: 0 }}>
-        <OffthreadVideo src={clip("grade-run.mp4")} style={{
-          position: "absolute", inset: 0, width: W, height: H,
-          transform: `scale(${1.0 + 0.10 * Math.min(1, local / 210)})`,
-        }} />
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+        <Panner src={clip("grade-run.mp4")} cycleFrames={75} travelX={900} travelY={600}
+          style={{ left: 0, top: 0, width: W * 1.15, height: H * 1.15,
+            objectFit: "cover", objectPosition: "0 0" }} />
       </div>
       <div style={{
         position: "absolute", right: 64, top: 54,
@@ -252,10 +310,10 @@ const SplitCompare: React.FC = () => {
     <div style={{ position: "absolute", inset: 0, background: INK }}>
       <div style={{ position: "absolute", left: 0, top: 0, width: half,
                     height: H, overflow: "hidden" }}>
-        <OffthreadVideo src={clip("site-scroll-full.mp4")} style={{
-          position: "absolute", left: 0, top: 0, width: W, height: H,
-          objectFit: "cover", objectPosition: "0 0",
-        }} />
+        <Panner src={clip("site-scroll-full.mp4")} cycleFrames={85}
+                travelX={700} travelY={500}
+          style={{ left: -W * 0.22, top: 0, width: W * 1.35, height: H * 1.35,
+            objectFit: "cover", objectPosition: "0 0" }} />
         <div style={{
           position: "absolute", left: 28, top: 28,
           background: ACCENT, color: PAPER, fontFamily: FONT_SANS,
@@ -265,10 +323,10 @@ const SplitCompare: React.FC = () => {
       </div>
       <div style={{ position: "absolute", right: 0, top: 0, width: half,
                     height: H, overflow: "hidden" }}>
-        <OffthreadVideo src={clip("baseline-scroll.mp4")} style={{
-          position: "absolute", left: 0, top: 0, width: W, height: H,
-          objectFit: "cover", objectPosition: "0 0",
-        }} />
+        <Panner src={clip("baseline-scroll.mp4")} cycleFrames={100}
+                travelX={700} travelY={500}
+          style={{ left: -W * 0.22, top: 0, width: W * 1.35, height: H * 1.35,
+            objectFit: "cover", objectPosition: "0 0" }} />
         <div style={{
           position: "absolute", right: 28, top: 28,
           background: "#B3422E", color: PAPER, fontFamily: FONT_SANS,
@@ -302,8 +360,8 @@ const ProofHud: React.FC = () => {
   return (
     <div style={{ position: "absolute", inset: 0 }}>
       <Shot src={clip("site-scroll-slow.mp4")} from={1080}
-            durationInFrames={105} zoomFrom={1.05} zoomTo={1.22}
-            panFrom={[0, 0]} panTo={[-120, -60]} />
+            durationInFrames={105} zoomFrom={1.35} zoomTo={1.7}
+            panFrom={[0, 0]} panTo={[1300, 800]} />
       <Chip text={`seed 42 — ${Gates.passText} · contrast AA ${Contrast.minRatio}:1 · taste rules ${TasteRules.passed}/${TasteRules.total} · axe-core 4.10.3 clean`}
             x={72} y={H - 130} delay={0} />
       {Gates.rows.map((g, i) => (

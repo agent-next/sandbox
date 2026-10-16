@@ -44,17 +44,17 @@ show the difference the skill makes (measured below).
 
 Judge self-test: known-good passes, determinism holds (two grades at the
 same seed byte-identical outside `timing`), the no-skill baseline exits
-non-zero with a readable verdict (the exit-code contract), and **22/22
+non-zero with a readable verdict (the exit-code contract), and **23/23
 known-bad mutants killed — 100 %, zero survivors allowed** — each a
 single edit that declares the one check it must trip (every gate and
 every measurable taste rule has a dedicated mutant: low contrast, fixed
-container, missing section, console error, remote script load, default
-Times font, third typeface, burst type scale, off-grid spacing, missing
-alt, tiny tap targets, gradient, box-shadow, a getComputedStyle
-poisoning that only the isolated world catches, hairline, monospace body
-text, numbered heading, sub-16 px running text, over-long headline, too
-few images, clipped select text, wind-widget sign bug). A crash or a
-kill by the wrong check counts as a survivor, not a kill. Full
+container, missing section, console error, remote script load, external
+WebSocket, default Times font, third typeface, burst type scale, off-grid
+spacing, missing alt, tiny tap targets, gradient, box-shadow, a
+getComputedStyle poisoning that only the isolated world catches, hairline,
+monospace body text, numbered heading, sub-16 px running text, over-long
+headline, too few images, clipped select text, wind-widget sign bug). A
+crash or a kill by the wrong check counts as a survivor, not a kill. Full
 transcript in [RECEIPT.md](RECEIPT.md).
 
 ### Media
@@ -67,11 +67,28 @@ Chromium) of `examples/good/site` — see [`media/make_frames.py`](media/make_fr
 | ![site at 375 px](media/site-375.png) | ![site at 768 px](media/site-768.png) | ![site at 1440 px](media/site-1440.png) |
 
 Scroll capture frames: [`media/scroll-00.png`](media/scroll-00.png) …
-[`media/scroll-09.png`](media/scroll-09.png). [`media/demo.mp4`](media/demo.mp4)
-is a ~30 s step-through of the same frames with the verdict captions;
-`media/make_media.sh` regenerates it (and the gitignored lossless master)
-from the frames, and [`media/MANIFEST.json`](media/MANIFEST.json) records
-the source command and sha256 of every media file.
+[`media/scroll-09.png`](media/scroll-09.png).
+
+**[`media/demo.mp4`](media/demo.mp4)** — a 44 s animated demo, not a slide
+deck. Every second before the end card is real moving output: ten
+headless-Chromium screen recordings of the built site (scrolling, the wind
+widget being dragged, the same page at 375 / 768 / 1440 px, the good site
+beside the no-skill baseline, and the judge actually grading) composited
+by the pinned Remotion project in [`media/video/`](media/video/) with an
+animated HUD — counting-up counters, a kinetic headline, gate rows sliding
+in over still-moving footage, a PASS badge stamping in.
+
+| 0 s — the result, moving | 11 s — the live widget | 20 s — every breakpoint | 39 s — proof over moving footage |
+|---|---|---|---|
+| ![hook](media/frames/hook.jpg) | ![widget](media/frames/widget.jpg) | ![breakpoints](media/frames/breakpoints.jpg) | ![proof](media/frames/proof.jpg) |
+
+`bash media/make_media.sh` regenerates everything end-to-end — the
+screenshot frames, the two seed-42 verdicts, the judge self-test, the
+clips, the Remotion render and the final encode — and every number burned
+into the video is read from that same run's judge output.
+[`media/MANIFEST.json`](media/MANIFEST.json) records the source command and
+sha256 of every media file; [`media/STORYBOARD.md`](media/STORYBOARD.md)
+is the shot list.
 
 ## Ask your agent
 
@@ -118,7 +135,7 @@ run the judge steps directly without `SBX_API_KEY` or `run.py`:
 # 1. Install the pinned judge toolchain (~1 min; needs sudo for apt)
 bash cookbook/taste-skill-landing/judge/setup.sh
 
-# 2. Prove the judge can fail (good passes, 22/22 mutants killed, ~9 min)
+# 2. Prove the judge can fail (good passes, 23/23 mutants killed, ~9 min)
 bash cookbook/taste-skill-landing/judge/selftest.sh
 
 # 3. Grade an artifact (one JSON verdict; 0 exit = every gate passed)
@@ -137,8 +154,10 @@ bash cookbook/taste-skill-landing/judge/grade.sh \
   machine-measurable from computed styles/geometry are gates; the rest
   stay in the skill. [SPEC.md](SPEC.md) lists every gate and its citation.
 - Media: full-page screenshots at 375/768/1440 px, 10 scroll frames and a
-  ~30 s captioned `demo.mp4`, all regenerable via `media/make_frames.py`
-  and `media/make_media.sh` (see `media/MANIFEST.json`).
+  44 s animated `demo.mp4` composited by the pinned Remotion project in
+  `media/video/` from ten real headless-Chromium screen recordings, all
+  regenerable end-to-end via `media/make_media.sh` (see
+  `media/STORYBOARD.md` and `media/MANIFEST.json`).
 
 ## Credits
 
@@ -150,6 +169,8 @@ bash cookbook/taste-skill-landing/judge/grade.sh \
   [`examples/good/site/assets/fonts/FONTS.md`](examples/good/site/assets/fonts/FONTS.md).
 - axe-core — <https://github.com/dequelabs/axe-core> — MPL-2.0, v4.10.3.
 - Playwright — <https://playwright.dev> — Apache-2.0, v1.63.0.
+- Remotion — <https://www.remotion.dev> — the video renderer, pinned at
+  `4.0.531` in [`media/video/package-lock.json`](media/video/package-lock.json).
 - Sample imagery (compass rose, wind arrows, route ribbons) is drawn in
   code from the subject by `media/make_images.py`, from the brand palette —
   no third-party photographs (the product is fictional; real imagery does
