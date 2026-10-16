@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-16T00:53:08.236815Z",
-  "commit": "2a8eef4f6ece3456609bd0fbe227622af0445df8",
+  "generated_at": "2026-10-16T03:08:38.749252Z",
+  "commit": "215108c66d620e84a7e9a815596b8bd341dad04f",
   "note": "sha256 of the files as written by media/make_media.sh at the commit above; media/master/ (lossless masters), media/build/ (scratch judge outputs) and __pycache__ are git-ignored and deliberately not listed.",
   "files": [
     {
@@ -16,16 +16,16 @@
       "shows": "The video builder make_media.sh runs (frames + captions + cuts).",
       "produced_by": "hand-written; run by media/make_media.sh",
       "source_data": "media/build/*.json, media/setup_progress.txt",
-      "size_bytes": 26383,
-      "sha256": "73d9e5aea500884e2e2e25fd12da13143c8c4d4efa63fe66060073bddeaee1f5"
+      "size_bytes": 28781,
+      "sha256": "26b0e11328f3d75673eae7ad3f2b1b22d1629832e8f17bd7779f083bff1704f2"
     },
     {
       "file": "demo.mp4",
       "shows": "The demo clip cut against media/STORYBOARD.md: the graded render and a real per-frame llvmpipe camera orbit of the same scene, the oracle rectangles, the real setup log, and the judge verdict and mutant kill matrix as a HUD over the still-moving render.",
       "produced_by": "media/make_media.sh (media/build_video.py)",
       "source_data": "media/build/verdict.json, media/build/selftest.json, media/setup_progress.txt, media/build/setup_run.log",
-      "size_bytes": 3075258,
-      "sha256": "56b0a298dd56237cf670c700d38f7cc31d42afa28131e178902aada645c6648b"
+      "size_bytes": 3071934,
+      "sha256": "68432482a2ea48cf37fa3c1c9b46bc5bfc56ace5dd8d08eccdeb51fd60305220"
     },
     {
       "file": "figures.py",
@@ -48,8 +48,16 @@
       "shows": "Regenerates every file in this directory from the judge outputs.",
       "produced_by": "bash media/make_media.sh",
       "source_data": "media/build/*.json",
-      "size_bytes": 8220,
-      "sha256": "bfcca23a3a730bd2fe616d6ca48714bf4f662bcedea8e86d3c2462e6e5c92287"
+      "size_bytes": 8637,
+      "sha256": "b4aacbee034f7d235964c5f8b4fe87bf3103d9bd426240283012a4ecf52365d9"
+    },
+    {
+      "file": "probe_cuts.py",
+      "shows": "Development probe: renders only the slot-boundary frames and measures ffmpeg's real scene-cut score across each cut, so a cut video_gate.py will not count is found for a few renders instead of a full re-cut. Not part of the mp4.",
+      "produced_by": "hand-written; run by hand while cutting video",
+      "source_data": "media/build/verdict.json, media/build/selftest.json",
+      "size_bytes": 5979,
+      "sha256": "451f121088a448968e066a1fd66e59825e95df72040fcbd9d557571bd0dab99e"
     },
     {
       "file": "result.json",
@@ -57,7 +65,7 @@
       "produced_by": "media/make_media.sh (media/write_result.py); python3 cookbook/tools/result.py check media/result.json",
       "source_data": "media/build/verdict.json, media/build/selftest.json",
       "size_bytes": 3871,
-      "sha256": "52b6e1becf6724815c6e8ba7a8843d8a133124982ef60a502b31fd9d89e6460b"
+      "sha256": "f3dc28f631090a8437c26c16b892923338db4715a6f4b1cce5e4d0a0c4f83a58"
     },
     {
       "file": "result.png",

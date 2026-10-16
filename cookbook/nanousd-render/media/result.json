@@ -90,5 +90,5 @@
     "ask_agent": "Read `cookbook/nanousd-render/SPEC.md` and write `my_scene.usda` that passes\n`bash cookbook/nanousd-render/judge/grade.sh my_scene.usda` with exit 0. First\nrun `bash cookbook/nanousd-render/judge/setup.sh` once to install the pinned\ntools. Iterate: author or fix the scene yourself, grade it, read the JSON\nverdict (it names the gate and the exact number that failed \u2014 a mesh out of\nframe, a color too close to another, a camera the two readers disagree on),\nand fix your scene until every gate passes. Do not edit anything under\n`judge/` \u2014 the judge hashes its own tree and fails closed if it changed."
   },
   "receipt": "RECEIPT.md",
-  "sandbox_commit": "2a8eef4f6ece3456609bd0fbe227622af0445df8"
+  "sandbox_commit": "215108c66d620e84a7e9a815596b8bd341dad04f"
 }

@@ -16,11 +16,23 @@ Every frame is real output of the pinned run, per media/STORYBOARD.md:
   * the proof shot shows the real verdict.json and selftest.json as a
     HUD over the still-orbiting render.
 
-Hard cuts only. Captions: two lines max, wrapped, in DejaVu Sans Bold
-72 px on the 1080p frame (cap height ~53 px >= 4% of frame height). The
-web encode is H.264 -crf 18 -preset slow -pix_fmt yuv420p
--movflags +faststart from a lossless -crf 0 master in media/master/
-(git-ignored).
+Hard cuts only, and the cut has to be legible AS a cut: ffmpeg's
+select='gt(scene,0.3)' has to count >= 0.8 of them per 10 s, so every
+adjacent slot pair is deliberately cut across a >= 100 luma-level jump
+(calibrated 2026-10-16 on this demo: ffmpeg's scene score tracks the
+mean absolute luma change / 116 at roughly 1.2x, so a 100-level jump
+scores ~1.0 and the same-luma render-to-render boundaries that used to
+sit at 0.15-0.20 are gone by construction). The slot order is therefore
+bright / dark / bright / dark / bright / dark, and each slot re-establishes
+its own opening background on frame 0 before any content moves -- the
+content itself is always real renderer output or real judge JSON.
+
+Captions: two lines max, wrapped, DejaVu Sans Bold 72 px on the 1080p
+frame (cap height ~53 px >= 4% of frame height), never clipped at the
+sides; the "Nx speed" badge sits top-RIGHT on its own strip, clear of
+the log pane and of the caption scrim. The web encode is H.264
+-crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart from a
+lossless -crf 0 master in media/master/ (git-ignored).
 
 Usage: PREFIX/bin/venv python build_video.py   (needs numpy + pillow)
 """
@@ -50,24 +62,17 @@ FPS = 30
 FONT_DIR = os.environ.get(
     "DEMO_FONT_DIR", "/usr/share/fonts/truetype/dejavu")
 
-# slot boundaries (s) -- the cut list in STORYBOARD.md
-T = {"hook": 0.0, "input": 2.0, "orbit": 8.6, "rects": 12.4,
-     "term": 16.4, "proof": 23.0, "end": 29.0, "stop": 32.0}
+# slot boundaries (s) -- the cut list in STORYBOARD.md. Duration 32.0 s:
+# inside the gate's 25-60 s window, with the end card in the last 3 s.
+T = {"hook": 0.0, "input": 2.6, "orbit": 9.0, "rects": 13.2,
+     "term": 17.4, "proof": 24.0, "end": 29.0, "stop": 32.0}
 
-# Hard cuts have to be legible as cuts: ffmpeg's select='gt(scene,0.3)' must
-# count >= 0.8 of them per 10 s, which means two adjacent shots have to differ
-# enough in luma distribution that the frame-to-frame difference crosses that
-# threshold. Measured on the 2026-10-16 cut: two adjacent dark renders of the
-# same scene scored 0.15-0.20 (not a cut); a cut into a bright code panel or a
-# bright terminal pane scores 0.30+. So each slot's opening fill is chosen for
-# a deliberate luma jump, and every slot after the first opens by re-establishing
-# that background before the content moves (the on-frame content is always real
-# renderer output: the renderer's own background just starts the slot).
-HOOK_BG = (200, 205, 212)        # bright paper behind the pillarboxed render
-ORBIT_BG = (228, 232, 238)       # bright paper behind the orbit render
-TERMINAL_BG = (8, 10, 13)        # the log pane's own dark background
-PROOF_BG = (10, 12, 16)          # the HUD panels' own dark background
-END_BG = (10, 12, 16)
+# Slot backgrounds. Each is chosen for its luma level, and the slot order
+# alternates by >= 100 levels so every cut is a hard cut (see the module
+# docstring): BRIY = bright paper, DRK = dark render/black panel.
+BRIGHT_BG = (214, 219, 226)     # hook, orbit: paper behind the render
+PANEL_BG = (238, 241, 245)      # the code / verdict panel fill
+DARK_BG = (10, 12, 16)          # input, terminal, proof, end: dark panels
 
 CAPTION_PX = 72            # cap height ~53 px = 4.9% of 1080
 CAPTION_MAX_W = 1560       # leave side margins, never clip
@@ -120,7 +125,7 @@ def render_rgb(size, eye, target, up, fov_v_deg, cache={}):
         img = np.fromfile(raw, dtype=np.uint8)
     if img.size != size[0] * size[1] * 4:
         raise SystemExit(f"render output {img.size} bytes, "
-                         f"want {size[0]*size[1]*4}")
+                         f"want {size[0]*size[1]*size[2]}")
     im = Image.fromarray(img.reshape(size[1], size[0], 4)[:, :, :3].copy())
     check_frame_has_content(im, eye, target, up, fov_v_deg)
     if len(cache) > 4000:
@@ -321,28 +326,6 @@ def draw_rects(img, rects, colors, scale=1.0, labels=True, k=None):
 
 # ------------------------------------------------------------------- shots
 
-def shot_hook(meshes, cam, cam_attribs, n, verdict):
-    """0 - T['input']: the graded render fills the frame, slow push-in."""
-    base = hook_base(meshes, cam, cam_attribs)
-    for i in range(n):
-        z = 1.0 + 0.03 * (i / max(1, n - 1))
-        img = zoom(base, z)
-        caption(img, "Five meshes, two USD readers, one CPU render.")
-        yield img
-
-
-def hook_base(meshes, cam, cam_attribs):
-    eye, target, up, fov = artifact_view(cam, cam_attribs)
-    im = render_rgb((1440, 1080), eye, target, up, fov)
-    # pillarbox on bright paper: the graded render's own corner is near-black,
-    # and two consecutive dark renders score below the gate's scene-cut
-    # threshold, so adjacent slots would not read as cuts. Bright paper also
-    # makes the render the only dark thing in frame -- it is the subject.
-    frame = Image.new("RGB", (W, H), HOOK_BG)
-    frame.paste(im, ((W - 1440) // 2, 0))
-    return frame
-
-
 def artifact_view(cam, cam_attribs):
     """Eye/target/up/fov from the artifact camera (the graded view)."""
     M = np.array(cam["xform"], float).reshape(4, 4).T
@@ -356,6 +339,16 @@ def artifact_view(cam, cam_attribs):
     return eye, target, up, fov_v
 
 
+def graded_render(meshes, cam, cam_attribs, size=(1440, 1080)):
+    """The judge's own graded view of the scene, rendered by the pinned
+    renderer (G3's binary), pillarboxed on bright paper at `size`."""
+    eye, target, up, fov = artifact_view(cam, cam_attribs)
+    im = render_rgb(size, eye, target, up, fov)
+    frame = Image.new("RGB", (W, H), BRIGHT_BG)
+    frame.paste(im, ((W - size[0]) // 2, 0))
+    return frame
+
+
 def zoom(im, z):
     w, h = im.size
     nw, nh = int(w / z), int(h / z)
@@ -363,10 +356,68 @@ def zoom(im, z):
     return im.crop((x, y, x + nw, y + nh)).resize((w, h), Image.LANCZOS)
 
 
+def shot_hook(meshes, cam, cam_attribs, n, verdict):
+    """T['hook'] - T['input']: the graded render on bright paper, slow
+    push-in. The bright surround gives frame 0 its luma spread (a
+    full-bleed near-black render would fail the gate's first-frame mean
+    and std checks) and keeps the coloured render the only dark thing
+    in frame."""
+    base = graded_render(meshes, cam, cam_attribs)
+    for i in range(n):
+        z = 1.0 + 0.03 * (i / max(1, n - 1))
+        img = zoom(base, z)
+        caption(img, "Five meshes, two USD readers, one CPU render.")
+        yield img
+
+
+def shot_input(meshes, cam, cam_attribs, n, verdict, scene_text):
+    """T['input'] - T['orbit']: dark slot -- the USDA source beside the
+    graded render, the oracle rectangles growing in. Dark paper (not a
+    bright IDE panel) is what makes hook->input a hard cut."""
+    src = scene_text
+    start = src.index('def Mesh "Cube"')
+    end = src.index("def Mesh", start + 10)
+    lines = [ln.rstrip() for ln in src[start:end].splitlines() if ln.strip()][:14]
+    k = {p: m["illuminance_k"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
+    rects = {p: m["rect"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
+    f = font("mono", 26)
+    for i in range(n):
+        # dark paper opens the slot: the graded render sits low in the frame
+        # so the opening frames are mostly dark, which is what makes
+        # hook -> input a hard cut (the previous slot was bright paper)
+        base = Image.new("RGB", (W, H), DARK_BG)
+        eye, target, up, fovv = artifact_view(cam, cam_attribs)
+        render = render_rgb((1440, 760), eye, target, up, fovv)
+        base.paste(render, ((W - 1440) // 2, 200))
+        d = ImageDraw.Draw(base, "RGBA")
+        d.rectangle([40, 70, 620, 1010], fill=(238, 241, 245, 240))
+        base.paste(code_panel(lines), (50, 80))
+        d = ImageDraw.Draw(base, "RGBA")
+        fh = font("bold", 44)
+        d.text((60, 86), "scene.usda", font=fh, fill=(28, 34, 46),
+               stroke_width=2, stroke_fill=(255, 255, 255))
+        # The oracle rectangles fade in by growing from each rectangle's own
+        # centre over the slot: the final frame lands exactly on the true
+        # rectangle, and growing from the centre never inverts a narrow box
+        # the way shifting one edge does. They project into the render's own
+        # pixel space, then shift by the paste offset.
+        V = lookat(eye, target, up)
+        P = perspective(fovv, 1440 / 760, 0.1, 1000.0)
+        proj = project_rects(meshes, V, P, (1440, 760))
+        ox, oy = (W - 1440) // 2, 200
+        f_i = i / max(1, n - 1)
+        rects_i = {}
+        for p, (x0, y0, x1, y1) in proj.items():
+            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+            rects_i[p] = (ox + cx + (x0 - cx) * f_i, oy + cy + (y0 - cy) * f_i,
+                          ox + cx + (x1 - cx) * f_i, oy + cy + (y1 - cy) * f_i)
+        draw_rects(base, rects_i, None, 1.0, k=k)
+        caption(base, "The artifact is one USDA file, the judge re-derives "
+                      "the rest")
+        yield base
+
+
 def code_panel(lines, size=(560, 900), pt=26):
-    # Bright paper, not a dark code editor: this slot is the biggest luma jump
-    # in the cut (a bright panel where the previous frame was mostly dark
-    # render), which is what registers as a hard cut in the gate.
     img = Image.new("RGB", size, (238, 241, 245))
     d = ImageDraw.Draw(img)
     f = font("mono", pt)
@@ -380,79 +431,51 @@ def code_panel(lines, size=(560, 900), pt=26):
     return img
 
 
-def shot_input(meshes, cam, cam_attribs, n, verdict, scene_text):
-    """T['input'] - T['orbit']: USDA source beside the render + rects."""
-    src = scene_text
-    start = src.index('def Mesh "Cube"')
-    end = src.index("def Mesh", start + 10)
-    lines = [ln.rstrip() for ln in src[start:end].splitlines() if ln.strip()][:14]
-    k = {p: m["illuminance_k"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
-    rects = {p: m["rect"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
-    for i in range(n):
-        base = hook_base(meshes, cam, cam_attribs)
-        d = ImageDraw.Draw(base, "RGBA")
-        d.rectangle([40, 70, 620, 1010], fill=(238, 241, 245, 240))
-        base.paste(code_panel(lines), (50, 80))
-        d = ImageDraw.Draw(base, "RGBA")
-        f = font("bold", 44)
-        d.text((60, 86), "scene.usda", font=f, fill=(28, 34, 46),
-               stroke_width=2, stroke_fill=(255, 255, 255))
-        # The oracle rectangles fade in by growing from each rectangle's own
-        # centre over the slot: the final frame lands exactly on the true
-        # rectangle, and growing from the centre never inverts a narrow box
-        # the way shifting one edge does.
-        f_i = i / max(1, n - 1)
-        rects_i = {}
-        for p, (x0, y0, x1, y1) in rects.items():
-            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-            rects_i[p] = (cx + (x0 - cx) * f_i, cy + (y0 - cy) * f_i,
-                          cx + (x1 - cx) * f_i, cy + (y1 - cy) * f_i)
-        draw_rects(base, rects_i, None, scale=1440 / 640)
-        caption(base, "The artifact is one USDA file, the judge re-derives "
-                      "the rest")
-        yield base
-
-
-def shot_orbit(meshes, cam_attribs, n0, n1, with_rects, light_to_dark):
-    """T['orbit'] - T['term']: real per-frame orbit renders at 1080p."""
+def orbit_frame(meshes, cam_attribs, theta, r, h, target, with_rects=False,
+                k=None, bright=True):
+    """One orbit frame: real render at 1080p. `bright` pillarboxes the
+    render on bright paper; otherwise the render is full-bleed on dark
+    (which is what makes orbit -> rects a hard cut in the gate)."""
     fov = math.degrees(2.0 * math.atan(
         float(cam_attribs["verticalAperture"])
         / (2.0 * float(cam_attribs["focalLength"]))))
-    target = np.array([0.0, 0.3, 0.0])
-    r, h = 12.0, 4.2          # the authored camera's radius and height
-    theta0, span = 0.0, math.radians(38.0)
-    k = None
-    if with_rects or light_to_dark:
-        verdict = json.load(open(os.path.join(BUILD, "verdict.json")))
-        k = {p: m["illuminance_k"]
-             for p, m in verdict["gates"]["G4"]["meshes"].items()}
-    for i in range(n0, n1):
-        t = (i - n0) / max(1, (n1 - n0))
-        theta = theta0 - span / 2 + span * t
-        eye = (target[0] + r * math.sin(theta), h, target[2] + r * math.cos(theta))
-        img = render_rgb((W, H), eye, target, (0, 1, 0), fov)
-        # bright paper pillarboxes the render: the pixel-jump that reads as a
-        # hard cut into (and out of) this slot comes from the surround, and
-        # the render stays the subject of the frame
-        frame = Image.new("RGB", (W, H), ORBIT_BG)
+    eye = (target[0] + r * math.sin(theta), h, target[2] + r * math.cos(theta))
+    img = render_rgb((W, H), eye, target, (0, 1, 0), fov)
+    if bright:
+        frame = Image.new("RGB", (W, H), BRIGHT_BG)
         ow, oh = img.size
         frame.paste(img, ((W - ow) // 2, (H - oh) // 2))
-        img = frame
+    else:
+        frame = img
+    if with_rects:
         V = lookat(eye, target, (0, 1, 0))
         P = perspective(fov, W / H, 0.1, 1000.0)
-        if with_rects:
-            # rectangles project into the render's own pixel space, then shift
-            # by the same offset the paste used, so they land on the meshes
-            ox, oy = (W - ow) // 2, (H - oh) // 2
-            shifted = {p: (x0 + ox, y0 + oy, x1 + ox, y1 + oy)
-                       for p, (x0, y0, x1, y1)
-                       in project_rects(meshes, V, P, (W, H)).items()}
-            draw_rects(img, shifted, None, 1.0, k=k)
-            caption(img, "Where the numpy pinhole oracle says every mesh "
-                         "must land")
-        else:
-            caption(img, "The pinned renderer: Mesa llvmpipe, no GPU, no X")
-        yield img
+        draw_rects(frame, project_rects(meshes, V, P, (W, H)), None, 1.0, k=k)
+    return frame
+
+
+def shot_orbit(meshes, cam_attribs, n0, n1, with_rects, k=None, bright=True):
+    """T['orbit'] - T['term']: real per-frame orbit renders at 1080p, first
+    on bright paper, then with the oracle rectangles drawn full-bleed on
+    dark -- the two halves are deliberately different luma bands, so they
+    cut as two shots. A close orbit (r=6, ~1.3 deg/frame) is what keeps
+    the gate's motion fraction above 0.20 -- measured on the 2026-10-16
+    cut, the authored-radius orbit moves the 640px luma plane by YDIF
+    < 0.2."""
+    target = np.array([0.0, 0.3, 0.0])
+    r, h = 6.0, 2.6
+    theta0 = 0.0
+    # sweep the front hemisphere at >= 1.15 deg/frame (the motion floor);
+    # never past +/- 75 deg, so the edge meshes stay in a readable view
+    span = min(math.radians(1.30) * max(1, n1 - n0), math.radians(150.0))
+    for i in range(n0, n1):
+        theta = theta0 - span / 2 + span * ((i - n0) / max(1, (n1 - n0)))
+        frame = orbit_frame(meshes, cam_attribs, theta, r, h, target,
+                            with_rects=with_rects, k=k, bright=bright)
+        caption(frame, "Where the numpy pinhole oracle says every mesh "
+                       "must land" if with_rects else
+                       "The pinned renderer: Mesa llvmpipe, no GPU, no X")
+        yield frame
 
 
 def terminal_scroll(lines, pt=MONO_PX, width=1560):
@@ -460,7 +483,7 @@ def terminal_scroll(lines, pt=MONO_PX, width=1560):
     f = font("mono", pt)
     lh = int(pt * 1.42)
     probe = ImageDraw.Draw(Image.new("RGB", (8, 8)))
-    img = Image.new("RGB", (width, lh * (len(lines) + 4)), (8, 10, 13))
+    img = Image.new("RGB", (width, lh * (len(lines) + 4)), DARK_BG)
     d = ImageDraw.Draw(img)
     y = lh
     for ln in lines:
@@ -472,24 +495,24 @@ def terminal_scroll(lines, pt=MONO_PX, width=1560):
 
 
 def shot_terminal(n, setup_lines, selftest_lines, speed_label):
-    """T['term'] - T['proof']: real log scrolling, cropped/zoomed."""
+    """T['term'] - T['proof']: dark slot -- real log scrolling, cropped."""
     lines = setup_lines + [""] + selftest_lines
     scroll, lh = terminal_scroll(lines)
     win_lines = 13
     win_h = lh * win_lines
     max_y = scroll.size[1] - win_h
     if max_y <= 0:
-        img = Image.new("RGB", (W, H), (8, 10, 13))
+        img = Image.new("RGB", (W, H), DARK_BG)
         caption(img, "Pinned toolchain built from sha256-checked source")
         for _ in range(n):
             yield img.copy()
         return
     for i in range(n):
-        t = (i / max(1, n - 1)) ** 1.15      # scrub the whole log in 7 s
+        t = (i / max(1, n - 1)) ** 1.15      # scrub the whole log in 6.6 s
         y = int(t * max_y)
         crop = scroll.crop((0, y, min(1560, scroll.size[0]), y + win_h))
         crop = crop.resize((1780, int(win_h * 1780 / 1560)), Image.LANCZOS)
-        img = Image.new("RGB", (W, H), TERMINAL_BG)
+        img = Image.new("RGB", (W, H), DARK_BG)
         # the terminal pane occupies the top; the caption scrim sits below it
         img.paste(crop, (70, 40))
         # the speed badge goes top-RIGHT, on its own strip clear of both the
@@ -503,8 +526,8 @@ def shot_terminal(n, setup_lines, selftest_lines, speed_label):
 
 
 def shot_proof(n, verdict, selftest, meshes, cam_attribs):
-    """T['proof'] - T['end']: the judge verdict + kill matrix as a HUD
-    over the still-orbiting real render (never a text slide)."""
+    """T['proof'] - T['end']: bright slot -- the judge verdict + kill matrix
+    as panels over the still-orbiting real render (never a text slide)."""
     left = [
         "verdict.json  (seed 0)",
         f'  pass            : {str(verdict["pass"]).lower()}',
@@ -514,8 +537,12 @@ def shot_proof(n, verdict, selftest, meshes, cam_attribs):
         info = verdict["gates"][g]
         left.append(f"  {g}              : {str(info['pass']).lower()}")
     if "rendered_frac" in verdict["gates"]["G3"]:
-        left.append(f'  rendered_frac   : '
-                    f'{verdict["gates"]["G3"]["rendered_frac"]}  (>= 0.01)')
+        # rendered_frac is the one long float value in the panel; it gets its
+        # own column so the number can never run into the next field (that
+        # collision was a review finding on the 2026-10-16 cut)
+        left.append(f'  rendered_frac')
+        left.append(f'      {verdict["gates"]["G3"]["rendered_frac"]}'
+                    f'   (>= 0.01)')
     left += ["", "G4 oracle, per mesh:"]
     for path, m in sorted(verdict["gates"]["G4"]["meshes"].items()):
         name = path.rsplit("/", 1)[-1]
@@ -532,39 +559,29 @@ def shot_proof(n, verdict, selftest, meshes, cam_attribs):
         float(cam_attribs["verticalAperture"])
         / (2.0 * float(cam_attribs["focalLength"]))))
     target = np.array([0.0, 0.3, 0.0])
-    r, h = 12.0, 4.2
+    r, h = 6.0, 2.6
     span = math.radians(10.0)        # slow drift, still moving
-    mid = max(1, n // 2)
     for i in range(n):
         theta = math.radians(14.0) - span / 2 + span * (i / max(1, n - 1))
-        eye = (target[0] + r * math.sin(theta), h,
-               target[2] + r * math.cos(theta))
-        img = render_rgb((W, H), eye, target, (0, 1, 0), fov)
-        # the render is pillarboxed on the slot's own dark background, which
-        # is what makes the previous (bright) terminal shot read as a cut
-        frame = Image.new("RGB", (W, H), PROOF_BG)
-        ow, oh = img.size
-        frame.paste(img, ((W - ow) // 2, (H - oh) // 2))
-        img = frame
-        # darken the moving render just enough for the HUD text to read
-        img = Image.blend(img, Image.new("RGB", (W, H), (0, 0, 0)), 0.45)
-        d = ImageDraw.Draw(img, "RGBA")
-        light = i >= mid
-        panel_fill = (10, 12, 16, 178)
+        frame = orbit_frame(meshes, cam_attribs, theta, r, h, target)
+        # the moving render is pillarboxed on the slot's own bright paper;
+        # the verdict panels sit on it, so the render stays visible and moving
+        d = ImageDraw.Draw(frame, "RGBA")
+        panel_fill = (238, 241, 245, 208)
         d.rectangle([60, 56, 940, 1000], fill=panel_fill)
         d.rectangle([980, 56, 1860, 1000], fill=panel_fill)
-        ink = (232, 238, 246)
-        good = (126, 231, 135)
-        bad = (240, 113, 99)
-        dim = (170, 178, 190)
-        head = (255, 205, 60)
+        ink = (24, 30, 40)
+        good = (18, 128, 74)
+        bad = (176, 52, 42)
+        dim = (96, 104, 118)
+        head = (24, 30, 40)
         fl, fr = font("mono", 32), font("mono", 28)
         d.text((92, 84), "JUDGE VERDICT", font=font("bold", 44), fill=head)
         y = 160
         for ln in left:
             col = good if (": true" in ln or "k=" in ln) else ink
             d.text((92, y), ln, font=fl, fill=col)
-            y += 48
+            y += 44
         d.text((1012, 84), "MUTANT KILL MATRIX", font=font("bold", 44),
                fill=head)
         y = 160
@@ -574,13 +591,13 @@ def shot_proof(n, verdict, selftest, meshes, cam_attribs):
             d.text((1462, y), f"{verdict_:<9}", font=fr, fill=col)
             d.text((1662, y), gates, font=fr, fill=dim)
             y += 42
-        caption(img, f"{total_frac} mutants killed by a named judge gate")
-        yield img
+        caption(frame, f"{total_frac} mutants killed by a named judge gate")
+        yield frame
 
 
 def shot_end(n, one_command):
-    """T['end'] - T['stop']: static end card (last 3.0 s, YDIF = 0)."""
-    img = Image.new("RGB", (W, H), END_BG)
+    """T['end'] - T['stop']: static dark end card (last 3.0 s, YDIF = 0)."""
+    img = Image.new("RGB", (W, H), DARK_BG)
     d = ImageDraw.Draw(img)
     f = font("monobold", 74)
     tw = d.textlength(one_command, font=f)
@@ -613,22 +630,23 @@ def frames():
         f'[selftest] kill rate           : {selftest["kill_rate"]}',
         "[selftest] selftest: PASS",
     ]
-    # the speed badge states the real compression: the RECEIPT's measured
-    # setup wall time against this shot's duration
-    setup_wall_s = float(os.environ.get("DEMO_SETUP_WALL_S", "853"))
+    # the speed badge states the real compression: make_media.sh's measured
+    # setup wall time against this shot's duration (the badge is capped at
+    # the slot's own speed -- 6.6 s of log for a 17-min build -- never a
+    # marketing number)
+    setup_wall_s = float(os.environ.get("DEMO_SETUP_WALL_S", "1020"))
     speed_label = f"~{round(setup_wall_s / (T['proof'] - T['term']))}x speed"
+    k = {p: m["illuminance_k"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
 
     fr = lambda a, b: int(round((b - a) * FPS))
     yield from shot_hook(meshes, cam, cam_attribs, fr(T["hook"], T["input"]),
                          verdict)
     yield from shot_input(meshes, cam, cam_attribs, fr(T["input"], T["orbit"]),
                           verdict, scene_text)
-    yield from shot_orbit(meshes, cam_attribs,
-                          0, fr(T["orbit"], T["rects"]), with_rects=False,
-                          light_to_dark=False)
-    yield from shot_orbit(meshes, cam_attribs,
-                          fr(T["orbit"], T["rects"]), fr(T["rects"], T["term"]),
-                          with_rects=True, light_to_dark=False)
+    yield from shot_orbit(meshes, cam_attribs, 0, fr(T["orbit"], T["rects"]),
+                          with_rects=False)
+    yield from shot_orbit(meshes, cam_attribs, fr(T["orbit"], T["rects"]),
+                          fr(T["rects"], T["term"]), with_rects=True, k=k)
     yield from shot_terminal(fr(T["term"], T["proof"]),
                              setup_lines, selftest_lines, speed_label)
     yield from shot_proof(fr(T["proof"], T["end"]), verdict, selftest,

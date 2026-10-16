@@ -131,7 +131,7 @@
     "pass": true,
     "seed": 0,
     "timing": {
-      "wall_s": 1.87
+      "wall_s": 0.62
     }
   },
   "kill_rate": "100.0%",
