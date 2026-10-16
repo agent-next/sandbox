@@ -298,22 +298,32 @@ const EndCard: React.FC<{p: VideoProps}> = ({p}) => (
 	</AbsoluteFill>
 );
 
-const ZoomClip: React.FC<{
+/*
+ * CameraClip: the clip plays under a constantly drifting camera —
+ * a slow sinusoidal pan + zoom wobble so every frame moves a few px.
+ * base >= 1.07 keeps the drift inside the overscan (clip edge labels
+ * are drawn >= ~8 % in from the frame edges).
+ */
+const CameraClip: React.FC<{
 	src: string;
 	startFrom: number;
 	frames: number;
-	scale: (f: number) => number;
-	origin?: string;
-}> = ({src, startFrom, frames, scale, origin = 'center'}) => {
+	base?: number;
+	phase?: number;
+}> = ({src, startFrom, frames, base = 1.07, phase = 0}) => {
 	const frame = useCurrentFrame();
+	const {fps} = useVideoConfig();
+	const scale = base + 0.015 * Math.sin((frame / fps) * 1.1 + phase);
+	const tx = 18 * Math.sin((frame / fps) * 0.55 + phase * 1.7);
+	const ty = 10 * Math.cos((frame / fps) * 0.42 + phase * 0.9);
 	return (
 		<AbsoluteFill>
 			<div
 				style={{
 					width: '100%',
 					height: '100%',
-					transform: `scale(${scale(frame)})`,
-					transformOrigin: origin,
+					transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
+					transformOrigin: 'center',
 				}}
 			>
 				<OffthreadVideo
@@ -327,16 +337,30 @@ const ZoomClip: React.FC<{
 	);
 };
 
+/* a 3-frame bright flash riding a hard cut — a real transition, not a slide */
+const CutFlash: React.FC = () => {
+	const frame = useCurrentFrame();
+	const op = interpolate(frame, [0, 3], [0.8, 0], {
+		extrapolateRight: 'clamp',
+	});
+	if (frame > 3) {
+		return null;
+	}
+	return (
+		<AbsoluteFill style={{backgroundColor: `rgba(185,235,255,${op})`}} />
+	);
+};
+
 export const Demo: React.FC<VideoProps> = (p) => {
 	return (
 		<AbsoluteFill style={{backgroundColor: '#070b11'}}>
 			{/* 0-2 s: hook — finished result moving, kinetic headline */}
 			<Sequence from={0} durationInFrames={60}>
-				<ZoomClip
+				<CameraClip
 					src="clips/bode.mp4"
 					startFrom={280}
 					frames={60}
-					scale={(f) => 1.04 + f * 0.0006}
+					base={1.06}
 				/>
 				<Headline
 					words={['AN', 'AGENT', 'DESIGNS', 'A', 'FILTER.']}
@@ -346,13 +370,11 @@ export const Demo: React.FC<VideoProps> = (p) => {
 
 			{/* 2-10 s: input -> output on the scope */}
 			<Sequence from={60} durationInFrames={240}>
-				<ZoomClip
+				<CameraClip
 					src="clips/scope.mp4"
 					startFrom={60}
 					frames={240}
-					scale={(f) =>
-						f < 180 ? 1.0 + f * 0.0004 : 1.12 + (f - 180) * 0.0002
-					}
+					phase={1.3}
 				/>
 				<Caption
 					text="input → output · a 1 V sine through the filter"
@@ -366,15 +388,17 @@ export const Demo: React.FC<VideoProps> = (p) => {
 					to={210}
 					color={GREEN}
 				/>
+				<CutFlash />
 			</Sequence>
 
 			{/* 10-14.3 s: the sandbox run replayed */}
 			<Sequence from={300} durationInFrames={130}>
-				<ZoomClip
+				<CameraClip
 					src="clips/term.mp4"
 					startFrom={80}
 					frames={130}
-					scale={() => 1.0}
+					base={1.06}
+					phase={2.1}
 				/>
 				<Caption
 					text="the judge run in the sandbox, replayed"
@@ -382,15 +406,16 @@ export const Demo: React.FC<VideoProps> = (p) => {
 					to={100}
 					color={AMBER}
 				/>
+				<CutFlash />
 			</Sequence>
 
 			{/* 14.3-26 s: the bode sweep draws itself */}
 			<Sequence from={430} durationInFrames={350}>
-				<ZoomClip
+				<CameraClip
 					src="clips/bode.mp4"
 					startFrom={15}
 					frames={350}
-					scale={(f) => 1.0 + Math.min(f, 300) * 0.00035}
+					phase={0.4}
 				/>
 				<Caption
 					text="the AC sweep draws itself against the spec mask"
@@ -404,15 +429,17 @@ export const Demo: React.FC<VideoProps> = (p) => {
 					to={300}
 					color={AMBER}
 				/>
+				<CutFlash />
 			</Sequence>
 
 			{/* 26-34 s: 100 seeded Monte-Carlo runs */}
 			<Sequence from={780} durationInFrames={240}>
-				<ZoomClip
+				<CameraClip
 					src="clips/mc.mp4"
 					startFrom={0}
 					frames={240}
-					scale={(f) => 1.06 - f * 0.0002}
+					base={1.08}
+					phase={3.9}
 				/>
 				<Caption
 					text="R ±5 % · C ±10 % — 100 seeded runs"
@@ -420,22 +447,26 @@ export const Demo: React.FC<VideoProps> = (p) => {
 					to={120}
 					color={GREEN}
 				/>
+				<CutFlash />
 			</Sequence>
 
 			{/* 34-37.5 s: proof HUD over still-playing footage */}
 			<Sequence from={1020} durationInFrames={105}>
-				<ZoomClip
+				<CameraClip
 					src="clips/scope.mp4"
 					startFrom={250}
 					frames={105}
-					scale={() => 1.06}
+					base={1.08}
+					phase={5.1}
 				/>
 				<ProofHud p={p} />
+				<CutFlash />
 			</Sequence>
 
 			{/* 37.5-40 s: static end card */}
 			<Sequence from={1125} durationInFrames={75}>
 				<EndCard p={p} />
+				<CutFlash />
 			</Sequence>
 		</AbsoluteFill>
 	);

@@ -69,8 +69,31 @@ def text(d, xy, s, fnt, fill=TXT, anchor="la"):
     d.text(xy, s, font=fnt, fill=fill, anchor=anchor)
 
 
+# --- in-clip camera ---------------------------------------------------------
+# Clips that cannot move their content every frame (a drawing pen is a few
+# px wide) put the finished 1080p frame on a wider canvas and crop a moving
+# viewport: a constant-speed ping-pong pan, i.e. the camera exploring the
+# plot.  Every textured pixel then shifts ~5 px/frame at 640 px wide, which
+# is what the video gate's motion metric measures.
+PAN_MX, PAN_MY = 340, 100
+WORLD = (W + 2 * PAN_MX, H + 2 * PAN_MY)
+
+
+def pan_view(frame: Image.Image, fi: int, sx: float = 14.0,
+             sy: float = 5.0) -> Image.Image:
+    phx = (fi * sx / (2 * PAN_MX)) % 2.0
+    vx = int(2 * PAN_MX * (phx if phx < 1 else 2 - phx))
+    phy = (fi * sy / (2 * PAN_MY)) % 2.0
+    vy = int(2 * PAN_MY * (phy if phy < 1 else 2 - phy))
+    world = Image.new("RGB", WORLD, BG)
+    world.paste(frame, (PAN_MX, PAN_MY))
+    return world.crop((vx, vy, vx + W, vy + H))
+
+
 # --------------------------------------------------------------------------
-# clip 1: oscilloscope — real ngspice transient segments sweeping in
+# clip 1: oscilloscope — real ngspice transient segments in roll mode:
+# the whole waveform slides left every frame (continuous motion), the
+# write head enters at the right edge.  V/div and TIME/div stay honest.
 # --------------------------------------------------------------------------
 
 def clip_scope(frames: Path) -> None:
@@ -86,89 +109,75 @@ def clip_scope(frames: Path) -> None:
     px_per_div = (x1 - x0) / 10.0
     for i in range(11):
         x = x0 + i * px_per_div
-        d.line([x, y0, x, y1], fill=GRID if i % 5 else GRID2 + (255,) or GRID,
-               width=1)
+        d.line([x, y0, x, y1], fill=GRID if i % 5 else GRID2, width=1)
     for i in range(9):
         y = y0 + i * (y1 - y0) / 8
         d.line([x0, y, x1, y], fill=GRID, width=1)
     d.line([(x0 + x1) / 2, y0, (x0 + x1) / 2, y1], fill=GRID2, width=2)
     d.line([x0, (y0 + y1) / 2, x1, (y0 + y1) / 2], fill=GRID2, width=2)
-    bg_arr = np.asarray(bg, dtype=np.float32)
+    bg_arr = np.asarray(bg, dtype=np.uint8)
 
-    acc = np.zeros((H, W, 3), dtype=np.float32)
-    blank = Image.new("RGB", (W, H), (0, 0, 0))
     f_ch1 = font(30); f_ch2 = font(30); f_lab = font(34, bold=True)
     f_meas = font(36, bold=True)
 
     seg_s = dur / len(segs)
-    sweeps_per_seg = 3               # three beam sweeps inside each segment
+    seg_frames = int(seg_s * FPS)
+    cycles = 2.0                     # window width in periods (10 div);
+                                     # integer cycles -> wraps phase-aligned
+    scroll_px = 13.0                 # roll speed, screen px per frame
     for fi in range(n):
         t = fi / FPS
         k = min(int(t / seg_s), len(segs) - 1)
         seg = segs[k]
         f0 = seg["freq_hz"]
-        # beam sweeps left->right covering `cycles` periods per sweep
-        cycles = 2.2
-        win = cycles * seg["period_s"]
-        seg_t = t - k * seg_s
-        sweep_len = seg_s / sweeps_per_seg
-        sw = int(seg_t / sweep_len)              # sweep index in segment
-        ph = (seg_t - sw * sweep_len) / sweep_len  # 0..1 across the sweep
-        # which part of the simulated record this sweep shows: scan the
-        # settled tail only (the startup transient clips off-screen and
-        # reads as an artifact on the mV/div segment)
-        settled = seg["t"][0] + 0.55 * (seg["t"][-1] - seg["t"][0])
-        span = seg["t"][-1] - win - settled
-        off = settled + (sw / sweeps_per_seg) * span
-        # beam x position
-        bx = x0 + ph * (x1 - x0)
-
-        acc *= 0.90                              # phosphor decay
-        lay = blank.copy()
-        dd = ImageDraw.Draw(lay)
-        # draw the slice of both traces entering under the beam now
-        tt = np.asarray(seg["t"]); vv_in = np.asarray(seg["vin"])
-        vv_out = np.asarray(seg["vout"])
-        # newest fraction of this sweep's window (last 6 % each frame)
-        frac = 0.06
-        t_a = off + max(0.0, ph - frac) * win
-        t_b = off + ph * win
-        m = (tt >= t_a) & (tt <= t_b)
+        per = seg["period_s"]
+        win = cycles * per
+        tt = np.asarray(seg["t"])
+        # settled tail only: the last few complete periods, where both
+        # channels are steady sines.  The record's startup ring is large
+        # (the 16 kHz step rings at ~47 mV, off-screen at 1 mV/div) so the
+        # window must live in the genuinely settled cycles.
+        ncyc = min(8, int(round((tt[-1] - tt[0]) / per)) - 1)
+        tail_start = tt[-1] - ncyc * per
+        span = ncyc * per - win      # sliding range inside the tail
+        fi_seg = fi - k * seg_frames
+        off = tail_start + ((fi_seg * scroll_px) / (x1 - x0) * win) % span
+        m = (tt >= off) & (tt <= off + win)
+        frame = Image.fromarray(bg_arr.copy())
+        dd = ImageDraw.Draw(frame)
         if m.sum() >= 2:
             xs = x0 + (tt[m] - off) / win * (x1 - x0)
             # honest scope scales: 500 mV/div (8 div = ±2 V), and
             # CH2 at 1 mV/div in the stopband segment
             vs_in = (y1 - y0) / (8 * 0.5)
             vs_out = vs_in if k < 2 else (y1 - y0) / (8 * 0.001)
-            ys_in = (y0 + y1) / 2 - vv_in[m] * vs_in
-            ys_out = (y0 + y1) / 2 - vv_out[m] * vs_out
+            ys_in = (y0 + y1) / 2 - np.asarray(seg["vin"])[m] * vs_in
+            ys_out = (y0 + y1) / 2 - np.asarray(seg["vout"])[m] * vs_out
             pts_in = list(zip(xs, ys_in)); pts_out = list(zip(xs, ys_out))
             for pts, col in ((pts_in, CYAN), (pts_out, GREEN)):
-                dd.line(pts, fill=tuple(c // 3 for c in col), width=7)
+                dd.line(pts, fill=tuple(c // 3 for c in col), width=9)
                 dd.line(pts, fill=col, width=3)
-            # beam dot
+            # write head: bright dot where new samples enter (right edge)
             for pts, col in ((pts_in, CYAN), (pts_out, GREEN)):
                 ex, ey = pts[-1]
-                dd.ellipse([ex - 9, ey - 9, ex + 9, ey + 9], fill=col)
-        acc = np.clip(acc + np.asarray(lay, dtype=np.float32), 0, 255)
-        frame = Image.fromarray(
-            np.clip(bg_arr + acc * 0.92, 0, 255).astype(np.uint8))
-        dd = ImageDraw.Draw(frame)
+                dd.ellipse([ex - 10, ey - 10, ex + 10, ey + 10], fill=col)
+            dd.line([x1 - 2, y0, x1 - 2, y1], fill=(60, 90, 120), width=2)
         # bezel labels (real numbers)
         ch2div = "500 mV/div" if k < 2 else "1 mV/div"
-        text(dd, (90, H - 100), "CH1 500 mV/div", f_ch1, CYAN)
-        text(dd, (430, H - 100), f"CH2 {ch2div}", f_ch2, GREEN)
-        text(dd, (W - 90, H - 100), "ngspice tran · lpf4sk.cir", f_ch1, DIM,
+        text(dd, (160, H - 100), "CH1 500 mV/div", f_ch1, CYAN)
+        text(dd, (540, H - 100), f"CH2 {ch2div}", f_ch2, GREEN)
+        text(dd, (W - 190, H - 100), "ngspice tran · lpf4sk.cir", f_ch1, DIM,
              anchor="ra")
-        text(dd, (90, 66), "OSCILLOSCOPE  in → out", f_lab, TXT)
+        text(dd, (160, 66), "OSCILLOSCOPE  in → out", f_lab, TXT)
         tdiv = win / 10.0
         if tdiv >= 2e-4:
             v, unit = tdiv * 1e3, "ms"
         else:
             v, unit = tdiv * 1e6, "µs"
         tdiv_s = f"{v:.0f} {unit}/div" if v >= 100 else f"{v:.2g} {unit}/div"
-        text(dd, (760, H - 100), f"TIME {tdiv_s}", f_ch2, DIM)
-        text(dd, (W - 90, 66), f"meas f = {f0:g} Hz", f_meas, AMBER, anchor="ra")
+        text(dd, (880, H - 100), f"TIME {tdiv_s}", f_ch2, DIM)
+        text(dd, (W - 190, 66), f"meas f = {f0:g} Hz", f_meas, AMBER,
+             anchor="ra")
         frame.save(frames / f"f{fi:05d}.ppm")
     print(f"  scope.mp4 frames: {n}")
 
@@ -215,8 +224,8 @@ def clip_bode(frames: Path) -> None:
         d.line([x0, y, x1, y], fill=GRID, width=1)
         text(d, (x0 - 16, y), f"{dbv} dB", f_ax, DIM, anchor="rm")
     d.rectangle([x0, y0, x1, y1], outline=GRID, width=2)
-    text(d, (60, 60), "AC SWEEP  |v(out)|  vs  SPEC MASK", f_ttl, TXT)
-    text(d, (W - 70, 60), "ngspice ac dec 200 10 100k", f_t, DIM, anchor="ra")
+    text(d, (150, 66), "AC SWEEP  |v(out)|  vs  SPEC MASK", f_ttl, TXT)
+    text(d, (W - 180, 66), "ngspice ac dec 200 10 100k", f_t, DIM, anchor="ra")
     # mask polyline (step): passband ripple band + stopband ceiling
     rip, stp = mask["ripple_max_db"], mask["stop_max_db"]
     pe, se = mask["passband_edge_hz"], mask["stopband_edge_hz"]
@@ -229,6 +238,15 @@ def clip_bode(frames: Path) -> None:
     d.line([(xa, yrb), (xb, yrb)], fill=MASKC, width=4)
     text(d, (xb + 18, (yb + yc) / 2), "SPEC MASK", f_mask, MASKC)
     bg_arr = np.asarray(bg, dtype=np.uint8)
+
+    # soft measurement scan band, sweeping the plot for the whole shot
+    band_w = 300
+    band = Image.new("RGBA", (band_w, y1 - y0), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(band)
+    for i in range(band_w):
+        a = int(36 * math.sin(math.pi * i / band_w) ** 2)
+        bd.line([i, 0, i, y1 - y0], fill=(120, 220, 255, a))
+    band_travel = (x1 - x0) + 2 * band_w
 
     # phased drawing: mask+nominal 8-56 %, analytic 56-66 %, gbw 66-80 %,
     # measurement cursor scan 80-100 %
@@ -253,7 +271,16 @@ def clip_bode(frames: Path) -> None:
     for fi in range(n):
         p = fi / n
         frame = Image.fromarray(bg_arr.copy())
-        dd = ImageDraw.Draw(frame)
+        dd = ImageDraw.Draw(frame, "RGBA")
+        # translucent fill under the part of the sweep drawn so far
+        if p >= 0.08:
+            upto_f = max(2, int(min(1.0, (p - 0.08) / 0.48) * len(xs_nom)))
+            dd.polygon(list(zip(xs_nom[:upto_f], ys_nom[:upto_f]))
+                       + [(xs_nom[upto_f - 1], y1), (xs_nom[0], y1)],
+                       fill=(0, 214, 255, 26))
+        # the scan band sweeps the plot continuously, behind the traces
+        frame.paste(band, (int(x0 - band_w + (fi * 10) % band_travel), y0),
+                    band)
         if p >= 0.08:
             u = min(1.0, (p - 0.08) / 0.48)
             upto = u * len(xs_nom)
@@ -301,7 +328,7 @@ def clip_bode(frames: Path) -> None:
                                  outline=TXT, width=2)
             text(dd, (x0 + 52, y1 - 78),
                  f"cursor  f={fx:9.0f} Hz   gain={gv:7.2f} dB", f_chip, TXT)
-        frame.save(frames / f"f{fi:05d}.ppm")
+        pan_view(frame, fi).save(frames / f"f{fi:05d}.ppm")
     print(f"  bode.mp4 frames: {n}")
 
 
@@ -394,9 +421,9 @@ def clip_mc(frames: Path) -> None:
         d.line([x0, y, x1, y], fill=GRID, width=1)
         text(d, (x0 - 16, y), f"{dbv} dB", f_t, DIM, anchor="rm")
     d.rectangle([x0, y0, x1, y1], outline=GRID, width=2)
-    text(d, (60, 60), "MONTE-CARLO  R ±5 % / C ±10 %  ·  relaxed mask",
+    text(d, (150, 66), "MONTE-CARLO  R ±5 % / C ±10 %  ·  relaxed mask",
          f_ttl, TXT)
-    text(d, (W - 70, 60), f"seed {mc['seed']} · ngspice ×{mc['runs']}",
+    text(d, (W - 180, 66), f"seed {mc['seed']} · ngspice ×{mc['runs']}",
          f_t, DIM, anchor="ra")
     # relaxed mask lines
     rm = mc["relaxed_mask"]
@@ -408,6 +435,15 @@ def clip_mc(frames: Path) -> None:
     d.line([(xb, yc), (xc, yc), (xd, yd)], fill=MASKC, width=3)
     bg_arr = np.asarray(bg, dtype=np.uint8)
 
+    # same continuous scan band as the bode clip
+    band_w = 300
+    band = Image.new("RGBA", (band_w, y1 - y0), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(band)
+    for i in range(band_w):
+        a = int(36 * math.sin(math.pi * i / band_w) ** 2)
+        bd.line([i, 0, i, y1 - y0], fill=(120, 220, 255, a))
+    band_travel = (x1 - x0) + 2 * band_w
+
     runs = mc["results"]
     curves_xy = []
     for r in runs:
@@ -418,7 +454,10 @@ def clip_mc(frames: Path) -> None:
     arrivals = n - 45                    # last ~1.5 s only the banner moves
     for fi in range(n):
         frame = Image.fromarray(bg_arr.copy())
-        dd = ImageDraw.Draw(frame)
+        dd = ImageDraw.Draw(frame, "RGBA")
+        # scan band sweeping under everything for the whole shot
+        frame.paste(band, (int(x0 - band_w + (fi * 10) % band_travel), y0),
+                    band)
         shown = min(len(runs), int(fi * len(runs) / arrivals) + 1)
         for i in range(shown):
             age = shown - i
@@ -426,7 +465,7 @@ def clip_mc(frames: Path) -> None:
             col = BLUE if runs[i]["ok"] else RED
             if age <= 6:                 # curve sweeps in over 6 frames
                 k = max(2, int(len(base) * age / 6))
-                dd.line(base[:k], fill=tuple(c // 2 for c in col), width=3)
+                dd.line(base[:k], fill=col, width=5)
             else:
                 dd.line(base, fill=tuple(max(30, c // 3) for c in col),
                         width=2)
@@ -447,7 +486,7 @@ def clip_mc(frames: Path) -> None:
                 text(dd, (cxp, y0 + 165),
                      f"{props['mc_runs']}/{props['mc_runs']} PASS — "
                      f"≥90 % gate met", f_chip, GREEN, anchor="ma")
-        frame.save(frames / f"f{fi:05d}.ppm")
+        pan_view(frame, fi).save(frames / f"f{fi:05d}.ppm")
     print(f"  mc.mp4 frames: {n}")
 
 

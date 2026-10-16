@@ -11,22 +11,42 @@
    "size_bytes": 132976
   },
   "demo.mp4": {
-   "sha256": "124efaba8165b23e722f2e0b98a287c1d789e99e60062f1ffe29e3e0d6ffc98a",
-   "size_bytes": 525752,
+   "sha256": "467645edf134035e8ff734feeebd5b62468d89eceda9663842e16de6f12ef39b",
+   "size_bytes": 7221350,
    "width": 1920,
    "height": 1080,
    "duration_sec": 40.0,
    "codec": "h264"
   },
+  "frames/p25.jpg": {
+   "sha256": "e783e8f3d0b270a9e1f32edd58879f92af86430a8fb7380f5cd6b961df0be262",
+   "size_bytes": 88886
+  },
+  "frames/p60.jpg": {
+   "sha256": "3ee48c596aac7e19a6ea7bed0ae2ed051beaea000c728730bc2ade694b754b16",
+   "size_bytes": 106003
+  },
+  "frames/proof.jpg": {
+   "sha256": "706f2e9c7fb3988c408547dd5f974517456adf4dd5d126c600ed6bd5b0bfd03d",
+   "size_bytes": 144050
+  },
+  "frames/t01s.jpg": {
+   "sha256": "019a726bb11c96e5e8cc01c49a1c4fd07384e4e24c66c32495a001b88a1a440c",
+   "size_bytes": 120948
+  },
   "master/demo_master.mp4": {
-   "sha256": "4352d5b1b5f1a0f711b2e2dc19099bee49e5e18ab47af00d9a3e7c786c800584",
-   "size_bytes": 1235735
+   "sha256": "a8139f6a68b9cc1daa307d50e6b5b40df821bc90103169b683042846e6077c5e",
+   "size_bytes": 158809413
   }
  },
  "source_data": {
   "sweep_good": "media/data/sweep_good.json (judge ngspice sweeps)",
   "replay": "media/data/replay.json (scripted replay: r-decade-up -> off-series -> unrecognised-topology -> good)",
-  "selftest": "media/data/selftest.json (judge selftest: 9 mutants, 100% kill rate)"
+  "selftest": "media/data/selftest.json (judge selftest: 9 mutants, 100% kill rate)",
+  "transient": "media/data/transient.json (ngspice .tran of the good netlist at 300 Hz / 1.4 kHz / 16 kHz)",
+  "mc_curves": "media/data/mc_curves.json (all 100 seeded Monte-Carlo sweeps)",
+  "runlog": "media/data/runlog.txt (captured selftest+grade terminal output)",
+  "video_props": "media/data/video_props.json (HUD numbers, from the verdict JSONs)"
  },
  "commands": {
   "setup": "bash judge/setup.sh",
@@ -37,7 +57,9 @@
  "environment": {
   "python": "3.12.15",
   "matplotlib": "3.9.4",
+  "pillow": "12.3.0",
   "ffmpeg": "5.1.9-0+deb12u1",
-  "ngspice": "39.3+ds-1 (Debian bookworm)"
+  "ngspice": "39.3+ds-1 (Debian bookworm)",
+  "remotion": "4.0.530"
  }
 }

@@ -49,14 +49,15 @@ for m in r-decade-up off-series unrecognised-topology; do
 done
 {
     echo "$ bash judge/selftest.sh"
-    bash "$DEMO/judge/selftest.sh"
+    (cd "$DEMO" && bash judge/selftest.sh)
     echo
     echo "$ bash judge/grade.sh examples/good/lpf4sk.cir --json good.json"
-    bash "$DEMO/judge/grade.sh" "$DEMO/examples/good/lpf4sk.cir" \
-        --json "$work/good.json"
+    (cd "$DEMO" && bash judge/grade.sh examples/good/lpf4sk.cir \
+        --json "$work/good.json")
     echo
     echo "$ python3 -c 'import json; print(json.load(open(\"good.json\"))[\"passed\"])'"
-    python3 -c "import json; print(json.load(open('$work/good.json'))['passed'])"
+    (cd "$work" && python3 -c \
+        'import json; print(json.load(open("good.json"))["passed"])')
 } > "$work/runlog.txt" 2>&1
 echo "media: replay verdicts graded + terminal transcript captured (runlog.txt)"
 
@@ -86,15 +87,18 @@ ffmpeg -y -loglevel error -framerate 30 \
     "$MEDIA/master/demo_master.mp4"
 
 # --- web encode (ffmpeg encodes only; it draws nothing) --------------------
+# CRF 18 with a VBV bound: the all-moving footage otherwise lands ~12 MB
+# at CRF 18 alone; -maxrate/-bufsize caps the stream under the 8 MiB gate.
 ffmpeg -y -loglevel error -i "$MEDIA/master/demo_master.mp4" \
-    -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart \
+    -c:v libx264 -crf 18 -maxrate 1.5M -bufsize 3M -preset slow \
+    -pix_fmt yuv420p -movflags +faststart \
     "$MEDIA/demo.mp4"
 
 # --- committed check frames ------------------------------------------------
 dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 \
     "$MEDIA/demo.mp4")
 for spec in "1.0:t01s" \
-            "$(python3 -c "print(f'{$dur*0.25:.2f}')"):p25" \
+            "$(python3 -c "print(f'{$dur*0.25+0.2:.2f}')"):p25" \
             "$(python3 -c "print(f'{$dur*0.60:.2f}')"):p60" \
             "35.2:proof"; do
     t="${spec%%:*}"; name="${spec##*:}"

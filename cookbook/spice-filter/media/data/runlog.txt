@@ -10,7 +10,7 @@ mutants: opamp-gain.cir  edit: 'E2 out 0 s2b 0 1' -> 'E2 out 0 s2b 0 100'
 mutants: include-directive.cir  edit: +'.include "helpers.inc"'
 mutants: unrecognised-topology.cir  edit: +'Rbias s1a s1b 1meg' (parallel damping resistor: valid design, shape the oracle cannot verify)
 mutants: swap-feedback.cir  edit: 'C1 s1a out1 120n' -> 'C1 s1a 0 120n'
-mutants: wrote 9 mutants to /tmp/tmp.1noCXmnKMS/mutants
+mutants: wrote 9 mutants to /tmp/tmp.TQhnQZLIh8/mutants
 selftest: killed    c-decade-down (gate: mask)
 selftest: killed    include-directive (gate: parse)
 selftest: killed    missing-ground (gate: parse)
@@ -72,5 +72,5 @@ $ bash judge/grade.sh examples/good/lpf4sk.cir --json good.json
   }
 }
 
-$ python3 -c 'import json;print(json.load(open("good.json"))["passed"])'
+$ python3 -c 'import json; print(json.load(open("good.json"))["passed"])'
 True

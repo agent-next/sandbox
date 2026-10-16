@@ -1,6 +1,6 @@
 [
  {
-  "artifact": "/tmp/tmp.whzVcffdMq/mutants/r-decade-up.cir",
+  "artifact": "/tmp/tmp.BTuKeLNkcv/mutants/r-decade-up.cir",
   "passed": false,
   "failed_gate": "mask",
   "reason": "ripple 13.177 dB / stopband -76.052 dB violate the mask (1.0 dB / -40.0 dB)",
@@ -25,7 +25,7 @@
   "label": "r-decade-up"
  },
  {
-  "artifact": "/tmp/tmp.whzVcffdMq/mutants/off-series.cir",
+  "artifact": "/tmp/tmp.BTuKeLNkcv/mutants/off-series.cir",
   "passed": false,
   "failed_gate": "series",
   "reason": "values not on series: R2=740 (nearest 750)",
@@ -69,7 +69,7 @@
   "label": "off-series"
  },
  {
-  "artifact": "/tmp/tmp.whzVcffdMq/mutants/unrecognised-topology.cir",
+  "artifact": "/tmp/tmp.BTuKeLNkcv/mutants/unrecognised-topology.cir",
   "passed": false,
   "failed_gate": "analytic",
   "reason": "topology not recognised by the closed-form oracle; the judge refuses to pass a design it cannot verify against independent math (re-run with --allow-unverified to grade it on the other gates only)",
