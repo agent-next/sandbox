@@ -317,7 +317,7 @@ def test_cli_exit_2_on_non_video(tmp_path):
 # to the standard. Every other committed demo must pass. Remove a name from
 # KNOWN_FAIL once its re-cut passes; add one only in the change that adds a
 # new check (solidcraft-cad and taste-skill-landing: motion_fraction).
-KNOWN_FAIL = {"cfd-openfoam", "fea-calculix", "firmware-qemu", "gpu-kernel", "plc-st", "render-pathtrace", "sim-engine-arena", "solidcraft-cad", "spice-filter", "taste-skill-landing"}
+KNOWN_FAIL = {"cfd-openfoam", "fea-calculix", "firmware-qemu", "gpu-kernel", "plc-st", "render-pathtrace", "sim-engine-arena", "spice-filter", "taste-skill-landing"}
 
 
 def test_committed_demo_baseline():
