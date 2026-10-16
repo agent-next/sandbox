@@ -64,7 +64,11 @@ def main() -> int:
         f'[selftest] kill rate           : {selftest["kill_rate"]}',
         "[selftest] selftest: PASS",
     ]
-    setup_wall_s = float(os.environ.get("DEMO_SETUP_WALL_S", "853"))
+    # Exactly the label build_video.py builds, so the probe carries the same
+    # badge the real cut does. DEMO_SETUP_WALL_S is the wall time
+    # make_media.sh measured for the setup run that produced this build; no
+    # hard-coded fallback, because a fallback is a number nobody measured.
+    setup_wall_s = float(os.environ["DEMO_SETUP_WALL_S"])
     speed_label = f"~{round(setup_wall_s / (T['proof'] - T['term']))}x speed"
     fr = lambda a, b: int(round((b - a) * FPS))
 

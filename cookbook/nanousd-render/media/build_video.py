@@ -640,8 +640,10 @@ def frames():
     # the speed badge states the real compression: make_media.sh's measured
     # setup wall time against this shot's duration (the badge is capped at
     # the slot's own speed -- 6.6 s of log for a 17-min build -- never a
-    # marketing number)
-    setup_wall_s = float(os.environ.get("DEMO_SETUP_WALL_S", "1020"))
+    # marketing number). No hard-coded fallback: the wall time of the setup
+    # run THIS build was made from is the number that goes on screen, or
+    # there is no video.
+    setup_wall_s = float(os.environ["DEMO_SETUP_WALL_S"])
     speed_label = f"~{round(setup_wall_s / (T['proof'] - T['term']))}x speed"
     k = {p: m["illuminance_k"] for p, m in verdict["gates"]["G4"]["meshes"].items()}
 
