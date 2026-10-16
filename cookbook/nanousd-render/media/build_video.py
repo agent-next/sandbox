@@ -55,7 +55,7 @@ T = {"hook": 0.0, "input": 2.0, "orbit": 8.6, "rects": 12.4,
      "term": 16.4, "proof": 23.0, "end": 29.0, "stop": 32.0}
 
 CAPTION_PX = 72            # cap height ~53 px = 4.9% of 1080
-CAPTION_MAX_W = 1680       # leave side margins, never clip
+CAPTION_MAX_W = 1560       # leave side margins, never clip
 MONO_PX = 34
 INK = (245, 247, 250)
 SCRIM = (10, 12, 16)
@@ -107,10 +107,33 @@ def render_rgb(size, eye, target, up, fov_v_deg, cache={}):
         raise SystemExit(f"render output {img.size} bytes, "
                          f"want {size[0]*size[1]*4}")
     im = Image.fromarray(img.reshape(size[1], size[0], 4)[:, :, :3].copy())
+    check_frame_has_content(im, eye, target, up, fov_v_deg)
     if len(cache) > 4000:
         cache.clear()
     cache[key] = im
     return im
+
+
+MIN_RENDERED_FRAC = 0.01      # the same floor as the judge's G3
+
+
+def check_frame_has_content(im, eye, target, up, fov_v_deg):
+    """Fail the media build when a 3D frame is effectively black.
+
+    This is the judge's own G3 emptiness test (>= 1 % of pixels must differ
+    from the corner background) applied to every render the video uses, so a
+    camera math regression that culls the whole scene cannot ship as a black
+    video again -- it fails the build instead."""
+    a = np.asarray(im).astype(int)
+    corner = a[2:12, 2:12].reshape(-1, 3).mean(axis=0)
+    frac = float((np.abs(a - corner.astype(int)).max(axis=2) > 13).mean())
+    if frac < MIN_RENDERED_FRAC:
+        raise SystemExit(
+            f"render at eye={tuple(round(v, 3) for v in eye)} fov="
+            f"{fov_v_deg:.2f}deg has only {frac * 100:.2f}% non-background "
+            f"pixels (< {MIN_RENDERED_FRAC * 100:.0f}%): the camera puts the "
+            f"scene outside the frustum (or the render is empty). Refusing "
+            f"to cut a black video.")
 
 
 def lookat(eye, target, up):
@@ -239,6 +262,12 @@ def caption(img: Image.Image, text: str, y=None) -> None:
                 fill=(*SCRIM, 215))
     for i, ln in enumerate(lines):
         d.text((x, y + i * lh), ln, font=f, fill=INK)
+
+
+def badge_w(text, size=46):
+    """Pixel width the badge at `size` will occupy (text + both pads)."""
+    d = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+    return d.textlength(text, font=font("monobold", size)) + 32
 
 
 def badge(img, text, xy, size=46, fill=(255, 205, 60), ink=(16, 18, 22),
@@ -406,7 +435,7 @@ def shot_terminal(n, setup_lines, selftest_lines, speed_label):
     """T['term'] - T['proof']: real log scrolling, cropped/zoomed."""
     lines = setup_lines + [""] + selftest_lines
     scroll, lh = terminal_scroll(lines)
-    win_lines = 15
+    win_lines = 13
     win_h = lh * win_lines
     max_y = scroll.size[1] - win_h
     if max_y <= 0:
@@ -421,10 +450,13 @@ def shot_terminal(n, setup_lines, selftest_lines, speed_label):
         crop = scroll.crop((0, y, min(1560, scroll.size[0]), y + win_h))
         crop = crop.resize((1780, int(win_h * 1780 / 1560)), Image.LANCZOS)
         img = Image.new("RGB", (W, H), (8, 10, 13))
-        img.paste(crop, (70, 60))
-        # badge sits ABOVE the caption scrim (which occupies the bottom
-        # 250 px), so it is never hidden
-        badge(img, speed_label, (70, 60), size=54)
+        # the terminal pane occupies the top; the caption scrim sits below it
+        img.paste(crop, (70, 40))
+        # the speed badge goes top-RIGHT, on its own strip clear of both the
+        # log text (left-aligned, well short of the right edge) and the
+        # caption scrim (which owns the bottom 250 px)
+        bw = badge_w(speed_label, 54)
+        badge(img, speed_label, (W - 90 - bw, 40), size=54)
         caption(img, "The pinned toolchain, built from sha256-checked "
                      "source in a sandbox", y=880)
         yield img
@@ -440,9 +472,10 @@ def shot_proof(n, verdict, selftest, meshes, cam_attribs):
     ]
     for g in ("G1", "G2", "G3", "G4"):
         info = verdict["gates"][g]
-        extra = f'  rendered_frac {info["rendered_frac"]}' \
-            if "rendered_frac" in info else ""
-        left.append(f"  {g}              : {str(info['pass']).lower()}{extra}")
+        left.append(f"  {g}              : {str(info['pass']).lower()}")
+    if "rendered_frac" in verdict["gates"]["G3"]:
+        left.append(f'  rendered_frac   : '
+                    f'{verdict["gates"]["G3"]["rendered_frac"]}  (>= 0.01)')
     left += ["", "G4 oracle, per mesh:"]
     for path, m in sorted(verdict["gates"]["G4"]["meshes"].items()):
         name = path.rsplit("/", 1)[-1]

@@ -65,9 +65,11 @@ def build_result() -> None:
     img = Image.new("RGB", (PW, PH), PAPER)
     d = ImageDraw.Draw(img, "RGBA")
 
-    # -- left panel: the graded render with the pass line on it
-    px, py, pad = 60, 150, 20
-    rw = 1520
+    # -- left panel: the graded render with the pass line on it.
+    #    The 130 px gutter on the left holds the y tick labels and the
+    #    rotated y-axis label, so no tick text is clipped at the canvas edge.
+    px, py, pad = 190, 150, 20
+    rw = 1440
     rh = int(rw * render.size[1] / render.size[0])       # 4:3 -> 1140
     big = render.resize((rw, rh), Image.LANCZOS)
     img.paste(big, (px + pad, py + pad))
@@ -76,6 +78,10 @@ def build_result() -> None:
 
     # oracle rectangles (the pass line), scaled from the 640x480 grade frame
     f_lab = font("bold", 40)
+    # mesh labels sit above their rectangle, but never grow into the
+    # right-hand verdict panel: a rectangle near the frame's right edge
+    # gets its label right-aligned INSIDE it instead.
+    label_right = px + pad + rw          # right edge of the render pane
     for i, (path, m) in enumerate(sorted(g4.items())):
         col = rgb(OI[i % len(OI)])
         x0, y0, x1, y1 = m["rect"]
@@ -86,22 +92,44 @@ def build_result() -> None:
             d.rectangle([box[0] + off, box[1] + off, box[2] - off, box[3] - off],
                         outline=col, width=5)
         name = path.rsplit("/", 1)[-1]
-        d.text((box[0] + 10, max(py + pad, box[1] - 58)),
-               f"{name}  k={m['illuminance_k']:.2f}", font=f_lab,
+        txt = f"{name}  k={m['illuminance_k']:.2f}"
+        tw = d.textlength(txt, font=f_lab)
+        if box[0] + 10 + tw <= label_right:
+            lx, ly = box[0] + 10, max(py + pad + 4, box[1] - 58)
+        else:
+            lx, ly = box[2] - 10 - tw, max(py + pad + 4, box[1] - 58)
+        d.text((lx, ly), txt, font=f_lab,
                fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
 
-    # axes around the render (the oracle's pixel space), with units
+    # axes around the render (the oracle's pixel space), with units.
+    # The tick labels are drawn INSIDE the plot gutter (the labels sit to
+    # the left of x=0 / above y=0 are never cut by the canvas edge).
     fa = font("mono", 30)
+    gutter = 130                      # room for the y tick labels
     for xv in range(0, 641, 160):
         X = px + pad + xv * s
-        d.line([X, py + pad + rh + 10, X, py + pad + rh + 26], fill=(120, 128, 140), width=2)
-        d.text((X - 24, py + pad + rh + 32), f"{xv}", font=fa, fill=MUTED)
+        d.line([X, py + pad + rh + 10, X, py + pad + rh + 26],
+               fill=(120, 128, 140), width=2)
+        lab = str(xv)
+        d.text((X - d.textlength(lab, font=fa) / 2, py + pad + rh + 32),
+               lab, font=fa, fill=MUTED)
     d.text((px + pad + rw // 2 - 150, py + pad + rh + 76),
-           "projected pixel x (px, 640-wide grade frame)", font=fa, fill=MUTED)
+           "projected pixel x (px, 640-wide grade frame)",
+           font=fa, fill=MUTED)
     for yv in range(0, 481, 120):
         Y = py + pad + yv * (rh / 480.0)
-        d.line([px + pad - 26, Y, px + pad - 10, Y], fill=(120, 128, 140), width=2)
-        d.text((px + pad - 100, Y - 16), f"{yv}", font=fa, fill=MUTED)
+        d.line([px + pad - 26, Y, px + pad - 10, Y],
+               fill=(120, 128, 140), width=2)
+        lab = str(yv)
+        d.text((px + pad - 40 - d.textlength(lab, font=fa), Y - 16),
+               lab, font=fa, fill=MUTED)
+    # the y axis gets a label and a unit too, drawn rotated up the gutter
+    ylab = Image.new("RGBA", (760, 40), (0, 0, 0, 0))
+    ImageDraw.Draw(ylab).text((0, 0), "projected pixel y (px, 480-tall frame)",
+                              font=fa, fill=MUTED)
+    ylab = ylab.rotate(90, expand=True)
+    img.paste(ylab, (px - gutter + 42, py + pad + rh // 2 - ylab.size[1] // 2),
+              ylab)
 
     # -- right panel: the verdict numbers
     qx = px + pad * 2 + rw + 46
@@ -140,16 +168,30 @@ def build_result() -> None:
                          f"{str(verdict['judge_integrity_ok']).lower()}",
            font=font("mono", 34), fill=INK)
 
-    # -- title + provenance footer
-    d.text((60, 44), "nanousd-render - two USD implementations agree, "
-                     "and a CPU render proves it",
-           font=font("bold", 54), fill=INK)
-    d.text((60, PH - 64),
-           "judge/grade.sh examples/good/scene.usda --seed 0 "
-           "--json media/build/verdict.json  |  render: pinned "
-           "nanousd OpenGL ES renderer on llvmpipe  |  rectangles: G4 "
-           "numpy pinhole oracle",
-           font=font("mono", 27), fill=MUTED)
+    # -- title + provenance footer. Both are measured to fit: the title is
+    #    scaled down to the canvas and the footer wrapped to two lines, so
+    #    neither is ever clipped at the right edge.
+    t1 = "nanousd-render - two USD implementations agree,"
+    t2 = "and a CPU render proves it"
+    ft = font("bold", 54)
+    while ft.size > 30 and (
+            d.textlength(t1 + " " + t2, font=ft) > PW - 120):
+        ft = font("bold", ft.size - 2)
+    d.text((60, 34), t1, font=ft, fill=INK)
+    d.text((60, 34 + ft.size + 12), t2, font=ft, fill=INK)
+
+    foot = ("judge/grade.sh examples/good/scene.usda --seed 0 --json "
+            "media/build/verdict.json   |   render: pinned nanousd OpenGL "
+            "ES renderer on llvmpipe   |   rectangles: the G4 numpy pinhole "
+            "oracle re-projected from each reader's world transforms")
+    ff = font("mono", 26)
+    while ff.size > 16 and d.textlength(foot, font=ff) > PW - 120:
+        ff = font("mono", ff.size - 1)
+    # break the footer on the two "|" separators so both halves stay inside
+    parts = foot.split("   |   ")
+    d.text((60, PH - 104), parts[0], font=ff, fill=MUTED)
+    d.text((60, PH - 104 + ff.size + 14), " | ".join(parts[1:]),
+           font=ff, fill=MUTED)
 
     img.save(os.path.join(HERE, "result.png"), dpi=(DPI, DPI))
 
@@ -163,9 +205,12 @@ def edit(text, old, new, what):
     return text.replace(old, new, 1)
 
 
-# Iterations of the agent loop: real single-edit artifacts, graded for
-# real. Each edit undoes one fix from the known-good scene, so the loop
-# replays the authoring history backwards (error -> error -> error -> pass).
+# The authoring loop, replayed honestly: four single-edit artifacts derived
+# from the known-good scene, each graded for real by judge/grade.sh. These
+# are STAGED single-edit replays (the same edits judge/mutants.py makes, so
+# each one's failure is a measured gate verdict), not a recorded agent
+# session -- the figure title says so rather than implying otherwise.
+# The fourth artifact is the unmodified graded scene: the pass.
 def iteration_files(outdir):
     good = open(GOOD, encoding="utf-8").read()
     its = [
@@ -174,18 +219,15 @@ def iteration_files(outdir):
                           '        float3 xformOp:rotateXYZ = (-45, 30, 0)\n'
                           '        uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]\n    }\n', "",
                           "no light")),
-        ("camera off", edit(good, "float3 xformOp:rotateXYZ = (-18, 0, 0)",
+        ("camera off", edit(good, "float3 xformOp:rotateXYZ = (-14, 0, 0)",
                             "float3 xformOp:rotateXYZ = (85, 0, 0)",
                             "camera off")),
-        ("overlapping", edit(good, "float3 xformOp:translate = (-4.2, 0.6, 0)",
-                             "float3 xformOp:translate = (-2.3, 0.6, 0)",
-                             "overlapping")),
-        ("sub 12 points", edit(good, "float3 xformOp:translate = (4.2, 0.55, 0)",
-                               "float3 xformOp:translate = (4.2, 0.55, 0)",
-                               "noop")),
+        ("half off screen", edit(good,
+                                 "float3 xformOp:translate = (4.2, 0.55, 0)",
+                                 "float3 xformOp:translate = (5.7, 0.55, 0)",
+                                 "half off screen")),
+        ("graded scene", good),
     ]
-    # iteration 4 is the unmodified good scene (the pass)
-    its[3] = ("graded scene", good)
     paths = []
     for i, (name, text_) in enumerate(its, 1):
         p = os.path.join(outdir, f"iter{i}.usda")
@@ -221,49 +263,89 @@ def build_loop() -> None:
     img = Image.new("RGB", (PW, PH), PAPER)
     d = ImageDraw.Draw(img, "RGBA")
 
-    d.text((60, 40), "The agent loop - grade verdicts per iteration, and "
-                     "the self-test kill rate",
+    d.text((60, 40), "Staged authoring iterations, then the self-test kill "
+                     "matrix",
            font=font("bold", 52), fill=INK)
+    d.text((60, 104),
+           "four single-edit artifacts, each graded for real by "
+           "judge/grade.sh: the loop an agent walks, replayed here from "
+           "measured runs",
+           font=font("sans", 28), fill=MUTED)
 
     # -- top: gates passed (of 4) per iteration
-    x0, y0, w, h = 90, 190, 2220, 420
+    x0, y0, w, h = 90, 200, 2220, 430
     d.rectangle([x0, y0, x0 + w, y0 + h], fill=PANEL, outline=(70, 78, 90))
-    d.text((x0 + 24, y0 + 18), "gates passed per iteration (1 = one grade run)",
-           font=font("bold", 36), fill=INK)
-    step = (w - 160) / max(1, len(history) - 1)
-    base_y = y0 + h - 90
+    d.text((x0 + 24, y0 + 16),
+           "gates passed per iteration (1 bar = one real grade.sh run; "
+           "the bar's label is the gates that failed)",
+           font=font("bold", 34), fill=INK)
+    # the y-axis tick labels live in a dedicated gutter at the left of the
+    # plot area, so none of them can overlap the first bar's label
+    ax_x = x0 + 150                    # left edge of the plot area
+    step = (w - 260) / max(1, len(history) - 1)
+    base_y = y0 + h - 96
     for gy in range(5):
         Y = base_y - gy * 62
-        d.line([x0 + 120, Y, x0 + w - 40, Y], fill=(50, 56, 66), width=1)
-        d.text((x0 + 64, Y - 18), str(gy), font=font("mono", 28), fill=MUTED)
+        d.line([ax_x, Y, x0 + w - 40, Y], fill=(50, 56, 66), width=1)
+        lab = str(gy)
+        d.text((ax_x - 24 - d.textlength(lab, font=font("mono", 28)),
+                Y - 16), lab, font=font("mono", 28), fill=MUTED)
+    d.text((x0 + 34, y0 + 60), "gates", font=font("sans", 26), fill=MUTED)
+    d.text((x0 + 34, base_y + 10), "passed", font=font("sans", 26),
+           fill=MUTED)
     for i, it in enumerate(history):
-        X = x0 + 120 + i * step
+        X = ax_x + 130 + i * step
         col = PASS if it["pass"] else FAILC
         top = base_y - (4 - it["nfail"]) * 62
         d.rectangle([X - 52, top, X + 52, base_y], fill=col)
-        d.text((X - 120, base_y + 16), f"it{i+1}: {it['name']}",
-               font=font("mono", 27), fill=INK)
-        d.text((X - 52, top - 38), "PASS" if it["pass"] else it["failed"],
-               font=font("monobold", 27), fill=col)
+        lab = f"it{i+1}: {it['name']}"
+        fl = font("mono", 26)
+        # centre the label under its bar and shrink it until it fits the
+        # step, so the last one is never clipped by the panel edge
+        while fl.size > 16 and d.textlength(lab, font=fl) > step - 16:
+            fl = font("mono", fl.size - 1)
+        d.text((X - d.textlength(lab, font=fl) / 2, base_y + 14), lab,
+               font=fl, fill=INK)
+        tag = "PASS" if it["pass"] else it["failed"]
+        ft = font("monobold", 26)
+        d.text((X - d.textlength(tag, font=ft) / 2, top - 36), tag,
+               font=ft, fill=col)
 
     # -- bottom: kill-rate bars, one per mutant (1 = killed by a gate)
-    y1 = 680
+    y1 = 690
     d.rectangle([x0, y1, x0 + w, y1 + 520], fill=PANEL, outline=(70, 78, 90))
-    d.text((x0 + 24, y1 + 18),
+    d.text((x0 + 24, y1 + 16),
            f'self-test: {selftest["mutants_killed"]}/{selftest["mutants_total"]} '
            f'mutants killed by a named gate '
            f'(kill rate {selftest["kill_rate"]}; determinism '
            f'{"OK" if selftest["determinism_ok"] else "FAIL"})',
            font=font("bold", 36), fill=INK)
     muts = selftest["mutants"]
-    bw = (w - 200) / max(1, len(muts))
+    bw = (w - 220) / max(1, len(muts))
     for i, m in enumerate(muts):
-        X = x0 + 140 + i * bw
+        X = x0 + 150 + i * bw
         col = PASS if m["verdict"] == "KILLED" else FAILC
-        d.rectangle([X, y1 + 100, X + bw - 18, y1 + 420], fill=col)
-        d.text((X - 12, y1 + 436), m["name"].replace("_", "\n"),
-               font=font("mono", 22), fill=INK, align="center")
-        d.text((X - 12, y1 + 96 - 34), m["gates_failed"].split(",")[0],
+        d.rectangle([X, y1 + 100, X + bw - 22, y1 + 400], fill=col)
+        # the mutant name wraps on underscores and is centred inside its
+        # column, shrinking to fit rather than overflowing its neighbour
+        fl = font("mono", 22)
+        words = m["name"].split("_")
+        lines, cur = [], ""
+        for w_ in words:
+            trial = (cur + "_" + w_) if cur else w_
+            if d.textlength(trial, font=fl) <= bw - 28 or not cur:
+                cur = trial
+            else:
+                lines.append(cur)
+                cur = w_
+        if cur:
+            lines.append(cur)
+        ty = y1 + 410
+        for ln in lines:
+            d.text((X + (bw - 22 - d.textlength(ln, font=fl)) / 2, ty),
+                   ln, font=fl, fill=INK)
+            ty += fl.size + 6
+        d.text((X + 6, y1 + 100 - 34), m["gates_failed"].split(",")[0],
                font=font("monobold", 24), fill=MUTED)
 
     d.text((60, PH - 58),
