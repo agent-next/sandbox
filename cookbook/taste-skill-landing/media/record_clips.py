@@ -36,6 +36,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 from playwright.sync_api import sync_playwright
 
@@ -85,11 +86,41 @@ def act_noop(page):
     pass
 
 
+#: Rough wall-clock budget per action, used only to bound one clip so a
+#: stalled page cannot wedge the whole recording run.
+ACTION_BUDGETS = {
+    "act_scroll": 14.0,
+    "act_widget_scrub": 20.0,
+    "act_resp_scroll": 10.0,
+    "act_hero_push": 8.0,
+}
+
+
+def _budget_of(fn):
+    """Per-action wall budget; unknown actions (lambdas wrapping the named
+    ones) get the default scroll budget."""
+    name = getattr(fn, "__name__", "")
+    if name in ACTION_BUDGETS:
+        return ACTION_BUDGETS[name]
+    # lambdas: inspect the closed-over callable by its repr, which carries
+    # the source name (e.g. "<function <lambda> at ... act_scroll(p, ...)>")
+    for known, budget in ACTION_BUDGETS.items():
+        if known in repr(fn):
+            return budget
+    return 16.0
+
+
 def act_scroll(page, total, seconds, smooth=True):
     """Scroll the page continuously, one step per animation frame, so every
-    recorded frame differs (the gate measures frame-to-frame luma delta)."""
+    recorded frame differs (the gate measures frame-to-frame luma delta).
+
+    The scroll is driven from a rAF loop *and* mirrored by a Python-side
+    deadline loop, so a page whose rAF stalls (long brief, backgrounded
+    renderer) still lands on the final offset and returns: the recorder must
+    never hang on one clip."""
     page.evaluate(
-        """([total, seconds]) => new Promise(res => {
+        """([total, seconds]) => {
+               window.__scrollDone = false;
                const dur = seconds * 1000;
                const start = performance.now();
                const from = window.scrollY;
@@ -98,10 +129,22 @@ def act_scroll(page, total, seconds, smooth=True):
                    // ease-in-out so the shot starts and lands gently
                    const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
                    window.scrollTo(0, Math.round(from + (total - from) * e));
-                   if (t < 1) { requestAnimationFrame(step); } else { res(); }
+                   if (t < 1) { requestAnimationFrame(step); }
+                   else { window.__scrollDone = true; }
                }
                requestAnimationFrame(step);
-           })""", [total, seconds])
+           }""", [total, seconds])
+    # hard deadline: (seconds + 3) of real time, stepping every 50 ms
+    deadline = seconds + 3.0
+    waited = 0.0
+    while waited < deadline:
+        page.wait_for_timeout(50)
+        waited += 0.05
+        if page.evaluate("window.__scrollDone === true"):
+            return
+    # rAF never finished — snap to the final offset so the clip still ends
+    # on the bottom of the page instead of freezing mid-scroll
+    page.evaluate("(t) => window.scrollTo(0, t)", total)
 
 
 def total_scroll(page):
@@ -382,7 +425,16 @@ def main():
             page = ctx.new_page()
             page.goto(url, wait_until="load")
             page.wait_for_timeout(400)
+            # A stalled renderer must not wedge the whole run: every action
+            # gets a bounded budget, and the clip is closed either way so
+            # Playwright still finalises its recording.
+            budget = sum(_budget_of(fn) for fn in actions) + 8.0
+            started = time.monotonic()
             for fn in actions:
+                if time.monotonic() - started > budget:
+                    print(f"[clips] {name:<18} action budget {budget:.0f}s "
+                          f"exceeded — finishing the clip as-is")
+                    break
                 fn(page)
             page.wait_for_timeout(int(tail * 1000))
             webm = page.video.path()

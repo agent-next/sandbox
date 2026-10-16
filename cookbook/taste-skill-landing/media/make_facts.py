@@ -63,7 +63,8 @@ def main() -> int:
             "speed": widget["speed"],
             "dir": widget["dir"],
             # "the wind saves you 68 minutes if you ride it the right way"
-            "saving_minutes": minutes_of(widget["text"], r"saves you (\d+) minutes"),
+            "saving_minutes": minutes_of(widget["text"],
+                                         r"saves you (\d+) minute"),
             "label": "saved on the 40 km loop, riding the right way",
         },
         "selftest_kills": kills or "8/8",
@@ -80,6 +81,9 @@ def main() -> int:
 
 
 def minutes_of(text: str, pattern: str) -> int:
+    """The judge's verdict JSON truncates each widget sample to 120 chars, which
+    can cut the sentence mid-word ("saves you 68 minute"). The number itself is
+    always intact, so match the digits without requiring the trailing word."""
     m = re.search(pattern, text)
     if not m:
         raise SystemExit(f"[facts] ERROR: cannot read '{pattern}' from {text!r}")
