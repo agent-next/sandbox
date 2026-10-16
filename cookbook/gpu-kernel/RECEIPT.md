@@ -288,9 +288,12 @@ source data — never edited by hand:
   tolerance, log y; eager vs Triton timing bars with effective GB/s) and
   `media/loop.png` (mutant × gate matrix, red cell names the failing
   gate, overlap checked in code) — reads only `data/report.json`
-- `media/make_video.py` → `media/demo.mp4` (1920×1080, 30 fps, libx264
-  CRF 18, ~36 s): the lease lifecycle verbatim from `data/gpu-run.log`,
-  then both figures
+- `media/make_media.sh` → `media/demo.mp4` (1920×1080, 30 fps, H.264
+  yuv420p CRF 18, ~46 s, moov before mdat): an animated cut rendered by
+  Remotion over footage recorded from a real judge run in the generating
+  sandbox — the per-iteration timing race, the input→softmax row, the
+  recorded sandbox run sped up, the GPU-slice timing, and the verdict HUD
+  over the still-playing recording; the last 2.5 s is a static end card
 - `media/make_media.sh` — pinned-venv pipeline; exits non-zero naming
   what is missing (e.g. `data/report.json` before the lead's GPU run);
   writes `media/MANIFEST.json` with sha256 of every output + its source
