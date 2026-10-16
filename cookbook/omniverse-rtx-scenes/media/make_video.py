@@ -191,8 +191,8 @@ def terminal_frames(run: Path, seconds: float, work: Path, speed: int):
     keep, out = [], []
     for ln in log:
         if (ln.startswith("run.py:") or "[lease]" in ln or "[upload]" in ln
-                or "[render]" in ln or "[download]" in ln or "[judge]" in ln
-                or "[cleanup]" in ln or "[bundle]" in ln):
+                or "[exec]" in ln or "[render]" in ln or "[download]" in ln
+                or "[judge]" in ln or "[cleanup]" in ln or "[bundle]" in ln):
             keep.append(ln.rstrip())
     if not keep:
         keep = ["run.py: (log unavailable)"]

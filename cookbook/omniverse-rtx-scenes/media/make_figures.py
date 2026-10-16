@@ -121,7 +121,11 @@ def result_figure(run: Path, out: Path, throughput: dict) -> None:
     spf = [renders[s].get("s_per_frame", 0) for s in scenes]
     ax.bar(scenes, spf, color="#6C4F9E")
     ax.set_ylabel("seconds per 1920x1080 frame")
-    ax.set_title(f"RTX render cost\n({throughput.get('steps', 1)} step/frame)", fontsize=11)
+    if "spp" in throughput:
+        ax.set_title(f"RTX render cost\n(PathTracing, {throughput['spp']} spp + OptiX denoise)",
+                     fontsize=11)
+    else:
+        ax.set_title(f"RTX render cost\n({throughput.get('steps', 1)} step/frame)", fontsize=11)
 
     ax = fig.add_subplot(gs[1, 2])
     total = receipt.get("total_seconds")
@@ -185,13 +189,16 @@ def loop_figure(run: Path, out: Path) -> None:
 
 def main() -> int:
     run = Path(sys.argv[1]).resolve()
-    steps = {"steps": 1}
+    throughput = {"steps": 1}
     rr = json.loads((run / "run-receipt.json").read_text()).get("render_report", {})
     for job in (rr.get("jobs") or {}).values():
-        if job.get("steps_per_frame"):
-            steps = {"steps": job["steps_per_frame"]}
+        if job.get("render_mode") == "PathTracing":
+            throughput = {"spp": job.get("spp") or 1}
             break
-    result_figure(run, HERE / "result.png", steps)
+        if job.get("steps_per_frame"):
+            throughput = {"steps": job["steps_per_frame"]}
+            break
+    result_figure(run, HERE / "result.png", throughput)
     loop_figure(run, HERE / "loop.png")
     print(f"wrote {HERE / 'result.png'} and {HERE / 'loop.png'}")
     return 0

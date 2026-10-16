@@ -158,7 +158,7 @@ passes for every scene (`judge/grade_frames.py` prints one JSON verdict).
 | 1 | build the three scene bundles (`scenes/build_scenes.py --no-bake`) and `tar.czf` each one |
 | 2 | create the GPU lease: `POST /sandboxes` with `{"accel":{"vram_gb":6,"template":"omniverse"}}` |
 | 3 | upload each bundle: `PUT /sandboxes/{id}/files/out/<scene>.tar.gz` (raw body, ≤ 512 MiB) |
-| 4 | render: one `POST /sandboxes/{id}/exec` at a time (`code`, `timeout_s: 3600`) — untar, author the RTX wrapper, render 8 s / 6 s / 6 s at 1920×1080 × 30 fps, write PNG frames + mp4 + `render_report.json` into `OUTPUT_DIR` |
+| 4 | render: one `POST /sandboxes/{id}/exec` **per scene** (`code`, `timeout_s: 3600` each, so every scene gets the full budget for its samples-per-pixel) — untar, author the RTX wrapper, render 8 s / 6 s / 6 s at 1920×1080 × 30 fps, write PNG frames + mp4 + `render_report.json` into `OUTPUT_DIR` |
 | 5 | `GET /sandboxes/{id}/files` then `/files/{name}` per file; frames are sub-sampled to 1 in 15 |
 | 6 | delete both leases in a `finally` and **verify** each with `GET` until 404 — an unconfirmed delete is a hard failure naming the sandbox id |
 
@@ -170,9 +170,15 @@ passes for every scene (`judge/grade_frames.py` prints one JSON verdict).
   `ovrtx`, `ovstage`, `pxr`, `numpy`, `PIL` and `av` importable; **no**
   `ffmpeg`, `zstd`, `torch` (see PRODUCT-FRICTION.md F4).
 - `exec` cwd is `/`; every path in the job is absolute.
-- The RTX path tracer is switched on by `omni:rtx:rendermode = "RealTimePathTracing"`
+- The RTX path tracer is switched on by `omni:rtx:rendermode = "PathTracing"`
   on the `UsdRender.Product`; stage-1 scenes carry no product, so the job
   authors a wrapper layer per scene that references `scene.usda` relatively.
+  In this offline mode **one `renderer.step()` accumulates up to
+  `omni:rtx:pt:samplesPerPixel` samples** and the OptiX denoiser
+  (`omni:rtx:pt:denoising:enabled`) runs on the result — both are product
+  attributes, the ovrtx 0.5.1 Python API exposes no denoiser.  (The default
+  `RealTimePathTracing` mode takes 1 sample per step: measured 4.14 s/frame,
+  converged 0 %, luma σ ≈ 16 — visibly noisy.)
 - RTX exposure lives **on the camera** via `OmniRtxCameraExposureAPI_1`.  Without
   it a dome-lit frame maps to exactly 0 and every PNG is black.
 - Animation comes from `ovstage.population.update_from_usd_time` with a **fresh

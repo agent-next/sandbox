@@ -30,10 +30,16 @@ Design notes (why the job looks like this):
   * Animated frames come from ovstage.population.update_from_usd_time
     (time in SECONDS = timecode/fps) with a FRESH renderer ordinal per
     frame (the ovrtx multi-rate-sensors example pattern).
-  * Path-tracer convergence is bought with renderer time: --steps-per-frame
-    accumulates renderer.step() calls per frame; converged/progression and
-    per-frame luma stats are recorded so the sweep can pick the rung that
-    clears the noise target.
+  * Clean frames come from the offline PathTracing render mode: one
+    renderer.step() per frame accumulates up to
+    omni:rtx:pt:samplesPerPixel samples internally and the OptiX denoiser
+    (omni:rtx:pt:denoising:enabled, on by default) runs on the result —
+    both are RenderProduct attributes the wrapper authors, there is no
+    separate Python denoiser API in ovrtx 0.5.1.  The default
+    RealTimePathTracing mode takes 1 sample per step instead: measured
+    live it converges 0% of pixels with luma_std ~16 (visibly noisy), so
+    --render-mode rtpt + --steps-per-frame exists only for comparison
+    sweeps.
 """
 
 from __future__ import annotations
@@ -63,6 +69,16 @@ LIGHT_SCALE = 1000.0
 # Scene B has no lights; the wrapper adds these (dome + key).
 PHYSICS_DOME_INTENSITY = 800.0
 PHYSICS_KEY_INTENSITY = 2500.0
+# Offline path tracing: samples accumulated per pixel inside ONE
+# renderer.step() (omni:rtx:pt:samplesPerPixel), OptiX denoised.
+RENDER_MODE = "PathTracing"
+SAMPLES_PER_PIXEL = 32
+DENOISE = True
+# Camera exposure in stops above the authored 0 (see author_wrapper).  The
+# default frames measure mean luma 5.7 / 89 % of pixels below 8, which makes
+# the underexposed/black-frame judge gates meaningless; +4 stops (16x) was
+# measured to bring the same warehouse frame to a natural exposure.
+EXPOSURE_STOPS = 4.0
 
 
 def log(msg: str) -> None:
@@ -106,7 +122,10 @@ def _attr(prim, name, vtype: str, value) -> None:
     attr.Set(value)
 
 
-def author_wrapper(scene_root: Path) -> Path:
+def author_wrapper(scene_root: Path, render_mode: str = RENDER_MODE,
+                   spp: int = SAMPLES_PER_PIXEL,
+                   denoise: bool = DENOISE,
+                   exposure_stops: float = EXPOSURE_STOPS) -> Path:
     """Overlay layer owning the RenderProduct/Var, referencing scene.usda."""
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdRender, UsdLux
 
@@ -143,9 +162,18 @@ def author_wrapper(scene_root: Path) -> Path:
     prod.CreateCameraRel().SetTargets([cam_path])
     prod.CreateResolutionAttr().Set(Gf.Vec2i(W, H))
     prod.CreateOrderedVarsRel().SetTargets([Sdf.Path(VAR_PATH)])
-    # The switch that makes the product an RTX path tracer.
+    # The switch that makes the product an RTX path tracer.  PathTracing
+    # (offline) accumulates --spp samples inside one renderer.step() and
+    # denoises with OptiX before returning; RealTimePathTracing takes one
+    # sample per step and needs a warm-up loop to converge.
     prod.GetPrim().CreateAttribute(
-        "omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set("RealTimePathTracing")
+        "omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(render_mode)
+    if render_mode == "PathTracing":
+        _attr(prod.GetPrim(), "omni:rtx:pt:samplesPerPixel", "UInt", int(spp))
+        _attr(prod.GetPrim(), "omni:rtx:pt:denoising:enabled", "Bool", bool(denoise))
+        # temporal accumulation would smear the fast crate motion in B
+        _attr(prod.GetPrim(), "omni:rtx:pt:denoising:optix:temporal",
+              "Bool", False)
     settings = UsdRender.Settings.Define(stage, "/Render/Settings")
     settings.GetPrim().CreateAttribute(
         "omni:rtx:scenePartitioning:showAllPartitionsByDefault",
@@ -156,7 +184,7 @@ def author_wrapper(scene_root: Path) -> Path:
         raise RuntimeError(f"camera {cam_path} not composed into {wrapper_path}")
     cam_prim.SetMetadata("apiSchemas", Sdf.TokenListOp.CreateExplicit(
         ["OmniRtxCameraExposureAPI_1"]))
-    _attr(cam_prim, "exposure", "Float", 0.0)
+    _attr(cam_prim, "exposure", "Float", float(exposure_stops))
     _attr(cam_prim, "exposure:fStop", "Float", 5.0)
     _attr(cam_prim, "exposure:iso", "Float", 100.0)
     _attr(cam_prim, "exposure:responsivity", "Float", 1.1026709)
@@ -275,7 +303,10 @@ def pick_hero(frames_dir: Path) -> dict:
 
 
 def render_scene(scene: str, workdir: Path, outdir: Path,
-                 steps_per_frame: int, frame_limit: int) -> dict:
+                 steps_per_frame: int, frame_limit: int,
+                 render_mode: str = RENDER_MODE, spp: int = SAMPLES_PER_PIXEL,
+                 denoise: bool = DENOISE,
+                 exposure_stops: float = EXPOSURE_STOPS) -> dict:
     """Render one scene; write <scene>/<frame>.png frames into outdir."""
     import numpy as np
     import ovrtx
@@ -288,7 +319,8 @@ def render_scene(scene: str, workdir: Path, outdir: Path,
     n = min(total, frame_limit)
     t0 = time.monotonic()
 
-    wrapper = author_wrapper(scene_root)
+    wrapper = author_wrapper(scene_root, render_mode=render_mode, spp=spp,
+                             denoise=denoise, exposure_stops=exposure_stops)
     renderer = ovrtx.Renderer()
     stage = ovstage.Stage(f"omniverse.{scene}")
     written, converged_flags, noise, progressions = [], [], [], []
@@ -346,6 +378,10 @@ def render_scene(scene: str, workdir: Path, outdir: Path,
         wall = time.monotonic() - t0
         row = {
             "frames": len(written),
+            "render_mode": render_mode,
+            "spp": spp if render_mode == "PathTracing" else None,
+            "denoise": denoise if render_mode == "PathTracing" else None,
+            "exposure_stops": exposure_stops,
             "steps_per_frame": steps_per_frame,
             "wall_s": round(wall, 3),
             "s_per_frame": round(wall / max(1, len(written)), 3),
@@ -378,8 +414,23 @@ def main() -> int:
                     help="synced output dir (default: OUTPUT_DIR / discovery)")
     ap.add_argument("--jobs", default="all",
                     help="comma list of scenes or 'all'")
+    ap.add_argument("--render-mode", default=RENDER_MODE,
+                    choices=["PathTracing", "RealTimePathTracing"],
+                    help="PathTracing: spp samples inside ONE step, denoised")
+    ap.add_argument("--spp", type=int, default=SAMPLES_PER_PIXEL,
+                    help="PathTracing samples per pixel (accumulated "
+                         "inside a single renderer.step())")
+    ap.add_argument("--exposure-stops", type=float, default=EXPOSURE_STOPS,
+                    help="camera exposure in stops (2 = 4x brighter); the "
+                         "real run measures luma stats per scene and pins "
+                         "the value that keeps frames clear of the "
+                         "black-frame gate")
+    ap.add_argument("--no-denoise", dest="denoise",
+                    action="store_false", default=DENOISE,
+                    help="disable the OptiX denoiser (noise measurement)")
     ap.add_argument("--steps-per-frame", type=int, default=1,
-                    help="renderer steps accumulated per frame (convergence)")
+                    help="rtpt mode only: renderer steps accumulated per "
+                         "frame (convergence warm-up)")
     ap.add_argument("--frame-limit", type=int, default=10 ** 9,
                     help="render only the first N frames (sweep/debug)")
     args = ap.parse_args()
@@ -389,17 +440,25 @@ def main() -> int:
     outdir.mkdir(parents=True, exist_ok=True)
 
     jobs = list(SCENES) if args.jobs == "all" else args.jobs.split(",")
-    report = {"steps_per_frame": args.steps_per_frame,
+    report = {"render_mode": args.render_mode, "spp": args.spp,
+              "denoise": args.denoise,
+              "exposure_stops": args.exposure_stops,
+              "steps_per_frame": args.steps_per_frame,
               "frame_limit": args.frame_limit, "jobs": {}}
     t_start = time.monotonic()
     for scene in jobs:
         if scene not in SCENES:
             raise SystemExit(f"unknown scene {scene!r}; known: {list(SCENES)}")
         spec = SCENES[scene]
+        how = (f"{args.spp} spp{' denoised' if args.denoise else ' raw'}"
+               if args.render_mode == "PathTracing"
+               else f"{args.steps_per_frame} step(s)/frame")
         log(f"{spec['label']}: {spec['frames']} frames, "
-            f"{args.steps_per_frame} step(s)/frame")
+            f"{args.render_mode} {how} @ {args.exposure_stops} stops")
         row = render_scene(scene, workdir, outdir, args.steps_per_frame,
-                           args.frame_limit)
+                           args.frame_limit, render_mode=args.render_mode,
+                           spp=args.spp, denoise=args.denoise,
+                           exposure_stops=args.exposure_stops)
         report["jobs"][scene] = row
         log(f"{scene}: {row['frames']} frames in {row['wall_s']} s "
             f"({row['s_per_frame']} s/frame); "

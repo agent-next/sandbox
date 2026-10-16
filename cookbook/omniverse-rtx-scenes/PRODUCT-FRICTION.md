@@ -89,7 +89,7 @@ Three separate problems in one reply:
 
 ## F3. No idle reaper: a crashed caller bills forever
 
-**Observed:** after an interrupted run, a lease created by an earlier attempt
+**Observed (2×):** after an interrupted run, a lease created by an earlier attempt
 (`gl-0c86c5-3`, template `omniverse`, 6 GB) stayed resident for **1680 s**
 (~28 min) with `exec_wall_s: 0.0`, `busy_s: 0.0`, `0` files, while its owner
 was already gone — and while it held **the only GPU seat**, so every other
@@ -104,6 +104,14 @@ create returned the F1 409.
   semantics of the CPU product) and **the 409 message should carry the age**
   of the incumbent so the caller can tell "another render running" from
   "another tenant died".
+
+**Second occurrence (same day, 2026-10-16T07:0xZ):** the same failure mode
+with `gl-4bed02-33`, resident **3018 s (~52 min)** with
+`exec_wall_s` at zero until our probes ran, `idle_timeout_s: 0.0`, holding
+the single seat through an entire retry budget. It was identified as our own
+earlier attempt's artifact (only our own probe scripts `job_1..5.py` were
+inside it) and deleted; a customer without that forensics has no safe action
+available at all (see F8 on ownership proofs).
 
 ## F4. `ffmpeg` and `zstd` are missing from the `omniverse` image; only `av` is there
 
@@ -215,13 +223,78 @@ Two problems in one:
 
 ---
 
+## F9. Upload throughput is unpredictable by 500×
+
+**Same route, same account, same day (2026-10-16):**
+
+| when | bytes | wall | throughput |
+| --- | --- | --- | --- |
+| stage-1 probe | 21 MB (`physics.tar.gz`) | ~0.1 s | **~200 MB/s** |
+| render smoke | 52,440,519 B (`arm.tar.gz`) | 136.24 s | **0.385 MB/s** |
+
+`PUT /sandboxes/{id}/files/arm.tar.gz` → `200` both times. There is no
+documented throughput class, no progress signal during a multi-minute PUT
+(the caller's HTTP client just blocks), and no size limit between "works"
+(512 MiB documented cap) and "fast". For this demo the three bundles are
+166 MB together: at the measured 0.385 MB/s that is **~7.5 minutes of pure
+upload** on every run — 3× the cost of the render itself at 64 spp. A
+customer cannot budget a run without knowing which of the two regimes they
+will hit.
+
+## F10. A long exec is a black box: no progress, no partial log
+
+`POST /sandboxes/{id}/exec {"code": ..., "timeout_s": 3600}` returns
+`result.stdout`/`result.stderr` only **when the job finishes**. The reply
+envelope (measured):
+
+```json
+{"result": {"ok": true, "seq": 3, "nonce": "…", "code_wall_s": 2512.9,
+            "stdout": "…", "stderr": "…", "chk": true, "report": {…}}}
+```
+
+During the 42-minute render there is **no way to read partial stdout** — the
+job's own log file is written under OUTPUT_DIR, but that only helps for
+files, and the gateway syncs the listing on its own schedule. `seq`, `nonce`
+and `chk` are undocumented (they look like an execution-ordering/checksum
+scheme the caller is never told how to use). A job that renders 600 frames
+cannot report "frame 240/600" to its operator except by polling file
+listings — which is what `run.py` ends up doing.
+
+## F11. The `omniverse` template's renderer stack is undocumented and version-skewed
+
+The lease ships `ovrtx 0.5.1`. Nothing in the product docs describes it;
+the upstream docs at `nvidia-omniverse.github.io/ovrtx` describe a newer
+build, and two of their own links (`/rendermodes/pathtracing.html`,
+`/configuration.html`) 404 — the real pages live under
+`/sensors/cameras/render_modes/…`. Discovering how to get clean path-traced
+frames required: reading the ovrtx Python API on the lease (`dir(ovrtx)` —
+no denoiser), downloading the 0.6.0 sdist from PyPI (C/C++ only), and only
+then finding that **the OptiX denoiser and sample counts are USD attributes
+on the RenderProduct** (`omni:rtx:pt:samplesPerPixel`,
+`omni:rtx:pt:denoising:enabled`), not Python API surface at all. A template
+that exists to run this renderer should pin and document its render settings
+surface; the difference between the shipped 0.5.1 and the documented 0.6
+behavior is exactly the kind of thing that costs a customer an afternoon.
+
+## F12. `OUTPUT_DIR` is a code global, not an environment variable
+
+`os.environ.get("OUTPUT_DIR")` inside an exec returns `None`; the value is
+injected as a **global in the exec body's namespace**. Any job that follows
+the universal convention of reading its config from the environment (12-factor
+style, works identically in Docker/CI) silently gets `None` and builds paths
+from the wrong root. Combined with `cwd = "/"` (F5), a job has exactly one
+correct way to find its files and no documented way to learn it.
+
+---
+
 ## What worked well (for contrast)
 
 - `POST /sandboxes` → 201 in **2.5 s** when a seat was free, with a clean id.
-- `PUT` of a 21 MB bundle: **~200 MB/s**, 0.1 s for a small file.
+- `PUT` of a small file is effectively instant when the fast path is hit
+  (see F9 for when it is not).
 - The exec contract (`code` + `timeout_s` → `{ok, result, report, meters}`)
   is simple and the `report` dict rides along untouched; the whole render
-  job's metrics reach the caller in one field.
+  job's metrics reach the caller in one field, stdout and stderr included.
 - `DELETE` → `GET` 404 confirmed cleanup in **~0.2 s total**.
 - The 409/503 both arrive as machine-readable `error_code`s, which made the
   retry logic in `run.py` straightforward.

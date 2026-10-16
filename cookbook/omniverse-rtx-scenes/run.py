@@ -59,6 +59,11 @@ MUTATE = HERE / "judge" / "mutate_frames.py"
 
 DEFAULT_API_URL = "https://api.sbx.agent-next.com"
 SCENES = ("warehouse", "physics", "arm")
+# PathTracing samples per pixel per scene, sized so each scene's render
+# fits its own 3600 s exec budget at the measured s/frame (probe on a
+# real lease, RECEIPT.md) while staying visually clean after the OptiX
+# denoiser.
+SCENE_SPP = {"warehouse": 32, "physics": 48, "arm": 64}
 UPLOAD_CAP_BYTES = 512 * 1024 * 1024       # PUT raw body cap
 BUNDLE_CAP_BYTES = 300 * 1024 * 1024       # per-bundle target (spec)
 TIMEOUT_S = 3600                            # exec budget for the full render
@@ -363,7 +368,10 @@ def upload_bundle(key: str, url: str, sid: str, path: Path) -> dict:
 # --------------------------------------------------------------------------- #
 # step 4: exec render
 # --------------------------------------------------------------------------- #
-def render_program(bundles: dict, job_source: str, fallback_upload: bool = False) -> str:
+def render_program(bundles: dict, job_source: str, scenes: list[str],
+                   render_args: list[str],
+                   result_name: str = "job-result.json",
+                   fallback_upload: bool = False) -> str:
     """The Python the GPU lease runs: untar each bundle + run render_job.py.
 
     The gateway injects OUTPUT_DIR (the synced directory GET /files
@@ -371,7 +379,11 @@ def render_program(bundles: dict, job_source: str, fallback_upload: bool = False
     Bundles PUT to /files/<name> land at OUTPUT_DIR/<name> verbatim, so they
     are read from there and the frames are written next to them.  With
     fallback_upload the bundles are base64-embedded in the source instead
-    (tiny bundles only; the real 50-110 MB scenes never go this way)."""
+    (tiny bundles only; the real 50-110 MB scenes never go this way).
+
+    One exec PER SCENE: each scene gets its own timeout_s budget, so the
+    spp that fits the budget is chosen per scene (the warehouse is 240
+    frames, the others 180)."""
     names = sorted(bundles)
     if fallback_upload:
         total = sum(Path(info["path"]).stat().st_size for info in bundles.values())
@@ -415,7 +427,8 @@ report['bundles'] = {{n: p.name for n, p in paths.items()}}
 with log.open("wb") as fh:
     proc = subprocess.run(
         [sys.executable, str(render_job), "--workdir", str(work),
-         "--outdir", str(out), "--jobs", "all"],
+         "--outdir", str(out), "--jobs", {",".join(scenes)!r}]
+        + {render_args!r},
         stdout=fh, stderr=subprocess.STDOUT)
 report["exit"] = proc.returncode
 rp = out / "render_report.json"
@@ -424,12 +437,13 @@ if rp.exists():
 report["log_tail"] = log.read_text(errors="replace")[-4000:] if log.exists() else ""
 result = {{"ok": proc.returncode == 0, "report": report,
           "log": str(out / "render_job.log")}}
-(out / "job-result.json").write_text(json.dumps(result))
+(out / {result_name!r}).write_text(json.dumps(result))
 print(json.dumps(result))
 """
 
 
-def exec_render(key: str, url: str, sid: str, code: str, timeout: int) -> tuple[dict, float]:
+def exec_render(key: str, url: str, sid: str, code: str, timeout: int,
+                result_name: str = "job-result.json") -> tuple[dict, float]:
     """POST /exec, never replaying after a dropped reply: poll for the
     result file instead (LESSONS.md -- a stream drop is not an exit)."""
     t0 = time.monotonic()
@@ -443,8 +457,8 @@ def exec_render(key: str, url: str, sid: str, code: str, timeout: int) -> tuple[
         print(f"  [exec] HTTP {status}; polling for the job result file", flush=True)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            st, got, _ = json_request(key, "GET",
-                                      f"{url}/sandboxes/{sid}/files/job-result.json")
+            st, got, _ = json_request(
+                key, "GET", f"{url}/sandboxes/{sid}/files/{result_name}")
             if st == 200 and isinstance(got, dict):
                 result = got.get("result") if isinstance(got.get("result"), dict) else got
                 break
@@ -467,7 +481,8 @@ def exec_render(key: str, url: str, sid: str, code: str, timeout: int) -> tuple[
 
 
 def download_outputs(key: str, url: str, sid: str, dest: Path,
-                     want_png_stride: int = 15) -> dict:
+                     want_png_stride: int = 15,
+                     uploaded_names: set[str] = set()) -> dict:
     """GET /files then every artifact; keep full frames on a stride.
 
     The mp4s, report, log and hero frames are small and always fetched;
@@ -482,8 +497,10 @@ def download_outputs(key: str, url: str, sid: str, dest: Path,
     rows = listing.get("files", [])
     if not rows:
         die("no files listed in the lease")
+    _uploaded_names = uploaded_names
     dest.mkdir(parents=True, exist_ok=True)
     seen = bytes_total = 0
+    skipped = 0
     errors = []
     for r in rows:
         name = r.get("name", "")
@@ -494,6 +511,11 @@ def download_outputs(key: str, url: str, sid: str, dest: Path,
         # may be interpolated into a path (they echo what the job wrote).
         if not _safe_component(name):
             errors.append(f"download {name}: unsafe name, refused")
+            continue
+        # Skip what this run itself PUT there (the bundles) and the untarred
+        # copies under bundle/ — re-fetching ~170 MB of our own inputs.
+        if name in _uploaded_names or name.startswith("bundle/"):
+            skipped += 1
             continue
         keep = (not name.startswith("frames/")
                 or _on_stride(name, want_png_stride))
@@ -515,8 +537,10 @@ def download_outputs(key: str, url: str, sid: str, dest: Path,
                           f"{r['size']} bytes)")
     if errors:
         die("; ".join(errors[:3]))
-    step("download", t0, f" ({seen} files, {bytes_total / 1024 / 1024:.0f} MB)")
-    return {"files": seen, "bytes": bytes_total, "listed": len(rows)}
+    step("download", t0, f" ({seen} files, {bytes_total / 1024 / 1024:.0f} MB, "
+                         f"{skipped} upload artifacts skipped)")
+    return {"files": seen, "bytes": bytes_total, "listed": len(rows),
+            "skipped": skipped}
 
 
 def _on_stride(name: str, stride: int) -> bool:
@@ -598,16 +622,41 @@ def main() -> int:
             for scene, b in bundles.items():
                 up[scene] = upload_bundle(key, url, sid, b["path"])
         receipt["uploads"] = up
-        result, render_s = exec_render(key, url, sid,
-                                       render_program(bundles, RENDER_JOB.read_text(),
-                                                      fallback_upload=not use_put),
-                                       args.timeout_s)
-        receipt["render_seconds"] = round(render_s, 2)
-        receipt["exec_result"] = result
-        receipt["render_report"] = (result.get("report") or {}).get("render")
-        step("render", t_start, f" ({render_s:.0f} s on the lease)")
+
+        # One exec per scene: each scene gets the full timeout budget for
+        # its PathTracing render (240/180/180 frames), and a gateway blip
+        # mid-run cannot take down scenes already rendered.
+        job_source = RENDER_JOB.read_text()
+        exec_results, render_reports, render_seconds = {}, {}, 0.0
+        for scene in SCENES:
+            spp = SCENE_SPP[scene]
+            args_list = ["--render-mode", "PathTracing", "--spp", str(spp)]
+            print(f"  [exec] {scene}: PathTracing {spp} spp, denoised, "
+                  f"budget {args.timeout_s} s", flush=True)
+            result, render_s = exec_render(
+                key, url, sid,
+                render_program(bundles, job_source, [scene], args_list,
+                               result_name=f"job-result-{scene}.json",
+                               fallback_upload=not use_put),
+                args.timeout_s, result_name=f"job-result-{scene}.json")
+            exec_results[scene] = result
+            render_reports[scene] = (result.get("report") or {}).get("render") \
+                or {}
+            render_seconds += render_s
+            row = render_reports[scene].get("jobs", {}).get(scene, {})
+            print(f"  [exec] {scene}: {row.get('frames')} frames, "
+                  f"{row.get('s_per_frame')} s/frame, converged "
+                  f"{row.get('converged_pct')}%, luma_std "
+                  f"{row.get('luma_std_p50')}", flush=True)
+        receipt["render_seconds"] = round(render_seconds, 2)
+        receipt["exec_results"] = exec_results
+        receipt["render_report"] = {"jobs": {s: r.get("jobs", {}).get(s, {})
+                                             for s, r in render_reports.items()}}
+        step("render", t_start, f" ({render_seconds:.0f} s on the lease)")
         src = out / "frames"
-        receipt["download"] = download_outputs(key, url, sid, src)
+        receipt["download"] = download_outputs(
+            key, url, sid, src,
+            uploaded_names={f"{s}.tar.gz" for s in SCENES} | {"upload-probe"})
         # final meters snapshot before the lease dies
         st, snap, _ = json_request(key, "GET", f"{url}/sandboxes/{sid}")
         receipt["final_meters"] = meters_of(snap) if st == 200 else {}
