@@ -73,8 +73,8 @@ def result_figure(run: Path, out: Path, throughput: dict) -> None:
     hero = hero_frame(run)
     img = Image.open(hero)
     fig = plt.figure(figsize=(14, 7.6), dpi=200)
-    gs = fig.add_gridspec(2, 3, height_ratios=[1.25, 1.0], hspace=0.34,
-                          wspace=0.26)
+    gs = fig.add_gridspec(2, 3, height_ratios=[1.15, 1.0], hspace=0.46,
+                          wspace=0.30)
     ax = fig.add_subplot(gs[0, 0])
     ax.imshow(np.asarray(img))
     ax.set_title("RTX path-traced hero frame (lease output)")
@@ -87,7 +87,7 @@ def result_figure(run: Path, out: Path, throughput: dict) -> None:
     ax.axhline(0.90, color=GREY, ls="--", lw=1.2)
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("worst silhouette IoU vs projected bbox")
-    ax.set_title("G1 silhouette-vs-bbox (pass >= 0.90)")
+    ax.set_title("G1 silhouette IoU\n(pass >= 0.90)", fontsize=11)
     for i, v in enumerate(ious):
         ax.text(i, min(v + 0.03, 1.0), f"{v:.3f}", ha="center", fontsize=10)
 
@@ -102,7 +102,10 @@ def result_figure(run: Path, out: Path, throughput: dict) -> None:
     ax.set_xticklabels([r["scene"] for r in rows])
     ax.axhline(0.002, color=GREY, ls="--", lw=1.0)
     ax.set_ylabel("worst pixel fraction")
-    ax.set_title("G2 no-missing-texture (magenta pass < 0.002)")
+    ax.set_title("G2 no missing texture\n(magenta pass < 0.002)", fontsize=11)
+    for i, (m, g) in enumerate(zip(mag, grey)):
+        ax.text(i - 0.19, m + 0.001, f"{m:.4f}", ha="center", fontsize=8)
+        ax.text(i + 0.19, g + 0.001, f"{g:.3f}", ha="center", fontsize=8)
     ax.legend(fontsize=8, loc="upper right")
 
     ax = fig.add_subplot(gs[1, 0])
@@ -110,7 +113,7 @@ def result_figure(run: Path, out: Path, throughput: dict) -> None:
     ax.bar([r["scene"] for r in rows], diffs, color=ORANGE)
     ax.axhline(1.0, color=GREY, ls="--", lw=1.2)
     ax.set_ylabel("median |luma diff| between frames")
-    ax.set_title("G3 temporal consistency (no frozen/flash)")
+    ax.set_title("G3 temporal consistency\n(no frozen/flash frames)", fontsize=11)
 
     ax = fig.add_subplot(gs[1, 1])
     renders = receipt.get("render_report", {}).get("jobs", {})
@@ -118,7 +121,7 @@ def result_figure(run: Path, out: Path, throughput: dict) -> None:
     spf = [renders[s].get("s_per_frame", 0) for s in scenes]
     ax.bar(scenes, spf, color="#6C4F9E")
     ax.set_ylabel("seconds per 1920x1080 frame")
-    ax.set_title(f"RTX render cost ({throughput.get('steps', 1)} step/frame)")
+    ax.set_title(f"RTX render cost\n({throughput.get('steps', 1)} step/frame)", fontsize=11)
 
     ax = fig.add_subplot(gs[1, 2])
     total = receipt.get("total_seconds")
@@ -133,8 +136,7 @@ def result_figure(run: Path, out: Path, throughput: dict) -> None:
     steps = {k: v for k, v in steps.items() if v is not None}
     ax.bar(list(steps), list(steps.values()), color=BLUE)
     ax.set_ylabel("seconds")
-    ax.set_title(f"run.py wall time (total {total:.0f} s)"
-                 if total else "run.py wall time")
+    ax.set_title(f"run.py wall time\n(total {total:.0f} s)" if total else "run.py\nwall time", fontsize=11)
     plt.setp(ax.get_xticklabels(), rotation=18, ha="right")
 
     meters = receipt.get("final_meters") or {}
