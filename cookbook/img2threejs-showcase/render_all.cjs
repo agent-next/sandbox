@@ -5,9 +5,10 @@ const fs = require("fs");
 
 const [base, out, ...ids] = process.argv.slice(2);
 const SETTLE_MS = 20000;
-const OVERLAY_MS = 300000;
-const SHOT_MS = 600000;
-const TARGET_MS = 30 * 60000;  // hard cap per target: a hung page must not stall the rest
+const PATIENCE = Number(process.env.PATIENCE || 1);  // run.py --patience: scales every wait below
+const OVERLAY_MS = 300000 * PATIENCE;
+const SHOT_MS = 600000 * PATIENCE;
+const TARGET_MS = 30 * 60000 * PATIENCE;  // hard cap per target: a hung page must not stall the rest
 
 (async () => {
   fs.mkdirSync(out, { recursive: true });

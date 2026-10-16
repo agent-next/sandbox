@@ -59,9 +59,16 @@ def demo_ids() -> list[str]:
     return re.findall(r"^    id: '([^']+)'", src, re.M)
 
 
-def run_shard(k: int, targets: list[str], template: str, out: Path, keep: bool) -> str:
+def patience_arg(v: str) -> int:
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError("--patience must be >= 1")
+    return n
+
+
+def run_shard(k: int, targets: list[str], template: str, out: Path, keep: bool, patience: int = 1) -> str:
     out.mkdir(parents=True, exist_ok=True)
-    sbx = Sandbox.create(template, timeout=DEADLINE_S + 3600)  # room for a slow download after the run
+    sbx = Sandbox.create(template, timeout=DEADLINE_S * patience + 3600)  # room for a slow download after the run
     log(f"sandbox {sbx.sandbox_id} targets {' '.join(targets)}", k)
     status = "unknown"
     try:
@@ -69,9 +76,9 @@ def run_shard(k: int, targets: list[str], template: str, out: Path, keep: bool) 
             sbx.files.write(f"/w/{'r/' if name.endswith('.cjs') else ''}{name}", (HERE / name).read_text())
         for ctl in sorted((HERE / "controls").glob("*.html")):
             sbx.files.write(f"/w/controls/{ctl.name}", ctl.read_text())
-        sh(sbx, f"cd /w && (setsid nohup bash pipeline.sh {SHA} {' '.join(targets)} > /w/pipeline.log 2>&1 &)")
+        sh(sbx, f"cd /w && (PATIENCE={patience} setsid nohup bash pipeline.sh {SHA} {' '.join(targets)} > /w/pipeline.log 2>&1 &)")
         start, last = time.monotonic(), ""
-        while time.monotonic() - start < DEADLINE_S:
+        while time.monotonic() - start < DEADLINE_S * patience:
             time.sleep(30)
             try:
                 status = sh(sbx, "cat /w/status 2>/dev/null").strip()
@@ -114,6 +121,7 @@ def main() -> int:
     ap.add_argument("--shards", type=int, default=8)
     ap.add_argument("--only", nargs="*", help="render just these targets")
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--patience", type=patience_arg, default=1, help="multiply every render wait (heavy scenes on CPU), >= 1")
     args = ap.parse_args()
     out = Path(args.out)
     key = os.environ.get("E2B_API_KEY") or os.environ["SBX_API_KEY"]
@@ -127,7 +135,7 @@ def main() -> int:
     log(f"template {template}")
     shards = [targets[k::args.shards] for k in range(args.shards) if targets[k::args.shards]]
     with ThreadPoolExecutor(len(shards)) as pool:
-        futures = [pool.submit(run_shard, k, t, template, out / f"shard-{k}", args.keep) for k, t in enumerate(shards)]
+        futures = [pool.submit(run_shard, k, t, template, out / f"shard-{k}", args.keep, args.patience) for k, t in enumerate(shards)]
         statuses = []
         for k, f in enumerate(futures):
             try:

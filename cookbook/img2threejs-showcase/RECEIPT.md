@@ -12,6 +12,7 @@ Showcase commit `5b3078e92959b86c0dee18742d84473ef0a385c9`, template `node:22-bo
 | 2 | the 16 not clean in round 1 + 2 known-clean | 6 | overlay gate; one shard hung on its last target (no CPU use) -> 30 min per-target watchdog added |
 | 3 | 7 left over (a lost shard + re-checks) | 2 | 9 PASS, 2 controls behaved |
 | final | crown-chest, bmx-endurance | 1 | the committed `run.py` end to end, see below |
+| 5 | low-poly-humanoid, monster-tree, iphone-duo.html | 3 | `--patience 3` (overlay 900 s, screenshot 1800 s): low-poly-humanoid rendered (240 s); monster-tree still loading (675 s); iphone-duo no frame (2751 s) |
 
 Controls on every shard: `ctl-pos` PASS (luma std 91.2, 713 colours), `ctl-neg` FAIL (std 0,
 1 colour).
@@ -32,15 +33,15 @@ Controls on every shard: `ctl-pos` PASS (luma std 91.2, 713 colours), `ctl-neg` 
 | girl-character-3 | LOADING_OVERLAY | RENDERED | 1317 | r2/s5 |
 | glock-ghost-protocol | PASS | RENDERED | 249 | r1/s0 |
 | greenvale.html | PASS | RENDERED | 42 | r3/s0 |
-| iphone-duo.html | FAIL | NO_FRAME | 938 | r2/s2 |
+| iphone-duo.html | FAIL | NO_FRAME | 2751 | r5/s2 |
 | issaca-shotgun | PASS | RENDERED | 99 | r2/s1 |
 | leesin | PASS | RENDERED | 178 | r1/s7 |
-| low-poly-humanoid | PASS | LOADING | 167 | r1/s5 |
+| low-poly-humanoid | PASS | RENDERED | 240 | r5/s0 |
 | m9-doppler | PASS | RENDERED | 70 | r2/s0 |
 | man-robot-studio | PASS | RENDERED | 164 | r1/s5 |
 | mars-cat | PASS | RENDERED | 1619 | r2/s1 |
 | monster | PASS | RENDERED | 104 | r3/s1 |
-| monster-tree | PASS | LOADING | 392 | r2/s4 |
+| monster-tree | PASS | LOADING | 675 | r5/s1 |
 | prs-ocean | PASS | RENDERED | 1036 | r2/s2 |
 | raz | PASS | RENDERED | 177 | r1/s4 |
 | regret-warrior-reconstruction | PASS | RENDERED | 186 | r1/s1 |
@@ -53,9 +54,20 @@ Controls on every shard: `ctl-pos` PASS (luma std 91.2, 713 colours), `ctl-neg` 
 | warhauler | PASS | RENDERED | 124 | r1/s0 |
 | warrior | PASS | RENDERED | 517 | r3/s0 |
 
-`iphone-duo.html` produced no frame within 600 s in rounds 1 and 2. `low-poly-humanoid` was
-captured under the overlay in round 1; its round-2 render hung. `monster-tree` passed the
-pixel gate while the scene still said "Preparing nearby woodland" (HTML over the canvas).
+`iphone-duo.html` produced no frame within 600 s in rounds 1 and 2 and within 1800 s in round 5.
+`low-poly-humanoid` was captured under the overlay in round 1 and its round-2 render hung; round 5
+rendered it in 240 s. `monster-tree` passed the pixel gate in rounds 2 and 5 while the scene still
+said "Preparing nearby woodland" (HTML over the canvas). `greenvale.html` is a 2D PixiJS page.
+
+Media (`media/`): built by `media/make_media.sh` from rounds 1, 2, 3 and 5, cut to
+`media/STORYBOARD.md`; 54 s, 6.6 MiB; `cookbook/tools/video_gate.py` passes (first frame luma mean
+115, 1.48 scene cuts per 10 s, motion fraction 0.24, static end card). Frame-by-frame caption check by
+gemini-3.1-pro-preview on an earlier 30-segment cut: round 1 REJECT (greenvale captioned like a 3D
+model; fixed with `notes.json`), round 2 ACCEPT. Blind review panel (`media/REVIEW.json`): NOT PASSED, so `demo.mp4` is not committed. gemini-3.1-pro-preview 7/7/9 and
+gpt-6.1-sol 7/6/6 (visual/wow/clarity; the bar is 8/7/7); a second gemini pass on contact sheets is
+recorded but refuted (it reports a terminal opening; frame 0 is a render). Six recut rounds raised
+GPT from 5/4/4; what the judges still ask for is an input image beside each scene, which the
+showcase repository does not contain.
 
 ## Build wall time
 
