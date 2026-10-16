@@ -2,3 +2,4 @@
 master/
 .venv/
 *.mkv
+runlog/
