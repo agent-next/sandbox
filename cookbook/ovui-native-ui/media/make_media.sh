@@ -8,8 +8,9 @@
 # time (to install the pinned matplotlib stack).  Produces:
 #
 #   media/result.png, media/loop.png     figures (real judge numbers)
-#   media/demo.mp4                       the 20-60 s walkthrough video
+#   media/demo.mp4                       the 25-60 s walkthrough video
 #   media/MANIFEST.json                  what each file shows + sha256s
+#   media/result.json                    the agent-next/result@1 manifest
 #   media/data/*.json|png                the underlying real judge outputs
 #
 # media/master/ holds the lossless video master (-crf 0); git ignores it.
@@ -50,5 +51,11 @@ rm -rf "$HERE/.frames"
 
 # -- 5. manifest (sha256s of what we just wrote) ----------------------------
 "$MVENV/bin/python" -I "$HERE/make_manifest.py"
+
+# -- 6. result manifest (gates, numbers, hero, launch). Reads media/data/,
+#      media/REVIEW.json (the blind panel verdicts -- written by hand from a
+#      run of cookbook/tools/video_review_prompt.md, not regenerable) and the
+#      git HEAD. The judge numbers are always real.
+"$MVENV/bin/python" -I "$HERE/make_result.py"
 
 echo "make_media.sh: done"

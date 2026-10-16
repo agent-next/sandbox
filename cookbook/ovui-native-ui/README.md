@@ -165,8 +165,15 @@ chart](media/result.png)
 - `media/loop.png` — the agent loop: a scripted replay of real judge verdicts
   (build error → pixel mismatch → nondeterminism → PASS) and the self-test
   kill table, one row per mutant with the gate(s) that failed it.
-- `media/demo.mp4` — a 38.5 s, 1920×1080, 30 fps walkthrough of the same
-  judge outputs (0.76 MB H.264, from a lossless `-crf 0` master).
+- `media/demo.mp4` — a 38.1 s, 1920×1080, 30 fps walkthrough of the same
+  judge outputs (4.5 MB H.264, from a lossless `-crf 0` master); it opens on
+  the finished render with the verdict stamped on it, and passes
+  `cookbook/tools/video_gate.py` (cuts/10 s, motion, static end card).
+- `media/REVIEW.json` — the two blind vision-model verdicts on that video
+  (`cookbook/DEMO-STANDARD.md`, "Review panel"); no README, no repo context.
+- `media/result.json` — the `agent-next/result@1` manifest: verdict, gate
+  numbers, hero media and launch, validated by
+  `cookbook/tools/result.py`.
 - `media/MANIFEST.json` — what each file shows, the command that makes it,
   its source data, and its sha256.
 
