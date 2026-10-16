@@ -1,0 +1,53 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id": "duration", "type": "number", "label": "End card length (s)",
+     "default": 2.5, "min": 1, "max": 8},
+    {"id": "headline", "type": "string", "label": "Headline", "default": ""},
+    {"id": "command", "type": "string", "label": "Launch command",
+     "default": "python3 run.py"},
+    {"id": "ask_agent", "type": "string", "label": "Ask-your-agent prompt",
+     "default": ""}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="shared.css" />
+
+      <div
+        id="root"
+        data-root="true"
+        data-composition-id="hf-endcard"
+        data-width="1920"
+        data-height="1080"
+      >
+        <!-- Static by design. cookbook/DEMO-STANDARD.md allows exactly one
+             still frame, the last 2-3 s, and video_gate checks that the final
+             2 s hold still (mean YDIF <= 0.5). Nothing here animates and no
+             GSAP timeline is registered for this composition. -->
+        <div class="end-card">
+          <div class="end-rule"></div>
+          <p class="end-title" id="hf-endcard-command"></p>
+          <p class="end-line" id="hf-endcard-headline"></p>
+          <p class="end-ask" id="hf-endcard-ask"></p>
+          <p class="end-mark">agent-next sandbox</p>
+        </div>
+      </div>
+
+      <script>
+        const V = window.__hyperframes.getVariables();
+
+        // The launch command is what a visitor leaves with, so it gets the top
+        // line; the measured headline sits under it.
+        document.getElementById("hf-endcard-command").textContent =
+          V.command || "python3 run.py";
+        document.getElementById("hf-endcard-headline").textContent =
+          V.headline || "";
+        document.getElementById("hf-endcard-ask").textContent = V.ask_agent
+          ? `Ask your agent: "${V.ask_agent}"`
+          : "";
+      </script>
+    </template>
+  </body>
+</html>

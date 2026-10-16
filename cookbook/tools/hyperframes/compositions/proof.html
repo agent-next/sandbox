@@ -1,0 +1,117 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id": "duration", "type": "number", "label": "Proof window (s)",
+     "default": 4, "min": 1, "max": 12},
+    {"id": "pass", "type": "boolean", "label": "Verdict passed",
+     "default": true},
+    {"id": "gates", "type": "string", "label": "Gate rows (JSON array)",
+     "default": "[]"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="shared.css" />
+
+      <div
+        id="root"
+        data-root="true"
+        data-composition-id="hf-proof"
+        data-width="1920"
+        data-height="1080"
+      >
+        <!-- The proof is a HUD over the still-playing final clip: a verdict
+             badge and one row per gate, each sliding in. It is mounted over
+             the footage, never as a slide — the video_gate's motion check
+             would catch a still frame here. -->
+        <div id="hf-proof-badge" class="badge">
+          <span id="hf-proof-glyph"></span>
+          <span id="hf-proof-text" class="badge-text"></span>
+        </div>
+
+        <div id="hf-proof-gates" class="gates"></div>
+      </div>
+
+      <script>
+        // A classic (non-module) inline script sees this sub-composition's
+        // per-instance variables, because the runtime evaluates it in the
+        // injected fragment's scope.
+        const V = window.__hyperframes.getVariables();
+        const D = Number(V.duration);
+        const P = { pass: V.pass, gates: JSON.parse(V.gates || "[]") };
+
+        const root = document.getElementById("root");
+        const badge = document.getElementById("hf-proof-badge");
+        const glyph = document.getElementById("hf-proof-glyph");
+        const text = document.getElementById("hf-proof-text");
+        const gates = document.getElementById("hf-proof-gates");
+
+        const passing = !!P.pass;
+
+        // Colour-blind safe: teal PASS, orange FAIL. The badge swaps both the
+        // fill and the glyph shape, so the verdict survives without colour.
+        root.style.setProperty("--accent", passing ? "var(--pass)" : "var(--fail)");
+        glyph.textContent = passing ? "✓" : "✕";
+        glyph.setAttribute(
+          "style",
+          "font-size:52px;font-weight:900;line-height:1;color:var(--ink)"
+        );
+        text.textContent = passing ? "PASS" : "FAIL";
+
+        const rows = [];
+        (P.gates || []).forEach((gate) => {
+          const row = document.createElement("div");
+          row.className = "row";
+
+          const name = document.createElement("span");
+          name.className = "row-name";
+          name.textContent = gate.name;
+
+          const measured = document.createElement("span");
+          measured.className = "row-measured";
+          measured.textContent = String(gate.measured);
+
+          const threshold = document.createElement("span");
+          threshold.className = "row-threshold";
+          threshold.textContent = `vs ${gate.threshold}`;
+
+          row.append(name, measured, threshold);
+          gates.appendChild(row);
+          rows.push(row);
+        });
+
+        // Exactly one paused timeline, keyed by this composition's id, built
+        // and registered before anything can seek it.
+        const tl = gsap.timeline({ paused: true });
+
+        tl.fromTo(
+          badge,
+          { opacity: 0, scale: 0.72, y: -18 },
+          { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: "back.out(1.7)" },
+          0.05
+        );
+
+        rows.forEach((row, i) => {
+          tl.fromTo(
+            row,
+            { opacity: 0, x: 64 },
+            { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" },
+            0.4 + i * 0.16
+          );
+        });
+
+        // A slow drift after the entrance, so the proof is never a frozen
+        // frame: drifting the badge a few px keeps frames changing without
+        // pulling it off its column.
+        tl.to(
+          badge,
+          { y: -10, duration: Math.max(1, D - 1.2), ease: "sine.inOut" },
+          1.1
+        );
+
+        window.__timelines["hf-proof"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

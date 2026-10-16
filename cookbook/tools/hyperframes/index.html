@@ -1,0 +1,238 @@
+<!doctype html>
+<html
+  lang="en"
+  data-composition-variables='[
+    {
+      "id": "propsJson",
+      "type": "string",
+      "label": "Props JSON",
+      "default": "{}",
+      "maxLength": 200000
+    },
+    {"id": "headline", "type": "string", "label": "Headline", "default": ""}
+  ]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cookbook demo video template</title>
+
+    <!-- Vendored at `npm ci` time (scripts/vendor_deps.sh); no network fetch
+         at render time. -->
+    <script src="./vendor/gsap.min.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three.module.js",
+          "three/addons/": "./vendor/addons/"
+        }
+      }
+    </script>
+
+    <link rel="stylesheet" href="compositions/shared.css" />
+    <style>
+      /* Declared here, in the document the renderer loads, so it applies to
+       * injected sub-composition DOM as well. */
+      @font-face {
+        font-family: "Inter";
+        src: url("./fonts/Inter-var.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: block;
+      }
+      body {
+        margin: 0;
+        background: #03090c;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      /* Sub-composition slots stretch to fill the frame. */
+      #root > div[data-composition-src] {
+        position: absolute;
+        inset: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Standalone root: no <template> wrapper (that is the sub-composition
+         shape). data-duration is deliberately absent so the render length can
+         follow the props: the runtime then derives it from the clips the
+         script below mounts. -->
+    <div
+      id="root"
+      data-root="true"
+      data-composition-id="hf-demo"
+      data-width="1920"
+      data-height="1080"
+    ></div>
+
+    <script>
+      /* The orchestrator is thin: it reads the props, mounts one sub-composition
+         slot per shot, and registers a near-empty root timeline. All shot
+         animation lives inside the sub-compositions. */
+
+      const END_CARD_S = 2.5; // the static tail cookbook/DEMO-STANDARD.md allows
+
+      const props = JSON.parse(window.__hyperframes.getVariables().propsJson);
+      const root = document.getElementById("root");
+
+      // No permanent caption on the host. Bookend captions are created per
+      // shot below, inside that shot's own sub-composition, so they enter and
+      // leave with the shot. The headline rides the first footage shot and the
+      // proof shot; a lower-third over the static end card would both cover it
+      // and break the gate's endcard check.
+      const shots = props.shots || [];
+
+      // Per-shot variables, as plain values the sub-composition reads by id.
+      const vars = (obj) => JSON.stringify(obj);
+
+      function mount(opts) {
+        const host = document.createElement("div");
+        host.id = opts.id;
+        host.setAttribute("data-composition-id", opts.composition);
+        host.setAttribute("data-composition-src", opts.src);
+        host.setAttribute("data-start", String(opts.start));
+        host.setAttribute("data-duration", String(opts.duration));
+        host.setAttribute("data-track-index", String(opts.track));
+        host.setAttribute("data-width", "1920");
+        host.setAttribute("data-height", "1080");
+        host.setAttribute("data-variable-values", opts.variableValues);
+        root.appendChild(host);
+        return host;
+      }
+
+      const headline = props.headline || "";
+      const lastShot = shots.length - 1;
+
+      let t = 0;
+      shots.forEach((shot, i) => {
+        const duration = Number(shot.duration);
+        // The headline rides as a kinetic caption on the opening shot and again
+        // on the last shot, so it opens the video and is still on screen under
+        // the proof. A caption inside each shot's own sub-composition enters
+        // and leaves with that shot.
+        const wantsCaption = i === 0 || i === lastShot;
+        if (shot.clip === "model") {
+          // The live Three.js turntable of the real glb.
+          if (!props.model3d || !props.model3d.glb) {
+            throw new Error(
+              `shot ${i} asks for the 3D model but props.model3d.glb is missing`
+            );
+          }
+          mount({
+            id: `hf-host-model-${i}`,
+            composition: "hf-model3d",
+            src: "compositions/model3d.html",
+            start: t,
+            duration,
+            track: 1,
+            variableValues: vars({
+              glb: props.model3d.glb,
+              duration,
+              caption: wantsCaption ? headline : "",
+            }),
+          });
+        } else {
+          mount({
+            id: `hf-host-footage-${i}`,
+            composition: "hf-footage",
+            src: "compositions/footage.html",
+            start: t,
+            duration,
+            track: 1,
+            variableValues: vars({
+              clip: shot.clip,
+              duration,
+              speed: shot.speed || 1,
+              hud: JSON.stringify(shot.hud || []),
+              caption: wantsCaption ? headline : "",
+            }),
+          });
+        }
+        t += duration;
+      });
+
+      // The verdict rides the final clip, so it comes up while the last shot
+      // is still playing. It ends exactly where the end card begins, so the
+      // static tail is never covered by a moving overlay.
+      const proofStart = Math.max(0, t - 4.0);
+      const proofDuration = Math.max(1, t - proofStart);
+      const verdict = props.verdict || { pass: false, gates: [] };
+      mount({
+        id: "hf-host-proof",
+        composition: "hf-proof",
+        src: "compositions/proof.html",
+        start: proofStart,
+        duration: proofDuration,
+        track: 2,
+        variableValues: vars({
+          duration: proofDuration,
+          pass: !!verdict.pass,
+          gates: JSON.stringify(verdict.gates || []),
+        }),
+      });
+
+      // The static end card: the last 2.5 s, and nothing before it.
+      mount({
+        id: "hf-host-endcard",
+        composition: "hf-endcard",
+        src: "compositions/endcard.html",
+        start: t,
+        duration: END_CARD_S,
+        track: 3,
+        variableValues: vars({
+          duration: END_CARD_S,
+          headline: headline,
+          command: (props.launch || {}).command || "python3 run.py",
+          ask_agent: (props.launch || {}).ask_agent || "",
+        }),
+      });
+
+      // A whip flash on every cut. Three frames — up 0.066 s, down 0.1 s — is
+      // within the transition the task allows, and it is what separates two
+      // shots that are each too dark for a bare cut to register.
+      const whip = document.createElement("div");
+      whip.className = "hf-whip";
+      root.appendChild(whip);
+      const cuts = shots.map((_, i) => shots.slice(0, i + 1)
+        .reduce((a, s) => a + Number(s.duration), 0))
+        .slice(0, -1); // every shot boundary except the end card's
+      cuts.forEach((cutAt) => {
+        tl.fromTo(
+          whip,
+          { opacity: 0.55 },
+          { opacity: 0, duration: 0.166, ease: "power2.out" },
+          cutAt - 0.066
+        );
+      });
+
+      // A continuous progress rail along the bottom. It is the one element
+      // that never stops moving, so no sampled frame of the video is a frozen
+      // still, and it reads as "this is a cut, not a deck".
+      const rail = document.createElement("div");
+      rail.className = "hf-rail";
+      root.appendChild(rail);
+
+      const total = t + END_CARD_S;
+
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo(
+        rail,
+        { scaleX: 0 },
+        { scaleX: 1, duration: total, ease: "none" },
+        0
+      );
+      // The rail lives on the footage; it has done its job once the end card
+      // takes over.
+      tl.to(rail, { opacity: 0.35, duration: 0.4, ease: "power2.out" }, t - 0.4);
+      // The rail stops short of the proof: an edge sweeping under the verdict
+      // while it settles reads as motion the badge does not need.
+      tl.set(rail, { opacity: 0 }, proofStart);
+
+      window.__timelines["hf-demo"] = tl;
+      window.__hfDemoTotal = total;
+    </script>
+  </body>
+</html>

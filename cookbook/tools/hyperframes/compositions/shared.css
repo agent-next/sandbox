@@ -1,0 +1,315 @@
+/* Shared look for the HyperFrames demo-video template.
+ *
+ * Loaded by index.html (host) and re-injected by every sub-composition, so a
+ * shot keeps the same palette and the same safe zones wherever it is mounted.
+ *
+ * Colour-blind safe: teal is PASS, orange is FAIL. The two differ in luminance
+ * as well as hue, so a deuteranope reads them apart without the hue.
+ *
+ * Nothing here is network fetched: the font ships in fonts/ and the only
+ * @font-face below points at it.
+ */
+
+:root {
+  --ink: #071317;
+  --ink-2: #0b2028;
+  --paper: #eaf6f4;
+  --glass: rgba(6, 20, 26, 0.68);
+  --glass-hi: rgba(234, 246, 244, 0.18);
+  --line: rgba(234, 246, 244, 0.3);
+  --pass: #2ec4b6;
+  --fail: #ff8a3d;
+  --accent: var(--pass);
+}
+
+/* ---- font ---------------------------------------------------------------- */
+/* The @font-face for "Inter" is declared once, in index.html, which is the
+ * document the renderer actually loads: an injected sub-composition's DOM
+ * lives in that same document, so the declaration applies to it too. Keeping
+ * it out of here avoids a "../fonts/" path, which lint rejects as traversing
+ * above the project root. */
+
+.caption,
+.hud,
+.hud-value,
+.hud-label,
+.hud-unit,
+.badge-text,
+.row,
+.chip,
+.end-title,
+.end-line,
+.end-ask,
+.end-mark {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ---- kinetic caption ----------------------------------------------------- */
+/* 66 px on a 1080 px frame; cap height ~4.4 % of frame height, over the 4 %
+ * floor in cookbook/DEMO-STANDARD.md, and over the template's own 54 px floor.
+ * right: 780px reserves the proof column (badge + gate rows) so the caption
+ * can never collide with it while both are on screen. */
+.caption {
+  position: absolute;
+  left: 96px;
+  right: 780px;
+  bottom: 118px;
+  margin: 0;
+  font-size: 66px;
+  line-height: 1.1;
+  font-weight: 780;
+  letter-spacing: -0.021em;
+  color: var(--paper);
+  text-shadow:
+    0 3px 30px rgba(4, 12, 15, 0.92),
+    0 1px 4px rgba(4, 12, 15, 0.95);
+}
+
+.caption .u {
+  color: var(--accent);
+}
+
+/* ---- HUD ---------------------------------------------------------------- */
+.hud {
+  position: absolute;
+  left: 96px;
+  top: 88px;
+  width: 620px;
+  border-radius: 22px;
+  background: var(--glass);
+  border: 1px solid var(--glass-hi);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: 0 18px 50px rgba(3, 10, 13, 0.45);
+  overflow: hidden;
+}
+
+.hud-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 30px 14px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(234, 246, 244, 0.72);
+}
+
+.hud-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.hud-row {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  padding: 14px 30px;
+  border-top: 1px solid rgba(234, 246, 244, 0.14);
+}
+
+.hud-label {
+  flex: 1 1 auto;
+  font-size: 28px;
+  font-weight: 620;
+  letter-spacing: 0.02em;
+  color: rgba(234, 246, 244, 0.9);
+}
+
+.hud-value {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-size: 52px;
+  font-weight: 840;
+  line-height: 1;
+  color: var(--paper);
+}
+
+.hud-unit {
+  font-size: 26px;
+  font-weight: 600;
+  color: rgba(234, 246, 244, 0.78);
+}
+
+/* ---- speed chip --------------------------------------------------------- */
+.chip {
+  position: absolute;
+  right: 96px;
+  top: 88px;
+  padding: 14px 26px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-size: 32px;
+  font-weight: 780;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- proof -------------------------------------------------------------- */
+.badge {
+  position: absolute;
+  right: 96px;
+  top: 150px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 32px;
+  border-radius: 18px;
+  background: var(--accent);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+}
+
+.badge-text {
+  font-size: 52px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.gates {
+  position: absolute;
+  right: 96px;
+  top: 268px;
+  width: 664px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 24px;
+  border-radius: 16px;
+  background: var(--glass);
+  border: 1px solid var(--glass-hi);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 12px 34px rgba(3, 10, 13, 0.4);
+}
+
+.row-name {
+  flex: 1 1 auto;
+  font-size: 30px;
+  font-weight: 680;
+  color: var(--paper);
+}
+
+.row-measured {
+  flex: 0 0 auto;
+  font-size: 32px;
+  font-weight: 840;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.row-threshold {
+  flex: 0 0 auto;
+  font-size: 24px;
+  font-weight: 600;
+  color: rgba(234, 246, 244, 0.8);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---- end card ----------------------------------------------------------- */
+/* Static by design: cookbook/DEMO-STANDARD.md allows exactly one still frame,
+ * the last 2-3 s. The framework hides a clip the moment its window ends, so
+ * the "dimmed last frame" is a duotone panel in the final shot's own palette
+ * rather than a decoded still. */
+.end-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(
+      130% 100% at 50% 40%,
+      rgba(11, 32, 40, 0.9) 0%,
+      rgba(5, 14, 18, 0.98) 58%,
+      rgba(3, 9, 12, 1) 100%
+    );
+}
+
+.end-rule {
+  width: 168px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--accent);
+  margin-bottom: 34px;
+}
+
+.end-title {
+  margin: 0 0 30px;
+  font-size: 60px;
+  font-weight: 820;
+  letter-spacing: -0.018em;
+  color: var(--paper);
+}
+
+.end-line {
+  margin: 0 0 26px;
+  font-size: 50px;
+  font-weight: 720;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.end-ask {
+  margin: 0;
+  max-width: 1360px;
+  text-align: center;
+  font-size: 40px;
+  line-height: 1.36;
+  font-weight: 560;
+  color: rgba(234, 246, 244, 0.94);
+}
+
+.end-mark {
+  margin-top: 54px;
+  font-size: 26px;
+  font-weight: 660;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(234, 246, 244, 0.66);
+}
+
+/* ---- host progress rail ------------------------------------------------- */
+.hf-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--pass), #7fe3d8);
+}
+
+/* ---- whip flash --------------------------------------------------------- */
+/* A three-frame light whip at every cut. Between two dark shots a bare hard
+ * cut does not read — to the eye or to the gate's scene counter — so each
+ * boundary is struck with light instead. The task's transition allowance is a
+ * shader or whip of up to 0.2 s; rising 0.066 s + falling 0.1 s fits. */
+.hf-whip {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(234, 246, 244, 0.95) 0%,
+    rgba(214, 240, 236, 0.8) 48%,
+    rgba(190, 233, 227, 0.6) 100%
+  );
+}

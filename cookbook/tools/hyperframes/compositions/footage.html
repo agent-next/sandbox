@@ -1,0 +1,219 @@
+<!doctype html>
+<!-- Per-instance variables. Every one is declared here so the host can
+     override it with data-variable-values; an undeclared id silently falls back
+     to the default (which for `clip` is the dark placeholder in media/). -->
+<html
+  data-composition-variables='[
+    {"id": "clip", "type": "string", "label": "Clip path (project-relative)",
+     "default": "media/clip.mp4"},
+    {"id": "duration", "type": "number", "label": "Shot length (s)",
+     "default": 6, "min": 1, "max": 20},
+    {"id": "speed", "type": "number", "label": "Playback speed",
+     "default": 1, "min": 1, "max": 10},
+    {"id": "hud", "type": "string", "label": "HUD rows (JSON array)",
+     "default": "[]"},
+    {"id": "caption", "type": "string", "label": "Kinetic caption",
+     "default": ""}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <!-- The assembler clones only <template>'s contents, so every style,
+           node and script the runtime needs lives in here. -->
+      <link rel="stylesheet" href="shared.css" />
+
+      <div
+        id="root"
+        data-root="true"
+        data-composition-id="hf-footage"
+        data-width="1920"
+        data-height="1080"
+      >
+        <!-- The framework owns media playback: it discovers this <video> with
+             a flat document query, rebases its start by the host offset and
+             seeks it from the time value alone. No play()/pause()/seek() is
+             ever called here. The <video> carries the timing; its wrapper
+             carries none (a timed ancestor around a timed <video> is a lint
+             error, and shows the wrong source frames).
+
+             data-var-src swaps in the real footage before media discovery; the
+             authored src is a committed placeholder, so a cold
+             `hyperframes lint` finds a real file at the path it statically
+             reads. data-playback-rate is set below from `speed`. -->
+        <video
+          id="hf-footage-video"
+          src="media/clip.mp4"
+          data-var-src="clip"
+          muted
+          loop
+          playsinline
+          data-start="0"
+          data-duration="6"
+          style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover"
+        ></video>
+
+        <!-- Camera push: scale 1.0 -> 1.06 across the shot, on top of moving
+             footage. This wrapper scales the <video> with it, so the crop can
+             never pull the video's own edges inside the frame. -->
+        <div
+          id="hf-footage-push"
+          style="position: absolute; inset: 0; width: 100%; height: 100%"
+        ></div>
+
+        <!-- Vignette. Dark at the edges only: the un-dimmed centre keeps the
+             first frame well above the gate's luma floor of 20. -->
+        <div id="hf-footage-grade"></div>
+
+        <!-- HUD: glass panel with numbers that count up. -->
+        <div id="hf-footage-hud"></div>
+
+        <!-- Speed chip: an animated "Nx speed" label, when the shot is sped up. -->
+        <div id="hf-footage-chip"></div>
+
+        <!-- Kinetic caption, when this shot carries one. -->
+        <p id="hf-footage-caption" class="caption"></p>
+      </div>
+
+      <script>
+        /* Everything below is a function of the HyperFrames time value. No
+           clock, no Math.random(), no network. Geometry is computed once here
+           and reused: tween-time DOM measurement desyncs because the renderer
+           samples in parallel. */
+
+        const V = window.__hyperframes.getVariables();
+        const D = Number(V.duration);
+        const RATE = Number(V.speed || 1);
+        const HUD = JSON.parse(V.hud || "[]");
+        const CAPTION = V.caption || "";
+
+        const video = document.getElementById("hf-footage-video");
+        const push = document.getElementById("hf-footage-push");
+        const grade = document.getElementById("hf-footage-grade");
+        const hud = document.getElementById("hf-footage-hud");
+        const chip = document.getElementById("hf-footage-chip");
+        const caption = document.getElementById("hf-footage-caption");
+
+        // The runtime re-reads a clip's own data-duration from the live DOM
+        // (unlike the root's own data-duration, which is fixed at compile
+        // time), so a variables-driven shot length works.
+        video.setAttribute("data-duration", String(D));
+
+        // The framework reads data-playback-rate off the element.
+        if (RATE !== 1) video.setAttribute("data-playback-rate", String(RATE));
+
+        // -- vignette --------------------------------------------------------
+        grade.setAttribute(
+          "style",
+          "position:absolute;inset:0;pointer-events:none;" +
+            "background:radial-gradient(122% 122% at 50% 44%," +
+            "rgba(0,0,0,0) 40%,rgba(0,0,0,0.42) 80%,rgba(0,0,0,0.78) 100%)"
+        );
+
+        // -- chip: "Nx speed" when the shot runs faster than 1x ---------------
+        if (RATE > 1) {
+          chip.className = "chip";
+          chip.textContent = `${RATE}x speed`;
+        } else {
+          chip.style.display = "none";
+        }
+
+        // -- HUD panel: glass, with numbers that count up ---------------------
+        const countups = [];
+
+        function decimalsOf(v) {
+          const s = String(v == null ? "" : v);
+          return s.includes(".") ? s.split(".")[1].length : 0;
+        }
+
+        if (HUD.length) {
+          hud.className = "hud";
+
+          const head = document.createElement("div");
+          head.className = "hud-head";
+          const dot = document.createElement("span");
+          dot.className = "hud-dot";
+          const headText = document.createElement("span");
+          headText.textContent = "measured";
+          head.append(dot, headText);
+          hud.appendChild(head);
+
+          HUD.forEach((spec) => {
+            const row = document.createElement("div");
+            row.className = "hud-row";
+
+            const label = document.createElement("span");
+            label.className = "hud-label";
+            label.textContent = spec.label;
+
+            const value = document.createElement("span");
+            value.className = "hud-value";
+
+            const state = {
+              el: value,
+              target: Number(spec.value || 0),
+              // Decimal places come from the authored value, so 0.42 counts to
+              // 0.42 and 1000 counts to 1000.
+              decimals: decimalsOf(spec.value),
+              value: 0,
+            };
+            value.textContent = state.value.toFixed(state.decimals);
+            countups.push(state);
+
+            row.append(label, value);
+            if (spec.unit) {
+              const unit = document.createElement("span");
+              unit.className = "hud-unit";
+              unit.textContent = spec.unit;
+              row.appendChild(unit);
+            }
+            hud.appendChild(row);
+          });
+        } else {
+          hud.style.display = "none";
+        }
+
+        // -- GSAP: exactly one paused timeline, registered at the very end ---
+        const tl = gsap.timeline({ paused: true });
+
+        // Camera push. fromTo rather than from: the host re-seeks this
+        // sub-composition every time its clip becomes visible, and from()
+        // records its start state at registration and desyncs on seek-back.
+        tl.fromTo(push, { scale: 1.0 }, { scale: 1.06, duration: D, ease: "none" }, 0);
+
+        // Kinetic caption: fully in by 0.5 s (DEMO-STANDARD: the payoff has to
+        // be visible by the 2 s hook), and it holds to the end of the shot.
+        if (CAPTION) {
+          caption.textContent = CAPTION;
+          tl.fromTo(
+            caption,
+            { opacity: 0, y: 30 },
+            { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+            0.05
+          );
+        } else {
+          caption.style.display = "none";
+        }
+
+        // Count-up. The digits are a pure function of the seek time, so every
+        // frame of the shot paints the same number.
+        countups.forEach((state, i) => {
+          tl.to(
+            state,
+            {
+              value: state.target,
+              duration: 1.3,
+              ease: "power2.out",
+              onUpdate() {
+                state.el.textContent = state.value.toFixed(state.decimals);
+              },
+            },
+            0.25 + i * 0.3
+          );
+        });
+
+        window.__timelines["hf-footage"] = tl;
+      </script>
+    </template>
+  </body>
+</html>
