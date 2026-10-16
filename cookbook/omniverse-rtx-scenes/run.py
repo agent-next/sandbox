@@ -80,6 +80,14 @@ def key_and_url() -> tuple[str, str]:
     return key, url.rstrip("/")
 
 
+def judge_python() -> str:
+    """Interpreter with numpy/PIL/pxr for the judge steps.  run.py itself is
+    stdlib-only, but grade_frames.py/mutate_frames.py are not; judge/setup.sh
+    builds the pinned venv — use it when present."""
+    venv = Path.home() / ".venv-omnv-judge" / "bin" / "python"
+    return str(venv) if venv.exists() else sys.executable
+
+
 class ApiError(RuntimeError):
     pass
 
@@ -556,14 +564,14 @@ def main() -> int:
         # final meters snapshot before the lease dies
         st, snap, _ = json_request(key, "GET", f"{url}/sandboxes/{sid}")
         receipt["final_meters"] = meters_of(snap) if st == 200 else {}
-        g = subprocess.run([sys.executable, str(GRADE), "--run", str(out), "--json"],
+        g = subprocess.run([judge_python(), str(GRADE), "--run", str(out), "--json"],
                            capture_output=True, text=True, cwd=str(HERE))
         verdict = json.loads(g.stdout)
         (out / "verdict.json").write_text(json.dumps(verdict, indent=2, sort_keys=True))
         print(f"  [judge] {'PASS' if verdict['pass'] else 'FAIL'} "
               f"(exit {g.returncode})", flush=True)
         if not args.skip_selftest:
-            m = subprocess.run([sys.executable, str(MUTATE), "--selftest",
+            m = subprocess.run([judge_python(), str(MUTATE), "--selftest",
                                 "--frames", str(src)],
                                capture_output=True, text=True, cwd=str(HERE))
             (out / "selftest.txt").write_text(m.stdout + m.stderr)
