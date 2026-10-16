@@ -55,6 +55,30 @@ def run(step, *args, timeout=None, capture=False):
     return proc, dt
 
 
+CREATE_RETRIES = 6          # the 429 sandbox-quota error is transient
+CREATE_BACKOFF_S = (5, 15, 30, 60, 120, 240)
+
+
+def create_sbx():
+    """`sbx create`, retried with backoff: a 429 concurrent-sandbox quota
+    from a previous run's leaked slot clears by itself; the demo must not
+    fail on the first transient refusal (the lead acceptance run did)."""
+    last_err = ""
+    for attempt in range(CREATE_RETRIES + 1):
+        proc, _ = run("create", "sbx", "create", "--timeout-min", "30",
+                      timeout=120, capture=True)
+        if proc.returncode == 0 and proc.stdout.strip():
+            return proc
+        last_err = (proc.stderr or proc.stdout).strip()
+        if "429" not in last_err or attempt == CREATE_RETRIES:
+            break
+        wait = CREATE_BACKOFF_S[attempt]
+        print(f"  [create] 429 quota error, retrying in {wait} s "
+              f"({attempt + 1}/{CREATE_RETRIES})", flush=True)
+        time.sleep(wait)
+    die(f"sbx create failed after {CREATE_RETRIES} retries: {last_err}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", default="main",
@@ -67,10 +91,7 @@ def main():
 
     total0 = time.monotonic()
     need_sbx()
-    proc, _ = run("create", "sbx", "create", "--timeout-min", "30",
-                  timeout=120, capture=True)
-    if proc.returncode != 0:
-        die(f"sbx create failed: {proc.stderr.strip()}")
+    proc = create_sbx()
     sbx_id = proc.stdout.strip().splitlines()[-1]
     print(f"sandbox: {sbx_id} (template default)")
 
