@@ -53,7 +53,8 @@
         height: 1080px;
         transform-origin: 50% 45%;
       }
-      .cam video {
+      .cam video,
+      .cam img {
         position: absolute;
         left: 0;
         top: 0;
@@ -61,6 +62,14 @@
         height: 1080px;
         object-fit: cover;
         display: block;
+      }
+      /* the poster sits under the <video>: real footage on the very first
+         rendered frame, before the browser paints a decoded frame */
+      .cam img {
+        z-index: 0;
+      }
+      .cam video {
+        z-index: 1;
       }
       /* a soft vignette so white HUD panels read over any frame */
       .veil {
@@ -72,6 +81,35 @@
           rgba(13, 17, 23, 0) 45%,
           rgba(13, 17, 23, 0.62) 100%
         );
+      }
+      /* Light editorial shots: the build and the verdict sit on a paper
+         card so each cut to/from them is a large luma step -- a cut
+         between two dark terminals does not register on the gate's scene
+         metric. The footage inside is untouched (still the real clip,
+         letterboxed on the card). */
+      .shot.light {
+        background: #f0f1f3;
+      }
+      .shot.light .cam {
+        width: 1720px;
+        height: 900px;
+        left: 100px;
+        top: 90px;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 30px 80px rgba(13, 17, 23, 0.35);
+        transform-origin: 50% 50%;
+      }
+      .shot.light .cam video,
+      .shot.light .cam img {
+        width: 1720px;
+        height: 900px;
+      }
+      .shot.light .veil {
+        display: none;
+      }
+      .shot.light .hud .k {
+        color: #57606a;
       }
 
       /* --- HUD ------------------------------------------------------- */
@@ -271,6 +309,7 @@
           <video id="v-boot-hero" muted playsinline preload="auto"
                  data-start="0" data-duration="2.0"
                  src="clips/boot-hero.mp4"></video>
+          <img src="clips/boot-hero-poster.png" alt="">
         </div>
         <div class="veil"></div>
         <div class="kin" id="kin1">
@@ -285,6 +324,7 @@
           <video id="v-boot-shell" muted playsinline preload="auto"
                  data-start="2" data-duration="5.0"
                  src="clips/boot-shell.mp4"></video>
+          <img src="clips/boot-shell-poster.png" alt="">
         </div>
         <div class="veil"></div>
         <div class="hud" id="hud-shell" style="left: 96px; top: 90px; width: 520px">
@@ -300,11 +340,12 @@
       </section>
 
       <!-- 3: 7-10s  the real toolchain build --------------------------- -->
-      <section id="shot-build" class="shot clip" data-track-index="0">
+      <section id="shot-build" class="shot light clip" data-track-index="0">
         <div class="cam" id="cam3">
           <video id="v-build" muted playsinline preload="auto"
                  data-start="7" data-duration="3.0"
                  src="clips/build.mp4"></video>
+          <img src="clips/build-poster.png" alt="">
         </div>
         <div class="veil"></div>
         <div class="hud" id="hud-build" style="left: 96px; top: 90px; width: 700px">
@@ -330,6 +371,7 @@
           <video id="v-grade" muted playsinline preload="auto"
                  data-start="10" data-duration="5.0"
                  src="clips/grade.mp4"></video>
+          <img src="clips/grade-poster.png" alt="">
         </div>
         <div class="veil"></div>
         <div class="gates" id="gates4"></div>
@@ -341,6 +383,7 @@
           <video id="v-selftest" muted playsinline preload="auto"
                  data-start="15" data-duration="6.0"
                  src="clips/selftest.mp4"></video>
+          <img src="clips/selftest-poster.png" alt="">
         </div>
         <div class="veil"></div>
         <div class="tag" id="tag5">12× speed — judge/selftest.sh</div>
@@ -365,6 +408,7 @@
           <video id="v-boot-crc" muted playsinline preload="auto"
                  data-start="21" data-duration="6.0"
                  src="clips/boot-crc.mp4"></video>
+          <img src="clips/boot-crc-poster.png" alt="">
         </div>
         <div class="veil"></div>
         <div class="tag" id="tag6">16× speed</div>
@@ -377,11 +421,12 @@
       </section>
 
       <!-- 7: 27-31.5s  the verdict over moving footage ------------------ -->
-      <section id="shot-verdict" class="shot clip" data-track-index="0">
+      <section id="shot-verdict" class="shot light clip" data-track-index="0">
         <div class="cam" id="cam7">
           <video id="v-verdict" muted playsinline preload="auto"
                  data-start="27" data-duration="4.5"
                  src="clips/verdict.mp4"></video>
+          <img src="clips/verdict-poster.png" alt="">
         </div>
         <div class="veil"></div>
         <div class="hud" id="hud-verdict"
@@ -496,28 +541,31 @@
       }
 
       /* --- camera: every shot pans or pushes across its real footage --- */
-      tl.fromTo("#cam1", { scale: 1.16, x: -80, y: -40 },
+      // Zooms stay small over dense terminal text: a large zoom re-renders
+      // a different subpixel grid of 22 px glyphs every frame, and that
+      // noise ate most of an 8 MiB budget in the first draft render.
+      tl.fromTo("#cam1", { scale: 1.06, x: -40, y: -20 },
                 { scale: 1.0, x: 0, y: 0, duration: 2, ease: "power1.inOut" }, 0);
       tl.fromTo("#cam2", { scale: 1.0, x: 0 },
-                { scale: 1.12, x: -110, y: -40, duration: 5, ease: "none" }, 2);
-      tl.fromTo("#cam3", { scale: 1.14, x: -60 },
+                { scale: 1.06, x: -60, y: -20, duration: 5, ease: "none" }, 2);
+      tl.fromTo("#cam3", { scale: 1.08, x: -30 },
                 { scale: 1.0, x: 0, duration: 3, ease: "power1.inOut" }, 7);
-      tl.fromTo("#cam4", { scale: 1.22, x: 0, y: -110 },
-                { scale: 1.10, x: -90, y: 0, duration: 5, ease: "none" }, 10);
-      // A push is a move across real footage, but the zoom has to stay
-      // small over dense terminal text: a 1.3x zoom on 22px glyphs
-      // re-renders a different subpixel grid every frame, and re-encoding
-      // that costs ~9 MB of the 8 MiB budget on its own.
+      tl.fromTo("#cam4", { scale: 1.10, x: 0, y: -50 },
+                { scale: 1.04, x: -40, y: 0, duration: 5, ease: "none" }, 10);
       tl.fromTo("#cam5", { scale: 1.02 },
-                { scale: 1.10, x: -70, duration: 6, ease: "none" }, 15);
+                { scale: 1.08, x: -50, duration: 6, ease: "none" }, 15);
       tl.fromTo("#cam6", { scale: 1.0 },
-                { scale: 1.08, x: -80, duration: 6, ease: "none" }, 21);
-      tl.fromTo("#cam7", { scale: 1.08, x: -30, y: 20 },
+                { scale: 1.05, x: -40, duration: 6, ease: "none" }, 21);
+      tl.fromTo("#cam7", { scale: 1.05, x: -20, y: 10 },
                 { scale: 1.0, x: 0, y: 0, duration: 4.5, ease: "power1.inOut" }, 27);
 
-      /* --- headline: two lines rising in turn -------------------------- */
-      tl.from("#kin1 .a", { y: 118, opacity: 0, duration: 0.5, ease: "power3.out" }, 0.15);
-      tl.from("#kin1 .b", { y: 118, opacity: 0, duration: 0.5, ease: "power3.out" }, 0.5);
+      /* --- headline: two lines on screen from frame 0 (the video gate
+             reads the first frame; a fade from 0 would hand it a black
+             card), then they clear for the shell shot ---------------- */
+      tl.from("#kin1 .a", { y: 24, opacity: 0.35, duration: 0.35,
+                            ease: "power2.out" }, 0.05);
+      tl.from("#kin1 .b", { y: 24, opacity: 0.35, duration: 0.35,
+                            ease: "power2.out" }, 0.4);
       tl.to("#kin1", { y: -40, opacity: 0, duration: 0.5, ease: "power2.in" }, 1.35);
 
       /* --- shell counters --------------------------------------------- */

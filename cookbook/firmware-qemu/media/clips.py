@@ -40,30 +40,39 @@ HEIGHT = 1080
 # rows at the terminal's 0.60 glyph ratio), so the clip fills the
 # 1920x1080 frame without letterboxing.
 SLOTS = [
-    # 0-2 s  the launch line and the boot banner landing.
-    # banner at 0.50 s; window 0.45-2.45 at 8x keeps it on screen the whole
-    # slot.  The window writes 2 rows; the frame is still 16:9 so the
-    # composition's camera has room to push.
-    ("boot-hero",  "boot.cast", 0.45, 8.0, 2.0, "0,0,120,40"),
-    # 2-7 s  the scripted shell: HELP..ECHO, then the first CRC answers.
-    # HELP 5.40s, ECHO 7.35s, first CRC 11.20s; window 4.20-9.20 at 8x.
-    # maxrow 17 -> crop rows 0-17; the composition zooms in on it.
-    ("boot-shell", "boot.cast", 4.20, 8.0, 5.0, "0,0,120,40"),
+    # 0-2 s  the hook: the firmware answering the seeded CRC burst at full
+    # width.  Window starts at 30.90 s, where the screen is already full of
+    # the session's history (rows 0-28) and the long-hex CRC commands land
+    # one every ~0.26 s of clip time -- frame 0 is dense, bright text, and
+    # the burst never stops moving.
+    ("boot-hero",  "boot.cast", 30.90, 8.0, 2.0, "0,0,120,40"),
+    # 2-7 s  the scripted shell from HELP: HELP 5.20s, ECHO 6.79s, the
+    # short CRC answers 10.8-16.4s, the RB section from 16.6s.  Window
+    # 4.0-44.0 at 8x -- new lines land every ~0.3 s of clip time, so the
+    # screen scrolls the whole slot.
+    ("boot-shell", "boot.cast", 4.00, 8.0, 5.0, "0,0,120,40"),
     # 7-10 s the real toolchain build and its memory map.
-    # make clean 0.10s, six objects to 1.40s, the map at 1.50s.
-    # maxrow 22 -> rows 0-22.
-    ("build",      "build.cast", 0.10, 1.0, 2.8, "0,0,120,40"),
-    # 10-15 s the judge's verdict line and its JSON verdict.
-    # grade.sh prints the gate table at 8.0s and the JSON at 8.6s.
-    ("grade",      "grade.cast", 7.90, 1.0, 4.6, "0,0,120,40"),
+    # make clean 0.05s, six objects 0.43-0.96s, the memory map at 0.99s.
+    # A 3.0 s window at 1x holds the whole build, then it rests on the map.
+    ("build",      "build.cast", 0.00, 1.0, 3.0, "0,0,120,40"),
+    # 10-15 s the judge's verdict: the gate table at 7.54s and the JSON at
+    # 7.57s.  Start just before the verdict lands so the table visibly
+    # arrives on screen; the JSON holds for the rest of the window.
+    ("grade",      "grade.cast", 7.40, 1.0, 4.6, "0,0,120,40"),
     # 15-21 s the mutant table at 12x -- the sped-up agent run.
-    # MUTANT header at 146.6s, build-broken 155.6s, crc-init 175.8s.
-    ("selftest",   "selftest.cast", 146.00, 12.0, 5.0, "0,0,120,40"),
+    # MUTANT header 132.5s, build-broken 140.4s, crc-init 156.3s,
+    # crc-poly 184.2s, ring-count-drift 235.1s: 12x covers 72 s of cast =
+    # six mutant rows landing, one every ~1.2 s of clip time.
+    ("selftest",   "selftest.cast", 132.00, 12.0, 5.0, "0,0,120,40"),
     # 21-27 s the ring-buffer push/pop tail at 16x -- the fast clip.
-    # RB push 010203... at 26.2s; window 24-40 at 16x.
+    # window 24-120 s: the 17-byte ring pushes (25.6s), the wrap dumps
+    # (27.9-30.0s) and the long-hex CRC burst (30.9s+) at 16x -- a line
+    # lands every ~0.4 s of clip time.
     ("boot-crc",   "boot.cast", 24.00, 16.0, 6.0, "0,0,120,40"),
     # 27-31.5 s the judge's verdict JSON landing on screen, real bytes.
-    ("verdict",    "grade.cast", 7.90, 1.0, 4.5, "0,0,120,40"),
+    # same window as `grade`; the composition pans down the JSON as the
+    # proof HUD holds its numbers.
+    ("verdict",    "grade.cast", 7.40, 1.0, 4.5, "0,0,120,40"),
 ]
 
 
@@ -83,6 +92,18 @@ def build(out_dir, only=None):
         print("clips: %-12s %s start=%.2f speed=%g dur=%.1fs"
               % (name, cast, start, speed, dur))
         subprocess.check_call(argv)
+        # The composition shows this exact frame behind its <video>, so the
+        # rendered video's frame 0 is real footage even before the browser
+        # paints the first decoded frame (render-frame-0 was blank once;
+        # the poster is what the gate's first-frame checks measure).
+        poster = os.path.join(out_dir, "%s-poster.png" % name)
+        subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error",
+                               "-i", out, "-frames:v", "1", poster])
+
+
+def poster_dir(out_dir=None):
+    """Where the posters were written (the composition mounts them)."""
+    return out_dir or CLIPS
 
 
 def main():
