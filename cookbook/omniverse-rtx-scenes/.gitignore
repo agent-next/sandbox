@@ -21,3 +21,6 @@ media/result.png
 media/loop.png
 media/demo.mp4
 media/MANIFEST.json
+# the RTX render wrapper is authored into each scene by render_job.py on
+# every run (locally when rehearsing, inside the lease for the real run)
+scenes/*/_render_wrapper.usda

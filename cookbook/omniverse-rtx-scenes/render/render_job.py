@@ -194,7 +194,10 @@ def author_wrapper(scene_root: Path) -> Path:
         key.CreateWidthAttr(4.0)
         key.CreateHeightAttr(4.0)
         key.AddTranslateOp().Set(Gf.Vec3d(2.0, 4.0, 1.5))
-        key.AddRotateXOp(-60.0)
+        # AddRotateXOp takes (precision, opSuffix, isInverseOp) only, never
+        # the angle: set the value on the returned op (verified live;
+        # passing -60.0 here raises ArgumentError before any GPU time).
+        key.AddRotateXOp().Set(-60.0)
         log("scene has no light: authored dome + rect key in the wrapper")
 
     stage.GetRootLayer().Save()
