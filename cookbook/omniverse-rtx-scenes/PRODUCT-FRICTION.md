@@ -155,6 +155,43 @@ get.
 
 ---
 
+## F8. A lost create reply is unresolvable: no idempotency key
+
+`POST /sandboxes` (this run, 2026-10-16T04:52Z, attempt 87 of the retry
+loop):
+
+```
+run.py: GPU create failed: {'status': 503, 'body': {'error': 'gateway is
+restarting', 'code': 'restarting', 'retry_after_s': 5}, 'attempt': 87}
+```
+
+Two problems in one:
+
+1. **The 503 was fatal in the first driver version.**  A control-plane
+   restart is transient — the lease was *not* created — but any non-409
+   status aborted the whole 45-minute retry loop at attempt 87 of 90, five
+   minutes before the budget would have carried it through the restart.
+   `run.py` now retries 5xx like it retries 409s (respecting
+   `retry_after_s`).
+
+2. **A *lost* reply (read timeout) is worse: it may have created a lease.**
+   There is no idempotency key, no client-supplied name, and every lease
+   shows the same `clientID: "gpu-lease"`, so a lease that appears in the
+   inventory after a timed-out POST **cannot be proven to be yours** — a
+   parallel agent creating at the same moment is indistinguishable. The
+   only safe behaviour is to record the suspect id and refuse to
+   auto-adopt or delete it (deleting a lease you cannot prove you created
+   can destroy someone else's work). One lost reply earlier today left
+   `gl-0c86c5-3` holding the account's single seat for **24 h of idle
+   billing** (F3) precisely because cleanup could not be proven safe
+   automatically.
+
+   An `Idempotency-Key` header on create (or a client-settable
+   `metadata.name`) would make the lost-reply case a one-line lookup
+   instead of a judgement call.
+
+---
+
 ## What worked well (for contrast)
 
 - `POST /sandboxes` → 201 in **2.5 s** when a seat was free, with a clean id.

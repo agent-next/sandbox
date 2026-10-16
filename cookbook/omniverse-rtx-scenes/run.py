@@ -144,18 +144,22 @@ def step(label: str, t0: float, extra: str = "") -> None:
 
 class Tee:
     """Mirror stdout to <out>/run.log so the terminal segment of the demo
-    video is the real run's own output (STORYBOARD.md slot 5)."""
+    video is the real run's own output (STORYBOARD.md slot 5).
+
+    The real stream is captured at CONSTRUCTION: writing through
+    sys.stdout here would recurse (sys.stdout is this Tee)."""
 
     def __init__(self, out: Path):
         self.path = out / "run.log"
         self.fh = self.path.open("w")
+        self.real = sys.stdout
 
     def write(self, s: str):
-        sys.stdout.write(s)
+        self.real.write(s)
         self.fh.write(s)
 
     def flush(self):
-        sys.stdout.flush()
+        self.real.flush()
         self.fh.flush()
 
 
@@ -203,12 +207,24 @@ def build_bundle(work: Path) -> dict:
 # --------------------------------------------------------------------------- #
 # step 2-3: lease + upload
 # --------------------------------------------------------------------------- #
-def create_lease(key: str, url: str, attempts: int = CREATE_ATTEMPTS) -> tuple[str, float, dict]:
-    """POST /sandboxes with retry on seat contention (409) and lost replies.
+# A lease that appeared during a lost POST reply: possibly created by this
+# run, but NOT provably ours (no idempotency key in the API, clientID is
+# constant) — recorded loudly, never auto-adopted or deleted.
+POSSIBLE_LEAK: set[str] = set()
 
-    A 409 is a documented product state (no free seat); retry with backoff
-    rather than dying, since this is a shared single GPU node
-    (PRODUCT-FRICTION.md).  Only a 201 with a valid gl- id is accepted."""
+
+def create_lease(key: str, url: str, attempts: int = CREATE_ATTEMPTS) -> tuple[str, float, dict]:
+    """POST /sandboxes with retry on every transient state.
+
+    Retried, not fatal (all observed live on this account):
+      * 409 gpu_capacity_exhausted — one nvidia.5090 node, one seat;
+        the reply's retry_after_s:5 is advisory, there is no queue.
+      * 5xx (503 "gateway is restarting", "no GPU node reachable") — the
+        control plane restarts under load; the lease was NOT created.
+      * a lost reply (timeout mid-read) — the lease may exist; see
+        POSSIBLE_LEAK above for why it is recorded, never adopted.
+    Only a 201 with a valid gl- id is accepted."""
+    before = set(new_leases(key, url, before=set()))
     last = None
     for attempt in range(1, attempts + 1):
         status, body, elapsed = json_request(key, "POST", f"{url}/sandboxes", {
@@ -224,13 +240,51 @@ def create_lease(key: str, url: str, attempts: int = CREATE_ATTEMPTS) -> tuple[s
             time.sleep(30)
             continue
         if status is None:
+            # The POST may have created a lease whose reply we never saw.
+            # The API offers no idempotency key and clientID is constant,
+            # so a lease that appeared here is NOT provably ours — a
+            # parallel agent creating at the same moment is
+            # indistinguishable.  Never adopt-or-delete by listing:
+            # record it for the operator (see PRODUCT-FRICTION.md F8) and
+            # keep retrying; the seat it holds will 409 us until it is
+            # resolved deliberately.
+            maybe = new_leases(key, url, before)
+            if maybe:
+                print(f"  [lease] LOST REPLY + new lease appeared: {maybe} "
+                      f"— possibly created by this run's POST; it is NOT "
+                      f"provably ours, refusing to auto-adopt/delete",
+                      flush=True)
+                POSSIBLE_LEAK.update(maybe)
             print(f"  [lease] reply lost (attempt {attempt}/{attempts}); "
                   f"retrying in 20 s", flush=True)
             time.sleep(20)
             continue
+        if isinstance(status, int) and 500 <= status < 600:
+            wait = 5.0
+            if isinstance(body, dict):
+                wait = float(body.get("retry_after_s") or 5)
+            print(f"  [lease] gateway {status} (attempt {attempt}/{attempts}); "
+                  f"retrying in {wait:.0f} s", flush=True)
+            time.sleep(max(2.0, min(wait, 30.0)))
+            continue
         break
     die(f"GPU create failed: {last}")
     return "", 0.0, {}                     # unreachable
+
+
+POSSIBLE_LEAK: set[str] = set()
+
+
+def new_leases(key: str, url: str, before: set[str]) -> list[str]:
+    """Leases that appeared since `before` (read-only inventory diff).
+
+    With before=set() this is just the current inventory snapshot."""
+    status, body, _ = request(key, "GET", f"{url}/sandboxes", None, timeout=60)
+    if status != 200 or not isinstance(body, list):
+        return []
+    return sorted(r.get("sandboxID") for r in body
+                  if isinstance(r, dict) and valid_lease_id(r.get("sandboxID"))
+                  and r.get("sandboxID") not in before)
 
 
 def probe_upload(key: str, url: str, sid: str) -> bool:
@@ -525,6 +579,11 @@ def main() -> int:
             destroy_lease(key, url, sid)
 
     receipt["total_seconds"] = round(time.monotonic() - t_start, 2)
+    if POSSIBLE_LEAK:
+        receipt["possible_leaked_leases"] = sorted(POSSIBLE_LEAK)
+        print("run.py: WARNING — leases that appeared during lost POST "
+              "replies (NOT provably this run's; verify before deleting): "
+              f"{sorted(POSSIBLE_LEAK)}", flush=True)
     (out / "run-receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True))
     print(f"run.py: total {receipt['total_seconds'] / 60:.1f} min; verdict "
           f"{verdict.get('pass')}", flush=True)
