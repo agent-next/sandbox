@@ -29,7 +29,7 @@ export const Background: React.FC<{ opacity?: number }> = ({
       />
       <AbsoluteFill
         style={{
-          opacity: 0.05 * opacity,
+          opacity: 0.03 * opacity,
           backgroundImage:
             "repeating-linear-gradient(180deg, transparent 0px, transparent 4px, #58a6ff 5px, transparent 6px)",
           transform: `translateY(${drift}px)`,

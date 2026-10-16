@@ -120,7 +120,7 @@ export const Race: React.FC<{
           standard set dressing */}
       {bright ? (
         <AbsoluteFill style={{
-          background: "radial-gradient(1300px 850px at 50% 42%, #22406e 0%, #14213a 55%, #0d1524 100%)",
+          background: "radial-gradient(1300px 850px at 50% 42%, #24406f 0%, #14223c 55%, #0e1626 100%)",
         }} />
       ) : null}
       <div

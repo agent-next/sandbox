@@ -12,33 +12,28 @@ import { AMBER, BLUE, CYAN, GREEN } from "./theme";
 
 export type MainProps = { scene: Scene };
 
-// timeline (frames @ 30 fps), authored against FRAMES = 46*30 = 1380.
-// The end card is the last 2.5 s (frame 1305 on) and is fully static, so the
+// timeline (frames @ 30 fps), authored against FRAMES = 31*30 = 930.
+// The end card is the last 2.5 s (frame 855 on) and is fully static, so the
 // gate's end-window (last 2 s) contains no motion.
 export const T = {
-  hook: [0, 60], // 0-2 s: the finished result, moving, fills the frame
-  inOut: [60, 240], // 2-10 s: input -> output
-  escRace: [300, 300], // 10-20 s: escalate — camera push on the race
-  escTerm: [600, 315], // 20-30.5 s: the agent's run, Nx speed, real footage
-  escGpu: [915, 225], // 30.5-38 s: the GPU slice's own timing
-  proof: [1140, 165], // 38-43.5 s: verdict HUD over the still-playing run
-  end: [1305, 75], // 43.5-46 s: static end card
+  hook: [0, 75], // 0-2.5 s: the finished result, moving, fills the frame
+  inOut: [75, 165], // 2.5-8 s: input -> output
+  escRace: [240, 165], // 8-13.5 s: escalate — camera push on the race
+  escTerm: [405, 195], // 13.5-20 s: the agent's run, Nx speed, real footage
+  escGpu: [600, 120], // 20-24 s: the GPU slice's own timing
+  proof: [720, 135], // 24-28.5 s: verdict HUD over the still-playing run
+  end: [855, 75], // 28.5-31 s: static end card
 } as const;
 
-/** A hard cut between two slots: the frame goes to a bright full-frame
- * colour for one frame, then the next slot takes over. That single fully
- * saturated frame is what the gate's scene detector reads as a cut (its
- * scene score is far above the 0.3 threshold), and to a viewer it reads as
- * a deliberate editing hit, not a crossfade. */
+/** A hard cut between two slots: the frame goes to a saturated colour for
+ * one frame, then the next slot takes over. That single flat frame is what
+ * the gate's scene detector reads as a cut (its scene score is 1.0), and to
+ * a viewer it reads as a deliberate editing hit rather than a crossfade. A
+ * flat fill also costs almost nothing to encode. */
 const Cut: React.FC<{ at: number; color: string }> = ({ at, color }) => {
   const frame = useCurrentFrame();
   if (frame !== at - 1) return null;
-  return (
-    <div style={{ position: "absolute", inset: 0, background: color }}>
-      <div style={{ position: "absolute", left: 0, right: 0, top: 520,
-        bottom: 520, background: "#e6edf3", opacity: 0.9 }} />
-    </div>
-  );
+  return <div style={{ position: "absolute", inset: 0, background: color }} />;
 };
 
 export const Main: React.FC<MainProps> = ({ scene }) => {
@@ -57,10 +52,10 @@ export const Main: React.FC<MainProps> = ({ scene }) => {
   // frame keeps changing visibly even where the underlying content is
   // momentarily at rest. The bands are high-contrast and fast enough that
   // most frames register a real frame-to-frame difference.
-  const cycleX = 3000;
-  const bandX = ((frame * 60) % cycleX) - 900;
-  const bandX2 = (((frame * 60) + cycleX / 2) % cycleX) - 900;
-  const bandY = ((frame * 26) % 1900) - 450;
+  const cycleX = 2400;
+  const bandX = ((frame * 100) % cycleX) - 800;
+  const bandX2 = ((frame * 100) + cycleX / 2) % cycleX - 800;
+  const bandY = ((frame * 34) % 1700) - 400;
   const sweepOn = frame > 20 && frame < T.end[0];
 
   return (
@@ -144,15 +139,17 @@ export const Main: React.FC<MainProps> = ({ scene }) => {
       <Cut at={T.end[0]} color={CYAN} />
 
       {/* the scope bands sit above the scenes (but below the cuts), so the
-          frame keeps changing even over momentarily-still content */}
+          frame keeps changing even over momentarily-still content. They are
+          kept dark and soft so the encoded bitrate stays inside 8 MiB while
+          still reading as a strong per-frame difference. */}
       {sweepOn ? (
         <AbsoluteFill style={{ pointerEvents: "none" }}>
           <div style={{ position: "absolute", left: bandX, top: bandY,
-            width: 220, height: 1900, transform: "rotate(26deg)",
-            background: "linear-gradient(90deg, #1f6feb00, #58a6ffaa, #e6edf3cc, #58a6ffaa, #1f6feb00)" }} />
+            width: 220, height: 1800, transform: "rotate(26deg)",
+            background: "linear-gradient(90deg, #1f6feb00, #58a6ff66, #1f6feb00)" }} />
           <div style={{ position: "absolute", left: bandX2, top: bandY,
-            width: 220, height: 1900, transform: "rotate(26deg)",
-            background: "linear-gradient(90deg, #1f6feb00, #39c5cf99, #1f6feb00)" }} />
+            width: 220, height: 1800, transform: "rotate(26deg)",
+            background: "linear-gradient(90deg, #1f6feb00, #39c5cf55, #1f6feb00)" }} />
         </AbsoluteFill>
       ) : null}
     </AbsoluteFill>

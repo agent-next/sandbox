@@ -56,9 +56,9 @@ fi
 # --- 1-2: the real run, recorded ------------------------------------------
 if [ "${REUSE_CLIPS:-0}" != "1" ] || [ ! -s clips/terminal.mp4 ]; then
     python3 record_clips.py
-    # The composition plays the recording for 16 s (10.5 s escalate + 5.5 s
+    # The composition plays the recording for 11 s (6.5 s escalate + 4.5 s
     # proof resuming exactly where it stopped), so the clip must be at least
-    # 16 s / clip-of-run ratio; a ~200 s run at 12x is ~17.5 s of footage.
+    # that long; a ~200 s run at 12x is ~17.5 s of footage.
     python3 render_clips.py --speed 12
 else
     echo "make_media.sh: REUSE_CLIPS=1, keeping existing clips/"
