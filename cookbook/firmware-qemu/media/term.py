@@ -30,6 +30,14 @@ import time
 
 import pty
 
+# The player needs pyte and Pillow.  They are not part of the distro python,
+# and `-I` (isolated mode, used because the recordings are untrusted input)
+# drops the user site-packages, so media/ installs them into .pylib -- next to
+# this file, never inside a directory an archive is extracted into.
+_LIB = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".pylib")
+if os.path.isdir(_LIB):
+    sys.path.insert(0, _LIB)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEMO = os.path.dirname(HERE)
 SEED = 20260814
