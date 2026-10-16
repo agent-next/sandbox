@@ -372,57 +372,57 @@
     "license": "BSD-3-Clause (c) 2022 NVIDIA Corporation; simready-assets dataset"
   },
   "ur10/ur10.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/ur10.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/ur10.usd",
     "sha256": "09df566f1c8548cc9c7d0c80ed679a2b3ff347ff11c6456549032e85e9a8502c",
     "bytes": 14659,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   },
   "ur10/Props/ur10_base.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_base.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_base.usd",
     "sha256": "8be25f2440920c638d136c570ba5a97f29f463d3ce1f858b90f0a77870241734",
     "bytes": 180707,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   },
   "ur10/Props/ur10_shoulder.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_shoulder.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_shoulder.usd",
     "sha256": "0388d4a8a1d4c97f3508b54a9c0603e6d6f3652667c031da7480c945ad7d1cb1",
     "bytes": 1966902,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   },
   "ur10/Props/ur10_upper_arm.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_upper_arm.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_upper_arm.usd",
     "sha256": "613f09ad2322212de5b9228af15e876fece9f1fc782ab0f108d9d9f5fc306e3b",
     "bytes": 3651868,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   },
   "ur10/Props/ur10_forearm.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_forearm.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_forearm.usd",
     "sha256": "ca4b872d4fc4d69dcdcc9855cf7a89f9ffe6e36cde4b37448c5c9af1504158a3",
     "bytes": 3627293,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   },
   "ur10/Props/ur10_wrist_1.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_1.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_1.usd",
     "sha256": "3f6592b9c4d943d5b11f113ce416216f858ea73ced1f800f2ce5b131bd937537",
     "bytes": 2000099,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   },
   "ur10/Props/ur10_wrist_2.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_2.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_2.usd",
     "sha256": "968dad984174143eefbb658950fd2f2268ed3385828d9b67672f79a8ad755399",
     "bytes": 1811467,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   },
   "ur10/Props/ur10_wrist_3.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_3.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/Props/ur10_wrist_3.usd",
     "sha256": "5083a4f4243865396621937d6a59fb445aef0cadfef439b2a53696bb27292f8a",
     "bytes": 119256,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   },
   "ur10/Props/Materials/material_library.usd": {
-    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/4.1/Isaac/Robots/UniversalRobots/ur10/Props/Materials/material_library.usd",
+    "url": "http://omniverse-content-production.s3.us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Robots/UniversalRobots/ur10/Props/Materials/material_library.usd",
     "sha256": "dfc3f95b0e1ecfa9d70d3707bf4f8f376e0161cba70164c1d2af3f5d86239c97",
     "bytes": 3678,
-    "license": "NVIDIA Isaac Sim 4.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
+    "license": "NVIDIA Isaac Sim 5.1 asset library, omniverse-content-production S3 (CC-BY-4.0 / NVIDIA sample content)"
   }
 }

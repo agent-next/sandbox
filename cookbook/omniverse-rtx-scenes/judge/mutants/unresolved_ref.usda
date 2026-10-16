@@ -77,31 +77,6 @@ def Xform "World"
                 prepend references = @/home/user/w/cookbook/omniverse-rtx-scenes/scenes/warehouse/assets/ur10/ur10.usd@
             )
             {
-                over "base_link"
-                {
-                    over "ur10_base"
-                    {
-                        over "ID125_001"
-                        {
-                            rel material:binding = </World/Robot/UR10Tilt/UR10/base_link/ur10_base/ID125_001/BadMaterial/Material>
-
-                            def Xform "BadMaterial"
-                            {
-                                def Material "Material"
-                                {
-                                    token outputs:surface.connect = </World/Robot/UR10Tilt/UR10/base_link/ur10_base/ID125_001/BadMaterial/Material/Shader.outputs:surface>
-
-                                    def Shader "Shader"
-                                    {
-                                        uniform token info:id = "OmniPBR"
-                                        asset inputs:diffuse_texture = @./missing_texture.png@
-                                        token outputs:surface
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }

@@ -123,16 +123,33 @@ def surface_output_name(material_prim: Usd.Prim) -> str | None:
 
 
 def shader_mdl_source(shader_prim: Usd.Prim) -> str | None:
-    """`info:mdl:sourceAsset` of a shader, or None when it is not MDL."""
+    """`info:mdl:sourceAsset` of a shader, or None when it is not MDL.
+
+    `str(Sdf.AssetPath)` returns the delimited reference (`@OmniPBR.mdl@`),
+    which would not match anything on disk; use the bare `.path` field (or
+    strip the delimiters from a non-AssetPath string).
+    """
     if not shader_prim:
         return None
     attr = shader_prim.GetAttribute("info:mdl:sourceAsset")
     val = attr.Get() if attr else None
-    return str(val) if val else None
+    if not val:
+        return None
+    if isinstance(val, Sdf.AssetPath):
+        return val.path
+    return str(val).strip("@")
 
 
 def resolve_asset_path(path: str, layer_dirs: list[Path]) -> Path:
-    """Resolve a (possibly bare) asset reference against the candidate dirs."""
+    """Resolve a (possibly bare) asset reference against the candidate dirs.
+
+    USD resolves a bare reference like `OmniPBR.mdl` against the referencing
+    layer's folder; texure inputs carry relative `./materials/...` paths that
+    resolve the same way.  `Sdf.AssetPath.resolvedPath` already does that by
+    itself once the resolver context is set, so that comes first; the explicit
+    dir walk is the fallback for paths the resolver could not map.
+    """
+    path = path.strip("@")
     sp = Sdf.AssetPath(path)
     resolved = sp.resolvedPath
     if resolved and Path(resolved).exists():
@@ -225,7 +242,8 @@ def material_stats(stage: Usd.Stage, scene_dir: Path,
                    search_dirs: list[Path] | None = None
                    ) -> dict[str, int]:
     """Per-scene material census: MDL vs UsdPreviewSurface vs unresolvable."""
-    stats = {"mdl": 0, "preview": 0, "unbound": 0, "unresolved": 0}
+    stats = {"mdl": 0, "preview": 0, "unbound": 0, "unknown": 0,
+             "unresolved": 0}
     seen: set[str] = set()
     for m in get_meshes(stage):
         if not mesh_has_material_binding(m):
@@ -293,16 +311,22 @@ def camera_frustum_overlaps_bbox(cam: UsdGeom.Camera, bbox: Gf.Range3d) -> bool:
 
 def _quat_angle(q0, q1) -> float:
     """Angle between two quaternions, in degrees."""
-    d = abs(sum(q0[i] * q1[i] for i in range(4)))
+    # xformOp:orient comes back as a Gf.Quatd/Quatf or a plain tuple — both
+    # expose (real, i, j, k) components; normalize on the way in so the dot
+    # product is in [-1, 1].
+    def comps(q):
+        if isinstance(q, Gf.Quatd) or isinstance(q, Gf.Quatf):
+            return [q.GetReal(), *[q.GetImaginary()[i] for i in range(3)]]
+        return list(q)
+    a, b = comps(q0), comps(q1)
+    d = abs(sum(a[i] * b[i] for i in range(4)))
     return math.degrees(2 * math.acos(max(-1.0, min(1.0, d))))
 
 
 def _oriented_points(points, quat, translate) -> list[tuple[float, float, float]]:
     """Apply (quat, translate) to every point, world-Y-up."""
-    q = Gf.Quatf(*[float(quat[i]) for i in range(4)])
-    rot = Gf.Quaternion(q.GetReal(), Gf.Vec3f(q.GetImaginary()[0],
-                                              q.GetImaginary()[1],
-                                              q.GetImaginary()[2]))
+    q = _quat_to_gf(quat)
+    rot = Gf.Quaternion(q.GetReal(), q.GetImaginary())
     out = []
     for p in points:
         v = rot.Transform(Gf.Vec3f(*[float(x) for x in p]))
@@ -318,10 +342,22 @@ def _obb_from_points(points):
     return mn, mx
 
 
+def _quat_to_gf(quat) -> Gf.Quatd:
+    """Normalize an xformOp:orient value (Gf.Quatd/Quatf or tuple) to Gf.Quatd."""
+    if isinstance(quat, Gf.Quatd):
+        return quat
+    if isinstance(quat, Gf.Quatf):
+        return Gf.Quatd(float(quat.GetReal()),
+                        float(quat.GetImaginary()[0]),
+                        float(quat.GetImaginary()[1]),
+                        float(quat.GetImaginary()[2]))
+    return Gf.Quatd(float(quat[0]), float(quat[1]), float(quat[2]),
+                    float(quat[3]))
+
+
 def _point_in_obb(pt, quat, translate, mn, mx, tol: float) -> bool:
     """Is world-space point pt inside the oriented box (mn..mx) + tol?"""
-    q = Gf.Quatd(float(quat[0]), float(quat[1]), float(quat[2]),
-                 float(quat[3]))
+    q = _quat_to_gf(quat)
     local = q.GetInverse().Transform(Gf.Vec3d(pt[0] - translate[0],
                                                pt[1] - translate[1],
                                                pt[2] - translate[2]))
@@ -364,8 +400,7 @@ def check_no_interpenetration(stage: Usd.Stage, body_prims: list,
         obbs.append((prim.GetPath().pathString, pts, quat, translate, mn, mx))
 
     def world_pts(quat, translate, pts):
-        q = Gf.Quatd(float(quat[0]), float(quat[1]), float(quat[2]),
-                     float(quat[3]))
+        q = _quat_to_gf(quat)
         out = []
         for p in pts:
             v = q.Transform(Gf.Vec3d(float(p[0]), float(p[1]), float(p[2])))
@@ -420,7 +455,13 @@ def check_scene_a(stage: Usd.Stage, stage_root: Path,
     scene_dir = Path(scene_dir) if scene_dir else \
         Path(stage_root) / "scenes" / "warehouse"
     search_dirs = material_search_dirs(scene_dir)
-    unresolved = compute_unresolved(scene_dir / "scene.usda")
+    # Validate the stage actually under test: for the real scenes it is
+    # scene_dir/scene.usda, for a mutant it is the mutant file itself — the
+    # mutant's injected unresolvable reference must be what G4 sees, not the
+    # pristine scene.
+    root_layer = stage.GetRootLayer().realPath
+    check_path = Path(root_layer) if root_layer else scene_dir / "scene.usda"
+    unresolved = compute_unresolved(check_path)
     if unresolved:
         errors.append(f"G4: {len(unresolved)} unresolved deps: {unresolved}")
 
@@ -431,6 +472,18 @@ def check_scene_a(stage: Usd.Stage, stage_root: Path,
     up = UsdGeom.GetStageUpAxis(stage)
     if up != "Y":
         errors.append(f"G4: upAxis = {up}, expected Y")
+
+    # G4: an active physics scene must pull toward the ground.  Rendering-only
+    # scenes (A/C) leave simulationOwner empty and gravity unset, so a flipped
+    # gravity to (0,1,0) on an *active* scene is a defect the gate must name.
+    for prim in stage.Traverse():
+        if prim.IsA(UsdPhysics.Scene):
+            owner = prim.GetAttribute("physics:simulationOwner").Get()
+            grav = prim.GetAttribute("physics:gravityDirection").Get()
+            if owner and grav and grav[1] > 0:
+                errors.append(
+                    f"G4: PhysicsScene {prim.GetPath()} gravity points up "
+                    f"{tuple(grav)}")
 
     cams = get_cameras(stage)
     if len(cams) != 1:
@@ -739,32 +792,43 @@ def _mutant_unresolved_ref(stage: Usd.Stage) -> Usd.Stage:
 
 
 def _mutant_wrong_units(stage: Usd.Stage) -> Usd.Stage:
-    # metersPerUnit = 0.01
-    layer = stage.GetRootLayer()
-    layer.customLayerData["metersPerUnit"] = 0.01
+    # metersPerUnit = 0.01: set the real stage metadata, not customLayerData
+    # (which UsdGeom.GetStageMetersPerUnit ignores).
+    UsdGeom.SetStageMetersPerUnit(stage, 0.01)
     return stage
 
 
 def _mutant_gravity_flip(stage: Usd.Stage) -> Usd.Stage:
-    # Flip gravity to (0, 1, 0)
+    # Flip gravity to (0, 1, 0) and activate the physicx scene: rendering-only
+    # scenes leave simulationOwner empty, so G4's gravity check would be inert.
     for prim in stage.Traverse():
         if prim.IsA(UsdPhysics.Scene):
+            prim.GetAttribute("physics:simulationOwner").Set("nvphysx")
             prim.GetAttribute("physics:gravityDirection").Set(Gf.Vec3f(0, 1, 0))
             break
     return stage
 
 
 def _mutant_camera_off_target(stage: Usd.Stage) -> Usd.Stage:
-    # Point camera straight up
+    # Point camera at the sky: the camera's world transform is its parent
+    # CameraXform (animated translate + rotate).  Move the parent above the
+    # scene and point the camera's own -Z axis straight up.
     for prim in stage.Traverse():
         if prim.IsA(UsdGeom.Camera):
-            xf = UsdGeom.Xformable(prim)
-            t_attr = prim.GetAttribute("xformOp:translate")
+            parent = prim.GetParent()
+            px = UsdGeom.Xformable(parent)
+            t_attr = px.GetPrim().GetAttribute("xformOp:translate")
             if t_attr:
                 t_attr.Set(Gf.Vec3d(0, 10, 0))
-            r_attr = prim.GetAttribute("xformOp:rotateXYZ")
+            r_attr = px.GetPrim().GetAttribute("xformOp:rotateXYZ")
             if r_attr:
                 r_attr.Set(Gf.Vec3f(-90, 0, 0))
+            # Camera-local rotation so the view axis (-Z) points up at (0,1,0):
+            # after the parent pitch'd -90, a local +90 pitch cants it upward.
+            xf = UsdGeom.Xformable(prim)
+            if not xf.GetPrim().HasAttribute("xformOp:rotateXYZ"):
+                xf.AddRotateXYZOp()
+            prim.GetAttribute("xformOp:rotateXYZ").Set(Gf.Vec3f(180, 0, 0))
             break
     return stage
 
@@ -816,10 +880,18 @@ def write_mutants() -> None:
     tmp_text_path.write_text(abs_text)
 
     for fname, desc, mutator, _ in MUTANT_SPECS:
-        stage = Usd.Stage.Open(str(tmp_text_path))
+        # Open each mutant from a fresh copy of the base at its own path.
+        # USD caches layers by file path in-process, so reopening the same
+        # `_base_abs.usda` returns the already-mutated layer and every later
+        # mutant inherits the first mutant's defect (a silent misreport).  The
+        # per-mutant copy keeps exactly one defect per mutant.
+        mut_base = MUTANTS_DIR / f"_base_{Path(fname).stem}.usda"
+        mut_base.write_text(abs_text)
+        stage = Usd.Stage.Open(str(mut_base))
         stage = mutator(stage, None)
         out = MUTANTS_DIR / fname
         stage.GetRootLayer().Export(str(out))
+        mut_base.unlink()
         print(f"  wrote {fname}: {desc}")
 
 

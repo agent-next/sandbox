@@ -3,7 +3,7 @@
     defaultPrim = "World"
     endTimeCode = 240
     framesPerSecond = 30
-    metersPerUnit = 1
+    metersPerUnit = 0.01
     startTimeCode = 0
     upAxis = "Y"
 )
@@ -77,31 +77,6 @@ def Xform "World"
                 prepend references = @/home/user/w/cookbook/omniverse-rtx-scenes/scenes/warehouse/assets/ur10/ur10.usd@
             )
             {
-                over "base_link"
-                {
-                    over "ur10_base"
-                    {
-                        over "ID125_001"
-                        {
-                            rel material:binding = </World/Robot/UR10Tilt/UR10/base_link/ur10_base/ID125_001/BadMaterial/Material>
-
-                            def Xform "BadMaterial"
-                            {
-                                def Material "Material"
-                                {
-                                    token outputs:surface.connect = </World/Robot/UR10Tilt/UR10/base_link/ur10_base/ID125_001/BadMaterial/Material/Shader.outputs:surface>
-
-                                    def Shader "Shader"
-                                    {
-                                        uniform token info:id = "OmniPBR"
-                                        asset inputs:diffuse_texture = @./missing_texture.png@
-                                        token outputs:surface
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -237,12 +212,6 @@ def Xform "World"
             float horizontalAperture = 36
             float verticalAperture = 20.25
         }
-    }
-
-    def Xform "BadRef" (
-        prepend references = @./does_not_exist.usd@
-    )
-    {
     }
 }
 

@@ -237,10 +237,10 @@ def fix_rack_udim(scene_dir: Path) -> None:
     import re
     from pxr import Usd
 
-    udim_re = re.compile(
-        r"\.(?:Albedo|Albedo_[A-Z0-9]+|Normal|ORM|Trim_Albedo|Trim_Normal|"
-        r"Trim_ORM|Trim_Opacity)\.<UDIM>\.png")
-
+    # Rack layers reference T_*_*.<UDIM>.png placeholders as
+    # `...Albedo.<UDIM>.png` (underscore before the channel name, for the rack
+    # it is exactly `_Albedo.`/`_Normal.`/`_ORM.`), and a global pin to tile
+    # `<UDIM>` -> 1001 is what makes every reference resolve offline.
     rack = scene_dir / "assets" / "Props" / "general" / "RackLongEmpty_A1"
     rack_usd = rack / "RackLongEmpty_A1.usd"
     rack_usda = rack / "RackLongEmpty_A1.usda"
@@ -257,7 +257,7 @@ def fix_rack_udim(scene_dir: Path) -> None:
         if b"<UDIM>" not in data:
             continue
         text = data.decode("utf-8", "ignore")
-        text = udim_re.sub(lambda m: m.group(0).replace("<UDIM>", "1001"), text)
+        text = text.replace("<UDIM>", "1001")
         usd_file.write_text(text)
 
     scene_usda = scene_dir / "scene.usda"

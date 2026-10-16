@@ -12,7 +12,6 @@ def Xform "World"
 {
     def PhysicsScene "PhysicsScene"
     {
-        vector3f physics:gravityDirection = (0, 1, 0)
         uniform token physics:simulationOwner = ""
     }
 
@@ -78,31 +77,6 @@ def Xform "World"
                 prepend references = @/home/user/w/cookbook/omniverse-rtx-scenes/scenes/warehouse/assets/ur10/ur10.usd@
             )
             {
-                over "base_link"
-                {
-                    over "ur10_base"
-                    {
-                        over "ID125_001"
-                        {
-                            rel material:binding = </World/Robot/UR10Tilt/UR10/base_link/ur10_base/ID125_001/BadMaterial/Material>
-
-                            def Xform "BadMaterial"
-                            {
-                                def Material "Material"
-                                {
-                                    token outputs:surface.connect = </World/Robot/UR10Tilt/UR10/base_link/ur10_base/ID125_001/BadMaterial/Material/Shader.outputs:surface>
-
-                                    def Shader "Shader"
-                                    {
-                                        uniform token info:id = "OmniPBR"
-                                        asset inputs:diffuse_texture = @./missing_texture.png@
-                                        token outputs:surface
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -195,7 +169,8 @@ def Xform "World"
 
     def Xform "CameraXform"
     {
-        float3 xformOp:rotateXYZ = (-16.9, -45, 0)
+        float3 xformOp:rotateXYZ = (-90, 0, 0)
+        double3 xformOp:translate = (0, 10, 0)
         double3 xformOp:translate.timeSamples = {
             0: (-3.8, 2.2, 3.4),
             8: (-3.6533, 2.19, 3.3867),
@@ -237,13 +212,9 @@ def Xform "World"
             float focalLength = 24
             float horizontalAperture = 36
             float verticalAperture = 20.25
+            float3 xformOp:rotateXYZ = (180, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
         }
-    }
-
-    def Xform "BadRef" (
-        prepend references = @./does_not_exist.usd@
-    )
-    {
     }
 }
 

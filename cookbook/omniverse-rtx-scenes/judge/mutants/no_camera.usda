@@ -10,17 +10,12 @@
 
 def Xform "World"
 {
-    def PhysicsScene "PhysicsScene" (
-        active = false
-    )
+    def PhysicsScene "PhysicsScene"
     {
-        vector3f physics:gravityDirection = (0, 1, 0)
         uniform token physics:simulationOwner = ""
     }
 
-    def DomeLight "SkyDome" (
-        active = false
-    )
+    def DomeLight "SkyDome"
     {
         float inputs:intensity = 0.8
         asset inputs:texture:file = @/home/user/w/cookbook/omniverse-rtx-scenes/scenes/warehouse/assets/Props/skies/Clear/evening_road_01_4k.hdr@
@@ -28,18 +23,14 @@ def Xform "World"
         uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
     }
 
-    def DistantLight "Sun" (
-        active = false
-    )
+    def DistantLight "Sun"
     {
         float inputs:intensity = 1.2
         float3 xformOp:rotateXYZ = (50, -30, 0)
         uniform token[] xformOpOrder = ["xformOp:rotateXYZ"]
     }
 
-    def RectLight "Fill" (
-        active = false
-    )
+    def RectLight "Fill"
     {
         color3f inputs:color = (0.85, 0.9, 1)
         float inputs:height = 2
@@ -50,9 +41,7 @@ def Xform "World"
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
     }
 
-    def RectLight "Rim" (
-        active = false
-    )
+    def RectLight "Rim"
     {
         color3f inputs:color = (1, 0.96, 0.9)
         float inputs:height = 3
@@ -63,9 +52,7 @@ def Xform "World"
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
     }
 
-    def Xform "Ground" (
-        active = false
-    )
+    def Xform "Ground"
     {
         def Cube "GroundPlane"
         {
@@ -75,9 +62,7 @@ def Xform "World"
         }
     }
 
-    def Xform "Robot" (
-        active = false
-    )
+    def Xform "Robot"
     {
         float3 xformOp:rotateXYZ = (0, -135, 0)
         double3 xformOp:translate = (0.9, 0.034, -0.4)
@@ -92,38 +77,11 @@ def Xform "World"
                 prepend references = @/home/user/w/cookbook/omniverse-rtx-scenes/scenes/warehouse/assets/ur10/ur10.usd@
             )
             {
-                over "base_link"
-                {
-                    over "ur10_base"
-                    {
-                        over "ID125_001"
-                        {
-                            rel material:binding = None
-
-                            def Xform "BadMaterial"
-                            {
-                                def Material "Material"
-                                {
-                                    token outputs:surface.connect = </World/Robot/UR10Tilt/UR10/base_link/ur10_base/ID125_001/BadMaterial/Material/Shader.outputs:surface>
-
-                                    def Shader "Shader"
-                                    {
-                                        uniform token info:id = "OmniPBR"
-                                        asset inputs:diffuse_texture = @./missing_texture.png@
-                                        token outputs:surface
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
 
-    def Xform "Rack" (
-        active = false
-    )
+    def Xform "Rack"
     {
         float3 xformOp:rotateXYZ = (0, 0, 90)
         double3 xformOp:scale = (0.01, 0.01, 0.01)
@@ -139,9 +97,7 @@ def Xform "World"
         }
     }
 
-    def Xform "Pallet" (
-        active = false
-    )
+    def Xform "Pallet"
     {
         float3 xformOp:rotateXYZ = (0, 0, 0)
         double3 xformOp:scale = (0.01, 0.01, 0.01)
@@ -157,9 +113,7 @@ def Xform "World"
         }
     }
 
-    def Xform "Boxes" (
-        active = false
-    )
+    def Xform "Boxes"
     {
         double3 xformOp:translate = (0, 0, 0)
         uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -213,9 +167,7 @@ def Xform "World"
         }
     }
 
-    def Xform "CameraXform" (
-        active = false
-    )
+    def Xform "CameraXform"
     {
         float3 xformOp:rotateXYZ = (-16.9, -45, 0)
         double3 xformOp:translate.timeSamples = {
@@ -253,20 +205,15 @@ def Xform "World"
         }
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ"]
 
-        def Camera "Camera"
+        def Camera "Camera" (
+            active = false
+        )
         {
             float2 clippingRange = (0.05, 500)
             float focalLength = 24
             float horizontalAperture = 36
             float verticalAperture = 20.25
         }
-    }
-
-    def Xform "BadRef" (
-        active = false
-        prepend references = @./does_not_exist.usd@
-    )
-    {
     }
 }
 
