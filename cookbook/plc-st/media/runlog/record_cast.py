@@ -32,8 +32,17 @@ os.makedirs(WORK, exist_ok=True)
 events = []
 t0 = time.time()
 
+HOME = os.path.expanduser("~")
+
+def scrub(text: str) -> str:
+    """Make the cast machine-independent (and publishable): no home paths and
+    no local clone URL, only the repo-relative command the README documents."""
+    text = text.replace(HOME, "$HOME")
+    text = text.replace("file://$HOME/w", "https://github.com/agent-next/sandbox")
+    return text
+
 def emit(text: str):
-    events.append([round(time.time() - t0, 3), "o", text.replace("\n", "\r\n")])
+    events.append([round(time.time() - t0, 3), "o", scrub(text).replace("\n", "\r\n")])
 
 fails = 0
 for label, cmd, cwd in steps:
@@ -43,7 +52,7 @@ for label, cmd, cwd in steps:
                          text=True, errors="replace", bufsize=1)
     assert p.stdout is not None
     for line in p.stdout:
-        emit(line)
+        emit(line.rstrip("\n") + "\n")
     rc = p.wait()
     if rc != 0:
         emit(f"[exit {rc}]\n")
