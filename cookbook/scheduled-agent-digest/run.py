@@ -110,7 +110,7 @@ cd sandbox/cookbook/scheduled-agent-digest
 echo '=== judge/setup.sh ==='
 bash judge/setup.sh
 echo '=== judge/selftest.sh ==='
-bash judge/selftest.sh 2>&1 | tee /tmp/selftest.log
+bash judge/selftest.sh 2>&1 | tee /tmp/selftest.log; exit "${PIPESTATUS[0]}"
 echo '=== judge/grade.sh examples/good ==='
 bash judge/grade.sh examples/good --json /tmp/digest-verdict.json
 echo '=== verdict ==='
