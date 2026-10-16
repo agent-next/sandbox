@@ -19,6 +19,8 @@ x = +0.5, camera orbits the scene.  Output is a WxHx3 uint8 RGB array.
 import numpy as np
 
 # scene constants (SPEC.md) -------------------------------------------------
+F32 = np.float32   # every hot array is float32: 2M-pixel frames render ~4x
+                   # faster than float64, with identical uint8 output
 BOX_X = -0.5
 BALL_X = 0.5
 HALF = 0.10           # box half-extent == ball radius == resting height
@@ -27,62 +29,65 @@ GRID = 0.25           # ground grid spacing in metres (visual only)
 G = 9.81
 
 # palette (dark video theme; colour-blind-safe accents) ----------------------
-SKY_TOP = np.array([0.078, 0.086, 0.110], float)
-SKY_BOT = np.array([0.220, 0.235, 0.270], float)
-GROUND = np.array([0.420, 0.435, 0.470], float)
-GRID_C = np.array([0.300, 0.312, 0.345], float)
-BOX_C = np.array([0.212, 0.529, 0.878], float)     # blue
-BALL_C = np.array([0.980, 0.522, 0.267], float)    # orange
-GHOST_C = np.array([0.880, 0.890, 0.920], float)
-WHITE = np.array([1.0, 1.0, 1.0], float)
+SKY_TOP = np.array([0.078, 0.086, 0.110], F32)
+SKY_BOT = np.array([0.220, 0.235, 0.270], F32)
+GROUND = np.array([0.430, 0.445, 0.480], F32)
+GRID_C = np.array([0.640, 0.655, 0.690], F32)
+BOX_C = np.array([0.212, 0.529, 0.878], F32)     # blue
+BALL_C = np.array([0.980, 0.522, 0.267], F32)    # orange
+GHOST_C = np.array([0.880, 0.890, 0.920], F32)
+WHITE = np.array([1.0, 1.0, 1.0], F32)
 GREEN8 = (46, 214, 92)
-LIGHT_DIR = np.array([0.45, 0.80, 0.35])
-LIGHT_DIR = LIGHT_DIR / np.linalg.norm(LIGHT_DIR)
+LIGHT_DIR = np.array([0.45, 0.80, 0.35], F32)
+LIGHT_DIR = (LIGHT_DIR / np.linalg.norm(LIGHT_DIR)).astype(F32)
 
 
 class Camera:
     """Perspective camera; orbit defined by eye/target in metres."""
 
     def __init__(self, eye, target, fov_y_deg=42.0, w=960, h=540):
-        self.eye = np.asarray(eye, float)
-        self.target = np.asarray(target, float)
-        self.f = 1.0 / np.tan(np.radians(fov_y_deg) / 2.0)
+        self.eye = np.asarray(eye, F32)
+        self.target = np.asarray(target, F32)
+        self.f = np.float32(1.0 / np.tan(np.radians(fov_y_deg) / 2.0))
         self.w, self.h = w, h
         fwd = self.target - self.eye
         self.fwd = fwd / np.linalg.norm(fwd)
-        world_up = np.array([0.0, 1.0, 0.0])
+        world_up = np.array([0.0, 1.0, 0.0], F32)
         if abs(np.dot(self.fwd, world_up)) > 0.999:
-            world_up = np.array([0.0, 0.0, 1.0])
+            world_up = np.array([0.0, 0.0, 1.0], F32)
         self.right = np.cross(self.fwd, world_up)
         self.right /= np.linalg.norm(self.right)
         self.up = np.cross(self.right, self.fwd)
+        self.fwd = self.fwd.astype(F32)
+        self.right = self.right.astype(F32)
+        self.up = self.up.astype(F32)
 
     def ray_dirs(self):
         """Unit ray directions for every pixel, shape (H, W, 3)."""
         ys, xs = np.mgrid[0:self.h, 0:self.w]
-        ndc_x = (xs + 0.5) / self.w * 2.0 - 1.0
-        ndc_y = 1.0 - (ys + 0.5) / self.h * 2.0
-        aspect = self.w / self.h
+        ndc_x = ((xs + 0.5) / self.w * 2.0 - 1.0).astype(F32)
+        ndc_y = (1.0 - (ys + 0.5) / self.h * 2.0).astype(F32)
+        aspect = np.float32(self.w / self.h)
         d = (self.fwd[None, None, :]
-             + ndc_x[..., None] * aspect / self.f * self.right[None, None, :]
+             + ndc_x[..., None] * (aspect / self.f) * self.right[None, None, :]
              + ndc_y[..., None] / self.f * self.up[None, None, :])
-        return d / np.linalg.norm(d, axis=-1, keepdims=True)
+        return (d / np.linalg.norm(d, axis=-1, keepdims=True)).astype(F32)
 
     def project(self, pts):
         """World points (N,3) -> pixel coords (N,2); z<=0 maps to nan."""
-        pts = np.atleast_2d(np.asarray(pts, float))
+        pts = np.atleast_2d(np.asarray(pts, F32))
         v = pts - self.eye
         x = v @ self.right
         y = v @ self.up
         z = v @ self.fwd
-        aspect = self.w / self.h
+        aspect = np.float32(self.w / self.h)
         with np.errstate(divide="ignore", invalid="ignore"):
             sx = x / (z / self.f * aspect)
             sy = y / (z / self.f)
-            px = (sx * 0.5 + 0.5) * self.w
-            py = (0.5 - sy * 0.5) * self.h
+            px = (sx * np.float32(0.5) + np.float32(0.5)) * self.w
+            py = (np.float32(0.5) - sy * np.float32(0.5)) * self.h
         out = np.stack([px, py], axis=-1)
-        out[z <= 1e-6] = np.nan
+        out[z <= np.float32(1e-6)] = np.nan
         return out
 
 
@@ -97,33 +102,43 @@ def _background(cam):
     if _BG.get("key") == key:
         return _BG["val"]
     w, h = cam.w, cam.h
-    o = np.broadcast_to(cam.eye, (h, w, 3)).copy()
+    o = np.broadcast_to(cam.eye, (h, w, 3)).astype(F32).copy()
     d = cam.ray_dirs()
 
-    tgrad = np.linspace(0.0, 1.0, h)[:, None, None]
-    img = SKY_TOP[None, None, :] * (1 - tgrad) + SKY_BOT[None, None, :] * tgrad
-    img = np.broadcast_to(img, (h, w, 3)).copy()
-    depth = np.full((h, w), np.inf)
+    tgrad = np.linspace(0.0, 1.0, h, dtype=F32)[:, None, None]
+    img = (SKY_TOP[None, None, :] * (1 - tgrad) + SKY_BOT[None, None, :] * tgrad)
+    img = np.ascontiguousarray(np.broadcast_to(img, (h, w, 3)))
+    depth = np.full((h, w), np.inf, dtype=F32)
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        tg = np.where(d[..., 1] < -1e-9, -o[..., 1] / d[..., 1], np.inf)
+        tg = np.where(d[..., 1] < np.float32(-1e-9), -o[..., 1] / d[..., 1],
+                      np.float32(np.inf)).astype(F32)
     p = o + np.where(np.isfinite(tg), tg, 0.0)[..., None] * d
+    p = p.astype(F32)
     inside = (np.abs(p[..., 0]) < GROUND_EXTENT) & \
-             (np.abs(p[..., 2]) < GROUND_EXTENT) & (tg > 1e-6)
-    tground = np.where(inside, tg, np.inf)
+             (np.abs(p[..., 2]) < GROUND_EXTENT) & (tg > np.float32(1e-6))
+    tground = np.where(inside, tg, np.float32(np.inf)).astype(F32)
 
-    # grid lines + gentle distance fade
-    gx = np.abs(np.mod(p[..., 0] + GRID / 2, GRID) - GRID / 2)
-    gz = np.abs(np.mod(p[..., 2] + GRID / 2, GRID) - GRID / 2)
+    # grid lines + checker tint + gentle distance fade (the checker gives
+    # camera motion high contrast at any distance)
+    gx = np.abs(np.mod(p[..., 0] + np.float32(GRID / 2), GRID)
+                - np.float32(GRID / 2))
+    gz = np.abs(np.mod(p[..., 2] + np.float32(GRID / 2), GRID)
+                - np.float32(GRID / 2))
     line = (gx < 0.008) | (gz < 0.008)
-    base = np.where(line[..., None], GRID_C[None, None, :], GROUND[None, None, :])
+    checker = (np.mod(np.floor(p[..., 0] / GRID) + np.floor(p[..., 2] / GRID),
+                      2) < 1)[..., None]
+    ground = np.where(checker, GROUND, GROUND * np.float32(0.72)).astype(F32)
+    base = np.where(line[..., None], GRID_C[None, None, :], ground)
     m = np.isfinite(tground) & (tground < depth)
-    col = base * (0.55 + 0.45 * LIGHT_DIR[1])
-    fade = np.clip(1.15 - np.hypot(p[..., 0], p[..., 2]) * 0.14, 0.25, 1.0)[..., None]
+    col = base * np.float32(0.55 + 0.45 * float(LIGHT_DIR[1]))
+    fade = np.clip(np.float32(1.15) - np.hypot(p[..., 0], p[..., 2])
+                   * np.float32(0.14), 0.25, 1.0)[..., None].astype(F32)
     col = np.clip(SKY_BOT[None, None, :] * (1 - fade) + col * fade, 0, 1)
     img[m] = col[m]
     depth[m] = tground[m]
-    inv = np.where(d != 0, 1.0 / np.where(d == 0, 1.0, d), np.inf)
+    inv = np.where(d != 0, np.float32(1.0) / np.where(d == 0, np.float32(1.0), d),
+                   np.float32(np.inf)).astype(F32)
     _BG["key"] = key
     _BG["val"] = (img, depth, m, p, o, d, inv)
     return _BG["val"]
@@ -133,8 +148,8 @@ def _hit_aabb(o, d, inv, lo, hi):
     """Slab test.  Returns (t, normal, u, v); t=inf where missed.
     u,v are the face parametrisation in [0, 1] (for edge highlights).
     Normals/uvs are filled in only on hit pixels (they are sparse)."""
-    lo = np.asarray(lo, float)
-    hi = np.asarray(hi, float)
+    lo = np.asarray(lo, F32)
+    hi = np.asarray(hi, F32)
     t0 = (lo - o) * inv
     t1 = (hi - o) * inv
     tmin = np.minimum(t0, t1)
@@ -169,7 +184,7 @@ def _hit_aabb(o, d, inv, lo, hi):
 
 
 def _hit_sphere(o, d, c, r):
-    oc = o - np.asarray(c, float)
+    oc = o - np.asarray(c, F32)
     b = np.sum(oc * d, axis=-1)
     cc = np.sum(oc * oc, axis=-1) - r * r
     disc = b * b - cc
@@ -189,10 +204,10 @@ def _body_window(cam, center, r, pad=10):
 
     Returns None when the body is entirely off-screen or behind the camera.
     """
-    c = np.asarray(center, float)
+    c = np.asarray(center, F32)
     corners = c + r * np.array([[1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1],
                                  [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1]],
-                                float)
+                                F32)
     sp = cam.project(corners)
     ok = np.isfinite(sp[:, 0]) & np.isfinite(sp[:, 1])
     if not ok.any():
@@ -283,12 +298,12 @@ def render_frame(cam, box_y, ball_y, ghost_box_y=None, apex_line=None,
 
     # overlays in screen space --------------------------------------------------
     if rest_line:
-        _dashed_line(img8, cam, (-1.6, HALF, 0), (1.6, HALF, 0), GREEN8)
+        _dashed_line(img8, cam, (-1.9, 0.004, 0), (1.9, 0.004, 0), GREEN8)
     if apex_line is not None:
         _dashed_line(img8, cam, (BALL_X - 0.45, apex_line, 0),
                      (BALL_X + 0.45, apex_line, 0), GREEN8)
     if trail:
-        sp = cam.project(np.asarray(trail, float))
+        sp = cam.project(np.asarray(trail, F32))
         for k in range(0, len(sp)):
             fade_ = 0.12 + 0.5 * k / max(len(sp) - 1, 1)
             _disk(img8, sp[k], 2.5, (255, 255, 255), fade_)
@@ -297,7 +312,7 @@ def render_frame(cam, box_y, ball_y, ghost_box_y=None, apex_line=None,
 
 def _dashed_line(img8, cam, p0, p1, rgb, dash=0.75):
     """Dashed 3D segment projected to screen, 3px thick."""
-    a, b = cam.project(np.array([p0, p1], float))
+    a, b = cam.project(np.array([p0, p1], F32))
     if np.isnan(a).any() or np.isnan(b).any():
         return
     n = int(np.hypot(*(b - a))) + 2
@@ -336,8 +351,8 @@ def _disk(img8, center, r, rgb, alpha):
 def orbit_camera(az_deg, el_deg, dist, target=(0.0, 0.42, 0.0),
                  fov_y_deg=42.0, w=960, h=540):
     az, el = np.radians(az_deg), np.radians(el_deg)
-    t = np.asarray(target, float)
-    eye = t + dist * np.array([np.cos(az) * np.cos(el),
-                               np.sin(el),
-                               np.sin(az) * np.cos(el)])
+    t = np.asarray(target, F32)
+    eye = t + np.float32(dist) * np.array([np.cos(az) * np.cos(el),
+                                           np.sin(el),
+                                           np.sin(az) * np.cos(el)], F32)
     return Camera(eye, t, fov_y_deg=fov_y_deg, w=w, h=h)
