@@ -1,0 +1,15 @@
+{
+  "name": "spice-filter-demo-video",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Remotion composition for cookbook/spice-filter demo.mp4. Renders the real motion clips from media/clips/ plus animated HUD overlays. Pinned: remotion 4.0.530 (published 2026-09-29, >= 14 days before 2026-10-15).",
+  "scripts": {
+    "render": "remotion render src/index.ts Demo out/master.mp4 --codec h264 --crf 0 --pixel-format yuv444p --props ../data/video_props.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.530",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.530"
+  }
+}

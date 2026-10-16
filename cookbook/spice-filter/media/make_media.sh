@@ -3,35 +3,42 @@
 #   media/result.png   Bode magnitude vs the spec mask, pass lines drawn
 #   media/loop.png     agent-loop replay (failing gate per iteration until
 #                      pass) + self-test kill-rate bars
-#   media/demo.mp4     the same figures animated (from a lossless crf-0
-#                      master in media/master/, git-ignored)
+#   media/clips/*.mp4  real 30 fps motion clips (PIL frames -> ffmpeg);
+#                      gitignored — the Remotion project composes them
+#   media/demo.mp4     Remotion cut of the clips + animated HUD overlays,
+#                      from a lossless crf-0 master in media/master/
+#   media/frames/      extracted check frames (committed, < 250 KB each)
 #   media/MANIFEST.json  what each file shows, source data, sha256
 # Pinned matplotlib wheels: judge/requirements.txt (installed with
-# --require-hashes into a venv). ffmpeg: distro build, version recorded in
-# MANIFEST.json.
+# --require-hashes into a venv). ffmpeg: distro build. Renderer: Remotion
+# 4.0.530 pinned exact in media/video/package-lock.json (Node >= 22,
+# npm ci). Numbers on screen trace to media/data/*.json, which
+# make_data.py writes from this run's own judge outputs.
 set -euo pipefail
 
 DEMO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MEDIA="$DEMO/media"
 VENV="${MEDIA_VENV:-$MEDIA/.venv}"
 
-mkdir -p "$MEDIA/master" "$MEDIA/data"
+mkdir -p "$MEDIA/master" "$MEDIA/data" "$MEDIA/clips" "$MEDIA/frames" \
+    "$MEDIA/video/public/clips"
 
-# --- pinned python environment for plotting ------------------------------
+# --- pinned python environment for plotting/frame drawing -----------------
 if [ ! -x "$VENV/bin/python" ] || ! "$VENV/bin/python" -c \
-       "import matplotlib, contourpy, numpy" >/dev/null 2>&1; then
+       "import matplotlib, contourpy, numpy, PIL" >/dev/null 2>&1; then
     echo "media: creating venv, installing pinned wheels from judge/requirements.txt"
     python3 -m venv "$VENV"
     "$VENV/bin/pip" install --no-cache-dir --require-hashes \
         -r "$DEMO/judge/requirements.txt" >/dev/null
 fi
 PY="$VENV/bin/python"
-echo "media: $(python3 --version | awk '{print "python "$2}'), matplotlib $("$PY" -c 'import matplotlib;print(matplotlib.__version__)'), ffmpeg $(ffmpeg -version | awk 'NR==1{print $3}' | tr -d ')')"
+echo "media: $(python3 --version | awk '{print "python "$2}'), matplotlib $("$PY" -c 'import matplotlib;print(matplotlib.__version__)'), ffmpeg $(ffmpeg -version | awk 'NR==1{print $3}' | tr -d ')'), $(node --version | awk '{print "node "$1}')"
 
 # --- source data: judge outputs only ------------------------------------
 # The replay re-runs the judge on known-bad artifacts and the good one in
 # the order a fixing agent would meet them (bad -> partly fixed -> good);
-# it is a scripted replay, not a recorded live trace.
+# it is a scripted replay, not a recorded live trace. The same block also
+# captures the real terminal transcript shown in the term.mp4 clip.
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 python3 -I "$DEMO/judge/mutants.py" \
@@ -40,26 +47,55 @@ for m in r-decade-up off-series unrecognised-topology; do
     bash "$DEMO/judge/grade.sh" "$work/mutants/$m.cir" \
         --json "$work/$m.json" >/dev/null || true
 done
-bash "$DEMO/judge/grade.sh" "$DEMO/examples/good/lpf4sk.cir" \
-    --json "$work/good.json" >/dev/null
-echo "media: replay verdicts graded (r-decade-up -> off-series -> unrecognised-topology -> good)"
+{
+    echo "$ bash judge/selftest.sh"
+    bash "$DEMO/judge/selftest.sh"
+    echo
+    echo "$ bash judge/grade.sh examples/good/lpf4sk.cir --json good.json"
+    bash "$DEMO/judge/grade.sh" "$DEMO/examples/good/lpf4sk.cir" \
+        --json "$work/good.json"
+    echo
+    echo "$ python3 -c 'import json; print(json.load(open(\"good.json\"))[\"passed\"])'"
+    python3 -c "import json; print(json.load(open('$work/good.json'))['passed'])"
+} > "$work/runlog.txt" 2>&1
+echo "media: replay verdicts graded + terminal transcript captured (runlog.txt)"
 
 "$PY" "$MEDIA/make_data.py" "$DEMO" "$work"
 
 # --- figures -------------------------------------------------------------
 "$PY" "$MEDIA/make_figures.py"
 
-# --- video: lossless master, then web encode -----------------------------
-frames="$(mktemp -d)"
-trap 'rm -rf "$work" "$frames"' EXIT
-echo "media: rendering 1080p30 frames (lossless master -> crf 18 web encode)"
-FRAMES_DIR="$frames" "$PY" "$MEDIA/make_video.py"
-ffmpeg -y -loglevel error -framerate 30 -i "$frames/frame%05d.png" \
-    -c:v libx264 -crf 0 -preset veryfast -pix_fmt yuv444p \
-    "$MEDIA/master/demo_master.mp4"
+# --- motion clips: real sim output drawn frame-by-frame --------------------
+echo "media: rendering 1080p30 motion clips (scope / bode / term / mc)"
+"$PY" "$MEDIA/make_clips.py"
+cp -f "$MEDIA"/clips/*.mp4 "$MEDIA/video/public/clips/"
+
+# --- compose + render: Remotion headless -----------------------------------
+echo "media: Remotion render (pinned $(cd "$MEDIA/video" && node -p 'require("./package.json").dependencies.remotion'))"
+(cd "$MEDIA/video" \
+    && npm ci --no-audit --no-fund \
+    && npx remotion browser ensure \
+    && npx remotion render src/index.ts Demo out/master.mp4 \
+        --codec h264 --crf 0 --pixel-format yuv444p \
+        --props ../data/video_props.json)
+cp "$MEDIA/video/out/master.mp4" "$MEDIA/master/demo_master.mp4"
+
+# --- web encode (ffmpeg encodes only; it draws nothing) --------------------
 ffmpeg -y -loglevel error -i "$MEDIA/master/demo_master.mp4" \
     -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart \
     "$MEDIA/demo.mp4"
+
+# --- committed check frames ------------------------------------------------
+dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 \
+    "$MEDIA/demo.mp4")
+for spec in "1.0:t01s" \
+            "$(python3 -c "print(f'{$dur*0.25:.2f}')"):p25" \
+            "$(python3 -c "print(f'{$dur*0.60:.2f}')"):p60" \
+            "35.2:proof"; do
+    t="${spec%%:*}"; name="${spec##*:}"
+    ffmpeg -y -loglevel error -ss "$t" -i "$MEDIA/demo.mp4" \
+        -frames:v 1 -q:v 4 "$MEDIA/frames/$name.jpg"
+done
 
 "$PY" "$MEDIA/make_manifest.py"
 

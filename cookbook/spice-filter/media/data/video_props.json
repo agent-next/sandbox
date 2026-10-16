@@ -1,0 +1,42 @@
+{
+ "verdict_pass": true,
+ "seed": 20261014,
+ "points": 801,
+ "f_grid": "10..100000 200/dec",
+ "ripple_db": 0.096,
+ "ripple_rule": "ripple <= 1.0 dB to 1 kHz",
+ "stopband_max_db": -56.14,
+ "stopband_rule": "gain <= -40.0 dB for f >= 10 kHz",
+ "analytic_max_dev_db": 0.0,
+ "gbw_dev_db": 0.15029,
+ "gbw_rule": "1 MHz-GBW macro-model: <= 0.5 dB everywhere",
+ "mc_runs": 100,
+ "mc_pass_fraction": 1.0,
+ "mc_worst_ripple_db": 0.757,
+ "mc_worst_stopband_db": -53.193,
+ "kill_rate": 1.0,
+ "mutants": 9,
+ "replay": [
+  {
+   "label": "r-decade-up",
+   "passed": false,
+   "failed_gate": "mask"
+  },
+  {
+   "label": "off-series",
+   "passed": false,
+   "failed_gate": "series"
+  },
+  {
+   "label": "unrecognised-topology",
+   "passed": false,
+   "failed_gate": "analytic"
+  },
+  {
+   "label": "good",
+   "passed": true,
+   "failed_gate": "-"
+  }
+ ],
+ "ngspice": "ngspice-39 (39.3+ds-1)"
+}

@@ -2,6 +2,10 @@
 .frames/
 master/
 .venv/
+clips/
+video/node_modules/
+video/out/
+video/public/clips/
 *.tmp
 *.bak
 

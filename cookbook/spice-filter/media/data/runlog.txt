@@ -1,0 +1,76 @@
+$ bash judge/selftest.sh
+selftest: grading known-good /home/user/w/cookbook/spice-filter/examples/good/lpf4sk.cir
+selftest: known-good PASSED all gates
+mutants: r-decade-up.cir  edit: 'R1 in s1a 750' -> 'R1 in s1a 7.5k'
+mutants: c-decade-down.cir  edit: 'C3 s2a out 680n' -> 'C3 s2a out 68n'
+mutants: off-series.cir  edit: 'R2 s1a s1b 750' -> 'R2 s1a s1b 740'
+mutants: swap-nodes.cir  edit: 'C1 s1a out1 120n' -> 'C1 s1b out1 120n'
+mutants: missing-ground.cir  edit: 'C2 s1b 0 100n' -> 'C2 s1b gnd0 100n'
+mutants: opamp-gain.cir  edit: 'E2 out 0 s2b 0 1' -> 'E2 out 0 s2b 0 100'
+mutants: include-directive.cir  edit: +'.include "helpers.inc"'
+mutants: unrecognised-topology.cir  edit: +'Rbias s1a s1b 1meg' (parallel damping resistor: valid design, shape the oracle cannot verify)
+mutants: swap-feedback.cir  edit: 'C1 s1a out1 120n' -> 'C1 s1a 0 120n'
+mutants: wrote 9 mutants to /tmp/tmp.1noCXmnKMS/mutants
+selftest: killed    c-decade-down (gate: mask)
+selftest: killed    include-directive (gate: parse)
+selftest: killed    missing-ground (gate: parse)
+selftest: killed    off-series (gate: series)
+selftest: killed    opamp-gain (gate: sanity)
+selftest: killed    r-decade-up (gate: mask)
+selftest: killed    swap-feedback (gate: mask)
+selftest: killed    swap-nodes (gate: mask)
+selftest: killed    unrecognised-topology (gate: analytic)
+selftest: kill rate 9/9 = 100%
+selftest: determinism OK (two --seed 1 runs byte-identical)
+selftest: OK
+
+$ bash judge/grade.sh examples/good/lpf4sk.cir --json good.json
+{
+  "artifact": "examples/good/lpf4sk.cir",
+  "seed": 20261014,
+  "passed": true,
+  "gates": {
+    "parse": {
+      "passed": true,
+      "points": 801,
+      "f_grid": "10..100000 200/dec"
+    },
+    "sanity": {
+      "passed": true,
+      "dc_gain_db": -0.0
+    },
+    "mask": {
+      "passed": true,
+      "ripple_db": 0.096,
+      "rule": "ripple <= 1.0 dB to 1 kHz",
+      "stopband_max_db": -56.14,
+      "rule2": "gain <= -40.0 dB for f >= 10 kHz"
+    },
+    "analytic": {
+      "passed": true,
+      "max_deviation_db": 0.0,
+      "rule": "ideal op-amp: <= 0.05 dB everywhere",
+      "gbw_deviation_db": 0.15029,
+      "rule2": "1 MHz-GBW macro-model: <= 0.5 dB everywhere",
+      "gbw_hz": 1000000.0
+    },
+    "series": {
+      "passed": true,
+      "off_series": [],
+      "rule": "R on E24, C on E12 (0.5 % window)"
+    },
+    "montecarlo": {
+      "passed": true,
+      "runs": 100,
+      "seed": 20261014,
+      "tolerances": "R +-5% / C +-10% uniform",
+      "pass_fraction": 1.0,
+      "rule": ">= 90% meet 3.0 dB / -34.0 dB relaxed mask",
+      "worst_ripple_db": 0.757,
+      "worst_stopband_db": -53.193
+    }
+  }
+}
+
+$ python3 -c 'import json;print(json.load(open("good.json"))["passed"])'
+True

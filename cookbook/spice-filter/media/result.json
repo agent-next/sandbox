@@ -91,21 +91,41 @@
     }
   ],
   "hero": {
-    "kind": "image",
-    "path": "media/result.png",
-    "caption": "Bode magnitude vs. spec mask."
+    "kind": "video",
+    "path": "media/demo.mp4",
+    "poster": "media/result.png",
+    "caption": "40 s animated: ngspice waveforms on a scope, the Bode sweep drawing itself against the mask, the judge's PASS as a HUD"
   },
   "gallery": [
+    {
+      "kind": "image",
+      "path": "media/frames/t01s.jpg",
+      "caption": "hook: finished sweeps + cursor scan, mid-motion"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/p25.jpg",
+      "caption": "oscilloscope: 1 V sine in vs filtered out (ngspice tran)"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/p60.jpg",
+      "caption": "the AC sweep drawing itself against the spec mask"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/proof.jpg",
+      "caption": "PASS badge + gate rows HUD over live footage"
+    },
     {
       "kind": "image",
       "path": "media/loop.png",
       "caption": "agent-loop replay & self-test kill rate"
     },
     {
-      "kind": "video",
-      "path": "media/demo.mp4",
-      "poster": "media/result.png",
-      "caption": "ideal and GBW-limited sweeps drawn against the mask"
+      "kind": "image",
+      "path": "media/result.png",
+      "caption": "Bode magnitude vs. spec mask"
     }
   ],
   "launch": {

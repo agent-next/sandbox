@@ -21,6 +21,13 @@ def get_ffmpeg_version():
     except Exception:
         return "unknown"
 
+def get_remotion_version():
+    try:
+        pkg = json.loads((MEDIA / "video" / "package.json").read_text())
+        return pkg["dependencies"]["remotion"]
+    except Exception:
+        return "unknown"
+
 def get_ffprobe_info(filepath):
     try:
         out = subprocess.check_output([
@@ -48,6 +55,10 @@ def main():
             "sweep_good": "media/data/sweep_good.json (judge ngspice sweeps)",
             "replay": "media/data/replay.json (scripted replay: r-decade-up -> off-series -> unrecognised-topology -> good)",
             "selftest": "media/data/selftest.json (judge selftest: 9 mutants, 100% kill rate)",
+            "transient": "media/data/transient.json (ngspice .tran of the good netlist at 300 Hz / 1.4 kHz / 16 kHz)",
+            "mc_curves": "media/data/mc_curves.json (all 100 seeded Monte-Carlo sweeps)",
+            "runlog": "media/data/runlog.txt (captured selftest+grade terminal output)",
+            "video_props": "media/data/video_props.json (HUD numbers, from the verdict JSONs)",
         },
         "commands": {
             "setup": "bash judge/setup.sh",
@@ -58,11 +69,13 @@ def main():
         "environment": {
             "python": "3.12.15",
             "matplotlib": "3.9.4",
+            "pillow": "12.3.0",
             "ffmpeg": get_ffmpeg_version(),
             "ngspice": "39.3+ds-1 (Debian bookworm)",
+            "remotion": get_remotion_version(),
         },
     }
-    
+
     for fname in ["result.png", "loop.png", "demo.mp4"]:
         fpath = MEDIA / fname
         if fpath.exists():
@@ -72,15 +85,22 @@ def main():
             }
             if fname == "demo.mp4":
                 manifest["files"][fname].update(get_ffprobe_info(fpath))
-    
-    # Also include master
+
+    frames_dir = MEDIA / "frames"
+    if frames_dir.exists():
+        for fpath in sorted(frames_dir.glob("*.jpg")):
+            manifest["files"][f"frames/{fpath.name}"] = {
+                "sha256": sha256(fpath),
+                "size_bytes": fpath.stat().st_size,
+            }
+
     master_path = MEDIA / "master" / "demo_master.mp4"
     if master_path.exists():
         manifest["files"]["master/demo_master.mp4"] = {
             "sha256": sha256(master_path),
             "size_bytes": master_path.stat().st_size,
         }
-    
+
     (MEDIA / "MANIFEST.json").write_text(json.dumps(manifest, indent=1))
     print("MANIFEST.json written")
 

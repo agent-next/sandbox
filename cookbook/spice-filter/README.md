@@ -17,7 +17,7 @@ artifact is one small file it hands back.
 
 ![Agent-loop replay & self-test kill rate](media/loop.png)
 
-[▶ demo.mp4](media/demo.mp4) — 40 s animation: ideal and GBW-limited sweeps drawn against the mask → finished result with passband inset → agent-loop replay → self-test kill-rate bars (1920×1080, H.264, 514 KB)
+[▶ demo.mp4](media/demo.mp4) — 40 s of real animation, no slides: the ngspice transient waveforms sweeping on a dual-trace oscilloscope, the judge's AC sweep drawing itself against the spec mask, the recorded sandbox run replayed, 100 seeded Monte-Carlo curves streaming in, and the PASS verdict as a HUD over live footage (1920×1080, H.264; cut in Remotion from `media/clips/`, see `media/STORYBOARD.md`)
 
 Key numbers from the judge verdict (`examples/good/lpf4sk.cir`):
 
