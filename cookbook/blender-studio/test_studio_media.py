@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import re
 from pathlib import Path
 import subprocess
 import unittest
@@ -90,7 +91,7 @@ class MediaTests(unittest.TestCase):
             self.assertAlmostEqual(row["angle_radians"], 2 * math.pi * i / 48, places=5)
         self.assertEqual(manifest["render_frames"][-1]["file"], "unlinked.png")
         self.assertEqual(manifest["turntable"]["judge_frames"], 12)
-        self.assertEqual(manifest["turntable"]["poses_per_second"], 30)
+        self.assertEqual(manifest["turntable"]["poses_per_second"], compose.POSES_PER_SECOND)
         self.assertTrue(all(r["seconds"] > 0 for r in manifest["render_frames"]))
         transfers = {Path(r["name"]).name: r for r in json.loads(
             (MEDIA / "data/transfers.json").read_text())
@@ -111,63 +112,29 @@ class MediaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "caption outside frame"):
             compose.text(draw, (1800, 20), "THIS CAPTION MUST NOT BE CLIPPED")
 
-    def test_real_pose_playback_cadence(self):
-        indices = [compose.pose_index(i) for i in range(96)]
-        self.assertEqual(indices[:48], list(range(48)))
-        self.assertEqual(indices[48:], indices[:48])
-        self.assertEqual(48 / compose.POSES_PER_SECOND, 1.6)
-
-    def test_single_phone_table_covers_every_measured_case(self):
+    def test_video_props_cover_every_measured_case(self):
         data = json.loads((MEDIA / "data/selftest.json").read_text())
         self.assertEqual(set(compose.FAILURE_LABELS), set(data["mutants"]))
-        with patch.object(compose, "text", wraps=compose.text) as captions:
-            table = compose.kill_matrix(data)
-        self.assertEqual(table.size, (1920, 1080))
-        labels = [call.args[2] for call in captions.call_args_list]
-        for label in compose.FAILURE_LABELS.values():
-            self.assertEqual(labels.count(label), 1)
-        self.assertIn("JUDGE PROOF · 10/10 caught", labels)
-        self.assertTrue(all(call.args[3] >= 64 for call in captions.call_args_list))
-        for i, verdict in enumerate(data["mutants"].values()):
-            for j, gate in enumerate(data["good"]["gates"]):
-                expected = compose.BLUE if verdict["gates"][gate]["pass"] else compose.ORANGE
-                self.assertEqual(table.getpixel((925 + 210*j, 350 + 61*i)), expected)
+        props = compose.video_props(data)
+        self.assertEqual(len(props["gates"]), 5)
+        self.assertEqual((props["killed"], props["total"]), (10, 10))
+        self.assertIn(f"{data['good']['gates']['G1_framing']['bbox_fraction']:.4f}",
+                      props["gates"][0]["value"])
+        self.assertEqual([m["name"] for m in props["mutants"]], list(data["mutants"]))
+        for row in props["mutants"]:
+            gates = data["mutants"][row["name"]]["gates"].values()
+            self.assertEqual(row["failed"], [not g["pass"] for g in gates])
+            self.assertTrue(any(row["failed"]))
 
-    def test_video_story_has_readable_captions_and_early_evidence(self):
-        data = json.loads((MEDIA / "data/selftest.json").read_text())
-        capture_data = json.loads((MEDIA / "data/capture.json").read_text())
-        source = Image.new("RGB", (1920, 1080), (120, 120, 120))
-        with patch.object(compose, "hero", return_value=source.copy()), \
-                patch.object(compose.Image, "open", return_value=source), \
-                patch.object(compose, "text", wraps=compose.text) as captions:
-            shots = compose.video_shots(data, capture_data)
-        self.assertEqual(sum(n for n, _ in shots), 28 * 30)
-        self.assertEqual(shots[0][0], 60)
-        self.assertEqual(shots[-1][0], 60)
-        self.assertEqual(len(shots[-1][1]), 1)
-        # One two-second brief, then details and two complete real-pose turns.
-        self.assertEqual([n for n, _ in shots[:4]], [60, 60, 90, 96])
-        self.assertEqual(len(shots[3][1]), 48)
-        self.assertEqual(sum(n for n, _ in shots[:4]) / 30, 10.2)
-        self.assertEqual(shots[-2][0], 144)
-        self.assertEqual(len(shots[-2][1]), 1)
-        self.assertEqual(len(shots[6][1]), data["total"])
-        labels = [call.args[2] for call in captions.call_args_list]
-        self.assertEqual(labels.count("THE BRIEF"), 1)
-        self.assertIn("PASS 5/5", labels[:2])
-        self.assertIn("The judge: an automatic render checker", labels)
-        self.assertIn("It measures the image.", labels)
-        speed = data["timing"]["total_seconds"] / (shots[6][0] / 30)
-        self.assertTrue(any(f"self-test replay / {speed:.1f}x speed" in label
-                            for label in labels))
-        self.assertFalse(any("Change:" in label or "Measured runtime" in label
-                             for label in labels))
-        for call in captions.call_args_list:
-            size = call.args[3]
-            _, top, _, bottom = compose.font(size).getbbox("H")
-            self.assertGreaterEqual(bottom - top, 0.04 * 1080, call.args[2])
-        # The opening verdict is burned into the render, not only a later card.
-        self.assertNotEqual(shots[0][1][0].getpixel((1455, 905)), source.getpixel((1455, 905)))
+    def test_video_timeline_moves_until_short_end_card(self):
+        demo = (MEDIA / "video/src/Demo.tsx").read_text()
+        duration = int(re.search(r"DURATION = (\d+);", demo).group(1))
+        starts = re.search(r"const S = \{([^}]*)\}", demo).group(1)
+        end = int(re.search(r"end: (\d+)", starts).group(1))
+        self.assertEqual(duration, compose.VIDEO_SECONDS * 30)
+        self.assertLessEqual(duration - end, 75)
+        self.assertIn(f"POSES_PER_SECOND = {compose.POSES_PER_SECOND};", demo)
+        self.assertIn(f"POSES = {compose.POSE_COUNT};", demo)
 
     def test_measured_proof(self):
         data = json.loads((MEDIA / "data/selftest.json").read_text())

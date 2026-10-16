@@ -94,10 +94,12 @@ sh media/make_media.sh
 
 This creates another fresh sandbox with a 360-minute media-only timeout (a lifetime: status polls do not extend it), runs self-test, renders the actual scene
 and 48 turntable poses at 1920×1080, downloads only render evidence, deletes the sandbox,
-then builds figures and a lossless master plus the H.264 web clip with
-FFmpeg 5.1.9-0+deb12u1 and Pillow 10.2.0. These are the versions in an
+then builds the figures with Pillow 10.2.0 and animates the video in
+Remotion 4.0.531 (headless Chrome, installed by `npm ci`); FFmpeg
+5.1.9-0+deb12u1 only encodes the H.264 web clip. These are the versions in an
 `agent-full` sandbox (Debian 12) plus `pip install Pillow==10.2.0`, so the
-whole media build can run in the cloud rather than on your machine. The large source frames, blend file and lossless master
+whole media build runs in the cloud rather than on your machine. The large
+source frames, blend file, node modules and Remotion master
 are ignored by Git. Command, seed, render time and hashes live in
 `media/MANIFEST.json` and `RECEIPT.md`.
 Run it where those exact media tools exist, for example an `agent-full` sandbox.
@@ -119,11 +121,12 @@ Media rendering launches once. After a gateway restart or lost status reply,
 at most three read-only probes reattach to that same job; sandbox creation and
 render launches are never automatically retried.
 
-The 32-second video plays 48 real Cycles poses at 24 poses/second inside a
-30 fps master. These are quarter-frame samples of the same animation, not
-optical-flow interpolation or synthesized frames. The judge's twelve-pose
-G4 contract is unchanged. The process slot is a labelled replay of measured
-sandbox self-test output, not a screen recording or an autonomous agent session.
+The 28-second video plays the 48 real Cycles poses in order at 24 poses/second
+in a 30 fps Remotion composition; every shot before the 2-second end card is
+moving real render output under an animated HUD of measured judge numbers. The
+poses are quarter-frame samples of the same animation, not optical-flow
+interpolation or synthesized frames. The judge's twelve-pose G4 contract is
+unchanged.
 
 ## Limits
 
