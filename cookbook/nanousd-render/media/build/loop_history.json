@@ -12,7 +12,7 @@
     "nfail": 2
   },
   {
-    "name": "overlapping",
+    "name": "half off screen",
     "pass": false,
     "failed": "G4",
     "nfail": 1

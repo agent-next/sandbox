@@ -18,7 +18,7 @@
       },
       "G3": {
         "pass": true,
-        "rendered_frac": 0.0928
+        "rendered_frac": 0.0654
       },
       "G4": {
         "errors": [],
@@ -29,18 +29,18 @@
               0.15,
               0.15
             ],
-            "illuminance_k": 0.325,
+            "illuminance_k": 0.133,
             "median_rgb": [
-              0.557,
-              0.251,
-              0.259
+              0.376,
+              0.169,
+              0.165
             ],
             "own_dev": 0.05,
             "rect": [
-              0.0,
-              194.8,
-              50.5,
-              291.7
+              38.1,
+              198.2,
+              114.8,
+              267.8
             ]
           },
           "/World/Cylinder": {
@@ -51,16 +51,16 @@
             ],
             "illuminance_k": 0.118,
             "median_rgb": [
-              0.184,
+              0.188,
               0.235,
               0.353
             ],
-            "own_dev": 0.051,
+            "own_dev": 0.071,
             "rect": [
-              281.8,
-              194.5,
-              358.2,
-              289.7
+              291.3,
+              198.8,
+              348.7,
+              267.4
             ]
           },
           "/World/Octahedron": {
@@ -69,18 +69,18 @@
               0.75,
               0.1
             ],
-            "illuminance_k": 0.373,
+            "illuminance_k": 0.359,
             "median_rgb": [
-              0.624,
-              0.561,
-              0.227
+              0.608,
+              0.551,
+              0.224
             ],
-            "own_dev": 0.03,
+            "own_dev": 0.031,
             "rect": [
-              437.5,
-              244.2,
-              531.5,
-              332.1
+              408.0,
+              231.9,
+              478.3,
+              299.7
             ]
           },
           "/World/Tetra": {
@@ -89,18 +89,18 @@
               0.15,
               0.8
             ],
-            "illuminance_k": 0.465,
+            "illuminance_k": 0.133,
             "median_rgb": [
-              0.612,
-              0.298,
-              0.671
+              0.357,
+              0.169,
+              0.357
             ],
-            "own_dev": 0.116,
+            "own_dev": 0.041,
             "rect": [
-              591.7,
-              193.8,
-              640.0,
-              300.5
+              524.9,
+              197.7,
+              605.9,
+              274.3
             ]
           },
           "/World/Wedge": {
@@ -113,14 +113,14 @@
             "median_rgb": [
               0.286,
               0.58,
-              0.341
+              0.337
             ],
-            "own_dev": 0.088,
+            "own_dev": 0.06,
             "rect": [
-              107.8,
-              279.7,
-              211.2,
-              381.0
+              160.4,
+              262.4,
+              236.7,
+              335.2
             ]
           }
         },
@@ -131,7 +131,7 @@
     "pass": true,
     "seed": 0,
     "timing": {
-      "wall_s": 2.8
+      "wall_s": 1.87
     }
   },
   "kill_rate": "100.0%",
@@ -140,6 +140,12 @@
       "expected_gate": "G4",
       "gates_failed": "G4",
       "name": "out_of_frame",
+      "verdict": "KILLED"
+    },
+    {
+      "expected_gate": "G4",
+      "gates_failed": "G4",
+      "name": "half_offscreen",
       "verdict": "KILLED"
     },
     {
@@ -163,7 +169,7 @@
     {
       "expected_gate": "G1",
       "gates_failed": "G1,G3,G4",
-      "name": "skelroot_divergence",
+      "name": "skelroot_schema",
       "verdict": "KILLED"
     },
     {
@@ -197,12 +203,18 @@
       "verdict": "KILLED"
     },
     {
+      "expected_gate": "G2",
+      "gates_failed": "G2,G3,G4",
+      "name": "dropped_prim",
+      "verdict": "KILLED"
+    },
+    {
       "expected_gate": "G4",
       "gates_failed": "G4",
       "name": "rects_overlap",
       "verdict": "KILLED"
     }
   ],
-  "mutants_killed": 11,
-  "mutants_total": 11
+  "mutants_killed": 13,
+  "mutants_total": 13
 }

@@ -1,0 +1,75 @@
+[setup] apt-get update (must fetch lists; an empty apt cache is not OK)
+[setup] apt-get install build deps
+sudo: unable to resolve host instance: Name or service not known
+[setup] cmake 3.31.6 already installed
+[setup] omniverse-labs @ ea045a02 already present
+[setup] nanousd already built
+[setup] nanousd-opengl-renderer already built
+[setup] compiling judge C drivers
+[setup] renderer smoke: headless EGL on llvmpipe
+egl_headless: found 1 EGL device(s)
+egl_headless: device 0 extensions: EGL_MESA_device_software EGL_EXT_device_drm_render_node
+egl_headless: device 0 vendor: Mesa Project
+egl_headless: EGL 1.5 initialized
+egl_headless: 4x MSAA enabled
+egl_headless: pre-makeCurrent: display=0x5641601a1800 surface=0x56416022bcd0 context=0x564160210a60 api=0x30a0
+egl_headless: context created (640x480)
+scene_load: 1 lights (rect/disk/cylinder+distant+sphere) extracted
+scene_load: '/home/user/w/cookbook/nanousd-render/examples/good/scene.usda' loaded in 22.4 ms
+  5 meshes, 72 vertices, 180 indices
+  bounds: (-4.700, -1.000, -0.700) - (4.750, 1.100, 1.000)
+viewer: scene loaded in 25.6 ms  (5 meshes)
+gpu_gles: GL_VERSION  = OpenGL ES 3.2 Mesa 22.3.6
+gpu_gles: GL_RENDERER = llvmpipe (LLVM 15.0.6, 256 bits)
+viewer: uploaded 1 authored lights
+material: count Materials 0.0 ms (0 / 8 prims)
+material: no inline UsdShade Material prims; checking for scene-local .mtlx files
+material: no materials found
+viewer: materials_load 1.5 ms
+viewer: hash dedup marked 0/5 duplicate meshes (collisions=0)
+viewer: build_merged_vertex_buffer 0.0 ms
+viewer: uploading VB (0.0 MB)...
+viewer: VB upload ok
+viewer: 72 vertices (0.0 MB)
+viewer: build_merged_index_buffer 0.0 ms
+viewer: uploading IB (0.0 MB)...
+viewer: IB upload ok
+viewer: 180 indices (60 triangles)
+viewer: OpenGL Ptex triangle-color setup 0.0 ms
+viewer: bounds min [-4.70, -1.00, -0.70]  max [4.75, 1.10, 1.00]
+viewer: released mesh payload arena 0.2 ms (RSS 99 -> 99 MB, freed 0 MB)
+
+--- Controls ---
+  WASD       Fly camera (forward/strafe)
+  Q/E        Fly down/up
+  Arrows     Orbit yaw/pitch
+  PgUp/PgDn  Zoom in/out
+  Shift      5x speed multiplier
+  LMB drag   Orbit
+  MMB drag   Pan
+  RMB drag   Zoom
+  Scroll     Zoom
+  R          Reset camera to launch view
+  F          Frame scene
+  T          Toggle: RASTER / MATERIAL
+  P          Screenshot (PPM)
+  H          Toggle stats overlay
+  ESC        Quit
+----------------
+(macOS tip: if held WASD doesn't repeat, run
+  defaults write -g ApplePressAndHoldEnabled -bool false
+ and relaunch — or use the arrow keys, which aren't
+ intercepted by the press-and-hold accent menu.)
+
+gpu_gles: mesh UBO 800 bytes (stride=160 × 5 meshes, align=160)
+viewer: ready
+render_smoke: ok (llvmpipe headless render, deterministic)
+[setup] installing pinned python wheels
+Requirement already satisfied: numpy==2.2.6 in /home/user/.nanousd-render/venv/lib/python3.12/site-packages (from -r /home/user/w/cookbook/nanousd-render/judge/requirements.txt (line 8)) (2.2.6)
+Requirement already satisfied: pillow==11.2.1 in /home/user/.nanousd-render/venv/lib/python3.12/site-packages (from -r /home/user/w/cookbook/nanousd-render/judge/requirements.txt (line 10)) (11.2.1)
+Requirement already satisfied: usd-core==25.5 in /home/user/.nanousd-render/venv/lib/python3.12/site-packages (from -r /home/user/w/cookbook/nanousd-render/judge/requirements.txt (line 12)) (25.5)
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: python3 -m pip install --upgrade pip
+[setup] wrote /home/user/w/cookbook/nanousd-render/judge/VERSIONS.txt
+[setup] setup done -> /home/user/.nanousd-render

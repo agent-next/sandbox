@@ -1,0 +1,39 @@
+[selftest] generating mutants
+out_of_frame G4 /tmp/tmp.VSKHNqF6V1/mutants/out_of_frame.usda
+half_offscreen G4 /tmp/tmp.VSKHNqF6V1/mutants/half_offscreen.usda
+recolored G1 /tmp/tmp.VSKHNqF6V1/mutants/recolored.usda
+camera_away G3 /tmp/tmp.VSKHNqF6V1/mutants/camera_away.usda
+malformed G1 /tmp/tmp.VSKHNqF6V1/mutants/malformed.usda
+skelroot_schema G1 /tmp/tmp.VSKHNqF6V1/mutants/skelroot_schema.usda
+missing_light G1 /tmp/tmp.VSKHNqF6V1/mutants/missing_light.usda
+too_few_points G1 /tmp/tmp.VSKHNqF6V1/mutants/too_few_points.usda
+aperture_broken G1 /tmp/tmp.VSKHNqF6V1/mutants/aperture_broken.usda
+composite_arc G1 /tmp/tmp.VSKHNqF6V1/mutants/composite_arc.usda
+smuggled_arc G1 /tmp/tmp.VSKHNqF6V1/mutants/smuggled_arc.usda
+dropped_prim G2 /tmp/tmp.VSKHNqF6V1/mutants/dropped_prim.usda
+rects_overlap G4 /tmp/tmp.VSKHNqF6V1/mutants/rects_overlap.usda
+[selftest] grading known-good example: examples/good/scene.usda
+[selftest]   known-good -> PASS
+[selftest] determinism: re-running grade on the known-good example
+[selftest]   two verdicts byte-identical (excluding timing): OK
+[selftest] grading known-bad mutants
+[selftest]   out_of_frame           KILLED  (failed gates: G4)
+[selftest]   half_offscreen         KILLED  (failed gates: G4)
+[selftest]   recolored              KILLED  (failed gates: G1,G3,G4)
+[selftest]   camera_away            KILLED  (failed gates: G3,G4)
+[selftest]   malformed              KILLED  (failed gates: G1,G2,G3,G4)
+[selftest]   skelroot_schema        KILLED  (failed gates: G1,G3,G4)
+[selftest]   missing_light          KILLED  (failed gates: G1,G3,G4)
+[selftest]   too_few_points         KILLED  (failed gates: G1,G3,G4)
+[selftest]   aperture_broken        KILLED  (failed gates: G1,G3,G4)
+[selftest]   composite_arc          KILLED  (failed gates: G1,G3,G4)
+[selftest]   smuggled_arc           KILLED  (failed gates: G1,G3,G4)
+[selftest]   dropped_prim           KILLED  (failed gates: G2,G3,G4)
+[selftest]   rects_overlap          KILLED  (failed gates: G4)
+[selftest] -------------------------------------------------------------
+[selftest] known-good          : PASS
+[selftest] mutants killed      : 13 / 13 (killed BY a judge gate)
+[selftest] kill rate           : 100.0% (need >= 90%)
+[selftest] verdict determinism : OK
+[selftest] wrote /home/user/w/cookbook/nanousd-render/media/build/selftest.json
+[selftest] selftest: PASS

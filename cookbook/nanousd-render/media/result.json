@@ -1,0 +1,94 @@
+{
+  "schema": "agent-next/result@1",
+  "demo": "nanousd-render",
+  "headline": "Two independent USD implementations agree on the graded scene (G2 pass) and the headless llvmpipe render puts every mesh exactly where the independent numpy pinhole oracle says (0.0654 of pixels drawn).",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "G1",
+      "pass": true,
+      "measured": "both readers see exactly 5 meshes, 1 camera, a lit light; no forbidden arc/schema/property",
+      "threshold": "exactly 5 meshes, exactly 1 camera, >= 1 light with inputs:intensity > 0, no forbidden arc"
+    },
+    {
+      "name": "G2",
+      "pass": true,
+      "measured": "the two readers agree on the prim set, point counts, world transforms and world bboxes",
+      "threshold": "max |dworld| <= 1e-9, max |dbbox| <= 1e-6"
+    },
+    {
+      "name": "G3",
+      "pass": true,
+      "measured": "0.0654 of pixels differ from background",
+      "threshold": ">= 0.01"
+    },
+    {
+      "name": "G4",
+      "pass": true,
+      "measured": "every mesh lands where the independent numpy pinhole oracle says, painted its declared colour",
+      "threshold": "area >= 400 px^2, >= 90% on screen, overlap <= 10%, k in [0.06, 1.30], dev <= 0.35"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "rendered_frac",
+      "value": 0.0654,
+      "unit": "fraction of pixels",
+      "source": "judge/grade.sh examples/good/scene.usda --seed 0 --json media/build/verdict.json"
+    },
+    {
+      "label": "mutants killed by a named judge gate",
+      "value": "13/13",
+      "unit": "count",
+      "source": "judge/selftest.sh --json media/build/selftest.json"
+    },
+    {
+      "label": "kill rate",
+      "value": "100.0%",
+      "unit": "percent",
+      "source": "judge/selftest.sh --json media/build/selftest.json"
+    },
+    {
+      "label": "per-mesh illuminance k",
+      "value": "0.118..0.432",
+      "unit": "linear factor",
+      "source": "judge/grade.sh examples/good/scene.usda --seed 0 --json media/build/verdict.json (gates.G4.meshes[*].illuminance_k)"
+    },
+    {
+      "label": "per-mesh colour-fit deviation",
+      "value": "0.031..0.071",
+      "unit": "fraction",
+      "source": "judge/grade.sh examples/good/scene.usda --seed 0 --json media/build/verdict.json (gates.G4.meshes[*].own_dev)"
+    },
+    {
+      "label": "judge tree unchanged by the graded run",
+      "value": "true",
+      "unit": "bool",
+      "source": "judge/grade.sh examples/good/scene.usda --seed 0 --json media/build/verdict.json"
+    }
+  ],
+  "hero": {
+    "kind": "video",
+    "path": "media/demo.mp4",
+    "poster": "media/result.png",
+    "caption": "The graded render, the real llvmpipe orbit, and the judge verdict and mutant kill matrix."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/result.png",
+      "caption": "Graded render with the G4 oracle rectangles and the measured per-mesh illuminance k."
+    },
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "Grade verdict per iteration plus the self-test kill matrix."
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/nanousd-render/run.py",
+    "ask_agent": "Read `cookbook/nanousd-render/SPEC.md` and write `my_scene.usda` that passes\n`bash cookbook/nanousd-render/judge/grade.sh my_scene.usda` with exit 0. First\nrun `bash cookbook/nanousd-render/judge/setup.sh` once to install the pinned\ntools. Iterate: author or fix the scene yourself, grade it, read the JSON\nverdict (it names the gate and the exact number that failed \u2014 a mesh out of\nframe, a color too close to another, a camera the two readers disagree on),\nand fix your scene until every gate passes. Do not edit anything under\n`judge/` \u2014 the judge hashes its own tree and fails closed if it changed."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "2a8eef4f6ece3456609bd0fbe227622af0445df8"
+}

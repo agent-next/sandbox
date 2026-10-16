@@ -54,6 +54,21 @@ FONT_DIR = os.environ.get(
 T = {"hook": 0.0, "input": 2.0, "orbit": 8.6, "rects": 12.4,
      "term": 16.4, "proof": 23.0, "end": 29.0, "stop": 32.0}
 
+# Hard cuts have to be legible as cuts: ffmpeg's select='gt(scene,0.3)' must
+# count >= 0.8 of them per 10 s, which means two adjacent shots have to differ
+# enough in luma distribution that the frame-to-frame difference crosses that
+# threshold. Measured on the 2026-10-16 cut: two adjacent dark renders of the
+# same scene scored 0.15-0.20 (not a cut); a cut into a bright code panel or a
+# bright terminal pane scores 0.30+. So each slot's opening fill is chosen for
+# a deliberate luma jump, and every slot after the first opens by re-establishing
+# that background before the content moves (the on-frame content is always real
+# renderer output: the renderer's own background just starts the slot).
+HOOK_BG = (200, 205, 212)        # bright paper behind the pillarboxed render
+ORBIT_BG = (228, 232, 238)       # bright paper behind the orbit render
+TERMINAL_BG = (8, 10, 13)        # the log pane's own dark background
+PROOF_BG = (10, 12, 16)          # the HUD panels' own dark background
+END_BG = (10, 12, 16)
+
 CAPTION_PX = 72            # cap height ~53 px = 4.9% of 1080
 CAPTION_MAX_W = 1560       # leave side margins, never clip
 MONO_PX = 34
@@ -291,6 +306,8 @@ def draw_rects(img, rects, colors, scale=1.0, labels=True, k=None):
         col = OI[i % len(OI)]
         rgb = tuple(int(col[j:j + 2], 16) for j in (1, 3, 5))
         box = [x0 * scale, y0 * scale, x1 * scale, y1 * scale]
+        if box[2] - box[0] < 8 or box[3] - box[1] < 8:
+            continue          # too small to outline (mid-animation)
         for off in (-3, 3):
             d.rectangle([box[0] + off, box[1] + off, box[2] - off, box[3] - off],
                         outline=(*rgb, 255), width=4)
@@ -317,9 +334,11 @@ def shot_hook(meshes, cam, cam_attribs, n, verdict):
 def hook_base(meshes, cam, cam_attribs):
     eye, target, up, fov = artifact_view(cam, cam_attribs)
     im = render_rgb((1440, 1080), eye, target, up, fov)
-    # pillarbox on the render's own background colour (its corner pixel)
-    bg = tuple(min(255, max(c, 56) + 20) for c in im.getpixel((3, 3)))
-    frame = Image.new("RGB", (W, H), bg)
+    # pillarbox on bright paper: the graded render's own corner is near-black,
+    # and two consecutive dark renders score below the gate's scene-cut
+    # threshold, so adjacent slots would not read as cuts. Bright paper also
+    # makes the render the only dark thing in frame -- it is the subject.
+    frame = Image.new("RGB", (W, H), HOOK_BG)
     frame.paste(im, ((W - 1440) // 2, 0))
     return frame
 
@@ -345,13 +364,16 @@ def zoom(im, z):
 
 
 def code_panel(lines, size=(560, 900), pt=26):
-    img = Image.new("RGB", size, (16, 18, 24))
+    # Bright paper, not a dark code editor: this slot is the biggest luma jump
+    # in the cut (a bright panel where the previous frame was mostly dark
+    # render), which is what registers as a hard cut in the gate.
+    img = Image.new("RGB", size, (238, 241, 245))
     d = ImageDraw.Draw(img)
     f = font("mono", pt)
     y = 24
     for ln in lines:
-        d.text((24, y), ln, font=f, fill=(168, 216, 234)
-               if ln.strip().startswith("def") else (222, 228, 236))
+        d.text((24, y), ln, font=f, fill=(22, 28, 38)
+               if ln.strip().startswith("def") else (52, 62, 78))
         y += int(pt * 1.5)
         if y > size[1] - pt:
             break
@@ -369,16 +391,22 @@ def shot_input(meshes, cam, cam_attribs, n, verdict, scene_text):
     for i in range(n):
         base = hook_base(meshes, cam, cam_attribs)
         d = ImageDraw.Draw(base, "RGBA")
-        d.rectangle([40, 70, 620, 1010], fill=(10, 12, 16, 235))
+        d.rectangle([40, 70, 620, 1010], fill=(238, 241, 245, 240))
         base.paste(code_panel(lines), (50, 80))
         d = ImageDraw.Draw(base, "RGBA")
         f = font("bold", 44)
-        d.text((60, 86), "scene.usda", font=f, fill=(255, 205, 60),
-               stroke_width=2, stroke_fill=(0, 0, 0))
-        # the oracle rectangles slide in over the first half of the slot
-        rects_i = {p: (r[0] + (1440 / 640) * (i / max(1, n - 1)) * 30,
-                       r[1], r[2] + 0.0, r[3])
-                   for p, r in rects.items()}
+        d.text((60, 86), "scene.usda", font=f, fill=(28, 34, 46),
+               stroke_width=2, stroke_fill=(255, 255, 255))
+        # The oracle rectangles fade in by growing from each rectangle's own
+        # centre over the slot: the final frame lands exactly on the true
+        # rectangle, and growing from the centre never inverts a narrow box
+        # the way shifting one edge does.
+        f_i = i / max(1, n - 1)
+        rects_i = {}
+        for p, (x0, y0, x1, y1) in rects.items():
+            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+            rects_i[p] = (cx + (x0 - cx) * f_i, cy + (y0 - cy) * f_i,
+                          cx + (x1 - cx) * f_i, cy + (y1 - cy) * f_i)
         draw_rects(base, rects_i, None, scale=1440 / 640)
         caption(base, "The artifact is one USDA file, the judge re-derives "
                       "the rest")
@@ -403,11 +431,23 @@ def shot_orbit(meshes, cam_attribs, n0, n1, with_rects, light_to_dark):
         theta = theta0 - span / 2 + span * t
         eye = (target[0] + r * math.sin(theta), h, target[2] + r * math.cos(theta))
         img = render_rgb((W, H), eye, target, (0, 1, 0), fov)
+        # bright paper pillarboxes the render: the pixel-jump that reads as a
+        # hard cut into (and out of) this slot comes from the surround, and
+        # the render stays the subject of the frame
+        frame = Image.new("RGB", (W, H), ORBIT_BG)
+        ow, oh = img.size
+        frame.paste(img, ((W - ow) // 2, (H - oh) // 2))
+        img = frame
         V = lookat(eye, target, (0, 1, 0))
         P = perspective(fov, W / H, 0.1, 1000.0)
         if with_rects:
-            draw_rects(img, project_rects(meshes, V, P, (W, H)), None,
-                       1.0, k=k)
+            # rectangles project into the render's own pixel space, then shift
+            # by the same offset the paste used, so they land on the meshes
+            ox, oy = (W - ow) // 2, (H - oh) // 2
+            shifted = {p: (x0 + ox, y0 + oy, x1 + ox, y1 + oy)
+                       for p, (x0, y0, x1, y1)
+                       in project_rects(meshes, V, P, (W, H)).items()}
+            draw_rects(img, shifted, None, 1.0, k=k)
             caption(img, "Where the numpy pinhole oracle says every mesh "
                          "must land")
         else:
@@ -449,7 +489,7 @@ def shot_terminal(n, setup_lines, selftest_lines, speed_label):
         y = int(t * max_y)
         crop = scroll.crop((0, y, min(1560, scroll.size[0]), y + win_h))
         crop = crop.resize((1780, int(win_h * 1780 / 1560)), Image.LANCZOS)
-        img = Image.new("RGB", (W, H), (8, 10, 13))
+        img = Image.new("RGB", (W, H), TERMINAL_BG)
         # the terminal pane occupies the top; the caption scrim sits below it
         img.paste(crop, (70, 40))
         # the speed badge goes top-RIGHT, on its own strip clear of both the
@@ -500,6 +540,12 @@ def shot_proof(n, verdict, selftest, meshes, cam_attribs):
         eye = (target[0] + r * math.sin(theta), h,
                target[2] + r * math.cos(theta))
         img = render_rgb((W, H), eye, target, (0, 1, 0), fov)
+        # the render is pillarboxed on the slot's own dark background, which
+        # is what makes the previous (bright) terminal shot read as a cut
+        frame = Image.new("RGB", (W, H), PROOF_BG)
+        ow, oh = img.size
+        frame.paste(img, ((W - ow) // 2, (H - oh) // 2))
+        img = frame
         # darken the moving render just enough for the HUD text to read
         img = Image.blend(img, Image.new("RGB", (W, H), (0, 0, 0)), 0.45)
         d = ImageDraw.Draw(img, "RGBA")
@@ -534,7 +580,7 @@ def shot_proof(n, verdict, selftest, meshes, cam_attribs):
 
 def shot_end(n, one_command):
     """T['end'] - T['stop']: static end card (last 3.0 s, YDIF = 0)."""
-    img = Image.new("RGB", (W, H), (10, 12, 16))
+    img = Image.new("RGB", (W, H), END_BG)
     d = ImageDraw.Draw(img)
     f = font("monobold", 74)
     tw = d.textlength(one_command, font=f)

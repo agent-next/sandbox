@@ -66,75 +66,92 @@ def build_result() -> None:
     d = ImageDraw.Draw(img, "RGBA")
 
     # -- left panel: the graded render with the pass line on it.
-    #    The 130 px gutter on the left holds the y tick labels and the
-    #    rotated y-axis label, so no tick text is clipped at the canvas edge.
-    px, py, pad = 190, 150, 20
-    rw = 1440
-    rh = int(rw * render.size[1] / render.size[0])       # 4:3 -> 1140
+    #    The layout is computed, not hard-coded: the 4:3 render pane plus
+    #    its y gutter (tick labels + rotated axis label) on the left, the
+    #    x ticks and axis label below it, and a footer band at the
+    #    bottom, all have to fit inside PH with nothing clipped.
+    gutter = 150                      # y tick labels + rotated y-axis label
+    head_h = 150                      # title band
+    foot_h = 130                      # two-line provenance footer
+    axis_h = 104                      # x ticks + x-axis label
+    px = 60 + gutter                  # pane's left edge (gutter to its left)
+    py = head_h
+    avail_h = PH - head_h - foot_h - axis_h
+    # 4:3 pane, as large as the available height and the width allow
+    pad = 20
+    rh = int((avail_h - pad * 2) * 0.999)
+    rw = int(rh * render.size[0] / render.size[1])
+    if rw + pad * 2 + gutter + 60 + 760 > PW:     # keep room for the panel
+        rw = PW - gutter - 60 - pad * 2 - 760
+        rh = int(rw * render.size[1] / render.size[0])
+    s = rw / 640.0                     # grade-frame pixels -> panel pixels
+    s_y = rh / 480.0
+
     big = render.resize((rw, rh), Image.LANCZOS)
     img.paste(big, (px + pad, py + pad))
     d.rectangle([px, py, px + pad * 2 + rw, py + pad * 2 + rh],
                 outline=(70, 78, 90), width=2)
+    frame_right = px + pad + rw
+    frame_bottom = py + pad + rh
 
     # oracle rectangles (the pass line), scaled from the 640x480 grade frame
     f_lab = font("bold", 40)
-    # mesh labels sit above their rectangle, but never grow into the
-    # right-hand verdict panel: a rectangle near the frame's right edge
-    # gets its label right-aligned INSIDE it instead.
-    label_right = px + pad + rw          # right edge of the render pane
+    # mesh labels sit above their rectangle, but never grow past the pane's
+    # right edge into the verdict panel: a rectangle near the right edge
+    # gets its label right-aligned to it instead.
     for i, (path, m) in enumerate(sorted(g4.items())):
         col = rgb(OI[i % len(OI)])
         x0, y0, x1, y1 = m["rect"]
-        s = rw / 640.0
-        box = [px + pad + x0 * s, py + pad + y0 * s,
-               px + pad + x1 * s, py + pad + y1 * s]
+        box = [px + pad + x0 * s, py + pad + y0 * s_y,
+               px + pad + x1 * s, py + pad + y1 * s_y]
         for off in (-4, 4):
             d.rectangle([box[0] + off, box[1] + off, box[2] - off, box[3] - off],
                         outline=col, width=5)
         name = path.rsplit("/", 1)[-1]
         txt = f"{name}  k={m['illuminance_k']:.2f}"
         tw = d.textlength(txt, font=f_lab)
-        if box[0] + 10 + tw <= label_right:
-            lx, ly = box[0] + 10, max(py + pad + 4, box[1] - 58)
+        if box[0] + 10 + tw <= frame_right:
+            lx = box[0] + 10
         else:
-            lx, ly = box[2] - 10 - tw, max(py + pad + 4, box[1] - 58)
-        d.text((lx, ly), txt, font=f_lab,
+            lx = box[2] - 10 - tw
+        d.text((lx, max(py + pad + 4, box[1] - 58)), txt, font=f_lab,
                fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
 
-    # axes around the render (the oracle's pixel space), with units.
-    # The tick labels are drawn INSIDE the plot gutter (the labels sit to
-    # the left of x=0 / above y=0 are never cut by the canvas edge).
+    # axes around the render (the oracle's pixel space), with units. The y
+    # tick labels sit in the left gutter and the rotated axis label in the
+    # outer 44 px of it, so neither is ever cut by the canvas edge.
     fa = font("mono", 30)
-    gutter = 130                      # room for the y tick labels
     for xv in range(0, 641, 160):
         X = px + pad + xv * s
-        d.line([X, py + pad + rh + 10, X, py + pad + rh + 26],
+        d.line([X, frame_bottom + 10, X, frame_bottom + 26],
                fill=(120, 128, 140), width=2)
         lab = str(xv)
-        d.text((X - d.textlength(lab, font=fa) / 2, py + pad + rh + 32),
+        d.text((X - d.textlength(lab, font=fa) / 2, frame_bottom + 32),
                lab, font=fa, fill=MUTED)
-    d.text((px + pad + rw // 2 - 150, py + pad + rh + 76),
-           "projected pixel x (px, 640-wide grade frame)",
-           font=fa, fill=MUTED)
+    xlab = "projected pixel x (px, 640-wide grade frame)"
+    d.text((px + pad + rw / 2 - d.textlength(xlab, font=fa) / 2,
+            frame_bottom + 72), xlab, font=fa, fill=MUTED)
     for yv in range(0, 481, 120):
-        Y = py + pad + yv * (rh / 480.0)
+        Y = py + pad + yv * s_y
         d.line([px + pad - 26, Y, px + pad - 10, Y],
                fill=(120, 128, 140), width=2)
         lab = str(yv)
         d.text((px + pad - 40 - d.textlength(lab, font=fa), Y - 16),
                lab, font=fa, fill=MUTED)
-    # the y axis gets a label and a unit too, drawn rotated up the gutter
-    ylab = Image.new("RGBA", (760, 40), (0, 0, 0, 0))
-    ImageDraw.Draw(ylab).text((0, 0), "projected pixel y (px, 480-tall frame)",
-                              font=fa, fill=MUTED)
-    ylab = ylab.rotate(90, expand=True)
-    img.paste(ylab, (px - gutter + 42, py + pad + rh // 2 - ylab.size[1] // 2),
-              ylab)
+    ylab = "projected pixel y (px, 480-tall frame)"
+    strip = Image.new("RGBA", (int(d.textlength(ylab, font=fa)) + 8, 44),
+                      (0, 0, 0, 0))
+    ImageDraw.Draw(strip).text((4, 4), ylab, font=fa, fill=MUTED)
+    strip = strip.rotate(90, expand=True)
+    img.paste(strip, (60, py + pad + rh // 2 - strip.size[1] // 2), strip)
 
-    # -- right panel: the verdict numbers
-    qx = px + pad * 2 + rw + 46
+    # -- right panel: the verdict numbers, its top and height tied to the
+    #    render pane so the two blocks end together
+    qx = frame_right + 46
     qw = PW - qx - 60
-    d.rectangle([qx, py, qx + qw, py + 900], fill=PANEL, outline=(70, 78, 90))
+    panel_h = py + pad * 2 + rh - py
+    d.rectangle([qx, py, qx + qw, py + panel_h], fill=PANEL,
+                outline=(70, 78, 90))
     y = py + 34
     d.text((qx + 30, y), "JUDGE VERDICT", font=font("bold", 44), fill=ACCENT)
     y += 78
@@ -144,11 +161,15 @@ def build_result() -> None:
     y += 66
     for g in ("G1", "G2", "G3", "G4"):
         info = verdict["gates"][g]
-        extra = f"  rendered_frac {info['rendered_frac']}" \
-            if "rendered_frac" in info else ""
-        d.text((qx + 30, y), f"{g}: {str(info['pass']).lower()}{extra}",
-               font=font("mono", 36), fill=PASS)
+        d.text((qx + 30, y), f"{g}: {str(info['pass']).lower()}", font=font("mono", 36),
+               fill=PASS)
         y += 54
+    if "rendered_frac" in verdict["gates"]["G3"]:
+        y += 8
+        d.text((qx + 30, y),
+               f'  rendered_frac {verdict["gates"]["G3"]["rendered_frac"]}'
+               f'  (>= 0.01)', font=font("mono", 30), fill=MUTED)
+        y += 44
     y += 18
     d.text((qx + 30, y), "G4 oracle per mesh", font=font("bold", 38), fill=INK)
     y += 56
@@ -168,30 +189,30 @@ def build_result() -> None:
                          f"{str(verdict['judge_integrity_ok']).lower()}",
            font=font("mono", 34), fill=INK)
 
-    # -- title + provenance footer. Both are measured to fit: the title is
-    #    scaled down to the canvas and the footer wrapped to two lines, so
-    #    neither is ever clipped at the right edge.
+    # -- title: two measured lines inside the head band, never clipped
     t1 = "nanousd-render - two USD implementations agree,"
     t2 = "and a CPU render proves it"
     ft = font("bold", 54)
-    while ft.size > 30 and (
-            d.textlength(t1 + " " + t2, font=ft) > PW - 120):
+    while ft.size > 28 and max(d.textlength(t1, font=ft),
+                               d.textlength(t2, font=ft)) > PW - 120:
         ft = font("bold", ft.size - 2)
     d.text((60, 34), t1, font=ft, fill=INK)
-    d.text((60, 34 + ft.size + 12), t2, font=ft, fill=INK)
+    d.text((60, 34 + ft.size + 10), t2, font=ft, fill=INK)
 
-    foot = ("judge/grade.sh examples/good/scene.usda --seed 0 --json "
-            "media/build/verdict.json   |   render: pinned nanousd OpenGL "
-            "ES renderer on llvmpipe   |   rectangles: the G4 numpy pinhole "
-            "oracle re-projected from each reader's world transforms")
-    ff = font("mono", 26)
-    while ff.size > 16 and d.textlength(foot, font=ff) > PW - 120:
-        ff = font("mono", ff.size - 1)
-    # break the footer on the two "|" separators so both halves stay inside
-    parts = foot.split("   |   ")
-    d.text((60, PH - 104), parts[0], font=ff, fill=MUTED)
-    d.text((60, PH - 104 + ff.size + 14), " | ".join(parts[1:]),
-           font=ff, fill=MUTED)
+    # -- provenance footer: two measured lines inside the footer band, each
+    #    shrunk until it fits the canvas width
+    foot_a = ("judge/grade.sh examples/good/scene.usda --seed 0 --json "
+              "media/build/verdict.json   |   render: pinned nanousd OpenGL "
+              "ES renderer on llvmpipe")
+    foot_b = ("rectangles: the G4 numpy pinhole oracle, re-projected from "
+              "each reader's own world transforms")
+    ff = font("mono", 27)
+    for line in (foot_a, foot_b):
+        while ff.size > 15 and d.textlength(line, font=ff) > PW - 120:
+            ff = font("mono", ff.size - 1)
+    fy = PH - foot_h + 24
+    d.text((60, fy), foot_a, font=ff, fill=MUTED)
+    d.text((60, fy + ff.size + 12), foot_b, font=ff, fill=MUTED)
 
     img.save(os.path.join(HERE, "result.png"), dpi=(DPI, DPI))
 
