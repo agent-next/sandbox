@@ -92,8 +92,28 @@
     {
       "kind": "video",
       "path": "media/demo.mp4",
-      "poster": "media/result.png",
-      "caption": "cavity flow developing over pseudo-time from a real icoFoam run"
+      "poster": "media/frames/proof.jpg",
+      "caption": "cavity |U| advecting tracer particles from a real icoFoam run, with the judge's measured numbers as a live HUD"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/hook.jpg",
+      "caption": "converged cavity field, tracer particles streaming (demo.mp4 @ 1 s)"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/develop.jpg",
+      "caption": "the six case files over the field spinning up (demo.mp4 @ 25 %)"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/agent-run.jpg",
+      "caption": "this build's judge log sped up 14x, |U| picture-in-picture (demo.mp4 @ 60 %)"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/proof.jpg",
+      "caption": "JUDGE: PASS badge and gate rows over still-moving footage (demo.mp4 @ 20 s)"
     }
   ],
   "launch": {

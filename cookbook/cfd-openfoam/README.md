@@ -24,9 +24,10 @@ lets shipped results stand in for a real run. Gates and thresholds are in
 
 ![Replayed agent loop and self-test kill rate](media/loop.png)
 
-▶ **[media/demo.mp4](media/demo.mp4)** — the cavity flow developing over
-pseudo-time (|U| field from a real icoFoam run, gate-2 residual convergence
-alongside), 33 s, 1080p. Media is regenerated from live judge output by
+▶ **[media/demo.mp4](media/demo.mp4)** — the cavity |U| field advecting
+tracer particles from a real icoFoam run, this build's own judge log sped
+up, and the measured verdict numbers as a live HUD, 27.5 s, 1080p. Media
+is regenerated from live judge output by
 [`media/make_media.sh`](media/make_media.sh); provenance in
 [media/MANIFEST.json](media/MANIFEST.json) and
 [media/REVIEW.md](media/REVIEW.md). Verdicts below are from the *replayed*
