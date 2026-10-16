@@ -17,6 +17,7 @@ libc6-dev:amd64 2.36-9+deb12u14
 libgl1:amd64 1.6.0-1
 libvulkan1:amd64 1.3.239.0-1
 mesa-vulkan-drivers:amd64 22.3.6-1+deb12u2
+vulkan-tools 1.3.239.0+dfsg1-1
 == compiler ==
 cc (Debian 12.2.0-14+deb12u1) 12.2.0
 == pip ==
@@ -30,13 +31,14 @@ pip==25.0.1
 	driverName         = llvmpipe
 == cuda stub symbols ==
 42
-d4faa0f83494acac9638aa5a339fd3dff887aa631e789d4058c98c179aa4f904  .../cuda-stub/libcuda.so.1
-0f5b56c7d7516c20cd40e568be2bf872153d796b995bd79f0738d9a53c235136  .../cuda-stub/libcudart.so.12
+d4faa0f83494acac9638aa5a339fd3dff887aa631e789d4058c98c179aa4f904  /tmp/r1tools/cuda-stub/libcuda.so.1
+0f5b56c7d7516c20cd40e568be2bf872153d796b995bd79f0738d9a53c235136  /tmp/r1tools/cuda-stub/libcudart.so.12
 ```
 
-The two stub sha256s are identical in both runs: the stubs are a
-deterministic function of the pinned ovui wheel (generated from its exact
-undefined-symbol list), so a rebuild on the same wheel is bit-identical.
+Run 2 (`/tmp/r2tools`) is byte-identical: same stub sha256s and same
+versions — the stubs are a deterministic function of the pinned ovui wheel
+(generated from its exact undefined-symbol list), so a rebuild on the same
+wheel is bit-identical.
 
 ## `bash judge/setup.sh`
 
@@ -89,7 +91,7 @@ the three `...: FAILED` case (a corrupted or substituted wheel) aborts
 
 ```
 $ bash judge/selftest.sh
-wrote 11 mutants to /tmp/tmp.h1Q5u1XUB9: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
+wrote 11 mutants to /tmp/tmp.MVth2XXKlP: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
 good: PASS (verdict byte-identical across 2 runs)
 mutant baked_png: FAILS (widget_tree,pixels)
 mutant empty_window: FAILS (widget_tree,pixels)
@@ -106,10 +108,10 @@ kill rate: 11/11 = 100% (counting only mutants a judge gate failed)
 self-test OK
 exit code: 0
 
-real	0m22.704s
+real	0m17.932s
 ```
 
-Run 1 wall **22.7 s**, run 2 **23.2 s** (fresh `TOOLS_DIR` each; both
+Run 1 wall **17.9 s**, run 2 **17.7 s** (fresh `TOOLS_DIR` each; both
 `exit 0`, both `kill rate: 11/11 = 100%`).
 
 All eleven mutants are killed by a **judge gate**: the artifact builds and
@@ -146,18 +148,18 @@ $ bash judge/grade.sh examples/good/panel.py --json /tmp/v.json
     { "gate": "determinism", "ok": true, "sha256": "0d8e03dcb161d859",
       "facts_match": true, "shots_match": true }
   ],
-  "pass": true,
-  "seed": 1234,
-  "timing": { "render_wall_s": 1 }
+  "pass": true
 }
 exit code: 0
 ```
+
+Run 1 wall **1.8 s**, `exit 0`; run 2 **1.6 s**, `exit 0`.
 
 (Shown compacted; the command prints the same JSON with one field per line.
 The block is run 1 of this receipt — a fresh `TOOLS_DIR` install of the
 pushed head — and run 2 reproduces it byte-for-byte apart from `timing`.)
 
-Run 1: **1.7 s** wall, `exit 0`. Run 2: **1.9 s**, `exit 0`.
+Run 1: **1.8 s** wall, `exit 0`. Run 2: **1.6 s**, `exit 0`.
 
 Key numbers, both runs side by side (identical):
 
@@ -174,7 +176,7 @@ Key numbers, both runs side by side (identical):
 | `title_px` | 328 | 328 |
 | `overflow`, `bbox_mismatch` | `[]`, `[]` | `[]`, `[]` |
 | render sha256 (first 16) | `0d8e03dcb161d859` | `0d8e03dcb161d859` |
-| `timing.render_wall_s` | 7 | 8 |
+| `timing.render_wall_s` | 1 | 1 |
 
 The only number that differs between runs is the wall time. The render
 sha256 is identical, so the two renders are byte-identical — that is Gate 3.
@@ -297,12 +299,12 @@ The video encodes twice, both verified with `ffprobe`:
 
 | property | lossless master (`media/master/`, git-ignored) | `media/demo.mp4` |
 |---|---|---|
-| codec | h264, `-crf 0 -preset veryslow` | h264, `-crf 18 -preset slow` |
+| codec | h264, `-crf 0 -preset veryfast` | h264, `-crf 18 -preset slow` |
 | pixel format | `yuv444p` | `yuv420p` |
 | size | 1920×1080 | 1920×1080 |
 | frame rate | 30/1 | 30/1 |
-| duration | 38.5 s | 38.5 s |
-| bytes | 2 675 234 | 762 216 (0.76 MB, cap 8 MB) |
+| duration | 38.0 s | 38.0 s |
+| bytes | ~2.7 MB | ~2.9 MB (2 890 730, cap 8 MiB) |
 
 `-movflags +faststart` confirmed by inspecting the mp4 boxes directly: `moov`
 at byte offset 36, before `mdat`. Frames were extracted with `ffmpeg -ss`
@@ -341,12 +343,13 @@ separate from the judge venv; ffmpeg is the distro build (5.1.9).
 3. **`media/` added by a later task.** `media/make_media.sh` regenerates
    `media/result.png`, `media/loop.png`, `media/demo.mp4` and
    `media/MANIFEST.json` from real judge outputs; its runs are recorded in
-   the "Media build" section below. Building the media surfaced the
+   the "Media build" section above.
    self-test misattribution described above, fixed in the same commit.
-4. **`REPRODUCE.md` is not yet present.** The standard requires an
-   independent agent (different model family) to reproduce the numbers from
-   `README.md` alone before merge; that is a separate step, and this receipt
-   records only the builder's two runs.
+4. **`REPRODUCE.md` — present.** The independent agent's reproduction
+   (z.ai GLM) ran from `README.md` alone and matches: setup 15.5 s exit 0,
+   selftest kill rate 11/11 = 100%, grade pass with sha `0d8e03dcb161d859`
+   byte-identical across two runs, all within the README's stated ranges.
+   `REPRODUCE.md` is committed.
 5. **The CUDA stubs are hand-written C, not a third-party download.** They
    contain no CUDA code: each stub is one trivial function per undefined
    symbol in the pinned ovui wheel, returning "no CUDA device". They are

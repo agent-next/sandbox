@@ -5,7 +5,7 @@
     "command": "media/.venv/bin/python -I media/make_figures.py",
     "source_data": "media/data/render.png, media/data/facts.json, media/data/grade_good.json, judge/reference.json",
     "sha256": "e936ad3fc6dce5913a2f4f71ddb99fb7686c20cc64b167ddeb4bd112b148c59e",
-    "generated_at_commit": "1f0df05"
+    "generated_at_commit": "3c83336"
   },
   {
     "file": "media/loop.png",
@@ -13,14 +13,14 @@
     "command": "media/.venv/bin/python -I media/make_figures.py",
     "source_data": "media/data/grade_good.json, media/data/mutants.json, media/data/selftest.txt",
     "sha256": "07fda1ea16ef5007ddcfc890759875be931c2e8058c4245f53621ef36c2705e7",
-    "generated_at_commit": "1f0df05"
+    "generated_at_commit": "3c83336"
   },
   {
     "file": "media/demo.mp4",
     "what_it_shows": "25-60 s, 1920x1080 @ 30 fps H.264 walkthrough cut from 600 real camera frames of the known-good panel (media/.frames/, recaptured each run) with hard-cut black flashes: the finished render as the hook, the spec beside the render, the judge's measured widget bboxes, the swatch close-up with its measured median vs the analytic target, the self-test terminal replay labelled with its real speed-up, the 4-gate PASS verdict and kill matrix, and a static end card with the one-command launch. Encoded with -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart from a lossless -crf 0 master (media/master/, git-ignored).",
     "command": "media/.venv/bin/python -I media/make_video.py",
     "source_data": "media/data/* (render.png, facts.json, grade_good.json, mutants.json, selftest.txt, timings.json) + media/.frames/ (the make_frames.py camera captures)",
-    "sha256": "5bddd0b17bfcbd1e876d8b809cb0bc0f1c37aadcab8cf82ec827eb3696bd94c5",
-    "generated_at_commit": "1f0df05"
+    "sha256": "2cdde7d4bf0030705b593c18bd05f4b7063beaca121b7f0af35013a51e3924ca",
+    "generated_at_commit": "3c83336"
   }
 ]

@@ -50,15 +50,21 @@
     },
     {
       "label": "self-test wall time",
-      "value": 33.9,
+      "value": 15.2,
       "unit": "s",
       "source": "media/data/timings.json"
     },
     {
       "label": "grade wall time (2 renders)",
-      "value": 4.6,
+      "value": 1.5,
       "unit": "s",
       "source": "media/data/timings.json"
+    },
+    {
+      "label": "blind review panel",
+      "value": "2/2 judges pass",
+      "unit": "",
+      "source": "media/REVIEW.json"
     }
   ],
   "hero": {
@@ -84,5 +90,5 @@
     "ask_agent": "Build me a native 3D-tool UI panel with NVIDIA Omniverse `ovui` (the pip package) that renders headless on a CPU-only machine. Work in a clone of the `agent-next/sandbox` repo, under `cookbook/ovui-native-ui/`; read `cookbook/DEMO-STANDARD.md` and `cookbook/ovui-native-ui/SPEC.md` first. The panel must be a 420x360 `ui.Window` titled \"Tool Panel\" holding three labelled `FloatSlider` rows (ranges 0..10, 0..20, 0..50), a 140x24 `ColorWidget` swatch of colour rgba(0.2, 0.5, 0.9, 1.0), a `CheckBox`, and an \"Apply\" `Button` \u2014 exactly the widget tree SPEC.md fixes. Run `bash judge/setup.sh` once, then iterate: write `panel.py` with `build_panel() -> (window, refs)`, and run `bash judge/grade.sh panel.py --json /tmp/v.json` until every gate passes. Do not edit anything under `judge/` \u2014 the judge checksums itself and fails if it changed. Show me the final verdict JSON and the rendered PNG."
   },
   "receipt": "RECEIPT.md",
-  "sandbox_commit": "1f0df0578f344e335734cba564cf42c9489da811"
+  "sandbox_commit": "3c83336d89ba0a86c233ab2d5bffec1d154b8c49"
 }

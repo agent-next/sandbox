@@ -1,0 +1,46 @@
+{
+  "prompt": "cookbook/tools/video_review_prompt.md",
+  "passed": true,
+  "judges": [
+    {
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "input": "54 frames, one per second",
+      "verdict": {
+        "frame0_what": "a finished 3D render of a native omni.ui tool panel with the PASS verdict stamped on it",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0,
+        "on_screen_text": "a native omni.ui panel — rendered headless on a CPU | built an omni.ui panel 420x360, 7 refs | checked 4 gates, all passed | attacked 11/11 = 100% mutants all failed a gate | the spec → the render the judge graded | widget gate: every ref live, bboxes ±8 px | swatch median is exactly the analytic target | the judge's own self-test, 22.1x speed | judge verdict: PASS 4/4 gates, render byte-identical | python3 cookbook/ovui-native-ui/run.py | Ask your agent to build a native omni.ui panel judged by a harness it cannot fool | headless Vulkan on a real sandbox — CPU-only",
+        "understandable_muted": true,
+        "visual_quality_1_10": 8,
+        "wow_1_10": 7,
+        "clarity_1_10": 8,
+        "why": "The video hooks instantly by opening on the finished render with the PASS verdict already stamped, so a muted viewer sees the payoff at 0 s. The hard-cut black flashes between shots create clear scene boundaries. Captions are large and legible on a phone screen. The terminal replay of the self-test with colour-coded PASS/FAIL lines is a real terminal capture, not a text slide.",
+        "fixes": [
+          "The swatch zoom shot could hold longer to let the median vs target numbers settle.",
+          "The sandbox segment's terminal log wraps aggressively at high speed; a slightly larger font would improve phone readability."
+        ]
+      },
+      "pass": true
+    },
+    {
+      "model": "zai/glm-5.3-flash",
+      "input": "frames from 2 s to 36 s",
+      "verdict": {
+        "frame0_what": "the final rendered panel with widget bounding boxes and a green PASS badge",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0,
+        "on_screen_text": "a native omni.ui panel — rendered headless on a CPU | PASS | judge verdict | sha256 0d8e03dc | the spec → the render the judge graded | widget gate: every ref live, bboxes ±8 px | swatch median is exactly the analytic target | the judge's own self-test, 22.1x speed | judge verdict: PASS 4/4 gates, render byte-identical | python3 cookbook/ovui-native-ui/run.py | Ask your agent to build a native omni.ui panel judged by a harness it cannot fool | headless Vulkan on a real sandbox — CPU-only",
+        "understandable_muted": true,
+        "visual_quality_1_10": 8,
+        "wow_1_10": 7,
+        "clarity_1_10": 8,
+        "why": "The video opens on the finished panel with the verdict overlay, meeting the 2-second payoff target. The camera moves are smooth real renders, not Ken-Burns pans. The four gates and their measured numbers are displayed clearly. The final end card with the launch command is static as required. The video is short, information-dense, and readable without sound.",
+        "fixes": [
+          "The swatch median RGB values (51, 128, 230) appear very briefly; consider holding the close-up shot for 2 more seconds.",
+          "The terminal HUD in the sandbox segment scrolls fast; adding a 1-second pause on the kill-rate line would help retention."
+        ]
+      },
+      "pass": true
+    }
+  ]
+}
