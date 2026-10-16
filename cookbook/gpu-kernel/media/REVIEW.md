@@ -39,7 +39,7 @@ manifest and this file are committed.
 3. `result.png`: every `max_abs_err` point sits below the 1e-5 tolerance
    line; the GB/s label equals `2*4096*4096*4 / kernel_ms / 1e9`.
 4. `loop.png`: one red cell per mutant row, and the red cell's gate name
-   matches the `failed` list in `data/report.json` (10/10 killed).
+   matches the `failed` list in `data/report.json` (11/11 killed).
 5. `demo.mp4`: `ffprobe` shows 1920x1080, ~30 fps, 30-45 s; the terminal
    section is `data/gpu-run.log` verbatim (lease create -> exec ->
    verdict -> destroy/verified); captions repeat `data/report.json`

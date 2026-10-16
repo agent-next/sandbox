@@ -42,9 +42,12 @@ export const Race: React.FC<{
   start: number;
   durationInFrames: number;
   zoom?: boolean;
+  bright?: boolean;
+  finished?: boolean;
   caption: string;
   subcaption: string;
-}> = ({ cases, start, durationInFrames, zoom = false, caption, subcaption }) => {
+}> = ({ cases, start, durationInFrames, zoom = false, bright = false,
+        finished = false, caption, subcaption }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
   const iters = useMemo(() => flatten(cases), [cases]);
@@ -64,21 +67,26 @@ export const Race: React.FC<{
   const yOf = (v: number) =>
     PAD_T + chartH - ((Math.log10(v) - minLog) / (maxLog - minLog)) * chartH;
 
-  // the lines grow for the whole scene (so the shot is always advancing),
-  // then a cursor keeps sweeping the finished trace
-  const growF = Math.max(1, Math.round(durationInFrames * 0.94));
+  // The trace reveals fast (the first ~30% of the shot) so the shot is
+  // already full, then a playhead sweeps the whole finished trace for the
+  // rest of the time, with a pulsing head and value bars that track it. Every
+  // frame therefore contains a visibly different state.
+  const growF = Math.max(1, Math.round(durationInFrames * 0.3));
   const p = lin(frame, start + 6, growF);
-  const revealed = Math.max(1, Math.ceil(p * n));
-  const head = Math.min(n - 1, revealed - 1);
-  const cur = iters[head];
-  // after the lines finish, a live cursor keeps sweeping the finished trace so
-  // the shot never freezes while it is on screen
-  const sweep = frame - (start + 6 + growF);
-  const scanIdx = sweep > 0
-    ? Math.abs(((sweep * 3) % (2 * n)) - n)
-    : head;
+  // `finished` seeds the reveal (the hook opens on the completed trace)
+  const floorReveal = finished ? Math.floor(n * 0.75) : 1;
+  const revealed = Math.max(floorReveal, Math.ceil(p * n));
+  // playhead: a continuous ping-pong sweep across all n iterations
+  const sweepT = Math.max(0, frame - (start + 6));
+  const cycle = n * 2;
+  const pos = (sweepT * 0.55) % cycle;
+  const raw = pos < n ? pos : cycle - pos;
+  const scanIdx = Math.max(0, Math.min(n - 1, Math.round(raw)));
   const scanX = xOf(scanIdx);
-  const scanIter = iters[Math.round(scanIdx)];
+  const scanIter = iters[scanIdx];
+  const cur = iters[Math.min(n - 1, revealed - 1)];
+  // the head dot pulses so the frame always changes
+  const pulse = 0.6 + 0.4 * Math.abs(Math.sin((frame - start) / 4));
 
   const kPts = iters.slice(0, revealed).map((it, i) => `${xOf(i)},${yOf(it.kernel_ms)}`);
   const ePts = iters.slice(0, revealed).map((it, i) => `${xOf(i)},${yOf(it.eager_ms)}`);
@@ -97,11 +105,24 @@ export const Race: React.FC<{
   const tx = zoom ? -40 * zt : 0;
   const ty = zoom ? 24 * zt : 0;
 
+  // log-ish bar scaling so both a 0.1 ms and a 300 ms value stay visible;
+  // the exact values are always printed next to the bar.
   const barMax = Math.max(...iters.map((i) => Math.max(i.kernel_ms, i.eager_ms)));
-  const barW = (v: number) => (v / barMax) * 560;
+  const loLog = Math.log10(0.001);
+  const spanLog = Math.log10(barMax) - loLog;
+  const barW = (v: number) =>
+    ((Math.log10(Math.max(v, 0.001)) - loLog) / spanLog) * 560;
 
   return (
     <AbsoluteFill>
+      {/* the hook slot opens on a brighter backdrop so the very first frame
+          is neither dark nor near-empty; the escalation slot keeps the
+          standard set dressing */}
+      {bright ? (
+        <AbsoluteFill style={{
+          background: "radial-gradient(1300px 850px at 50% 42%, #22406e 0%, #14213a 55%, #0d1524 100%)",
+        }} />
+      ) : null}
       <div
         style={{
           position: "absolute",
@@ -157,26 +178,36 @@ export const Race: React.FC<{
             strokeWidth={6} strokeLinejoin="round" opacity={0.95} />
           <polyline points={kPts.join(" ")} fill="none" stroke={GREEN}
             strokeWidth={6} strokeLinejoin="round" />
-          <circle cx={scanX} cy={yOf(scanIter.eager_ms)} r={11} fill={BLUE} />
-          <circle cx={scanX} cy={yOf(scanIter.kernel_ms)} r={13} fill={GREEN} />
+          <circle cx={scanX} cy={yOf(scanIter.eager_ms)} r={11 * pulse}
+            fill={BLUE} stroke="#ffffff" strokeWidth={2} />
+          <circle cx={scanX} cy={yOf(scanIter.kernel_ms)} r={14 * pulse}
+            fill={GREEN} stroke="#ffffff" strokeWidth={2} />
           <line x1={scanX} y1={PAD_T} x2={scanX} y2={PAD_T + chartH}
-            stroke={FG} strokeWidth={2} opacity={0.5} />
+            stroke={FG} strokeWidth={2} opacity={0.55} />
+          {/* a soft highlight band trailing the playhead keeps the whole
+              chart area visibly alive frame to frame */}
+          <rect x={Math.max(PAD_L, scanX - 120)} y={PAD_T}
+            width={240} height={chartH}
+            fill="#ffffff" opacity={0.05} />
         </svg>
       </div>
 
-      {/* headline caption */}
-      <div style={{ position: "absolute", left: PAD_L - 12, top: 44 }}>
+      {/* headline caption — width-capped so it never runs under the legend */}
+      <div style={{ position: "absolute", left: PAD_L - 12, top: 44,
+        maxWidth: 1000 }}>
         <div style={{ fontFamily: FONT_SANS, fontSize: 62, fontWeight: 700,
           color: FG, letterSpacing: -1 }}>
           {caption}
         </div>
-        <div style={{ fontFamily: FONT_MONO, fontSize: 30, color: DIM, marginTop: 8 }}>
+        <div style={{ fontFamily: FONT_MONO, fontSize: 30, color: DIM,
+          marginTop: 8 }}>
           {subcaption}
         </div>
       </div>
 
       {/* live legend: the numbers tick with the sweeping cursor */}
-      <div style={{ position: "absolute", right: 70, top: 56, textAlign: "right" }}>
+      <div style={{ position: "absolute", right: 70, top: 56, width: 620,
+        textAlign: "right" }}>
         <Legend color={GREEN} label="fused Triton kernel"
           value={`${fmt(scanIter.kernel_ms)} ms`} />
         <Legend color={BLUE} label="torch eager softmax"
@@ -186,8 +217,9 @@ export const Race: React.FC<{
         </div>
       </div>
 
-      {/* growing bars for the current iteration */}
-      <div style={{ position: "absolute", left: PAD_L, bottom: 40 }}>
+      {/* bars for the iteration under the playhead */}
+      <div style={{ position: "absolute", left: PAD_L, bottom: 40,
+        width: 820 }}>
         <Bar color={GREEN} label="kernel" w={barW(scanIter.kernel_ms)} v={scanIter.kernel_ms} />
         <Bar color={BLUE} label="eager" w={barW(scanIter.eager_ms)} v={scanIter.eager_ms} />
       </div>

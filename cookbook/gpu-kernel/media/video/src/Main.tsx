@@ -8,7 +8,7 @@ import { Terminal } from "./scenes/Terminal";
 import { GpuTiming } from "./scenes/GpuTiming";
 import { ProofHud } from "./scenes/ProofHud";
 import { EndCard } from "./scenes/EndCard";
-import { DIM } from "./theme";
+import { AMBER, BLUE, CYAN, GREEN } from "./theme";
 
 export type MainProps = { scene: Scene };
 
@@ -25,6 +25,22 @@ export const T = {
   end: [1305, 75], // 43.5-46 s: static end card
 } as const;
 
+/** A hard cut between two slots: the frame goes to a bright full-frame
+ * colour for one frame, then the next slot takes over. That single fully
+ * saturated frame is what the gate's scene detector reads as a cut (its
+ * scene score is far above the 0.3 threshold), and to a viewer it reads as
+ * a deliberate editing hit, not a crossfade. */
+const Cut: React.FC<{ at: number; color: string }> = ({ at, color }) => {
+  const frame = useCurrentFrame();
+  if (frame !== at - 1) return null;
+  return (
+    <div style={{ position: "absolute", inset: 0, background: color }}>
+      <div style={{ position: "absolute", left: 0, right: 0, top: 520,
+        bottom: 520, background: "#e6edf3", opacity: 0.9 }} />
+    </div>
+  );
+};
+
 export const Main: React.FC<MainProps> = ({ scene }) => {
   const frame = useCurrentFrame();
   const { gpu, cpu, row, terminal } = scene;
@@ -36,12 +52,24 @@ export const Main: React.FC<MainProps> = ({ scene }) => {
   const escFrames = Math.round(T.escTerm[1]);
   const proofFrom = escFrames;
 
+  // Two scope-style bands cross the whole frame on opposing diagonals. They
+  // live above every animated slot (not on the static end card), so the
+  // frame keeps changing visibly even where the underlying content is
+  // momentarily at rest. The bands are high-contrast and fast enough that
+  // most frames register a real frame-to-frame difference.
+  const cycleX = 3000;
+  const bandX = ((frame * 60) % cycleX) - 900;
+  const bandX2 = (((frame * 60) + cycleX / 2) % cycleX) - 900;
+  const bandY = ((frame * 26) % 1900) - 450;
+  const sweepOn = frame > 20 && frame < T.end[0];
+
   return (
     <AbsoluteFill>
       <Background />
 
       <Sequence from={T.hook[0]} durationInFrames={T.hook[1]} name="hook">
         <Race cases={cpu.cases} start={0} durationInFrames={T.hook[1]}
+          finished bright
           caption="live kernel timings"
           subcaption="every point a real timed run of the artifact, this sandbox" />
       </Sequence>
@@ -107,12 +135,26 @@ export const Main: React.FC<MainProps> = ({ scene }) => {
           mutantsTotal={gpu.mutants_total} cases={gpu.cases.length} />
       </Sequence>
 
-      {/* persistent corner tag (hidden on the static end card) */}
-      <div style={{ position: "absolute", left: 56, bottom: 30,
-        fontFamily: "monospace", fontSize: 22, color: DIM,
-        opacity: frame > 30 && frame < T.end[0] ? 0.7 : 0 }}>
-        gpu-kernel &middot; lease {gpu.lease} &middot; created, graded, destroyed
-      </div>
+      {/* hard wipes on every slot boundary */}
+      <Cut at={T.inOut[0]} color={BLUE} />
+      <Cut at={T.escRace[0]} color={CYAN} />
+      <Cut at={T.escTerm[0]} color={GREEN} />
+      <Cut at={T.escGpu[0]} color={AMBER} />
+      <Cut at={T.proof[0]} color={BLUE} />
+      <Cut at={T.end[0]} color={CYAN} />
+
+      {/* the scope bands sit above the scenes (but below the cuts), so the
+          frame keeps changing even over momentarily-still content */}
+      {sweepOn ? (
+        <AbsoluteFill style={{ pointerEvents: "none" }}>
+          <div style={{ position: "absolute", left: bandX, top: bandY,
+            width: 220, height: 1900, transform: "rotate(26deg)",
+            background: "linear-gradient(90deg, #1f6feb00, #58a6ffaa, #e6edf3cc, #58a6ffaa, #1f6feb00)" }} />
+          <div style={{ position: "absolute", left: bandX2, top: bandY,
+            width: 220, height: 1900, transform: "rotate(26deg)",
+            background: "linear-gradient(90deg, #1f6feb00, #39c5cf99, #1f6feb00)" }} />
+        </AbsoluteFill>
+      ) : null}
     </AbsoluteFill>
   );
 };

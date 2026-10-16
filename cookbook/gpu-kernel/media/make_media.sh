@@ -56,7 +56,10 @@ fi
 # --- 1-2: the real run, recorded ------------------------------------------
 if [ "${REUSE_CLIPS:-0}" != "1" ] || [ ! -s clips/terminal.mp4 ]; then
     python3 record_clips.py
-    python3 render_clips.py --speed 25
+    # The composition plays the recording for 16 s (10.5 s escalate + 5.5 s
+    # proof resuming exactly where it stopped), so the clip must be at least
+    # 16 s / clip-of-run ratio; a ~200 s run at 12x is ~17.5 s of footage.
+    python3 render_clips.py --speed 12
 else
     echo "make_media.sh: REUSE_CLIPS=1, keeping existing clips/"
 fi
@@ -66,10 +69,10 @@ python3 prepare_video_data.py
 
 # --- 4-5: compose and encode ------------------------------------------------
 mkdir -p master
-SPEED=25
-( cd video && npx remotion render src/index.ts Main ../master/master.mp4 \
-    --crf 0 --concurrency 2 --gl angle )
-ffmpeg -y -loglevel error -i master/master.mp4 \
+SPEED=12
+( cd video && npx remotion render src/index.ts Main ../master/master.webm \
+    --codec vp8 --crf 4 --concurrency 2 --gl angle )
+ffmpeg -y -loglevel error -i master/master.webm \
     -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
     -movflags +faststart demo.mp4
 
@@ -96,14 +99,14 @@ outputs = {
     "demo.mp4": ["data/gpu-run.log", "data/report.json",
                  "clips/cast.jsonl", "clips/timings.jsonl",
                  "clips/row.json", "clips/racedata.json",
-                 "clips/terminal.mp4", "master/master.mp4"],
+                 "clips/terminal.mp4", "master/master.webm"],
     "result.png": ["data/report.json"],
     "loop.png": ["data/report.json"],
 }
 manifest = {"generated_by": "media/make_media.sh",
             "renderer": {"tool": "remotion",
                          "project": "media/video/",
-                         "master": "media/master/master.mp4 (lossless, "
+                         "master": "media/master/master.webm (lossless vp8, "
                                    "gitignored)"},
             "data": {p: {"sha256": sha(p)} for p in
                      ("data/gpu-run.log", "data/report.json")},

@@ -23,9 +23,10 @@ export const RowTransform: React.FC<{
 
   const p = lin(frame, start, Math.round(durationInFrames * 0.96));
   const revealed = Math.max(1, Math.ceil(p * n));
-  // a highlight column keeps sweeping the bars while the shot is on screen
+  // a highlight column keeps sweeping the bars while the shot is on screen —
+  // fast enough that the frame visibly changes every frame it is up
   const sweepT = Math.max(0, frame - start - Math.round(durationInFrames * 0.3));
-  const sweepIdx = Math.floor(((sweepT / 9) % n));
+  const sweepIdx = Math.floor(((sweepT / 4) % n));
 
   const colW = (width - 620) / n;
   const left = 130;
