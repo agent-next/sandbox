@@ -27,7 +27,7 @@ the ink of the value it claims to have read.
 - No PDF, no multi-page documents, no tables beyond the line items the
   fixtures contain (line items are not graded; four header fields are).
 - No handwriting, no non-Latin scripts, no rotated-90° pages (skew is
-  bounded at 0.6°).
+  bounded at 0.5°).
 - No network access at grade time: the corpus is generated locally from a
   seed, the judge is offline.
 - The extractor is not required to be fast; it is required to be
