@@ -166,7 +166,7 @@ def main():
   <video id="v-hero" class="clip fill" src="assets/clips/hero.mp4" muted
          playsinline data-start="0" data-duration="{T_HERO_END}"
          data-playback-rate="1.35"
-         style="filter:saturate(1.15)"></video>
+         style="filter:brightness(1.4) saturate(1.15)"></video>
 
   <!-- 1.9-8.9 ramp: input -> output, load 0 -> {fmt_n(load_n)} -->
   <video id="v-ramp" class="clip fill" src="assets/clips/ramp.mp4" muted

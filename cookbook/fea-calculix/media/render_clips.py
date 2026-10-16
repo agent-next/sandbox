@@ -81,8 +81,8 @@ class BeamCam:
         self.coll = PolyCollection(
             [], array=[], cmap=CMAP,
             norm=colors.BoundaryNorm(np.linspace(0.0, vmax, 25), 256),
-            edgecolors=(0.03, 0.05, 0.09, 0.7),
-            linewidths=0.6, antialiased=False)
+            edgecolors=(0.03, 0.05, 0.09, 0.5),
+            linewidths=0.4, antialiased=False)
         self.ax.add_collection(self.coll)
         # turntable grid floor under the beam (rotates with the camera):
         # lines on the plane below the undeformed beam, real 3-D viz grid
@@ -90,14 +90,14 @@ class BeamCam:
         Lx, Ly = c1[0] - c0[0], c1[1] - c0[1]
         zf = c0[2] - 0.12 * (c1[2] - c0[2])
         segs = []
-        for gx in np.linspace(c0[0], c1[0], 41):
+        for gx in np.linspace(c0[0], c1[0], 21):
             segs.append([[gx, c0[1] - 0.6 * Ly, zf],
                          [gx, c1[1] + 0.6 * Ly, zf]])
-        for gy in np.linspace(c0[1] - 0.6 * Ly, c1[1] + 0.6 * Ly, 11):
+        for gy in np.linspace(c0[1] - 0.6 * Ly, c1[1] + 0.6 * Ly, 7):
             segs.append([[c0[0], gy, zf], [c1[0], gy, zf]])
         self.grid3d = np.array(segs)                     # (M,2,3)
         self.grid = LineCollection(
-            [], colors=(0.35, 0.48, 0.65, 0.45), linewidths=1.0,
+            [], colors=(0.35, 0.48, 0.65, 0.30), linewidths=0.9,
             zorder=0)
         self.ax.add_collection(self.grid)
         self.ghost = LineCollection([], colors="#3d5a80", linewidths=1.4,

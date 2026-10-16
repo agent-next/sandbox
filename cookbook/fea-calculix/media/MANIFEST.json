@@ -5,6 +5,7 @@
     "ccx": "2.20-1 (judge/setup.sh, sha256-pinned .deb)",
     "gmsh": "4.10.0 (judge/setup.sh, sha256-pinned tarball)",
     "python": "media/requirements.txt (matplotlib 3.10.7, numpy 2.2.6)",
+    "hyperframes": "0.8.99 (media/video/package-lock.json, npm ci; published 2026-09-30)",
     "ffmpeg": "distro build (see media/REVIEW.md)"
   },
   "files": {
@@ -42,16 +43,21 @@
       "bytes": 379406
     },
     "demo.mp4": {
-      "shows": "Linear-static load ramp of the real good-fine .frd displacement field (displacement scaled, labelled), full-load gate readouts, then each of the 9 mutants' failing gates with measured vs limit from its verdict JSON; overload-10x, undersized, propped-tip and load-on-ntip cards embed that mutant's own real deformed field.",
+      "shows": "Animated cut: the real good-fine .frd field orbited in 3-D (hero at full load; linear-static ramp 0 -> 1000 N; dive onto the clamped wall), this run's own console replay at the measured Nx over still-playing footage, the overload-10x mutant's own field under 10x load, then the PASS badge + gate rows as a HUD over the still-moving field; 2.5 s static end card. All overlay numbers are injected from this run's verdict/selftest/timing files.",
       "sources": [
         "data/verdicts/*.json",
+        "data/selftest.txt",
+        "work/run_logs/*.log",
+        "work/run_logs/timing.json",
         "work/*/job.frd",
         "work/*/fields.npz",
-        "work/*/summary.json"
+        "work/*/summary.json",
+        "clips/*.mp4",
+        "video/index.html"
       ],
-      "command": "media/.venv/bin/python media/make_video.py (master: media/master/demo_lossless.mp4, -crf 0)",
-      "sha256": "9ab8dfa672ec6c481c2c5eabde8681c4ac479f2ff45abb515c66b4a1cf10ce72",
-      "bytes": 772596
+      "command": "bash media/make_media.sh (clips: render_clips.py; composition: gen_composition.py -> video/index.html; render: npx hyperframes render (pinned 0.8.99); encode: ffmpeg -crf 18 +faststart; master: media/master/demo_hf.mp4)",
+      "sha256": "d4de532ce1ae38061fff54ae6589f2882b5c7b79d1fa1d17c0d6503316a67d25",
+      "bytes": 4356822
     }
   }
 }
