@@ -3,20 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=1920, height=1080" />
-    <title>firmware-qemu -- real QEMU boot, real judge</title>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <title>firmware-qemu — real QEMU boot, real judge</title>
+    <!-- GSAP is vendored (see vendor/README.md) so the render never needs
+         network.  hyperframes drives window.__timelines["root"]. -->
+    <script src="vendor/gsap.min.js"></script>
     <style>
-      /* Typography: the sizes below are the demo's own figure scale
-         (media/common.py), so the video andRECEIPT.md agree.  Captions sit at
-         >= 4% of frame height, as DEMO-STANDARD.md requires. */
+      /* Typography scale is the demo's own (media/common.py), so the video
+         and RECEIPT.md agree.  Captions sit at >= 4% of frame height as
+         DEMO-STANDARD.md requires: HUD values 96px (8.9%), headline 96px,
+         keys 28px (2.6% — small caps labels, not the reading text). */
       :root {
         --bg: #0d1117;
-        --panel: #161b22;
+        --panel: rgba(22, 27, 34, 0.92);
         --fg: #e6edf3;
         --dim: #8b949e;
         --pass: #009e73;
         --tx: #56b4e9;
         --rx: #7fdb8a;
+        --warn: #e69f00;
       }
       html,
       body {
@@ -32,25 +36,22 @@
         height: 100%;
       }
 
-      /* --- the terminal window: real footage, framed ---------------------- */
+      /* --- the shot box and the camera ------------------------------- */
+      /* .shot is the full-frame box the runtime shows between
+         data-start/data-duration.  .cam is the camera: it holds the real
+         <video>, so every GSAP move is a move across real footage. */
       .shot {
         position: absolute;
-        left: 0;
-        top: 0;
-        width: 1920px;
-        height: 1080px;
+        inset: 0;
         overflow: hidden;
       }
-      /* The camera: one oversized plate per shot that GSAP pans and pushes.
-         It holds the <video>, so a move is a move across real recorded
-         footage -- never a synthetic zoom on a still. */
       .cam {
         position: absolute;
         left: 0;
         top: 0;
         width: 1920px;
         height: 1080px;
-        transform-origin: 50% 40%;
+        transform-origin: 50% 45%;
       }
       .cam video {
         position: absolute;
@@ -61,32 +62,43 @@
         object-fit: cover;
         display: block;
       }
+      /* a soft vignette so white HUD panels read over any frame */
+      .veil {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(
+          ellipse at 50% 50%,
+          rgba(13, 17, 23, 0) 45%,
+          rgba(13, 17, 23, 0.62) 100%
+        );
+      }
 
-      /* --- HUD ------------------------------------------------------------ */
+      /* --- HUD ------------------------------------------------------- */
       .hud {
         position: absolute;
         font-variant-numeric: tabular-nums;
       }
       .hud .k {
         color: var(--dim);
-        font-size: 24px;
-        font-weight: 500;
+        font-size: 28px;
+        font-weight: 600;
         letter-spacing: 0.18em;
         text-transform: uppercase;
       }
       .hud .v {
         font-size: 96px;
-        font-weight: 700;
+        font-weight: 800;
         line-height: 1;
       }
       .hud .u {
         color: var(--dim);
         font-size: 30px;
-        font-weight: 500;
+        font-weight: 600;
       }
       .bar {
-        height: 10px;
-        border-radius: 5px;
+        height: 12px;
+        border-radius: 6px;
         background: #30363d;
         overflow: hidden;
       }
@@ -94,7 +106,7 @@
         display: block;
         height: 100%;
         width: 100%;
-        border-radius: 5px;
+        border-radius: 6px;
         background: var(--pass);
         transform: scaleX(0);
         transform-origin: left center;
@@ -131,33 +143,37 @@
         position: absolute;
         left: 96px;
         top: 150px;
-        width: 660px;
+        width: 720px;
       }
       .gates .row {
         display: flex;
         align-items: center;
         gap: 20px;
-        height: 86px;
-        padding: 0 28px;
-        margin-bottom: 16px;
+        height: 84px;
+        padding: 0 26px;
+        margin-bottom: 14px;
         border-radius: 14px;
-        background: rgba(22, 27, 34, 0.92);
+        background: var(--panel);
         border-left: 6px solid var(--pass);
       }
       .gates .row .name {
         font-size: 30px;
-        font-weight: 600;
+        font-weight: 700;
         flex: 1;
+        font-variant-numeric: tabular-nums;
       }
       .gates .row .val {
         font-size: 30px;
-        font-weight: 700;
+        font-weight: 800;
         color: var(--pass);
-        font-variant-numeric: tabular-nums;
       }
       .gates .row .detail {
         font-size: 22px;
         color: var(--dim);
+        max-width: 330px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
       }
 
       /* PASS badge. */
@@ -170,7 +186,7 @@
         gap: 26px;
         padding: 26px 44px;
         border-radius: 20px;
-        background: rgba(0, 158, 115, 0.16);
+        background: rgba(0, 158, 115, 0.18);
         border: 3px solid var(--pass);
       }
       .badge .dot {
@@ -198,7 +214,7 @@
         top: 96px;
         padding: 14px 30px;
         border-radius: 999px;
-        background: rgba(22, 27, 34, 0.92);
+        background: var(--panel);
         border: 2px solid #30363d;
         font-size: 34px;
         font-weight: 700;
@@ -240,242 +256,325 @@
   <body>
     <div
       id="root"
-      data-composition-id="firmware-qemu"
+      class="clip"
+      data-composition-id="root"
       data-start="0"
       data-width="1920"
       data-height="1080"
       data-duration="34"
       data-fps="30"
+      data-root="true"
     >
-      <!-- 1: 0-2s  banner and first exchanges, real boot ----------------- -->
-      <section class="shot" data-start="0" data-duration="2" data-track-index="0">
+      <!-- 1: 0-2s  the launch line and the boot banner landing --------- -->
+      <section id="shot-hero" class="shot clip" data-track-index="0">
         <div class="cam" id="cam1">
-          <video id="v-boot-hero" muted playsinline
+          <video id="v-boot-hero" muted playsinline preload="auto"
+                 data-start="0" data-duration="2.0"
                  src="clips/boot-hero.mp4"></video>
         </div>
+        <div class="veil"></div>
         <div class="kin" id="kin1">
           <div class="line"><span class="a">A QEMU shell that</span></div>
           <div class="line"><span class="b">answers like hardware</span></div>
         </div>
       </section>
 
-      <!-- 2: 2-7s  the command script ------------------------------------ -->
-      <section class="shot" data-start="2" data-duration="5" data-track-index="0">
+      <!-- 2: 2-7s  the scripted shell --------------------------------- -->
+      <section id="shot-shell" class="shot clip" data-track-index="0">
         <div class="cam" id="cam2">
-          <video id="v-boot-shell" muted playsinline
+          <video id="v-boot-shell" muted playsinline preload="auto"
+                 data-start="2" data-duration="5.0"
                  src="clips/boot-shell.mp4"></video>
         </div>
+        <div class="veil"></div>
         <div class="hud" id="hud-shell" style="left: 96px; top: 90px; width: 520px">
           <div class="k">Shell responses</div>
-          <div><span class="v" id="n-shell">0</span> <span class="u">/ 46 exact</span></div>
+          <div><span class="v" id="n-shell">0</span>
+               <span class="u">/ <b id="t-shell">46</b> exact</span></div>
           <div class="bar" style="margin-top: 22px"><i id="b-shell"></i></div>
           <div class="k" style="margin-top: 34px">CRC vs zlib</div>
           <div><span class="v" id="n-crc" style="color: var(--rx)">0</span>
-                <span class="u">/ 15 match</span></div>
+               <span class="u">/ <b id="t-crc">15</b> match</span></div>
+          <div class="bar" style="margin-top: 22px"><i id="b-crc"></i></div>
         </div>
       </section>
 
-      <!-- 3: 7-10s  the real toolchain build ------------------------------ -->
-      <section class="shot" data-start="7" data-duration="3" data-track-index="0">
+      <!-- 3: 7-10s  the real toolchain build --------------------------- -->
+      <section id="shot-build" class="shot clip" data-track-index="0">
         <div class="cam" id="cam3">
-          <video id="v-build" muted playsinline
+          <video id="v-build" muted playsinline preload="auto"
+                 data-start="7" data-duration="3.0"
                  src="clips/build.mp4"></video>
         </div>
-        <div class="hud" id="hud-build" style="left: 96px; top: 90px; width: 640px">
-          <div class="k">Image size</div>
-          <div style="display: flex; gap: 40px; margin-top: 14px">
+        <div class="veil"></div>
+        <div class="hud" id="hud-build" style="left: 96px; top: 90px; width: 700px">
+          <div class="k">Image size — arm-none-eabi-size</div>
+          <div style="display: flex; gap: 56px; margin-top: 14px">
             <div>
-              <div><span class="v" id="n-flash" style="font-size: 72px">0</span>
+              <div><span class="v" id="n-flash" style="font-size: 76px">0</span>
                    <span class="u">B FLASH</span></div>
-              <div class="bar" style="margin-top: 12px; width: 260px"><i id="b-flash"></i></div>
+              <div class="bar" style="margin-top: 12px; width: 280px"><i id="b-flash"></i></div>
             </div>
             <div>
-              <div><span class="v" id="n-sram" style="font-size: 72px">0</span>
+              <div><span class="v" id="n-sram" style="font-size: 76px">0</span>
                    <span class="u">B SRAM</span></div>
-              <div class="bar" style="margin-top: 12px; width: 260px"><i id="b-sram"></i></div>
+              <div class="bar" style="margin-top: 12px; width: 280px"><i id="b-sram"></i></div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 4: 10-15s  the judge's gate table ------------------------------- -->
-      <section class="shot" data-start="10" data-duration="5" data-track-index="0">
+      <!-- 4: 10-15s  the judge's verdict ------------------------------- -->
+      <section id="shot-gates" class="shot clip" data-track-index="0">
         <div class="cam" id="cam4">
-          <video id="v-grade" muted playsinline
+          <video id="v-grade" muted playsinline preload="auto"
+                 data-start="10" data-duration="5.0"
                  src="clips/grade.mp4"></video>
         </div>
-        <div class="gates" id="gates4">
-          <div class="row"><span class="name">build_clean</span>
-            <span class="detail">no diagnostics</span><span class="val">pass</span></div>
-          <div class="row"><span class="name">elf_ok</span>
-            <span class="detail">entry in .text</span><span class="val">pass</span></div>
-          <div class="row"><span class="name">maps_ok</span>
-            <span class="detail">2224B / 8192B</span><span class="val">pass</span></div>
-          <div class="row"><span class="name">boot</span>
-            <span class="detail">banner 0.085s</span><span class="val">pass</span></div>
-          <div class="row"><span class="name">shell</span>
-            <span class="detail">46 / 46</span><span class="val">pass</span></div>
-          <div class="row"><span class="name">crc_oracle</span>
-            <span class="detail">15 / 15</span><span class="val">pass</span></div>
-          <div class="row"><span class="name">no_hardfault</span>
-            <span class="detail">0 faults</span><span class="val">pass</span></div>
-          <div class="row"><span class="name">judge_intact</span>
-            <span class="detail">unchanged</span><span class="val">pass</span></div>
-        </div>
+        <div class="veil"></div>
+        <div class="gates" id="gates4"></div>
       </section>
 
-      <!-- 5: 15-21s  the mutant self-test at 12x -------------------------- -->
-      <section class="shot" data-start="15" data-duration="6" data-track-index="0">
+      <!-- 5: 15-21s  the mutant self-test at 12x ------------------------ -->
+      <section id="shot-selftest" class="shot clip" data-track-index="0">
         <div class="cam" id="cam5">
-          <video id="v-selftest" muted playsinline
+          <video id="v-selftest" muted playsinline preload="auto"
+                 data-start="15" data-duration="6.0"
                  src="clips/selftest.mp4"></video>
         </div>
-        <div class="tag" id="tag5">12x</div>
+        <div class="veil"></div>
+        <div class="tag" id="tag5">12× speed — judge/selftest.sh</div>
         <div class="hud" id="hud-mut" style="left: 96px; bottom: 96px; width: 560px">
           <div class="k">Mutants killed</div>
-          <div><span class="v" id="n-mut">0</span> <span class="u">/ 14</span></div>
+          <div><span class="v" id="n-mut">0</span>
+               <span class="u">/ <b id="t-mut">14</b></span></div>
           <div class="bar" style="margin-top: 18px"><i id="b-mut"></i></div>
         </div>
         <div class="badge" id="badge5">
           <span class="dot"></span>
           <div>
             <div class="t">PASS</div>
-            <div class="s">100 % kill rate</div>
+            <div class="s"><span id="n-rate">0</span>% kill rate</div>
           </div>
         </div>
       </section>
 
-      <!-- 6: 21-27s  CRC and ring-buffer tail at 16x ---------------------- -->
-      <section class="shot" data-start="21" data-duration="6" data-track-index="0">
+      <!-- 6: 21-27s  the ring-buffer tail at 16x ------------------------ -->
+      <section id="shot-fast" class="shot clip" data-track-index="0">
         <div class="cam" id="cam6">
-          <video id="v-boot-crc" muted playsinline
+          <video id="v-boot-crc" muted playsinline preload="auto"
+                 data-start="21" data-duration="6.0"
                  src="clips/boot-crc.mp4"></video>
         </div>
-        <div class="tag" id="tag6">16x</div>
+        <div class="veil"></div>
+        <div class="tag" id="tag6">16× speed</div>
         <div class="hud" id="hud-crc" style="left: 96px; bottom: 96px; width: 620px">
-          <div class="k">CRC check, 64-byte buffers</div>
+          <div class="k">CRC-32 vs zlib, 64-byte buffers</div>
           <div><span class="v" id="n-crc2" style="color: var(--rx)">0</span>
-               <span class="u">/ 15 == zlib</span></div>
+               <span class="u">/ <b id="t-crc2">15</b> == zlib</span></div>
           <div class="bar" style="margin-top: 18px"><i id="b-crc2"></i></div>
         </div>
       </section>
 
-      <!-- 7: 27-31.5s  the verdict over moving footage --------------------- -->
-      <section class="shot" data-start="27" data-duration="4.5" data-track-index="0">
+      <!-- 7: 27-31.5s  the verdict over moving footage ------------------ -->
+      <section id="shot-verdict" class="shot clip" data-track-index="0">
         <div class="cam" id="cam7">
-          <video id="v-verdict" muted playsinline
+          <video id="v-verdict" muted playsinline preload="auto"
+                 data-start="27" data-duration="4.5"
                  src="clips/verdict.mp4"></video>
         </div>
-        <div class="hud" id="hud-verdict" style="right: 96px; top: 330px; width: 640px; text-align: right">
+        <div class="veil"></div>
+        <div class="hud" id="hud-verdict"
+             style="right: 96px; top: 330px; width: 640px; text-align: right">
           <div class="k">Gates passed</div>
           <div><span class="v" id="n-gates" style="color: var(--pass)">0</span>
-               <span class="u">/ 8</span></div>
+               <span class="u">/ <b id="t-gates">8</b></span></div>
           <div class="k" style="margin-top: 26px">Shell · CRC</div>
           <div style="font-size: 54px; font-weight: 700">
-            46 / 46 <span style="color: var(--dim)">·</span> 15 / 15</div>
+            <span id="n-shell2">0</span> / <b id="t-shell2">46</b>
+            <span style="color: var(--dim)">·</span>
+            <span id="n-crc3">0</span> / <b id="t-crc3">15</b></div>
+          <div class="k" style="margin-top: 26px">.text + .rodata</div>
+          <div><span class="v" id="n-text" style="font-size: 72px">0</span>
+               <span class="u">B</span></div>
         </div>
       </section>
 
-      <!-- 8: 31.5-34s  static end card ------------------------------------ -->
-      <section class="end" data-start="31.5" data-duration="2.5" data-track-index="0">
+      <!-- 8: 31.5-34s  static end card --------------------------------- -->
+      <section id="shot-end" class="end clip" data-track-index="0">
         <div class="card">
           <div class="big">firmware-qemu</div>
           <div class="cmd">python3 cookbook/firmware-qemu/run.py</div>
-          <div class="sub">8 gates · 46 responses · 14 mutants killed</div>
+          <div class="sub"><span id="e-gates">8</span> gates ·
+            <span id="e-shell">46</span> responses ·
+            <span id="e-mut">14</span> mutants killed</div>
         </div>
       </section>
     </div>
 
     <script>
       /* Every number on screen is the same run the footage came from:
-         media/data/verdict-good.json (gates, shell, CRc, maps) and the
-         selftest summary in media/clips/selftest.cast.  The counters tween
-         to those values; they are not typed as literals. */
-      const N = {
-        shell: 46, crc: 15,
-        flash: 2744, flashMax: 262144,
-        sram: 4456, sramMax: 65536,
-        mutants: 14, gates: 8,
+         media/numbers.py wrote them from media/data/verdict-good.json, the
+         `make` memory block in media/clips/build.cast and
+         media/data/selftest.log.  The counters tween to those values; they
+         are not typed as literals. */
+      const N = window.__hyperframes.getVariables();
+      const gateRows = N.gateRows || [];
+
+      // the totals shown next to a counter, and the end card's summary
+      const totals = {
+        shell: N.shellTotal, crc: N.crcTotal, mut: N.mutantsTotal,
+        gates: N.gates, rate: N.killRate, text: N.textRodata,
+      };
+      const setText = (sel, v) => {
+        const el = document.querySelector(sel);
+        if (el) el.textContent = v;
       };
 
-      function countUp(tl, sel, to, start, dur, fork) {
+      // gate rows are built from the verdict JSON's own gate list and
+      // slide in over the still-moving grade footage
+      const wrap = document.getElementById("gates4");
+      gateRows.forEach((g) => {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML =
+          '<span class="val">' + (g.pass ? "pass" : "FAIL") + '</span>' +
+          '<span class="name">' + g.name + '</span>' +
+          '<span class="detail">' + g.detail + '</span>';
+        wrap.appendChild(row);
+      });
+
+      /* Wrappers are untimed visual containers (hyperframes lint:
+         video_nested_in_timed_element -- a timed wrapper and a timed video
+         disagree about the slot), so each scene is switched here on the one
+         root timeline instead.  Without this every scene is stacked on the
+         stage and the static end card covers the moving footage. */
+      const SLOT_WINDOWS = [
+        ["#shot-hero", 0, 2.0],
+        ["#shot-shell", 2.0, 5.0],
+        ["#shot-build", 7.0, 3.0],
+        ["#shot-gates", 10.0, 5.0],
+        ["#shot-selftest", 15.0, 6.0],
+        ["#shot-fast", 21.0, 6.0],
+        ["#shot-verdict", 27.0, 4.5],
+        ["#shot-end", 31.5, 2.5],
+      ];
+
+      const tl = gsap.timeline({ paused: true });
+
+      // One master onUpdate switches the scene.  A scene is visible exactly
+      // while the playhead is inside its slot; the switch is instant so each
+      // storyboard cut is one scene cut for the gate's scene-cut metric.
+      function sceneFor(t) {
+        for (const [sel, start, dur] of SLOT_WINDOWS) {
+          if (t >= start - 1e-6 && t < start + dur - 1e-6) return sel;
+        }
+        return "#shot-end";
+      }
+      function applyScene(t) {
+        const visible = sceneFor(t);
+        SLOT_WINDOWS.forEach(([sel]) => {
+          const want = sel === visible ? "visible" : "hidden";
+          const el = document.querySelector(sel);
+          if (el && el.style.visibility !== want) el.style.visibility = want;
+        });
+      }
+      applyScene(0);
+
+      function countUp(sel, to, start, dur) {
         const el = document.querySelector(sel);
+        if (!el) return;
         const o = { v: 0 };
         tl.to(o, {
           v: to, duration: dur, ease: "power1.out",
           onUpdate: () => { el.textContent = Math.round(o.v); },
-        }, start + (fork || 0));
+        }, start);
       }
-      function bar(tl, sel, to, start, dur, fork) {
-        tl.fromTo(sel, { scaleX: 0 }, {
-          scaleX: 1, duration: dur, ease: "power2.out",
-        }, start + (fork || 0));
-        void to;
+      function bar(sel, start, dur) {
+        tl.fromTo(sel, { scaleX: 0 },
+                  { scaleX: 1, duration: dur, ease: "power2.out" }, start);
       }
 
-      const tl = gsap.timeline({ paused: true });
-
-      /* --- camera: every shot pans or pushes across its real footage ----- */
-      tl.fromTo("#cam1", { scale: 1.18, x: -90, y: -50 },
+      /* --- camera: every shot pans or pushes across its real footage --- */
+      tl.fromTo("#cam1", { scale: 1.16, x: -80, y: -40 },
                 { scale: 1.0, x: 0, y: 0, duration: 2, ease: "power1.inOut" }, 0);
       tl.fromTo("#cam2", { scale: 1.0, x: 0 },
-                { scale: 1.22, x: -190, y: -70, duration: 5, ease: "none" }, 2);
-      tl.fromTo("#cam3", { scale: 1.16, x: -60, y: 0 },
-                { scale: 1.0, x: 0, y: 0, duration: 3, ease: "power1.inOut" }, 7);
-      tl.fromTo("#cam4", { scale: 1.25, x: 0, y: -120 },
-                { scale: 1.0, x: -150, y: 0, duration: 5, ease: "none" }, 10);
-      tl.fromTo("#cam5", { scale: 1.05, x: 0 },
-                { scale: 1.3, x: -220, duration: 6, ease: "none" }, 15);
-      tl.fromTo("#cam6", { scale: 1.0, x: 0 },
-                { scale: 1.35, x: -260, duration: 6, ease: "none" }, 21);
-      tl.fromTo("#cam7", { scale: 1.1, x: -40, y: 30 },
+                { scale: 1.20, x: -180, y: -60, duration: 5, ease: "none" }, 2);
+      tl.fromTo("#cam3", { scale: 1.14, x: -60 },
+                { scale: 1.0, x: 0, duration: 3, ease: "power1.inOut" }, 7);
+      tl.fromTo("#cam4", { scale: 1.22, x: 0, y: -110 },
+                { scale: 1.0, x: -140, y: 0, duration: 5, ease: "none" }, 10);
+      tl.fromTo("#cam5", { scale: 1.04 },
+                { scale: 1.28, x: -200, duration: 6, ease: "none" }, 15);
+      tl.fromTo("#cam6", { scale: 1.0 },
+                { scale: 1.32, x: -240, duration: 6, ease: "none" }, 21);
+      tl.fromTo("#cam7", { scale: 1.08, x: -30, y: 20 },
                 { scale: 1.0, x: 0, y: 0, duration: 4.5, ease: "power1.inOut" }, 27);
 
-      /* --- headline: two lines rising in turn ---------------------------- */
+      /* --- headline: two lines rising in turn -------------------------- */
       tl.from("#kin1 .a", { y: 118, opacity: 0, duration: 0.5, ease: "power3.out" }, 0.15);
       tl.from("#kin1 .b", { y: 118, opacity: 0, duration: 0.5, ease: "power3.out" }, 0.5);
       tl.to("#kin1", { y: -40, opacity: 0, duration: 0.5, ease: "power2.in" }, 1.35);
 
-      /* --- shell counters ------------------------------------------------ */
-      countUp(tl, "#n-shell", N.shell, 2, 4.2);
-      bar(tl, "#b-shell", null, 2, 4.2);
-      countUp(tl, "#n-crc", N.crc, 2.9, 3.3);
+      /* --- shell counters --------------------------------------------- */
       tl.from("#hud-shell", { opacity: 0, x: -60, duration: 0.5, ease: "power2.out" }, 2);
+      countUp("#n-shell", N.shellPassed, 2, 4.2);
+      bar("#b-shell", 2, 4.2);
+      countUp("#n-crc", N.crcPassed, 2.9, 3.3);
+      bar("#b-crc", 2.9, 3.3);
 
-      /* --- image size ---------------------------------------------------- */
+      /* --- image size -------------------------------------------------- */
       tl.from("#hud-build", { opacity: 0, y: 40, duration: 0.5, ease: "power2.out" }, 7.1);
-      countUp(tl, "#n-flash", N.flash, 7.2, 2.4);
-      countUp(tl, "#n-sram", N.sram, 7.45, 2.4);
-      bar(tl, "#b-flash", null, 7.2, 2.4);
-      bar(tl, "#b-sram", null, 7.45, 2.4);
+      countUp("#n-flash", N.flash, 7.2, 2.4);
+      countUp("#n-sram", N.sram, 7.45, 2.4);
+      bar("#b-flash", 7.2, 2.4);
+      bar("#b-sram", 7.45, 2.4);
 
-      /* --- gate rows slide in over the moving footage -------------------- */
-      document.querySelectorAll("#gates4 .row").forEach((row, i) => {
-        tl.from(row, { x: -760, opacity: 0, duration: 0.5,
+      /* --- gate rows slide in over the moving footage ------------------ */
+      wrap.querySelectorAll(".row").forEach((row, i) => {
+        tl.from(row, { x: -780, opacity: 0, duration: 0.5,
                        ease: "power3.out" }, 10.2 + i * 0.42);
       });
 
-      /* --- self-test ----------------------------------------------------- */
+      /* --- self-test --------------------------------------------------- */
       tl.from("#tag5", { opacity: 0, x: -40, duration: 0.4 }, 15.1);
       tl.from("#hud-mut", { opacity: 0, x: -60, duration: 0.5 }, 15.1);
-      countUp(tl, "#n-mut", N.mutants, 15.2, 5.2);
-      bar(tl, "#b-mut", null, 15.2, 5.2);
+      countUp("#n-mut", N.mutantsKilled, 15.2, 5.2);
+      bar("#b-mut", 15.2, 5.2);
+      countUp("#n-rate", N.killRate, 19.4, 1.4);
       tl.from("#badge5", { opacity: 0, scale: 0.8, x: 40, duration: 0.6,
-                           ease: "back.out(1.7)" }, 20.0);
+                           ease: "back.out(1.7)" }, 19.8);
 
-      /* --- fast clip ----------------------------------------------------- */
+      /* --- fast clip --------------------------------------------------- */
       tl.from("#tag6", { opacity: 0, x: -40, duration: 0.4 }, 21.1);
       tl.from("#hud-crc", { opacity: 0, y: 40, duration: 0.5 }, 21.1);
-      countUp(tl, "#n-crc2", N.crc, 21.2, 5.4);
-      bar(tl, "#b-crc2", null, 21.2, 5.4);
+      countUp("#n-crc2", N.crcPassed, 21.2, 5.4);
+      bar("#b-crc2", 21.2, 5.4);
 
-      /* --- verdict ------------------------------------------------------- */
+      /* --- verdict ----------------------------------------------------- */
       tl.from("#hud-verdict", { opacity: 0, y: -40, duration: 0.6 }, 27.1);
-      countUp(tl, "#n-gates", N.gates, 27.2, 3.4);
+      countUp("#n-gates", N.gatesPassed, 27.2, 3.4);
+      countUp("#n-shell2", N.shellPassed, 27.4, 3.2);
+      countUp("#n-crc3", N.crcPassed, 27.6, 3.0);
+      countUp("#n-text", N.textRodata, 27.8, 2.8);
 
-      /* --- end card holds (no animation: the gate measures its 2 s) ------ */
+      /* --- totals, filled from numbers.json (no literal above) --------- */
+      [["#t-shell", totals.shell], ["#t-shell2", totals.shell],
+       ["#t-crc", totals.crc], ["#t-crc2", totals.crc],
+       ["#t-crc3", totals.crc], ["#t-mut", totals.mut],
+       ["#t-gates", totals.gates],
+       ["#e-gates", totals.gates], ["#e-shell", totals.shell],
+       ["#e-mut", totals.mut]].forEach(([sel, v]) => setText(sel, v));
 
-      window.__timelines["firmware-qemu"] = tl;
+      /* --- end card holds (no animation: the gate measures its 2 s) ---- */
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["root"] = tl;
+
+      // The renderer seeks this timeline once per frame; the scene switch
+      // rides along so a frame is never captured with the wrong scene up.
+      tl.eventCallback("onUpdate", () => applyScene(tl.time()));
+      tl.totalDuration(34);
     </script>
   </body>
 </html>

@@ -1,0 +1,59 @@
+{
+  "crcPassed": 15,
+  "crcTotal": 15,
+  "flash": 2744,
+  "flashTotal": 262144,
+  "gateRows": [
+    {
+      "detail": "banner within 10s",
+      "name": "boot",
+      "pass": true
+    },
+    {
+      "detail": "no diagnostics",
+      "name": "build_clean",
+      "pass": true
+    },
+    {
+      "detail": "15/15 match zlib.crc32",
+      "name": "crc_oracle",
+      "pass": true
+    },
+    {
+      "detail": "entry 0x205 is inside .text",
+      "name": "elf_ok",
+      "pass": true
+    },
+    {
+      "detail": "judge checksum unchanged",
+      "name": "judge_intact",
+      "pass": true
+    },
+    {
+      "detail": ".text+.rodata=2224B <= 8192B",
+      "name": "maps_ok",
+      "pass": true
+    },
+    {
+      "detail": "no fault strings in UART output",
+      "name": "no_hardfault",
+      "pass": true
+    },
+    {
+      "detail": "46/46 exact responses",
+      "name": "shell",
+      "pass": true
+    }
+  ],
+  "gates": 8,
+  "gatesPassed": 8,
+  "killRate": 100,
+  "mutantsKilled": 14,
+  "mutantsTotal": 14,
+  "seed": 20260814,
+  "shellPassed": 46,
+  "shellTotal": 46,
+  "sram": 4456,
+  "sramTotal": 65536,
+  "textRodata": 2224
+}

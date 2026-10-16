@@ -7,3 +7,13 @@ media/master/
 media/clips/
 media/video/node_modules/
 media/video/renders/
+# no trailing slash: .toolchain is a symlink to the local toolchain, and
+# git will not match a directory-only pattern against one
+examples/good/.toolchain
+
+# clips are derived: media/make_media.sh writes them into media/clips/
+media/video/clips/
+
+# pyte/Pillow for the terminal player: installed by media/collect-media-deps.sh,
+# never committed
+media/.pylib/
