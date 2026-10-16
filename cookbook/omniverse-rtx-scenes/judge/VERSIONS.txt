@@ -1,0 +1,7 @@
+# omniverse-rtx-scenes judge toolchain (CPU side).
+# Installed by judge/setup.sh with --require-hashes from judge-requirements.txt.
+# Recorded 2026-10-16T05:02:32+00:00.
+python=Python 3.12.15
+numpy==2.2.6
+pillow==11.0.0
+usd-core==25.8

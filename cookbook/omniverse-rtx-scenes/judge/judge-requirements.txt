@@ -2,7 +2,8 @@
 # (judge/grade_frames.py + validate_scenes.py + project.py).
 # Installed by judge/setup.sh with `pip install --require-hashes`, so
 # every wheel is sha256-verified; no ranges, no latest.
-# Linux x86_64, CPython 3.10 + 3.13 (the CI pair).
+# Linux x86_64 manylinux, CPython 3.10-3.13 (the sandbox images and the
+# CI matrix).
 # The GPU render toolchain lives inside the `omniverse` template
 # (SPEC.md §8.2); the physics BAKE toolchain is requirements.txt.
 #   usd-core 25.8.0  released 2025-07-31
@@ -11,12 +12,23 @@
 
 usd-core==25.8.0 \
     --hash=sha256:6a57e253312a26fd87b6884aeb22273a3e40ca3968498f82481f9c13518cffa5 \
+    --hash=sha256:ec4a897e828e7aa761bbbe48ec24e27be2212467495aa60f293f5097a38b542a \
+    --hash=sha256:cf52c5a77a314681ffb571528dd5e14c0a2e591437606671b90ee4390700e384 \
     --hash=sha256:e1882ee4821c9dda9e749caf1d7d80ac29b0f4000554cdb35dd4191d4816d3cc
 numpy==2.2.6 \
     --hash=sha256:fc7b73d02efb0e18c000e9ad8b83480dfcd5dfd11065997ed4c6747470ae8915 \
-    --hash=sha256:1bc23a79bfabc5d056d106f9befb8d50c31ced2fbc70eedb8155aec74a45798f
+    --hash=sha256:ba10f8411898fc418a521833e014a77d3ca01c15b0c6cdcce6a0d2897e6dbbdf \
+    --hash=sha256:fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249 \
+    --hash=sha256:1bc23a79bfabc5d056d106f9befb8d50c31ced2fbc70eedb8155aec74a45798f \
+    --hash=sha256:f447e6acb680fd307f40d3da4852208af94afdfab89cf850986c3ca00562f4fa
 Pillow==11.0.0 \
     --hash=sha256:88a58d8ac0cc0e7f3a014509f0455248a76629ca9b604eca7dc5927cc593c5e9 \
     --hash=sha256:1a61b54f87ab5786b8479f81c4b11f4d61702830354520837f8cc791ebba0f5f \
+    --hash=sha256:6f4dba50cfa56f910241eb7f883c20f1e7b1d8f7d91c750cd0b318bad443f4d5 \
+    --hash=sha256:45c566eb10b8967d71bf1ab8e4a525e5a93519e29ea071459ce517f6b903d7fa \
+    --hash=sha256:f02541ef64077f22bf4924f225c0fd1248c168f86e4b7abdedd87d6ebaceab0f \
+    --hash=sha256:00177a63030d612148e659b55ba99527803288cea7c75fb05766ab7981a8c1b7 \
     --hash=sha256:d69bfd8ec3219ae71bcde1f942b728903cad25fafe3100ba2258b973bd2bc1b2 \
-    --hash=sha256:c6a660307ca9d4867caa8d9ca2c2658ab685de83792d1876274991adec7b93fa
+    --hash=sha256:c6a660307ca9d4867caa8d9ca2c2658ab685de83792d1876274991adec7b93fa \
+    --hash=sha256:c809a70e43c7977c4a42aefd62f0131823ebf7dd73556fa5d5950f5b354087e2 \
+    --hash=sha256:4b60c9520f7207aaf2e1d94de026682fc227806c6e1f55bba7606d1c94dd623a
