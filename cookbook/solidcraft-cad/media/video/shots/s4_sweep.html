@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>solidcraft-cad — thickness drives everything</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0e131b; }
+  #stage { position: absolute; inset: 0; }
+  .hud { position: absolute; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #eef1f6; }
+  #head { left: 92px; top: 82px; font-size: 50px; font-weight: 700; }
+  #head .c { color: #ffd48a; font-variant-numeric: tabular-nums; }
+  #vol { left: 92px; bottom: 210px; }
+  #vol .big { font-size: 150px; font-weight: 800; letter-spacing: -.04em; line-height: .9; font-variant-numeric: tabular-nums; }
+  #vol .u { font-size: 52px; font-weight: 600; color: #a8b8cf; margin-left: 14px; }
+  #vol .cap { font-size: 30px; color: #99a9c0; margin-top: 10px; }
+  #dv { left: 92px; bottom: 92px; font-size: 34px; color: #9fe8cd; font-variant-numeric: tabular-nums; }
+  #thick { right: 92px; top: 92px; text-align: right; }
+  #thick .big { font-size: 130px; font-weight: 800; letter-spacing: -.04em; line-height: .95; font-variant-numeric: tabular-nums; color: #ffd48a; }
+  #thick .cap { font-size: 30px; color: #99a9c0; }
+</style>
+</head>
+<body>
+<div id="stage" data-composition-id="shot-sweep" data-start="0" data-duration="5" data-width="1920" data-height="1080"></div>
+<div id="head" class="hud">One parameter &mdash; <span class="c">thickness</span> &mdash; every number follows</div>
+<div id="vol" class="hud"><span class="big" id="volnum">0</span><span class="u">mm&#179;</span><div class="cap">SolidCraft rebuild, measured per value</div></div>
+<div id="dv" class="hud" id="dvline">&#916; at +2 mm: <b id="dvnum">0</b> mm&#179; &nbsp;&middot;&nbsp; analytic 5124.18</div>
+<div id="thick" class="hud"><div class="big" id="tnum">6.0</div><div class="cap">mm plate thickness</div></div>
+
+<script type="module">
+import { makeRig, loadFaces, placeCamera, span, easeInOut } from '../lib/part.js';
+
+const rig = makeRig(document.getElementById('stage'), { fov: 30, exposure: 1.15, background: 0x0e131b });
+
+// sweep.json: every entry is a real SolidCraft rebuild AND a real glb export of
+// that build, so the geometry on screen changes with the number beside it.
+const sweep = await fetch('../assets/sweep.json').then((r) => r.json());
+const loaded = sweep.map((s) => ({ ...s, model: loadFaces(rig, `../assets/sweep${s.thickness_mm.toFixed(1)}.glb`) }));
+const param = await fetch('../assets/proof.json').then((r) => r.json()).catch(() => null);
+const DVTEXT = param ? param.param_delta_mm3.toFixed(2) : '5124.18';
+
+const volEl = document.getElementById('volnum');
+const dvEl = document.getElementById('dvnum');
+const tEl = document.getElementById('tnum');
+const CUT = 5 / sweep.length;
+
+window.__timelines = {
+  'shot-sweep': {
+    seek: (t) => {
+      // Cross-fade-free hard swap at each cut, plus a continuous orbit and a
+      // camera dolly, so every frame in the shot is moving.
+      const p = span(t, 0, 5) * (sweep.length - 1);
+      const idx = Math.min(sweep.length - 1, Math.floor(p));
+      loaded.forEach((s, i) => s.model.faces.forEach((f) => { f.visible = i === idx && s.model.ready; }));
+
+      rig.holder.rotation.y = -0.62 + t * 1.45;
+      rig.holder.rotation.x = 0.36 + Math.sin(t * 0.85) * 0.12;
+      placeCamera(rig.camera, {
+        dist: 6.9 - 0.5 * easeInOut(span(t, 0, 5)),
+        azim: 12 * Math.sin(t * 0.7 + 0.6),
+        elev: 4 * Math.sin(t * 0.55),
+        fov: 30,
+      });
+      rig.lights.key.position.set(4 * Math.cos(t * 0.45) + 2, 6, 5 * Math.sin(t * 0.45) + 3);
+
+      const s = sweep[idx];
+      volEl.textContent = Math.round(s.solidcraft_volume_mm3).toLocaleString('en-US');
+      tEl.textContent = s.thickness_mm.toFixed(1);
+      dvEl.textContent = DVTEXT;
+
+      rig.renderer.render(rig.scene, rig.camera);
+    },
+  },
+};
+window.__timelines['shot-sweep'].seek(0);
+</script>
+</body>
+</html>

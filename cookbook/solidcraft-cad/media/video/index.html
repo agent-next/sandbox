@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>solidcraft-cad — one script in, one judged part out</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0a0d12;
+               font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+  #root { position: absolute; inset: 0; }
+  .clip { position: absolute; }
+  .layer { position: absolute; inset: 0; }
+
+  /* footage: the clips this run rendered into media/clips/ */
+  video.footage { left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover;
+                  background: #0a0d12; }
+
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .word { display: inline-block; white-space: pre; will-change: transform, opacity; }
+
+  .kicker { color: #7fe0bd; font-size: 24px; font-weight: 700; letter-spacing: 0.22em;
+            text-transform: uppercase; }
+  .headline { color: #f2f6fb; font-size: 92px; font-weight: 700; letter-spacing: -0.025em;
+              line-height: 1.05; text-shadow: 0 6px 36px rgba(4, 8, 14, .85); }
+  .cap { color: #e4ecf6; font-size: 34px; font-weight: 500; line-height: 1.35; }
+  .num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .panel { background: rgba(9, 13, 19, .72); border: 1px solid rgba(150, 180, 215, .22);
+           border-radius: 20px; }
+  .capstrip { padding: 22px 36px; }
+
+  /* HUD: numbers that count up while the footage keeps moving */
+  #hud { left: 84px; bottom: 108px; width: 640px; padding: 30px 38px 34px; }
+  #hud .row, #hud2 .row { display: flex; align-items: baseline; justify-content: space-between;
+                          margin-top: 14px; }
+  #hud .row .k { color: #94a9c2; font-size: 25px; }
+  #hud .row .v { color: #ffffff; font-size: 42px; font-weight: 600;
+                 font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #hud .row .u { color: #7fe0bd; font-size: 25px; margin-left: 10px;
+                 font-family: ui-monospace, Menlo, monospace; }
+
+  /* proof HUD (left) and the PASS badge with gate rows (right) */
+  #hud2 { left: 84px; bottom: 108px; width: 680px; padding: 30px 38px 34px; }
+  #hud2 .row .k { color: #94a9c2; font-size: 26px; }
+  #hud2 .row .v { color: #ffffff; font-size: 40px; font-weight: 600;
+                  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  #badge { right: 96px; top: 96px; width: 600px; overflow: hidden; }
+  #badge .head { display: flex; align-items: center; gap: 22px; padding: 26px 32px 20px; }
+  #badge .mark { width: 58px; height: 58px; border-radius: 16px; background: #22c585;
+                 color: #052a1e; font-size: 42px; font-weight: 800; line-height: 58px;
+                 text-align: center; }
+  #badge .t { color: #ffffff; font-size: 46px; font-weight: 800; letter-spacing: .05em; }
+  #badge .s { color: #8fd9bd; font-size: 20px; letter-spacing: .18em; text-transform: uppercase; }
+  #badge .gates { padding: 2px 32px 24px; }
+  .grow { display: flex; align-items: center; justify-content: space-between; padding: 12px 0;
+          border-bottom: 1px solid rgba(150, 180, 215, .14); font-size: 27px; color: #dde8f4;
+          will-change: transform, opacity; }
+  .grow:last-child { border-bottom: 0; }
+  .grow .g { display: flex; align-items: center; gap: 16px; }
+  .grow .dot { width: 13px; height: 13px; border-radius: 50%; background: #22c585; }
+  .grow .v { color: #7fe0bd; font-size: 23px; font-family: ui-monospace, Menlo, monospace; }
+
+  /* sweep rail: the five measured volumes */
+  #rail { left: 96px; top: 250px; width: 720px; padding: 30px 36px 34px; }
+  #rail .title { color: #94a9c2; font-size: 23px; letter-spacing: .2em; text-transform: uppercase; }
+  #rail .bars { display: flex; align-items: flex-end; gap: 30px; margin-top: 26px; height: 300px; }
+  .bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .bar .col { width: 100%; border-radius: 10px 10px 4px 4px; transform-origin: bottom;
+              background: linear-gradient(180deg, #4fd3ad, #1b8a6d); }
+  .bar.hot .col { background: linear-gradient(180deg, #7bf3c8, #22c585); }
+  .bar .lab { color: #cfe0f0; font-size: 26px; font-family: ui-monospace, Menlo, monospace; }
+  .bar .vol { color: #7fe0bd; font-size: 22px; font-family: ui-monospace, Menlo, monospace; }
+
+  /* speed chip on the run clip */
+  #chip { right: 96px; top: 96px; padding: 20px 32px; display: flex; align-items: baseline;
+          gap: 14px; }
+  #chip .x { color: #ffffff; font-size: 56px; font-weight: 800;
+             font-family: ui-monospace, Menlo, monospace; }
+  #chip .l { color: #94a9c2; font-size: 24px; }
+
+  /* end card: static, last 2.5 s */
+  #end { background: #0a0d12; display: flex; flex-direction: column; align-items: center;
+         justify-content: center; z-index: 40; }
+  #end .h { color: #ffffff; font-size: 78px; font-weight: 700; letter-spacing: -0.02em; }
+  #end .cmd { margin-top: 48px; padding: 28px 52px; border: 1px solid rgba(127, 224, 189, .55);
+              border-radius: 16px; color: #7fe0bd; font-size: 56px;
+              font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #end .note { margin-top: 44px; color: #8195ae; font-size: 28px; }
+</style>
+</head>
+<body>
+<!--
+  Master composition: it composes the real motion clips from media/clips/
+  (rendered from shots/ by make_media.sh) and adds every overlay — the kinetic
+  headline, HUD numbers that count up, the PASS badge whose gate rows slide in
+  over the still-playing footage, and the static end card. ffmpeg only encodes;
+  everything on screen is drawn here.
+
+  Every number comes from lib/run.js, which build_overlay_data.py generates
+  from this run's own outputs (media/data/verdicts.json, media/data/sweep.json,
+  the stamped judge/selftest.sh log). Nothing on screen is invented.
+
+  Timeline (39.0 s, 30 fps):
+    0.0- 2.5  the finished part, moving, full frame          footage f1
+    2.5- 7.5  input -> output: the build stages              footage f2
+    7.5-11.5  the plate close-up                             footage f3
+   11.5-16.5  every face, exploded out along its centroid    footage f4
+   16.5-21.5  section sweep through the bore and bolt holes  footage f5
+   21.5-26.5  the self-test replayed at true speed           footage f6
+   26.5-31.5  the parametric thickness sweep + volume rail   footage f7
+   31.5-36.5  proof: PASS badge + HUD over the moving part   footage f1 (tail)
+   36.5-39.0  static end card: python3 run.py
+-->
+<div id="root" data-composition-id="solidcraft" data-start="0" data-duration="39"
+     data-width="1920" data-height="1080">
+
+  <video id="v-f1" class="clip footage" src="../clips/f1_turn.mp4" muted playsinline
+         data-start="0" data-duration="2.5"></video>
+  <video id="v-f2" class="clip footage" src="../clips/f2_stages.mp4" muted playsinline
+         data-start="2.5" data-duration="5"></video>
+  <video id="v-f3" class="clip footage" src="../clips/f3_plate.mp4" muted playsinline
+         data-start="7.5" data-duration="4"></video>
+  <video id="v-f4" class="clip footage" src="../clips/f4_explode.mp4" muted playsinline
+         data-start="11.5" data-duration="5"></video>
+  <video id="v-f5" class="clip footage" src="../clips/f5_section.mp4" muted playsinline
+         data-start="16.5" data-duration="5"></video>
+  <video id="v-f6" class="clip footage" src="../clips/f6_run.mp4" muted playsinline
+         data-start="21.5" data-duration="5"></video>
+  <video id="v-f7" class="clip footage" src="../clips/f7_sweep.mp4" muted playsinline
+         data-start="26.5" data-duration="5"></video>
+  <video id="v-f8" class="clip footage" src="../clips/f1_turn.mp4" muted playsinline
+         data-start="31.5" data-duration="5" data-media-start="5"></video>
+
+  <!-- 0-2.5 s: kinetic headline over the moving part -->
+  <div id="hook" class="layer clip" data-start="0" data-duration="2.5">
+    <div class="kicker" style="position:absolute;left:96px;top:92px">solidcraft-cad</div>
+    <div id="headline" class="headline" style="position:absolute;left:96px;top:150px;width:1250px"></div>
+  </div>
+
+  <!-- 1.2-11.5 s: HUD counts up over hero tail + build stages -->
+  <div id="hud" class="panel clip" data-start="1.2" data-duration="10.3">
+    <div class="kicker">graded this run</div>
+    <div id="hud-rows"></div>
+  </div>
+
+  <!-- per-scene caption strips, lower right -->
+  <div class="cap panel capstrip clip" data-start="2.5" data-duration="5"
+       style="right:96px;bottom:108px;max-width:820px">
+    input: <span class="num">16 commands</span> of SolidCraft script &rarr; output: the STEP
+    the judge grades
+  </div>
+  <div class="cap panel capstrip clip" data-start="7.5" data-duration="4"
+       style="right:96px;bottom:108px;max-width:820px">
+    stage 11 of 16 &mdash; the plate: <span class="num">R5</span> corners,
+    <span class="num">&Oslash;22</span> bore, <span class="num">4&times;&Oslash;3.4</span>
+    bolt holes
+  </div>
+  <div class="cap panel capstrip clip" data-start="11.5" data-duration="5"
+       style="right:96px;bottom:108px;max-width:820px">
+    the graded solid&rsquo;s faces, out along their own centroids
+  </div>
+  <div class="cap panel capstrip clip" data-start="16.5" data-duration="5"
+       style="right:96px;bottom:108px;max-width:820px">
+    section sweep &mdash; inside the bore and bolt holes the judge measures
+  </div>
+  <div class="cap panel capstrip clip" data-start="21.5" data-duration="5"
+       style="right:96px;bottom:108px;max-width:760px">
+    judge/selftest.sh &mdash; this run&rsquo;s real output, replayed from the log
+  </div>
+  <div id="chip" class="panel clip" data-start="21.9" data-duration="4.6">
+    <span class="x" id="chip-x"></span><span class="l">speed &middot; real log</span>
+  </div>
+  <div class="cap panel capstrip clip" data-start="26.5" data-duration="5"
+       style="right:96px;bottom:108px;max-width:760px">
+    one parameter &mdash; thickness <span class="num">6&rarr;8 mm</span>, five rebuilds
+  </div>
+
+  <!-- 26.9-31.5 s: the measured volume rail -->
+  <div id="rail" class="panel clip" data-start="26.9" data-duration="4.6">
+    <div class="title">volume per rebuild &middot; 10&sup3; mm&sup3;</div>
+    <div class="bars" id="rail-bars"></div>
+  </div>
+
+  <!-- 31.5-36.5 s: proof over the still-moving part -->
+  <div id="badge" class="panel clip" data-start="31.7" data-duration="4.8">
+    <div class="head">
+      <div class="mark">&check;</div>
+      <div><div class="t">PASS</div><div class="s">all 8 gates &middot; this run</div></div>
+    </div>
+    <div class="gates" id="badge-rows"></div>
+  </div>
+  <div id="hud2" class="panel clip" data-start="31.9" data-duration="4.6">
+    <div class="kicker">self-test, this sandbox</div>
+    <div id="hud2-rows"></div>
+  </div>
+  <div class="cap panel capstrip clip" data-start="32.1" data-duration="4.4"
+       style="right:96px;bottom:108px;max-width:760px">
+    judged in the sandbox &mdash; no human in the loop
+  </div>
+
+  <!-- 36.5-39.0 s: static end card -->
+  <div id="end" class="layer clip" data-start="36.5" data-duration="2.5">
+    <div class="h">run it yourself</div>
+    <div class="cmd">python3 run.py</div>
+    <div class="note" id="end-note"></div>
+  </div>
+</div>
+
+<script type="module">
+import { PROOF, SWEEP, RUNLOG } from './lib/run.js';
+
+const P = (x) => x.toFixed(3);
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const span = (t, a, b) => clamp01((t - a) / Math.max(1e-6, b - a));
+const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+const fmtInt = (v) => Math.round(v).toLocaleString('en-US');
+const fmtK = (v) => (v / 1000).toFixed(3);
+
+// ---- kinetic headline ------------------------------------------------------
+const headline = document.getElementById('headline');
+for (const w of 'One script. One part. Eight gates.'.split(' ')) {
+  const s = document.createElement('span');
+  s.className = 'word';
+  s.textContent = w + ' ';
+  headline.appendChild(s);
+}
+
+// ---- HUD: count up to the measured values ----------------------------------
+const hudRows = document.getElementById('hud-rows');
+const HUD = [
+  { k: 'volume, judge-measured', v: PROOF.volume_mm3, f: fmtK, u: '10³ mm³' },
+  { k: 'volume, closed form', v: PROOF.analytic_mm3, f: fmtK, u: '10³ mm³' },
+  { k: 'relative deviation', v: 0, f: () => PROOF.volume_rel_dev.toExponential(1),
+    u: `limit ${PROOF.volume_limit_rel}` },
+  { k: 'mass at 2.70 g/cm³', v: PROOF.mass_g, f: (v) => v.toFixed(2), u: `g ≤ ${PROOF.mass_limit_g}` },
+];
+const hud2Rows = document.getElementById('hud2-rows');
+const HUD2 = [
+  { k: 'gates passed', v: PROOF.gate_order.length,
+    f: (v) => `${fmtInt(v)}/${PROOF.gate_order.length}` },
+  { k: 'mutants killed', v: PROOF.mutants_killed,
+    f: (v) => `${fmtInt(v)}/${PROOF.mutants_total}` },
+  { k: 'wall checks', v: PROOF.wall_checks,
+    f: (v) => `${fmtInt(v)}/${PROOF.wall_checks} · ${PROOF.wall_checks_failed} failed` },
+  { k: 'unit tests', v: 16, f: fmtInt },
+];
+for (const [el, rows] of [[hudRows, HUD], [hud2Rows, HUD2]]) {
+  rows.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<span class="k">${r.k}</span>`
+      + `<span><span class="v" data-i="${i}"></span><span class="u">${r.u || ''}</span></span>`;
+    el.appendChild(row);
+  });
+}
+const hudVals = [...hudRows.querySelectorAll('.v')];
+const hud2Vals = [...hud2Rows.querySelectorAll('.v')];
+
+// ---- PASS badge: one sliding row per gate, values from the verdict ---------
+const NOTES = {
+  build: 'exit 0',
+  occt_shape: `bbox ≤ ${PROOF.bbox_max_dev_mm} mm`,
+  volume: `rel ${PROOF.volume_rel_dev.toExponential(1)}`,
+  features: `${PROOF.bolt_holes} holes · Ø${PROOF.bore_diameter_mm} · R${PROOF.fillet_radius_mm}`,
+  mass: `${PROOF.mass_g} ≤ ${PROOF.mass_limit_g} g`,
+  cross_check: `COM ${PROOF.kernels_com_mm.toExponential(1)} mm`,
+  parametric: `rel ${PROOF.param_rel_dev.toExponential(1)}`,
+  stl: `${PROOF.stl_triangles} tris`,
+};
+const badgeRows = document.getElementById('badge-rows');
+PROOF.gate_order.forEach((g) => {
+  const row = document.createElement('div');
+  row.className = 'grow';
+  row.innerHTML = `<span class="g"><span class="dot"></span>${g}</span>`
+    + `<span class="v">${NOTES[g] ?? ''}</span>`;
+  badgeRows.appendChild(row);
+});
+
+// ---- sweep rail: the five measured volumes ---------------------------------
+const railBars = document.getElementById('rail-bars');
+const vols = SWEEP.map((s) => s.solidcraft_volume_mm3);
+const vLo = Math.min(...vols), vHi = Math.max(...vols);
+SWEEP.forEach((s, i) => {
+  const b = document.createElement('div');
+  b.className = 'bar' + (i === SWEEP.length - 1 ? ' hot' : '');
+  const h = Math.round(90 + ((s.solidcraft_volume_mm3 - vLo) / (vHi - vLo)) * 190);
+  b.innerHTML = `<div class="vol">${fmtK(s.solidcraft_volume_mm3)}</div>`
+    + `<div class="col" style="height:${h}px;transform:scaleY(0)"></div>`
+    + `<div class="lab">${s.thickness_mm.toFixed(1)} mm</div>`;
+  railBars.appendChild(b);
+});
+
+// ---- speed chip + end card facts -------------------------------------------
+document.getElementById('chip-x').textContent = `${Math.round(RUNLOG.total_s / 5)}×`;
+document.getElementById('end-note').textContent =
+  `solidcraft ${PROOF.version_solidcraft} · self-test ${RUNLOG.total_s.toFixed(1)} s`
+  + ` · hyperframes 0.8.99`;
+
+window.__timelines = {
+  solidcraft: {
+    seek: (t) => {
+      // kinetic headline: words rise into place, staggered from 0.15 s
+      headline.querySelectorAll('.word').forEach((w, i) => {
+        const p = easeOut(span(t, 0.15 + i * 0.11, 0.85 + i * 0.11));
+        w.style.opacity = P(p);
+        w.style.transform = `translateY(${((1 - p) * 84).toFixed(1)}px)`;
+      });
+
+      // HUD over the builds (1.2-11.5 s) and over the proof (31.9-36.5 s)
+      HUD.forEach((r, i) => {
+        const p = easeOut(span(t, 1.5 + i * 0.35, 6.4 + i * 0.35));
+        hudVals[i].textContent = r.f(r.v * p);
+      });
+      HUD2.forEach((r, i) => {
+        const p = easeOut(span(t, 32.1 + i * 0.3, 35.3 + i * 0.3));
+        hud2Vals[i].textContent = r.f(r.v * p);
+      });
+
+      // gate rows slide in from the right, 0.14 s apart
+      badgeRows.querySelectorAll('.grow').forEach((el, i) => {
+        const p = easeOut(span(t, 31.9 + i * 0.14, 32.9 + i * 0.14));
+        el.style.opacity = P(p);
+        el.style.transform = `translateX(${((1 - p) * 170).toFixed(1)}px)`;
+      });
+
+      // sweep bars rise, then hold
+      railBars.querySelectorAll('.col').forEach((el, i) => {
+        const p = easeOut(span(t, 27.3 + i * 0.28, 29.3 + i * 0.28));
+        el.style.transform = `scaleY(${P(0.04 + 0.96 * p)})`;
+      });
+    },
+  },
+};
+window.__timelines.solidcraft.seek(0);
+</script>
+</body>
+</html>

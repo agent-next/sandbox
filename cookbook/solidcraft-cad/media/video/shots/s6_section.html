@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>solidcraft-cad — section through the bore</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0c1119; }
+  #stage { position: absolute; inset: 0; }
+  .hud { position: absolute; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #eef1f6; }
+  #head { left: 92px; top: 82px; font-size: 50px; font-weight: 700; }
+  #head .c { color: #ffb37a; }
+  #cuts { left: 92px; bottom: 96px; font-size: 32px; line-height: 1.55; }
+  #cuts b { font-variant-numeric: tabular-nums; }
+  #cuts .ok { color: #4ec9a0; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="stage" data-composition-id="shot-section" data-start="0" data-duration="5" data-width="1920" data-height="1080"></div>
+<div id="head" class="hud">Cut through it: <span class="c">the walls hold all the way round</span></div>
+<div id="cuts" class="hud">
+  <b id="wc">0</b> of <b>20</b> OpenCascade wall checks pass &nbsp;<span class="ok" id="okmark"></span>
+</div>
+
+<script type="module">
+import { makeRig, loadFaces, placeCamera, span, easeInOut, THREE } from '../lib/part.js';
+
+const rig = makeRig(document.getElementById('stage'), { fov: 32, exposure: 1.2, background: 0x0c1119 });
+const model = loadFaces(rig, '../assets/part.glb');
+const proof = await fetch('../assets/proof.json').then((r) => r.json()).catch(() => null);
+const WALL_CHECKS = proof ? proof.wall_checks : 20;
+
+const wcEl = document.getElementById('wc');
+const okEl = document.getElementById('okmark');
+
+// The section plane sweeps along -X. A clipping plane with normal (-1,0,0)
+// and constant c keeps the half-space n.p + c >= 0, i.e. x <= c, so driving c
+// from above the part down through it cuts the material open from the right.
+const plane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 99);
+rig.renderer.clippingPlanes = [plane];
+rig.renderer.localClippingEnabled = true;
+
+let ready = false;
+let bounds = null;
+function prepare() {
+  if (!model.ready || ready) return;
+  ready = true;
+  bounds = new THREE.Box3().setFromObject(rig.model);
+}
+
+window.__timelines = {
+  'shot-section': {
+    seek: (t) => {
+      prepare();
+      // In over the first second, sweep through the middle, out over the last.
+      const inOut = easeInOut(span(t, 0.4, 1.2)) * (1 - easeInOut(span(t, 3.9, 4.75)));
+      const sweep = span(t, 1.2, 3.9);
+      if (bounds) {
+        const x = bounds.max.x - sweep * (bounds.max.x - bounds.min.x);
+        plane.constant = (bounds.max.x + 2) * (1 - inOut) + x * inOut;
+      }
+
+      if (model.ready) {
+        rig.holder.rotation.y = -0.10 + t * 0.9;
+        rig.holder.rotation.x = 0.08 + Math.sin(t * 0.6) * 0.05;
+        placeCamera(rig.camera, {
+          dist: 7.2 - 0.8 * easeInOut(span(t, 0, 5)),
+          azim: 26 - t * 3.2,
+          elev: 12 - t * 1.5,
+          fov: 32,
+        });
+        rig.lights.key.position.set(4 * Math.cos(t * 0.5) + 2, 6, 5 * Math.sin(t * 0.5) + 3);
+      }
+      wcEl.textContent = String(Math.round(WALL_CHECKS * easeInOut(span(t, 0.3, 2.2))));
+      okEl.textContent = t > 2.3 ? '✓' : '';
+      rig.renderer.render(rig.scene, rig.camera);
+    },
+  },
+};
+window.__timelines['shot-section'].seek(0);
+</script>
+</body>
+</html>

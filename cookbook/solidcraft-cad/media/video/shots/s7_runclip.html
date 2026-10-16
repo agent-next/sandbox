@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>solidcraft-cad — the sandbox run, sped up</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0a0e14;
+               font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+  #stage { position: absolute; inset: 0; }
+  #term {
+    position: absolute; left: 78px; top: 128px; width: 1150px; height: 800px;
+    background: #0e131c; border: 1px solid #232c3b; border-radius: 14px; overflow: hidden;
+  }
+  #termbar { height: 52px; background: #131a25; border-bottom: 1px solid #232c3b; display: flex; align-items: center; padding: 0 22px; }
+  #termbar .dot { width: 13px; height: 13px; border-radius: 50%; margin-right: 9px; }
+  #termbar .t { margin-left: 16px; color: #8ea0ba; font-size: 22px; font-family: ui-monospace, Menlo, monospace; }
+  #log { position: absolute; inset: 52px 0 0 0; padding: 20px 26px; overflow: hidden; }
+  #log .ln { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 23px;
+             line-height: 1.62; color: #c8d6e8; white-space: pre; }
+  #log .ln.dim { color: #6f819a; }
+  #log .ln.ok { color: #4ec9a0; }
+  #log .ln.kill { color: #ffd48a; }
+  #log .ln.name { color: #ffffff; font-weight: 600; }
+  .hud { position: absolute; color: #eef1f6; }
+  #head { left: 78px; top: 62px; font-size: 40px; font-weight: 700; }
+  #head .c { color: #4ec9a0; }
+  #badge {
+    left: 78px; top: 8px; font-size: 0px;
+  }
+  #spd {
+    position: absolute; left: 1272px; top: 128px; width: 570px;
+    background: #101722; border: 1px solid #24303f; border-radius: 14px; padding: 26px 30px;
+  }
+  #spd .row { display: flex; justify-content: space-between; font-size: 28px; color: #a8b8cf; line-height: 1.75; }
+  #spd .row b { color: #fff; font-variant-numeric: tabular-nums; }
+  #spd .big { font-size: 92px; font-weight: 800; letter-spacing: -.03em; color: #4ec9a0; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  #spd .cap { font-size: 24px; color: #8ea0ba; letter-spacing: .12em; text-transform: uppercase; }
+  #prog { position: absolute; left: 1272px; top: 560px; width: 570px; height: 14px; background: #1b2431; border-radius: 8px; overflow: hidden; }
+  #progbar { height: 14px; width: 0; background: #4ec9a0; }
+  #clock { position: absolute; left: 1272px; top: 592px; width: 570px; font-size: 26px; color: #9fb0c8; font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; }
+  #timeline { position: absolute; left: 1272px; top: 760px; width: 570px; height: 150px; }
+  #timeline .tick { position: absolute; bottom: 0; width: 7px; background: #ffd48a; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="stage" data-composition-id="shot-run" data-start="0" data-duration="15" data-width="1920" data-height="1080"></div>
+
+<div id="term">
+  <div id="termbar">
+    <div class="dot" style="background:#f06d63"></div>
+    <div class="dot" style="background:#f2be4f"></div>
+    <div class="dot" style="background:#5fc46a"></div>
+    <div class="t">judge/selftest.sh &mdash; sandbox, 2 vCPU</div>
+  </div>
+  <div id="log"></div>
+</div>
+
+<div class="hud" id="head">Self-test in a disposable sandbox <span class="c">&#183; 19/19 mutants killed</span></div>
+
+<div id="spd">
+  <div class="cap">Playback</div>
+  <div class="big" id="rate">40&#215;</div>
+  <div class="row"><span>real elapsed</span><b id="elapsed">0:00</b></div>
+  <div class="row"><span>tests passed</span><b id="tpass">0</b></div>
+  <div class="row"><span>mutants killed</span><b id="tkill">0</b></div>
+</div>
+<div id="prog"><div id="progbar"></div></div>
+<div id="clock"><span id="cl">0:00</span><span>10:04</span></div>
+<div id="timeline"></div>
+
+<script type="module">
+import { makeRig, loadFaces, placeCamera, span, easeOut } from '../lib/part.js';
+
+// ---- right pane: the graded part, turntable, real glb ----------------------
+const rig = makeRig(document.getElementById('stage'), { fov: 30, exposure: 1.2, background: 0x0a0e14 });
+rig.renderer.domElement.style.cssText =
+  'position:absolute;left:1200px;top:700px;width:660px;height:370px;';
+const model = loadFaces(rig, '../assets/part.glb');
+
+// ---- left pane: the real selftest log, replayed at 40x ---------------------
+// media/data/runlog.json is judge/selftest.sh output, each line stamped with
+// its real elapsed seconds in the sandbox. Playback speed = run / shot.
+const run = await fetch('../assets/runlog.json').then((r) => r.json());
+const proof = await fetch('../assets/proof.json').then((r) => r.json()).catch(() => null);
+const DUR = 15;
+const RATE = run.total_s / DUR;               // ~40.3x
+document.getElementById('rate').innerHTML = `${Math.round(RATE)}&#215;`;
+
+const logEl = document.getElementById('log');
+const LINE_H = 37.5;                          // 23px * 1.62
+const VIEW = 19;                              // lines visible in the window
+const nodes = run.lines.map((l) => {
+  const d = document.createElement('div');
+  d.className = 'ln' + (/PASSED|OK$|kill rate/.test(l.text) ? ' ok'
+    : /killed/.test(l.text) ? ' kill'
+    : /^SELFTEST_EXIT/.test(l.text) ? ' name' : '');
+  d.textContent = l.text.replace('/tmp/scratch/demo/', '');
+  d.style.height = `${LINE_H}px`;
+  logEl.appendChild(d);
+  return d;
+});
+
+const elapsedEl = document.getElementById('elapsed');
+const tpassEl = document.getElementById('tpass');
+const tkillEl = document.getElementById('tkill');
+const progEl = document.getElementById('progbar');
+const clEl = document.getElementById('cl');
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+function tick(t) {
+  const real = Math.min(run.total_s, t * RATE);        // seconds of the real run
+  let shown = 0, killed = 0;
+  nodes.forEach((d, i) => {
+    const on = run.lines[i].t <= real;
+    d.style.visibility = on ? 'visible' : 'hidden';
+    if (on) {
+      shown++;
+      if (/killed/.test(run.lines[i].text)) killed++;
+      if (/kill rate/.test(run.lines[i].text)) killed = 19;
+    }
+  });
+  // Continuous scroll: the visible window follows the newest line, so the
+  // pane is never still even between two log lines.
+  const newest = Math.max(0, shown - 1);
+  const off = Math.min(Math.max(0, (newest - VIEW + 2) * LINE_H), (nodes.length - 1) * LINE_H);
+  logEl.style.transform = `translateY(${-off}px)`;
+
+  elapsedEl.textContent = mmss(real);
+  clEl.textContent = mmss(real);
+  tpassEl.textContent = String(real >= 52 ? (proof ? proof.unit_tests : 16) : 0);
+  tkillEl.textContent = String(killed);
+  progEl.style.width = `${(real / run.total_s) * 100}%`;
+}
+
+// Kills on a small bar chart, so the mutant rate is visible as it lands.
+const tl = document.getElementById('timeline');
+const killLines = run.lines.filter((l) => /^selftest: killed/.test(l.text));
+for (const l of killLines) {
+  const b = document.createElement('div');
+  b.className = 'tick';
+  b.style.left = `${(l.t / run.total_s) * 100}%`;
+  b.style.height = '0px';
+  b.dataset.t = l.t;
+  tl.appendChild(b);
+}
+
+window.__timelines = {
+  'shot-run': {
+    seek: (t) => {
+      tick(t);
+      tl.querySelectorAll('.tick').forEach((b) => {
+        const on = Number(b.dataset.t) <= Math.min(run.total_s, t * RATE);
+        b.style.height = on ? '110px' : '0px';
+      });
+      if (model.ready) {
+        rig.holder.rotation.y = -0.62 + t * 0.62;
+        rig.holder.rotation.x = 0.40 + Math.sin(t * 0.7) * 0.07;
+        placeCamera(rig.camera, { dist: 6.6, azim: 6 * Math.sin(t * 0.6), elev: 6, fov: 30 });
+        rig.lights.key.position.set(4 * Math.cos(t * 0.4) + 2, 6, 5 * Math.sin(t * 0.4) + 3);
+      }
+      rig.renderer.render(rig.scene, rig.camera);
+    },
+  },
+};
+window.__timelines['shot-run'].seek(0);
+</script>
+</body>
+</html>

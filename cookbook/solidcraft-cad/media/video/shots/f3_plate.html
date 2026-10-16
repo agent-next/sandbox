@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>solidcraft-cad — footage: the plate close-up</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #171d27; }
+  #stage { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<!--
+  Footage only. stage11 is the good design script after 11 commands — the plate
+  solid as SolidCraft built it (rounded corners R5, the Ø22 bore, four Ø3.4
+  bolt holes), before the boss sketch the next two commands add.
+-->
+<div id="stage" data-composition-id="f3-plate" data-start="0" data-duration="4" data-width="1920" data-height="1080"></div>
+<script type="module">
+import { makeRig, loadFaces, placeCamera } from '../lib/part.js';
+
+const rig = makeRig(document.getElementById('stage'), { fov: 30, exposure: 1.2, background: 0x171d27 });
+const model = loadFaces(rig, '../assets/stage11.glb');
+
+window.__timelines = {
+  'f3-plate': {
+    seek: (t) => {
+      if (model.ready) {
+        rig.holder.rotation.y = -0.62 + t * 1.6;
+        rig.holder.rotation.x = 0.42 + Math.sin(t * 0.9) * 0.10;
+        placeCamera(rig.camera, {
+          dist: 6.2 - t * 0.15,
+          azim: 12 * Math.sin(t * 0.7),
+          elev: 5 * Math.sin(t * 0.45),
+          fov: 30,
+        });
+        rig.lights.key.position.set(4 * Math.cos(t * 0.55) + 2, 6, 5 * Math.sin(t * 0.55) + 3);
+      }
+      rig.renderer.render(rig.scene, rig.camera);
+    },
+  },
+};
+window.__timelines['f3-plate'].seek(0);
+</script>
+</body>
+</html>

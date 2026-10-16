@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>solidcraft-cad — exploded</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0b1018; }
+  #stage { position: absolute; inset: 0; }
+  .hud { position: absolute; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #eef1f6; }
+  #head { left: 92px; top: 82px; font-size: 50px; font-weight: 700; }
+  #head .c { color: #7fd0ff; }
+  #dir { left: 92px; bottom: 300px; font-size: 32px; line-height: 1.55; color: #c3cfe1;
+         background: rgba(9,13,19,.74); border-left: 6px solid #7fd0ff; padding: 22px 30px; }
+  #dir b { color: #fff; font-variant-numeric: tabular-nums; }
+  #faces { left: 92px; bottom: 96px; }
+  #faces .big { font-size: 132px; font-weight: 800; letter-spacing: -.04em; line-height: .9; font-variant-numeric: tabular-nums; }
+  #faces .cap { font-size: 30px; color: #99a9c0; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="stage" data-composition-id="shot-explode" data-start="0" data-duration="5" data-width="1920" data-height="1080"></div>
+<div id="head" class="hud">Every face the judge found, <span class="c">pulled apart</span></div>
+<div id="dir" class="hud">
+  bore &Oslash;<b>22</b> &nbsp;&middot;&nbsp; boss &Oslash;<b>32</b> &nbsp;&middot;&nbsp;
+  <b>4</b> &times; &Oslash;<b>3.4</b> on PCD <b>43.84</b> &nbsp;&middot;&nbsp; <b>4</b> corner R5
+</div>
+<div id="faces" class="hud"><span class="big" id="fnum">0</span><div class="cap">OpenCascade faces in part.step</div></div>
+
+<script type="module">
+import { makeRig, loadFaces, placeCamera, span, easeInOut, THREE } from '../lib/part.js';
+
+const rig = makeRig(document.getElementById('stage'), { fov: 32, exposure: 1.2, background: 0x0b1018 });
+const model = loadFaces(rig, '../assets/part.glb');
+const fnum = document.getElementById('fnum');
+let nFaces = 0;
+
+// Each of the 22 tessellated faces rides out along its own centroid direction,
+// which is what turns one solid into a readable exploded view.
+const dirs = [];
+function prepare() {
+  if (!model.ready || dirs.length) return;
+  nFaces = model.faces.length;
+  for (const f of model.faces) {
+    const c = f.userData.centroid.clone();
+    const radial = new THREE.Vector3(c.x, c.y, 0);
+    if (radial.lengthSq() < 1e-9) radial.set(0, 0, 1);
+    radial.normalize();
+    // Z sign: top faces lift, bottom faces drop, so the stack opens up.
+    const zBias = Math.abs(c.z) < 0.4 ? 0 : Math.sign(c.z) * 0.55;
+    dirs.push(radial.multiplyScalar(0.85).add(new THREE.Vector3(0, 0, zBias)).multiplyScalar(1.0));
+  }
+}
+
+window.__timelines = {
+  'shot-explode': {
+    seek: (t) => {
+      prepare();
+      if (model.ready) {
+        // Explode out over 1.6 s, hold, then close back over the last 1.1 s.
+        const open = easeInOut(span(t, 0.35, 1.95));
+        const close = easeInOut(span(t, 3.7, 4.8));
+        const amt = open * (1 - close);
+        model.faces.forEach((f, i) => {
+          const d = dirs[i] || new THREE.Vector3();
+          f.position.set(d.x * amt, d.y * amt, d.z * amt);
+        });
+        // Continuous orbit + dolly: the frame moves even while the explode holds.
+        rig.holder.rotation.y = -0.55 + t * 1.05;
+        rig.holder.rotation.x = 0.30 + Math.sin(t * 0.7) * 0.16;
+        placeCamera(rig.camera, {
+          dist: 7.5 - 1.4 * Math.sin(Math.PI * span(t, 0, 5)) - amt * 0.6,
+          azim: 10 * Math.sin(t * 0.6),
+          elev: 4 * Math.sin(t * 0.45),
+          fov: 32,
+        });
+        rig.lights.key.position.set(4 * Math.cos(t * 0.5) + 2, 6, 5 * Math.sin(t * 0.5) + 3);
+      }
+      fnum.textContent = String(Math.round((nFaces || 22) * easeInOut(span(t, 0, 1.2))));
+      rig.renderer.render(rig.scene, rig.camera);
+    },
+  },
+};
+window.__timelines['shot-explode'].seek(0);
+</script>
+</body>
+</html>

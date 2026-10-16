@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#141a24}
+#stage{position:absolute;inset:0}</style></head><body>
+<div id="stage" data-composition-id="mt" data-start="0" data-duration="1.5" data-width="1920" data-height="1080"></div>
+<script type="module">
+import { makeRig, loadFaces, placeCamera } from '../lib/part.js';
+const rig = makeRig(document.getElementById('stage'), { fov: 30, exposure: 1.25, background: 0x141a24 });
+const model = loadFaces(rig, '../assets/part.glb');
+window.__timelines = { 'mt': { seek: (t)=>{
+  if (model.ready) {
+    rig.holder.rotation.y = -0.62 + t*1.95;
+    rig.holder.rotation.x = 0.40 + Math.sin(t*1.1)*0.10;
+    placeCamera(rig.camera, { dist: 6.3 - t*0.25, azim: 14*Math.sin(t*0.85), elev: 4*Math.sin(t*0.5), fov: 30 });
+    rig.lights.key.position.set(4*Math.cos(t*0.6)+2, 6, 5*Math.sin(t*0.6)+3);
+  }
+  rig.renderer.render(rig.scene, rig.camera);
+}}};
+window.__timelines['mt'].seek(0);
+</script></body></html>

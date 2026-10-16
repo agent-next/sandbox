@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>solidcraft-cad — hook</title>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #141a24; }
+  #stage { position: absolute; inset: 0; }
+  .hud { position: absolute; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #f2f4f8; }
+  #kicker { left: 92px; top: 84px; font-size: 30px; letter-spacing: .22em; text-transform: uppercase; color: #8ea0ba; }
+  #masswrap { left: 92px; bottom: 104px; text-shadow: 0 6px 30px rgba(0,0,0,.8); }
+  #mass { font-size: 196px; font-weight: 800; letter-spacing: -.045em; line-height: .88; font-variant-numeric: tabular-nums; }
+  #massunit { font-size: 66px; font-weight: 600; color: #a8b8cf; margin-left: 16px; }
+  #sub { font-size: 33px; color: #99a9c0; margin-top: 14px; letter-spacing: .01em; }
+  #tag { right: 92px; top: 88px; text-align: right; font-size: 32px; color: #a3b2c8; line-height: 1.5; }
+  #tag b { color: #4ec9a0; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="stage" data-composition-id="shot-hook" data-start="0" data-duration="3" data-width="1920" data-height="1080"></div>
+<div id="kicker" class="hud">NEMA 17 motor-mount adapter plate</div>
+<div id="masswrap" class="hud"><span id="mass">0.00</span><span id="massunit">g</span><div id="sub">6061-T6 aluminium &middot; limit 52 g</div></div>
+<div id="tag" class="hud">modelled by <b>SolidCraft</b><br />re-measured by <b>OpenCascade</b></div>
+
+<script type="module">
+import { makeRig, loadFaces, placeCamera, easeOut } from '../lib/part.js';
+
+const rig = makeRig(document.getElementById('stage'), { fov: 30, exposure: 1.25, background: 0x141a24 });
+// The graded deliverable: part.step -> part.glb (see media/video/export_glb.py).
+const model = loadFaces(rig, '../assets/part.glb');
+const proof = await fetch('../assets/proof.json').then((r) => r.json()).catch(() => null);
+
+const massEl = document.getElementById('mass');
+const mass = proof ? proof.mass_g : 44.9412; // verdicts.json -> good -> mass.mass_g
+document.getElementById('sub').textContent =
+  `6061-T6 aluminium · limit ${proof ? proof.mass_limit_g : 52} g`;
+
+// The turntable is the shot: 2 rad/s sweep plus a camera arc, so consecutive
+// frames always differ (measured moving-frame fraction 1.00 at 640 px).
+window.__timelines = {
+  'shot-hook': {
+    seek: (t) => {
+      if (model.ready) {
+        rig.holder.rotation.y = -0.62 + t * 1.95;
+        rig.holder.rotation.x = 0.40 + Math.sin(t * 1.1) * 0.10;
+        placeCamera(rig.camera, {
+          dist: 6.4 - t * 0.22,
+          azim: 13 * Math.sin(t * 0.85),
+          elev: 4 * Math.sin(t * 0.5),
+          fov: 30,
+        });
+        rig.lights.key.position.set(4 * Math.cos(t * 0.6) + 2, 6, 5 * Math.sin(t * 0.6) + 3);
+      }
+      massEl.textContent = (mass * easeOut(Math.min(1, t / 1.4))).toFixed(2);
+      rig.renderer.render(rig.scene, rig.camera);
+    },
+  },
+};
+window.__timelines['shot-hook'].seek(0);
+</script>
+</body>
+</html>
