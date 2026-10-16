@@ -107,6 +107,19 @@ def main():
     load_n = 1000                  # spec tip load (SPEC.md)
     ov_sig, ov_de = om["sigma_mpa"], om["delta_mm"]
 
+    # percentages verbatim from the judge's own gate detail strings
+    vd = good["gates"]["verification"]["detail"]
+    mv = re.search(r"\(([+-][0-9.]+)%.*?\(([+-][0-9.]+)%", vd)
+    if not mv:
+        sys.exit("could not parse verification detail: " + vd)
+    ver_delta_pct, ver_sigma_pct = mv.group(1), mv.group(2)
+    cd = good["gates"]["convergence"]["detail"]
+    mc = re.search(r"deflection change ([0-9.]+)%, stress change "
+                   r"([0-9.]+)%", cd)
+    if not mc:
+        sys.exit("could not parse convergence detail: " + cd)
+    con_delta_pct, con_sigma_pct = mc.group(1), mc.group(2)
+
     html = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <title>fea-calculix demo</title>
@@ -116,8 +129,8 @@ def main():
     overflow:hidden; background:{BG}; }}
   #root {{ position:relative; width:{W}px; height:{H}px; overflow:hidden;
     font-family:{SANS}; color:{FG}; }}
-  .clip {{ position:absolute; top:0; left:0; width:{W}px; height:{H}px;
-    object-fit:cover; }}
+  .clip {{ position:absolute; }}
+  .fill {{ top:0; left:0; width:{W}px; height:{H}px; object-fit:cover; }}
   .tag {{ position:absolute; top:34px; left:44px; font:600 22px {MONO};
     color:{DIM}; letter-spacing:2px; }}
   .tag b {{ color:{FG}; }}
@@ -150,25 +163,25 @@ def main():
      data-start="0" data-duration="{T_END}">
 
   <!-- 0-1.9 hero: finished result, moving, fills the frame -->
-  <video id="v-hero" class="clip" src="assets/clips/hero.mp4" muted
+  <video id="v-hero" class="clip fill" src="assets/clips/hero.mp4" muted
          playsinline data-start="0" data-duration="{T_HERO_END}"></video>
 
   <!-- 1.9-8.9 ramp: input -> output, load 0 -> {fmt_n(load_n)} -->
-  <video id="v-ramp" class="clip" src="assets/clips/ramp.mp4" muted
+  <video id="v-ramp" class="clip fill" src="assets/clips/ramp.mp4" muted
          playsinline data-start="{T_HERO_END}" data-media-start="1.0"
          data-duration="{T_RAMP_END - T_HERO_END}"></video>
 
   <!-- 8.9-14.4 closeup: camera dives onto the clamped wall -->
-  <video id="v-close" class="clip" src="assets/clips/closeup.mp4" muted
+  <video id="v-close" class="clip fill" src="assets/clips/closeup.mp4" muted
          playsinline data-start="{T_RAMP_END}"
          data-duration="{T_CLOSE_END - T_RAMP_END}"></video>
 
   <!-- 14.4-18.9 terminal: real console replay, over still-moving footage -->
-  <video id="v-bgterm" class="clip" src="assets/clips/ramp.mp4" muted
+  <video id="v-bgterm" class="clip fill" src="assets/clips/ramp.mp4" muted
          playsinline data-start="{T_CLOSE_END}" data-media-start="8.0"
          data-duration="{T_TERM_END - T_CLOSE_END}"
          style="filter:brightness(.28) saturate(.6)"></video>
-  <video id="v-term" src="assets/clips/terminal.mp4" muted playsinline
+  <video id="v-term" class="clip" src="assets/clips/terminal.mp4" muted playsinline
          data-start="{T_CLOSE_END}"
          data-duration="{T_TERM_END - T_CLOSE_END}"
          style="position:absolute; left:50%; top:50%; width:1420px;
@@ -177,47 +190,47 @@ def main():
                 border:1px solid #30363d; object-fit:cover"></video>
 
   <!-- 18.9-23.9 overload: the mutant's own field under 10x load -->
-  <video id="v-over" class="clip" src="assets/clips/overload.mp4" muted
+  <video id="v-over" class="clip fill" src="assets/clips/overload.mp4" muted
          playsinline data-start="{T_TERM_END}"
          data-duration="{T_OVER_END - T_TERM_END}"></video>
 
   <!-- 23.9-28.4 proof: HUD + PASS over still-playing footage -->
-  <video id="v-proof" class="clip" src="assets/clips/proof.mp4" muted
+  <video id="v-proof" class="clip fill" src="assets/clips/proof.mp4" muted
          playsinline data-start="{T_OVER_END}"
          data-duration="{T_PROOF_END - T_OVER_END}"></video>
 
-  <div class="tag" data-start="0" data-duration="{T_PROOF_END}">
+  <div class="clip tag" data-start="0" data-duration="{T_PROOF_END}">
     <b>fea-calculix</b> &middot; real sandbox run
   </div>
 
   <!-- kinetic headline over the hero -->
-  <div class="cap" id="cap-hero" data-start="0" data-duration="{T_HERO_END}">
+  <div class="clip cap" id="cap-hero" data-start="0" data-duration="{T_HERO_END}">
     <span class="word">1000&nbsp;N</span> <span class="word">on</span>
     <span class="word">a</span> <span class="word">1&nbsp;m</span>
     <span class="word">cantilever.</span>
   </div>
 
   <!-- ramp HUD: load + deflection counters -->
-  <div class="hud" id="hud-ramp" data-start="{T_HERO_END}"
+  <div class="clip hud" id="hud-ramp" data-start="{T_HERO_END}"
        data-duration="{T_RAMP_END - T_HERO_END}">
     <span class="lab">load</span> <span id="ct-load">0 N</span><br>
     <span class="lab">tip &delta;</span> <span id="ct-delta">0.00 mm</span>
     <span class="lab">&nbsp;&nbsp;limit</span> 10.00 mm
   </div>
-  <div class="cap" id="cap-ramp" data-start="{T_HERO_END}"
+  <div class="clip cap" id="cap-ramp" data-start="{T_HERO_END}"
        data-duration="3.2">
     <span class="word">beam.inp</span> <span class="word">&rarr;</span>
     <span class="word">ccx</span> <span class="word">field</span>
   </div>
 
   <!-- closeup HUD: wall stress counter -->
-  <div class="hud" id="hud-close" data-start="{T_RAMP_END}"
+  <div class="clip hud" id="hud-close" data-start="{T_RAMP_END}"
        data-duration="{T_CLOSE_END - T_RAMP_END}">
     <span class="lab">&sigma;<sub>wall</sub></span>
     <span id="ct-sigma">0.0 MPa</span>
     <span class="lab">&nbsp;&nbsp;allowable</span> {allow:.1f} MPa
   </div>
-  <div class="cap" id="cap-close" data-start="{T_RAMP_END}"
+  <div class="clip cap" id="cap-close" data-start="{T_RAMP_END}"
        data-duration="3.0">
     <span class="word">the</span> <span class="word">stress</span>
     <span class="word">the</span> <span class="word">judge</span>
@@ -225,7 +238,7 @@ def main():
   </div>
 
   <!-- terminal caption -->
-  <div class="cap" id="cap-term" data-start="{T_CLOSE_END}"
+  <div class="clip cap" id="cap-term" data-start="{T_CLOSE_END}"
        data-duration="2.6" style="left:60px; bottom:60px; font-size:44px">
     <span class="word">the</span> <span class="word">sandbox</span>
     <span class="word">run,</span> <span class="word">replayed</span>
@@ -233,15 +246,15 @@ def main():
   </div>
 
   <!-- overload HUD -->
-  <div class="hud" id="hud-over" data-start="{T_TERM_END}"
+  <div class="clip hud" id="hud-over" data-start="{T_TERM_END}"
        data-duration="{T_OVER_END - T_TERM_END}"
        style="border-color:{RED}">
     <span class="lab">10&times; overload</span>
     <span id="ct-ovsig">0 MPa</span><br>
     <span class="lab">tip &delta;</span> <span id="ct-ovde">0.0 mm</span>
-    <span style="color:{RED}">&nbsp;&nbsp;judge: FAIL</span>
+    <span style="color:{RED}">&nbsp;&nbsp;judge: {ov["verdict"]}</span>
   </div>
-  <div class="cap" id="cap-over" data-start="{T_TERM_END}"
+  <div class="clip cap" id="cap-over" data-start="{T_TERM_END}"
        data-duration="3.0">
     <span class="word">push</span> <span class="word">it</span>
     <span class="word">10&times;</span> <span class="word">&mdash;</span>
@@ -249,15 +262,14 @@ def main():
   </div>
 
   <!-- proof: PASS badge + gate rows over the still-playing field -->
-  <div id="badge" data-start="{T_OVER_END}"
+  <div id="badge" class="clip" data-start="{T_OVER_END}"
        data-duration="{T_PROOF_END - T_OVER_END}">
-    <div class="pass">PASS</div>
+    <div class="pass">{good["verdict"]}</div>
     <div class="row" id="br1"><span>verification vs Euler&ndash;Bernoulli</span>
-      <span class="v">+{abs((gm["ref_delta_mm"] / 0.4 - 1) * 100):.2f}% /
-      &minus;{abs((gm["ref_sigma_mpa"] / 12 - 1) * 100):.2f}%</span>
+      <span class="v">{ver_delta_pct}% / {ver_sigma_pct.replace("-", "&minus;")}%</span>
       <span class="st">&#10003;</span></div>
     <div class="row" id="br2"><span>mesh convergence 4&rarr;2 mm</span>
-      <span class="v">0.23% / 0.50%</span>
+      <span class="v">{con_delta_pct}% / {con_sigma_pct}%</span>
       <span class="st">&#10003;</span></div>
     <div class="row" id="br3"><span>&sigma; {sig:.1f} &le; {allow:.1f} MPa
       &middot; &delta; {de:.2f} &le; 10.00 mm</span>
@@ -268,9 +280,9 @@ def main():
   </div>
 
   <!-- static end card: last 2.5 s -->
-  <div id="endcard" data-start="{T_PROOF_END}"
+  <div id="endcard" class="clip" data-start="{T_PROOF_END}"
        data-duration="{T_END - T_PROOF_END}">
-    <div class="t1">cantilever beam &mdash; PASS</div>
+    <div class="t1">cantilever beam &mdash; {good["verdict"]}</div>
     <div class="t2">python3 run.py</div>
     <div class="t3">cookbook/fea-calculix &middot; CalculiX ccx + gmsh in a
       disposable sandbox</div>

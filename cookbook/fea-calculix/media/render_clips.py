@@ -181,7 +181,7 @@ def main():
     def hero(i, n, p):
         t = i / (n - 1)
         cam.frame(1.0, 20.0,
-                  elev=lerp(8, 16, ease(t)), azim=lerp(-52, 4, ease(t)),
+                  elev=lerp(10, 18, ease(t)), azim=lerp(-72, -34, ease(t)),
                   zoom=lerp(1.0, 1.22, ease(t)), path=p)
     clip("hero", hero, n)
     cam.close()
@@ -223,7 +223,7 @@ def main():
     def overload(i, n, p):
         t = i / (n - 1)
         cam.frame(ease(min(1.0, 1.25 * t)), ov_scale,
-                  elev=lerp(10, 20, ease(t)), azim=lerp(-30, 30, ease(t)),
+                  elev=lerp(10, 20, ease(t)), azim=lerp(-85, -45, ease(t)),
                   zoom=lerp(1.0, 1.15, ease(t)), path=p)
     clip("overload", overload, n)
     cam.close()
@@ -234,8 +234,8 @@ def main():
 
     def proof(i, n, p):
         t = i / (n - 1)
-        cam.frame(1.0, 20.0, elev=lerp(26, 18, ease(t)),
-                  azim=lerp(24, -24, ease(t)), path=p)
+        cam.frame(1.0, 20.0, elev=lerp(26, 16, ease(t)),
+                  azim=lerp(-60, -104, ease(t)), path=p)
     clip("proof", proof, n)
     cam.close()
 

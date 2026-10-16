@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>fea-calculix demo</title>
+<script src="assets/gsap.min.js"></script>
+<style>
+  body, html { margin:0; padding:0; width:1920px; height:1080px;
+    overflow:hidden; background:#0d1117; }
+  #root { position:relative; width:1920px; height:1080px; overflow:hidden;
+    font-family:'DejaVu Sans', sans-serif; color:#e6edf3; }
+  .clip { position:absolute; top:0; left:0; width:1920px; height:1080px;
+    object-fit:cover; }
+  .tag { position:absolute; top:34px; left:44px; font:600 22px ui-monospace, 'DejaVu Sans Mono', monospace;
+    color:#8b949e; letter-spacing:2px; }
+  .tag b { color:#e6edf3; }
+  .cap { position:absolute; left:60px; bottom:140px; font:800 64px 'DejaVu Sans', sans-serif;
+    color:#e6edf3; text-shadow:0 4px 24px rgba(0,0,0,.8); }
+  .cap .word { display:inline-block; }
+  .hud { position:absolute; left:60px; bottom:52px; font:500 30px ui-monospace, 'DejaVu Sans Mono', monospace;
+    color:#e6edf3; background:rgba(1,4,9,.72); border:1px solid #30363d;
+    border-radius:12px; padding:14px 22px; }
+  .hud .lab { color:#8b949e; }
+  .hud .ok { color:#3fb950; }
+  #badge { position:absolute; top:110px; right:70px; width:640px;
+    background:rgba(1,4,9,.85); border:2px solid #3fb950; border-radius:18px;
+    padding:26px 30px; font-family:ui-monospace, 'DejaVu Sans Mono', monospace; }
+  #badge .pass { font:800 54px ui-monospace, 'DejaVu Sans Mono', monospace; color:#3fb950; }
+  #badge .row { font:500 25px ui-monospace, 'DejaVu Sans Mono', monospace; color:#e6edf3; margin-top:12px;
+    display:flex; justify-content:space-between; gap:18px; }
+  #badge .row .v { color:#58a6ff; }
+  #badge .row .st { color:#3fb950; }
+  #endcard { position:absolute; inset:0; background:#0d1117;
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:34px; }
+  #endcard .t1 { font:800 84px 'DejaVu Sans', sans-serif; color:#e6edf3; }
+  #endcard .t2 { font:600 44px ui-monospace, 'DejaVu Sans Mono', monospace; color:#0d1117; background:#3fb950;
+    padding:18px 44px; border-radius:14px; }
+  #endcard .t3 { font:400 26px ui-monospace, 'DejaVu Sans Mono', monospace; color:#8b949e; }
+</style></head>
+<body>
+<div id="root" data-composition-id="root" data-width="1920" data-height="1080"
+     data-start="0" data-duration="30.9">
+
+  <!-- 0-1.9 hero: finished result, moving, fills the frame -->
+  <video id="v-hero" class="clip" src="assets/clips/hero.mp4" muted
+         playsinline data-start="0" data-duration="1.9"></video>
+
+  <!-- 1.9-8.9 ramp: input -> output, load 0 -> 1 000 N -->
+  <video id="v-ramp" class="clip" src="assets/clips/ramp.mp4" muted
+         playsinline data-start="1.9" data-media-start="1.0"
+         data-duration="7.0"></video>
+
+  <!-- 8.9-14.4 closeup: camera dives onto the clamped wall -->
+  <video id="v-close" class="clip" src="assets/clips/closeup.mp4" muted
+         playsinline data-start="8.9"
+         data-duration="5.5"></video>
+
+  <!-- 14.4-18.9 terminal: real console replay, over still-moving footage -->
+  <video id="v-bgterm" class="clip" src="assets/clips/ramp.mp4" muted
+         playsinline data-start="14.4" data-media-start="8.0"
+         data-duration="4.499999999999998"
+         style="filter:brightness(.28) saturate(.6)"></video>
+  <video id="v-term" src="assets/clips/terminal.mp4" muted playsinline
+         data-start="14.4"
+         data-duration="4.499999999999998"
+         style="position:absolute; left:50%; top:50%; width:1420px;
+                height:799px; transform:translate(-50%,-50%);
+                border-radius:14px; box-shadow:0 30px 90px rgba(0,0,0,.7);
+                border:1px solid #30363d; object-fit:cover"></video>
+
+  <!-- 18.9-23.9 overload: the mutant's own field under 10x load -->
+  <video id="v-over" class="clip" src="assets/clips/overload.mp4" muted
+         playsinline data-start="18.9"
+         data-duration="5.0"></video>
+
+  <!-- 23.9-28.4 proof: HUD + PASS over still-playing footage -->
+  <video id="v-proof" class="clip" src="assets/clips/proof.mp4" muted
+         playsinline data-start="23.9"
+         data-duration="4.5"></video>
+
+  <div class="tag" data-start="0" data-duration="28.4">
+    <b>fea-calculix</b> &middot; real sandbox run
+  </div>
+
+  <!-- kinetic headline over the hero -->
+  <div class="cap" id="cap-hero" data-start="0" data-duration="1.9">
+    <span class="word">1000&nbsp;N</span> <span class="word">on</span>
+    <span class="word">a</span> <span class="word">1&nbsp;m</span>
+    <span class="word">cantilever.</span>
+  </div>
+
+  <!-- ramp HUD: load + deflection counters -->
+  <div class="hud" id="hud-ramp" data-start="1.9"
+       data-duration="7.0">
+    <span class="lab">load</span> <span id="ct-load">0 N</span><br>
+    <span class="lab">tip &delta;</span> <span id="ct-delta">0.00 mm</span>
+    <span class="lab">&nbsp;&nbsp;limit</span> 10.00 mm
+  </div>
+  <div class="cap" id="cap-ramp" data-start="1.9"
+       data-duration="3.2">
+    <span class="word">beam.inp</span> <span class="word">&rarr;</span>
+    <span class="word">ccx</span> <span class="word">field</span>
+  </div>
+
+  <!-- closeup HUD: wall stress counter -->
+  <div class="hud" id="hud-close" data-start="8.9"
+       data-duration="5.5">
+    <span class="lab">&sigma;<sub>wall</sub></span>
+    <span id="ct-sigma">0.0 MPa</span>
+    <span class="lab">&nbsp;&nbsp;allowable</span> 166.7 MPa
+  </div>
+  <div class="cap" id="cap-close" data-start="8.9"
+       data-duration="3.0">
+    <span class="word">the</span> <span class="word">stress</span>
+    <span class="word">the</span> <span class="word">judge</span>
+    <span class="word">measures</span>
+  </div>
+
+  <!-- terminal caption -->
+  <div class="cap" id="cap-term" data-start="14.4"
+       data-duration="2.6" style="left:60px; bottom:60px; font-size:44px">
+    <span class="word">the</span> <span class="word">sandbox</span>
+    <span class="word">run,</span> <span class="word">replayed</span>
+    <span class="word">63&times;</span>
+  </div>
+
+  <!-- overload HUD -->
+  <div class="hud" id="hud-over" data-start="18.9"
+       data-duration="5.0"
+       style="border-color:#f85149">
+    <span class="lab">10&times; overload</span>
+    <span id="ct-ovsig">0 MPa</span><br>
+    <span class="lab">tip &delta;</span> <span id="ct-ovde">0.0 mm</span>
+    <span style="color:#f85149">&nbsp;&nbsp;judge: FAIL</span>
+  </div>
+  <div class="cap" id="cap-over" data-start="18.9"
+       data-duration="3.0">
+    <span class="word">push</span> <span class="word">it</span>
+    <span class="word">10&times;</span> <span class="word">&mdash;</span>
+    <span class="word">still</span> <span class="word">caught</span>
+  </div>
+
+  <!-- proof: PASS badge + gate rows over the still-playing field -->
+  <div id="badge" data-start="23.9"
+       data-duration="4.5">
+    <div class="pass">PASS</div>
+    <div class="row" id="br1"><span>verification vs Euler&ndash;Bernoulli</span>
+      <span class="v">+0.40% /
+      &minus;0.74%</span>
+      <span class="st">&#10003;</span></div>
+    <div class="row" id="br2"><span>mesh convergence 4&rarr;2 mm</span>
+      <span class="v">0.23% / 0.50%</span>
+      <span class="st">&#10003;</span></div>
+    <div class="row" id="br3"><span>&sigma; 138.2 &le; 166.7 MPa
+      &middot; &delta; 7.72 &le; 10.00 mm</span>
+      <span class="v"></span><span class="st">&#10003;</span></div>
+    <div class="row" id="br4"><span>self-test: mutants killed</span>
+      <span class="v">9/9</span>
+      <span class="st">&#10003;</span></div>
+  </div>
+
+  <!-- static end card: last 2.5 s -->
+  <div id="endcard" data-start="28.4"
+       data-duration="2.5">
+    <div class="t1">cantilever beam &mdash; PASS</div>
+    <div class="t2">python3 run.py</div>
+    <div class="t3">cookbook/fea-calculix &middot; CalculiX ccx + gmsh in a
+      disposable sandbox</div>
+  </div>
+
+<script>
+const tl = gsap.timeline({ paused: true });
+
+/* kinetic headline: words slide up in sequence, then out */
+document.querySelectorAll("#cap-hero .word").forEach((w, i) => {
+  tl.fromTo(w, {opacity: 0, y: 60},
+            {opacity: 1, y: 0, duration: .34, ease: "power3.out"},
+            .25 + i * .13);
+});
+tl.to("#cap-hero", {opacity: 0, y: -40, duration: .3, ease: "power2.in"},
+      1.5499999999999998);
+
+/* per-segment captions: same kinetic slide-in */
+function caption(sel, t0, hold) {
+  document.querySelectorAll(sel + " .word").forEach((w, i) => {
+    tl.fromTo(w, {opacity: 0, y: 44},
+              {opacity: 1, y: 0, duration: .3, ease: "power3.out"},
+              t0 + .15 + i * .09);
+  });
+  tl.to(sel, {opacity: 0, duration: .25, ease: "power2.in"},
+        t0 + hold);
+}
+caption("#cap-ramp", 1.9, 3.0);
+caption("#cap-close", 8.9, 2.8);
+caption("#cap-term", 14.4, 2.4);
+caption("#cap-over", 18.9, 2.8);
+
+/* HUD entrances: slide up, stay */
+for (const [sel, t0] of [["#hud-ramp", 1.9],
+                         ["#hud-close", 8.9],
+                         ["#hud-over", 18.9]]) {
+  tl.fromTo(sel, {opacity: 0, y: 60},
+            {opacity: 1, y: 0, duration: .4, ease: "power3.out"},
+            t0 + .1);
+}
+
+/* counting HUD numbers -- real values, stepped under the scrub head */
+  tl.set("#ct-load", {textContent: "0 N"}, 2.400);
+  tl.set("#ct-load", {textContent: "6 N"}, 2.657);
+  tl.set("#ct-load", {textContent: "21 N"}, 2.913);
+  tl.set("#ct-load", {textContent: "47 N"}, 3.170);
+  tl.set("#ct-load", {textContent: "80 N"}, 3.426);
+  tl.set("#ct-load", {textContent: "121 N"}, 3.683);
+  tl.set("#ct-load", {textContent: "169 N"}, 3.939);
+  tl.set("#ct-load", {textContent: "222 N"}, 4.196);
+  tl.set("#ct-load", {textContent: "279 N"}, 4.452);
+  tl.set("#ct-load", {textContent: "340 N"}, 4.709);
+  tl.set("#ct-load", {textContent: "403 N"}, 4.965);
+  tl.set("#ct-load", {textContent: "467 N"}, 5.222);
+  tl.set("#ct-load", {textContent: "533 N"}, 5.478);
+  tl.set("#ct-load", {textContent: "597 N"}, 5.735);
+  tl.set("#ct-load", {textContent: "660 N"}, 5.991);
+  tl.set("#ct-load", {textContent: "721 N"}, 6.248);
+  tl.set("#ct-load", {textContent: "778 N"}, 6.504);
+  tl.set("#ct-load", {textContent: "831 N"}, 6.761);
+  tl.set("#ct-load", {textContent: "879 N"}, 7.017);
+  tl.set("#ct-load", {textContent: "920 N"}, 7.274);
+  tl.set("#ct-load", {textContent: "953 N"}, 7.530);
+  tl.set("#ct-load", {textContent: "979 N"}, 7.787);
+  tl.set("#ct-load", {textContent: "994 N"}, 8.043);
+  tl.set("#ct-load", {textContent: "1 000 N"}, 8.300);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 2.400);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 2.657);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 2.913);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 3.170);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 3.426);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 3.683);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 3.939);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 4.196);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 4.452);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 4.709);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 4.965);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 5.222);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 5.478);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 5.735);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 5.991);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 6.248);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 6.504);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 6.761);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 7.017);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 7.274);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 7.530);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 7.787);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 8.043);
+  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 8.300);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 9.300);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 9.559);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 9.818);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 10.076);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 10.335);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 10.594);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 10.853);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 11.112);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 11.371);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 11.629);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 11.888);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 12.147);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 12.406);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 12.665);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 12.924);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 13.182);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 13.441);
+  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 13.700);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 19.300);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 19.553);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 19.807);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 20.060);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 20.313);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 20.567);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 20.820);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 21.073);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 21.327);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 21.580);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 21.833);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 22.087);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 22.340);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 22.593);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 22.847);
+  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 23.100);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 19.300);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 19.553);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 19.807);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 20.060);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 20.313);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 20.567);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 20.820);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 21.073);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 21.327);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 21.580);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 21.833);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 22.087);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 22.340);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 22.593);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 22.847);
+  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 23.100);
+
+/* terminal window pushes in over the dimmed, still-playing field */
+tl.fromTo("#v-term", {scale: .86, opacity: 0},
+          {scale: 1, opacity: 1, duration: .45, ease: "power3.out"},
+          14.4);
+tl.to("#v-term", {scale: 1.06, opacity: 0, duration: .3,
+                  ease: "power2.in"}, 18.599999999999998);
+
+/* PASS badge drops in; gate rows slide in one by one */
+tl.fromTo("#badge", {opacity: 0, y: -70},
+          {opacity: 1, y: 0, duration: .5, ease: "power3.out"},
+          24.15);
+["#br1", "#br2", "#br3", "#br4"].forEach((r, i) => {
+  tl.fromTo(r, {opacity: 0, x: 90},
+            {opacity: 1, x: 0, duration: .35, ease: "power3.out"},
+            23.9 + 0.7 + i * 0.4);
+});
+
+/* keep the top tag subtly alive */
+tl.to(".tag", {opacity: .55, duration: 1.2, ease: "sine.inOut",
+                yoyo: true, repeat: -1}, 0);
+
+window.__timelines = window.__timelines || {};
+window.__timelines["root"] = tl;
+</script>
+</div></body></html>
