@@ -143,7 +143,7 @@ def main():
     # Remotion animates real Cycles poses with a measured HUD; ffmpeg only encodes.
     subprocess.run(["npm", "run", "render"], cwd=HERE / "video", check=True)
 
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(MASTER / "demo.mp4"),
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(MASTER / "remotion.mp4"),
                     "-an", "-c:v", "libx264", "-threads", "4", "-crf", "18",
                     "-preset", "slow", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                     "-map_metadata", "-1", str(HERE / "demo.mp4")], check=True)
