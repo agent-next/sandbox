@@ -89,11 +89,11 @@ the three `...: FAILED` case (a corrupted or substituted wheel) aborts
 
 ```
 $ bash judge/selftest.sh
-wrote 11 mutants to /tmp/tmp.6vKpoRBLZJ: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
+wrote 11 mutants to /tmp/tmp.h1Q5u1XUB9: missing_slider wrong_range wrong_swatch_color swatch_overflow empty_window wrong_button_text wrong_swatch_size missing_checkbox missing_swatch baked_png nondeterministic
 good: PASS (verdict byte-identical across 2 runs)
 mutant baked_png: FAILS (widget_tree,pixels)
-mutant empty_window: FAILS (render 1 failed)
-mutant missing_checkbox: FAILS (render 1 failed)
+mutant empty_window: FAILS (widget_tree,pixels)
+mutant missing_checkbox: FAILS (widget_tree,pixels)
 mutant missing_slider: FAILS (widget_tree)
 mutant missing_swatch: FAILS (widget_tree,pixels)
 mutant nondeterministic: FAILS (determinism)
@@ -102,37 +102,26 @@ mutant wrong_button_text: FAILS (widget_tree)
 mutant wrong_range: FAILS (widget_tree)
 mutant wrong_swatch_color: FAILS (widget_tree,pixels)
 mutant wrong_swatch_size: FAILS (widget_tree,pixels)
-kill rate: 11/11 = 100%
+kill rate: 11/11 = 100% (counting only mutants a judge gate failed)
 self-test OK
 exit code: 0
 
-real	1m3.230s
+real	0m22.704s
 ```
 
-Run 1 wall time **2m3s**, run 2 **1m46s**; the block above is a third run
-from a fresh clone of the pushed commit (13 graded runs, 26 renders at ~4.5 s each, plus the two
-graded known-good runs). All runs: `kill rate: 11/11 = 100%`, `exit 0`.
+Run 1 wall **22.7 s**, run 2 **23.2 s** (fresh `TOOLS_DIR` each; both
+`exit 0`, both `kill rate: 11/11 = 100%`).
 
-The two runs that produced this receipt predate a reporting fix in the
-self-test (see Deviations item 3): `empty_window` and `missing_checkbox`
-throw while the panel is being built (`IndexError`, `TypeError`), so
-`grade.sh` never reached the gates and — before the fix — wrote no `--json`
-verdict, leaving the previous mutant's verdict on disk. The self-test then
-misattributed those two kills to `widget_tree,pixels`. The fix has two
-parts: `grade.sh` now always writes an error verdict
-(`{"pass": false, "error": "render 1 failed", "log": …}`) to `--json` when a
-render dies, and `selftest.sh` removes the verdict file before grading each
-mutant. The block above is the corrected output. The kill rate is unchanged
-— 11/11 — because both mutants were already killed; only the reported
-reason was wrong.
-
-Nine of the eleven mutants fail a **gate assertion**: `missing_slider`
-renders fine (its third row is a `Label` instead of a `FloatSlider`) and is
-caught by `widget_tree` with `sliders_ok: false`; `nondeterministic` passes
-gates 0–2 and is caught only by `determinism`. The two build-crashers
-(`empty_window`, `missing_checkbox`) are killed by the render step itself.
-The self-test also checks that two graded runs of the known-good give
-byte-identical verdicts excluding the `timing` key.
+All eleven mutants are killed by a **judge gate**: the artifact builds and
+renders, and the gates reject it — `missing_slider` renders fine (its third
+row is a `Label` instead of a `FloatSlider`) and is caught by `widget_tree`
+with `sliders_ok: false`; `empty_window` (widgets present, `visible=False`)
+renders an empty panel and is caught by `widget_tree,pixels`; `baked_png`
+(the finding-1 exploit: fake ref objects + a replaced `capture_screenshot`)
+builds "fine" and is rejected by the pre-bound-class tree walk and the pixel
+gate; `nondeterministic` passes gates 0–2 and is caught only by
+`determinism`. The self-test also checks that two graded runs of the
+known-good give byte-identical verdicts excluding the `timing` key.
 
 ## `bash judge/grade.sh examples/good/panel.py --json /tmp/v.json`
 
@@ -142,7 +131,8 @@ $ bash judge/grade.sh examples/good/panel.py --json /tmp/v.json
   "gates": [
     { "gate": "rendered_png", "ok": true, "size": [1280, 720] },
     { "gate": "widget_tree", "ok": true,
-      "detail": { "button_ok": true, "checkbox_ok": true, "ref_names_ok": true,
+      "detail": { "button_ok": true, "checkbox_ok": true,
+                  "ref_names_missing": [], "refs_live": true,
                   "sliders_distinct": true, "sliders_ok": true,
                   "swatch_color_ok": true, "swatch_size_ok": true,
                   "swatch_type_ok": true, "window_ok": true } },
@@ -153,20 +143,21 @@ $ bash judge/grade.sh examples/good/panel.py --json /tmp/v.json
                   "swatch_std": [0.0, 0.0, 0.0],
                   "swatch_target": [51.0, 128.0, 230.0],
                   "title_px": 328, "undrawn": [] } },
-    { "gate": "determinism", "ok": true, "sha256": "0d8e03dcb161d859" }
+    { "gate": "determinism", "ok": true, "sha256": "0d8e03dcb161d859",
+      "facts_match": true, "shots_match": true }
   ],
   "pass": true,
   "seed": 1234,
-  "timing": { "render_wall_s": 5 }
+  "timing": { "render_wall_s": 1 }
 }
 exit code: 0
 ```
 
 (Shown compacted; the command prints the same JSON with one field per line.
-The block is from a fresh clone of the pushed commit — a third run, after
-the first two — and reproduces the first two exactly.)
+The block is run 1 of this receipt — a fresh `TOOLS_DIR` install of the
+pushed head — and run 2 reproduces it byte-for-byte apart from `timing`.)
 
-Run 1: **12.0 s** wall, `exit 0`. Run 2: **10.2 s**, `exit 0`.
+Run 1: **1.7 s** wall, `exit 0`. Run 2: **1.9 s**, `exit 0`.
 
 Key numbers, both runs side by side (identical):
 

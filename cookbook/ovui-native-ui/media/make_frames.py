@@ -35,6 +35,11 @@ from omni.ui.standalone import _tick_one_frame, run as UI_RUN  # noqa: E402
 
 SETTLE_FRAMES = 9
 
+# The graded refs whose live geometry every camera frame reports (the same
+# attributes judge/render.py reads; the video's bbox HUD is drawn from these
+# per-frame measurements, so the boxes sit on the widgets in every frame).
+REF_NAMES = ("slider1", "slider2", "slider3", "checkbox", "button", "swatch")
+
 # Ping-pong path: CAM_HALF frames per sweep, CAM_CYCLES sweeps out and back.
 CAM_HALF = 60
 CAM_CYCLES = 5
@@ -94,6 +99,19 @@ def _triangle(i):
     return 0.5 * tri + 0.5 * _smooth(tri)
 
 
+def _rect(w):
+    """One widget's live rect, from the same attributes render.py grades.
+
+    ``screen_position_*`` is absolute in the offscreen surface, so it
+    already includes the camera move -- that is what makes it usable as-is.
+    """
+    try:
+        return [float(w.screen_position_x), float(w.screen_position_y),
+                float(w.computed_width), float(w.computed_height)]
+    except AttributeError as e:
+        raise SystemExit(f"widget does not expose a live rect: {e}")
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit("usage: make_frames.py <demo_dir> <out_dir>")
@@ -106,11 +124,12 @@ def main():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    state = {"cam": 0, "boxes": []}
+    state = {"cam": 0, "boxes": [], "rects": []}
 
     async def _run():
-        window, _refs = mod.build_panel()
+        window, refs = mod.build_panel()
         await _settle(SETTLE_FRAMES)
+        widgets = [refs[n] for n in REF_NAMES]
         for i in range(CAM_N):
             e = _triangle(i)
             x = int(round(X0 + (X1 - X0) * e))
@@ -124,6 +143,10 @@ def main():
             if not _screenshot(os.path.join(out_dir, f"cam_{i:04d}.png")):
                 raise SystemExit(f"camera frame {i} did not capture")
             state["boxes"].append([x, y, w, h])
+            # the live widget rects for THIS frame: the bbox HUD is drawn
+            # from these, so a box sits on its widget in the frame it names.
+            # Ordered as REF_NAMES so make_video.py can index by name.
+            state["rects"].append([_rect(wd) for wd in widgets])
             state["cam"] += 1
 
     UI_RUN(_run())
@@ -133,6 +156,10 @@ def main():
         "cam_frames": state["cam"],
         "cam_half_frames": CAM_HALF,
         "boxes": state["boxes"],
+        # per frame, per widget: [x, y, w, h] in the 1280x720 surface, at
+        # exactly the camera position boxes[] records for that frame
+        "rects": state["rects"],
+        "rect_names": list(REF_NAMES),
         "capture": "judge/render.py capture path (pre-bound C functions)",
         "surface": [1280, 720],
     }

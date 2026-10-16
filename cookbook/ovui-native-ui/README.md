@@ -97,11 +97,11 @@ From the receipt (2 vCPU, ~4 GB RAM, no GPU; Debian 12, Python 3.12):
 
 | step | wall time |
 |---|---|
-| `judge/setup.sh` (cold: apt + pinned wheels + stubs) | 44–92 s |
+| `judge/setup.sh` (cold: apt + pinned wheels + stubs) | 14–92 s |
 | `judge/setup.sh` (warm, idempotent) | 8 s |
-| `judge/selftest.sh` (13 graded runs, 26 renders) | 44–123 s |
-| `judge/grade.sh examples/good/panel.py` (2 renders + gates) | 3–12 s |
-| one render (`judge/render.py`) | ~2–4.5 s |
+| `judge/selftest.sh` (13 graded runs, 26 renders) | 22–123 s |
+| `judge/grade.sh examples/good/panel.py` (2 renders + gates) | 2–12 s |
+| one render (`judge/render.py`) | ~1–4.5 s |
 | `media/make_media.sh` (13 graded runs + 2 encodes) | ~13 min |
 
 The render itself is CPU rasterisation of a 1280x720 offscreen Vulkan target
@@ -165,8 +165,8 @@ chart](media/result.png)
 - `media/loop.png` — the agent loop: a scripted replay of real judge verdicts
   (build error → pixel mismatch → nondeterminism → PASS) and the self-test
   kill table, one row per mutant with the gate(s) that failed it.
-- `media/demo.mp4` — a 38.1 s, 1920×1080, 30 fps walkthrough of the same
-  judge outputs (4.5 MB H.264, from a lossless `-crf 0` master); it opens on
+- `media/demo.mp4` — a 38 s, 1920×1080, 30 fps walkthrough of the same
+  judge outputs (≈2.9 MB H.264, from a lossless `-crf 0` master); it opens on
   the finished render with the verdict stamped on it, and passes
   `cookbook/tools/video_gate.py` (cuts/10 s, motion, static end card).
 - `media/REVIEW.json` — the two blind vision-model verdicts on that video

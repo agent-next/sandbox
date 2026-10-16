@@ -93,6 +93,25 @@ def die(msg):
     raise SystemExit(1)
 
 
+def boxes_from_meta(meta):
+    """Frame list for the cut: path, window box and per-frame widget rects.
+
+    ``rects`` (written by make_frames.py) is the live widget geometry of each
+    captured frame, measured in that frame -- the bbox HUD is drawn from it,
+    so a box sits on its widget in the frame it names. A frames.json without
+    rects predates the per-frame measurement and cannot be cut correctly.
+    """
+    caps = sorted(f for f in os.listdir(FRAMES) if f.startswith("cam_"))
+    if len(caps) != meta["cam_frames"] or not meta.get("boxes"):
+        die("captured frame count does not match frames.json")
+    if not meta.get("rects") or len(meta["rects"]) != len(caps) \
+            or not meta.get("rect_names"):
+        die("frames.json has no per-frame widget rects; run make_frames.py")
+    return [{"path": os.path.join(FRAMES, f), "box": b, "rects": r}
+            for f, b, r in zip(caps, meta["boxes"], meta["rects"])], \
+        meta["rect_names"]
+
+
 def load(name):
     with open(os.path.join(DATA, name)) as f:
         return json.load(f)
@@ -123,33 +142,75 @@ def base(box):
     return Image.open(box["path"]).convert("RGB").resize((W, H), Image.LANCZOS)
 
 
-def draw_bboxes(img, box, facts, label_names=True):
-    """The judge's measured widget bboxes, mapped onto the canvas."""
+def draw_bboxes(img, box, names, label_names=True):
+    """The widget bboxes measured *in this frame*, mapped onto the canvas.
+
+    ``box["rects"]`` holds [x, y, w, h] per widget in the 1280x720 surface at
+    exactly this camera position, so the mapping to the canvas is the plain
+    surface scale -- the widgets are fixed-size and do not move or scale with
+    the camera, and drawing the graded render's positions over a moved window
+    would put the boxes in the wrong place.
+    """
     dr = ImageDraw.Draw(img)
-    x, y, w, h = panel_box(box["box"])
-    fx, fy = w / 420.0, h / 360.0
+    sx, sy = W / 1280.0, H / 720.0
     f = font(FONT_MONO, CAP_SM)
-    for name, g in facts.items():
-        if name in ("window", "_ref_names", "_window_live"):
-            continue
-        wx = x + (g["screen_position_x"] - box["box"][0]) * fx
-        wy = y + (g["screen_position_y"] - box["box"][1]) * fy
-        ww = g["computed_width"] * fx
-        wh = g["computed_height"] * fy
+    for name, (rx, ry, rw, rh) in zip(names, box["rects"]):
+        wx, wy, ww, wh = rx * sx, ry * sy, rw * sx, rh * sy
         dr.rectangle([wx, wy, wx + ww, wy + wh], outline=BLUE, width=3)
-        if label_names:
-            text(dr, (wx + ww + 14, wy + wh / 2), name, f, BLUE, anchor="lm")
+    if label_names:
+        # the widget rows are 45 px apart on the canvas -- tighter than a
+        # CAP_SM label's ink -- so adjacent in-row labels collide; the names
+        # go in a legend column instead, each tied to its widget with a
+        # leader line. A translucent backing keeps the names readable when
+        # the window's sweep passes underneath (its right edge reaches
+        # canvas x=1680; the legend holds 1430-1900).
+        LX, L0, STEP = 1450, 300, 70
+        y0, y1 = L0 - 40, L0 + (len(names) - 1) * STEP + 40
+        veil = Image.new("RGBA", (1900 - 1430, y1 - y0), (13, 17, 23, 200))
+        img.paste(Image.alpha_composite(
+            img.crop((1430, y0, 1900, y1)).convert("RGBA"),
+            veil).convert("RGB"), (1430, y0))
+        dr = ImageDraw.Draw(img)
+        # legend rows in the widgets' own top-to-bottom order, so the leader
+        # lines never cross each other
+        entries = sorted(zip(names, box["rects"]), key=lambda e: e[1][1])
+        for i, (name, (rx, ry, rw, rh)) in enumerate(entries):
+            ly = L0 + i * STEP
+            text(dr, (LX, ly), name, f, BLUE, anchor="lm")
+            dr.line([LX - 14, ly, rx * sx + rw * sx + 8,
+                     ry * sy + rh * sy / 2], fill=BLUE, width=2)
+
+
+def fit_font(path, s, max_w, start=CAP):
+    """The largest font <= start whose rendering of s fits max_w.
+
+    Captions must never be clipped at the frame edge; a line longer than the
+    frame shrinks instead of overflowing. floor is CAP_SM -- below that the
+    cap-height rule (>= 4 % of the frame) would be violated, so callers must
+    keep their strings short enough for it not to bind.
+    """
+    size = start
+    while size > CAP_SM:
+        f = font(path, size)
+        if f.getlength(s) <= max_w:
+            return f
+        size -= 2
+    return font(path, CAP_SM)
 
 
 def caption(img, s, fill=FG):
     dr = ImageDraw.Draw(img)
-    text(dr, (W / 2, H - 34), s, font(FONT_SANS_B, CAP), fill,
-         anchor="ms", shadow=True)
+    f = fit_font(FONT_SANS_B, s, W - 80)
+    # fit_font floors at CAP_SM; a caption that still overflows at the floor
+    # would ship clipped, so fail the build instead
+    if f.getlength(s) > W - 80:
+        die(f"caption wider than the frame even at CAP_SM: {s!r}")
+    text(dr, (W / 2, H - 34), s, f, fill, anchor="ms", shadow=True)
     return img
 
 
-def frame_for(name, phase, box, facts, good, mutants, selftest, timings, ref,
-              frame_i, n_frames):
+def frame_for(name, phase, box, names, facts, good, mutants, selftest, timings,
+              ref, frame_i, n_frames):
     if name == "black":
         # a full-frame black flash, so every join between two neighbouring
         # shots of the same panel reads as a hard cut to the scene detector
@@ -166,35 +227,45 @@ def frame_for(name, phase, box, facts, good, mutants, selftest, timings, ref,
         stamp_hook(img, good, facts, selftest_rate(selftest))
 
     elif name == "spec":
-        f = font(FONT_MONO, CAP_SM)
         lines = [
-            'ui.Window("Tool Panel", 420x360)',
-            "slider1  FloatSlider  0 .. 10",
-            "slider2  FloatSlider  0 .. 20",
-            "slider3  FloatSlider  0 .. 50",
-            "swatch   ColorWidget  rgba(0.2, 0.5, 0.9)  140x24",
-            'button   Button       "Apply"',
+            'ui.Window("Tool Panel")',
+            "420x360 window, 7 refs",
+            "slider1 FloatSlider 0..10",
+            "slider2 FloatSlider 0..20",
+            "slider3 FloatSlider 0..50",
+            "swatch ColorWidget 140x24",
+            "swatch rgba(0.2, 0.5, 0.9)",
+            'checkbox + "Apply" button',
         ]
-        x, y, w, h = panel_box(box["box"])
+        # the spec rides the footage as a HUD panel; the render keeps moving
+        # behind it, so the shot stays real output, not a slide
+        veil = Image.new("RGBA", (1090 - 70, 660 - 90), (13, 17, 23, 216))
+        img.paste(Image.alpha_composite(
+            img.crop((70, 90, 1090, 660)).convert("RGBA"), veil)
+            .convert("RGB"), (70, 90))
+        dr = ImageDraw.Draw(img)
+        dr.rectangle([70, 90, 1090, 660], outline=BLUE, width=3)
+        # panel text is mono at CAP_SM: each line sized to stay inside the
+        # panel (fit_font can't shrink below CAP_SM, so keep lines <= 27 chars).
+        # 8 lines at 64 px step from 118 keeps the last baseline inside the
+        # panel bottom edge (566 + ~44 cap height < 660).
         for i, line in enumerate(lines):
-            text(dr, (x + w + 24, y + 20 + i * 56), line, f, FG)
+            text(dr, (100, 118 + i * 64), line,
+                 fit_font(FONT_MONO, line, (1090 - 70) - 40), FG)
         caption(img, "the spec → the render the judge graded")
 
     elif name == "widget":
-        draw_bboxes(img, box, facts)
-        caption(img, "widget gate: every ref a live widget, bboxes within ±8 px")
+        draw_bboxes(img, box, names)
+        caption(img, "widget gate: every ref live, bboxes ±8 px")
 
     elif name == "swatch":
-        draw_bboxes(img, box, facts, label_names=False)
-        # zoom on the swatch: a real crop of the same frame, not a redraw
-        g = facts["swatch"]
-        bx, by = box["box"][0], box["box"][1]
-        x, y, w, h = panel_box(box["box"])
-        fx, fy = w / 420.0, h / 360.0
-        wx = x + (g["screen_position_x"] - bx) * fx
-        wy = y + (g["screen_position_y"] - by) * fy
-        ww = g["computed_width"] * fx
-        wh = g["computed_height"] * fy
+        draw_bboxes(img, box, names, label_names=False)
+        # zoom on the swatch: a real crop of the same frame, from the swatch
+        # rect measured in that frame, not a redraw
+        i_sw = names.index("swatch")
+        sx, sy, sw_w, sw_h = box["rects"][i_sw]
+        sxf, syf = W / 1280.0, H / 720.0
+        wx, wy, ww, wh = sx * sxf, sy * syf, sw_w * sxf, sw_h * syf
         pad = 40
         crop = img.crop((int(wx - pad), int(wy - pad),
                          int(wx + ww + pad), int(wy + wh + pad)))
@@ -205,71 +276,116 @@ def frame_for(name, phase, box, facts, good, mutants, selftest, timings, ref,
         dr = ImageDraw.Draw(img)
         pix = [g for g in good["gates"] if g["gate"] == "pixels"][0]["detail"]
         med = ", ".join(f"{v:.0f}" for v in pix["swatch_median"])
-        tgt = ", ".join(str(v) for v in ref["swatch_rgb"])
+        tgt = ", ".join(f"{v:.0f}" for v in ref["swatch_rgb"])
+        tol = max(ref["swatch_tol"])
         f = font(FONT_MONO, CAP_SM)
         text(dr, (60, 60), "swatch, measured from the framebuffer", f, BLUE)
         text(dr, (60, 560), f"measured median RGB  [{med}]", f, GREEN)
-        text(dr, (60, 620), f"analytic sRGB target  [{tgt}]  ± {ref['swatch_tol']}",
+        # ints and one scalar tolerance: the float/list forms overflow the
+        # frame edge at the caption floor
+        text(dr, (60, 620), f"analytic sRGB target  [{tgt}]  ± {tol}",
              f, DIM)
         caption(img, "swatch median is exactly the analytic target")
 
     elif name == "sandbox":
         real = timings["selftest_wall_s"]
         speed = real / (n_frames / FPS)
-        lines = selftest.splitlines()
-        f = font(FONT_MONO, CAP_SM)
-        # the log scrolls past as the frame advances: a terminal capture, not a slide
-        head = int(frame_i / n_frames * max(1, len(lines) - 18))
-        shown = lines[head:head + 18]
-        text(dr, (70, 60), f"in the sandbox: judge self-test — {real:.0f} s "
-             f"replayed in {n_frames / FPS:.0f} s ({speed:.1f}x speed)", f, BLUE)
+        header = f"judge self-test — {real:.0f} s at {speed:.1f}x speed"
+        # a real terminal replay, not captions: 34 px mono gives 83 columns
+        # across the frame edge, which fits every log line un-wrapped; the
+        # spec line ("wrote 11 mutants ...") is wrapped by hand below
+        f = font(FONT_MONO, 34)
+        term_cols = int((W - 140) / f.getlength("0"))
+        # translucent terminal panel so the log reads over the moving render
+        veil = Image.new("RGBA", (W - 140, H - 250), (9, 12, 16, 220))
+        img.paste(Image.alpha_composite(
+            img.crop((70, 150, W - 70, H - 100)).convert("RGBA"), veil)
+            .convert("RGB"), (70, 150))
+        dr = ImageDraw.Draw(img)
+        dr.rectangle([70, 150, W - 70, H - 100], outline=(46, 55, 64), width=2)
+        text(dr, (70, 60), header,
+             fit_font(FONT_MONO, header, W - 140, start=CAP_SM), BLUE)
+        # wrap each log line at the terminal column count, keeping the log's
+        # own line structure (a wrapped continuation is a new visual line)
+        vis = []
+        for line in selftest.splitlines():
+            if len(line) > term_cols:
+                for j in range(0, len(line), term_cols):
+                    vis.append(line[j:j + term_cols])
+            else:
+                vis.append(line)
+        n_vis = len(vis)
+        head = int(frame_i / n_frames * max(1, n_vis - 17))
+        shown = vis[head:head + 17]
+        # terminal line pitch: 1.3 x 34 px x-height
         for i, line in enumerate(shown):
             col = FG
             if "FAIL" in line or "fail" in line:
                 col = RED
             elif "PASS" in line or "pass" in line or "kill rate" in line:
                 col = GREEN
-            text(dr, (70, 150 + i * 44), line[:96], f, col)
+            text(dr, (100, 175 + i * 44), line, f, col)
         caption(img, f"the judge's own self-test, {speed:.1f}x speed")
 
     elif name == "verdict":
         pix = [g for g in good["gates"] if g["gate"] == "pixels"][0]["detail"]
         det = [g for g in good["gates"] if g["gate"] == "determinism"][0]
-        f = font(FONT_MONO, CAP_SM)
+        # label column ends at the [PASS] column (x=700): each label must fit
+        # 610 px at the caption floor, so it is written as "N name", not
+        # "gate N  name" (which is 720 px wide at CAP_SM and would collide).
         gates = [
-            ("gate 0  rendered_png", "1280x720 PNG"),
-            ("gate 1  widget_tree", "all refs live, ranges correct"),
-            ("gate 2  pixels", f"swatch median {pix['swatch_median']}"),
-            ("gate 3  determinism", f"sha256 {det['sha256']}"),
+            ("0 rendered_png", "1280x720 PNG written"),
+            ("1 widget_tree", "7 refs live, bboxes ±8 px"),
+            ("2 pixels", f"median [{int(pix['swatch_median'][0])}, "
+                        f"{int(pix['swatch_median'][1])}, "
+                        f"{int(pix['swatch_median'][2])}]"),
+            ("3 determinism", "two renders byte-identical"),
         ]
+        # the numbers are what this shot is; the moving render stays behind
+        # them, so a veil keeps the rows from reading against the widgets
+        veil = Image.new("RGBA", (W - 80, 390), (9, 12, 16, 210))
+        img.paste(Image.alpha_composite(
+            img.crop((70, 60, W - 10, 450)).convert("RGBA"), veil)
+            .convert("RGB"), (70, 60))
+        dr = ImageDraw.Draw(img)
         for i, (g, d) in enumerate(gates):
-            text(dr, (70, 90 + i * 62), g, f, FG)
-            text(dr, (760, 90 + i * 62), "[PASS]", f, GREEN)
-            text(dr, (960, 90 + i * 62), d, f, DIM)
-        text(dr, (70, 380), f"kill rate {selftest_rate(selftest)}", f, GREEN)
-        text(dr, (960, 380), f"{len(mutants)} mutants, every one failed a gate",
-             f, DIM)
+            text(dr, (70, 90 + i * 62), g, font(FONT_MONO, CAP_SM), FG)
+            # [PASS] bold at CAP_SM is 217 px wide: 620..836, so the
+            # description column starts at 940 and has 940 px to the edge
+            text(dr, (620, 90 + i * 62), "[PASS]", font(FONT_MONO_B, CAP_SM),
+                 GREEN)
+            text(dr, (940, 90 + i * 62), d,
+                 fit_font(FONT_MONO, d, W - 940 - 40, start=CAP_SM), DIM)
+        text(dr, (70, 380), f"kill rate {selftest_rate(selftest)}",
+             font(FONT_MONO, CAP_SM), GREEN)
+        text(dr, (940, 380),
+             f"{len(mutants)} mutants gate-killed",
+             fit_font(FONT_MONO, f"{len(mutants)} mutants gate-killed",
+                      W - 940 - 40, start=CAP_SM), DIM)
         caption(img, "judge verdict: PASS 4/4 gates, render byte-identical")
 
     elif name == "end":
         img = Image.new("RGB", (W, H), BG)
         dr = ImageDraw.Draw(img)
-        text(dr, (W / 2, 420), "python3 cookbook/ovui-native-ui/run.py",
-             font(FONT_MONO_B, TITLE), FG, anchor="mm")
+        launch = "python3 cookbook/ovui-native-ui/run.py"
+        text(dr, (W / 2, 420), launch,
+             fit_font(FONT_MONO_B, launch, W - 80, start=TITLE), FG,
+             anchor="mm")
         text(dr, (W / 2, 560),
              "Ask your agent to build a native omni.ui panel\n"
              "judged by a harness it cannot fool",
              font(FONT_MONO, CAP), DIM, anchor="mm")
         text(dr, (W / 2, 700),
-             "ovui-native-ui — CPU-only, headless Vulkan, real sandbox",
+             "headless Vulkan on a real sandbox — CPU-only",
              font(FONT_MONO, CAP_SM), GREEN, anchor="mm")
 
     return img
 
 
 def selftest_rate(selftest):
-    return [l for l in selftest.splitlines()
-            if "kill rate" in l][-1].split(":", 1)[1].strip()
+    """The kill-rate line's value, e.g. "11/11 = 100%" (no parenthetical)."""
+    return ([l for l in selftest.splitlines() if "kill rate" in l][-1]
+            .split(":", 1)[1].split("(", 1)[0].strip())
 
 
 def stamp_hook(img, good, facts, rate):
@@ -291,6 +407,9 @@ def stamp_hook(img, good, facts, rate):
     det = [g for g in good["gates"] if g["gate"] == "determinism"][0]
     f = font(FONT_MONO, CAP_SM)
     fl = font(FONT_MONO_B, CAP_SM)
+    # value strings live between COL_V and the verdict card: sized to that
+    # column so no line can run under the card
+    val_max = CARD_X - COL_V - 24
     rows = [
         ("built", ["an omni.ui panel", "420x360, 7 refs"]),
         ("checked", ["4 gates, all passed"]),
@@ -300,7 +419,8 @@ def stamp_hook(img, good, facts, rate):
     for label, values in rows:
         text(dr, (80, y), label, fl, BLUE)
         for j, v in enumerate(values):
-            text(dr, (COL_V, y + j * 66), v, f, FG)
+            text(dr, (COL_V, y + j * 66), v, fit_font(FONT_MONO, v, val_max,
+                                                      start=CAP_SM), FG)
         y += len(values) * 66
     y += 20
     # verdict card, right column, clear of the value text
@@ -314,18 +434,18 @@ def stamp_hook(img, good, facts, rate):
          font(FONT_MONO, CAP_SM), DIM, anchor="mm")
 
 
-def render_shot(out_dir, si, name, phase, n, boxes, period, ctx):
+def render_shot(out_dir, si, name, phase, n, boxes, names, period, ctx):
     """Write one shot's frames as shotNNNN.png in out_dir."""
     facts, good, mutants = ctx["facts"], ctx["good"], ctx["mutants"]
     selftest, timings, ref = ctx["selftest"], ctx["timings"], ctx["ref"]
     for i in range(n):
         if name == "end":
-            img = frame_for(name, 0, boxes[0], facts, good, mutants,
+            img = frame_for(name, 0, boxes[0], names, facts, good, mutants,
                             selftest, timings, ref, 0, n)
         else:
             idx = (phase + i) % period
-            img = frame_for(name, idx, boxes[idx % len(boxes)], facts, good,
-                            mutants, selftest, timings, ref, i, n)
+            img = frame_for(name, idx, boxes[idx % len(boxes)], names, facts,
+                            good, mutants, selftest, timings, ref, i, n)
         img.save(os.path.join(out_dir, f"shot{si:02d}_{i:05d}.png"))
 
 
@@ -335,11 +455,7 @@ def main():
     if not os.path.isdir(FRAMES):
         die(f"{FRAMES} missing; run media/make_frames.py first")
     meta = json.load(open(os.path.join(FRAMES, "frames.json")))
-    caps = sorted(f for f in os.listdir(FRAMES) if f.startswith("cam_"))
-    if len(caps) != meta["cam_frames"] or not meta.get("boxes"):
-        die("captured frame count does not match frames.json")
-    boxes = [{"path": os.path.join(FRAMES, f), "box": b}
-             for f, b in zip(caps, meta["boxes"])]
+    boxes, names = boxes_from_meta(meta)
     period = 2 * meta["cam_half_frames"]
 
     facts = load("facts.json")
@@ -372,7 +488,7 @@ def main():
     for si, (name, phase, n) in enumerate(SPEC):
         d = os.path.join(tmp, f"s{si:02d}_{name}")
         os.makedirs(d)
-        render_shot(d, si, name, phase, n, boxes, period, ctx)
+        render_shot(d, si, name, phase, n, boxes, names, period, ctx)
         print(f"make_video: shot {name:8s} {n:4d} frames rendered")
 
     # 2. concat the shots. The concat demuxer reads one entry per file, so a

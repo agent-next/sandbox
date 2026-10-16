@@ -1,0 +1,88 @@
+{
+  "schema": "agent-next/result@1",
+  "demo": "ovui-native-ui",
+  "headline": "The agent's native omni.ui panel passes all 4 judge gates -- 7 live widgets with measured bboxes, the swatch median exactly the analytic sRGB target, and two renders byte-identical (0d8e03dcb161d859) -- and the judge's own self-test kills 11/11 = 100% (counting only mutants a judge gate failed) of its 11 mutants, on a CPU with no display, inside a real sandbox.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "rendered_png",
+      "pass": true,
+      "measured": "1280x720 PNG",
+      "threshold": "1280x720 PNG written"
+    },
+    {
+      "name": "widget_tree",
+      "pass": true,
+      "measured": "6 live refs, names and ranges match",
+      "threshold": "every ref a live widget, bboxes within +/-8 px"
+    },
+    {
+      "name": "pixels",
+      "pass": true,
+      "measured": "swatch median [51.0, 128.0, 230.0]",
+      "threshold": "measured median within the analytic tolerance"
+    },
+    {
+      "name": "determinism",
+      "pass": true,
+      "measured": "sha256 0d8e03dcb161d859",
+      "threshold": "two renders byte-identical"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "judge gates passed",
+      "value": 4,
+      "unit": "gates",
+      "source": "media/data/grade_good.json"
+    },
+    {
+      "label": "self-test kill rate",
+      "value": "11/11 = 100% (counting only mutants a judge gate failed)",
+      "unit": "",
+      "source": "media/data/selftest.txt"
+    },
+    {
+      "label": "mutants tested",
+      "value": 11,
+      "unit": "mutants",
+      "source": "media/data/mutants.json"
+    },
+    {
+      "label": "self-test wall time",
+      "value": 33.9,
+      "unit": "s",
+      "source": "media/data/timings.json"
+    },
+    {
+      "label": "grade wall time (2 renders)",
+      "value": 4.6,
+      "unit": "s",
+      "source": "media/data/timings.json"
+    }
+  ],
+  "hero": {
+    "kind": "video",
+    "path": "media/demo.mp4",
+    "poster": "media/result.png",
+    "caption": "38 s: the finished panel, the measured gates, the judge's own 11-mutant self-test, the PASS verdict."
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/result.png",
+      "caption": "The known-good render with the judge's measured widget bboxes and the swatch gate chart."
+    },
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "The agent loop: the fixing sequence and the self-test kill table."
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/ovui-native-ui/run.py",
+    "ask_agent": "Build me a native 3D-tool UI panel with NVIDIA Omniverse `ovui` (the pip package) that renders headless on a CPU-only machine. Work in a clone of the `agent-next/sandbox` repo, under `cookbook/ovui-native-ui/`; read `cookbook/DEMO-STANDARD.md` and `cookbook/ovui-native-ui/SPEC.md` first. The panel must be a 420x360 `ui.Window` titled \"Tool Panel\" holding three labelled `FloatSlider` rows (ranges 0..10, 0..20, 0..50), a 140x24 `ColorWidget` swatch of colour rgba(0.2, 0.5, 0.9, 1.0), a `CheckBox`, and an \"Apply\" `Button` \u2014 exactly the widget tree SPEC.md fixes. Run `bash judge/setup.sh` once, then iterate: write `panel.py` with `build_panel() -> (window, refs)`, and run `bash judge/grade.sh panel.py --json /tmp/v.json` until every gate passes. Do not edit anything under `judge/` \u2014 the judge checksums itself and fails if it changed. Show me the final verdict JSON and the rendered PNG."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "1f0df0578f344e335734cba564cf42c9489da811"
+}
