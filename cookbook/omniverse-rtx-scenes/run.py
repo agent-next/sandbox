@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-"""run.py -- one command from a fresh CPU sandbox to the judged hero frames.
+"""run.py -- one command from a fresh CPU sandbox to judged RTX hero frames.
 
 Drives the whole Stage-2 path over the PUBLIC product API (exactly as a
 customer does, no other route):
 
-  1. build the three scene bundles (CPU sandbox, no GPU) with
-     scenes/build_scenes.py -> bundle.tar.zst (<= 300 MB)
+  1. build the three self-contained scene bundles on the CPU sandbox
+     (scenes/build_scenes.py) -> <scene>.tar.zst, each <= 300 MB
   2. POST {API}/sandboxes {"accel":{"vram_gb":6,"template":"omniverse",
      "reserve":"exec"}} -> 201 with a gl- lease id
-  3. PUT {API}/sandboxes/{id}/files/bundle.tar.zst (raw body)
-  4. POST {API}/sandboxes/{id}/exec {"code": <python rendered by
-     render_job.py wrapper>, "timeout_s": ...} -> untar + render + report
+  3. PUT {API}/sandboxes/{id}/files/out/<scene>.tar.zst (raw body, capped
+     512 MiB); a capability probe settles whether PUT works or the job
+     must receive the bundles via an exec base64 fallback
+  4. POST {API}/sandboxes/{id}/exec {"code": <job source>, "timeout_s": ...}
+     -> untar each bundle, run render/render_job.py (OVRTX RTX path
+     tracer), write PNG frames + render_report.json into OUTPUT_DIR
   5. GET {API}/sandboxes/{id}/files, then /files/<name> for every frame
   6. judge the downloaded frames: judge/grade_frames.py
   7. DELETE {API}/sandboxes/{id}, then GET it and prove 404/dead
 
-Wall time is printed per step.  Any non-recoverable failure deletes both
-sandboxes in a finally block and exits non-zero naming the id whose
+Wall time is printed per step.  Any non-recoverable failure deletes the
+lease in a finally block and exits non-zero naming the id whose
 destruction could not be confirmed (see cookbook/LESSONS.md: "a lost
 reply is not a confirmation").
 
@@ -29,6 +32,7 @@ sandbox.agent-next.com host for exec (524s after ~100s).
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -40,20 +44,21 @@ import tarfile
 import time
 import urllib.error
 import urllib.request
-import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parent.parent.parent
 RENDER_JOB = HERE / "render" / "render_job.py"
 SCENES_DIR = HERE / "scenes"
 BUILD_SCENES = SCENES_DIR / "build_scenes.py"
+GRADE = HERE / "judge" / "grade_frames.py"
 
 DEFAULT_API_URL = "https://api.sbx.agent-next.com"
 SCENES = ("warehouse", "physics", "arm")
 UPLOAD_CAP_BYTES = 512 * 1024 * 1024       # PUT raw body cap
-BUNDLE_CAP_BYTES = 300 * 1024 * 1024       # per bundle target
-TIMEOUT_S = 3600                            # exec budget for a full render
+BUNDLE_CAP_BYTES = 300 * 1024 * 1024       # per-bundle target (spec)
+TIMEOUT_S = 3600                            # exec budget for the full render
+CREATE_ATTEMPTS = 48                        # seat contention retries (~40 min)
+FETCH_TIMEOUT = 120
 
 
 def die(msg: str, code: int = 1) -> None:
@@ -70,20 +75,24 @@ def key_and_url() -> tuple[str, str]:
     return key, url.rstrip("/")
 
 
-def request(key: str, method: str, url: str, body=None, timeout: float = 120.0):
-    """One HTTP request; returns (status, payload, elapsed).
+class ApiError(RuntimeError):
+    pass
+
+
+def request(key: str, method: str, url: str, body=None, timeout: float = FETCH_TIMEOUT):
+    """One HTTP request; returns (status, payload_bytes_or_parsed, elapsed).
 
     A lost reply is NOT a success: the caller re-issues or verifies state
     (LESSONS.md -- "verify, don't claim").  Never replays an exec after
     a dropped response."""
+    headers = {"X-API-Key": key}
     if isinstance(body, dict):
         body = json.dumps(body).encode()
-    req = urllib.request.Request(url, data=body, method=method,
-                                 headers={"X-API-Key": key,
-                                          "Content-Type": "application/json"
-                                          if isinstance(body, dict) or
-                                          method in ("POST", "DELETE") else
-                                          "application/octet-stream"})
+    if isinstance(body, dict):
+        headers["Content-Type"] = "application/json"
+    elif isinstance(body, bytes):
+        headers["Content-Type"] = "application/octet-stream"
+    req = urllib.request.Request(url, data=body, method=method, headers=headers)
     t0 = time.monotonic()
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -94,13 +103,13 @@ def request(key: str, method: str, url: str, body=None, timeout: float = 120.0):
         try:
             payload = json.loads(raw)
         except ValueError:
-            payload = None
+            payload = raw
         return exc.code, payload, time.monotonic() - t0
     except Exception as exc:                        # unreachable/refused
         return None, str(exc), time.monotonic() - t0
 
 
-def json_request(key: str, method: str, url: str, body=None, timeout: float = 120.0):
+def json_request(key: str, method: str, url: str, body=None, timeout: float = FETCH_TIMEOUT):
     status, raw, elapsed = request(key, method, url, body, timeout)
     if isinstance(raw, (bytes, bytearray)):
         try:
@@ -121,14 +130,14 @@ def step(label: str, t0: float, extra: str = "") -> None:
 
 
 # --------------------------------------------------------------------------- #
-# step 1: bundle
+# step 1: bundles (CPU)
 # --------------------------------------------------------------------------- #
-def _add_dir(tf: tarfile.TarFile, root: Path, arc: str) -> None:
-    tf.add(str(root), arcname=arc, recursive=True, filter=lambda ti: ti)
-
-
 def build_bundle(work: Path) -> dict:
-    """Tar+zstd each scene folder; returns {scene: {path, bytes, sha256}}."""
+    """Build each scene with build_scenes.py, then tar+zstd the folder.
+
+    Each tarball self-contains <scene>/ with scene.usda, assets/, mdl/ so the
+    job can untar all three under one workdir and render each scene.usda.
+    """
     if not BUILD_SCENES.exists():
         die(f"missing {BUILD_SCENES}")
     t0 = time.monotonic()
@@ -142,24 +151,23 @@ def build_bundle(work: Path) -> dict:
 
     out = {}
     t0 = time.monotonic()
+    work.mkdir(parents=True, exist_ok=True)
     for scene in SCENES:
         src = SCENES_DIR / scene
         if not (src / "scene.usda").exists():
             die(f"scene {scene} missing scene.usda after build")
-        buf = io.BytesIO()
-        with tarfile.open(fileobj=buf, mode="w") as tf:
-            _add_dir(tf, src, scene)
-        raw_zst = subprocess.run(["zstd", "-19", "-c"], input=buf.getvalue(),
-                                 capture_output=True, check=True).stdout
-        if len(raw_zst) > UPLOAD_CAP_BYTES:
-            die(f"bundle {scene} is {len(raw_zst)} bytes, over the "
-                f"{UPLOAD_CAP_BYTES // 1024 // 1024} MiB upload cap")
-        dst = work / f"{scene}.tar.zst"
-        dst.write_bytes(raw_zst)
-        out[scene] = {"path": dst, "bytes": len(raw_zst),
-                      "sha256": hashlib.sha256(raw_zst).hexdigest()}
-        print(f"  [bundle] {scene}: {len(raw_zst) / 1024 / 1024:.1f} MB "
-              f"(zstd) sha {out[scene]['sha256'][:12]}", flush=True)
+        # gzip tar: the GPU image's python reads it with stdlib tarfile (no
+        # zstandard module guaranteed); the render-pathtrace reference ships
+        # exactly this (a .tgz the job opens without a mode).
+        dst = work / f"{scene}.tar.gz"
+        with tarfile.open(dst, mode="w:gz") as tf:
+            tf.add(str(src), arcname=scene, recursive=True)
+        if dst.stat().st_size > UPLOAD_CAP_BYTES:
+            die(f"bundle {scene} is {dst.stat().st_size} bytes, over the upload cap")
+        out[scene] = {"path": dst, "bytes": dst.stat().st_size,
+                      "sha256": hashlib.sha256(dst.read_bytes()).hexdigest()}
+        print(f"  [bundle] {scene}: {dst.stat().st_size / 1024 / 1024:.1f} MB "
+              f"(gzip) sha {out[scene]['sha256'][:12]}", flush=True)
     step("bundle", t0, f" (max {max(v['bytes'] for v in out.values()) / 1024 / 1024:.0f} MB)")
     return out
 
@@ -167,38 +175,55 @@ def build_bundle(work: Path) -> dict:
 # --------------------------------------------------------------------------- #
 # step 2-3: lease + upload
 # --------------------------------------------------------------------------- #
-def create_lease(key: str, url: str, attempts: int = 12) -> tuple[str, float, dict]:
+def create_lease(key: str, url: str, attempts: int = CREATE_ATTEMPTS) -> tuple[str, float, dict]:
     """POST /sandboxes with retry on seat contention (409) and lost replies.
 
-    A 409 is a documented product state (no free seat); the run.py waits
-    and retries rather than dying, since this is a shared single GPU node
+    A 409 is a documented product state (no free seat); retry with backoff
+    rather than dying, since this is a shared single GPU node
     (PRODUCT-FRICTION.md).  Only a 201 with a valid gl- id is accepted."""
     last = None
     for attempt in range(1, attempts + 1):
         status, body, elapsed = json_request(key, "POST", f"{url}/sandboxes", {
-            "accel": {"vram_gb": 6, "template": "omniverse", "reserve": "exec"}})
+            "accel": {"vram_gb": 6, "template": "omniverse", "reserve": "exec"}},
+            timeout=180)
         if status == 201 and isinstance(body, dict) and valid_lease_id(body.get("sandboxID")):
             return body["sandboxID"], elapsed, body
         last = {"status": status, "body": body, "attempt": attempt}
         if status == 409:
-            print(f"  [lease] no free seat (attempt {attempt}/{attempts}); "
-                  f"waiting 60 s", flush=True)
+            if attempt % 6 == 0 or attempt == 1:
+                print(f"  [lease] no free seat (attempt {attempt}/{attempts}); "
+                      f"waiting 60 s", flush=True)
             time.sleep(60)
             continue
         if status is None:
             print(f"  [lease] reply lost (attempt {attempt}/{attempts}); "
-                  f"retrying in {attempt * 10} s", flush=True)
-            time.sleep(attempt * 10)
+                  f"retrying in {20}s", flush=True)
+            time.sleep(20)
             continue
         break
     die(f"GPU create failed: {last}")
     return "", 0.0, {}                     # unreachable
 
 
+def probe_upload(key: str, url: str, sid: str) -> bool:
+    """Probe whether PUT /files works on this plane; True => PUT route ok.
+
+    render-pathtrace reference: an empty PUT of `out/upload-probe` returns
+    200/201 when the PUT route is live and 405 when it is not (in which
+    case jobs receive files via an exec base64 fallback)."""
+    if not RENDER_JOB.exists():
+        die(f"missing {RENDER_JOB}")
+    status, _, _ = request(key, "PUT", f"{url}/sandboxes/{sid}/files/out/upload-probe",
+                           b"", timeout=60)
+    return status in (200, 201)
+
+
 def upload_bundle(key: str, url: str, sid: str, path: Path) -> dict:
+    """PUT <scene>.tar.zst under the workdir-relative out/ prefix."""
     t0 = time.monotonic()
     data = path.read_bytes()
-    status, _, elapsed = request(key, "PUT", f"{url}/sandboxes/{sid}/files/bundle.tar.zst",
+    status, _, elapsed = request(key, "PUT",
+                                 f"{url}/sandboxes/{sid}/files/out/{path.name}",
                                  data, timeout=1800)
     if status not in (200, 201):
         die(f"upload {path.name} to {sid}: HTTP {status}")
@@ -212,76 +237,148 @@ def upload_bundle(key: str, url: str, sid: str, path: Path) -> dict:
 # --------------------------------------------------------------------------- #
 # step 4: exec render
 # --------------------------------------------------------------------------- #
-def render_code() -> str:
-    """The Python the GPU lease runs: untar + invoke render_job.py."""
-    return """
-import io, json, os, subprocess, sys, tarfile, pathlib, time
-out = pathlib.Path(os.environ.get("OUTPUT_DIR") or "/tmp/render")
+def render_program(bundles: dict, job_source: str, fallback_upload: bool = False) -> str:
+    """The Python the GPU lease runs: untar each bundle + run render_job.py.
+
+    The bundle files were uploaded under `out/` (workdir-relative, the
+    documented PUT behavior).  OUTPUT_DIR is where the gateway places the
+    files that GET /files later serves; render_job.py writes frames there.
+    With fallback_upload the bundles are base64-embedded in the source so
+    no files route is needed at all (the render-pathtrace fallback)."""
+    names = sorted(bundles)
+    if fallback_upload:
+        # Only a < ~40 MB payload fits in the exec request; the real scenes
+        # (~90/20/50 MB) never go this way.  Files PUT under `out/` are the
+        # documented route; the fallback exists for probe-only tiny bundles.
+        total = sum(Path(info["path"]).stat().st_size for info in bundles.values())
+        if total > 40 * 1024 * 1024:
+            die("bundle too large for the exec-base64 fallback; the PUT "
+                "/files route must be available on this plane")
+        setup = []
+        for scene, info in bundles.items():
+            b64 = base64.b64encode(Path(info["path"]).read_bytes()).decode()
+            setup.append(f"Path(out,'{scene}.tar.gz').write_bytes("
+                         f"base64.b64decode({b64!r}))")
+        uploads = "\n".join(setup)
+    else:
+        uploads = ""
+    job_b64 = base64.b64encode(job_source.encode()).decode()
+    return f"""
+import base64, glob, io, json, os, pathlib, subprocess, sys, tarfile, time
+from pathlib import Path
+# The gateway syncs the lease's <root>/out directory: PUT /files/out/<name>
+# lands there and GET /files lists it (names are out-relative, e.g.
+# frames/warehouse/0000.png).  The exec global OUTPUT_DIR is NOT reliable
+# (some variants default it to /tmp/render, which is never synced) so the
+# synced root is discovered from where the uploaded bundles actually are.
+_synced = None
+for _n in {names!r}:
+    for _hit in glob.glob(f"/mnt/data/sbx-local/leases/*/out/{{_n}}"):
+        _synced = str(Path(_hit).parent)
+        break
+    if _synced:
+        break
+if not _synced:
+    _synced = globals().get('OUTPUT_DIR') or os.environ.get('OUTPUT_DIR', '/tmp/render')
+out = pathlib.Path(_synced)
 out.mkdir(parents=True, exist_ok=True)
+os.environ['OUTPUT_DIR'] = str(out)      # render_job.py writes under this
 work = out / "bundle"
 work.mkdir(parents=True, exist_ok=True)
-with tarfile.open(out / "bundle.tar.zst") as tf:
-    tf.extractall(work, filter="data")
+(work / "render_job.py").write_bytes(base64.b64decode({job_b64!r}))
+{uploads}
+for name in {names!r}:
+    with tarfile.open(out / f"{{name}}.tar.gz", "r:gz") as tf:
+        tf.extractall(work, filter="data")
+render_job = work / "render_job.py"
+if not render_job.exists():
+    raise SystemExit("render_job.py missing in bundle")
 log = out / "render_job.log"
+report = {{"exit": None, "render": None}}
 with log.open("wb") as fh:
     proc = subprocess.run(
-        [sys.executable, str(work / "render_job.py"),
-         "--workdir", str(work), "--jobs", "all"],
+        [sys.executable, str(render_job), "--workdir", str(work), "--jobs", "all"],
         stdout=fh, stderr=subprocess.STDOUT)
-report = {"exit": proc.returncode}
-summary = work.parent / "render_report.json"
-if os.environ.get("OUTPUT_DIR") and (pathlib.Path(os.environ["OUTPUT_DIR"]) / "render_report.json").exists():
-    report["render"] = json.loads((pathlib.Path(os.environ["OUTPUT_DIR"]) / "render_report.json").read_text())
-(out / "job-result.json").write_text(json.dumps(report))
-print(json.dumps(report))
+report["exit"] = proc.returncode
+rp = out / "render_report.json"
+if rp.exists():
+    report["render"] = json.loads(rp.read_text())
+result = {{"ok": report["exit"] == 0, "report": report, "log": str(out / "render_job.log")}}
+(out / "job-result.json").write_text(json.dumps(result))
+print(json.dumps(result))
 """
 
 
-def exec_render(key: str, url: str, sid: str, timeout: int) -> dict:
+def exec_render(key: str, url: str, sid: str, code: str, timeout: int) -> dict:
     """POST /exec, never replaying after a dropped reply: poll for the
-    result file instead (LESSONS.md -- a stream drop is not an exit)."""
-    code = render_code()
+    result file instead (LESSONS.md -- a stream drop is not an exit).
+
+    Returns the job's `result` dict {ok, report, log} (the payload of
+    job-result.json / the exec reply's `result` field) plus the meter
+    time on the side.  A job that reports ok=False is a hard failure."""
     t0 = time.monotonic()
     status, body, _ = json_request(key, "POST", f"{url}/sandboxes/{sid}/exec",
                                    {"code": code, "timeout_s": timeout},
                                    timeout=timeout + 120)
+    result = None
     if status == 200 and isinstance(body, dict):
-        return body, time.monotonic() - t0
-    if status in (502, 503, 504):
+        result = body.get("result") if isinstance(body.get("result"), dict) else body
+    elif status in (502, 503, 504, 524):
         print(f"  [exec] HTTP {status}; polling for the job result file", flush=True)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            st, got, _ = json_request(key, "GET", f"{url}/sandboxes/{sid}/files/job-result.json")
+            st, got, _ = json_request(key, "GET",
+                                      f"{url}/sandboxes/{sid}/files/job-result.json")
             if st == 200 and isinstance(got, dict):
-                return got, time.monotonic() - t0
+                result = got.get("result") if isinstance(got.get("result"), dict) else got
+                break
             st2, _, _ = json_request(key, "GET", f"{url}/sandboxes/{sid}")
             if st2 == 404:
                 die(f"lease {sid} disappeared during execution")
+            print("  [exec] result not yet available; sleeping 10s", flush=True)
             time.sleep(10)
-        die(f"exec result never arrived for {sid} within {timeout}s")
-    die(f"exec: HTTP {status}: {body}")
-    return {}, 0.0
+        if result is None:
+            die(f"exec result never arrived for {sid} within {timeout}s")
+    else:
+        die(f"exec: HTTP {status}: {body}")
+    ok = result.get("ok", False)
+    if not ok:
+        rpt = result.get("report") or {}
+        detail = (rpt or {}).get("exit") or (result.get("log"))
+        die(f"GPU job failed (ok=False, exit={detail})")
+    return result, time.monotonic() - t0
 
 
 def download_frames(key: str, url: str, sid: str, dest: Path) -> dict:
     """GET /files then each frame; verify byte counts against the listing."""
     t0 = time.monotonic()
-    status, listing, _ = json_request(key, "GET", f"{url}/sandboxes/{sid}/files")
+    status, listing, _ = json_request(key, "GET", f"{url}/sandboxes/{sid}/files",
+                                      timeout=120)
     if status != 200 or not isinstance(listing, dict):
         die(f"file listing: HTTP {status}")
     rows = [r for r in listing.get("files", []) if r.get("name", "").endswith(".png")]
     if not rows:
         die("no PNG frames listed in the lease")
     dest.mkdir(parents=True, exist_ok=True)
+    seen = 0
+    total = 0
     for r in rows:
         name = r["name"]
         st, data, _ = request(key, "GET", f"{url}/sandboxes/{sid}/files/{name}",
                               timeout=300)
         if st != 200:
             die(f"download {name}: HTTP {st}")
-        (dest / name).write_bytes(data)
-    step("download", t0, f" ({len(rows)} frames, {sum(r.get('size', 0) for r in rows) / 1024 / 1024:.0f} MB)")
-    return {"frames": len(rows)}
+        # name is like frames/<scene>/0000.png
+        rel = Path(name)
+        if len(rel.parts) < 2 or rel.parts[0] != "frames":
+            continue
+        (dest / rel).write_bytes(data)
+        seen += 1
+        total += len(data)
+    step("download", t0, f" ({seen} frames, {total / 1024 / 1024:.0f} MB)")
+    if seen == 0:
+        die("no frames under frames/ in the lease listing")
+    return {"frames": seen, "bytes": total}
 
 
 # --------------------------------------------------------------------------- #
@@ -291,7 +388,7 @@ def destroy_lease(key: str, url: str, sid: str) -> None:
     """DELETE then GET and prove the lease is gone.  A lost reply is not a
     confirmation -- the GET decides (LESSONS.md)."""
     try:
-        request(key, "DELETE", f"{url}/sandboxes/{sid}")
+        status, _, _ = request(key, "DELETE", f"{url}/sandboxes/{sid}")
     except Exception as exc:
         die(f"DELETE {sid} raised {exc}; confirm its state manually")
     deadline = time.monotonic() + 60
@@ -304,10 +401,12 @@ def destroy_lease(key: str, url: str, sid: str) -> None:
             print(f"  [cleanup] destroyed {sid}; verified dead", flush=True)
             return
         time.sleep(3)
-    die(f"cleanup unconfirmed for {sid}: GET HTTP {st}; delete it with "
-        f"DELETE {url}/sandboxes/{sid}")
+    die(f"cleanup unconfirmed for {sid}: GET HTTP {st}; resolve it manually")
 
 
+# --------------------------------------------------------------------------- #
+# main
+# --------------------------------------------------------------------------- #
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(HERE / "out"),
@@ -315,18 +414,19 @@ def main() -> int:
     ap.add_argument("--timeout-s", type=int, default=TIMEOUT_S)
     ap.add_argument("--keep", action="store_true",
                     help="leave the lease up and print its id")
+    ap.add_argument("--fallback-upload", action="store_true",
+                    help="force the exec-base64 upload path (debug)")
     args = ap.parse_args()
 
     key, url = key_and_url()
     print(f"run.py: api {url}", flush=True)
     out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    receipt: dict = {"api": url, "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    receipt: dict = {"api": url,
+                     "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
     t_start = time.monotonic()
-    # CPU sandbox is the one we run in: nothing else to create.  We only
-    # record it as a step so the storyboard shows the two-sandbox story.
-    bundles = build_bundle(out)
+    bundles = build_bundle(out / "bundles")
     receipt["bundles"] = {s: {"bytes": v["bytes"], "sha256": v["sha256"]}
                           for s, v in bundles.items()}
 
@@ -334,40 +434,35 @@ def main() -> int:
     receipt["gpu_sandbox_id"] = sid
     print(f"  [lease] created {sid} in {create_s:.1f} s", flush=True)
     try:
+        # upload the job code first so the render path is always present
         up = {}
-        for scene, b in bundles.items():
-            up[scene] = upload_bundle(key, url, sid, b["path"])
+        use_put = probe_upload(key, url, sid)
+        receipt["upload_method"] = "PUT" if use_put else "exec-base64"
+        print(f"  [upload] route: {'PUT /files' if use_put else 'exec base64'}", flush=True)
+        if use_put:
+            for scene, b in bundles.items():
+                up[scene] = upload_bundle(key, url, sid, b["path"])
         receipt["uploads"] = up
-        result, render_s = exec_render(key, url, sid, args.timeout_s)
+        result, render_s = exec_render(key, url, sid,
+                                       render_program(bundles, RENDER_JOB.read_text(),
+                                                      fallback_upload=not use_put),
+                                       args.timeout_s)
         receipt["render_seconds"] = round(render_s, 2)
         receipt["exec_result"] = result
         step("render", t_start, f" ({render_s:.0f} s on the lease)")
         src = out / "frames"
         download_frames(key, url, sid, src)
-        # the judge needs the scene files the lease rendered: copy locally
-        scene_copy = out / "scene_copy"
-        for scene in SCENES:
-            if (SCENES_DIR / scene).exists():
-                shutil.copytree(SCENES_DIR / scene, scene_copy / scene,
-                                dirs_exist_ok=True, ignore=shutil.ignore_patterns("assets*", "mdl"))
-        g = subprocess.run([sys.executable, str(HERE / "judge" / "grade_frames.py"),
-                            "--run", str(out), "--json"],
+        g = subprocess.run([sys.executable, str(GRADE), "--run", str(out), "--json"],
                            capture_output=True, text=True, cwd=str(HERE))
         verdict = json.loads(g.stdout)
         (out / "verdict.json").write_text(json.dumps(verdict, indent=2, sort_keys=True))
         print(f"  [judge] {'PASS' if verdict['pass'] else 'FAIL'} "
-              f"(exit {g.returncode}, {g.stderr[-300:] if g.returncode else ''})", flush=True)
-        if g.returncode and not verdict.get("pass"):
-            pass   # non-pass verdict is reported below; proceed to cleanup
+              f"(exit {g.returncode})", flush=True)
     finally:
         if args.keep:
             print(f"keeping lease {sid}", flush=True)
         else:
             destroy_lease(key, url, sid)
-        st, body, _ = json_request(key, "GET", f"{url}/sandboxes")
-        ids = {r.get("sandboxID") for r in body} if isinstance(body, list) else set()
-        if sid in ids:
-            die(f"residual lease {sid} still listed")
 
     receipt["total_seconds"] = round(time.monotonic() - t_start, 2)
     (out / "run-receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True))

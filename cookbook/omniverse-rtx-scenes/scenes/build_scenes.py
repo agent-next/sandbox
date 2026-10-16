@@ -238,7 +238,7 @@ def fix_rack_udim(scene_dir: Path) -> None:
     from pxr import Usd
 
     udim_re = re.compile(
-        r"\.(?:Albedo|Albedo_[A-Z0-9]+|Normal|ORM|Trim_Albedo|Trim_Normal|"
+        r"(?:\.|_)(?:Albedo|Albedo_[A-Z0-9]+|Normal|ORM|Trim_Albedo|Trim_Normal|"
         r"Trim_ORM|Trim_Opacity)\.<UDIM>\.png")
 
     rack = scene_dir / "assets" / "Props" / "general" / "RackLongEmpty_A1"

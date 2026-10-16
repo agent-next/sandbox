@@ -97,12 +97,20 @@ def gate_silhouette(stage, scene: str, frames_dir: Path) -> dict:
         return {"pass": False, "iou_min": None,
                 "failures": [f"no frames found in {frames_dir}"],
                 "objects": [], "coverage_min": None}
+    if stage is None:
+        return {"pass": False, "iou_min": None,
+                "failures": ["scene.usda not found; cannot compute the "
+                             "analytic projection"], "objects": [],
+                "coverage_min": None}
     fps = 30.0
     for prim_path in TRACKED[scene]:
         ious, covs = [], []
         for idx, fp in enumerate(files):
-            t = (idx * max(1, 30)) / fps
-            proj = project.project_prim_bbox(stage, prim_path, t)
+            try:
+                t = (idx * max(1, 30)) / fps
+                proj = project.project_prim_bbox(stage, prim_path, t)
+            except Exception:
+                proj = {"visible": False}
             if not proj["visible"]:
                 continue
             img = np.asarray(Image.open(fp).convert("RGB"))
@@ -200,15 +208,19 @@ def gate_scene_usd(scene: str) -> dict:
 
 
 def grade(run_dir: Path) -> dict:
+    """Grade each scene's frames.  The stage the G1 projection is computed
+    against is the repo's own scenes/<scene>/scene.usda (assets present) —
+    the same file the render job read — so referenced prims resolve."""
     gates, scenes = {}, {}
+    root = Path(__file__).resolve().parent.parent
     for scene in SCENES:
         frames_dir = run_dir / "frames" / scene
+        stage_path = root / "scenes" / scene / "scene.usda"
+        if not stage_path.exists():
+            stage_path = run_dir / "scene_copy" / scene / "scene.usda"
+        stage = Usd.Stage.Open(str(stage_path)) if stage_path.exists() else None
         scenes[scene] = {
-            "G1_silhouette": gate_silhouette(
-                Usd.Stage.Open(str(run_dir / "scene_copy" / scene / "scene.usda"))
-                if (run_dir / "scene_copy" / scene / "scene.usda").exists()
-                else Usd.Stage.Open(str(run_dir.parent / "scenes" / scene / "scene.usda")),
-                scene, frames_dir),
+            "G1_silhouette": gate_silhouette(stage, scene, frames_dir),
             "G2_texture": gate_texture(frames_dir),
             "G3_temporal": gate_temporal(frames_dir),
             "G4_scene_usd": gate_scene_usd(scene),
