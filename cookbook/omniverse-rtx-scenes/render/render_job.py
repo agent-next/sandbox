@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """render_job.py — runs INSIDE the GPU sandbox (omniverse template, ovrtx RTX).
 
-Uploaded as part of bundle.tar.zst and invoked by run.py through
+Uploaded with the scene bundle and invoked by run.py through
 POST /sandboxes/{id}/exec.  It renders all three scenes with the RTX
-path tracer, writes PNG frames + an mp4 into OUTPUT_DIR, and reports
-per-scene metrics in the exec `report` dict.
+path tracer, writes PNG frames + an mp4 into the synced output dir, and
+reports per-scene metrics in the exec `report` dict.
 
 Contract with the product (verified live on template `omniverse`):
   * python = /opt/omniverse/bin/python (ovrtx, ovstage, pxr, PIL, numpy,
     av importable; no torch).
-  * exec cwd is "/" — every path is absolute (OUTPUT_DIR or under it).
+  * exec cwd is "/" — every path is absolute.
   * the GPU sandbox has NO network: the bundle carries the scenes.
   * `report` is a plain dict; the gateway returns it verbatim in the reply.
 
@@ -20,19 +20,20 @@ Design notes (why the job looks like this):
   * Stage-1 scenes carry no UsdRender.Product, so the job authors one
     wrapper layer per scene that owns /Render/Camera + LdrColor and
     references scene.usda relatively (same folder, so the scene's own
-    relative refs keep resolving).  The reference template
-    (agent-infra examples/gpu/omniverse_smoke.py) proved those exact
-    paths are what ovrtx steps for.
+    relative refs keep resolving).
+  * `token omni:rtx:rendermode = "RealTimePathTracing"` on the product is
+    what actually turns on the RTX path tracer.
+  * RTX exposure lives ON THE CAMERA via OmniRtxCameraExposureAPI; without
+    it a dome-lit frame maps to exactly 0 and the PNG is black.
+  * Scene B (physics) ships no light at all, so the wrapper authors a
+    dome + rect key exactly like scenes A and C carry.
   * Animated frames come from ovstage.population.update_from_usd_time
-    (time in SECONDS = timecode/fps) followed by one renderer.step()
-    per frame; the physics bake (time-sampled xformOp) therefore
-    renders exactly the trajectory the judge graded.
-  * Path-tracer convergence: this image has no working denoiser (the
-    NGX context fails at boot — logged, not fatal), so clean frames are
-    bought with renderer time: --steps-per-frame accumulates renderer
-    steps per frame (FrameOutput.converged/progression are recorded in
-    the report so the sweep can pick the rung that clears the noise
-    target without overspending).
+    (time in SECONDS = timecode/fps) with a FRESH renderer ordinal per
+    frame (the ovrtx multi-rate-sensors example pattern).
+  * Path-tracer convergence is bought with renderer time: --steps-per-frame
+    accumulates renderer.step() calls per frame; converged/progression and
+    per-frame luma stats are recorded so the sweep can pick the rung that
+    clears the noise target.
 """
 
 from __future__ import annotations
@@ -45,73 +46,69 @@ import time
 from pathlib import Path
 
 SCENES = {
-    "warehouse": dict(label="Scene A warehouse robot dolly", frames=8 * 30),
-    "physics": dict(label="Scene B PhysX crate collapse", frames=6 * 30),
-    "arm": dict(label="Scene C robot arm hero turntable", frames=6 * 30),
+    "warehouse": dict(label="Scene A warehouse robot dolly",
+                      frames=8 * 30, end_time=8.0),
+    "physics": dict(label="Scene B PhysX crate collapse",
+                    frames=6 * 30, end_time=6.0),
+    "arm": dict(label="Scene C robot arm hero turntable",
+                frames=6 * 30, end_time=6.0),
 }
 W, H = 1920, 1080
 FPS = 30
 PRODUCT = "/Render/Camera"
 LDR_VAR = "/Render/LdrColor"
 # Stage-1 light intensities are authored for Kit auto-exposure; the manual
-# RTX exposure needs ~1000x more radiance (see author_wrapper).
+# RTX exposure needs ~1000x more radiance.
 LIGHT_SCALE = 1000.0
-# The bundled sky is a Radiance .hdr; a colour fallback keeps the background
-# visible if ovrtx cannot decode that format (see author_wrapper).
-USE_COLOR_SKY = True
-SKY_COLOR = (0.05, 0.07, 0.12)
+# Scene B has no lights; the wrapper adds these (dome + key).
+PHYSICS_DOME_INTENSITY = 800.0
+PHYSICS_KEY_INTENSITY = 2500.0
 
 
 def log(msg: str) -> None:
     print(f"[render] {msg}", flush=True)
 
 
-def synced_outdir(workdir: Path) -> Path:
+def synced_outdir(workdir: Path, explicit: str | None = None) -> Path:
     """The directory the gateway syncs (GET /files lists it).
 
     PUT /files/out/<name> lands at <lease>/out/<name>, and that same
-    <lease>/out IS the directory GET /files later serves.  The exec
-    global OUTPUT_DIR is *not* guaranteed: this run writes frames where
-    it knows the gateway will expose them.
-
-    Resolution order:
-      1. --outdir if ever passed (unused today)
-      2. env OUTPUT_DIR (set by some exec variants; the reference lands
-         frames there and they ARE synced)
-      3. the discovered lease root: walking up from the untarred bundle
-         workdir, the dir containing `bundle/` and sibling to a
-         `toplevel.txt`-style marker is the synced `out`.
+    <lease>/out IS the directory GET /files later serves (the exec global
+    OUTPUT_DIR points at it).  Resolution order:
+      1. --outdir (run.py always passes it: Path(OUTPUT_DIR)/"bundle")
+      2. env OUTPUT_DIR
+      3. walking up from the untarred workdir, the first dir whose
+         children include the untar payload marker `bundle`
       4. workdir.parent of last resort.
     """
+    if explicit:
+        return Path(explicit).resolve()
     od = os.environ.get("OUTPUT_DIR")
     if od:
         return Path(od).resolve()
-    LOOK = ("bundle",)
     cur = workdir
     for _ in range(6):
-        parts = [p.name for p in cur.iterdir()] if cur.is_dir() else []
-        if all(l in parts for l in LOOK):
+        try:
+            names = {p.name for p in cur.iterdir()}
+        except OSError:
+            break
+        if "bundle" in names:
             return cur.resolve()
         cur = cur.parent
     return workdir.parent.resolve()
 
 
-def author_wrapper(scene_root: Path) -> Path:
-    """Overlay layer owning the RenderProduct/Var, referencing scene.usda.
+def _attr(prim, name, vtype: str, value) -> None:
+    """Create (or set) an attribute with an Sdf.ValueTypeNames type."""
+    from pxr import Sdf
+    attr = prim.GetAttribute(name) or prim.CreateAttribute(
+        name, getattr(Sdf.ValueTypeNames, vtype))
+    attr.Set(value)
 
-    Written with pxr (present in the image) rather than string surgery so
-    the layer is guaranteed-valid USD.  Follows the canonical ovrtx
-    scene_partitions.usda authoring exactly:
-      * the RenderVar is a SIBLING of the product at /Render/LdrColor,
-        not nested under the product path;
-      * orderedVars points at that sibling;
-      * `token omni:rtx:rendermode = "RealTimePathTracing"` on the product
-        is what actually turns on the RTX path tracer — without it the
-        product renders env-light only and comes out black;
-      * resolution is Gf.Vec2i (a tuple raises a type mismatch).
-    The scene is referenced from a sibling prim so the scene's own
-    relative refs keep resolving (same folder)."""
-    from pxr import Gf, Sdf, Usd, UsdGeom, UsdRender
+
+def author_wrapper(scene_root: Path) -> Path:
+    """Overlay layer owning the RenderProduct/Var, referencing scene.usda."""
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdRender, UsdLux
 
     scene_file = scene_root / "scene.usda"
     scene = Usd.Stage.Open(str(scene_file))
@@ -125,14 +122,9 @@ def author_wrapper(scene_root: Path) -> Path:
     root = UsdGeom.Xform.Define(stage, "/Render")
     stage.SetDefaultPrim(root.GetPrim())
 
-    # the scene comes in under its own scope via a relative reference
     scope_path = "/Render/Scene"
     scope = UsdGeom.Xform.Define(stage, scope_path)
     scope.GetPrim().GetReferences().AddReference("./scene.usda")
-    # The camera prim composes under the reference scope, so the composed
-    # path is <scope>/<scene-relative path>.  Re-resolve it from the
-    # composed stage: the scene's own path (/World/CameraXform/Camera)
-    # does NOT exist at the wrapper's root.
     composed = f"{scope_path}{cam_path}"
     if not (stage.GetPrimAtPath(composed) or False):
         found = [p for p in stage.Traverse()
@@ -142,8 +134,6 @@ def author_wrapper(scene_root: Path) -> Path:
             composed = found[0].GetPath().pathString
     cam_path = composed
 
-    # RenderVar sibling at /Render/LdrColor (canonical path, matches the
-    # product's orderedVars target and render_job's step() var lookup).
     VAR_PATH = "/Render/LdrColor"
     var = UsdRender.Var.Define(stage, VAR_PATH)
     var.CreateSourceNameAttr().Set("LdrColor")
@@ -153,22 +143,14 @@ def author_wrapper(scene_root: Path) -> Path:
     prod.CreateCameraRel().SetTargets([cam_path])
     prod.CreateResolutionAttr().Set(Gf.Vec2i(W, H))
     prod.CreateOrderedVarsRel().SetTargets([Sdf.Path(VAR_PATH)])
-    # The switch that makes the product an RTX path tracer.  CreateAttribute
-    # needs an Sdf.ValueTypeName (a bare "token" string picks the vector
-    # overload and raises).
+    # The switch that makes the product an RTX path tracer.
     prod.GetPrim().CreateAttribute(
         "omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set("RealTimePathTracing")
-    # Global render settings: show every partition (no partitions authored,
-    # but the canonical example sets it and it is harmless).
     settings = UsdRender.Settings.Define(stage, "/Render/Settings")
     settings.GetPrim().CreateAttribute(
         "omni:rtx:scenePartitioning:showAllPartitionsByDefault",
         Sdf.ValueTypeNames.Bool).Set(True)
 
-    # RTX exposure lives ON THE CAMERA (canonical torus-plane.usda): the
-    # dome-lit frame maps to exactly 0 without OmniRtxCameraExposureAPI,
-    # which is why a bare product renders a black PNG.  `over` the camera
-    # from the wrapper so the graded scene.usda is never edited.
     cam_prim = stage.GetPrimAtPath(cam_path)
     if not cam_prim or not cam_prim.IsValid():
         raise RuntimeError(f"camera {cam_path} not composed into {wrapper_path}")
@@ -181,48 +163,112 @@ def author_wrapper(scene_root: Path) -> Path:
     _attr(cam_prim, "exposure:time", "Float", 0.02)
     _attr(cam_prim, "omni:rtx:autoExposure:enabled", "Bool", False)
 
-    # Stage-1 lights are authored for Kit's AUTO-exposure (a dome at
-    # intensity 0.8 is a normal Kit value).  Under the manual exposure
-    # above that radiance maps below 1/255 and the frame is black, so each
-    # authored light is scaled up from the wrapper `over` — the graded
-    # scene.usda is never edited.  1000x matches the canonical
-    # scene_partitions.usda dome intensity.
-    from pxr import UsdLux
+    # Scale authored lights up from the wrapper `over` so the graded
+    # scene.usda is never edited.
+    domes = []
     for prim in stage.Traverse():
         if prim.IsA(UsdLux.DomeLight):
+            domes.append(prim)
             a = prim.GetAttribute("inputs:intensity")
             _attr(prim, "inputs:intensity", "Float",
                   float(a.Get() or 1.0) * LIGHT_SCALE)
             tex = prim.GetAttribute("inputs:texture:file").Get()
             if tex:
-                # Without texture:format="latlong" ovrtx treats the HDR as a
-                # flat projection onto a small dome, so almost no ray samples
-                # it and the background renders black.  The canonical
-                # scene_partitions.usda always sets it.
                 _attr(prim, "inputs:texture:format", "Token", "latlong")
-                if USE_COLOR_SKY:
-                    # The bundled sky is a Radiance .hdr; if the ovrtx asset
-                    # pipeline cannot decode it the background stays black, so
-                    # the graded dome texture is kept AND a colour is added as
-                    # a guaranteed-visible fallback.
-                    c = prim.GetAttribute("inputs:color")
-                    if not c or not c.Get():
-                        _attr(prim, "inputs:color", "Color3f", SKY_COLOR)
+                c = prim.GetAttribute("inputs:color")
+                if not c or not c.Get():
+                    _attr(prim, "inputs:color", "Color3f", (0.05, 0.07, 0.12))
         elif prim.IsA(UsdLux.DistantLight) or prim.IsA(UsdLux.RectLight):
             a = prim.GetAttribute("inputs:intensity")
             _attr(prim, "inputs:intensity", "Float",
                   float(a.Get() or 1.0) * LIGHT_SCALE)
 
+    # Scene B authors no light: give it a dome + key so the boxes are
+    # visible and the "dropped light" mutant has something to drop.
+    if not domes:
+        dome = UsdLux.DomeLight.Define(stage, "/Render/Environment")
+        dome.CreateIntensityAttr(PHYSICS_DOME_INTENSITY)
+        dome.CreateColorAttr(Gf.Vec3f(0.7, 0.72, 0.75))
+        key = UsdLux.RectLight.Define(stage, "/Render/Key")
+        key.CreateIntensityAttr(PHYSICS_KEY_INTENSITY)
+        key.CreateWidthAttr(4.0)
+        key.CreateHeightAttr(4.0)
+        key.AddTranslateOp().Set(Gf.Vec3d(2.0, 4.0, 1.5))
+        key.AddRotateXOp(-60.0)
+        log("scene has no light: authored dome + rect key in the wrapper")
+
     stage.GetRootLayer().Save()
     return wrapper_path
 
 
-def _attr(prim, name, vtype: str, value) -> None:
-    """Create (or set) an attribute with an Sdf.ValueTypeNames type."""
-    from pxr import Sdf
-    attr = prim.GetAttribute(name) or prim.CreateAttribute(
-        name, getattr(Sdf.ValueTypeNames, vtype))
-    attr.Set(value)
+def encode_mp4(frames_dir: Path, out_path: Path, fps: int = FPS) -> dict:
+    """H.264 encode of a frame directory with PyAV (the omniverse image
+    ships `av` 19.0.1 but NO ffmpeg binary — verified live, see
+    PRODUCT-FRICTION.md).  libx264 is tried first; whatever encoder the
+    image actually has is reported.  This mp4 is the review/screen copy;
+    the shipped web encode is re-cut on the caller."""
+    import av
+    import numpy as np
+    from PIL import Image
+    files = sorted(frames_dir.glob("*.png"))
+    if not files:
+        return {"ok": False, "reason": f"no frames in {frames_dir}"}
+    try:
+        codec = av.codec.Codec("libx264", "w")
+        name = "libx264"
+    except av.error.FFmpegError:
+        candidates = [c for c in ("mpeg4", "libopenh264")
+                      if _codec_ok(av, c)]
+        if not candidates:
+            return {"ok": False, "reason": "no usable video encoder in PyAV"}
+        name = candidates[0]
+    options = {"crf": "16"} if name == "libx264" else {"q:v": "2"}
+    container = av.open(str(out_path), mode="w")
+    stream = container.add_stream(name, rate=fps)
+    stream.width, stream.height = W, H
+    stream.pix_fmt = "yuv420p"
+    stream.options = options
+    for fp in files:
+        img = Image.open(fp).convert("RGB")
+        frame = av.VideoFrame.from_ndarray(np.asarray(img), format="rgb24")
+        for packet in stream.encode(frame):
+            container.mux(packet)
+    for packet in stream.encode():
+        container.mux(packet)
+    container.close()
+    return {"ok": True, "codec": name, "bytes": out_path.stat().st_size,
+            "frames": len(files)}
+
+
+def _codec_ok(av, name: str) -> bool:
+    try:
+        av.codec.Codec(name, "w")
+        return True
+    except Exception:
+        return False
+
+
+def pick_hero(frames_dir: Path) -> dict:
+    """The best finished hero frame: among the last quarter of the arm
+    turntable (the most converged), the one with the most edge energy —
+    a measured pick, not a hand choice.  Copies it to out/hero.png."""
+    import numpy as np
+    from PIL import Image
+    files = sorted(frames_dir.glob("*.png"))
+    if not files:
+        return {"ok": False, "reason": "no frames"}
+    tail = files[max(0, len(files) - max(1, len(files) // 4)):]
+    best, best_energy = None, -1.0
+    for fp in tail:
+        img = np.asarray(Image.open(fp).convert("L"), dtype=np.float32)
+        gx = np.abs(np.diff(img, axis=1)).mean()
+        gy = np.abs(np.diff(img, axis=0)).mean()
+        energy = float(gx + gy)
+        if energy > best_energy:
+            best, best_energy = fp, energy
+    hero = frames_dir.parent.parent / "hero.png"
+    hero.write_bytes(best.read_bytes())
+    return {"ok": True, "frame": best.name, "edge_energy": round(best_energy, 4)}
 
 
 def render_scene(scene: str, workdir: Path, outdir: Path,
@@ -250,17 +296,10 @@ def render_scene(scene: str, workdir: Path, outdir: Path,
         stage.advance_write_floor(ordinal, ovstage.Scope.ALL).wait()
 
         for i in range(n):
-            # Time advances one step per frame with a FRESH ordinal each
-            # step, exactly like the ovrtx multi-rate-sensors example:
-            #   ordinal += 1
-            #   update_from_usd_time(stage, ordinal, sim_time)
-            #   advance_write_floor(ordinal, ...)
-            #   renderer.step(..., ordinal=ordinal)
-            # The offending pattern was a fixed ordinal=1 on every frame,
-            # which the population manager rejects (OP_FAILED) because the
-            # write floor had already advanced past it.
+            # A FRESH ordinal per frame (the ovrtx multi-rate-sensors
+            # example pattern): a fixed ordinal is rejected with OP_FAILED
+            # because the write floor has already advanced past it.
             ordinal += 1
-            # time in seconds (update_from_usd_time converts via fps)
             ovstage.population.update_from_usd_time(stage, ordinal=ordinal,
                                                     time_code=i / FPS)
             stage.advance_write_floor(ordinal, ovstage.Scope.ALL).wait()
@@ -294,19 +333,15 @@ def render_scene(scene: str, workdir: Path, outdir: Path,
             progressions.append(int(frame_out.progression)
                                 if frame_out else None)
             from PIL import Image
-            # map() already returns bytes in the same layout PIL saves;
-            # clip to [0,255] uint8 so the PNG is valid RGB.
             rgb = np.clip(pixels[..., :3], 0.0, 255.0).astype(np.uint8)
-            img = Image.fromarray(rgb)
-            name = f"{i:04d}.png"
-            img.save(frames_dir / name)
-            written.append(name)
+            Image.fromarray(rgb).save(frames_dir / f"{i:04d}.png")
+            written.append(f"{i:04d}.png")
             luma = pixels[..., :3].astype(float).mean(axis=2)
             noise.append(float(luma.std()))
             del pixels, frame_out, luma
 
         wall = time.monotonic() - t0
-        return {
+        row = {
             "frames": len(written),
             "steps_per_frame": steps_per_frame,
             "wall_s": round(wall, 3),
@@ -317,6 +352,11 @@ def render_scene(scene: str, workdir: Path, outdir: Path,
             "luma_std_p50": round(sorted(noise)[len(noise) // 2], 3)
             if noise else None,
         }
+        if scene == "arm":
+            row["hero"] = pick_hero(frames_dir)
+        mp4 = encode_mp4(frames_dir, outdir / f"{scene}.mp4")
+        row["mp4"] = mp4
+        return row
     finally:
         for closer in (lambda: renderer.detach_ovstage(),
                        lambda: stage.destroy(),
@@ -330,7 +370,9 @@ def render_scene(scene: str, workdir: Path, outdir: Path,
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--workdir", required=True,
-                    help="untarred bundle root (contains <scene>/ scene folders)")
+                    help="untarred bundle root (contains <scene>/ folders)")
+    ap.add_argument("--outdir", default=None,
+                    help="synced output dir (default: OUTPUT_DIR / discovery)")
     ap.add_argument("--jobs", default="all",
                     help="comma list of scenes or 'all'")
     ap.add_argument("--steps-per-frame", type=int, default=1,
@@ -340,11 +382,12 @@ def main() -> int:
     args = ap.parse_args()
 
     workdir = Path(args.workdir).resolve()
-    outdir = synced_outdir(workdir)
+    outdir = synced_outdir(workdir, args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
     jobs = list(SCENES) if args.jobs == "all" else args.jobs.split(",")
-    report = {"steps_per_frame": args.steps_per_frame, "jobs": {}}
+    report = {"steps_per_frame": args.steps_per_frame,
+              "frame_limit": args.frame_limit, "jobs": {}}
     t_start = time.monotonic()
     for scene in jobs:
         if scene not in SCENES:
@@ -356,7 +399,8 @@ def main() -> int:
                            args.frame_limit)
         report["jobs"][scene] = row
         log(f"{scene}: {row['frames']} frames in {row['wall_s']} s "
-            f"({row['s_per_frame']} s/frame)")
+            f"({row['s_per_frame']} s/frame); "
+            f"converged {row['converged_pct']}%")
     report["total_wall_s"] = round(time.monotonic() - t_start, 3)
     (outdir / "render_report.json").write_text(json.dumps(report, indent=2))
     log(f"done: {report['total_wall_s']} s total")

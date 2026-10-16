@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-"""mutate_frames.py — generate known-bad RENDERED FRAME sets for the stage-2
-judge selftest.
+"""mutate_frames.py — known-bad RENDERED FRAME sets for the stage-2 selftest.
 
-The stage-2 judge (grade_frames.py) grades 1920x1080 PNG frames.  It must
-kill at least 5 distinct renderer failures.  This module synthesises a
-plausible "good" hero frame for each tracked scene from the analytic
-projection (judge/project.py) and then applies one single renderer defect
-per mutant, so the only thing the judge can blame for the failure is the
-mutant's defect.
+The stage-2 judge (grade_frames.py) grades 1920x1080 PNG frames rendered
+by the GPU lease.  Its selftest takes the REAL frames a run downloaded
+and injects exactly one renderer defect per mutant, so the only thing the
+judge can blame for a failure is that defect.  Nothing is synthesised
+from scratch: the good set is the run's own output.
 
-Mutants (each kills >= 1 gate; see the table in RECEIPT.md):
-  1. missing_texture  — magenta fill over the tracked object's bbox
-  2. untextured_grey  — usdpreviewsurface default grey over the object
-  3. black_frame      — a single all-black frame mid-sequence (temporal)
-  4. frozen_bounce    — the same frame repeated (temporal, G3 frozen)
-  5. camera_off       — object drawn far off its projected bbox (G1)
-  6. underexposed     — dropped light: whole frame near black (G3 black)
-  7. wrong_units      — object rendered at 0.01x scale (G1 coverage)
+Mutants (single edits of the good frames; see the kill table in RECEIPT.md):
+  1. missing_texture  — magenta fill over each tracked object's projected
+                        bbox (the classic unresolved-texture signal)
+  2. untextured_grey  — USD default grey over the same bboxes
+  3. black_frame      — one all-black frame mid-sequence
+  4. frozen           — the sequence stops at its midpoint (frozen physics)
+  5. camera_off       — the whole plate rolls 25 % sideways, so every
+                        tracked object leaves its projected bbox
+  6. underexposed     — every pixel x0.05 (the key light dropped)
+  7. wrong_units      — the object region collapses to 1 % of its bbox
+                        (the scene was authored in the wrong unit)
 
 Usage:
-  python3 judge/mutate_frames.py --out <dir>           # writes good/ + mutants/
-  python3 judge/mutate_frames.py --selftest            # runs grade_frames on
-                                                       #   good and each mutant
-Every mutant is a SINGLE edit of the good frames so the judge's per-gate
-report names the defect.  Standard library + numpy/PIL/pxr.
+  python3 judge/mutate_frames.py --frames <run frames dir> [--out DIR]
+  python3 judge/mutate_frames.py --selftest --frames <run frames dir>
+
+Standard library + numpy/PIL/pxr.  Output dirs are gitignored.
 """
 
 from __future__ import annotations
@@ -31,7 +31,6 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -50,13 +49,9 @@ TRACKED = {
     "arm": ["/World/Robot", "/World/Table"],
 }
 W, H = 1920, 1080
-
-# palette: sky, a warm floor, the object's plastic blue
-SKY = (150, 170, 200)
-FLOOR = (120, 95, 80)
-OBJECT = (60, 90, 160)
 MAGENTA = (255, 0, 255)
 DEFAULT_GREY = (171, 171, 171)
+N_KEEP = 8          # frames per scene in each frame set
 
 
 def projected_boxes(stage: Usd.Stage, scene: str, t: float) -> dict:
@@ -69,138 +64,140 @@ def projected_boxes(stage: Usd.Stage, scene: str, t: float) -> dict:
     return out
 
 
-def fill_box(img: np.ndarray, box, color, margin: int = 0) -> np.ndarray:
+def pick_frames(frames_dir: Path, n: int = N_KEEP) -> list[Path]:
+    """A consecutive run (the temporal gate needs adjacent frames),
+    falling back to an evenly spaced sample when only strided frames
+    were downloaded."""
+    files = sorted(frames_dir.glob("*.png"))
+    if not files:
+        return []
+    consecutive = []
+    for a, b in zip(files, files[1:]):
+        if consecutive and int(b.stem) == int(consecutive[-1].stem) + 1:
+            consecutive.append(b)
+        elif not consecutive:
+            consecutive = [a, b] if int(b.stem) == int(a.stem) + 1 else [a]
+        if len(consecutive) >= n:
+            return consecutive[:n]
+    if len(consecutive) >= n:
+        return consecutive[:n]
+    step = max(1, len(files) // n)
+    return files[::step][:n]
+
+
+def load_set(frames: list[Path]) -> list[np.ndarray]:
+    return [np.asarray(Image.open(fp).convert("RGB")).copy() for fp in frames]
+
+
+def gen(frames_root: Path, base: Path, stages: dict) -> dict:
+    """Write good/ + mutants/<name>/ frame sets from the run's frames."""
+    if base.exists():
+        shutil.rmtree(base)
+    picked, times = {}, {}
+    for scene in SCENES:
+        sdir = frames_root / scene
+        files = pick_frames(sdir) if sdir.exists() else []
+        if not files:
+            print(f"  [mutate] {scene}: no frames in {sdir}; skipped", flush=True)
+            continue
+        picked[scene] = files
+        times[scene] = [int(f.stem) / 30.0 for f in files]
+
+    for scene, files in picked.items():
+        imgs = load_set(files)
+        good_dir = base / "good" / "frames" / scene
+        good_dir.mkdir(parents=True, exist_ok=True)
+        for fp, img in zip(files, imgs):
+            Image.fromarray(img).save(good_dir / fp.name)
+        boxes = [projected_boxes(stages[scene], scene, t) for t in times[scene]]
+
+        def out_dir(mutant: str) -> Path:
+            d = base / "mutants" / mutant / "frames" / scene
+            d.mkdir(parents=True, exist_ok=True)
+            return d
+
+        def save(mutant: str, seq: list[np.ndarray]) -> None:
+            d = out_dir(mutant)
+            for fp, img in zip(files, seq):
+                Image.fromarray(img).save(d / fp.name)
+
+        # 1. missing texture: magenta over each tracked object's bbox
+        seq = []
+        for img, bxs in zip(imgs, boxes):
+            m = img.copy()
+            for box in bxs.values():
+                _fill(m, box, MAGENTA)
+            seq.append(m)
+        save("missing_texture", seq)
+
+        # 2. unbound default grey over the same bboxes
+        seq = []
+        for img, bxs in zip(imgs, boxes):
+            m = img.copy()
+            for box in bxs.values():
+                _fill(m, box, DEFAULT_GREY)
+            seq.append(m)
+        save("untextured_grey", seq)
+
+        # 3. one mid-sequence all-black frame
+        mid = len(imgs) // 2
+        seq = [np.zeros_like(img) if i == mid else img for i, img in enumerate(imgs)]
+        save("black_frame", seq)
+
+        # 4. frozen: everything after the midpoint is the midpoint
+        seq = [img if i <= mid else imgs[mid] for i, img in enumerate(imgs)]
+        save("frozen", seq)
+
+        # 5. camera off target: the plate rolls a quarter width sideways
+        shift = W // 4
+        seq = [np.roll(img, shift, axis=1) for img in imgs]
+        save("camera_off", seq)
+
+        # 6. dropped key light: the whole plate is underexposed
+        seq = [(img.astype(np.float32) * 0.05).astype(np.uint8) for img in imgs]
+        save("underexposed", seq)
+
+        # 7. wrong units: each object collapses to 1 % of its bbox area
+        seq = []
+        for img, bxs in zip(imgs, boxes):
+            m = img.copy()
+            for box in bxs.values():
+                _shrink(m, box, 0.01)
+            seq.append(m)
+        save("wrong_units", seq)
+
+    return {"scenes": sorted(picked),
+            "frames_per_scene": {s: len(v) for s, v in picked.items()}}
+
+
+def _fill(img: np.ndarray, box, color) -> None:
     x0, y0, x1, y1 = [int(round(v)) for v in box]
-    x0 -= margin; y0 -= margin; x1 += margin; y1 += margin
     x0, y0 = max(0, x0), max(0, y0)
     x1, y1 = min(W, x1), min(H, y1)
-    img[y0:y1, x0:x1] = color
-    return img
+    if x1 > x0 and y1 > y0:
+        img[y0:y1, x0:x1] = color
 
 
-def good_frames(stage: Usd.Stage, scene: str, n: int = 8) -> np.ndarray:
-    """Synthesise a plausible Good frame for the scene at n evenly spaced
-    times: sky + floor + a shaded object blob at its projected bbox."""
-    img = np.zeros((H, W, 3), dtype=np.uint8)
-    img[...] = SKY
-    img[int(H * 0.6):H, :] = FLOOR
-    boxes = projected_boxes(stage, scene, 0.0)
-    for prim, box in boxes.items():
-        # the object: a shaded blob (top-lit brighter than bottom) bounded to
-        # the frame so the gradient never exceeds the slice height
-        x0, y0 = max(0, int(box[0])), max(0, int(box[1]))
-        x1, y1 = min(W, int(box[2])), min(H, int(box[3]))
-        if y1 <= y0 or x1 <= x0:
-            continue
-        grad = np.linspace(1.0, 0.5, y1 - y0)[:, None]
-        for c in range(3):
-            img[y0:y1, x0:x1, c] = (OBJECT[c] * grad).astype(np.uint8)
-    return img
-
-
-def write_frames(img: np.ndarray, scene: str, n: int, outdir: Path,
-                 suffix: str = "") -> None:
-    d = outdir / "frames" / f"{scene}{suffix}"
-    d.mkdir(parents=True, exist_ok=True)
-    for i in range(n):
-        Image.fromarray(img).save(d / f"{i:04d}.png")
-
-
-def gen_mutants(base: Path) -> dict:
-    """Write good/ + mutants/<name>/ frame sets.  Returns {name: gate_killed}."""
-    results = {}
-    cached = {}
-    good_cells = None
-    for scene in SCENES:
-        stage = Usd.Stage.Open(str(ROOT / "scenes" / scene / "scene.usda"))
-        cached[scene] = stage
-        img = good_frames(stage, scene, n=8)
-        write_frames(img, scene, 8, base / "good")
-        good_cells = img
-
-    scene_box = {}
-    for scene in SCENES:
-        stage = Usd.Stage.Open(str(ROOT / "scenes" / scene / "scene.usda"))
-        b = projected_boxes(stage, scene, 0.0)
-        scene_box[scene] = b
-
-    # 1. magenta fill over every tracked object
-    for scene in SCENES:
-        d = base / "mutants" / "missing_texture" / "frames" / scene
-        d.mkdir(parents=True, exist_ok=True)
-        img = good_frames(cached[scene], scene, 8)
-        for box in scene_box[scene].values():
-            fill_box(img, box, MAGENTA)
-        for i in range(8):
-            Image.fromarray(img).save(d / f"{i:04d}.png")
-
-    # 2. default unbound grey over the object
-    for scene in SCENES:
-        d = base / "mutants" / "untextured_grey" / "frames" / scene
-        d.mkdir(parents=True, exist_ok=True)
-        img = good_frames(cached[scene], scene, 8)
-        for box in scene_box[scene].values():
-            fill_box(img, box, DEFAULT_GREY)
-        for i in range(8):
-            Image.fromarray(img).save(d / f"{i:04d}.png")
-
-    # 3. one mid-sequence all-black frame
-    for scene in SCENES:
-        d = base / "mutants" / "black_frame" / "frames" / scene
-        d.mkdir(parents=True, exist_ok=True)
-        img = good_frames(cached[scene], scene, 8)
-        for i in range(8):
-            frame = img if i != 4 else np.zeros((H, W, 3), dtype=np.uint8)
-            Image.fromarray(frame).save(d / f"{i:04d}.png")
-
-    # 4. frozen: frames 4..7 identical to frame 3
-    for scene in SCENES:
-        d = base / "mutants" / "frozen" / "frames" / scene
-        d.mkdir(parents=True, exist_ok=True)
-        img = good_frames(cached[scene], scene, 8)
-        for i in range(8):
-            frame = img if i < 4 else np.asarray(good_cells[3])
-            Image.fromarray(frame).save(d / f"{i:04d}.png")
-
-    # 5. object drawn off-target (shifted 300 px right) -> G1 IoU crash
-    for scene in SCENES:
-        d = base / "mutants" / "camera_off" / "frames" / scene
-        d.mkdir(parents=True, exist_ok=True)
-        img = good_frames(cached[scene], scene, 8)
-        for box in scene_box[scene].values():
-            shifted = [box[0] + 300, box[1], box[2] + 300, box[3]]
-            fill_box(img, box, SKY)          # erase old
-            fill_box(img, shifted, OBJECT)   # draw off-target
-        for i in range(8):
-            Image.fromarray(img).save(d / f"{i:04d}.png")
-
-    # 6. underexposed: everything near-black (dropped light)
-    for scene in SCENES:
-        d = base / "mutants" / "underexposed" / "frames" / scene
-        d.mkdir(parents=True, exist_ok=True)
-        img = (good_frames(cached[scene], scene, 8) * 0.05).astype(np.uint8)
-        for i in range(8):
-            Image.fromarray(img).save(d / f"{i:04d}.png")
-
-    # 7. wrong_units: object at 1% scale (tiny blob) -> G1 coverage < 0.5%
-    for scene in SCENES:
-        d = base / "mutants" / "wrong_units" / "frames" / scene
-        d.mkdir(parents=True, exist_ok=True)
-        img = good_frames(cached[scene], scene, 8)
-        img[int(H * 0.6):H, :] = FLOOR
-        for box in scene_box[scene].values():
-            cx = (box[0]+box[2])/2; cy = (box[1]+box[3])/2
-            s = 0.01 * (box[2]-box[0])
-            fill_box(img, [cx-s, cy-s, cx+s, cy+s], OBJECT)
-        for i in range(8):
-            Image.fromarray(img).save(d / f"{i:04d}.png")
-
-    results = {
-        "missing_texture": "G2", "untextured_grey": "G2",
-        "black_frame": "G3", "frozen": "G3", "camera_off": "G1",
-        "underexposed": "G3", "wrong_units": "G1",
-    }
-    return results
+def _shrink(img: np.ndarray, box, frac: float) -> None:
+    """Collapse the object to `frac` of its on-screen size: the bbox
+    content is replaced by its surrounding plate and a `frac`-scaled
+    copy of the original content is pasted at the centre -- what a 100x
+    metresPerUnit error looks like on screen."""
+    x0, y0, x1, y1 = [int(round(v)) for v in box]
+    x0, y0 = max(1, x0), max(1, y0)
+    x1, y1 = min(W - 1, x1), min(H - 1, y1)
+    if x1 - x0 < 8 or y1 - y0 < 8:
+        return
+    orig = img[y0:y1, x0:x1].copy()
+    # backdrop: the mean colour of the 1-px ring around the box
+    ring = np.concatenate([
+        img[y0 - 1, x0 - 1:x1 + 1], img[y1, x0 - 1:x1 + 1],
+        img[y0:y1, x0 - 1], img[y0:y1, x1]])
+    img[y0:y1, x0:x1] = tuple(int(ring[:, c].mean()) for c in range(3))
+    h, w = max(2, int((y1 - y0) * frac)), max(2, int((x1 - x0) * frac))
+    cy, cx = (y0 + y1) // 2, (x0 + x1) // 2
+    small = np.asarray(Image.fromarray(orig).resize((w, h), Image.LANCZOS))
+    img[cy - h // 2:cy - h // 2 + h, cx - w // 2:cx - w // 2 + w] = small
 
 
 def grade(run_dir: Path) -> dict:
@@ -222,7 +219,6 @@ def run_selftest(base: Path) -> int:
             continue
         v = grade(mutant_dir)
         killed[mutant_dir.name] = not v["pass"]
-        gate = "?"
         reasons = {}
         for sc in SCENES:
             for gname, g in v["scenes"][sc]["gates"].items():
@@ -240,18 +236,25 @@ def run_selftest(base: Path) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--frames", default=None,
+                    help="run.py frames dir (frames/<scene>/*.png)")
     ap.add_argument("--out", default=str(HERE / "frames_mutants"))
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
     base = Path(args.out).resolve()
+
+    frames_root = Path(args.frames).resolve() if args.frames else None
+    if frames_root is None or not frames_root.exists():
+        print("mutate_frames: --frames <dir> with the run's downloaded "
+              "frames is required (the mutants are single edits of REAL "
+              "rendered frames; nothing is synthesised)", file=sys.stderr)
+        return 2
+    stages = {s: Usd.Stage.Open(str(ROOT / "scenes" / s / "scene.usda"))
+              for s in SCENES}
+    info = gen(frames_root, base, stages)
+    print(f"wrote mutants under {base}: {json.dumps(info)}", flush=True)
     if not args.selftest:
-        if base.exists():
-            shutil.rmtree(base)
-        gen_mutants(base)
-        print(f"wrote mutants under {base}", flush=True)
         return 0
-    if not base.exists():
-        gen_mutants(base)
     return run_selftest(base)
 
 
