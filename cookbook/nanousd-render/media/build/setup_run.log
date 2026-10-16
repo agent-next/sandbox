@@ -12,20 +12,20 @@ egl_headless: device 0 extensions: EGL_MESA_device_software EGL_EXT_device_drm_r
 egl_headless: device 0 vendor: Mesa Project
 egl_headless: EGL 1.5 initialized
 egl_headless: 4x MSAA enabled
-egl_headless: pre-makeCurrent: display=0x56541f6b0800 surface=0x56541f73aa10 context=0x56541f6b30b0 api=0x30a0
+egl_headless: pre-makeCurrent: display=0x5589b13cc800 surface=0x5589b1456920 context=0x5589b1433e10 api=0x30a0
 egl_headless: context created (640x480)
 scene_load: 1 lights (rect/disk/cylinder+distant+sphere) extracted
-scene_load: '/home/user/w/cookbook/nanousd-render/examples/good/scene.usda' loaded in 13.9 ms
+scene_load: '/home/user/w/cookbook/nanousd-render/examples/good/scene.usda' loaded in 13.3 ms
   5 meshes, 72 vertices, 180 indices
   bounds: (-4.700, -1.000, -0.700) - (4.750, 1.100, 1.000)
-viewer: scene loaded in 14.4 ms  (5 meshes)
+viewer: scene loaded in 13.9 ms  (5 meshes)
 gpu_gles: GL_VERSION  = OpenGL ES 3.2 Mesa 22.3.6
 gpu_gles: GL_RENDERER = llvmpipe (LLVM 15.0.6, 256 bits)
 viewer: uploaded 1 authored lights
 material: count Materials 0.0 ms (0 / 8 prims)
 material: no inline UsdShade Material prims; checking for scene-local .mtlx files
 material: no materials found
-viewer: materials_load 4.9 ms
+viewer: materials_load 1.2 ms
 viewer: hash dedup marked 0/5 duplicate meshes (collisions=0)
 viewer: build_merged_vertex_buffer 0.0 ms
 viewer: uploading VB (0.0 MB)...
@@ -37,7 +37,7 @@ viewer: IB upload ok
 viewer: 180 indices (60 triangles)
 viewer: OpenGL Ptex triangle-color setup 0.0 ms
 viewer: bounds min [-4.70, -1.00, -0.70]  max [4.75, 1.10, 1.00]
-viewer: released mesh payload arena 0.2 ms (RSS 99 -> 99 MB, freed 0 MB)
+viewer: released mesh payload arena 0.1 ms (RSS 99 -> 99 MB, freed 0 MB)
 
 --- Controls ---
   WASD       Fly camera (forward/strafe)

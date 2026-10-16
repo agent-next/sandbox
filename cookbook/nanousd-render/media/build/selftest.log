@@ -1,17 +1,17 @@
 [selftest] generating mutants
-out_of_frame G4 /tmp/tmp.4N43kkeDLR/mutants/out_of_frame.usda
-half_offscreen G4 /tmp/tmp.4N43kkeDLR/mutants/half_offscreen.usda
-recolored G1 /tmp/tmp.4N43kkeDLR/mutants/recolored.usda
-camera_away G3 /tmp/tmp.4N43kkeDLR/mutants/camera_away.usda
-malformed G1 /tmp/tmp.4N43kkeDLR/mutants/malformed.usda
-skelroot_schema G1 /tmp/tmp.4N43kkeDLR/mutants/skelroot_schema.usda
-missing_light G1 /tmp/tmp.4N43kkeDLR/mutants/missing_light.usda
-too_few_points G1 /tmp/tmp.4N43kkeDLR/mutants/too_few_points.usda
-aperture_broken G1 /tmp/tmp.4N43kkeDLR/mutants/aperture_broken.usda
-composite_arc G1 /tmp/tmp.4N43kkeDLR/mutants/composite_arc.usda
-smuggled_arc G1 /tmp/tmp.4N43kkeDLR/mutants/smuggled_arc.usda
-dropped_prim G2 /tmp/tmp.4N43kkeDLR/mutants/dropped_prim.usda
-rects_overlap G4 /tmp/tmp.4N43kkeDLR/mutants/rects_overlap.usda
+out_of_frame G4 /tmp/tmp.35uMaySSGv/mutants/out_of_frame.usda
+half_offscreen G4 /tmp/tmp.35uMaySSGv/mutants/half_offscreen.usda
+recolored G1 /tmp/tmp.35uMaySSGv/mutants/recolored.usda
+camera_away G3 /tmp/tmp.35uMaySSGv/mutants/camera_away.usda
+malformed G1 /tmp/tmp.35uMaySSGv/mutants/malformed.usda
+skelroot_schema G1 /tmp/tmp.35uMaySSGv/mutants/skelroot_schema.usda
+missing_light G1 /tmp/tmp.35uMaySSGv/mutants/missing_light.usda
+too_few_points G1 /tmp/tmp.35uMaySSGv/mutants/too_few_points.usda
+aperture_broken G1 /tmp/tmp.35uMaySSGv/mutants/aperture_broken.usda
+composite_arc G1 /tmp/tmp.35uMaySSGv/mutants/composite_arc.usda
+smuggled_arc G1 /tmp/tmp.35uMaySSGv/mutants/smuggled_arc.usda
+dropped_prim G2 /tmp/tmp.35uMaySSGv/mutants/dropped_prim.usda
+rects_overlap G4 /tmp/tmp.35uMaySSGv/mutants/rects_overlap.usda
 [selftest] grading known-good example: examples/good/scene.usda
 [selftest]   known-good -> PASS
 [selftest] determinism: re-running grade on the known-good example
