@@ -820,7 +820,8 @@ def gate_oracle(nn_flat, cam, ctx):
                 f"{path}: projected area {area:.0f}px^2 < {MIN_RECT_AREA_PX:.0f}"))
         visible = max(0.0, min(W, x1) - max(0.0, x0)) * \
                   max(0.0, min(H, y1) - max(0.0, y0))
-        if area > 0 and visible / area < MIN_ONSCREEN_FRAC:
+        onscreen_frac = visible / area if area > 0 else 0.0
+        if onscreen_frac < MIN_ONSCREEN_FRAC:
             errs.append(fail("G4", "offscreen",
                 f"{path}: only {visible/area*100:.0f}% of projected rect "
                 f"on screen (need >= {MIN_ONSCREEN_FRAC*100:.0f}%)"))
