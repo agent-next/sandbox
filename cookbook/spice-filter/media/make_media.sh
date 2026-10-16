@@ -75,10 +75,15 @@ echo "media: Remotion render (pinned $(cd "$MEDIA/video" && node -p 'require("./
 (cd "$MEDIA/video" \
     && npm ci --no-audit --no-fund \
     && npx remotion browser ensure \
-    && npx remotion render src/index.ts Demo out/master.mp4 \
-        --codec h264 --crf 0 --pixel-format yuv444p \
+    && rm -rf out/frames \
+    && npx remotion render src/index.ts Demo out/frames --sequence \
         --props ../data/video_props.json)
-cp "$MEDIA/video/out/master.mp4" "$MEDIA/master/demo_master.mp4"
+# Remotion 4 refuses h264 CRF 0; the PNG sequence IS the lossless render
+# and ffmpeg encodes it to the crf-0 master the standard asks for.
+ffmpeg -y -loglevel error -framerate 30 \
+    -i "$MEDIA/video/out/frames/element-%04d.png" \
+    -c:v libx264 -crf 0 -preset veryfast -pix_fmt yuv444p \
+    "$MEDIA/master/demo_master.mp4"
 
 # --- web encode (ffmpeg encodes only; it draws nothing) --------------------
 ffmpeg -y -loglevel error -i "$MEDIA/master/demo_master.mp4" \
