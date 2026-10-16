@@ -195,7 +195,25 @@ passes for every scene (`judge/grade_frames.py` prints one JSON verdict).
 frames** (never a synthetic stand-in), then `grade_frames.py` must PASS the
 untouched frames and kill all 7 mutants — the selftest exits non-zero otherwise.
 
-### 8.4 Artifacts
+### 8.4 Reproduction tolerances
+
+Two fresh runs (RECEIPT.md) and any independent reproduction (REPRODUCE.md)
+must agree as follows.  Judge gates are exact; timing tolerances cover CPU
+contention, seat contention and GPU clock.
+
+| number | must agree within |
+|--------|-------------------|
+| bundle bytes (max), per-scene sha256 | **exact** (same git SHA) |
+| `render_report.converged_pct` | ±5 percentage points |
+| G1 `iou_min` per scene | **≥ RECEIPT's value** (a stricter render is fine; lower is a regression) |
+| G2/G3 gate outcomes, judge verdict | **exact** PASS |
+| mutants killed by the selftest | **exact 7/7** |
+| build / bundle upload MB/s | ±25 % |
+| lease create seconds | no tolerance when 409s occurred; ±50 % otherwise |
+| render seconds | ±20 % (RTX clock, steps/frame must be identical) |
+| `billed_s` | ±5 % (meter sampling latency) |
+
+### 8.5 Artifacts
 
 | path | what |
 |------|------|
@@ -206,7 +224,7 @@ untouched frames and kill all 7 mutants — the selftest exits non-zero otherwis
 | `media/` | `result.png`, `loop.png`, `STORYBOARD.md`, `demo.mp4`, `make_media.sh` |
 | `PRODUCT-FRICTION.md` | every place the GPU sandbox was slow, confusing, undocumented or broken |
 
-### 8.5 Known issues / constraints for Stage 2
+### 8.6 Known issues / constraints for Stage 2
 
 - The image has **no ffmpeg and no zstd**: the bundle is `tar.gz` (not the
   `tar.zst` the brief specified) and mp4 encoding goes through PyAV `libx264`.

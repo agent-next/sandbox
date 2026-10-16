@@ -38,6 +38,29 @@ before it got a seat. Observations:
   GPU node on the whole plane. Combined with F2, this means a single node
   outage blocks every GPU customer at once.
 
+### F1 (update, 2026-10-16, the full receipt run)
+
+The end-to-end run dwarfs the 15 min above. A supervisor restarted
+`run.py` (90 attempts × 30 s ≈ 45 min per process, ~6 h total) across an
+afternoon in which the seat was effectively never free, and the picture
+is worse than "wait your turn":
+
+- `GET /sandboxes` on this account repeatedly returned **`[]`** — *no
+  lease of ours exists* — while `POST` still answered 409 with
+  `"1/1 answered the probe"`. The 409 therefore reports **cross-tenant**
+  contention (another account's render on the single shared node), and a
+  customer has **no way to see that**: their own inventory says they own
+  nothing, so the failure reads as "the product is broken" rather than
+  "the fleet is busy".
+- No estimate, no position, no projected wait. The caller cannot choose
+  between "keep a thread parked for 6 h" and "come back tomorrow".
+- `reserve: "exec"` vs omitting it produced byte-identical 409s: the field
+  buys nothing observable at create time.
+- What a customer actually needs: a `GET /gpu/availability` (node, class,
+  free seats, expected wait) and a create that can *block* until a seat
+  frees instead of forcing the caller to re-invent a retry loop with an
+  undocumented 30 s backoff.
+
 ## F2. `503 node unreachable` after a 198 s hang, with a misleading link
 
 **Request:** same create as F1.
