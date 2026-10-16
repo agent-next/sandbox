@@ -41,10 +41,12 @@ export const Main: React.FC<MainProps> = ({ scene }) => {
   const { gpu, cpu, row, terminal } = scene;
   const runSeconds =
     cpu.wall.setup_s + cpu.wall.selftest_s + cpu.wall.grade_s;
+  // the run is ~130 s; at 18x that is ~7.4 s of footage. The escalation
+  // shot plays it from the top (clipFrom 0) and the proof shot resumes where
+  // it stopped (clipFrom = the escalation's last frame), so the footage
+  // never jumps between the two shots.
   const speed = Math.max(1, Math.round(runSeconds / terminal.duration_s));
-  // the escalation shot plays the run from the top; the proof shot resumes
-  // exactly where it stopped, so the footage never jumps
-  const escFrames = Math.round(T.escTerm[1]);
+  const escFrames = Math.round(T.escTerm[1] * (speed / 12));
   const proofFrom = escFrames;
 
   // Two scope-style bands cross the whole frame on opposing diagonals. They
