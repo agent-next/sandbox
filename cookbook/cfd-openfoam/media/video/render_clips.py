@@ -329,9 +329,17 @@ def field_clip(field, path, seconds, t0, t1, cam_keys, n_part=650,
 
 
 def term_clip(log_path, out_path, seconds, field):
+    # Progress lines ("Rendered 301/1050", "Bundling 87%") are terminal
+    # redraw spam, not log lines — a real terminal overwrites them in place.
+    # The per-node error tables ('"0.9688": 0.0258...') are hundreds of
+    # near-identical float rows — elided too (the scroll needs the verdicts,
+    # not every table entry).
+    progress = re.compile(r'(Rendered|Encoded|Bundling|Getting|Wrote)\s+\S')
+    table_row = re.compile(r'^\s*"[\d.]+":')
     all_lines = [l for l in
                  open(log_path, errors='replace').read().splitlines()
-                 if l.strip()]
+                 if l.strip() and not progress.match(l.strip())
+                 and not table_row.match(l)]
     font = ImageFont.truetype(FONT_MONO, 30)
     font_b = ImageFont.truetype(FONT_MONO_B, 30)
     lh, n = 40, int(seconds * FPS)
@@ -345,14 +353,16 @@ def term_clip(log_path, out_path, seconds, field):
     enc = encoder(out_path)
     pip_w, pip_h = 560, 315
     for f in range(n):
-        top = int((f / n) * max(total - rows, 1))
+        # whole-line steps: frames between steps are identical and skip
+        # almost free in P-frames — cheaper than a smooth scroll
+        first = int((f / n) * max(total - rows, 1))
         im = Image.new('RGB', (W, H), (7, 11, 16))
         dr = ImageDraw.Draw(im)
         dr.rectangle([0, 0, W, 64], fill=(16, 24, 33))
         dr.text((40, 16), 'sandbox shell — judge run, this build',
                 font=font_b, fill=(140, 170, 200))
         for r in range(rows):
-            i = top + r
+            i = first + r
             if i >= total:
                 break
             ln = lines[i][:150]
