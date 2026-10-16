@@ -1,12 +1,16 @@
 import React from "react";
-import { OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
+import {
+  OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig,
+} from "remotion";
 import {
   ACCENT, Chip, Counter, GateRow, KineticHeadline, PassBadge,
   PAPER, INK, FONT_SANS, FONT_SERIF,
 } from "./hud";
-import { Gates, BaselineFails, WindWidgetSentence, KillCount } from "./facts";
+import { Gates, BaselineFails, WindWidgetSentence, KillCount, Contrast, TasteRules, PassBadgeText } from "./facts";
 
-const CLIPS = "../clips";
+// Remotion serves assets from public/; make_media.sh keeps
+// public/clips a symlink to the gitignored media/clips recording dir.
+const clip = (name: string) => staticFile(`clips/${name}`);
 const W = 1920, H = 1080;
 
 /** One moving shot: the real browser footage, presented with a continuous
@@ -28,7 +32,8 @@ const Shot: React.FC<{
       <OffthreadVideo
         src={src}
         style={{
-          position: "absolute", width: W, height: H,
+          position: "absolute", inset: 0,
+          width: W, height: H, objectFit: "cover",
           transform: `translate(${px}px, ${py}px) scale(${z})`,
           transformOrigin: `${50 + px * 0.02}% 50%`,
         }}
@@ -43,7 +48,6 @@ const Backdrop: React.FC = () => (
 );
 
 const Frame: React.FC = () => {
-  const fps = 30;
   // ---- slot table (seconds; every number traces to STORYBOARD.md) ----
   // 1 hook            0.0 -  2.0
   // 2 input->output   2.0 - 10.0
@@ -60,26 +64,22 @@ const Frame: React.FC = () => {
 
       {/* 1 — hook: the finished site, moving, fills the frame (0-2 s) */}
       <Sequence from={0} durationInFrames={60} name="hook">
-        <Shot src={`${CLIPS}/scroll-hero.mp4`} from={0} durationInFrames={60}
+        <Shot src={clip("scroll-hero.mp4")} from={0} durationInFrames={60}
               zoomFrom={1.02} zoomTo={1.16} />
         <Chip text="examples/good/site — judged live in headless Chromium 153"
               x={72} y={H - 130} delay={6} />
-        <KineticHeadline words={["Kestrel", "—", "all", "7", "gates", "pass"]}
-                         x={72} y={H - 320} size={72} delay={2} />
+        <KineticHeadline words={["Kestrel", "—", "all", String(Gates.rows.length), "gates", "pass"]}
+                         x={72} y={820} size={72} delay={2} />
       </Sequence>
 
       {/* 2 — input -> output (2-10 s) */}
       <Sequence from={60} durationInFrames={240} name="input-output">
-        <Shot src={`${CLIPS}/brief-scroll.mp4`} from={60} durationInFrames={240}
-              zoomFrom={1.0} zoomTo={1.10} panFrom={[0, 0]} panTo={[-40, 0]} />
-        {/* the built site slides in over the brief as the output */}
-        <OutputOverlay />
-        <Chip text="the brief" x={72} y={H - 130} delay={2} />
+        <InputToOutput />
       </Sequence>
 
       {/* 3 — escalate: the live wind widget, real interaction (10-16.5 s) */}
       <Sequence from={300} durationInFrames={195} name="widget">
-        <Shot src={`${CLIPS}/widget-scrub.mp4`} from={300}
+        <Shot src={clip("widget-scrub.mp4")} from={300}
               durationInFrames={195}
               zoomFrom={1.55} zoomTo={1.85}
               panFrom={[0, 0]} panTo={[-260, 140]} />
@@ -122,22 +122,47 @@ const Frame: React.FC = () => {
   );
 };
 
-/** Slot 2: the brief on the left, the built site fading in on the right. */
-const OutputOverlay: React.FC = () => {
+/** Slot 2: the brief scrolls on the left; the built site wipes in from the
+ *  right and takes the frame — the input becoming its output, both moving. */
+const InputToOutput: React.FC = () => {
   const frame = useCurrentFrame();
-  const local = frame - 60;
-  const slideIn = Math.min(1, Math.max(0, (local - 40) / 30));
+  const local = frame - 60;                      // 0 at the slot's first frame
+  const wipe = Math.min(1, Math.max(0, (local - 70) / 40));   // 2.3 s -> 3.7 s
+  const eased = wipe < 0.5 ? 2 * wipe * wipe
+                          : 1 - Math.pow(-2 * wipe + 2, 2) / 2;
+  // the site pane slides in from the right, covering the brief
+  const siteX = W - (W * 0.56) * eased;
   return (
-    <div style={{ position: "absolute", inset: 0 }}>
+    <div style={{ position: "absolute", inset: 0, background: PAPER }}>
+      {/* the input: brief.md scrolling, full frame at first */}
       <div style={{
-        position: "absolute", left: 0, top: 0, bottom: 0,
-        width: W * 0.505, overflow: "hidden", background: PAPER,
-        transform: `translateX(${-W * 0.5 * (1 - 1)}px)`,
-        borderRight: `4px solid ${INK}`,
+        position: "absolute", left: 0, top: 0, width: W, height: H,
+        overflow: "hidden",
       }}>
-        <Shot src={`${CLIPS}/brief-scroll.mp4`} from={60}
-              durationInFrames={240} zoomFrom={1.0} zoomTo={1.0} />
+        <Shot src={clip("brief-scroll.mp4")} from={60}
+              durationInFrames={240} zoomFrom={1.0} zoomTo={1.06} />
       </div>
+      <Chip text="brief.md — the product, in the agent's own words"
+            x={72} y={H - 130} delay={2} />
+
+      {/* the output: the built site wiping in over the brief, still scrolling */}
+      <div style={{
+        position: "absolute", left: siteX, top: 0, width: W * 0.56, height: H,
+        overflow: "hidden", boxShadow: "-24px 0 60px rgba(26,36,31,0.35)",
+      }}>
+        <OffthreadVideo src={clip("site-scroll-full.mp4")} style={{
+          position: "absolute", left: 0, top: 0, width: W, height: H,
+          objectFit: "cover", objectPosition: "0 0",
+        }} />
+      </div>
+      {wipe > 0.02 && (
+        <div style={{
+          position: "absolute", left: siteX + 22, top: 40,
+          background: ACCENT, color: PAPER, fontFamily: FONT_SANS,
+          fontSize: 27, fontWeight: 700, padding: "10px 22px",
+          borderRadius: 999, opacity: Math.min(1, eased * 2),
+        }}>the built site</div>
+      )}
     </div>
   );
 };
@@ -147,9 +172,9 @@ const Breakpoints: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - 495;
   const panes = [
-    { src: `${CLIPS}/resp-375.mp4`, w: 375, label: "375 px" },
-    { src: `${CLIPS}/resp-768.mp4`, w: 768, label: "768 px" },
-    { src: `${CLIPS}/resp-1440.mp4`, w: 1440, label: "1440 px" },
+    { src: clip("resp-375.mp4"), w: 375, label: "375 px" },
+    { src: clip("resp-768.mp4"), w: 768, label: "768 px" },
+    { src: clip("resp-1440.mp4"), w: 1440, label: "1440 px" },
   ];
   const totalW = panes.reduce((s, p) => s + p.w, 0);   // 2583
   const scale = (W - 2 * 72 - (panes.length - 1) * 24) / totalW; // fit to frame
@@ -178,7 +203,7 @@ const Breakpoints: React.FC = () => {
               fontSize: 26, fontWeight: 600, padding: "10px 18px",
               textAlign: "center",
             }}>{p.label}</div>
-        </div>
+          </div>
         );
       })}
       <Chip text="no horizontal overflow at 375 / 768 / 1440 — measured, not claimed"
@@ -191,12 +216,10 @@ const Breakpoints: React.FC = () => {
 const AgentRun: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - 705;
-  // the real grade.sh output scrolls by at 8x the recorded speed
-  const speed = 8;
   return (
     <div style={{ position: "absolute", inset: 0, background: "#10161A" }}>
       <div style={{ position: "absolute", inset: 0 }}>
-        <OffthreadVideo src={`${CLIPS}/grade-run.mp4`} style={{
+        <OffthreadVideo src={clip("grade-run.mp4")} style={{
           position: "absolute", inset: 0, width: W, height: H,
           transform: `scale(${1.0 + 0.10 * Math.min(1, local / 210)})`,
         }} />
@@ -224,15 +247,13 @@ const AgentRun: React.FC = () => {
 
 /** Slot 6: with the skill vs without, the same viewport, same moment. */
 const SplitCompare: React.FC = () => {
-  const frame = useCurrentFrame();
-  const local = frame - 915;
   const half = W / 2;
   return (
     <div style={{ position: "absolute", inset: 0, background: INK }}>
       <div style={{ position: "absolute", left: 0, top: 0, width: half,
                     height: H, overflow: "hidden" }}>
-        <OffthreadVideo src={`${CLIPS}/site-scroll-full.mp4`} style={{
-          position: "absolute", left: 0, top: 0, width: half, height: H,
+        <OffthreadVideo src={clip("site-scroll-full.mp4")} style={{
+          position: "absolute", left: 0, top: 0, width: W, height: H,
           objectFit: "cover", objectPosition: "0 0",
         }} />
         <div style={{
@@ -244,8 +265,8 @@ const SplitCompare: React.FC = () => {
       </div>
       <div style={{ position: "absolute", right: 0, top: 0, width: half,
                     height: H, overflow: "hidden" }}>
-        <OffthreadVideo src={`${CLIPS}/baseline-scroll.mp4`} style={{
-          position: "absolute", left: 0, top: 0, width: half, height: H,
+        <OffthreadVideo src={clip("baseline-scroll.mp4")} style={{
+          position: "absolute", left: 0, top: 0, width: W, height: H,
           objectFit: "cover", objectPosition: "0 0",
         }} />
         <div style={{
@@ -266,8 +287,8 @@ const SplitCompare: React.FC = () => {
         background: "rgba(26,36,31,0.72)", padding: "14px 0",
         borderRadius: 10,
       }}>
-        the same brief: {BaselineFails.count} of 7 gates fail without the
-        taste rules
+        the same brief: {BaselineFails.count} of {Gates.rows.length} gates fail
+        without the taste rules
       </div>
     </div>
   );
@@ -276,20 +297,21 @@ const SplitCompare: React.FC = () => {
 /** Slot 7: the proof HUD — gate rows slide in over the still-moving site. */
 const ProofHud: React.FC = () => {
   const frame = useCurrentFrame();
-  const local = frame - 1080;
+  const rowH = 74;
+  const top = 96;
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      <Shot src={`${CLIPS}/site-scroll-slow.mp4`} from={1080}
+      <Shot src={clip("site-scroll-slow.mp4")} from={1080}
             durationInFrames={105} zoomFrom={1.05} zoomTo={1.22}
             panFrom={[0, 0]} panTo={[-120, -60]} />
-      <Chip text={`seed 42 — ${Gates.passText} · contrast AA 5.19:1 · axe-core 4.10.3 clean`}
+      <Chip text={`seed 42 — ${Gates.passText} · contrast AA ${Contrast.minRatio}:1 · taste rules ${TasteRules.passed}/${TasteRules.total} · axe-core 4.10.3 clean`}
             x={72} y={H - 130} delay={0} />
       {Gates.rows.map((g, i) => (
         <GateRow key={g.name} name={g.name} detail={g.detail}
                  passed={g.passed}
-                 y={96 + i * 74} delay={2 + i * 6} />
+                 y={top + i * rowH} delay={2 + i * 6} />
       ))}
-      <PassBadge x={1180} y={H - 420} delay={54} />
+      <PassBadge x={W - 560} y={H - 400} delay={54} text={PassBadgeText} />
     </div>
   );
 };

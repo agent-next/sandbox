@@ -76,13 +76,16 @@ export const Chip: React.FC<{
 export const KineticHeadline: React.FC<{
   words: string[]; x: number; y: number; size?: number;
   delay?: number; dark?: boolean; wordGap?: number;
-}> = ({ words, x, y, size = 72, delay = 0, dark = false, wordGap = 0 }) => {
+}> = ({ words, x, y, size = 72, delay = 0, dark = false,
+        wordGap = 0.28 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const local = Math.max(0, frame - delay);
+  // gap in em, so the spacing scales with the size
+  const gap = `${wordGap}em`;
   return (
     <div style={{ position: "absolute", left: x, top: y, display: "flex",
-                  flexDirection: "row", gap: wordGap }}>
+                  flexWrap: "wrap", columnGap: gap, rowGap: 0 }}>
       {words.map((w, i) => {
         const t = Math.max(0, local - i * 5);
         const s = spring({ frame: t, fps, config: { damping: 13, mass: 0.7 } });
@@ -92,6 +95,7 @@ export const KineticHeadline: React.FC<{
             color: dark ? PAPER : INK, lineHeight: 1.05,
             opacity: Math.min(1, s * 1.3),
             transform: `translateY(${(1 - Math.min(1, s)) * 46}px)`,
+            textShadow: dark ? "none" : "0 2px 24px rgba(244,241,234,0.92)",
           }}>{w}</div>
         );
       })}
@@ -133,10 +137,11 @@ export const GateRow: React.FC<{
   );
 };
 
-/** The PASS badge that stamps in at the end of the proof. */
+/** The PASS badge that stamps in at the end of the proof. The count comes
+ *  from the seed-42 verdict (facts.ts), never a literal. */
 export const PassBadge: React.FC<{
-  x: number; y: number; delay?: number;
-}> = ({ x, y, delay = 0 }) => {
+  x: number; y: number; delay?: number; text?: string;
+}> = ({ x, y, delay = 0, text = "PASS" }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const local = Math.max(0, frame - delay);
@@ -152,6 +157,6 @@ export const PassBadge: React.FC<{
       letterSpacing: 2, color: PAPER, background: ACCENT,
       padding: "20px 54px", borderRadius: 14,
       boxShadow: "0 12px 40px rgba(14,110,84,0.35)",
-    }}>PASS · 7/7</div>
+    }}>{text}</div>
   );
 };

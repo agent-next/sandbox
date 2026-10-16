@@ -45,6 +45,29 @@ export const KillCount: { text: string } = {
   text: facts.selftest_kills,
 };
 
+/** The measured contrast ratio (judge's contrast_aa gate, min_ratio). */
+export const Contrast: { minRatio: string } = {
+  minRatio: String(detail_of(good, "contrast_aa").min_ratio),
+};
+
+/** The taste-rule tally (judge's taste_rules gate: N of M passed). */
+export const TasteRules: { passed: number; total: number } = (() => {
+  const rules = detail_of(good, "taste_rules") as { passed?: boolean }[];
+  return {
+    passed: rules.filter((r) => r.passed).length,
+    total: rules.length,
+  };
+})();
+
+/** "PASS · 7/7" — the badge text, counted from the real verdict. */
+export const PassBadgeText: string =
+  `PASS · ${Gates.rows.length}/${Gates.rows.length}`;
+
+function detail_of(doc: { gates?: { gate: string; detail?: unknown }[] }, gate: string): Record<string, unknown> {
+  const g = (doc.gates ?? []).find((x) => x.gate === gate);
+  return (g?.detail ?? {}) as Record<string, unknown>;
+}
+
 function detail_text(gate: string, detail: unknown): string {
   const d = (detail ?? {}) as Record<string, unknown>;
   switch (gate) {

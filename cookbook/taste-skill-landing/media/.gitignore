@@ -9,6 +9,9 @@ clips/
 video/out/
 video/node_modules/
 video/.remotion/
+# public/clips is a symlink into ../clips (already ignored above); only the
+# link itself is tracked, not the footage behind it.
+video/public/clips/*
 
 # The lossless ffmpeg intermediate the demo video is encoded from.
 master/
