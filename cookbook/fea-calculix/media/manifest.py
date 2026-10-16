@@ -54,8 +54,9 @@ FILES = {
         command="bash media/make_media.sh (clips: render_clips.py; "
                 "composition: gen_composition.py -> video/index.html; "
                 "render: npx hyperframes render (pinned 0.8.99); "
-                "encode: ffmpeg -crf 18 +faststart; master: "
-                "media/master/demo_hf.mp4)"),
+                "encode: ffmpeg -crf 18 -maxrate 1900k -bufsize 3800k "
+                "+faststart (VBV cap sized to the <= 8 MiB budget); "
+                "master: media/master/demo_hf.mp4)"),
 }
 
 

@@ -89,41 +89,36 @@ make_media.sh / the figure scripts exit non-zero.
 
 ## demo.mp4 — checked frames (ffmpeg -ss t -frames:v 1)
 
-- t=1 title card; t=5/9 ramp frames show "linear static: displacement
-  field scaled x20.7", load factor, and live delta/sigma readouts
-  ending exactly at the verdict values (7.72 mm, 138.2 MPa);
-  t=12.5 full-load frame shows the gate details; t=18..31 the 9 mutant
-  cards each show FAIL + the failing gate's measured-vs-limit detail;
-  the load-on-ntip / overload-10x / undersized / propped-tip cards embed
-  that mutant's own real deformed field drawn directly on the card at
-  ~56 % of the card width (fine mesh, scale factor printed;
-  propped-tip's field is identically zero and says so);
-  t=33 closing card with the 9/9 kill rate. No clipped or overlapping
-  text seen; numbers match the JSONs. Frames re-checked at
-  t=3, 10, 18, 22, 25, 32 s on the final encode.
+Re-cut as a real animated video (HyperFrames composition over motion
+clips rendered by `render_clips.py` from the real `work/*/job.frd`
+fields). Checked frames on the shipped encode: t=1 hero — the full-load
+deformed field fills the frame under a fast low orbit, kinetic headline
+"1000 N on a 1 m cantilever."; t=7.7 ramp — slow orbit, HUD counting
+load 0 -> 1000 N and tip delta toward the verdict value (7.72 mm vs the
+10.00 mm limit); t=18.5 — this run's real console replay ("replayed at
+100x speed", N measured from `work/run_logs/timing.json`) composited as
+a window over still-playing footage; t=26 proof — PASS badge + gate
+rows (verification +0.41 %/-0.74 %, convergence 0.23 %/0.50 %,
+sigma 138.2 <= 166.7 MPa · delta 7.72 <= 10.00 mm, mutants killed 9/9)
+sliding in over the still-orbiting field; t=28.4..30.9 static end card
+with `python3 run.py`. No text-only frames, no still plots, no
+Ken-Burns; every frame before the end card is moving. Gate-checked:
+`python3 cookbook/tools/video_gate.py media/demo.mp4` passes all
+checks, motion_fraction 0.6755 (>= 0.5), scene_cuts_per_10s 2.589.
+Committed check frames: `media/frames/{hook_1s,ramp_25pct,
+terminal_60pct,proof}.jpg`.
 
 ## VERIFY-BY
 
 ```
-$ bash media/make_media.sh            # output (cached solves = same inputs)
-== solve real .frd fields (ccx) ==
-good-coarse: cached (mesh.inc+job.inp unchanged)
-good-fine: cached (mesh.inc+job.inp unchanged)
-overload-10x: cached (mesh.inc+job.inp unchanged)
-undersized: cached (mesh.inc+job.inp unchanged)
-propped-tip: cached (mesh.inc+job.inp unchanged)
-load-on-ntip: cached (mesh.inc+job.inp unchanged)
-convergence.json written: delta 0.23% sigma 0.50% (verdict agrees)
-== result.png ==
-layout check: OK (12 texts inside axes, no pairwise overlaps)
-wrote media/result.png
-== loop.png ==
-no-overlap check: OK (62 texts inside their cells/axes, no pairwise overlaps)
-wrote media/loop.png
-== demo.mp4 (lossless master + web encode) ==
-media/demo.mp4: 33.5 s, 1920x1080 @ 30/1, 0.77 MB (master 2.6 MB)
-wrote media/MANIFEST.json
-make_media: done -> .../{result.png,loop.png,demo.mp4,MANIFEST.json}
+$ bash media/make_media.sh
+# solves the real .frd fields (ccx), captures this run's console logs,
+# renders result.png / loop.png, renders clips/*.mp4 at 30 fps
+# (orbiting 3-D views + console replay), injects the verdict numbers
+# into video/index.html (gen_composition.py), renders the composition
+# headless (npx hyperframes render, pinned 0.8.99, Node >= 22) to
+# media/master/, then encodes demo.mp4 (crf 18 + VBV cap, faststart)
+# and rewrites MANIFEST.json.
 ```
 
 ```
@@ -135,27 +130,31 @@ width=1920
 height=1080
 pix_fmt=yuv420p
 r_frame_rate=30/1
-duration=33.534000
-size=773672
-bit_rate=184522
+duration=30.900000
+size=6933476
+bit_rate=1795074
 ```
 
 ```
 $ sha256sum media/result.png media/loop.png media/demo.mp4 media/MANIFEST.json
 dceaa8bbe5f68344435cae93fb8a2b2ef30a8ebc539ecb54cab61b7f933cca4e  result.png
-071bd17e395f7a1ef619798483441762fcbc269849ee7cdd2066863095c2cb6a  loop.png
-4ccd344f733f07c49a02cc1fe9a9fbc38dc5cc6a3ffd672f40f3f08c0e82cb3b  demo.mp4
-e8145a7fea55e0979f5ea8c32a53c7f07a957a8d92f62bfe5a15b7b478de18ba  MANIFEST.json
+2f03aa99c064921ddd33996b36695b1fd9a6399666962a077cbb9da40f9d1dfa  loop.png
+85f11d566478dd55a72f2c6ea262579b1ffd75a8969a40fc595e5da405a78d64  demo.mp4
+f400f8a79de47ec5aaf0ace6e70761fe5f131beec746ed346e0d082ca12c58f9  MANIFEST.json
 ```
 
-`ls -la media/` (tracked files; .venv/, work/, master/, frames/ are
-git-ignored):
+`ls -la media/` (tracked files; .venv/, work/, master/, clips/ and
+video/node_modules/ are git-ignored):
 
 ```
-MANIFEST.json  beamviz.py  collect_verdicts.sh  data/  demo.mp4
-fig_loop.py  fig_result.py  loop.png  make_media.sh  make_video.py
-manifest.py  requirements.txt  result.png  REVIEW.md  solve_fields.py
+MANIFEST.json  REVIEW.md  STORYBOARD.md  beamviz.py
+collect_verdicts.sh  data/  demo.mp4  fig_loop.py  fig_result.py
+frames/  gen_composition.py  loop.png  make_media.sh  manifest.py
+render_clips.py  requirements.txt  result.json  result.png
+solve_fields.py  terminal_clip.py  video/
 data/: convergence.json  selftest.txt  verdicts/{good + 9 mutants}.json
+frames/: hook_1s.jpg  ramp_25pct.jpg  terminal_60pct.jpg  proof.jpg
+video/: index.html (generated)  package.json  package-lock.json  assets/
 ```
 
 ## Deviations / notes
@@ -169,6 +168,10 @@ data/: convergence.json  selftest.txt  verdicts/{good + 9 mutants}.json
   per-gate results from the JSONs, which is the point of the matrix.
 - The mutant loop shown in loop.png / demo.mp4 is a replay of real
   grade JSONs in a fixing-plausible order, labelled as such on both.
+- Encode: `-crf 18` alone yields ~26 MiB on this footage (continuous
+  orbiting 3-D render), so the web encode keeps `-crf 18` as the
+  quality target and adds a VBV cap (`-maxrate 1900k -bufsize 3800k`)
+  sized to the <= 8 MiB budget; shipped file is 6.61 MiB.
 - Colour saturation and the excluded wall-corner singularity are
   explained on result.png itself (SPEC.md measures sigma_wall on NEVAL,
   not at the singular corner).

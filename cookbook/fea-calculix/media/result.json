@@ -67,21 +67,41 @@
     }
   ],
   "hero": {
-    "kind": "image",
-    "path": "media/result.png",
-    "caption": "Deformed mesh coloured by von Mises (allowable on the colour bar), mesh convergence, and the Euler-Bernoulli comparison."
+    "kind": "video",
+    "path": "media/demo.mp4",
+    "poster": "media/frames/hook_1s.jpg",
+    "caption": "Animated cut: the real ccx field orbited in 3-D, load ramped 0-1000 N with live HUD, the sandbox run replayed at measured speed, then the PASS gate rows over the still-moving field."
   },
   "gallery": [
+    {
+      "kind": "image",
+      "path": "media/result.png",
+      "caption": "Deformed mesh coloured by von Mises (allowable on the colour bar), mesh convergence, and the Euler-Bernoulli comparison."
+    },
     {
       "kind": "image",
       "path": "media/loop.png",
       "caption": "agent-loop replay and the mutant x gate self-test matrix"
     },
     {
-      "kind": "video",
-      "path": "media/demo.mp4",
-      "poster": "media/result.png",
-      "caption": "the real displacement field ramped 0-1000 N, then each mutant's failing gate"
+      "kind": "image",
+      "path": "media/frames/hook_1s.jpg",
+      "caption": "t=1 s: the finished deformed field fills the frame, von Mises colour map"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/ramp_25pct.jpg",
+      "caption": "t=7.7 s (25%): load ramped under a slow orbit, HUD counting load and tip deflection vs the 10 mm limit"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/terminal_60pct.jpg",
+      "caption": "t=18.5 s (60%): this run's real console replay at the measured speed, composited over still-playing footage"
+    },
+    {
+      "kind": "image",
+      "path": "media/frames/proof.jpg",
+      "caption": "proof: PASS badge and per-gate rows sliding in over the still-moving field"
     }
   ],
   "launch": {

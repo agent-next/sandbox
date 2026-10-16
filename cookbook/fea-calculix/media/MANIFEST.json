@@ -55,9 +55,9 @@
         "clips/*.mp4",
         "video/index.html"
       ],
-      "command": "bash media/make_media.sh (clips: render_clips.py; composition: gen_composition.py -> video/index.html; render: npx hyperframes render (pinned 0.8.99); encode: ffmpeg -crf 18 +faststart; master: media/master/demo_hf.mp4)",
-      "sha256": "d4de532ce1ae38061fff54ae6589f2882b5c7b79d1fa1d17c0d6503316a67d25",
-      "bytes": 4356822
+      "command": "bash media/make_media.sh (clips: render_clips.py; composition: gen_composition.py -> video/index.html; render: npx hyperframes render (pinned 0.8.99); encode: ffmpeg -crf 18 -maxrate 1900k -bufsize 3800k +faststart (VBV cap sized to the <= 8 MiB budget); master: media/master/demo_hf.mp4)",
+      "sha256": "85f11d566478dd55a72f2c6ea262579b1ffd75a8969a40fc595e5da405a78d64",
+      "bytes": 6933476
     }
   }
 }

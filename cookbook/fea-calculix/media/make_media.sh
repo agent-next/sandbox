@@ -107,10 +107,13 @@ mkdir -p "$MEDIA/master"
     -o "$MEDIA/master/demo_hf.mp4" --crf 16 )
 
 # --- web encode ---------------------------------------------------------------
-echo "== demo.mp4 (H.264 yuv420p, crf 18, +faststart) =="
+# crf 18 alone lands ~26 MiB on this footage (continuous orbiting 3-D
+# render), so the encode keeps -crf 18 as the quality target and adds a
+# VBV cap sized to the <= 8 MiB budget: 1900 kbps x 31 s ~= 7.0 MiB.
+echo "== demo.mp4 (H.264 yuv420p, crf 18 + VBV cap, +faststart) =="
 ffmpeg -y -v error -i "$MEDIA/master/demo_hf.mp4" \
-    -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
-    -movflags +faststart -an "$MEDIA/demo.mp4"
+    -c:v libx264 -preset slow -crf 18 -maxrate 1900k -bufsize 3800k \
+    -pix_fmt yuv420p -movflags +faststart -an "$MEDIA/demo.mp4"
 
 # --- manifest ---------------------------------------------------------------
 "$PY" "$MEDIA/manifest.py"
