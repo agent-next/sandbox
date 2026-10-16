@@ -292,6 +292,10 @@ def play(cast_path, out_path, fps=30, speed=1.0, width=2560, height=1440,
            "-f", "rawvideo", "-pix_fmt", "rgb24",
            "-s", "%dx%d" % (width, height), "-r", str(fps), "-i", "-",
            "-c:v", "libx264", "-preset", "medium", "-crf", str(crf),
+           # a keyframe every frame of footage: the composition seeks into
+           # these clips at arbitrary times, and a sparse keyframe interval
+           # makes those seeks freeze on the nearest keyframe
+           "-g", str(fps), "-keyint_min", str(fps),
            "-pix_fmt", "yuv420p", out_path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
 

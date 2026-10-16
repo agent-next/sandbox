@@ -64,11 +64,14 @@ SLOTS = [
     # crc-poly 184.2s, ring-count-drift 235.1s: 12x covers 72 s of cast =
     # six mutant rows landing, one every ~1.2 s of clip time.
     ("selftest",   "selftest.cast", 132.00, 12.0, 5.0, "0,0,120,40"),
-    # 21-27 s the ring-buffer push/pop tail at 16x -- the fast clip.
-    # window 24-120 s: the 17-byte ring pushes (25.6s), the wrap dumps
-    # (27.9-30.0s) and the long-hex CRC burst (30.9s+) at 16x -- a line
-    # lands every ~0.4 s of clip time.
-    ("boot-crc",   "boot.cast", 24.00, 16.0, 6.0, "0,0,120,40"),
+    # selftest's cast writes once per mutant build (~10-40 s of cast); the
+    # idle gaps are real, so this clip moves only when a mutant row lands.
+    # The composition carries the slot's motion: a strong camera push and
+    # the counter/badge animation.
+    # 21-27 s the CRC burst at 16x -- the fast clip.  Window 25.6-52.0 s:
+    # the ring pushes (25.6-28 s), the wrap dumps (27.9-30.0s) and the
+    # long-hex burst at 16x -- a line lands every ~0.4 s of clip time.
+    ("boot-crc",   "boot.cast", 25.60, 16.0, 1.65, "0,0,120,40"),
     # 27-31.5 s the judge's verdict JSON landing on screen, real bytes.
     # same window as `grade`; the composition pans down the JSON as the
     # proof HUD holds its numbers.
@@ -82,10 +85,14 @@ def build(out_dir, only=None):
         if only and name != only:
             continue
         out = os.path.join(out_dir, "%s.mp4" % name)
+        # term.py play's --start/--stop are real output seconds (cast
+        # position = start * speed), so a window named in cast seconds --
+        # as the storyboard's slots are -- must be divided by the speed.
         argv = [sys.executable, "-I", os.path.join(HERE, "term.py"), "play",
                 os.path.join(CLIPS, cast), out,
                 "--fps", str(FPS), "--speed", str(speed),
-                "--start", "%.3f" % start, "--stop", "%.3f" % (start + dur),
+                "--start", "%.4f" % (start / speed),
+                "--stop", "%.4f" % (start / speed + dur),
                 "--width", str(WIDTH), "--height", str(HEIGHT)]
         if crop:
             argv += ["--crop", crop]

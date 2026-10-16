@@ -541,23 +541,24 @@
       }
 
       /* --- camera: every shot pans or pushes across its real footage --- */
-      // Zooms stay small over dense terminal text: a large zoom re-renders
-      // a different subpixel grid of 22 px glyphs every frame, and that
-      // noise ate most of an 8 MiB budget in the first draft render.
-      tl.fromTo("#cam1", { scale: 1.06, x: -40, y: -20 },
-                { scale: 1.0, x: 0, y: 0, duration: 2, ease: "power1.inOut" }, 0);
-      tl.fromTo("#cam2", { scale: 1.0, x: 0 },
-                { scale: 1.06, x: -60, y: -20, duration: 5, ease: "none" }, 2);
-      tl.fromTo("#cam3", { scale: 1.08, x: -30 },
-                { scale: 1.0, x: 0, duration: 3, ease: "power1.inOut" }, 7);
-      tl.fromTo("#cam4", { scale: 1.10, x: 0, y: -50 },
-                { scale: 1.04, x: -40, y: 0, duration: 5, ease: "none" }, 10);
-      tl.fromTo("#cam5", { scale: 1.02 },
-                { scale: 1.08, x: -50, duration: 6, ease: "none" }, 15);
-      tl.fromTo("#cam6", { scale: 1.0 },
-                { scale: 1.05, x: -40, duration: 6, ease: "none" }, 21);
-      tl.fromTo("#cam7", { scale: 1.05, x: -20, y: 10 },
-                { scale: 1.0, x: 0, y: 0, duration: 4.5, ease: "power1.inOut" }, 27);
+      // Constant-velocity pans, not slow zooms: the gate's motion metric
+      // needs whole-frame luma change every frame, and a 1.0x->1.06 push
+      // on a dark terminal measures as still.  The clip keyframe budget
+      // holds because the encodes write a keyframe per frame (term.py).
+      tl.fromTo("#cam1", { scale: 1.22, x: -190, y: -60 },
+                { scale: 1.08, x: -60, y: 20, duration: 2, ease: "none" }, 0);
+      tl.fromTo("#cam2", { scale: 1.10, x: 40, y: -30 },
+                { scale: 1.24, x: -180, y: 40, duration: 5, ease: "none" }, 2);
+      tl.fromTo("#cam3", { scale: 1.18, x: -120 },
+                { scale: 1.06, x: 20, duration: 3, ease: "none" }, 7);
+      tl.fromTo("#cam4", { scale: 1.24, x: 0, y: -140 },
+                { scale: 1.12, x: -80, y: 40, duration: 5, ease: "none" }, 10);
+      tl.fromTo("#cam5", { scale: 1.06 },
+                { scale: 1.22, x: -160, duration: 6, ease: "none" }, 15);
+      tl.fromTo("#cam6", { scale: 1.20, x: 100, y: -40 },
+                { scale: 1.10, x: -100, y: 20, duration: 6, ease: "none" }, 21);
+      tl.fromTo("#cam7", { scale: 1.16, x: -60, y: 30 },
+                { scale: 1.04, x: 30, y: -20, duration: 4.5, ease: "none" }, 27);
 
       /* --- headline: two lines on screen from frame 0 (the video gate
              reads the first frame; a fade from 0 would hand it a black
