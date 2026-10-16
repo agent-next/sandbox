@@ -6,7 +6,6 @@ import { Race } from "./scenes/Race";
 import { RowTransform } from "./scenes/RowTransform";
 import { Terminal } from "./scenes/Terminal";
 import { GpuTiming } from "./scenes/GpuTiming";
-import { MutantRace } from "./scenes/MutantRace";
 import { ProofHud } from "./scenes/ProofHud";
 import { EndCard } from "./scenes/EndCard";
 import { DIM } from "./theme";
@@ -22,7 +21,7 @@ export const T = {
   escRace: [300, 300], // 10-20 s: escalate — camera push on the race
   escTerm: [600, 315], // 20-30.5 s: the agent's run, Nx speed, real footage
   escGpu: [915, 225], // 30.5-38 s: the GPU slice's own timing
-  mutants: [1140, 165], // 38-43.5 s: mutant kill race with the proof HUD
+  proof: [1140, 165], // 38-43.5 s: verdict HUD over the still-playing run
   end: [1305, 75], // 43.5-46 s: static end card
 } as const;
 
@@ -32,10 +31,10 @@ export const Main: React.FC<MainProps> = ({ scene }) => {
   const runSeconds =
     cpu.wall.setup_s + cpu.wall.selftest_s + cpu.wall.grade_s;
   const speed = Math.max(1, Math.round(runSeconds / terminal.duration_s));
-  // start the footage just before the selftest kicks off, so the clip shows
-  // the judge grading the known-good kernel and then the mutants dying
-  const clipFrom = Math.max(
-    0, Math.round((cpu.wall.setup_s + 1) / speed) * 30);
+  // the escalation shot plays the run from the top; the proof shot resumes
+  // exactly where it stopped, so the footage never jumps
+  const escFrames = Math.round(T.escTerm[1]);
+  const proofFrom = escFrames;
 
   return (
     <AbsoluteFill>
@@ -64,13 +63,15 @@ export const Main: React.FC<MainProps> = ({ scene }) => {
         name="esc-term">
         <Terminal start={0} durationInFrames={T.escTerm[1]}
           clip={terminal.clip} clipSeconds={terminal.duration_s} speed={speed}
-          clipFrom={clipFrom}
+          clipFrom={0}
           wall={cpu.wall}
           mutantsKilled={cpu.mutants.filter((m) => m.killed).length}
           mutantsTotal={cpu.mutants.length}
           gradePass={cpu.verdict.judge_intact &&
             Object.values(cpu.verdict.gates).every(Boolean)}
-          kicker="the agent's sandbox run" />
+          headline={["the", "agent's", "sandbox", "run"]}
+          subheadline="judge/setup.sh -> judge/selftest.sh -> judge/grade.sh, recorded as it ran"
+          showHud />
       </Sequence>
 
       <Sequence from={T.escGpu[0]} durationInFrames={T.escGpu[1]}
@@ -82,13 +83,18 @@ export const Main: React.FC<MainProps> = ({ scene }) => {
           subcaption="same judge, full CUDA path — median of 9 CUDA-event timings" />
       </Sequence>
 
-      <Sequence from={T.mutants[0]} durationInFrames={T.mutants[1]}
-        name="mutants">
-        <MutantRace start={0} durationInFrames={T.mutants[1]}
-          mutants={cpu.mutants}
-          caption="the judge can fail"
-          subcaption="11 real broken kernels, each graded by the real judge" />
-        <ProofHud start={30}
+      <Sequence from={T.proof[0]} durationInFrames={T.proof[1]} name="proof">
+        <Terminal start={0} durationInFrames={T.proof[1]}
+          clip={terminal.clip} clipSeconds={terminal.duration_s} speed={speed}
+          clipFrom={proofFrom}
+          wall={cpu.wall}
+          mutantsKilled={cpu.mutants.filter((m) => m.killed).length}
+          mutantsTotal={cpu.mutants.length}
+          gradePass={false}
+          headline={["the", "judge", "cannot", "be", "fooled"]}
+          subheadline="the run keeps playing under the verdict — same recording, no cuts"
+          showHud={false} />
+        <ProofHud start={12}
           cases={gpu.cases} gates={gpu.gates} mutants={gpu.mutants}
           mutantsKilled={gpu.mutants_killed} mutantsTotal={gpu.mutants_total}
           worst={gpu.worst} judgeIntact={gpu.judge_intact}

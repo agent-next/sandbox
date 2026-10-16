@@ -2,7 +2,8 @@ import React from "react";
 import {
   AbsoluteFill, OffthreadVideo, staticFile, useCurrentFrame, useVideoConfig,
 } from "remotion";
-import { DIM, FG, FONT_MONO, FONT_SANS, GREEN, lin, ramp } from "../theme";
+import { DIM, FG, FONT_MONO, FONT_SANS, GREEN, lin } from "../theme";
+import { KineticHeadline } from "../KineticHeadline";
 
 /** The agent's real sandbox run, sped up: the recorded judge run plays here
  * with a HUD on top (the real speed-up, the phase, and a growing progress
@@ -18,11 +19,13 @@ export const Terminal: React.FC<{
   mutantsKilled: number;
   mutantsTotal: number;
   gradePass: boolean;
-  kicker: string;
+  headline: string[];
+  subheadline: string;
+  showHud: boolean;
 }> = ({ start, durationInFrames, clip, clipSeconds, speed, clipFrom, wall,
-        mutantsKilled, mutantsTotal, gradePass, kicker }) => {
+        mutantsKilled, mutantsTotal, gradePass, headline, subheadline,
+        showHud }) => {
   const frame = useCurrentFrame();
-  const { width } = useVideoConfig();
   const p = lin(frame, start, durationInFrames);
   const total = wall.setup_s + wall.selftest_s + wall.grade_s;
   const done = Math.min(mutantsTotal, Math.floor(p * mutantsTotal + 0.001));
@@ -34,50 +37,49 @@ export const Terminal: React.FC<{
       <OffthreadVideo src={staticFile(clip)} startFrom={clipFrom} muted
         style={{ width: "100%", height: "100%", objectFit: "cover" }} />
 
-      {/* top kicker */}
+      {/* readable top band */}
       <div style={{ position: "absolute", left: 0, right: 0, top: 0,
-        height: 96, background: "linear-gradient(180deg,#0d1117ee,#0d111700)",
-        display: "flex", alignItems: "center", padding: "0 56px",
-        justifyContent: "space-between" }}>
-        <div style={{ fontFamily: FONT_SANS, fontSize: 44, fontWeight: 700,
-          color: FG }}>{kicker}</div>
-        <div style={{ fontFamily: FONT_MONO, fontSize: 40, color: GREEN }}>
-          {speed}&times; speed &middot; real run {total.toFixed(0)} s
+        height: 210, background: "linear-gradient(180deg,#0d1117f0,#0d111700)",
+        padding: "34px 56px 0" }}>
+        <KineticHeadline words={headline} start={start + 2} size={56}
+          sub={subheadline} />
+        <div style={{ position: "absolute", right: 56, top: 40,
+          fontFamily: FONT_MONO, fontSize: 40, color: GREEN, textAlign: "right" }}>
+          {speed}&times; speed
+          <div style={{ fontSize: 26, color: DIM, marginTop: 4 }}>
+            real run {total.toFixed(0)} s &middot; {clipSeconds.toFixed(1)} s of footage
+          </div>
         </div>
       </div>
 
-      {/* bottom HUD: phases + progress */}
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0,
-        padding: "40px 56px 48px",
-        background: "linear-gradient(0deg,#0d1117f2,#0d111700)" }}>
-        <div style={{ display: "flex", gap: 28, fontFamily: FONT_MONO,
-          fontSize: 30 }}>
-          <Phase label={`setup ${wall.setup_s.toFixed(0)}s`}
-            on={p > 0} />
-          <Phase label={`selftest ${wall.selftest_s.toFixed(0)}s`}
-            on={p * total > wall.setup_s} />
-          <Phase label={`grade ${wall.grade_s.toFixed(0)}s`}
-            on={p * total > wall.setup_s + wall.selftest_s} />
-          <div style={{ color: DIM, marginLeft: "auto" }}>
-            mutants killed {done}/{mutantsTotal} &middot; elapsed {elapsed}s
+      {showHud ? (
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0,
+          padding: "40px 56px 44px",
+          background: "linear-gradient(0deg,#0d1117f2,#0d111700)" }}>
+          <div style={{ display: "flex", gap: 28, fontFamily: FONT_MONO,
+            fontSize: 30 }}>
+            <Phase label={`setup ${wall.setup_s.toFixed(0)}s`} on={p > 0} />
+            <Phase label={`selftest ${wall.selftest_s.toFixed(0)}s`}
+              on={p * total > wall.setup_s} />
+            <Phase label={`grade ${wall.grade_s.toFixed(0)}s`}
+              on={p * total > wall.setup_s + wall.selftest_s} />
+            <div style={{ color: DIM, marginLeft: "auto" }}>
+              mutants killed {done}/{mutantsTotal} &middot; elapsed {elapsed}s
+            </div>
           </div>
-        </div>
-        <div style={{ marginTop: 18, height: 22, background: "#161b22",
-          borderRadius: 11, overflow: "hidden", border: "1px solid #30363d" }}>
-          <div style={{ width: `${p * 100}%`, height: "100%",
-            background: `linear-gradient(90deg,#1f6feb,#3fb950)` }} />
-        </div>
-        {gradePass && p > 0.62 ? (
-          <div style={{ marginTop: 18, fontFamily: FONT_MONO, fontSize: 34,
-            color: GREEN, opacity: ramp(frame, start + durationInFrames * 0.62, 12) }}>
-            &#10003; known-good kernel PASS &middot; every mutant killed
+          <div style={{ marginTop: 18, height: 22, background: "#161b22",
+            borderRadius: 11, overflow: "hidden", border: "1px solid #30363d" }}>
+            <div style={{ width: `${p * 100}%`, height: "100%",
+              background: `linear-gradient(90deg,#1f6feb,#3fb950)` }} />
           </div>
-        ) : null}
-      </div>
-
-      {/* a soft vignette so the HUD text stays readable over any frame */}
-      <AbsoluteFill style={{ boxShadow: "inset 0 0 240px 40px #0d1117cc",
-        pointerEvents: "none" }} />
+          {gradePass && p > 0.62 ? (
+            <div style={{ marginTop: 18, fontFamily: FONT_MONO, fontSize: 34,
+              color: GREEN, opacity: lin(frame, start + durationInFrames * 0.62, 12) }}>
+              &#10003; known-good kernel PASS &middot; every mutant killed
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </AbsoluteFill>
   );
 };

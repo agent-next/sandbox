@@ -29,30 +29,25 @@ OUT = os.path.join(CLIPS, "terminal.mp4")
 FRAMES = os.path.join(CLIPS, ".termframes")
 
 W, H, FPS = 1920, 1080, 30
-MAX_LINES = 24
+MAX_LINES = 13
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;padding:0;background:#0d1117;width:1920px;height:1080px;
  overflow:hidden;font-family:'DejaVu Sans Mono',Menlo,Consolas,monospace}
-#term{position:absolute;left:56px;right:470px;top:96px;bottom:150px;
- font-size:31px;line-height:42px;color:#e6edf3;white-space:pre}
-#clock{position:absolute;right:64px;top:96px;font-size:44px;color:#79c0ff;
- text-align:right;line-height:60px}
-#phase{position:absolute;right:64px;top:170px;font-size:30px;color:#8b949e;
+/* the top 210px and the bottom 200px stay empty on purpose: the Remotion
+   composition overlays its own headline and progress HUD there */
+#term{position:absolute;left:56px;right:64px;top:332px;bottom:198px;
+ font-size:30px;line-height:40px;color:#e6edf3;white-space:pre}
+#clock{position:absolute;right:64px;top:214px;font-size:44px;color:#79c0ff;
  text-align:right}
-#prompt{position:absolute;left:56px;top:34px;font-size:33px;color:#8b949e}
-#bar{position:absolute;left:56px;right:64px;bottom:88px;height:26px;
- background:#161b22;border-radius:13px;overflow:hidden}
-#fill{position:absolute;left:0;top:0;bottom:0;background:#388bfd;width:0%}
-#barlabel{position:absolute;left:56px;bottom:132px;font-size:28px;color:#8b949e}
+#phase{position:absolute;left:56px;top:222px;font-size:30px;color:#8b949e}
+#prompt{position:absolute;left:56px;top:282px;font-size:33px;color:#8b949e}
 .g{color:#56d364}.r{color:#ff7b72}.b{color:#79c0ff}.d{color:#8b949e}
 </style></head><body>
-<div id="prompt"></div><div id="term"></div>
-<div id="clock"></div><div id="phase"></div>
-<div id="barlabel"></div><div id="bar"><div id="fill"></div></div>
+<div id="phase"></div><div id="clock"></div><div id="prompt"></div>
+<div id="term"></div>
 <script>
 const EVENTS = __EVENTS__;
-const TOTAL = __TOTAL__;
 const PROMPTS = __PROMPTS__;
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;")}
 function cls(line){
@@ -69,18 +64,15 @@ window.render = (t) => {
     else break;
   }
   for (const p of PROMPTS) if (p.t <= t) prompt = p.cmd;
-  document.getElementById("prompt").textContent = prompt;
+  document.getElementById("prompt").textContent = "$ " + prompt;
   const tail = shown.slice(-__MAX_LINES__);
   document.getElementById("term").innerHTML =
     tail.map(l => `<span class="${cls(l)}">${esc(l)}</span>`).join("\\n");
-  document.getElementById("clock").innerHTML =
-    `t = ${t.toFixed(1)} s<br><span style="font-size:30px;color:#8b949e">` +
-    `${__SPEED__}&times; speed</span>`;
+  document.getElementById("clock").textContent = "t = " + t.toFixed(1) + " s";
   const phase = t < __T1__ ? "setup" : (t < __T2__ ? "selftest" : "grade");
-  document.getElementById("phase").textContent = "phase: " + phase;
-  document.getElementById("barlabel").textContent =
-    "run progress (real elapsed " + t.toFixed(0) + " / " + TOTAL.toFixed(0) + " s)";
-  document.getElementById("fill").style.width = (100*t/TOTAL) + "%";
+  document.getElementById("phase").textContent =
+    "recorded run: judge/setup.sh, judge/selftest.sh, judge/grade.sh" +
+    "   |   phase: " + phase;
 };
 </script></body></html>"""
 
@@ -121,7 +113,6 @@ def main():
     clip_s = total / args.speed
     frames = int(clip_s * FPS)
     html = (PAGE.replace("__EVENTS__", json.dumps(events))
-                .replace("__TOTAL__", f"{total:.1f}")
                 .replace("__PROMPTS__", json.dumps(prompts))
                 .replace("__MAX_LINES__", str(MAX_LINES))
                 .replace("__SPEED__", str(int(args.speed))

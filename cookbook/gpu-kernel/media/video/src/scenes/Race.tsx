@@ -1,8 +1,7 @@
 import React, { useMemo } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { RaceCase } from "../types";
-import { BLUE, DIM, FG, FONT_MONO, FONT_SANS, GREEN, PANEL, lin } from "../theme";
-import { CountUp } from "../CountUp";
+import { BLUE, DIM, FG, FONT_MONO, FONT_SANS, GREEN, PANEL, fmt, lin } from "../theme";
 
 type Iter = {
   case: number;
@@ -30,10 +29,10 @@ export const flatten = (cases: RaceCase[]): Iter[] => {
   return out;
 };
 
-const PAD_L = 150;
+const PAD_L = 170;
 const PAD_R = 90;
-const PAD_T = 150;
-const PAD_B = 210;
+const PAD_T = 210;
+const PAD_B = 230;
 
 /** The hero shot: the real per-iteration kernel/eager timings drawn live as
  * growing lines, with growing bars for the two current values. Every value is
@@ -148,8 +147,8 @@ export const Race: React.FC<{
             <g key={i}>
               <line x1={b.x} y1={PAD_T} x2={b.x} y2={PAD_T + chartH}
                 stroke="#30363d" strokeDasharray="4 8" strokeWidth={2} />
-              <text x={b.x + 8} y={PAD_T - 16} fill={DIM} fontSize={24}
-                fontFamily={FONT_MONO}>
+              <text x={b.x + 10} y={PAD_T + chartH + 34} fill={DIM}
+                fontSize={24} fontFamily={FONT_MONO}>
                 {b.label}
               </text>
             </g>
@@ -176,21 +175,19 @@ export const Race: React.FC<{
         </div>
       </div>
 
-      {/* live legend / HUD numbers that count */}
-      <div style={{ position: "absolute", right: 70, top: 40, textAlign: "right" }}>
+      {/* live legend: the numbers tick with the sweeping cursor */}
+      <div style={{ position: "absolute", right: 70, top: 56, textAlign: "right" }}>
         <Legend color={GREEN} label="fused Triton kernel"
-          value={<CountUp from={0} to={scanIter.kernel_ms} start={start} dur={growF}
-            digits={3} suffix=" ms" />} />
+          value={`${fmt(scanIter.kernel_ms)} ms`} />
         <Legend color={BLUE} label="torch eager softmax"
-          value={<CountUp from={0} to={scanIter.eager_ms} start={start} dur={growF}
-            digits={3} suffix=" ms" />} />
+          value={`${fmt(scanIter.eager_ms)} ms`} />
         <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: DIM, marginTop: 10 }}>
           iteration {Math.round(scanIdx) + 1} / {n} &middot; {scanIter.shape[0]}x{scanIter.shape[1]} {scanIter.dist}
         </div>
       </div>
 
       {/* growing bars for the current iteration */}
-      <div style={{ position: "absolute", left: PAD_L, bottom: 44 }}>
+      <div style={{ position: "absolute", left: PAD_L, bottom: 40 }}>
         <Bar color={GREEN} label="kernel" w={barW(scanIter.kernel_ms)} v={scanIter.kernel_ms} />
         <Bar color={BLUE} label="eager" w={barW(scanIter.eager_ms)} v={scanIter.eager_ms} />
       </div>
@@ -198,7 +195,7 @@ export const Race: React.FC<{
   );
 };
 
-const Legend: React.FC<{ color: string; label: string; value: React.ReactNode }> = ({
+const Legend: React.FC<{ color: string; label: string; value: string }> = ({
   color, label, value,
 }) => (
   <div style={{ fontFamily: FONT_MONO, fontSize: 32, color, marginTop: 6 }}>

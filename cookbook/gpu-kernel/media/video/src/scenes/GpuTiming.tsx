@@ -1,12 +1,12 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
-import { BLUE, DIM, FG, FONT_MONO, FONT_SANS, GREEN, PANEL, CYAN, ease, lin } from "../theme";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { BLUE, DIM, FG, FONT_MONO, FONT_SANS, GREEN, PANEL, CYAN, ease, lin, springish } from "../theme";
 import { CountUp } from "../CountUp";
 import { ScanBand } from "../ScanBand";
 
 /** The GPU slice's own measurement: kernel vs eager ms as growing bars, the
- * speedup spinning up and the effective GB/s counting to the measured value.
- * Every number is from the committed GPU report (media/data/report.json). */
+ * throughput counting up and the speedup spinning. Every number is from the
+ * committed GPU report (media/data/report.json). */
 export const GpuTiming: React.FC<{
   start: number;
   durationInFrames: number;
@@ -19,7 +19,6 @@ export const GpuTiming: React.FC<{
 }> = ({ start, durationInFrames, kernelMs, eagerMs, speedup, gbPerS,
         caption, subcaption }) => {
   const frame = useCurrentFrame();
-  const { width } = useVideoConfig();
   const grow = ease(frame, start + 10, Math.round(durationInFrames * 0.85));
   const zoom = lin(frame, start, durationInFrames);
   const scale = 1 + 0.06 * zoom;
@@ -42,12 +41,12 @@ export const GpuTiming: React.FC<{
         </div>
 
         <div style={{ position: "absolute", left: 100, top: 300,
-          width: 1100, background: PANEL, border: "1px solid #30363d",
+          width: 1060, background: PANEL, border: "1px solid #30363d",
           borderRadius: 18, padding: "40px 48px" }}>
           <div style={{ display: "flex", alignItems: "center" }}>
             <div style={{ width: 170, fontFamily: FONT_MONO, fontSize: 32,
               color: GREEN }}>kernel</div>
-            <div style={{ width: 740, height: 64, background: "#0d1117",
+            <div style={{ width: 620, height: 64, background: "#0d1117",
               borderRadius: 12, overflow: "hidden",
               border: "1px solid #30363d" }}>
               <div style={{ width: kW, height: "100%", background: GREEN }} />
@@ -61,7 +60,7 @@ export const GpuTiming: React.FC<{
           <div style={{ display: "flex", alignItems: "center", marginTop: 26 }}>
             <div style={{ width: 170, fontFamily: FONT_MONO, fontSize: 32,
               color: BLUE }}>eager</div>
-            <div style={{ width: 740, height: 64, background: "#0d1117",
+            <div style={{ width: 620, height: 64, background: "#0d1117",
               borderRadius: 12, overflow: "hidden",
               border: "1px solid #30363d" }}>
               <div style={{ width: eW, height: "100%", background: BLUE }} />
@@ -76,9 +75,9 @@ export const GpuTiming: React.FC<{
             marginTop: 22 }}>median of 9 CUDA-event timings &middot; (4096, 4096) fp32</div>
         </div>
 
-        <div style={{ position: "absolute", right: 90, top: 330, width: 460,
+        <div style={{ position: "absolute", right: 80, top: 330, width: 470,
           background: PANEL, border: "1px solid #30363d", borderRadius: 18,
-          padding: "36px 40px", textAlign: "right" }}>
+          padding: "36px 40px", textAlign: "center" }}>
           <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: DIM }}>
             effective throughput
           </div>
@@ -90,11 +89,17 @@ export const GpuTiming: React.FC<{
           <div style={{ fontFamily: FONT_MONO, fontSize: 28, color: DIM }}>
             GB/s (cache-resident, not DRAM)
           </div>
-          <div style={{ fontFamily: FONT_MONO, fontSize: 64, fontWeight: 700,
-            color: FG, marginTop: 26 }}>
-            <CountUp from={0.4} to={speedup} start={start + 26}
-              dur={Math.round(durationInFrames * 0.45)} digits={2}
-              prefix="x" suffix=" vs eager" />
+          <div style={{ marginTop: 30, paddingTop: 24,
+            borderTop: "1px solid #30363d" }}>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 26, color: DIM }}>
+              speedup vs eager
+            </div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 74, fontWeight: 700,
+              color: FG, marginTop: 6,
+              opacity: springish(frame, start + 30, 30) }}>
+              x<CountUp from={0.4} to={speedup} start={start + 26}
+                dur={Math.round(durationInFrames * 0.45)} digits={2} />
+            </div>
           </div>
         </div>
       </div>

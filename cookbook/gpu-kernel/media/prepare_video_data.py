@@ -16,6 +16,7 @@ first missing one — the video must never render from partial data.
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -153,6 +154,11 @@ def main():
         term_s = float(probe.stdout.strip())
     except ValueError:
         die(f"could not probe terminal.mp4 duration: {probe.stdout!r}")
+    # Remotion's staticFile() only serves from video/public/; the clip itself
+    # stays in gitignored media/clips/
+    public = os.path.join(HERE, "video", "public")
+    os.makedirs(public, exist_ok=True)
+    shutil.copyfile(term, os.path.join(public, "terminal.mp4"))
 
     scene = {
         "gpu": gpu,

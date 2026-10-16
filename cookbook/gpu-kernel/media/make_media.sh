@@ -1,12 +1,29 @@
 #!/usr/bin/env bash
-# Regenerate all gpu-kernel demo media from media/data/.
+# Regenerate all gpu-kernel demo media, end to end.
 #
 #   bash cookbook/gpu-kernel/media/make_media.sh
 #
-# Requires: python3 (for a local venv), ffmpeg + ffprobe on PATH, and the
-# source data committed under media/data/. Writes media/result.png,
-# media/loop.png, media/demo.mp4 and media/MANIFEST.json (sha256 of every
-# output plus the sha256 of its source data).
+# Stages:
+#   1. record_clips.py       runs the demo's judge for real in this sandbox
+#                            (judge/setup.sh -> selftest.sh -> grade.sh) and
+#                            captures it, with timestamps, into media/clips/
+#                            (gitignored). Exits non-zero unless the judge
+#                            PASSes the good kernel and kills every mutant.
+#   2. render_clips.py       replays that capture into 30 fps footage
+#                            (clips/terminal.mp4) with a headless browser.
+#   3. prepare_video_data.py assembles video/src/data/scene.json from the
+#                            recorded run + the committed GPU run
+#                            (data/report.json, data/gpu-run.log).
+#   4. remotion render        composes the video (media/video/, headless
+#                            Chrome) into media/master/master.mp4 (gitignored).
+#   5. ffmpeg                 encodes demo.mp4 (CRF 18, yuv420p, +faststart).
+#   6. make_figures.py        result.png + loop.png from data/report.json.
+#   7. MANIFEST.json          sha256 of every output and its source data.
+#
+# Requires: python3, ffmpeg + ffprobe, node >= 18 with npx on PATH, and the
+# committed source data under media/data/. ffmpeg only ever encodes; every
+# visual is drawn by the recorded run or the Remotion composition.
+
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -23,46 +40,90 @@ if [ ! -s data/report.json ]; then
     exit 1
 fi
 
-for tool in ffmpeg ffprobe; do
+for tool in ffmpeg ffprobe node npx; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "make_media.sh: $tool not found on PATH" >&2
         exit 1
     fi
 done
 
+# Remotion renders the composition with headless Chrome.
+if [ ! -d video/node_modules ]; then
+    echo "make_media.sh: installing video/node_modules (package-lock.json)"
+    (cd video && npm ci)
+fi
+
+# --- 1-2: the real run, recorded ------------------------------------------
+if [ "${REUSE_CLIPS:-0}" != "1" ] || [ ! -s clips/terminal.mp4 ]; then
+    python3 record_clips.py
+    python3 render_clips.py --speed 25
+else
+    echo "make_media.sh: REUSE_CLIPS=1, keeping existing clips/"
+fi
+
+# --- 3: scene data ----------------------------------------------------------
+python3 prepare_video_data.py
+
+# --- 4-5: compose and encode ------------------------------------------------
+mkdir -p master
+SPEED=25
+( cd video && npx remotion render src/index.ts Main ../master/master.mp4 \
+    --crf 0 --concurrency 2 --gl angle )
+ffmpeg -y -loglevel error -i master/master.mp4 \
+    -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
+    -movflags +faststart demo.mp4
+
+# --- 6: figures -------------------------------------------------------------
 VENV=.venv
 if [ ! -x "$VENV/bin/python" ]; then
     echo "make_media.sh: creating venv at media/$VENV"
     python3 -m venv "$VENV"
     "$VENV/bin/pip" install --quiet "matplotlib==3.10.8" "numpy==2.4.3"
 fi
-
 "$VENV/bin/python" make_figures.py
-"$VENV/bin/python" make_video.py
 
-"$VENV/bin/python" - <<'PY'
-import hashlib, json, os
+# --- 7: manifest ------------------------------------------------------------
+"$VENV/bin/python" - "$SPEED" <<'PY'
+import hashlib, json, os, subprocess, sys
 
 def sha(path):
     with open(path, "rb") as fh:
         return hashlib.sha256(fh.read()).hexdigest()
 
+speed = sys.argv[1]
+clip_sources = [f"record_clips.py (judge run in this sandbox, {speed}x speed)"]
 outputs = {
+    "demo.mp4": ["data/gpu-run.log", "data/report.json",
+                 "clips/cast.jsonl", "clips/timings.jsonl",
+                 "clips/row.json", "clips/racedata.json",
+                 "clips/terminal.mp4", "master/master.mp4"],
     "result.png": ["data/report.json"],
     "loop.png": ["data/report.json"],
-    "demo.mp4": ["data/gpu-run.log", "data/report.json",
-                 "result.png", "loop.png"],
 }
 manifest = {"generated_by": "media/make_media.sh",
+            "renderer": {"tool": "remotion",
+                         "project": "media/video/",
+                         "master": "media/master/master.mp4 (lossless, "
+                                   "gitignored)"},
             "data": {p: {"sha256": sha(p)} for p in
                      ("data/gpu-run.log", "data/report.json")},
             "outputs": {}}
 for out, sources in outputs.items():
     manifest["outputs"][out] = {
         "sha256": sha(out),
-        "source_data": {s: sha(s) for s in sources}}
+        "source_data": {s: sha(s) if os.path.isfile(s) else
+                        {"note": "generated by " + "; ".join(clip_sources)}
+                        for s in sources}}
 with open("MANIFEST.json", "w") as fh:
     json.dump(manifest, fh, indent=2, sort_keys=True)
     fh.write("\n")
 print("wrote MANIFEST.json")
 PY
+
+# --- gate -------------------------------------------------------------------
+GATE="$(dirname "$PWD")/tools/video_gate.py"
+if [ -f "$GATE" ]; then
+    python3 "$GATE" demo.mp4
+else
+    echo "make_media.sh: video gate not found at cookbook/tools/, skipping"
+fi

@@ -119,13 +119,13 @@ def main():
         # argv strings are what the replay shows on screen, so run the phases
         # from the demo dir where the real commands are short enough to fit
         print("record_clips.py: recording judge/setup.sh", flush=True)
-        rc, dt_setup, _ = record(["bash", "judge/setup.sh"], cast, t0, cwd=DEMO)
+        rc, t_setup, _ = record(["bash", "judge/setup.sh"], cast, t0, cwd=DEMO)
         if rc != 0:
             die(f"setup.sh exit {rc}")
 
         print("record_clips.py: recording judge/selftest.sh "
               "(grades 11 mutants for real; takes a while)", flush=True)
-        rc, dt_self, self_lines = record(
+        rc, t_self, self_lines = record(
             ["bash", "judge/selftest.sh"], cast, t0, cwd=DEMO)
         if rc != 0:
             die(f"selftest.sh exit {rc}")
@@ -133,23 +133,27 @@ def main():
         print("record_clips.py: recording judge/grade.sh on the good kernel",
               flush=True)
         verdict = os.path.join(CLIPS, "verdict.json")
-        rc, dt_grade, _ = record(
+        rc, t_grade, _ = record(
             ["bash", "judge/grade.sh", "examples/good/kernel.py",
              "--json", "media/clips/verdict.json"],
             cast, t0, cwd=DEMO)
         if rc != 0:
             die(f"grade.sh exit {rc}")
+    # record() returns each phase's end on the shared clock; the wall time of
+    # a phase is the stretch it owns
+    dt_setup, dt_self, dt_grade = t_setup, t_self - t_setup, t_grade - t_self
 
     print("record_clips.py: timing the kernel per case, per iteration",
           flush=True)
     time_iterations()
 
     # real per-mutant wall seconds, from the captured selftest timestamps
+    # (marks are on the shared clock; the phase's own duration bounds the last)
     marks = [(t, m.group(1), m.group(2))
              for t, line in self_lines if (m := MUTANT_RE.search(line))]
     mutants = []
     for k, (t, name, outcome) in enumerate(marks):
-        end = marks[k + 1][0] if k + 1 < len(marks) else dt_self
+        end = marks[k + 1][0] if k + 1 < len(marks) else t_self
         mutants.append({"name": name, "killed": outcome == "killed",
                         "wall_s": round(end - t, 1)})
 

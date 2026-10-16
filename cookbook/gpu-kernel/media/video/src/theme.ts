@@ -37,6 +37,14 @@ export const ease = (frame: number, start: number, dur: number) => {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 };
 
+/** Damped spring 0..1 (no overshoot) — the feel of the kinetic headline. */
+export const springish = (frame: number, start: number, fps: number) => {
+  const t = (frame - start) / (0.45 * fps);
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  return 1 - Math.pow(1 - t, 3);
+};
+
 export const fmt = (n: number, digits = 3) =>
   n.toFixed(digits).replace(/0+$/, "").replace(/\.$/, "");
 

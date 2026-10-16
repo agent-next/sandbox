@@ -1,3 +1,4 @@
 node_modules/
 out/
 src/data/scene.json
+public/
