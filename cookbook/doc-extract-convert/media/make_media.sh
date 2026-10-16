@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # Rebuild every media artifact from real judge output.
 #
-#   judge runs        judge/mutants.py + judge/grade.sh once per artifact
-#                     (seven verdicts) and the judge-guard check, into
-#                     media/data/*.json -- nothing hand-edited or invented
+#   real runs        media/make_runs.py (corpus + the extractor's own JSON,
+#                    clean and corrupted) into media/data/ -- the frames the
+#                    video animates, not an illustration
+#   judge runs       judge/mutants.py + judge/grade.sh once per artifact
+#                    (seven verdicts) and the judge-guard check, into
+#                    media/data/*.json -- nothing hand-edited or invented
 #   result.png        media/make_figures.py
 #   loop.png          media/make_figures.py
 #   frames/           media/make_video.py (git-ignored)
 #   master/           lossless H.264 master (git-ignored)
 #   demo.mp4          web encode: -crf 18 -preset slow -pix_fmt yuv420p
-#                     -movflags +faststart
+#                    -movflags +faststart
 #   MANIFEST.json     media/manifest.py (sha256 of every shipped file)
 #
 # Requires: judge/setup.sh already run (tesseract, DejaVu, Pillow) and
@@ -40,11 +43,14 @@ command -v ffmpeg >/dev/null || die "ffmpeg missing (distro package)"
 RENDER_ONLY=0
 [ "${1:-}" = "--render-only" ] && RENDER_ONLY=1
 
-# the verdict JSONs land here; git-ignored, rebuilt on every run
-mkdir -p "$MEDIA/data" 
+# the verdict JSONs and the real runs land here; git-ignored, rebuilt every run
+mkdir -p "$MEDIA/data"
 
-# -- 1. real judge runs ------------------------------------------------------
+# -- 1. real judge runs -----------------------------------------------------
 if [ "$RENDER_ONLY" -eq 0 ]; then
+    echo "== the real runs the video animates =="
+    "$PY" "$MEDIA/make_runs.py" "$SEED" || die "make_runs.py failed"
+
     echo "== grading the known-good artifact (seed $SEED) =="
     bash "$DEMO/judge/grade.sh" "$DEMO/examples/good" --seed "$SEED" \
         --json "$MEDIA/data/good.json" >/dev/null || \
@@ -107,7 +113,9 @@ echo "== video frames =="
 
 ls "$MEDIA"/frames/f*.png >/dev/null 2>&1 || die "no video frames produced"
 NFRAMES=$(ls "$MEDIA"/frames/f*.png | wc -l)
-[ "$NFRAMES" -ge 600 ] || die "only $NFRAMES frames (20 s at 30 fps is the floor)"
+# the standard's 25-60 s window at this frame rate: 750 frames is its floor
+[ "$NFRAMES" -ge 750 ] || die "only $NFRAMES frames (25 s at 30 fps is the floor)"
+[ "$NFRAMES" -le 1800 ] || die "$NFRAMES frames is longer than 60 s"
 
 mkdir -p "$MEDIA/master"
 echo "== lossless master (crf 0) =="
@@ -129,8 +137,34 @@ probe=$(ffprobe -v error -select_streams v:0 \
 echo "   demo.mp4: $probe, $bytes bytes"
 echo "$probe" | grep -q '^1920,1080,' || die "demo.mp4 is not 1920x1080"
 
+# the repo's machine gate for the file-level media rules, when it is there
+GATE="$(cd "$DEMO/.." && pwd)/tools/video_gate.py"
+if [ -f "$GATE" ]; then
+    echo "== video gate =="
+    "$PY" "$GATE" "$MEDIA/demo.mp4" --json "$MEDIA/data/video_gate.json" \
+        || die "demo.mp4 fails cookbook/tools/video_gate.py"
+    "$PY" - "$MEDIA/data/video_gate.json" <<'PY'
+import json, sys
+v = json.load(open(sys.argv[1]))
+for c in v["checks"]:
+    print("   %-26s %-12s %s" % (c["name"], c["measured"], c["pass"]))
+print("   video_gate: %s" % ("PASS" if v["passed"] else "FAIL"))
+PY
+else
+    echo "== video gate: skipped (cookbook/tools/video_gate.py not present) =="
+fi
+
 # -- 4. manifest -------------------------------------------------------------
-echo "== MANIFEST.json =="
+echo "== result.json + MANIFEST.json =="
+"$PY" "$MEDIA/result_json.py"
 "$PY" "$MEDIA/manifest.py"
 
-echo "make_media: done -> $MEDIA/{result.png,loop.png,demo.mp4,MANIFEST.json}"
+# the repo's own manifest checker, when the tools are present
+CHECK="$(cd "$DEMO/.." && pwd)/tools/result.py"
+if [ -f "$CHECK" ]; then
+    "$PY" "$CHECK" "$MEDIA/result.json" --root "$DEMO" || die "result.json is not valid"
+else
+    echo "   (result.py not present; result.json not checked)"
+fi
+
+echo "make_media: done -> $MEDIA/{result.png,loop.png,demo.mp4,result.json,MANIFEST.json}"

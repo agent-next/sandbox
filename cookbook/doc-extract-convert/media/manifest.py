@@ -20,10 +20,18 @@ FILES = [
      "against the >= 90 % rule.",
      "python3 media/make_figures.py"),
     ("demo.mp4",
-     "27 s step-through of the agent loop with captions: the accuracy "
-     "figure, one captioned frame per graded artifact, then the self-test "
-     "kill rate.",
+     "30 s of real animated output at 1920x1080: the grounded record typing "
+     "in, a scanner band sweeping a real scan as the boxes lock on, the "
+     "faded photocopy re-binarising with the ink coverage it recovers, the "
+     "blank/smear pages quarantined, the self-test at 3x speed, and the "
+     "verdict HUD.",
      "bash media/make_media.sh"),
+    ("result.json",
+     "The result-card manifest (agent-next/result@1): headline, the five "
+     "gates with their measured values and thresholds, hero/gallery "
+     "pointers and the launch prompt, all generated from the same verdict "
+     "JSONs as the figures.",
+     "python3 media/result_json.py"),
 ]
 
 DATA = {          # every verdict JSON a figure or frame draws from
@@ -34,11 +42,36 @@ DATA = {          # every verdict JSON a figure or frame draws from
                  "m03b-whole-page-box", "m04-quarantine-everything",
                  "m05-wrong-date-format", "m06-accept-bad-date",
                  "judge_guard"],
-    "demo.mp4": ["good", "m01-total-as-float", "m03-box-on-whitespace",
+    # the video animates the real corpus/extractor runs as well as the verdicts
+    "demo.mp4": ["corpus", "extract", "corrupt", "extract-corrupt", "good",
+                 "m01-total-as-float", "m03-box-on-whitespace",
                  "m03b-whole-page-box", "m04-quarantine-everything",
                  "m05-wrong-date-format", "m06-accept-bad-date",
                  "judge_guard"],
+    "result.json": ["good", "judge_guard", "m01-total-as-float",
+                    "m03-box-on-whitespace", "m03b-whole-page-box",
+                    "m04-quarantine-everything", "m05-wrong-date-format",
+                    "m06-accept-bad-date"],
 }
+
+
+def source_data(name):
+    """The real inputs behind `name`, as paths a reader can follow."""
+    entries = []
+    for d in DATA.get(name, []):
+        if d in ("corpus", "extract", "corrupt", "extract-corrupt"):
+            entries.append("media/data/%s/" % d)
+        elif d in ("README",):
+            entries.append("README.md")
+        else:
+            entries.append("media/data/%s.json" % d)
+    if name == "demo.mp4":
+        entries += ["media/data/corpus/pages/*.png",
+                    "media/data/extract/records.json",
+                    "media/data/extract-corrupt/quarantine.json"]
+    if name == "result.json":
+        entries = list(dict.fromkeys(entries + ["README.md"]))
+    return entries
 
 
 def sha256(path):
@@ -67,7 +100,7 @@ def main():
         out["files"][name] = {
             "what": what,
             "command": command + "  (seed %d)" % out["seed"],
-            "source_data": ["media/data/%s.json" % d for d in DATA[name]],
+            "source_data": source_data(name),
             "sha256": sha256(os.path.join(HERE, name)),
         }
     with open(os.path.join(HERE, "MANIFEST.json"), "w") as f:

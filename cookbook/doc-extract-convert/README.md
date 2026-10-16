@@ -17,7 +17,7 @@ sha256-checked) is installed, run and thrown away without touching your
 own machine, and the whole grade — two full corpus runs — finishes in
 about a minute on 2 vCPU.
 
-A 27-second video of the same run is at
+A 30-second video of the same run is at
 [media/demo.mp4](media/demo.mp4); the agent loop and the self-test kill
 rate are in [media/loop.png](media/loop.png).  Regenerate every media file
 with `bash media/make_media.sh` (~15 min: it re-grades all seven artifacts).
@@ -122,17 +122,30 @@ bash media/make_media.sh                 # grade all 7 artifacts, then render
 bash media/make_media.sh --render-only   # re-render from media/data/*.json
 ```
 
-It grades the known-good extractor, the six mutants and the judge-guard
-mutant with `judge/grade.sh`, keeps every verdict JSON under
-`media/data/` (git-ignored), and draws `result.png`, `loop.png` and
-`demo.mp4` from those verdicts alone. The answer key is pinned to seed
+It grades the known-good extractor and the six mutants with
+`judge/grade.sh`, runs the extractor and the corruption itself into
+`media/data/` (the corpus rasters, the extractor's own `records.json` /
+`quarantine.json` on the clean and the corrupted corpus — git-ignored, ~1 MB,
+so the video animates real output rather than a slide), and draws
+`result.png`, `loop.png` and `demo.mp4` from those runs plus the verdict
+JSONs alone. The answer key is pinned to seed
 42: grading at any other seed fails the drift check by design
 (`fixture drift: regenerated truth.json differs from judge/truth.json`),
 so `make_media.sh` only ever runs at seed 42. Needs `judge/setup.sh`
 run first and `ffmpeg` on `PATH`; the
 figures use the Pillow the judge already pins, so nothing else installs.
 `media/MANIFEST.json` records the sha256, the command and the seed behind
-each file.
+each file; `media/result.json` is the result-card manifest generated from
+the same verdicts.
+
+The video is 30 s: the grounded record typing in, a scanner band sweeping a
+real scan while the boxes lock on, the faded photocopy re-binarising with
+the ink coverage that recovers, the blank/smear pages being quarantined, the
+self-test at 3× speed, then the verdict — every frame drawn from the runs
+above, captions burned in. The planned slots are in
+[media/STORYBOARD.md](media/STORYBOARD.md); the two blind vision-model
+verdicts on the cut are in [media/REVIEW.json](media/REVIEW.json), recorded
+by `python3 media/review_video.py --record <judge-a.json> <judge-b.json>`.
 
 ### Prerequisites
 

@@ -1,0 +1,100 @@
+{
+  "schema": "agent-next/result@1",
+  "demo": "doc-extract-convert",
+  "headline": "The extractor read all 48 field slots exactly out of 12 ugly scanned invoices, every claimed box sits on ink, and the blank/smear pages came back quarantined rather than invented.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "G0 schema",
+      "pass": true,
+      "measured": "11 record(s) + 1 quarantined, all well formed",
+      "threshold": "0 schema violations"
+    },
+    {
+      "name": "G1 field accuracy",
+      "pass": true,
+      "measured": "48/48 exact (1.000)",
+      "threshold": "accuracy >= 0.95 and 0 wrong slots (48/48 here)"
+    },
+    {
+      "name": "G2 grounding",
+      "pass": true,
+      "measured": "every claimed box sits on ink",
+      "threshold": "0 boxes outside the area bound or off the ink"
+    },
+    {
+      "name": "G3 exact totals",
+      "pass": true,
+      "measured": "11/11 exact to 0 ulp",
+      "threshold": "exact totals == correct totals"
+    },
+    {
+      "name": "G4 negative control",
+      "pass": true,
+      "measured": "2/2 corrupted pages quarantined, no invented values, 12/12 pages accounted",
+      "threshold": "2/2 corrupted pages quarantined with the expected reason code, 0 invented values, 12/12 accounted"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "field accuracy",
+      "value": "48/48",
+      "unit": "field slots exact",
+      "source": "judge/grade.sh examples/good --json media/data/good.json --seed 42"
+    },
+    {
+      "label": "exact totals",
+      "value": "11/11",
+      "unit": "totals to 0 ulp",
+      "source": "judge/grade.sh examples/good --json media/data/good.json --seed 42"
+    },
+    {
+      "label": "ungrounded boxes",
+      "value": 0,
+      "unit": "boxes off the ink",
+      "source": "judge/grade.sh examples/good --json media/data/good.json --seed 42"
+    },
+    {
+      "label": "mutant kill rate",
+      "value": "6/6",
+      "unit": "single-edit mutants killed",
+      "source": "judge/selftest.sh (kill rate, RECEIPT.md)"
+    },
+    {
+      "label": "judge-guard mutant",
+      "value": "killed",
+      "unit": "",
+      "source": "judge/selftest.sh (the weakened ink check must fail the good artifact)"
+    },
+    {
+      "label": "quarantined corrupted pages",
+      "value": "2/2",
+      "unit": "blank + smear",
+      "source": "judge/grade.sh --seed 42 (G4, second corpus run)"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "G1 field accuracy per graded artifact with the judge's pass line drawn on it"
+  },
+  "gallery": [
+    {
+      "kind": "image",
+      "path": "media/loop.png",
+      "caption": "the agent loop and the self-test kill rate"
+    },
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png",
+      "caption": "the run: boxes locking on ink, the negative control, the self-test, the verdict"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/doc-extract-convert/run.py",
+    "ask_agent": "Create a CPU sandbox. In it, clone\nhttps://github.com/agent-next/sandbox and run\n`bash cookbook/doc-extract-convert/judge/setup.sh` to install the\npinned OCR toolchain. Then write your own extractor: a directory with an\n`extract.py` that takes `--in <pages_dir> --out <out_dir>` and writes\n`records.json` (one grounded record per readable page: vendor,\ninvoice_no, date, total \u2014 each with a page-pixel bounding box and a\nconfidence) and `quarantine.json` (one entry per page you are below\n90 % sure about, with a reason code: LOW_CONFIDENCE, NO_TEXT,\nMALFORMED_FIELD or UNREADABLE_PAGE). Generate the corpus with\n`python3 judge/fixtures.py --seed 42 --out /tmp/corpus` and iterate with\n`bash cookbook/doc-extract-convert/judge/grade.sh <your-extractor-dir>`\nuntil every gate passes. Read SPEC.md first for the exact output\nformat. Report the final verdict JSON and kill the sandbox when done."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "0000000000000000000000000000000000000000"
+}

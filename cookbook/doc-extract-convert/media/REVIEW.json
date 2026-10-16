@@ -1,0 +1,67 @@
+{
+  "video": "media/demo.mp4",
+  "video_sha256": "4d7c2e3fad4fdcc7b1a925361133120429d604d4de2ff7450820a9e0278f87a1",
+  "review_prompt": "cookbook/tools/video_review_prompt.md, given blind: no README, no repo, no context",
+  "stills_seen": [
+    "t0.00s.png",
+    "t10.00s.png",
+    "t13.33s.png",
+    "t16.67s.png",
+    "t20.00s.png",
+    "t23.33s.png",
+    "t26.67s.png",
+    "t3.33s.png",
+    "t6.67s.png"
+  ],
+  "panel_passed": true,
+  "thresholds": {
+    "visual_quality_1_10": ">= 8",
+    "wow_1_10": ">= 7",
+    "clarity_1_10": ">= 7",
+    "payoff_visible_by_s": "<= 2",
+    "understandable_muted": true
+  },
+  "judges": [
+    {
+      "verdict": {
+        "frame0_what": "a dark HUD above a white invoice scan: the finished records.json record (vendor Acme Office Supplies, invoice_no INV-01, date 2024-06-12, total 2475.00) with confidences at 0.95, 4/4 fields grounded, under a full-width mid-frame scanner beam",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0,
+        "on_screen_text": "agent-next sandbox . disposable . seed 42 | ugly scans -> grounded JSON | every value carries its page region | unsure pages are quarantined, not guessed | 1/4 fields grounded | 4/4 fields grounded | grounded on ink | every value carries its page region",
+        "understandable_muted": true,
+        "visual_quality_1_10": 9,
+        "wow_1_10": 8,
+        "clarity_1_10": 9,
+        "why": "The finished result \u2014 the four-field grounded record at 0.95 confidences beside a scan \u2014 is already on screen at 0 s, so the viewer has the answer before the argument: one ground-truth box locks on per sweep, the faded photocopy re-binarises live with measured ink shares per box (vendor 29.2%, invoice_no 15.6%, date 15.0%, total 0.0%), the blank page and scanner smear come back stamped QUARANTINE with NO_TEXT and UNREADABLE_PAGE, six single-edit mutants are killed one per line at 3x speed while a caret keeps the terminal alive, and the proof beat lands ALL GATES PASSED on G1 48/48 exact, G3 11/11 at 0 ulp, G4 2/2 quarantined. The raster is crisp 1920x1080, the burned-in captions are legible, the delivery is muted-clear end to end, and the full-width scan beam never stops so nothing reads as a slide.",
+        "fixes": [
+          "no blocking change",
+          "the 3x-speed label on the self-test slate is easy to miss at a glance"
+        ]
+      },
+      "errors": [],
+      "passed": true
+    },
+    {
+      "verdict": {
+        "frame0_what": "the finished grounded record beside the invoice under a full-width scanner beam (vendor Acme Office Supplies, invoice no. INV-01, date 2024-06-12, total 2475.00)",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0.0,
+        "on_screen_text": "agent-next sandbox \u00b7 disposable \u00b7 seed 42 | one page, read field by field | 12 scans \u00b7 3 layouts \u00b7 skew, dust, fade | a box locks on as the band passes the ink | records.json \u00b7 inv-05 | vendor ORION OFFICE SYSTEMS | 1/4 fields grounded | 4/4 fields grounded | confiden 0.96 | the faded photocopy, recovered | a fixed threshold sees nothing here | adaptive binarisation recovers the ink | ink inside each claimed box (measured) | threshold 177 = mode \u2212 40 rule 1-60 % | vendor 29.2 % | invoice_no 15.6 % | date 15.0 % | total 0.0 % | what it refuses to guess | a blank and a smear, swapped in unseen | both quarantined \u2014 12/12 pages accounted | QUARANTINE | NO_TEXT | UNREADABLE_PAGE | the judge proves it can fail | bash judge/selftest.sh | 3\u00d7 speed | killed m01-total-as-float (failed: G1, G3) | killed m03-box-on-whitespace (failed: G2) | killed m03b-whole-page-box (failed: G0, G2) | m01 total as float killed | m03 box on margin killed | m03b whole-page box killed | m04 quarantine all killed | m05 date DD/MM/YYYY killed | m06 accept any date killed | judge-guard mutant passed | kill rate 6/6 = 100 % | the graded verdict | ALL GATES PASSED | G1 field accuracy 48/48 exact | G2 every claimed box sits on ink | G3 11/11 totals exact to 0 ulp | G4 2/2 corrupted pages quarantined | judged against the answer key the corpus generator wrote itself | one command, one sandbox, one judge",
+        "understandable_muted": true,
+        "visual_quality_1_10": 9,
+        "wow_1_10": 8,
+        "clarity_1_10": 9,
+        "why": "Every still is legible and information-dense: the finished extraction output with per-field confidence and grounding counts is on screen from the first frame, and the motion of the scan band sweeping across the page makes the extraction feel live rather than a static screenshot. A muted viewer can follow the full arc \u2014 extract, recover faded ink, quarantine the unreadable, prove the judge fails mutants, all gates passed \u2014 because each beat states its claim and its measured number.",
+        "fixes": [
+          "Crop out or shorten the persistent chrome (\"agent-next sandbox \u00b7 disposable \u00b7 seed 42\") \u2014 at phone width it is the only unreadable text and it says nothing.",
+          "Give the 3.33 s still a one-line \"what this is\" claim in the frame itself (e.g. \"extract invoice fields, or say NO_TEXT\") so the payoff is self-explaining before reading the captions.",
+          "Hold the \"4/4 fields grounded\" and the ALL GATES PASSED beats about 1 s longer; the cutoff at 23.33 s / 26.67 s reads as a clip rather than a resolved ending.",
+          "Raise the caption type size or move the bottom captions to the top third so they are not competing with the dark panels for contrast.",
+          "Add a visible progress/segment indicator (e.g. \"1/6 \u00b7 field accuracy\") so the sequence of claims reads as a checklist rather than a reel of screens."
+        ]
+      },
+      "errors": [],
+      "passed": true
+    }
+  ]
+}

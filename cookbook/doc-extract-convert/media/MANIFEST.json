@@ -2,8 +2,12 @@
   "files": {
     "demo.mp4": {
       "command": "bash media/make_media.sh  (seed 42)",
-      "sha256": "65402b911e72d90b64d23b4ffee6d8150a0d7123adb520add62a3093d6cfa01e",
+      "sha256": "4d7c2e3fad4fdcc7b1a925361133120429d604d4de2ff7450820a9e0278f87a1",
       "source_data": [
+        "media/data/corpus/",
+        "media/data/extract/",
+        "media/data/corrupt/",
+        "media/data/extract-corrupt/",
         "media/data/good.json",
         "media/data/m01-total-as-float.json",
         "media/data/m03-box-on-whitespace.json",
@@ -11,9 +15,12 @@
         "media/data/m04-quarantine-everything.json",
         "media/data/m05-wrong-date-format.json",
         "media/data/m06-accept-bad-date.json",
-        "media/data/judge_guard.json"
+        "media/data/judge_guard.json",
+        "media/data/corpus/pages/*.png",
+        "media/data/extract/records.json",
+        "media/data/extract-corrupt/quarantine.json"
       ],
-      "what": "27 s step-through of the agent loop with captions: the accuracy figure, one captioned frame per graded artifact, then the self-test kill rate."
+      "what": "30 s of real animated output at 1920x1080: the grounded record typing in, a scanner band sweeping a real scan as the boxes lock on, the faded photocopy re-binarising with the ink coverage it recovers, the blank/smear pages quarantined, the self-test at 3x speed, and the verdict HUD."
     },
     "loop.png": {
       "command": "python3 media/make_figures.py  (seed 42)",
@@ -29,6 +36,22 @@
         "media/data/judge_guard.json"
       ],
       "what": "The agent loop: gates passed (of 5) per graded iteration from the mutants to the known-good extractor, plus the self-test kill rate against the >= 90 % rule."
+    },
+    "result.json": {
+      "command": "python3 media/result_json.py  (seed 42)",
+      "sha256": "dc1bb70652b1577d03e7cb64c4edee611bb774f30efbf1a4421597043dda875b",
+      "source_data": [
+        "media/data/good.json",
+        "media/data/judge_guard.json",
+        "media/data/m01-total-as-float.json",
+        "media/data/m03-box-on-whitespace.json",
+        "media/data/m03b-whole-page-box.json",
+        "media/data/m04-quarantine-everything.json",
+        "media/data/m05-wrong-date-format.json",
+        "media/data/m06-accept-bad-date.json",
+        "README.md"
+      ],
+      "what": "The result-card manifest (agent-next/result@1): headline, the five gates with their measured values and thresholds, hero/gallery pointers and the launch prompt, all generated from the same verdict JSONs as the figures."
     },
     "result.png": {
       "command": "python3 media/make_figures.py  (seed 42)",
