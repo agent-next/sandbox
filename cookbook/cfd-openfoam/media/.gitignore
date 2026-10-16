@@ -12,5 +12,15 @@ judge_runs/
 # DEMO-STANDARD.md; only demo.mp4 is committed
 master/
 
+# 30 fps motion clips rendered from the judge's --trace output by
+# media/video/render_clips.py — inputs to the Remotion composition
+clips/
+
+# Remotion project scratch: installed deps, bundles and frame output
+video/node_modules/
+video/out/
+video/build/
+video/.remotion/
+
 __pycache__/
 *.pyc

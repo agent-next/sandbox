@@ -1,7 +1,8 @@
 // Root.tsx — Remotion composition registry for the cfd-openfoam demo video.
-// 1920x1080 @ 30 fps, 33 s (990 frames): 30 s of moving footage + a 3 s
-// static end card. All input props come from data.json, which is written
-// from this run's judge output by media/make_media.sh — nothing invented.
+// 1920x1080 @ 30 fps, 35 s (1050 frames): 32.5 s of moving footage + a 2.5 s
+// static end card. All values come from --props=data.json, written by
+// media/make_media.sh from THIS run's judge output — nothing invented.
+import React from 'react';
 import { Composition } from 'remotion';
 import type { DemoData } from './lib/types';
 import { Demo } from './Demo';
@@ -9,25 +10,36 @@ import { Demo } from './Demo';
 export const FPS = 30;
 export const WIDTH = 1920;
 export const HEIGHT = 1080;
-export const ENDCARD_S = 3;
-export const VIDEO_S = 30;
+export const VIDEO_S = 32.5;
+export const ENDCARD_S = 2.5;
+export const TOTAL_S = VIDEO_S + ENDCARD_S;
 
+// Fallback props so `remotion still`/bundling never hangs; the real render
+// always passes --props=../clips/data.json written from judge output.
 export const defaultData: DemoData = {
-  video: { durationInFrames: 990, fps: 30, width: 1920, height: 1080 },
-  clips: { hook: 'clips/hook.mp4', cavity: 'clips/cavity.mp4', agent: 'clips/agent.mp4' },
+  clips: {
+    hook: 'hook.mp4',
+    develop: 'develop.mp4',
+    closeup: 'closeup.mp4',
+    agent: 'agent.mp4',
+    proof: 'proof.mp4',
+    verdict: 'verdict.mp4',
+    endcardStill: 'endcard_still.jpg',
+  },
   hud: {
-    residFinal: '3.2e-9',
-    cellCount: 1600,
+    residFinal: '7.6e-7',
+    cellCount: '1600',
     l2: '0.0043',
     orders: '2.15 / 1.91',
     ghiaU: '0.0033',
     ghiaV: '0.0073',
     kills: '10/10',
+    continuity: '2.1e-11',
+    tEnd: '30',
   },
-  agent: { seconds: 54, speed: '6x' },
+  agent: { wallSeconds: 750, speed: '107x' },
   verdict: {
     pass: true,
-    killPct: '100%',
     gates: [
       { name: 'Mesh quality', ok: true },
       { name: 'Solver convergence', ok: true },
@@ -40,16 +52,14 @@ export const defaultData: DemoData = {
 
 export const RemotionRoot: React.FC = () => {
   return (
-    <>
-      <Composition
-        id="Compositions"
-        component={Demo}
-        durationInFrames={(VIDEO_S + ENDCARD_S) * FPS}
-        fps={FPS}
-        width={WIDTH}
-        height={HEIGHT}
-        defaultProps={defaultData}
-      />
-    </>
+    <Composition
+      id="Compositions"
+      component={Demo}
+      durationInFrames={Math.round(TOTAL_S * FPS)}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+      defaultProps={defaultData}
+    />
   );
 };

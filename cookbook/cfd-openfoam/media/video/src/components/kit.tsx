@@ -2,7 +2,7 @@
 // with CSS (React DOM), never with an image editor, so a text-only frame is
 // impossible by construction: captions live on top of moving footage.
 import React from 'react';
-import { interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import { interpolate, spring, useCurrentFrame } from 'remotion';
 
 export const INK = '#0b121a';
 export const PAPER = '#f4f6f8';
@@ -60,10 +60,10 @@ export const plate: React.CSSProperties = {
   padding: '18px 26px',
 };
 
-/** Scale/translate in a spring from the sequence's first frame. */
+/** Scale/translate in a spring from the sequence's first frame.
+ *  Pure (no hooks) so it is safe inside .map() over fixed lists. */
 export function pop(frame: number, delay = 0) {
-  const cfg = useVideoConfig();
-  return spring({ frame: frame - delay, fps: cfg.fps, config: { damping: 24, stiffness: 120, mass: 0.7 } });
+  return spring({ frame: frame - delay, fps: 30, config: { damping: 24, stiffness: 120, mass: 0.7 } });
 }
 
 export function CountUp({
