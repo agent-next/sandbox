@@ -217,7 +217,7 @@ sh media/make_media.sh
 Font DejaVuSans.ttf is SHA-256 pinned:
 `abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322`.
 Result and loop figures are 1920×1080 at 200 dpi. The ignored lossless master
-uses CRF 0; the web encode uses CRF 18, preset slow, yuv420p and faststart.
+uses CRF 0; the web encode uses CRF 23, preset slow, yuv420p and faststart.
 
 ### Mechanical video gate, real output
 

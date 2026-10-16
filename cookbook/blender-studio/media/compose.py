@@ -144,7 +144,7 @@ def main():
     subprocess.run(["npm", "run", "render"], cwd=HERE / "video", check=True)
 
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(MASTER / "remotion.mp4"),
-                    "-an", "-c:v", "libx264", "-threads", "4", "-crf", "18",
+                    "-an", "-c:v", "libx264", "-threads", "4", "-crf", "23",
                     "-preset", "slow", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                     "-map_metadata", "-1", str(HERE / "demo.mp4")], check=True)
     if (HERE / "demo.mp4").stat().st_size > 8_000_000:
