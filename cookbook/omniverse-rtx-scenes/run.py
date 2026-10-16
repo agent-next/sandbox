@@ -185,7 +185,10 @@ def build_bundle(work: Path) -> dict:
     if not BUILD_SCENES.exists():
         die(f"missing {BUILD_SCENES}")
     t0 = time.monotonic()
-    proc = subprocess.run([sys.executable, str(BUILD_SCENES), "--no-bake"],
+    # build_scenes.py imports pxr (Usd) to author the .usda files, so it must
+    # run under the judge venv, never this script's stdlib-only interpreter.
+    build_python = judge_python()
+    proc = subprocess.run([build_python, str(BUILD_SCENES), "--no-bake"],
                           capture_output=True, text=True, cwd=str(HERE),
                           timeout=1800)
     if proc.returncode:
