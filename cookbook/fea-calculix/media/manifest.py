@@ -38,16 +38,24 @@ FILES = {
                  "data/selftest.txt"],
         command="media/.venv/bin/python media/fig_loop.py"),
     "demo.mp4": dict(
-        shows="Linear-static load ramp of the real good-fine .frd "
-              "displacement field (displacement scaled, labelled), full-"
-              "load gate readouts, then each of the 9 mutants' failing "
-              "gates with measured vs limit from its verdict JSON; "
-              "overload-10x, undersized, propped-tip and load-on-ntip "
-              "cards embed that mutant's own real deformed field.",
-        sources=["data/verdicts/*.json", "work/*/job.frd",
-                 "work/*/fields.npz", "work/*/summary.json"],
-        command="media/.venv/bin/python media/make_video.py "
-                "(master: media/master/demo_lossless.mp4, -crf 0)"),
+        shows="Animated cut: the real good-fine .frd field orbited in "
+              "3-D (hero at full load; linear-static ramp 0 -> 1000 N; "
+              "dive onto the clamped wall), this run's own console replay "
+              "at the measured Nx over still-playing footage, the "
+              "overload-10x mutant's own field under 10x load, then the "
+              "PASS badge + gate rows as a HUD over the still-moving "
+              "field; 2.5 s static end card. All overlay numbers are "
+              "injected from this run's verdict/selftest/timing files.",
+        sources=["data/verdicts/*.json", "data/selftest.txt",
+                 "work/run_logs/*.log", "work/run_logs/timing.json",
+                 "work/*/job.frd", "work/*/fields.npz",
+                 "work/*/summary.json", "clips/*.mp4",
+                 "video/index.html"],
+        command="bash media/make_media.sh (clips: render_clips.py; "
+                "composition: gen_composition.py -> video/index.html; "
+                "render: npx hyperframes render (pinned 0.8.99); "
+                "encode: ffmpeg -crf 18 +faststart; master: "
+                "media/master/demo_hf.mp4)"),
 }
 
 
@@ -68,6 +76,8 @@ def main():
             "gmsh": "4.10.0 (judge/setup.sh, sha256-pinned tarball)",
             "python": "media/requirements.txt (matplotlib 3.10.7, "
                       "numpy 2.2.6)",
+            "hyperframes": "0.8.99 (media/video/package-lock.json, "
+                           "npm ci; published 2026-09-30)",
             "ffmpeg": "distro build (see media/REVIEW.md)",
         },
         "files": {},

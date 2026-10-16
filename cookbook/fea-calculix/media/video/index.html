@@ -7,8 +7,8 @@
     overflow:hidden; background:#0d1117; }
   #root { position:relative; width:1920px; height:1080px; overflow:hidden;
     font-family:'DejaVu Sans', sans-serif; color:#e6edf3; }
-  .clip { position:absolute; top:0; left:0; width:1920px; height:1080px;
-    object-fit:cover; }
+  .clip { position:absolute; }
+  .fill { top:0; left:0; width:1920px; height:1080px; object-fit:cover; }
   .tag { position:absolute; top:34px; left:44px; font:600 22px ui-monospace, 'DejaVu Sans Mono', monospace;
     color:#8b949e; letter-spacing:2px; }
   .tag b { color:#e6edf3; }
@@ -41,25 +41,28 @@
      data-start="0" data-duration="30.9">
 
   <!-- 0-1.9 hero: finished result, moving, fills the frame -->
-  <video id="v-hero" class="clip" src="assets/clips/hero.mp4" muted
-         playsinline data-start="0" data-duration="1.9"></video>
+  <video id="v-hero" class="clip fill" src="assets/clips/hero.mp4" muted
+         playsinline data-start="0" data-duration="1.9"
+         style="filter:saturate(1.15)"></video>
 
   <!-- 1.9-8.9 ramp: input -> output, load 0 -> 1 000 N -->
-  <video id="v-ramp" class="clip" src="assets/clips/ramp.mp4" muted
+  <video id="v-ramp" class="clip fill" src="assets/clips/ramp.mp4" muted
          playsinline data-start="1.9" data-media-start="1.0"
-         data-duration="7.0"></video>
+         data-duration="7.0"
+         style="filter:brightness(1.35) saturate(1.1)"></video>
 
   <!-- 8.9-14.4 closeup: camera dives onto the clamped wall -->
-  <video id="v-close" class="clip" src="assets/clips/closeup.mp4" muted
+  <video id="v-close" class="clip fill" src="assets/clips/closeup.mp4" muted
          playsinline data-start="8.9"
-         data-duration="5.5"></video>
+         data-duration="5.5"
+         style="filter:saturate(1.3) contrast(1.08)"></video>
 
   <!-- 14.4-18.9 terminal: real console replay, over still-moving footage -->
-  <video id="v-bgterm" class="clip" src="assets/clips/ramp.mp4" muted
+  <video id="v-bgterm" class="clip fill" src="assets/clips/ramp.mp4" muted
          playsinline data-start="14.4" data-media-start="8.0"
          data-duration="4.499999999999998"
          style="filter:brightness(.28) saturate(.6)"></video>
-  <video id="v-term" src="assets/clips/terminal.mp4" muted playsinline
+  <video id="v-term" class="clip" src="assets/clips/terminal.mp4" muted playsinline
          data-start="14.4"
          data-duration="4.499999999999998"
          style="position:absolute; left:50%; top:50%; width:1420px;
@@ -68,47 +71,49 @@
                 border:1px solid #30363d; object-fit:cover"></video>
 
   <!-- 18.9-23.9 overload: the mutant's own field under 10x load -->
-  <video id="v-over" class="clip" src="assets/clips/overload.mp4" muted
+  <video id="v-over" class="clip fill" src="assets/clips/overload.mp4" muted
          playsinline data-start="18.9"
-         data-duration="5.0"></video>
+         data-duration="5.0"
+         style="filter:brightness(1.45) saturate(1.6)"></video>
 
   <!-- 23.9-28.4 proof: HUD + PASS over still-playing footage -->
-  <video id="v-proof" class="clip" src="assets/clips/proof.mp4" muted
+  <video id="v-proof" class="clip fill" src="assets/clips/proof.mp4" muted
          playsinline data-start="23.9"
-         data-duration="4.5"></video>
+         data-duration="4.5"
+         style="filter:brightness(1.7) saturate(1.2)"></video>
 
-  <div class="tag" data-start="0" data-duration="28.4">
+  <div class="clip tag" data-start="0" data-duration="28.4">
     <b>fea-calculix</b> &middot; real sandbox run
   </div>
 
   <!-- kinetic headline over the hero -->
-  <div class="cap" id="cap-hero" data-start="0" data-duration="1.9">
+  <div class="clip cap" id="cap-hero" data-start="0" data-duration="1.9">
     <span class="word">1000&nbsp;N</span> <span class="word">on</span>
     <span class="word">a</span> <span class="word">1&nbsp;m</span>
     <span class="word">cantilever.</span>
   </div>
 
   <!-- ramp HUD: load + deflection counters -->
-  <div class="hud" id="hud-ramp" data-start="1.9"
+  <div class="clip hud" id="hud-ramp" data-start="1.9"
        data-duration="7.0">
     <span class="lab">load</span> <span id="ct-load">0 N</span><br>
     <span class="lab">tip &delta;</span> <span id="ct-delta">0.00 mm</span>
     <span class="lab">&nbsp;&nbsp;limit</span> 10.00 mm
   </div>
-  <div class="cap" id="cap-ramp" data-start="1.9"
+  <div class="clip cap" id="cap-ramp" data-start="1.9"
        data-duration="3.2">
     <span class="word">beam.inp</span> <span class="word">&rarr;</span>
     <span class="word">ccx</span> <span class="word">field</span>
   </div>
 
   <!-- closeup HUD: wall stress counter -->
-  <div class="hud" id="hud-close" data-start="8.9"
+  <div class="clip hud" id="hud-close" data-start="8.9"
        data-duration="5.5">
     <span class="lab">&sigma;<sub>wall</sub></span>
     <span id="ct-sigma">0.0 MPa</span>
     <span class="lab">&nbsp;&nbsp;allowable</span> 166.7 MPa
   </div>
-  <div class="cap" id="cap-close" data-start="8.9"
+  <div class="clip cap" id="cap-close" data-start="8.9"
        data-duration="3.0">
     <span class="word">the</span> <span class="word">stress</span>
     <span class="word">the</span> <span class="word">judge</span>
@@ -116,15 +121,15 @@
   </div>
 
   <!-- terminal caption -->
-  <div class="cap" id="cap-term" data-start="14.4"
+  <div class="clip cap" id="cap-term" data-start="14.4"
        data-duration="2.6" style="left:60px; bottom:60px; font-size:44px">
     <span class="word">the</span> <span class="word">sandbox</span>
     <span class="word">run,</span> <span class="word">replayed</span>
-    <span class="word">63&times;</span>
+    <span class="word">100&times;</span>
   </div>
 
   <!-- overload HUD -->
-  <div class="hud" id="hud-over" data-start="18.9"
+  <div class="clip hud" id="hud-over" data-start="18.9"
        data-duration="5.0"
        style="border-color:#f85149">
     <span class="lab">10&times; overload</span>
@@ -132,7 +137,7 @@
     <span class="lab">tip &delta;</span> <span id="ct-ovde">0.0 mm</span>
     <span style="color:#f85149">&nbsp;&nbsp;judge: FAIL</span>
   </div>
-  <div class="cap" id="cap-over" data-start="18.9"
+  <div class="clip cap" id="cap-over" data-start="18.9"
        data-duration="3.0">
     <span class="word">push</span> <span class="word">it</span>
     <span class="word">10&times;</span> <span class="word">&mdash;</span>
@@ -140,12 +145,11 @@
   </div>
 
   <!-- proof: PASS badge + gate rows over the still-playing field -->
-  <div id="badge" data-start="23.9"
+  <div id="badge" class="clip" data-start="23.9"
        data-duration="4.5">
     <div class="pass">PASS</div>
     <div class="row" id="br1"><span>verification vs Euler&ndash;Bernoulli</span>
-      <span class="v">+0.40% /
-      &minus;0.74%</span>
+      <span class="v">+0.41% / &minus;0.74%</span>
       <span class="st">&#10003;</span></div>
     <div class="row" id="br2"><span>mesh convergence 4&rarr;2 mm</span>
       <span class="v">0.23% / 0.50%</span>
@@ -159,13 +163,17 @@
   </div>
 
   <!-- static end card: last 2.5 s -->
-  <div id="endcard" data-start="28.4"
+  <div id="endcard" class="clip" data-start="28.4"
        data-duration="2.5">
     <div class="t1">cantilever beam &mdash; PASS</div>
     <div class="t2">python3 run.py</div>
     <div class="t3">cookbook/fea-calculix &middot; CalculiX ccx + gmsh in a
       disposable sandbox</div>
   </div>
+
+  <!-- single-frame flash cuts at the hard joins (33 ms each) -->
+  <div id="flash" class="clip fill" data-start="0" data-duration="30.9"
+       style="background:#e6edf3; opacity:0; pointer-events:none"></div>
 
 <script>
 const tl = gsap.timeline({ paused: true });
@@ -205,103 +213,736 @@ for (const [sel, t0] of [["#hud-ramp", 1.9],
 
 /* counting HUD numbers -- real values, stepped under the scrub head */
   tl.set("#ct-load", {textContent: "0 N"}, 2.400);
-  tl.set("#ct-load", {textContent: "6 N"}, 2.657);
-  tl.set("#ct-load", {textContent: "21 N"}, 2.913);
-  tl.set("#ct-load", {textContent: "47 N"}, 3.170);
-  tl.set("#ct-load", {textContent: "80 N"}, 3.426);
-  tl.set("#ct-load", {textContent: "121 N"}, 3.683);
-  tl.set("#ct-load", {textContent: "169 N"}, 3.939);
-  tl.set("#ct-load", {textContent: "222 N"}, 4.196);
-  tl.set("#ct-load", {textContent: "279 N"}, 4.452);
-  tl.set("#ct-load", {textContent: "340 N"}, 4.709);
-  tl.set("#ct-load", {textContent: "403 N"}, 4.965);
-  tl.set("#ct-load", {textContent: "467 N"}, 5.222);
-  tl.set("#ct-load", {textContent: "533 N"}, 5.478);
-  tl.set("#ct-load", {textContent: "597 N"}, 5.735);
-  tl.set("#ct-load", {textContent: "660 N"}, 5.991);
-  tl.set("#ct-load", {textContent: "721 N"}, 6.248);
-  tl.set("#ct-load", {textContent: "778 N"}, 6.504);
-  tl.set("#ct-load", {textContent: "831 N"}, 6.761);
-  tl.set("#ct-load", {textContent: "879 N"}, 7.017);
-  tl.set("#ct-load", {textContent: "920 N"}, 7.274);
-  tl.set("#ct-load", {textContent: "953 N"}, 7.530);
-  tl.set("#ct-load", {textContent: "979 N"}, 7.787);
-  tl.set("#ct-load", {textContent: "994 N"}, 8.043);
+  tl.set("#ct-load", {textContent: "0 N"}, 2.433);
+  tl.set("#ct-load", {textContent: "0 N"}, 2.467);
+  tl.set("#ct-load", {textContent: "1 N"}, 2.500);
+  tl.set("#ct-load", {textContent: "2 N"}, 2.533);
+  tl.set("#ct-load", {textContent: "2 N"}, 2.567);
+  tl.set("#ct-load", {textContent: "3 N"}, 2.600);
+  tl.set("#ct-load", {textContent: "5 N"}, 2.633);
+  tl.set("#ct-load", {textContent: "6 N"}, 2.667);
+  tl.set("#ct-load", {textContent: "7 N"}, 2.700);
+  tl.set("#ct-load", {textContent: "9 N"}, 2.733);
+  tl.set("#ct-load", {textContent: "11 N"}, 2.767);
+  tl.set("#ct-load", {textContent: "13 N"}, 2.800);
+  tl.set("#ct-load", {textContent: "15 N"}, 2.833);
+  tl.set("#ct-load", {textContent: "18 N"}, 2.867);
+  tl.set("#ct-load", {textContent: "20 N"}, 2.900);
+  tl.set("#ct-load", {textContent: "23 N"}, 2.933);
+  tl.set("#ct-load", {textContent: "26 N"}, 2.967);
+  tl.set("#ct-load", {textContent: "29 N"}, 3.000);
+  tl.set("#ct-load", {textContent: "32 N"}, 3.033);
+  tl.set("#ct-load", {textContent: "35 N"}, 3.067);
+  tl.set("#ct-load", {textContent: "39 N"}, 3.100);
+  tl.set("#ct-load", {textContent: "43 N"}, 3.133);
+  tl.set("#ct-load", {textContent: "46 N"}, 3.167);
+  tl.set("#ct-load", {textContent: "50 N"}, 3.200);
+  tl.set("#ct-load", {textContent: "54 N"}, 3.233);
+  tl.set("#ct-load", {textContent: "58 N"}, 3.267);
+  tl.set("#ct-load", {textContent: "63 N"}, 3.300);
+  tl.set("#ct-load", {textContent: "67 N"}, 3.333);
+  tl.set("#ct-load", {textContent: "72 N"}, 3.367);
+  tl.set("#ct-load", {textContent: "76 N"}, 3.400);
+  tl.set("#ct-load", {textContent: "81 N"}, 3.433);
+  tl.set("#ct-load", {textContent: "86 N"}, 3.467);
+  tl.set("#ct-load", {textContent: "91 N"}, 3.500);
+  tl.set("#ct-load", {textContent: "97 N"}, 3.533);
+  tl.set("#ct-load", {textContent: "102 N"}, 3.567);
+  tl.set("#ct-load", {textContent: "107 N"}, 3.600);
+  tl.set("#ct-load", {textContent: "113 N"}, 3.633);
+  tl.set("#ct-load", {textContent: "118 N"}, 3.667);
+  tl.set("#ct-load", {textContent: "124 N"}, 3.700);
+  tl.set("#ct-load", {textContent: "130 N"}, 3.733);
+  tl.set("#ct-load", {textContent: "136 N"}, 3.767);
+  tl.set("#ct-load", {textContent: "142 N"}, 3.800);
+  tl.set("#ct-load", {textContent: "148 N"}, 3.833);
+  tl.set("#ct-load", {textContent: "155 N"}, 3.867);
+  tl.set("#ct-load", {textContent: "161 N"}, 3.900);
+  tl.set("#ct-load", {textContent: "168 N"}, 3.933);
+  tl.set("#ct-load", {textContent: "174 N"}, 3.967);
+  tl.set("#ct-load", {textContent: "181 N"}, 4.000);
+  tl.set("#ct-load", {textContent: "187 N"}, 4.033);
+  tl.set("#ct-load", {textContent: "194 N"}, 4.067);
+  tl.set("#ct-load", {textContent: "201 N"}, 4.100);
+  tl.set("#ct-load", {textContent: "208 N"}, 4.133);
+  tl.set("#ct-load", {textContent: "215 N"}, 4.167);
+  tl.set("#ct-load", {textContent: "222 N"}, 4.200);
+  tl.set("#ct-load", {textContent: "230 N"}, 4.233);
+  tl.set("#ct-load", {textContent: "237 N"}, 4.267);
+  tl.set("#ct-load", {textContent: "244 N"}, 4.300);
+  tl.set("#ct-load", {textContent: "252 N"}, 4.333);
+  tl.set("#ct-load", {textContent: "259 N"}, 4.367);
+  tl.set("#ct-load", {textContent: "267 N"}, 4.400);
+  tl.set("#ct-load", {textContent: "274 N"}, 4.433);
+  tl.set("#ct-load", {textContent: "282 N"}, 4.467);
+  tl.set("#ct-load", {textContent: "290 N"}, 4.500);
+  tl.set("#ct-load", {textContent: "298 N"}, 4.533);
+  tl.set("#ct-load", {textContent: "306 N"}, 4.567);
+  tl.set("#ct-load", {textContent: "313 N"}, 4.600);
+  tl.set("#ct-load", {textContent: "321 N"}, 4.633);
+  tl.set("#ct-load", {textContent: "329 N"}, 4.667);
+  tl.set("#ct-load", {textContent: "337 N"}, 4.700);
+  tl.set("#ct-load", {textContent: "346 N"}, 4.733);
+  tl.set("#ct-load", {textContent: "354 N"}, 4.767);
+  tl.set("#ct-load", {textContent: "362 N"}, 4.800);
+  tl.set("#ct-load", {textContent: "370 N"}, 4.833);
+  tl.set("#ct-load", {textContent: "378 N"}, 4.867);
+  tl.set("#ct-load", {textContent: "386 N"}, 4.900);
+  tl.set("#ct-load", {textContent: "395 N"}, 4.933);
+  tl.set("#ct-load", {textContent: "403 N"}, 4.967);
+  tl.set("#ct-load", {textContent: "411 N"}, 5.000);
+  tl.set("#ct-load", {textContent: "420 N"}, 5.033);
+  tl.set("#ct-load", {textContent: "428 N"}, 5.067);
+  tl.set("#ct-load", {textContent: "437 N"}, 5.100);
+  tl.set("#ct-load", {textContent: "445 N"}, 5.133);
+  tl.set("#ct-load", {textContent: "453 N"}, 5.167);
+  tl.set("#ct-load", {textContent: "462 N"}, 5.200);
+  tl.set("#ct-load", {textContent: "470 N"}, 5.233);
+  tl.set("#ct-load", {textContent: "479 N"}, 5.267);
+  tl.set("#ct-load", {textContent: "487 N"}, 5.300);
+  tl.set("#ct-load", {textContent: "496 N"}, 5.333);
+  tl.set("#ct-load", {textContent: "504 N"}, 5.367);
+  tl.set("#ct-load", {textContent: "513 N"}, 5.400);
+  tl.set("#ct-load", {textContent: "521 N"}, 5.433);
+  tl.set("#ct-load", {textContent: "530 N"}, 5.467);
+  tl.set("#ct-load", {textContent: "538 N"}, 5.500);
+  tl.set("#ct-load", {textContent: "547 N"}, 5.533);
+  tl.set("#ct-load", {textContent: "555 N"}, 5.567);
+  tl.set("#ct-load", {textContent: "563 N"}, 5.600);
+  tl.set("#ct-load", {textContent: "572 N"}, 5.633);
+  tl.set("#ct-load", {textContent: "580 N"}, 5.667);
+  tl.set("#ct-load", {textContent: "589 N"}, 5.700);
+  tl.set("#ct-load", {textContent: "597 N"}, 5.733);
+  tl.set("#ct-load", {textContent: "605 N"}, 5.767);
+  tl.set("#ct-load", {textContent: "614 N"}, 5.800);
+  tl.set("#ct-load", {textContent: "622 N"}, 5.833);
+  tl.set("#ct-load", {textContent: "630 N"}, 5.867);
+  tl.set("#ct-load", {textContent: "638 N"}, 5.900);
+  tl.set("#ct-load", {textContent: "646 N"}, 5.933);
+  tl.set("#ct-load", {textContent: "654 N"}, 5.967);
+  tl.set("#ct-load", {textContent: "663 N"}, 6.000);
+  tl.set("#ct-load", {textContent: "671 N"}, 6.033);
+  tl.set("#ct-load", {textContent: "679 N"}, 6.067);
+  tl.set("#ct-load", {textContent: "687 N"}, 6.100);
+  tl.set("#ct-load", {textContent: "694 N"}, 6.133);
+  tl.set("#ct-load", {textContent: "702 N"}, 6.167);
+  tl.set("#ct-load", {textContent: "710 N"}, 6.200);
+  tl.set("#ct-load", {textContent: "718 N"}, 6.233);
+  tl.set("#ct-load", {textContent: "726 N"}, 6.267);
+  tl.set("#ct-load", {textContent: "733 N"}, 6.300);
+  tl.set("#ct-load", {textContent: "741 N"}, 6.333);
+  tl.set("#ct-load", {textContent: "748 N"}, 6.367);
+  tl.set("#ct-load", {textContent: "756 N"}, 6.400);
+  tl.set("#ct-load", {textContent: "763 N"}, 6.433);
+  tl.set("#ct-load", {textContent: "770 N"}, 6.467);
+  tl.set("#ct-load", {textContent: "778 N"}, 6.500);
+  tl.set("#ct-load", {textContent: "785 N"}, 6.533);
+  tl.set("#ct-load", {textContent: "792 N"}, 6.567);
+  tl.set("#ct-load", {textContent: "799 N"}, 6.600);
+  tl.set("#ct-load", {textContent: "806 N"}, 6.633);
+  tl.set("#ct-load", {textContent: "813 N"}, 6.667);
+  tl.set("#ct-load", {textContent: "819 N"}, 6.700);
+  tl.set("#ct-load", {textContent: "826 N"}, 6.733);
+  tl.set("#ct-load", {textContent: "832 N"}, 6.767);
+  tl.set("#ct-load", {textContent: "839 N"}, 6.800);
+  tl.set("#ct-load", {textContent: "845 N"}, 6.833);
+  tl.set("#ct-load", {textContent: "852 N"}, 6.867);
+  tl.set("#ct-load", {textContent: "858 N"}, 6.900);
+  tl.set("#ct-load", {textContent: "864 N"}, 6.933);
+  tl.set("#ct-load", {textContent: "870 N"}, 6.967);
+  tl.set("#ct-load", {textContent: "876 N"}, 7.000);
+  tl.set("#ct-load", {textContent: "882 N"}, 7.033);
+  tl.set("#ct-load", {textContent: "887 N"}, 7.067);
+  tl.set("#ct-load", {textContent: "893 N"}, 7.100);
+  tl.set("#ct-load", {textContent: "898 N"}, 7.133);
+  tl.set("#ct-load", {textContent: "903 N"}, 7.167);
+  tl.set("#ct-load", {textContent: "909 N"}, 7.200);
+  tl.set("#ct-load", {textContent: "914 N"}, 7.233);
+  tl.set("#ct-load", {textContent: "919 N"}, 7.267);
+  tl.set("#ct-load", {textContent: "924 N"}, 7.300);
+  tl.set("#ct-load", {textContent: "928 N"}, 7.333);
+  tl.set("#ct-load", {textContent: "933 N"}, 7.367);
+  tl.set("#ct-load", {textContent: "937 N"}, 7.400);
+  tl.set("#ct-load", {textContent: "942 N"}, 7.433);
+  tl.set("#ct-load", {textContent: "946 N"}, 7.467);
+  tl.set("#ct-load", {textContent: "950 N"}, 7.500);
+  tl.set("#ct-load", {textContent: "954 N"}, 7.533);
+  tl.set("#ct-load", {textContent: "957 N"}, 7.567);
+  tl.set("#ct-load", {textContent: "961 N"}, 7.600);
+  tl.set("#ct-load", {textContent: "965 N"}, 7.633);
+  tl.set("#ct-load", {textContent: "968 N"}, 7.667);
+  tl.set("#ct-load", {textContent: "971 N"}, 7.700);
+  tl.set("#ct-load", {textContent: "974 N"}, 7.733);
+  tl.set("#ct-load", {textContent: "977 N"}, 7.767);
+  tl.set("#ct-load", {textContent: "980 N"}, 7.800);
+  tl.set("#ct-load", {textContent: "982 N"}, 7.833);
+  tl.set("#ct-load", {textContent: "985 N"}, 7.867);
+  tl.set("#ct-load", {textContent: "987 N"}, 7.900);
+  tl.set("#ct-load", {textContent: "989 N"}, 7.933);
+  tl.set("#ct-load", {textContent: "991 N"}, 7.967);
+  tl.set("#ct-load", {textContent: "993 N"}, 8.000);
+  tl.set("#ct-load", {textContent: "994 N"}, 8.033);
+  tl.set("#ct-load", {textContent: "995 N"}, 8.067);
+  tl.set("#ct-load", {textContent: "997 N"}, 8.100);
+  tl.set("#ct-load", {textContent: "998 N"}, 8.133);
+  tl.set("#ct-load", {textContent: "998 N"}, 8.167);
+  tl.set("#ct-load", {textContent: "999 N"}, 8.200);
+  tl.set("#ct-load", {textContent: "1 000 N"}, 8.233);
+  tl.set("#ct-load", {textContent: "1 000 N"}, 8.267);
   tl.set("#ct-load", {textContent: "1 000 N"}, 8.300);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 2.400);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 2.657);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 2.913);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 3.170);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 3.426);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 3.683);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 3.939);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 4.196);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 4.452);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 4.709);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 4.965);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 5.222);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 5.478);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 5.735);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 5.991);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 6.248);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 6.504);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 6.761);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 7.017);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 7.274);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 7.530);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 7.787);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 8.043);
-  tl.set("#ct-delta", {textContent: "{v:.2f} mm"}, 8.300);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 9.300);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 9.559);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 9.818);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 10.076);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 10.335);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 10.594);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 10.853);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 11.112);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 11.371);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 11.629);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 11.888);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 12.147);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 12.406);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 12.665);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 12.924);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 13.182);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 13.441);
-  tl.set("#ct-sigma", {textContent: "{v:.1f} MPa"}, 13.700);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 19.300);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 19.553);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 19.807);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 20.060);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 20.313);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 20.567);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 20.820);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 21.073);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 21.327);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 21.580);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 21.833);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 22.087);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 22.340);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 22.593);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 22.847);
-  tl.set("#ct-ovsig", {textContent: "{v: .0f} MPa"}, 23.100);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 19.300);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 19.553);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 19.807);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 20.060);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 20.313);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 20.567);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 20.820);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 21.073);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 21.327);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 21.580);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 21.833);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 22.087);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 22.340);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 22.593);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 22.847);
-  tl.set("#ct-ovde", {textContent: "{v:.1f} mm"}, 23.100);
+  tl.set("#ct-delta", {textContent: "0.00 mm"}, 2.400);
+  tl.set("#ct-delta", {textContent: "0.00 mm"}, 2.433);
+  tl.set("#ct-delta", {textContent: "0.00 mm"}, 2.467);
+  tl.set("#ct-delta", {textContent: "0.01 mm"}, 2.500);
+  tl.set("#ct-delta", {textContent: "0.01 mm"}, 2.533);
+  tl.set("#ct-delta", {textContent: "0.02 mm"}, 2.567);
+  tl.set("#ct-delta", {textContent: "0.03 mm"}, 2.600);
+  tl.set("#ct-delta", {textContent: "0.04 mm"}, 2.633);
+  tl.set("#ct-delta", {textContent: "0.05 mm"}, 2.667);
+  tl.set("#ct-delta", {textContent: "0.06 mm"}, 2.700);
+  tl.set("#ct-delta", {textContent: "0.07 mm"}, 2.733);
+  tl.set("#ct-delta", {textContent: "0.09 mm"}, 2.767);
+  tl.set("#ct-delta", {textContent: "0.10 mm"}, 2.800);
+  tl.set("#ct-delta", {textContent: "0.12 mm"}, 2.833);
+  tl.set("#ct-delta", {textContent: "0.14 mm"}, 2.867);
+  tl.set("#ct-delta", {textContent: "0.16 mm"}, 2.900);
+  tl.set("#ct-delta", {textContent: "0.18 mm"}, 2.933);
+  tl.set("#ct-delta", {textContent: "0.20 mm"}, 2.967);
+  tl.set("#ct-delta", {textContent: "0.22 mm"}, 3.000);
+  tl.set("#ct-delta", {textContent: "0.25 mm"}, 3.033);
+  tl.set("#ct-delta", {textContent: "0.27 mm"}, 3.067);
+  tl.set("#ct-delta", {textContent: "0.30 mm"}, 3.100);
+  tl.set("#ct-delta", {textContent: "0.33 mm"}, 3.133);
+  tl.set("#ct-delta", {textContent: "0.36 mm"}, 3.167);
+  tl.set("#ct-delta", {textContent: "0.39 mm"}, 3.200);
+  tl.set("#ct-delta", {textContent: "0.42 mm"}, 3.233);
+  tl.set("#ct-delta", {textContent: "0.45 mm"}, 3.267);
+  tl.set("#ct-delta", {textContent: "0.48 mm"}, 3.300);
+  tl.set("#ct-delta", {textContent: "0.52 mm"}, 3.333);
+  tl.set("#ct-delta", {textContent: "0.55 mm"}, 3.367);
+  tl.set("#ct-delta", {textContent: "0.59 mm"}, 3.400);
+  tl.set("#ct-delta", {textContent: "0.63 mm"}, 3.433);
+  tl.set("#ct-delta", {textContent: "0.67 mm"}, 3.467);
+  tl.set("#ct-delta", {textContent: "0.71 mm"}, 3.500);
+  tl.set("#ct-delta", {textContent: "0.75 mm"}, 3.533);
+  tl.set("#ct-delta", {textContent: "0.79 mm"}, 3.567);
+  tl.set("#ct-delta", {textContent: "0.83 mm"}, 3.600);
+  tl.set("#ct-delta", {textContent: "0.87 mm"}, 3.633);
+  tl.set("#ct-delta", {textContent: "0.91 mm"}, 3.667);
+  tl.set("#ct-delta", {textContent: "0.96 mm"}, 3.700);
+  tl.set("#ct-delta", {textContent: "1.00 mm"}, 3.733);
+  tl.set("#ct-delta", {textContent: "1.05 mm"}, 3.767);
+  tl.set("#ct-delta", {textContent: "1.10 mm"}, 3.800);
+  tl.set("#ct-delta", {textContent: "1.15 mm"}, 3.833);
+  tl.set("#ct-delta", {textContent: "1.19 mm"}, 3.867);
+  tl.set("#ct-delta", {textContent: "1.24 mm"}, 3.900);
+  tl.set("#ct-delta", {textContent: "1.29 mm"}, 3.933);
+  tl.set("#ct-delta", {textContent: "1.34 mm"}, 3.967);
+  tl.set("#ct-delta", {textContent: "1.40 mm"}, 4.000);
+  tl.set("#ct-delta", {textContent: "1.45 mm"}, 4.033);
+  tl.set("#ct-delta", {textContent: "1.50 mm"}, 4.067);
+  tl.set("#ct-delta", {textContent: "1.55 mm"}, 4.100);
+  tl.set("#ct-delta", {textContent: "1.61 mm"}, 4.133);
+  tl.set("#ct-delta", {textContent: "1.66 mm"}, 4.167);
+  tl.set("#ct-delta", {textContent: "1.72 mm"}, 4.200);
+  tl.set("#ct-delta", {textContent: "1.77 mm"}, 4.233);
+  tl.set("#ct-delta", {textContent: "1.83 mm"}, 4.267);
+  tl.set("#ct-delta", {textContent: "1.89 mm"}, 4.300);
+  tl.set("#ct-delta", {textContent: "1.94 mm"}, 4.333);
+  tl.set("#ct-delta", {textContent: "2.00 mm"}, 4.367);
+  tl.set("#ct-delta", {textContent: "2.06 mm"}, 4.400);
+  tl.set("#ct-delta", {textContent: "2.12 mm"}, 4.433);
+  tl.set("#ct-delta", {textContent: "2.18 mm"}, 4.467);
+  tl.set("#ct-delta", {textContent: "2.24 mm"}, 4.500);
+  tl.set("#ct-delta", {textContent: "2.30 mm"}, 4.533);
+  tl.set("#ct-delta", {textContent: "2.36 mm"}, 4.567);
+  tl.set("#ct-delta", {textContent: "2.42 mm"}, 4.600);
+  tl.set("#ct-delta", {textContent: "2.48 mm"}, 4.633);
+  tl.set("#ct-delta", {textContent: "2.54 mm"}, 4.667);
+  tl.set("#ct-delta", {textContent: "2.61 mm"}, 4.700);
+  tl.set("#ct-delta", {textContent: "2.67 mm"}, 4.733);
+  tl.set("#ct-delta", {textContent: "2.73 mm"}, 4.767);
+  tl.set("#ct-delta", {textContent: "2.79 mm"}, 4.800);
+  tl.set("#ct-delta", {textContent: "2.86 mm"}, 4.833);
+  tl.set("#ct-delta", {textContent: "2.92 mm"}, 4.867);
+  tl.set("#ct-delta", {textContent: "2.98 mm"}, 4.900);
+  tl.set("#ct-delta", {textContent: "3.05 mm"}, 4.933);
+  tl.set("#ct-delta", {textContent: "3.11 mm"}, 4.967);
+  tl.set("#ct-delta", {textContent: "3.18 mm"}, 5.000);
+  tl.set("#ct-delta", {textContent: "3.24 mm"}, 5.033);
+  tl.set("#ct-delta", {textContent: "3.31 mm"}, 5.067);
+  tl.set("#ct-delta", {textContent: "3.37 mm"}, 5.100);
+  tl.set("#ct-delta", {textContent: "3.44 mm"}, 5.133);
+  tl.set("#ct-delta", {textContent: "3.50 mm"}, 5.167);
+  tl.set("#ct-delta", {textContent: "3.57 mm"}, 5.200);
+  tl.set("#ct-delta", {textContent: "3.63 mm"}, 5.233);
+  tl.set("#ct-delta", {textContent: "3.70 mm"}, 5.267);
+  tl.set("#ct-delta", {textContent: "3.76 mm"}, 5.300);
+  tl.set("#ct-delta", {textContent: "3.83 mm"}, 5.333);
+  tl.set("#ct-delta", {textContent: "3.89 mm"}, 5.367);
+  tl.set("#ct-delta", {textContent: "3.96 mm"}, 5.400);
+  tl.set("#ct-delta", {textContent: "4.02 mm"}, 5.433);
+  tl.set("#ct-delta", {textContent: "4.09 mm"}, 5.467);
+  tl.set("#ct-delta", {textContent: "4.16 mm"}, 5.500);
+  tl.set("#ct-delta", {textContent: "4.22 mm"}, 5.533);
+  tl.set("#ct-delta", {textContent: "4.29 mm"}, 5.567);
+  tl.set("#ct-delta", {textContent: "4.35 mm"}, 5.600);
+  tl.set("#ct-delta", {textContent: "4.42 mm"}, 5.633);
+  tl.set("#ct-delta", {textContent: "4.48 mm"}, 5.667);
+  tl.set("#ct-delta", {textContent: "4.54 mm"}, 5.700);
+  tl.set("#ct-delta", {textContent: "4.61 mm"}, 5.733);
+  tl.set("#ct-delta", {textContent: "4.67 mm"}, 5.767);
+  tl.set("#ct-delta", {textContent: "4.74 mm"}, 5.800);
+  tl.set("#ct-delta", {textContent: "4.80 mm"}, 5.833);
+  tl.set("#ct-delta", {textContent: "4.87 mm"}, 5.867);
+  tl.set("#ct-delta", {textContent: "4.93 mm"}, 5.900);
+  tl.set("#ct-delta", {textContent: "4.99 mm"}, 5.933);
+  tl.set("#ct-delta", {textContent: "5.05 mm"}, 5.967);
+  tl.set("#ct-delta", {textContent: "5.12 mm"}, 6.000);
+  tl.set("#ct-delta", {textContent: "5.18 mm"}, 6.033);
+  tl.set("#ct-delta", {textContent: "5.24 mm"}, 6.067);
+  tl.set("#ct-delta", {textContent: "5.30 mm"}, 6.100);
+  tl.set("#ct-delta", {textContent: "5.36 mm"}, 6.133);
+  tl.set("#ct-delta", {textContent: "5.42 mm"}, 6.167);
+  tl.set("#ct-delta", {textContent: "5.48 mm"}, 6.200);
+  tl.set("#ct-delta", {textContent: "5.54 mm"}, 6.233);
+  tl.set("#ct-delta", {textContent: "5.60 mm"}, 6.267);
+  tl.set("#ct-delta", {textContent: "5.66 mm"}, 6.300);
+  tl.set("#ct-delta", {textContent: "5.72 mm"}, 6.333);
+  tl.set("#ct-delta", {textContent: "5.78 mm"}, 6.367);
+  tl.set("#ct-delta", {textContent: "5.84 mm"}, 6.400);
+  tl.set("#ct-delta", {textContent: "5.89 mm"}, 6.433);
+  tl.set("#ct-delta", {textContent: "5.95 mm"}, 6.467);
+  tl.set("#ct-delta", {textContent: "6.00 mm"}, 6.500);
+  tl.set("#ct-delta", {textContent: "6.06 mm"}, 6.533);
+  tl.set("#ct-delta", {textContent: "6.11 mm"}, 6.567);
+  tl.set("#ct-delta", {textContent: "6.17 mm"}, 6.600);
+  tl.set("#ct-delta", {textContent: "6.22 mm"}, 6.633);
+  tl.set("#ct-delta", {textContent: "6.27 mm"}, 6.667);
+  tl.set("#ct-delta", {textContent: "6.33 mm"}, 6.700);
+  tl.set("#ct-delta", {textContent: "6.38 mm"}, 6.733);
+  tl.set("#ct-delta", {textContent: "6.43 mm"}, 6.767);
+  tl.set("#ct-delta", {textContent: "6.48 mm"}, 6.800);
+  tl.set("#ct-delta", {textContent: "6.53 mm"}, 6.833);
+  tl.set("#ct-delta", {textContent: "6.58 mm"}, 6.867);
+  tl.set("#ct-delta", {textContent: "6.62 mm"}, 6.900);
+  tl.set("#ct-delta", {textContent: "6.67 mm"}, 6.933);
+  tl.set("#ct-delta", {textContent: "6.72 mm"}, 6.967);
+  tl.set("#ct-delta", {textContent: "6.76 mm"}, 7.000);
+  tl.set("#ct-delta", {textContent: "6.81 mm"}, 7.033);
+  tl.set("#ct-delta", {textContent: "6.85 mm"}, 7.067);
+  tl.set("#ct-delta", {textContent: "6.89 mm"}, 7.100);
+  tl.set("#ct-delta", {textContent: "6.94 mm"}, 7.133);
+  tl.set("#ct-delta", {textContent: "6.98 mm"}, 7.167);
+  tl.set("#ct-delta", {textContent: "7.02 mm"}, 7.200);
+  tl.set("#ct-delta", {textContent: "7.06 mm"}, 7.233);
+  tl.set("#ct-delta", {textContent: "7.09 mm"}, 7.267);
+  tl.set("#ct-delta", {textContent: "7.13 mm"}, 7.300);
+  tl.set("#ct-delta", {textContent: "7.17 mm"}, 7.333);
+  tl.set("#ct-delta", {textContent: "7.20 mm"}, 7.367);
+  tl.set("#ct-delta", {textContent: "7.24 mm"}, 7.400);
+  tl.set("#ct-delta", {textContent: "7.27 mm"}, 7.433);
+  tl.set("#ct-delta", {textContent: "7.30 mm"}, 7.467);
+  tl.set("#ct-delta", {textContent: "7.33 mm"}, 7.500);
+  tl.set("#ct-delta", {textContent: "7.36 mm"}, 7.533);
+  tl.set("#ct-delta", {textContent: "7.39 mm"}, 7.567);
+  tl.set("#ct-delta", {textContent: "7.42 mm"}, 7.600);
+  tl.set("#ct-delta", {textContent: "7.45 mm"}, 7.633);
+  tl.set("#ct-delta", {textContent: "7.47 mm"}, 7.667);
+  tl.set("#ct-delta", {textContent: "7.50 mm"}, 7.700);
+  tl.set("#ct-delta", {textContent: "7.52 mm"}, 7.733);
+  tl.set("#ct-delta", {textContent: "7.54 mm"}, 7.767);
+  tl.set("#ct-delta", {textContent: "7.57 mm"}, 7.800);
+  tl.set("#ct-delta", {textContent: "7.58 mm"}, 7.833);
+  tl.set("#ct-delta", {textContent: "7.60 mm"}, 7.867);
+  tl.set("#ct-delta", {textContent: "7.62 mm"}, 7.900);
+  tl.set("#ct-delta", {textContent: "7.64 mm"}, 7.933);
+  tl.set("#ct-delta", {textContent: "7.65 mm"}, 7.967);
+  tl.set("#ct-delta", {textContent: "7.66 mm"}, 8.000);
+  tl.set("#ct-delta", {textContent: "7.68 mm"}, 8.033);
+  tl.set("#ct-delta", {textContent: "7.69 mm"}, 8.067);
+  tl.set("#ct-delta", {textContent: "7.70 mm"}, 8.100);
+  tl.set("#ct-delta", {textContent: "7.70 mm"}, 8.133);
+  tl.set("#ct-delta", {textContent: "7.71 mm"}, 8.167);
+  tl.set("#ct-delta", {textContent: "7.72 mm"}, 8.200);
+  tl.set("#ct-delta", {textContent: "7.72 mm"}, 8.233);
+  tl.set("#ct-delta", {textContent: "7.72 mm"}, 8.267);
+  tl.set("#ct-delta", {textContent: "7.72 mm"}, 8.300);
+  tl.set("#ct-sigma", {textContent: "0.0 MPa"}, 9.300);
+  tl.set("#ct-sigma", {textContent: "0.0 MPa"}, 9.333);
+  tl.set("#ct-sigma", {textContent: "0.1 MPa"}, 9.367);
+  tl.set("#ct-sigma", {textContent: "0.2 MPa"}, 9.400);
+  tl.set("#ct-sigma", {textContent: "0.4 MPa"}, 9.433);
+  tl.set("#ct-sigma", {textContent: "0.6 MPa"}, 9.467);
+  tl.set("#ct-sigma", {textContent: "0.8 MPa"}, 9.500);
+  tl.set("#ct-sigma", {textContent: "1.1 MPa"}, 9.533);
+  tl.set("#ct-sigma", {textContent: "1.5 MPa"}, 9.567);
+  tl.set("#ct-sigma", {textContent: "1.8 MPa"}, 9.600);
+  tl.set("#ct-sigma", {textContent: "2.3 MPa"}, 9.633);
+  tl.set("#ct-sigma", {textContent: "2.7 MPa"}, 9.667);
+  tl.set("#ct-sigma", {textContent: "3.2 MPa"}, 9.700);
+  tl.set("#ct-sigma", {textContent: "3.8 MPa"}, 9.733);
+  tl.set("#ct-sigma", {textContent: "4.3 MPa"}, 9.767);
+  tl.set("#ct-sigma", {textContent: "4.9 MPa"}, 9.800);
+  tl.set("#ct-sigma", {textContent: "5.6 MPa"}, 9.833);
+  tl.set("#ct-sigma", {textContent: "6.3 MPa"}, 9.867);
+  tl.set("#ct-sigma", {textContent: "7.0 MPa"}, 9.900);
+  tl.set("#ct-sigma", {textContent: "7.8 MPa"}, 9.933);
+  tl.set("#ct-sigma", {textContent: "8.6 MPa"}, 9.967);
+  tl.set("#ct-sigma", {textContent: "9.4 MPa"}, 10.000);
+  tl.set("#ct-sigma", {textContent: "10.2 MPa"}, 10.033);
+  tl.set("#ct-sigma", {textContent: "11.1 MPa"}, 10.067);
+  tl.set("#ct-sigma", {textContent: "12.0 MPa"}, 10.100);
+  tl.set("#ct-sigma", {textContent: "13.0 MPa"}, 10.133);
+  tl.set("#ct-sigma", {textContent: "14.0 MPa"}, 10.167);
+  tl.set("#ct-sigma", {textContent: "15.0 MPa"}, 10.200);
+  tl.set("#ct-sigma", {textContent: "16.0 MPa"}, 10.233);
+  tl.set("#ct-sigma", {textContent: "17.1 MPa"}, 10.267);
+  tl.set("#ct-sigma", {textContent: "18.2 MPa"}, 10.300);
+  tl.set("#ct-sigma", {textContent: "19.3 MPa"}, 10.333);
+  tl.set("#ct-sigma", {textContent: "20.4 MPa"}, 10.367);
+  tl.set("#ct-sigma", {textContent: "21.6 MPa"}, 10.400);
+  tl.set("#ct-sigma", {textContent: "22.8 MPa"}, 10.433);
+  tl.set("#ct-sigma", {textContent: "24.0 MPa"}, 10.467);
+  tl.set("#ct-sigma", {textContent: "25.2 MPa"}, 10.500);
+  tl.set("#ct-sigma", {textContent: "26.5 MPa"}, 10.533);
+  tl.set("#ct-sigma", {textContent: "27.8 MPa"}, 10.567);
+  tl.set("#ct-sigma", {textContent: "29.1 MPa"}, 10.600);
+  tl.set("#ct-sigma", {textContent: "30.4 MPa"}, 10.633);
+  tl.set("#ct-sigma", {textContent: "31.7 MPa"}, 10.667);
+  tl.set("#ct-sigma", {textContent: "33.1 MPa"}, 10.700);
+  tl.set("#ct-sigma", {textContent: "34.5 MPa"}, 10.733);
+  tl.set("#ct-sigma", {textContent: "35.8 MPa"}, 10.767);
+  tl.set("#ct-sigma", {textContent: "37.2 MPa"}, 10.800);
+  tl.set("#ct-sigma", {textContent: "38.7 MPa"}, 10.833);
+  tl.set("#ct-sigma", {textContent: "40.1 MPa"}, 10.867);
+  tl.set("#ct-sigma", {textContent: "41.5 MPa"}, 10.900);
+  tl.set("#ct-sigma", {textContent: "43.0 MPa"}, 10.933);
+  tl.set("#ct-sigma", {textContent: "44.5 MPa"}, 10.967);
+  tl.set("#ct-sigma", {textContent: "46.0 MPa"}, 11.000);
+  tl.set("#ct-sigma", {textContent: "47.5 MPa"}, 11.033);
+  tl.set("#ct-sigma", {textContent: "49.0 MPa"}, 11.067);
+  tl.set("#ct-sigma", {textContent: "50.5 MPa"}, 11.100);
+  tl.set("#ct-sigma", {textContent: "52.0 MPa"}, 11.133);
+  tl.set("#ct-sigma", {textContent: "53.5 MPa"}, 11.167);
+  tl.set("#ct-sigma", {textContent: "55.1 MPa"}, 11.200);
+  tl.set("#ct-sigma", {textContent: "56.6 MPa"}, 11.233);
+  tl.set("#ct-sigma", {textContent: "58.2 MPa"}, 11.267);
+  tl.set("#ct-sigma", {textContent: "59.7 MPa"}, 11.300);
+  tl.set("#ct-sigma", {textContent: "61.3 MPa"}, 11.333);
+  tl.set("#ct-sigma", {textContent: "62.8 MPa"}, 11.367);
+  tl.set("#ct-sigma", {textContent: "64.4 MPa"}, 11.400);
+  tl.set("#ct-sigma", {textContent: "66.0 MPa"}, 11.433);
+  tl.set("#ct-sigma", {textContent: "67.5 MPa"}, 11.467);
+  tl.set("#ct-sigma", {textContent: "69.1 MPa"}, 11.500);
+  tl.set("#ct-sigma", {textContent: "70.7 MPa"}, 11.533);
+  tl.set("#ct-sigma", {textContent: "72.3 MPa"}, 11.567);
+  tl.set("#ct-sigma", {textContent: "73.8 MPa"}, 11.600);
+  tl.set("#ct-sigma", {textContent: "75.4 MPa"}, 11.633);
+  tl.set("#ct-sigma", {textContent: "77.0 MPa"}, 11.667);
+  tl.set("#ct-sigma", {textContent: "78.5 MPa"}, 11.700);
+  tl.set("#ct-sigma", {textContent: "80.1 MPa"}, 11.733);
+  tl.set("#ct-sigma", {textContent: "81.6 MPa"}, 11.767);
+  tl.set("#ct-sigma", {textContent: "83.2 MPa"}, 11.800);
+  tl.set("#ct-sigma", {textContent: "84.7 MPa"}, 11.833);
+  tl.set("#ct-sigma", {textContent: "86.2 MPa"}, 11.867);
+  tl.set("#ct-sigma", {textContent: "87.8 MPa"}, 11.900);
+  tl.set("#ct-sigma", {textContent: "89.3 MPa"}, 11.933);
+  tl.set("#ct-sigma", {textContent: "90.8 MPa"}, 11.967);
+  tl.set("#ct-sigma", {textContent: "92.3 MPa"}, 12.000);
+  tl.set("#ct-sigma", {textContent: "93.8 MPa"}, 12.033);
+  tl.set("#ct-sigma", {textContent: "95.2 MPa"}, 12.067);
+  tl.set("#ct-sigma", {textContent: "96.7 MPa"}, 12.100);
+  tl.set("#ct-sigma", {textContent: "98.1 MPa"}, 12.133);
+  tl.set("#ct-sigma", {textContent: "99.6 MPa"}, 12.167);
+  tl.set("#ct-sigma", {textContent: "101.0 MPa"}, 12.200);
+  tl.set("#ct-sigma", {textContent: "102.4 MPa"}, 12.233);
+  tl.set("#ct-sigma", {textContent: "103.8 MPa"}, 12.267);
+  tl.set("#ct-sigma", {textContent: "105.2 MPa"}, 12.300);
+  tl.set("#ct-sigma", {textContent: "106.5 MPa"}, 12.333);
+  tl.set("#ct-sigma", {textContent: "107.9 MPa"}, 12.367);
+  tl.set("#ct-sigma", {textContent: "109.2 MPa"}, 12.400);
+  tl.set("#ct-sigma", {textContent: "110.5 MPa"}, 12.433);
+  tl.set("#ct-sigma", {textContent: "111.7 MPa"}, 12.467);
+  tl.set("#ct-sigma", {textContent: "113.0 MPa"}, 12.500);
+  tl.set("#ct-sigma", {textContent: "114.2 MPa"}, 12.533);
+  tl.set("#ct-sigma", {textContent: "115.5 MPa"}, 12.567);
+  tl.set("#ct-sigma", {textContent: "116.6 MPa"}, 12.600);
+  tl.set("#ct-sigma", {textContent: "117.8 MPa"}, 12.633);
+  tl.set("#ct-sigma", {textContent: "118.9 MPa"}, 12.667);
+  tl.set("#ct-sigma", {textContent: "120.1 MPa"}, 12.700);
+  tl.set("#ct-sigma", {textContent: "121.2 MPa"}, 12.733);
+  tl.set("#ct-sigma", {textContent: "122.2 MPa"}, 12.767);
+  tl.set("#ct-sigma", {textContent: "123.3 MPa"}, 12.800);
+  tl.set("#ct-sigma", {textContent: "124.3 MPa"}, 12.833);
+  tl.set("#ct-sigma", {textContent: "125.2 MPa"}, 12.867);
+  tl.set("#ct-sigma", {textContent: "126.2 MPa"}, 12.900);
+  tl.set("#ct-sigma", {textContent: "127.1 MPa"}, 12.933);
+  tl.set("#ct-sigma", {textContent: "128.0 MPa"}, 12.967);
+  tl.set("#ct-sigma", {textContent: "128.9 MPa"}, 13.000);
+  tl.set("#ct-sigma", {textContent: "129.7 MPa"}, 13.033);
+  tl.set("#ct-sigma", {textContent: "130.5 MPa"}, 13.067);
+  tl.set("#ct-sigma", {textContent: "131.2 MPa"}, 13.100);
+  tl.set("#ct-sigma", {textContent: "132.0 MPa"}, 13.133);
+  tl.set("#ct-sigma", {textContent: "132.6 MPa"}, 13.167);
+  tl.set("#ct-sigma", {textContent: "133.3 MPa"}, 13.200);
+  tl.set("#ct-sigma", {textContent: "133.9 MPa"}, 13.233);
+  tl.set("#ct-sigma", {textContent: "134.5 MPa"}, 13.267);
+  tl.set("#ct-sigma", {textContent: "135.0 MPa"}, 13.300);
+  tl.set("#ct-sigma", {textContent: "135.5 MPa"}, 13.333);
+  tl.set("#ct-sigma", {textContent: "136.0 MPa"}, 13.367);
+  tl.set("#ct-sigma", {textContent: "136.4 MPa"}, 13.400);
+  tl.set("#ct-sigma", {textContent: "136.8 MPa"}, 13.433);
+  tl.set("#ct-sigma", {textContent: "137.1 MPa"}, 13.467);
+  tl.set("#ct-sigma", {textContent: "137.4 MPa"}, 13.500);
+  tl.set("#ct-sigma", {textContent: "137.7 MPa"}, 13.533);
+  tl.set("#ct-sigma", {textContent: "137.9 MPa"}, 13.567);
+  tl.set("#ct-sigma", {textContent: "138.0 MPa"}, 13.600);
+  tl.set("#ct-sigma", {textContent: "138.1 MPa"}, 13.633);
+  tl.set("#ct-sigma", {textContent: "138.2 MPa"}, 13.667);
+  tl.set("#ct-sigma", {textContent: "138.2 MPa"}, 13.700);
+  tl.set("#ct-ovsig", {textContent: "0 MPa"}, 19.300);
+  tl.set("#ct-ovsig", {textContent: "0 MPa"}, 19.333);
+  tl.set("#ct-ovsig", {textContent: "1 MPa"}, 19.367);
+  tl.set("#ct-ovsig", {textContent: "3 MPa"}, 19.400);
+  tl.set("#ct-ovsig", {textContent: "5 MPa"}, 19.433);
+  tl.set("#ct-ovsig", {textContent: "8 MPa"}, 19.467);
+  tl.set("#ct-ovsig", {textContent: "11 MPa"}, 19.500);
+  tl.set("#ct-ovsig", {textContent: "15 MPa"}, 19.533);
+  tl.set("#ct-ovsig", {textContent: "19 MPa"}, 19.567);
+  tl.set("#ct-ovsig", {textContent: "24 MPa"}, 19.600);
+  tl.set("#ct-ovsig", {textContent: "30 MPa"}, 19.633);
+  tl.set("#ct-ovsig", {textContent: "36 MPa"}, 19.667);
+  tl.set("#ct-ovsig", {textContent: "43 MPa"}, 19.700);
+  tl.set("#ct-ovsig", {textContent: "50 MPa"}, 19.733);
+  tl.set("#ct-ovsig", {textContent: "57 MPa"}, 19.767);
+  tl.set("#ct-ovsig", {textContent: "66 MPa"}, 19.800);
+  tl.set("#ct-ovsig", {textContent: "74 MPa"}, 19.833);
+  tl.set("#ct-ovsig", {textContent: "83 MPa"}, 19.867);
+  tl.set("#ct-ovsig", {textContent: "93 MPa"}, 19.900);
+  tl.set("#ct-ovsig", {textContent: "102 MPa"}, 19.933);
+  tl.set("#ct-ovsig", {textContent: "113 MPa"}, 19.967);
+  tl.set("#ct-ovsig", {textContent: "123 MPa"}, 20.000);
+  tl.set("#ct-ovsig", {textContent: "135 MPa"}, 20.033);
+  tl.set("#ct-ovsig", {textContent: "146 MPa"}, 20.067);
+  tl.set("#ct-ovsig", {textContent: "158 MPa"}, 20.100);
+  tl.set("#ct-ovsig", {textContent: "170 MPa"}, 20.133);
+  tl.set("#ct-ovsig", {textContent: "183 MPa"}, 20.167);
+  tl.set("#ct-ovsig", {textContent: "196 MPa"}, 20.200);
+  tl.set("#ct-ovsig", {textContent: "209 MPa"}, 20.233);
+  tl.set("#ct-ovsig", {textContent: "223 MPa"}, 20.267);
+  tl.set("#ct-ovsig", {textContent: "237 MPa"}, 20.300);
+  tl.set("#ct-ovsig", {textContent: "251 MPa"}, 20.333);
+  tl.set("#ct-ovsig", {textContent: "266 MPa"}, 20.367);
+  tl.set("#ct-ovsig", {textContent: "280 MPa"}, 20.400);
+  tl.set("#ct-ovsig", {textContent: "296 MPa"}, 20.433);
+  tl.set("#ct-ovsig", {textContent: "311 MPa"}, 20.467);
+  tl.set("#ct-ovsig", {textContent: "327 MPa"}, 20.500);
+  tl.set("#ct-ovsig", {textContent: "342 MPa"}, 20.533);
+  tl.set("#ct-ovsig", {textContent: "358 MPa"}, 20.567);
+  tl.set("#ct-ovsig", {textContent: "375 MPa"}, 20.600);
+  tl.set("#ct-ovsig", {textContent: "391 MPa"}, 20.633);
+  tl.set("#ct-ovsig", {textContent: "408 MPa"}, 20.667);
+  tl.set("#ct-ovsig", {textContent: "425 MPa"}, 20.700);
+  tl.set("#ct-ovsig", {textContent: "442 MPa"}, 20.733);
+  tl.set("#ct-ovsig", {textContent: "459 MPa"}, 20.767);
+  tl.set("#ct-ovsig", {textContent: "476 MPa"}, 20.800);
+  tl.set("#ct-ovsig", {textContent: "494 MPa"}, 20.833);
+  tl.set("#ct-ovsig", {textContent: "511 MPa"}, 20.867);
+  tl.set("#ct-ovsig", {textContent: "529 MPa"}, 20.900);
+  tl.set("#ct-ovsig", {textContent: "547 MPa"}, 20.933);
+  tl.set("#ct-ovsig", {textContent: "565 MPa"}, 20.967);
+  tl.set("#ct-ovsig", {textContent: "582 MPa"}, 21.000);
+  tl.set("#ct-ovsig", {textContent: "600 MPa"}, 21.033);
+  tl.set("#ct-ovsig", {textContent: "619 MPa"}, 21.067);
+  tl.set("#ct-ovsig", {textContent: "637 MPa"}, 21.100);
+  tl.set("#ct-ovsig", {textContent: "655 MPa"}, 21.133);
+  tl.set("#ct-ovsig", {textContent: "673 MPa"}, 21.167);
+  tl.set("#ct-ovsig", {textContent: "691 MPa"}, 21.200);
+  tl.set("#ct-ovsig", {textContent: "709 MPa"}, 21.233);
+  tl.set("#ct-ovsig", {textContent: "728 MPa"}, 21.267);
+  tl.set("#ct-ovsig", {textContent: "746 MPa"}, 21.300);
+  tl.set("#ct-ovsig", {textContent: "764 MPa"}, 21.333);
+  tl.set("#ct-ovsig", {textContent: "782 MPa"}, 21.367);
+  tl.set("#ct-ovsig", {textContent: "800 MPa"}, 21.400);
+  tl.set("#ct-ovsig", {textContent: "818 MPa"}, 21.433);
+  tl.set("#ct-ovsig", {textContent: "836 MPa"}, 21.467);
+  tl.set("#ct-ovsig", {textContent: "854 MPa"}, 21.500);
+  tl.set("#ct-ovsig", {textContent: "871 MPa"}, 21.533);
+  tl.set("#ct-ovsig", {textContent: "889 MPa"}, 21.567);
+  tl.set("#ct-ovsig", {textContent: "906 MPa"}, 21.600);
+  tl.set("#ct-ovsig", {textContent: "924 MPa"}, 21.633);
+  tl.set("#ct-ovsig", {textContent: "941 MPa"}, 21.667);
+  tl.set("#ct-ovsig", {textContent: "958 MPa"}, 21.700);
+  tl.set("#ct-ovsig", {textContent: "975 MPa"}, 21.733);
+  tl.set("#ct-ovsig", {textContent: "991 MPa"}, 21.767);
+  tl.set("#ct-ovsig", {textContent: "1 008 MPa"}, 21.800);
+  tl.set("#ct-ovsig", {textContent: "1 024 MPa"}, 21.833);
+  tl.set("#ct-ovsig", {textContent: "1 040 MPa"}, 21.867);
+  tl.set("#ct-ovsig", {textContent: "1 056 MPa"}, 21.900);
+  tl.set("#ct-ovsig", {textContent: "1 072 MPa"}, 21.933);
+  tl.set("#ct-ovsig", {textContent: "1 087 MPa"}, 21.967);
+  tl.set("#ct-ovsig", {textContent: "1 102 MPa"}, 22.000);
+  tl.set("#ct-ovsig", {textContent: "1 117 MPa"}, 22.033);
+  tl.set("#ct-ovsig", {textContent: "1 131 MPa"}, 22.067);
+  tl.set("#ct-ovsig", {textContent: "1 146 MPa"}, 22.100);
+  tl.set("#ct-ovsig", {textContent: "1 160 MPa"}, 22.133);
+  tl.set("#ct-ovsig", {textContent: "1 173 MPa"}, 22.167);
+  tl.set("#ct-ovsig", {textContent: "1 187 MPa"}, 22.200);
+  tl.set("#ct-ovsig", {textContent: "1 199 MPa"}, 22.233);
+  tl.set("#ct-ovsig", {textContent: "1 212 MPa"}, 22.267);
+  tl.set("#ct-ovsig", {textContent: "1 224 MPa"}, 22.300);
+  tl.set("#ct-ovsig", {textContent: "1 236 MPa"}, 22.333);
+  tl.set("#ct-ovsig", {textContent: "1 248 MPa"}, 22.367);
+  tl.set("#ct-ovsig", {textContent: "1 259 MPa"}, 22.400);
+  tl.set("#ct-ovsig", {textContent: "1 270 MPa"}, 22.433);
+  tl.set("#ct-ovsig", {textContent: "1 280 MPa"}, 22.467);
+  tl.set("#ct-ovsig", {textContent: "1 290 MPa"}, 22.500);
+  tl.set("#ct-ovsig", {textContent: "1 299 MPa"}, 22.533);
+  tl.set("#ct-ovsig", {textContent: "1 308 MPa"}, 22.567);
+  tl.set("#ct-ovsig", {textContent: "1 317 MPa"}, 22.600);
+  tl.set("#ct-ovsig", {textContent: "1 325 MPa"}, 22.633);
+  tl.set("#ct-ovsig", {textContent: "1 333 MPa"}, 22.667);
+  tl.set("#ct-ovsig", {textContent: "1 340 MPa"}, 22.700);
+  tl.set("#ct-ovsig", {textContent: "1 346 MPa"}, 22.733);
+  tl.set("#ct-ovsig", {textContent: "1 352 MPa"}, 22.767);
+  tl.set("#ct-ovsig", {textContent: "1 358 MPa"}, 22.800);
+  tl.set("#ct-ovsig", {textContent: "1 363 MPa"}, 22.833);
+  tl.set("#ct-ovsig", {textContent: "1 367 MPa"}, 22.867);
+  tl.set("#ct-ovsig", {textContent: "1 371 MPa"}, 22.900);
+  tl.set("#ct-ovsig", {textContent: "1 375 MPa"}, 22.933);
+  tl.set("#ct-ovsig", {textContent: "1 377 MPa"}, 22.967);
+  tl.set("#ct-ovsig", {textContent: "1 380 MPa"}, 23.000);
+  tl.set("#ct-ovsig", {textContent: "1 381 MPa"}, 23.033);
+  tl.set("#ct-ovsig", {textContent: "1 382 MPa"}, 23.067);
+  tl.set("#ct-ovsig", {textContent: "1 382 MPa"}, 23.100);
+  tl.set("#ct-ovde", {textContent: "0.0 mm"}, 19.300);
+  tl.set("#ct-ovde", {textContent: "0.0 mm"}, 19.333);
+  tl.set("#ct-ovde", {textContent: "0.1 mm"}, 19.367);
+  tl.set("#ct-ovde", {textContent: "0.2 mm"}, 19.400);
+  tl.set("#ct-ovde", {textContent: "0.3 mm"}, 19.433);
+  tl.set("#ct-ovde", {textContent: "0.4 mm"}, 19.467);
+  tl.set("#ct-ovde", {textContent: "0.6 mm"}, 19.500);
+  tl.set("#ct-ovde", {textContent: "0.8 mm"}, 19.533);
+  tl.set("#ct-ovde", {textContent: "1.1 mm"}, 19.567);
+  tl.set("#ct-ovde", {textContent: "1.4 mm"}, 19.600);
+  tl.set("#ct-ovde", {textContent: "1.7 mm"}, 19.633);
+  tl.set("#ct-ovde", {textContent: "2.0 mm"}, 19.667);
+  tl.set("#ct-ovde", {textContent: "2.4 mm"}, 19.700);
+  tl.set("#ct-ovde", {textContent: "2.8 mm"}, 19.733);
+  tl.set("#ct-ovde", {textContent: "3.2 mm"}, 19.767);
+  tl.set("#ct-ovde", {textContent: "3.7 mm"}, 19.800);
+  tl.set("#ct-ovde", {textContent: "4.1 mm"}, 19.833);
+  tl.set("#ct-ovde", {textContent: "4.6 mm"}, 19.867);
+  tl.set("#ct-ovde", {textContent: "5.2 mm"}, 19.900);
+  tl.set("#ct-ovde", {textContent: "5.7 mm"}, 19.933);
+  tl.set("#ct-ovde", {textContent: "6.3 mm"}, 19.967);
+  tl.set("#ct-ovde", {textContent: "6.9 mm"}, 20.000);
+  tl.set("#ct-ovde", {textContent: "7.5 mm"}, 20.033);
+  tl.set("#ct-ovde", {textContent: "8.2 mm"}, 20.067);
+  tl.set("#ct-ovde", {textContent: "8.8 mm"}, 20.100);
+  tl.set("#ct-ovde", {textContent: "9.5 mm"}, 20.133);
+  tl.set("#ct-ovde", {textContent: "10.2 mm"}, 20.167);
+  tl.set("#ct-ovde", {textContent: "10.9 mm"}, 20.200);
+  tl.set("#ct-ovde", {textContent: "11.7 mm"}, 20.233);
+  tl.set("#ct-ovde", {textContent: "12.4 mm"}, 20.267);
+  tl.set("#ct-ovde", {textContent: "13.2 mm"}, 20.300);
+  tl.set("#ct-ovde", {textContent: "14.0 mm"}, 20.333);
+  tl.set("#ct-ovde", {textContent: "14.8 mm"}, 20.367);
+  tl.set("#ct-ovde", {textContent: "15.7 mm"}, 20.400);
+  tl.set("#ct-ovde", {textContent: "16.5 mm"}, 20.433);
+  tl.set("#ct-ovde", {textContent: "17.4 mm"}, 20.467);
+  tl.set("#ct-ovde", {textContent: "18.2 mm"}, 20.500);
+  tl.set("#ct-ovde", {textContent: "19.1 mm"}, 20.533);
+  tl.set("#ct-ovde", {textContent: "20.0 mm"}, 20.567);
+  tl.set("#ct-ovde", {textContent: "20.9 mm"}, 20.600);
+  tl.set("#ct-ovde", {textContent: "21.8 mm"}, 20.633);
+  tl.set("#ct-ovde", {textContent: "22.8 mm"}, 20.667);
+  tl.set("#ct-ovde", {textContent: "23.7 mm"}, 20.700);
+  tl.set("#ct-ovde", {textContent: "24.7 mm"}, 20.733);
+  tl.set("#ct-ovde", {textContent: "25.6 mm"}, 20.767);
+  tl.set("#ct-ovde", {textContent: "26.6 mm"}, 20.800);
+  tl.set("#ct-ovde", {textContent: "27.6 mm"}, 20.833);
+  tl.set("#ct-ovde", {textContent: "28.6 mm"}, 20.867);
+  tl.set("#ct-ovde", {textContent: "29.5 mm"}, 20.900);
+  tl.set("#ct-ovde", {textContent: "30.5 mm"}, 20.933);
+  tl.set("#ct-ovde", {textContent: "31.5 mm"}, 20.967);
+  tl.set("#ct-ovde", {textContent: "32.5 mm"}, 21.000);
+  tl.set("#ct-ovde", {textContent: "33.5 mm"}, 21.033);
+  tl.set("#ct-ovde", {textContent: "34.6 mm"}, 21.067);
+  tl.set("#ct-ovde", {textContent: "35.6 mm"}, 21.100);
+  tl.set("#ct-ovde", {textContent: "36.6 mm"}, 21.133);
+  tl.set("#ct-ovde", {textContent: "37.6 mm"}, 21.167);
+  tl.set("#ct-ovde", {textContent: "38.6 mm"}, 21.200);
+  tl.set("#ct-ovde", {textContent: "39.6 mm"}, 21.233);
+  tl.set("#ct-ovde", {textContent: "40.6 mm"}, 21.267);
+  tl.set("#ct-ovde", {textContent: "41.7 mm"}, 21.300);
+  tl.set("#ct-ovde", {textContent: "42.7 mm"}, 21.333);
+  tl.set("#ct-ovde", {textContent: "43.7 mm"}, 21.367);
+  tl.set("#ct-ovde", {textContent: "44.7 mm"}, 21.400);
+  tl.set("#ct-ovde", {textContent: "45.7 mm"}, 21.433);
+  tl.set("#ct-ovde", {textContent: "46.7 mm"}, 21.467);
+  tl.set("#ct-ovde", {textContent: "47.7 mm"}, 21.500);
+  tl.set("#ct-ovde", {textContent: "48.7 mm"}, 21.533);
+  tl.set("#ct-ovde", {textContent: "49.6 mm"}, 21.567);
+  tl.set("#ct-ovde", {textContent: "50.6 mm"}, 21.600);
+  tl.set("#ct-ovde", {textContent: "51.6 mm"}, 21.633);
+  tl.set("#ct-ovde", {textContent: "52.5 mm"}, 21.667);
+  tl.set("#ct-ovde", {textContent: "53.5 mm"}, 21.700);
+  tl.set("#ct-ovde", {textContent: "54.4 mm"}, 21.733);
+  tl.set("#ct-ovde", {textContent: "55.4 mm"}, 21.767);
+  tl.set("#ct-ovde", {textContent: "56.3 mm"}, 21.800);
+  tl.set("#ct-ovde", {textContent: "57.2 mm"}, 21.833);
+  tl.set("#ct-ovde", {textContent: "58.1 mm"}, 21.867);
+  tl.set("#ct-ovde", {textContent: "59.0 mm"}, 21.900);
+  tl.set("#ct-ovde", {textContent: "59.9 mm"}, 21.933);
+  tl.set("#ct-ovde", {textContent: "60.7 mm"}, 21.967);
+  tl.set("#ct-ovde", {textContent: "61.6 mm"}, 22.000);
+  tl.set("#ct-ovde", {textContent: "62.4 mm"}, 22.033);
+  tl.set("#ct-ovde", {textContent: "63.2 mm"}, 22.067);
+  tl.set("#ct-ovde", {textContent: "64.0 mm"}, 22.100);
+  tl.set("#ct-ovde", {textContent: "64.8 mm"}, 22.133);
+  tl.set("#ct-ovde", {textContent: "65.5 mm"}, 22.167);
+  tl.set("#ct-ovde", {textContent: "66.3 mm"}, 22.200);
+  tl.set("#ct-ovde", {textContent: "67.0 mm"}, 22.233);
+  tl.set("#ct-ovde", {textContent: "67.7 mm"}, 22.267);
+  tl.set("#ct-ovde", {textContent: "68.4 mm"}, 22.300);
+  tl.set("#ct-ovde", {textContent: "69.1 mm"}, 22.333);
+  tl.set("#ct-ovde", {textContent: "69.7 mm"}, 22.367);
+  tl.set("#ct-ovde", {textContent: "70.3 mm"}, 22.400);
+  tl.set("#ct-ovde", {textContent: "70.9 mm"}, 22.433);
+  tl.set("#ct-ovde", {textContent: "71.5 mm"}, 22.467);
+  tl.set("#ct-ovde", {textContent: "72.1 mm"}, 22.500);
+  tl.set("#ct-ovde", {textContent: "72.6 mm"}, 22.533);
+  tl.set("#ct-ovde", {textContent: "73.1 mm"}, 22.567);
+  tl.set("#ct-ovde", {textContent: "73.6 mm"}, 22.600);
+  tl.set("#ct-ovde", {textContent: "74.0 mm"}, 22.633);
+  tl.set("#ct-ovde", {textContent: "74.4 mm"}, 22.667);
+  tl.set("#ct-ovde", {textContent: "74.8 mm"}, 22.700);
+  tl.set("#ct-ovde", {textContent: "75.2 mm"}, 22.733);
+  tl.set("#ct-ovde", {textContent: "75.5 mm"}, 22.767);
+  tl.set("#ct-ovde", {textContent: "75.9 mm"}, 22.800);
+  tl.set("#ct-ovde", {textContent: "76.1 mm"}, 22.833);
+  tl.set("#ct-ovde", {textContent: "76.4 mm"}, 22.867);
+  tl.set("#ct-ovde", {textContent: "76.6 mm"}, 22.900);
+  tl.set("#ct-ovde", {textContent: "76.8 mm"}, 22.933);
+  tl.set("#ct-ovde", {textContent: "76.9 mm"}, 22.967);
+  tl.set("#ct-ovde", {textContent: "77.1 mm"}, 23.000);
+  tl.set("#ct-ovde", {textContent: "77.2 mm"}, 23.033);
+  tl.set("#ct-ovde", {textContent: "77.2 mm"}, 23.067);
+  tl.set("#ct-ovde", {textContent: "77.2 mm"}, 23.100);
+
+/* slow push-in on each clip: the shot keeps drifting, never frozen */
+for (const [sel, t0, dur, s1] of [
+    ["#v-hero", 0, 1.9, 1.12],
+    ["#v-ramp", 1.9, 7.0, 1.07],
+    ["#v-close", 8.9, 5.5, 1.06],
+    ["#v-bgterm", 14.4, 4.499999999999998, 1.10],
+    ["#v-over", 18.9, 5.0, 1.08],
+    ["#v-proof", 23.9, 4.5, 1.07]]) {
+  tl.fromTo(sel, {scale: 1.0}, {scale: s1, duration: dur,
+                                  ease: "none"}, t0);
+}
 
 /* terminal window pushes in over the dimmed, still-playing field */
 tl.fromTo("#v-term", {scale: .86, opacity: 0},
@@ -319,6 +960,13 @@ tl.fromTo("#badge", {opacity: 0, y: -70},
             {opacity: 1, x: 0, duration: .35, ease: "power3.out"},
             23.9 + 0.7 + i * 0.4);
 });
+
+/* flash cuts: one bright frame over each hard join */
+for (const t of [8.9, 18.9, 23.9,
+                 28.4]) {
+  tl.set("#flash", {opacity: .85}, t);
+  tl.set("#flash", {opacity: 0}, t + 0.034);
+}
 
 /* keep the top tag subtly alive */
 tl.to(".tag", {opacity: .55, duration: 1.2, ease: "sine.inOut",

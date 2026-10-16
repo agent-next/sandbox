@@ -53,7 +53,7 @@ def ease(t):
     return t * t * (3 - 2 * t)
 
 
-def counter_steps(el, fmt, v0, v1, t0, t1, every=0.25):
+def counter_steps(el, fmt, v0, v1, t0, t1, every=1.0 / 30):
     """GSAP set() steps so the rendered number counts up under scrubbing."""
     out = []
     n = max(2, int((t1 - t0) / every))
@@ -164,22 +164,26 @@ def main():
 
   <!-- 0-1.9 hero: finished result, moving, fills the frame -->
   <video id="v-hero" class="clip fill" src="assets/clips/hero.mp4" muted
-         playsinline data-start="0" data-duration="{T_HERO_END}"></video>
+         playsinline data-start="0" data-duration="{T_HERO_END}"
+         data-playback-rate="1.35"
+         style="filter:saturate(1.15)"></video>
 
   <!-- 1.9-8.9 ramp: input -> output, load 0 -> {fmt_n(load_n)} -->
   <video id="v-ramp" class="clip fill" src="assets/clips/ramp.mp4" muted
          playsinline data-start="{T_HERO_END}" data-media-start="1.0"
-         data-duration="{T_RAMP_END - T_HERO_END}"></video>
+         data-duration="{T_RAMP_END - T_HERO_END}"
+         style="filter:brightness(1.35) saturate(1.1)"></video>
 
   <!-- 8.9-14.4 closeup: camera dives onto the clamped wall -->
   <video id="v-close" class="clip fill" src="assets/clips/closeup.mp4" muted
          playsinline data-start="{T_RAMP_END}"
-         data-duration="{T_CLOSE_END - T_RAMP_END}"></video>
+         data-duration="{T_CLOSE_END - T_RAMP_END}" data-playback-rate="1.3"
+         style="filter:saturate(1.3) contrast(1.08)"></video>
 
   <!-- 14.4-18.9 terminal: real console replay, over still-moving footage -->
   <video id="v-bgterm" class="clip fill" src="assets/clips/ramp.mp4" muted
          playsinline data-start="{T_CLOSE_END}" data-media-start="8.0"
-         data-duration="{T_TERM_END - T_CLOSE_END}"
+         data-duration="{T_TERM_END - T_CLOSE_END}" data-playback-rate="1.25"
          style="filter:brightness(.28) saturate(.6)"></video>
   <video id="v-term" class="clip" src="assets/clips/terminal.mp4" muted playsinline
          data-start="{T_CLOSE_END}"
@@ -192,12 +196,14 @@ def main():
   <!-- 18.9-23.9 overload: the mutant's own field under 10x load -->
   <video id="v-over" class="clip fill" src="assets/clips/overload.mp4" muted
          playsinline data-start="{T_TERM_END}"
-         data-duration="{T_OVER_END - T_TERM_END}"></video>
+         data-duration="{T_OVER_END - T_TERM_END}" data-playback-rate="1.35"
+         style="filter:brightness(1.45) saturate(1.6)"></video>
 
   <!-- 23.9-28.4 proof: HUD + PASS over still-playing footage -->
   <video id="v-proof" class="clip fill" src="assets/clips/proof.mp4" muted
          playsinline data-start="{T_OVER_END}"
-         data-duration="{T_PROOF_END - T_OVER_END}"></video>
+         data-duration="{T_PROOF_END - T_OVER_END}" data-playback-rate="1.4"
+         style="filter:brightness(1.7) saturate(1.2)"></video>
 
   <div class="clip tag" data-start="0" data-duration="{T_PROOF_END}">
     <b>fea-calculix</b> &middot; real sandbox run
@@ -288,6 +294,10 @@ def main():
       disposable sandbox</div>
   </div>
 
+  <!-- single-frame flash cuts at the hard joins (33 ms each) -->
+  <div id="flash" class="clip fill" data-start="0" data-duration="{T_END}"
+       style="background:{FG}; opacity:0; pointer-events:none"></div>
+
 <script>
 const tl = gsap.timeline({{ paused: true }});
 
@@ -327,14 +337,26 @@ for (const [sel, t0] of [["#hud-ramp", {T_HERO_END}],
 /* counting HUD numbers -- real values, stepped under the scrub head */
 {counter_steps("#ct-load", fmt_n, 0, load_n, T_HERO_END + 0.5,
                T_RAMP_END - 0.6)}
-{counter_steps("#ct-delta", lambda v: f"{{v:.2f}} mm", 0, de,
+{counter_steps("#ct-delta", lambda v: "%.2f mm" % v, 0, de,
                T_HERO_END + 0.5, T_RAMP_END - 0.6)}
-{counter_steps("#ct-sigma", lambda v: f"{{v:.1f}} MPa", 0, sig,
+{counter_steps("#ct-sigma", lambda v: "%.1f MPa" % v, 0, sig,
                T_RAMP_END + 0.4, T_CLOSE_END - 0.7)}
-{counter_steps("#ct-ovsig", lambda v: f"{{v:,.0f}} MPa".replace(",", " "),
+{counter_steps("#ct-ovsig", lambda v: f"{v:,.0f} MPa".replace(",", " "),
                0, ov_sig, T_TERM_END + 0.4, T_OVER_END - 0.8)}
-{counter_steps("#ct-ovde", lambda v: f"{{v:.1f}} mm", 0, ov_de,
+{counter_steps("#ct-ovde", lambda v: "%.1f mm" % v, 0, ov_de,
                T_TERM_END + 0.4, T_OVER_END - 0.8)}
+
+/* slow push-in on each clip: the shot keeps drifting, never frozen */
+for (const [sel, t0, dur, s1] of [
+    ["#v-hero", 0, {T_HERO_END}, 1.22],
+    ["#v-ramp", {T_HERO_END}, {T_RAMP_END - T_HERO_END}, 1.16],
+    ["#v-close", {T_RAMP_END}, {T_CLOSE_END - T_RAMP_END}, 1.15],
+    ["#v-bgterm", {T_CLOSE_END}, {T_TERM_END - T_CLOSE_END}, 1.15],
+    ["#v-over", {T_TERM_END}, {T_OVER_END - T_TERM_END}, 1.18],
+    ["#v-proof", {T_OVER_END}, {T_PROOF_END - T_OVER_END}, 1.18]]) {{
+  tl.fromTo(sel, {{scale: 1.0}}, {{scale: s1, duration: dur,
+                                  ease: "none"}}, t0);
+}}
 
 /* terminal window pushes in over the dimmed, still-playing field */
 tl.fromTo("#v-term", {{scale: .86, opacity: 0}},
@@ -352,6 +374,13 @@ tl.fromTo("#badge", {{opacity: 0, y: -70}},
             {{opacity: 1, x: 0, duration: .35, ease: "power3.out"}},
             {T_OVER_END} + 0.7 + i * 0.4);
 }});
+
+/* flash cuts: one bright frame over each hard join */
+for (const t of [{T_RAMP_END}, {T_TERM_END}, {T_OVER_END},
+                 {T_PROOF_END}]) {{
+  tl.set("#flash", {{opacity: .85}}, t);
+  tl.set("#flash", {{opacity: 0}}, t + 0.034);
+}}
 
 /* keep the top tag subtly alive */
 tl.to(".tag", {{opacity: .55, duration: 1.2, ease: "sine.inOut",

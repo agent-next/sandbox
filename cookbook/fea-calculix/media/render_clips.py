@@ -78,10 +78,28 @@ class BeamCam:
         self.ax = self.fig.add_axes([0, 0, 1, 1])
         self.ax.set_facecolor(BG)
         self.ax.axis("off")
-        self.coll = PolyCollection([], array=[], cmap=CMAP,
-                                   norm=colors.Normalize(0.0, vmax),
-                                   edgecolors="none", antialiased=False)
+        self.coll = PolyCollection(
+            [], array=[], cmap=CMAP,
+            norm=colors.BoundaryNorm(np.linspace(0.0, vmax, 25), 256),
+            edgecolors=(0.03, 0.05, 0.09, 0.7),
+            linewidths=0.6, antialiased=False)
         self.ax.add_collection(self.coll)
+        # turntable grid floor under the beam (rotates with the camera):
+        # lines on the plane below the undeformed beam, real 3-D viz grid
+        c0, c1 = self.coords.min(axis=0), self.coords.max(axis=0)
+        Lx, Ly = c1[0] - c0[0], c1[1] - c0[1]
+        zf = c0[2] - 0.12 * (c1[2] - c0[2])
+        segs = []
+        for gx in np.linspace(c0[0], c1[0], 41):
+            segs.append([[gx, c0[1] - 0.6 * Ly, zf],
+                         [gx, c1[1] + 0.6 * Ly, zf]])
+        for gy in np.linspace(c0[1] - 0.6 * Ly, c1[1] + 0.6 * Ly, 11):
+            segs.append([[c0[0], gy, zf], [c1[0], gy, zf]])
+        self.grid3d = np.array(segs)                     # (M,2,3)
+        self.grid = LineCollection(
+            [], colors=(0.35, 0.48, 0.65, 0.45), linewidths=1.0,
+            zorder=0)
+        self.ax.add_collection(self.grid)
         self.ghost = LineCollection([], colors="#3d5a80", linewidths=1.4,
                                     linestyles=(0, (4, 4)), alpha=0.75)
         self.ax.add_collection(self.ghost)
@@ -102,7 +120,14 @@ class BeamCam:
               path=None):
         """Render one frame: load factor, camera (elev/azim deg), zoom."""
         xyz = (self.coords + scale * lam * self.disp)[self.faces]
-        ctr = self.center if center_on is None else center_on
+        if center_on is None:
+            # track the DISPLACED surface centroid -- the amplified beam
+            # stays centred at any zoom and under any load factor
+            ctr = xyz.mean(axis=(0, 1))
+        else:
+            nn = int(np.argmin(
+                np.linalg.norm(self.coords - center_on, axis=1)))
+            ctr = center_on + scale * lam * self.disp[nn]
         rel = xyz - ctr                                   # (K,4,3)
         v, r, u = beamviz.view_axes(elev, azim)
         px, py = rel @ r, rel @ u
@@ -113,6 +138,11 @@ class BeamCam:
                             nan=0.0)[order]
         self.coll.set_verts(verts)
         self.coll.set_array(fvm)
+
+        # turntable grid floor under the same camera
+        grel = self.grid3d - ctr
+        gseg = np.stack([grel @ r, grel @ u], axis=-1)
+        self.grid.set_segments(gseg)
 
         # undeformed silhouette as a dashed ghost under the same camera
         c0 = self.coords.min(axis=0) - ctr
@@ -174,40 +204,50 @@ def main():
                                     "good.json")))["metrics"]
     L = m["L_mm"]
 
-    # --- hero: full load, low fast orbit, tight frame ----------------------
-    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.06)
+    # --- hero: full load, low fast orbit, fills the frame ------------------
+    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.03)
     n = int(4.5 * FPS)
 
     def hero(i, n, p):
         t = i / (n - 1)
         cam.frame(1.0, 20.0,
-                  elev=lerp(10, 18, ease(t)), azim=lerp(-72, -34, ease(t)),
-                  zoom=lerp(1.0, 1.22, ease(t)), path=p)
+                  elev=lerp(10, 24, ease(t)), azim=lerp(-85, 75, ease(t)),
+                  zoom=lerp(2.2, 3.0, ease(t)), path=p)
     clip("hero", hero, n)
     cam.close()
 
-    # --- ramp: load 0 -> 1000 N, slow orbit, whole beam in frame -----------
-    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.10)
+    # --- ramp: load 0 -> 1000 N, orbiting; mid-clip jump cut to the
+    #     other side (a real cut inside the clip, not a slide) -------------
+    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.05)
     n = int(11.0 * FPS)
+    cut = int(0.5 * n)
 
     def ramp(i, n, p):
-        t = i / (n - 1)
-        cam.frame(ease(t), 20.0, elev=lerp(16, 10, ease(t)),
-                  azim=lerp(-78, -18, ease(t)), path=p)
+        if i < cut:
+            t = i / (cut - 1)
+            cam.frame(ease(0.5 * t), 20.0, elev=lerp(22, 12, ease(t)),
+                      azim=lerp(-95, -25, ease(t)),
+                      zoom=lerp(1.6, 2.0, ease(t)), path=p)
+        else:
+            t = (i - cut) / (n - 1 - cut)
+            cam.frame(ease(0.5 + 0.5 * t), 20.0,
+                      elev=lerp(16, 8, ease(t)),
+                      azim=lerp(20, 90, ease(t)),
+                      zoom=lerp(2.0, 2.4, ease(t)), path=p)
     clip("ramp", ramp, n)
     cam.close()
 
     # --- closeup: dive onto the clamped wall at full load ------------------
     wall = np.array([0.06 * L, good["coords"][:, 1].mean(),
                      good["coords"][:, 2].mean()])
-    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.06)
+    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.03)
     n = int(7.0 * FPS)
 
     def closeup(i, n, p):
         t = i / (n - 1)
         cam.frame(1.0, 20.0,
-                  elev=lerp(14, 5, ease(t)), azim=lerp(-18, 38, ease(t)),
-                  zoom=lerp(1.2, 3.2, ease(t)),
+                  elev=lerp(18, 5, ease(t)), azim=lerp(-10, 50, ease(t)),
+                  zoom=lerp(1.8, 4.5, ease(t)),
                   center_on=lerp(0.35, 1.0, ease(t)) * wall, path=p)
     clip("closeup", closeup, n)
     cam.close()
@@ -217,25 +257,35 @@ def main():
                                        "overload-10x.json")))["metrics"]
     maxu = float(np.abs(ov["disp"]).max())
     ov_scale = 0.18 * L / maxu        # tip swings ~18% of span: visibly huge
-    cam = BeamCam(ov, vmax=10 * ALLOW, pad_frac=1.14)
+    cam = BeamCam(ov, vmax=10 * ALLOW, pad_frac=1.08)
     n = int(6.0 * FPS)
+    cut = int(0.5 * n)
 
     def overload(i, n, p):
-        t = i / (n - 1)
-        cam.frame(ease(min(1.0, 1.25 * t)), ov_scale,
-                  elev=lerp(10, 20, ease(t)), azim=lerp(-85, -45, ease(t)),
-                  zoom=lerp(1.0, 1.15, ease(t)), path=p)
+        if i < cut:
+            t = i / (cut - 1)
+            cam.frame(ease(0.5 * t), ov_scale,
+                      elev=lerp(14, 20, ease(t)),
+                      azim=lerp(-90, -30, ease(t)),
+                      zoom=lerp(1.6, 2.0, ease(t)), path=p)
+        else:
+            t = (i - cut) / (n - 1 - cut)
+            cam.frame(ease(0.5 + 0.5 * t), ov_scale,
+                      elev=lerp(22, 28, ease(t)),
+                      azim=lerp(35, 95, ease(t)),
+                      zoom=lerp(2.0, 2.3, ease(t)), path=p)
     clip("overload", overload, n)
     cam.close()
 
-    # --- proof: high, slow, majestic orbit at full load ---------------------
-    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.08)
+    # --- proof: high, majestic orbit at full load ---------------------------
+    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.05)
     n = int(5.5 * FPS)
 
     def proof(i, n, p):
         t = i / (n - 1)
-        cam.frame(1.0, 20.0, elev=lerp(26, 16, ease(t)),
-                  azim=lerp(-60, -104, ease(t)), path=p)
+        cam.frame(1.0, 20.0, elev=lerp(30, 10, ease(t)),
+                  azim=lerp(-60, -200, ease(t)),
+                  zoom=lerp(1.8, 2.4, ease(t)), path=p)
     clip("proof", proof, n)
     cam.close()
 
