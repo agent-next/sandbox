@@ -23,8 +23,8 @@
       "what": "Cavity |U| developing over pseudo-time with tracer particles advected through the real icoFoam field (judge --trace), camera close-ups, the scrolling log of the judge run itself and a PASS HUD \u2014 composed by Remotion 4.0.531; lossless crf 0 master in git-ignored media/master/.",
       "command": "bash media/make_media.sh  (render_clips.py + Remotion + ffmpeg)",
       "source_data": "media/judge_runs/replay/cavity_traces/, media/judge_runs/agent_run.log, media/clips/data.json",
-      "sha256": "2f8708cf74e2f1200f9cd99cee8ed25ee0d8a9749c2341a340d77ed47a2b5c7f",
-      "bytes": 18908413
+      "sha256": "bd96067b0b564e8e150f95b5a291c77f2ba2098e39596122b5ea85119185d274",
+      "bytes": 7716844
     }
   ]
 }

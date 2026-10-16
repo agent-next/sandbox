@@ -138,10 +138,28 @@ ffmpeg -y -loglevel error -framerate 30 \
     -s 1920x1080 "$MASTER/cavity_master.mp4"
 cd "$MEDIA_DIR"
 
-echo "=== 8. web encode (crf 18 preset slow, faststart) ==="
+echo "=== 8. web encode (crf 18, faststart, <= 8 MiB) ==="
+# The gate caps demo.mp4 at 8 MiB.  crf 18 at preset veryslow usually lands
+# under it for this footage; if the master is busier than expected, fall
+# back to a two-pass encode sized to 7.6 MiB rather than ship a gate fail.
 ffmpeg -y -loglevel error -i "$MASTER/cavity_master.mp4" \
-    -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
+    -c:v libx264 -preset veryslow -crf 18 -pix_fmt yuv420p \
     -movflags +faststart -an "$MEDIA_DIR/demo.mp4"
+MAX_BYTES=$((8 * 1024 * 1024))
+if [[ $(stat -c %s "$MEDIA_DIR/demo.mp4") -gt $MAX_BYTES ]]; then
+    DUR=$(ffprobe -v error -show_entries format=duration \
+        -of csv=p=0 "$MASTER/cavity_master.mp4")
+    # 7.6 MiB target, minus a 5 % container headroom, in kbit/s.
+    BR=$(awk -v d="$DUR" 'BEGIN{printf "%dk", (7.6*8*1024*1024/d)*0.95/1000}')
+    echo "[media] crf 18 encode exceeded 8 MiB; two-pass at $BR"
+    ffmpeg -y -loglevel error -i "$MASTER/cavity_master.mp4" \
+        -c:v libx264 -preset slow -b:v "$BR" -pix_fmt yuv420p \
+        -pass 1 -passlogfile "$MASTER/2pass" -an -f null /dev/null
+    ffmpeg -y -loglevel error -i "$MASTER/cavity_master.mp4" \
+        -c:v libx264 -preset slow -b:v "$BR" -pix_fmt yuv420p \
+        -pass 2 -passlogfile "$MASTER/2pass" \
+        -movflags +faststart -an "$MEDIA_DIR/demo.mp4"
+fi
 
 echo "=== 9. MANIFEST.json ==="
 "$PY" - "$MEDIA_DIR" <<'PY'
