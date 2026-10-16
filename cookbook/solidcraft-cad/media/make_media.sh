@@ -4,6 +4,7 @@
 #   media/result.png     delivered part + every judge pass rule vs its limit
 #   media/loop.png       the independent agent's 12 designs re-graded + self-test kills
 #   media/clips/         the moving 3D footage the demo.mp4 is cut from (git-ignored)
+#   media/frames/         four stills from the finished video: one per act
 #   media/demo.mp4       the story as 1080p30 video: clips -> HyperFrames -> encode
 #   media/MANIFEST.json  what each file shows, its command and sha256
 #
@@ -101,10 +102,29 @@ ffmpeg -y -loglevel error -i "$CLIPS/demo_composed.mp4" \
 "$PY" "$MEDIA/make_media.py" figures
 "$PY" "$MEDIA/make_media.py" manifest
 
+# 7. the four stills in media/frames/: one from each act of the story, taken
+#    from the finished demo.mp4 so they show the composited result. Times are
+#    seconds into the video: the hook, input->output, the escalating run, and
+#    the settled proof badge (after the HUD has finished counting up).
+#    ffmpeg only decodes and scales here.
+for frame in "01_hook 1.0" "02_input_to_output 9.75" "03_escalate_run 23.4" \
+             "04_proof 36.2"; do
+    set -- $frame
+    ffmpeg -y -loglevel error -ss "$2" -i "$MEDIA/demo.mp4" -frames:v 1 \
+        -vf "scale=1280:-2" -q:v 3 "$MEDIA/frames/$1.jpg"
+done
+
 size=$(stat -c%s "$MEDIA/demo.mp4")
 if [ "$size" -ge 8388608 ]; then
     echo "media: demo.mp4 is $size bytes >= 8 MB" >&2
     exit 1
 fi
+for jpg in "$MEDIA"/frames/*.jpg; do
+    jsize=$(stat -c%s "$jpg")
+    if [ "$jsize" -ge 262144 ]; then
+        echo "media: $jpg is $jsize bytes >= 250 KB" >&2
+        exit 1
+    fi
+done
 echo "media: demo.mp4 is $size bytes"
 echo "media: done"

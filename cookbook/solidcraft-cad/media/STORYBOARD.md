@@ -16,3 +16,16 @@ readable muted on a phone (panels carry a shadowed dark backdrop; captions are w
 every number traces to RECEIPT.md / this run's `media/data/*.json`.
 
 Every number on screen comes from `lib/run.js`, which `build_overlay_data.py` derives from this run's own `media/data/verdicts.json`, `media/data/sweep.json` and the stamped `judge/selftest.sh` log; the renderer version comes from `package-lock.json`. `build_overlay_data.py --check` fails if the committed file no longer matches this run.
+
+## Stills
+
+`media/frames/*.jpg` are lifted straight out of the finished `demo.mp4` by step 7 of
+`media/make_media.sh`, so they always show the composited result rather than a
+re-render. One per act:
+
+| file | at | shows |
+|---|---|---|
+| `01_hook.jpg` | 1.0 s | the hook: the finished part filling the frame, headline landed |
+| `02_input_to_output.jpg` | 9.75 s | the graded solid mid-build, HUD fully counted up, input→output caption |
+| `03_escalate_run.jpg` | 23.4 s | `judge/selftest.sh` replaying at 51× beside the turning part |
+| `04_proof.jpg` | 36.2 s | the proof badge settled — all 8 gates, 8/8, 19/19, 20/20 |
