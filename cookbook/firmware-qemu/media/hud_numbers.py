@@ -7,7 +7,7 @@ hand: the gate counts come from the verdict JSON, the memory figures from
 the build's linker map, the mutant kill rate from the self-test log.
 
 Usage:
-    numbers.py [--out PATH]
+    hud_numbers.py [--out PATH]
 
 Refuses to write a file with a placeholder value: a number it cannot
 measure is a number the video must not show.
@@ -160,7 +160,7 @@ def main():
     with open(out, "w") as fh:
         json.dump(numbers, fh, indent=2, sort_keys=True)
         fh.write("\n")
-    print("numbers.py: wrote %s" % out)
+    print("hud_numbers.py: wrote %s" % out)
     print("  gates      %d/%d" % (numbers["gatesPassed"], numbers["gates"]))
     print("  shell      %d/%d" % (numbers["shellPassed"], numbers["shellTotal"]))
     print("  crc        %d/%d" % (numbers["crcPassed"], numbers["crcTotal"]))
