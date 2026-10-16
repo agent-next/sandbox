@@ -12,15 +12,55 @@ Usage:
 `phase` is boot | build | grade | selftest.  Record under
     asciinema rec --command "record.py boot out.cast"
 so the whole terminal session -- prompt, colours, cursor -- is captured.
+
+After recording, the cast is *sanitised*: the host's checkout and toolchain
+prefixes are rewritten to short paths, so a public repo never carries where
+this particular machine happened to keep the files.  Sanitising touches
+path text only -- every command, response byte and number the demo produced
+is the real one, byte for byte.
 """
 
 import os
-import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import term  # noqa: E402
+
+# The host prefixes this machine used, and what the public recording shows
+# instead.  Both are real paths of this run; only the spelling changes.
+PREFIXES = [
+    (term.DEMO, "<demo>"),
+    (os.path.join(os.path.expanduser("~"), ".firmware-qemu-tools"),
+     "<tools>"),
+    (os.path.expanduser("~"), "<home>"),
+]
+
+
+def sanitise(path):
+    """Rewrite host path prefixes in the cast's recorded output events."""
+    import json
+
+    tmp = path + ".tmp"
+    changed = 0
+    with open(path) as src, open(tmp, "w") as dst:
+        dst.write(src.readline())                       # header, verbatim
+        for line in src:
+            line = line.strip()
+            if not line:
+                continue
+            t, kind, data = json.loads(line)
+            if kind == "o":
+                for old, new in PREFIXES:
+                    if old and old != new and old in data:
+                        data = data.replace(old, new)
+                        changed += 1
+            dst.write(json.dumps([t, kind, data]) + "\n")
+    if changed:
+        os.replace(tmp, path)
+    else:
+        os.remove(tmp)
+    return changed
 
 
 def main(argv):
@@ -46,6 +86,10 @@ def main(argv):
     else:
         sys.stderr.write("record.py: unknown phase %r\n" % phase)
         return 2
+    if out_path != "-" and os.path.exists(out_path):
+        n = sanitise(out_path)
+        sys.stderr.write("record.py: %s sanitised (%d path prefixes)\n"
+                         % (os.path.basename(out_path), n))
     return rc
 
 

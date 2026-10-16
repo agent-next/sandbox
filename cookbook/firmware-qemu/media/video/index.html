@@ -499,15 +499,19 @@
       tl.fromTo("#cam1", { scale: 1.16, x: -80, y: -40 },
                 { scale: 1.0, x: 0, y: 0, duration: 2, ease: "power1.inOut" }, 0);
       tl.fromTo("#cam2", { scale: 1.0, x: 0 },
-                { scale: 1.20, x: -180, y: -60, duration: 5, ease: "none" }, 2);
+                { scale: 1.12, x: -110, y: -40, duration: 5, ease: "none" }, 2);
       tl.fromTo("#cam3", { scale: 1.14, x: -60 },
                 { scale: 1.0, x: 0, duration: 3, ease: "power1.inOut" }, 7);
       tl.fromTo("#cam4", { scale: 1.22, x: 0, y: -110 },
-                { scale: 1.0, x: -140, y: 0, duration: 5, ease: "none" }, 10);
-      tl.fromTo("#cam5", { scale: 1.04 },
-                { scale: 1.28, x: -200, duration: 6, ease: "none" }, 15);
+                { scale: 1.10, x: -90, y: 0, duration: 5, ease: "none" }, 10);
+      // A push is a move across real footage, but the zoom has to stay
+      // small over dense terminal text: a 1.3x zoom on 22px glyphs
+      // re-renders a different subpixel grid every frame, and re-encoding
+      // that costs ~9 MB of the 8 MiB budget on its own.
+      tl.fromTo("#cam5", { scale: 1.02 },
+                { scale: 1.10, x: -70, duration: 6, ease: "none" }, 15);
       tl.fromTo("#cam6", { scale: 1.0 },
-                { scale: 1.32, x: -240, duration: 6, ease: "none" }, 21);
+                { scale: 1.08, x: -80, duration: 6, ease: "none" }, 21);
       tl.fromTo("#cam7", { scale: 1.08, x: -30, y: 20 },
                 { scale: 1.0, x: 0, y: 0, duration: 4.5, ease: "power1.inOut" }, 27);
 

@@ -179,27 +179,45 @@ def mode_session(elf):
     return qemu_session(elf)
 
 
+def find_cross():
+    """Locate the judge's CROSS= prefix without putting it on screen.
+
+    `make` echoes the toolchain path it was given. Handing it an absolute one
+    would carry this host's home directory into a public repo, so the pinned
+    compiler is reached through a link the recorder makes *inside* the demo
+    directory (`examples/good/.toolchain`), which `make` prints as a short
+    relative path -- the same shape a clean checkout shows. Falls back to ""
+    (PATH lookup) if that link is absent.
+    """
+    local = os.path.join(os.getcwd(), ".toolchain")
+    if os.path.isdir(local):
+        return "./.toolchain/bin/arm-none-eabi-"
+    return ""
+
+
 def mode_build():
     """Real build: the toolchain's own diagnostics, untouched."""
-    good = os.path.join(DEMO, "examples", "good")
-    tc = os.path.join(os.path.expanduser("~"),
-                      ".firmware-qemu-tools",
-                      "arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin")
-    cross = os.path.join(tc, "arm-none-eabi-") if os.path.isdir(tc) else ""
-    out("$ make -C examples/good clean build/firmware.elf", color="gray")
+    good = os.path.abspath(os.path.join(DEMO, "examples", "good"))
+    # `make` echoes its working directory; cd in so the recorded path is
+    # "examples/good" and not this host's absolute checkout path.
+    os.chdir(good)
+    out("$ make clean build/firmware.elf", color="gray")
     time.sleep(0.35)
-    rc = subprocess.call(["make", "-C", good, "CROSS=%s" % cross,
+    rc = subprocess.call(["make", "CROSS=%s" % find_cross(),
                           "clean", "build/firmware.elf"])
     time.sleep(0.4)
     return rc
 
 
-def mode_grade(hold=4.0):
+def mode_grade(hold=6.0):
     """Run the judge for real, then hold the gate table on screen."""
+    # Run from the demo root so the judge echoes relative paths (it prints
+    # the artifact path it was given); an absolute one would leak this
+    # host's checkout location into a public repo.
+    os.chdir(DEMO)
     out("$ bash judge/grade.sh examples/good --seed %d" % SEED, color="gray")
     time.sleep(0.35)
-    rc = subprocess.call(["bash", os.path.join(DEMO, "judge", "grade.sh"),
-                          os.path.join(DEMO, "examples", "good"),
+    rc = subprocess.call(["bash", "judge/grade.sh", "examples/good",
                           "--seed", str(SEED)])
     # The gate table is on screen from here; the hold is purely so the still
     # can be read, and only affects cast timestamps, never the output.
@@ -207,11 +225,12 @@ def mode_grade(hold=4.0):
     return rc
 
 
-def mode_selftest(hold=4.0):
+def mode_selftest(hold=8.0):
     """Run the real mutant self-test, then hold its summary on screen."""
+    os.chdir(DEMO)
     out("$ bash judge/selftest.sh", color="gray")
     time.sleep(0.35)
-    rc = subprocess.call(["bash", os.path.join(DEMO, "judge", "selftest.sh")])
+    rc = subprocess.call(["bash", "judge/selftest.sh"])
     time.sleep(hold)
     return rc
 
@@ -219,7 +238,7 @@ def mode_selftest(hold=4.0):
 # ------------------------------------------------------------------ play ----
 
 def play(cast_path, out_path, fps=30, speed=1.0, width=2560, height=1440,
-         start=0.0, stop=None, crop=None):
+         start=0.0, stop=None, crop=None, crf=12):
     """Replay one asciicast through pyte and pipe frames to ffmpeg."""
     import pyte
     from PIL import Image, ImageDraw, ImageFont
@@ -240,14 +259,23 @@ def play(cast_path, out_path, fps=30, speed=1.0, width=2560, height=1440,
         cx, cy, cw, ch = crop          # grid cells
     else:
         cx, cy, cw, ch = 0, 0, cols, rows
-    cell_w = width / float(cw)
-    cell_h = height / float(ch)
+    # A terminal cell is not square: DejaVu Sans Mono's advance is ~0.60 of
+    # its em, so a cell is ~0.60:1 (w:h).  Fit the crop into the output
+    # frame at that ratio -- scale to whichever side binds, then centre.
+    # Sizing the font from cell_h alone (the previous code) made a short
+    # crop render glyphs far wider than their cell: overlapping text.
+    CELL_RATIO = 0.60                  # glyph advance / em
+    cell = min(width / (cw * CELL_RATIO), height / float(ch))
+    # frame = the box the letterboxed crop occupies, centred in the output
+    fw = int(cw * CELL_RATIO * cell)
+    fh = int(ch * cell)
+    ox = (width - fw) // 2
+    oy = (height - fh) // 2
+    font_px = int(cell * 0.78)
     font = ImageFont.truetype(
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        int(cell_h * 0.78))
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", font_px)
     font_b = ImageFont.truetype(
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-        int(cell_h * 0.78))
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", font_px)
 
     screen = pyte.Screen(cols, rows)
     stream = pyte.ByteStream(screen)
@@ -256,12 +284,14 @@ def play(cast_path, out_path, fps=30, speed=1.0, width=2560, height=1440,
     duration = (stop if stop is not None else last) - start
     if duration <= 0:
         raise SystemExit("term.py play: empty window in %s" % cast_path)
-    nframes = int(duration * fps)
+    # one frame per fps tick, rounding so a window that is an exact
+    # multiple of 1/fps keeps every frame (duration 5.0 at 30 fps = 150)
+    nframes = int(round(duration * fps))
 
     cmd = ["ffmpeg", "-y", "-loglevel", "error",
            "-f", "rawvideo", "-pix_fmt", "rgb24",
            "-s", "%dx%d" % (width, height), "-r", str(fps), "-i", "-",
-           "-c:v", "libx264", "-preset", "medium", "-crf", "12",
+           "-c:v", "libx264", "-preset", "medium", "-crf", str(crf),
            "-pix_fmt", "yuv420p", out_path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
@@ -275,44 +305,46 @@ def play(cast_path, out_path, fps=30, speed=1.0, width=2560, height=1440,
 
         img = Image.new("RGB", (width, height), BG)
         draw = ImageDraw.Draw(img)
-        display = screen.display          # rows of text
         buf = screen.buffer
         for gy in range(ch):
             row = buf[cy + gy]
-            y0 = int(gy * cell_h)
             for gx in range(cw):
-                cell = row[cx + gx]
-                ch_txt = cell.data
-                fg = cell.fg or "default"
-                bg = cell.bg or "default"
-                fg_c = _colour(fg, cell.bold)
-                x0 = int(gx * cell_w)
-                x1 = int((gx + 1) * cell_w)
-                y1 = int((gy + 1) * cell_h)
-                # "default" background = no fill at all; anything else is a
-                # real SGR background from the recording.
-                bg_c = None if bg == "default" else _colour(bg)
-                if bg_c is not None and bg_c != BG:
-                    draw.rectangle([x0, y0, x1, y1], fill=bg_c)
+                cell_data = row[cx + gx]
+                ch_txt = cell_data.data
+                x0 = ox + int(gx * CELL_RATIO * cell)
+                x1 = ox + int((gx + 1) * CELL_RATIO * cell)
+                y0 = oy + int(gy * cell)
+                y1 = oy + int((gy + 1) * cell)
+                fg_c = _colour(cell_data.fg, cell_data.bold)
+                # "default" background = no fill at all; anything else is
+                # a real SGR background from the recording.
+                bg = cell_data.bg or "default"
+                if bg != "default":
+                    bg_c = _colour(bg)
+                    if bg_c != BG:
+                        draw.rectangle([x0, y0, x1, y1], fill=bg_c)
                 if ch_txt.strip():
-                    fnt = font_b if cell.bold else font
-                    draw.text((x0 + cell_w * 0.06, y0 + cell_h * 0.09),
+                    fnt = font_b if cell_data.bold else font
+                    draw.text((x0 + CELL_RATIO * cell * 0.06,
+                               y0 + cell * 0.09),
                               ch_txt, font=fnt, fill=fg_c)
         # block cursor at the replayed cursor position (terminal behaviour)
         if int(t_real * 2.6) % 2 == 0:
             cxx, cyy = screen.cursor.x, screen.cursor.y
             if cx <= cxx < cx + cw and cy <= cyy < cy + ch:
-                draw.rectangle([int((cxx - cx) * cell_w), int((cyy - cy) * cell_h),
-                                int((cxx - cx + 1) * cell_w),
-                                int((cyy - cy + 1) * cell_h)], fill=FG)
+                gx, gy = cxx - cx, cyy - cy
+                draw.rectangle(
+                    [ox + int(gx * CELL_RATIO * cell), oy + int(gy * cell),
+                     ox + int((gx + 1) * CELL_RATIO * cell),
+                     oy + int((gy + 1) * cell)], fill=FG)
         proc.stdin.write(img.tobytes())
     proc.stdin.close()
     rc = proc.wait()
     if rc != 0:
         raise SystemExit("term.py play: ffmpeg failed (%d) for %s"
                          % (rc, out_path))
-    print("term.py: %s  %d frames  %.1fs  %dx%d"
-          % (out_path, nframes, duration, width, height))
+    print("term.py: %s  %d frames  %.1fs  %dx%d (crop %dx%d cells, cell %.1fpx)"
+          % (out_path, nframes, duration, width, height, cw, ch, cell))
 
 
 def _colour(name, bold=False):
@@ -358,6 +390,8 @@ def main():
     p.add_argument("--stop", type=float, default=None)
     p.add_argument("--crop", default=None,
                    help="grid cells: X,Y,W,H of the active region")
+    p.add_argument("--crf", type=int, default=12,
+                   help="x264 quality for the clip master (lower = bigger)")
     args = ap.parse_args()
 
     if args.cmd in ("session", "build", "grade", "selftest"):
@@ -375,7 +409,7 @@ def main():
         crop = tuple(int(v) for v in args.crop.split(","))
     play(args.cast, args.out, fps=args.fps, speed=args.speed,
          width=args.width, height=args.height, start=args.start,
-         stop=args.stop, crop=crop)
+         stop=args.stop, crop=crop, crf=args.crf)
 
 
 if __name__ == "__main__":
