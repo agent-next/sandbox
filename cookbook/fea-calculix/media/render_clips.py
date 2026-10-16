@@ -86,6 +86,18 @@ class BeamCam:
                                     linestyles=(0, (4, 4)), alpha=0.75)
         self.ax.add_collection(self.ghost)
 
+        # colour-bar: the map is the same viridis normalisation the judge
+        # numbers use; the allowable stress is ticked explicitly.
+        cax = self.fig.add_axes([0.615, 0.055, 0.30, 0.016])
+        cb = self.fig.colorbar(self.coll, cax=cax, orientation="horizontal",
+                               extend="max")
+        cb.set_ticks([0, ALLOW])
+        cb.set_ticklabels(["0", f"{ALLOW:.0f} = allowable"])
+        cb.ax.tick_params(colors="#c9d1d9", labelsize=15, length=0)
+        cb.outline.set_visible(False)
+        cax.set_title(f"von Mises stress (MPa), max {vmax:.0f}",
+                      color="#c9d1d9", fontsize=15, loc="left", pad=4)
+
     def frame(self, lam, scale, elev, azim, zoom=1.0, center_on=None,
               path=None):
         """Render one frame: load factor, camera (elev/azim deg), zoom."""
@@ -115,9 +127,15 @@ class BeamCam:
         ring = np.r_[hull, hull[:1]]
         self.ghost.set_segments([ring])
 
-        half = 0.5 * self.span * self.pad_frac / zoom
-        cx, cy = verts[..., 0].mean(), verts[..., 1].mean()
-        self.ax.set_xlim(cx - 1.78 * half, cx + 1.78 * half)
+        # frame the beam: half-height = fit(projected extent) * pad / zoom,
+        # centred on the projected ctr (ctr = beam centre, or the dive
+        # target for close-ups).  pad_frac is a real margin (~1.1).
+        apx, apy = verts[..., 0], verts[..., 1]
+        fit = max(0.5 * (apy.max() - apy.min()),
+                  0.5 * (apx.max() - apx.min()) * H / W)
+        half = fit * self.pad_frac / zoom
+        cx, cy = float(ctr @ r), float(ctr @ u)
+        self.ax.set_xlim(cx - W / H * half, cx + W / H * half)
         self.ax.set_ylim(cy - half, cy + half)
         self.ax.set_aspect("equal")
         self.fig.savefig(path, facecolor=BG)
@@ -157,7 +175,7 @@ def main():
     L = m["L_mm"]
 
     # --- hero: full load, low fast orbit, tight frame ----------------------
-    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=0.115)
+    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.06)
     n = int(4.5 * FPS)
 
     def hero(i, n, p):
@@ -169,7 +187,7 @@ def main():
     cam.close()
 
     # --- ramp: load 0 -> 1000 N, slow orbit, whole beam in frame -----------
-    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=0.105)
+    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.10)
     n = int(11.0 * FPS)
 
     def ramp(i, n, p):
@@ -182,7 +200,7 @@ def main():
     # --- closeup: dive onto the clamped wall at full load ------------------
     wall = np.array([0.06 * L, good["coords"][:, 1].mean(),
                      good["coords"][:, 2].mean()])
-    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=0.115)
+    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.06)
     n = int(7.0 * FPS)
 
     def closeup(i, n, p):
@@ -198,8 +216,8 @@ def main():
     ov_m = json.load(open(os.path.join(MEDIA, "data", "verdicts",
                                        "overload-10x.json")))["metrics"]
     maxu = float(np.abs(ov["disp"]).max())
-    ov_scale = 0.05 * L / maxu        # tip swings ~5% of span: visibly huge
-    cam = BeamCam(ov, vmax=10 * ALLOW, pad_frac=0.13)
+    ov_scale = 0.18 * L / maxu        # tip swings ~18% of span: visibly huge
+    cam = BeamCam(ov, vmax=10 * ALLOW, pad_frac=1.14)
     n = int(6.0 * FPS)
 
     def overload(i, n, p):
@@ -211,7 +229,7 @@ def main():
     cam.close()
 
     # --- proof: high, slow, majestic orbit at full load ---------------------
-    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=0.105)
+    cam = BeamCam(good, vmax=1.15 * ALLOW, pad_frac=1.08)
     n = int(5.5 * FPS)
 
     def proof(i, n, p):

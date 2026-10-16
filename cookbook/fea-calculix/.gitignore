@@ -28,5 +28,8 @@ mesh.inc
 media/.venv/
 media/work/
 media/master/
-media/frames/
+# media/frames/*.jpg are committed gate-check frames (not ignored)
 media/__pycache__/
+media/clips/
+media/video/assets/clips/
+media/video/node_modules/
