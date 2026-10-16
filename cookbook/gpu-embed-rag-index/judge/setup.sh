@@ -54,10 +54,18 @@ then
     echo "setup.sh: venv already provides the pinned toolchain"
 else
     echo "setup.sh: creating venv at $VENV"
+    # An interrupted previous run may have left a half-built venv; start clean
+    # so the pinned set is installed into a fresh environment or not at all.
+    rm -rf "$VENV"
     python3 -m venv "$VENV"
     # --require-hashes: pip verifies every wheel against requirements.lock
     # and exits non-zero on any mismatch or install failure (set -e).
-    "$VENV/bin/pip" install --require-hashes -r "$HERE/requirements.lock"
+    # The extra index is passed as a flag, not written into the lock: an
+    # option line inside a --require-hashes file makes pip ignore every
+    # indented --hash that follows it.
+    "$VENV/bin/pip" install --require-hashes \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
+        -r "$HERE/requirements.lock"
 fi
 
 # --- pinned model snapshot (offline huggingface-hub cache) ---------------

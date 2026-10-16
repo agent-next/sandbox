@@ -2,11 +2,12 @@
 """Judge driver for the gpu-embed-rag-index demo. Invoked by grade.sh; see SPEC.md.
 
 Grades a copied artifact (the artifact under test never touches judge/):
-  gate 1 structure          - size, byte-compile, API surface, model name present
+  gate 1 structure          - size, byte-compile, API surface, model name present,
+                              no hard-coded device='cpu'
   gate 2 embedding-equality - artifact embeddings vs judge's independent CPU
                               reference (same pinned model, separate subprocess)
   gate 3 index-correctness  - recall@10 vs brute-force gold; exact index props
-  gate 4 throughput          - reported (CUDA full mode only); gates only with
+  gate 4 throughput          - reported in full (CUDA) mode; gates only with
                               --speed-target
 
 Prints one JSON verdict on stdout; exit 0 only if every gated pass rule holds.
@@ -238,6 +239,16 @@ def gate_throughput(mod, passages):
     return result
 
 
+def make_passages(prefix, n, seed):
+    """Deterministic pseudo-passage texts (seeded; the judge controls them)."""
+    import random
+    rng = random.Random(CORPUS_SEED + seed)
+    vocab = ("the quick brown fox jumps over lazy dog hello world "
+             "embedding vector search index gpu cpu").split()
+    return [f"{prefix} {i} " + " ".join(rng.choice(vocab) for _ in range(20))
+            for i in range(n)]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("artifact")
@@ -252,7 +263,8 @@ def main():
         mode = "cpu-check"
     else:
         probe = subprocess.run(
-            [sys.executable, "-c", "import torch; print(int(torch.cuda.is_available()))"],
+            [sys.executable, "-c",
+             "import torch; print(int(torch.cuda.is_available()))"],
             capture_output=True, text=True, timeout=60)
         mode = ("full" if probe.returncode == 0 and probe.stdout.strip() == "1"
                 else "cpu-check")
@@ -271,6 +283,7 @@ def main():
                "seed": args.seed, "gates": {}, "timing": {}, "cases": []}
     rc = 0
     try:
+        # gate 1: structure
         try:
             mod, text = load_artifact(art_path)
         except Exception as exc:
@@ -278,77 +291,24 @@ def main():
                                              "problems": [str(exc)[:300]]}
             rc = 1
         else:
-            verdict["gates"]["structure"] = {
-                "pass": True, "problems": gate_structure(mod, text)}
-            if verdict["gates"]["structure"]["problems"]:
-                verdict["gates"]["structure"]["pass"] = False
+            problems = gate_structure(mod, text)
+            verdict["gates"]["structure"] = {"pass": not problems,
+                                             "problems": problems}
+            if problems:
                 rc = 1
 
+        # gate 2: embedding-equality
         if rc == 0:
-            # embedding-equality gate
-            try:
-                emb_result = self._gate_embedding_equality(mod)
-            except Exception as exc:  # artifact crashed or returned garbage
-                emb_result = {"pass": False,
-                              "problems": [f"embedding-equality error: {str(exc)[:300]}"]}
-            verdict["cases"].append({"gate": "embedding-equality",
-                                      "n_passages": 200, "seed": 0, **emb_result})
-            if not emb_result["pass"]:
-                verdict["gates"]["embedding-equality"] = emb_result
-                rc = 1
-            else:
-                verdict["gates"]["embedding-equality"] = {
-                    "pass": True,
-                    "worst_cosine": emb_result.get("worst_cosine"),
-                    "n_passages": emb_result.get("n_passages")}
-
-        if rc == 0:
-            # index-correctness gate
-            try:
-                idx_result = self._gate_index_correctness(mod)
-            except Exception as exc:
-                idx_result = {"pass": False,
-                              "problems": [f"index-correctness error: {str(exc)[:300]}"]}
-            verdict["cases"].append({"gate": "index-correctness",
-                                      "n_queries": 20, "n_corpus": 2000,
-                                      "seed": 0, **idx_result})
-            if not idx_result["pass"]:
-                verdict["gates"]["index-correctness"] = idx_result
-                rc = 1
-            else:
-                verdict["gates"]["index-correctness"] = {
-                    "pass": True,
-                    "recall_at_10": idx_result.get("recall_at_10"),
-                    "n_queries": idx_result.get("n_queries")}
-
-        if rc == 0 and mode == "full":
-            # throughput (reported, gated only with --speed-target)
-            try:
-                timing = self._gate_throughput(mod)
-            except Exception as exc:
-                timing = {"throughput_error": str(exc)[:300]}
-            verdict["timing"].update(timing)
-            if args.speed_target is not None:
-                ok = timing.get("speedup", 0) >= args.speed_target
-                verdict["gates"]["throughput"] = {
-                    "pass": ok, "target": args.speed_target,
-                    "speedup": timing.get("speedup")}
-                if not ok:
-                    rc = 1
-
-        sha_after = check_shas(judge_dir)
-                # generate deterministic passages
-                import random
-                rng = random.Random(CORPUS_SEED + seed + args.seed)
-                passages = [f"passage {i} " + " ".join(
-                    rng.choice(["the", "quick", "brown", "fox", "jumps", "over",
-                                "lazy", "dog", "hello", "world", "embedding",
-                                "vector", "search", "index", "gpu", "cpu"])
-                    for _ in range(20)) for i in range(n_passages)]
-                result = gate_embedding_equality(mod, passages)
+            for n_passages, seed in EMB_CASES:
+                passages = make_passages("passage", n_passages, seed + args.seed)
+                try:
+                    result = gate_embedding_equality(mod, passages)
+                except Exception as exc:
+                    result = {"pass": False,
+                              "problems": [f"embedding-equality error: {str(exc)[:200]}"]}
                 verdict["cases"].append({"gate": "embedding-equality",
-                                          "n_passages": n_passages, "seed": seed,
-                                          **result})
+                                         "n_passages": n_passages,
+                                         "seed": seed, **result})
                 if not result["pass"]:
                     verdict["gates"]["embedding-equality"] = result
                     rc = 1
@@ -357,34 +317,36 @@ def main():
                 verdict["gates"]["embedding-equality"] = {
                     "pass": True,
                     "worst_cosine": min(c.get("worst_cosine", 1.0)
-                                       for c in verdict["cases"]
-                                       if c["gate"] == "embedding-equality")}
+                                        for c in verdict["cases"]
+                                        if c["gate"] == "embedding-equality"),
+                    "n_passages": EMB_CASES[0][0]}
 
+        # gate 3: index-correctness (judge embeds corpus + queries itself and
+        # computes gold ids by brute force — the artifact cannot influence it)
         if rc == 0:
-            # index-correctness gate
             for n_queries, n_corpus, seed, recall_min in INDEX_CASES:
-                import random
-                rng = random.Random(CORPUS_SEED + seed + args.seed)
-                corpus_passages = [f"corpus passage {i} " + " ".join(
-                    rng.choice(["the", "quick", "brown", "fox", "jumps", "over",
-                                "lazy", "dog", "hello", "world", "embedding",
-                                "vector", "search", "index", "gpu", "cpu"])
-                    for _ in range(20)) for i in range(n_corpus)]
-                query_passages = [f"query passage {i} " + " ".join(
-                    rng.choice(["the", "quick", "brown", "fox", "jumps", "over",
-                                "lazy", "dog", "hello", "world", "embedding",
-                                "vector", "search", "index", "gpu", "cpu"])
-                    for _ in range(20)) for i in range(n_queries)]
-
-                # judge computes reference embeddings for corpus and queries
-                corpus_emb = compute_reference_embeddings(corpus_passages)
-                query_emb = compute_reference_embeddings(query_passages)
-                gold_ids = compute_gold_ids(query_emb, corpus_emb)
-
-                result = gate_index_correctness(mod, corpus_emb, query_emb, gold_ids)
+                corpus_passages = make_passages("corpus passage", n_corpus,
+                                                seed + args.seed)
+                query_passages = make_passages("query passage", n_queries,
+                                               seed + args.seed + 10_000)
+                try:
+                    corpus_emb = compute_reference_embeddings(corpus_passages)
+                    query_emb = compute_reference_embeddings(query_passages)
+                except Exception as exc:
+                    result = {"pass": False,
+                              "problems": [f"judge reference embedding failed: {str(exc)[:200]}"]}
+                else:
+                    gold_ids = compute_gold_ids(query_emb, corpus_emb)
+                    try:
+                        result = gate_index_correctness(mod, corpus_emb,
+                                                        query_emb, gold_ids)
+                    except Exception as exc:
+                        result = {"pass": False,
+                                  "problems": [f"index-correctness error: {str(exc)[:200]}"]}
                 verdict["cases"].append({"gate": "index-correctness",
-                                          "n_queries": n_queries, "n_corpus": n_corpus,
-                                          "seed": seed, **result})
+                                         "n_queries": n_queries,
+                                         "n_corpus": n_corpus,
+                                         "seed": seed, **result})
                 if not result["pass"]:
                     verdict["gates"]["index-correctness"] = result
                     rc = 1
@@ -394,30 +356,30 @@ def main():
                     "pass": True,
                     "recall_at_10": min(c.get("recall_at_10", 1.0)
                                         for c in verdict["cases"]
-                                        if c["gate"] == "index-correctness")}
+                                        if c["gate"] == "index-correctness"),
+                    "n_queries": INDEX_CASES[0][0]}
 
+        # gate 4: throughput — reported in full mode, gates only with
+        # --speed-target (never affects the exit code otherwise)
         if rc == 0 and mode == "full":
-            # throughput gate (reported, not gated unless --speed-target)
             for n_passages, seed in THROUGHPUT_CASES:
-                import random
-                rng = random.Random(CORPUS_SEED + seed + args.seed)
-                passages = [f"passage {i} " + " ".join(
-                    rng.choice(["the", "quick", "brown", "fox", "jumps", "over",
-                                "lazy", "dog", "hello", "world", "embedding",
-                                "vector", "search", "index", "gpu", "cpu"])
-                    for _ in range(20)) for i in range(n_passages)]
-                timing = gate_throughput(mod, passages)
+                passages = make_passages("passage", n_passages, seed + args.seed)
+                t0 = time.monotonic()
+                try:
+                    timing = gate_throughput(mod, passages)
+                except Exception as exc:
+                    timing = {"throughput_error": str(exc)[:300]}
+                timing["wall_s"] = round(time.monotonic() - t0, 3)
                 verdict["timing"].update(timing)
                 if args.speed_target is not None:
+                    ok = timing.get("speedup", 0) >= args.speed_target
                     verdict["gates"]["throughput"] = {
-                        "pass": timing.get("speedup", 0) >= args.speed_target,
-                        "target": args.speed_target,
+                        "pass": ok, "target": args.speed_target,
                         "speedup": timing.get("speedup")}
-                    if not verdict["gates"]["throughput"]["pass"]:
+                    if not ok:
                         rc = 1
 
-        sha_after = check_shas(judge_dir)
-        verdict["judge_intact"] = sha_before == sha_after
+        verdict["judge_intact"] = check_shas(judge_dir) == sha_before
         if not verdict["judge_intact"]:
             rc = 1
     finally:
