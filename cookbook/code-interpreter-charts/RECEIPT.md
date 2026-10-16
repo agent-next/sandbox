@@ -348,3 +348,41 @@ lead runs run.py)`.
   them.
 - **No `REPRODUCE.md`.** The standard asks for an independent reproduction by
   a different agent before merge; that is a separate task.
+
+## Two fresh acceptance runs of the hardened run.py (2026-10-16)
+
+Real external runs, using the pushed branch `sbx/demo-code-interpreter-charts-f9`
+(ref `2288a91`), launched as `python3 cookbook/code-interpreter-charts/run.py --ref sbx/demo-code-interpreter-charts-f9` from `/home/user/w`. Each sandbox was always `sbx kill`-ed and confirmed gone afterwards.
+
+| | RUN A | RUN B |
+|---|---|---|
+| sandbox id | 01a141f5-a37e-7052-8ae7-288578b7fa02 | 01a141fa-dd06-77a3-bc0e-3a65bd89a224 |
+| `sbx create --timeout-min 30` | 144.0 s, exit 0 | 3.2 s, exit 0 |
+| `git clone --depth 1` | 17.9 s, exit 0 | 5.2 s, exit 0 |
+| `judge/setup.sh` (cold-ish) | 157.9 s, exit 0 | 75.7 s, exit 0 |
+| `judge/selftest.sh` | 133.8 s, exit 0 | 94.1 s, exit 0 |
+| `judge/grade.sh examples/good` | 20.8 s, exit 0 | 11.9 s, exit 0 |
+| kill rate | 12/12 = 100 % | 12/12 = 100 % |
+| `passed` | true | true |
+| seed | 20261015 | 20261015 |
+
+Verdict excerpt from RUN A (RUN B identical apart from timing/paths):
+
+```
+run: SUMMARY passed=True trend=2.098461926597848 ppm/yr amplitude=5.833611111111111 ppm total=37.398064855 Gt C2_plot_var=3627.816 artifact_run=8.276s
+run: killed and confirmed gone: 01a141f5-a37e-7052-8ae7-288578b7fa02
+run: SUMMARY passed=True trend=2.098461926597848 ppm/yr amplitude=5.833611111111111 ppm total=37.398064855 Gt C2_plot_var=3627.816 artifact_run=4.219s
+run: killed and confirmed gone: 01a141fa-dd06-77a3-bc0e-3a65bd89a224
+```
+
+G2 answers (both runs): trend `2.098461926597848` (abs_diff 4.44e-16), amplitude
+`5.833611111111111`, growth `2.0827619047619024`, total `37.398064855`,
+share `0.3286008794210911`. G3 variances: C1 265.112, C2 3627.816, C3
+708.761. G4: 432 points / 12 months / top-10, top entity China. G5: 99321 /
+28663 / 35604. Two runs agree on every gate value; only `timing` and the paths
+differ, as expected.
+
+Deviations: setup/selftest wall times differ ~2× (shared pool / CPU contention);
+run.py now runs each long step detached and reports real elapsed wall times. The
+sandbox pool was briefly 503 ("host disk nearly full") before these runs; an
+earlier, failed-by-infrastructure attempt (#1) is omitted since it ran no steps.
