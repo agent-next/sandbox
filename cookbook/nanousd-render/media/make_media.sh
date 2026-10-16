@@ -74,6 +74,13 @@ MEDIA = sys.argv[1]
 # file -> (what it shows, the command that produced it, the source data file)
 # Every entry is generated from a judge output, never hand-edited.
 META = {
+    "probe_cuts.py": (
+        "Development probe: renders only the slot-boundary frames and "
+        "measures ffmpeg's real scene-cut score across each cut, so a cut "
+        "video_gate.py will not count is found for a few renders instead of "
+        "a full re-cut. Not part of the mp4.",
+        "hand-written; run by hand while cutting video",
+        "media/build/verdict.json, media/build/selftest.json"),
     "result.png": (
         "Hero still: the judge's own 640x480 graded render of "
         "examples/good/scene.usda with the G4 numpy pinhole oracle's "
