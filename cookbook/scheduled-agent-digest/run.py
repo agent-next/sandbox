@@ -94,15 +94,11 @@ def main():
     def wall(label, since):
         print(f"[{label}] {time.monotonic() - since:.1f}s wall", flush=True)
 
-    t0 = time.monotonic()
-    print(f"scheduled-agent-digest: creating sandbox (ref={ref})", flush=True)
-    sid, create_out = sbx_create(env)
-    print(f"scheduled-agent-digest: sandbox {sid}", flush=True)
-    wall("create", t0)
-
     # in-sandbox script: clone this repo at ref, set up, self-test, grade.
-    # All output is streamed by sbx exec.  The ref is quoted: it arrives on
-    # the command line and must never be parsed by the in-sandbox shell.
+    # Built *before* `sbx create`: an error while assembling it must never
+    # leave a fresh sandbox orphaned.  All output is streamed by sbx exec,
+    # which runs the argument through the sandbox shell.  The ref is quoted:
+    # it arrives on the command line and must never be parsed as shell.
     script = f"""set -euo pipefail
 cd /root 2>/dev/null || cd "$HOME"
 git clone --depth 1 -b {shlex_quote(ref)} {REPO} sandbox 2>&1
@@ -110,7 +106,9 @@ cd sandbox/cookbook/scheduled-agent-digest
 echo '=== judge/setup.sh ==='
 bash judge/setup.sh
 echo '=== judge/selftest.sh ==='
-bash judge/selftest.sh 2>&1 | tee /tmp/selftest.log; exit "${PIPESTATUS[0]}"
+if bash judge/selftest.sh > /tmp/selftest.log 2>&1; then st=0; else st=$?; fi
+cat /tmp/selftest.log
+[ "$st" -eq 0 ] || {{ echo "selftest FAILED (exit $st)" >&2; exit 1; }}
 echo '=== judge/grade.sh examples/good ==='
 bash judge/grade.sh examples/good --json /tmp/digest-verdict.json
 echo '=== verdict ==='
@@ -118,6 +116,13 @@ cat /tmp/digest-verdict.json || true
 echo '=== selftest kill summary ==='
 grep -E '^selftest: (mutant KILLED:|kill rate)' /tmp/selftest.log || true
 """
+
+    t0 = time.monotonic()
+    print(f"scheduled-agent-digest: creating sandbox (ref={ref})", flush=True)
+    sid, create_out = sbx_create(env)
+    print(f"scheduled-agent-digest: sandbox {sid}", flush=True)
+    wall("create", t0)
+
     failed = False
     try:
         t1 = time.monotonic()
