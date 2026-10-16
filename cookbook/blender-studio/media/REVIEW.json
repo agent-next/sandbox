@@ -1,0 +1,77 @@
+{
+ "video": "media/demo.mp4 (48-pose cut, 32 s)",
+ "standard": "both judges: visual_quality>=8, wow>=7, clarity>=7, payoff<=2 s, understandable_muted",
+ "verdict": "NOT PASSED: judge A scored wow 6 (one below the bar); judge B produced no verdict on this cut (timed out twice)",
+ "judges": [
+  {
+   "judge": "A",
+   "family": "independent vision model, family different from the builder",
+   "cut": "48-pose 32 s",
+   "raw": {
+    "frame0_what": "a finished Blender render: a glossy red Suzanne monkey head on a dark cylindrical pedestal, flanked by a glass sphere and a gold torus on a grey backdrop, with a caption bar on top",
+    "hook_type": "finished-result",
+    "payoff_visible_by_s": 0,
+    "on_screen_text": "An AI agent built this in Blender. A judge checked it. | THE BRIEF | Center the hero | Keep the highlights | Use a smooth backdrop | Make a full turn | Rim light: products only | Glass and gold. Same scene. | 48 real Cycles poses · 24 poses/s | Rim light hits only the products | Products only | Hits everything | Same scene. Only the rim light changes. | The judge isolates the rim light | Backdrop stays dark: PASS Change: 0.000296 | Backdrop lights up: FAIL Change: 0.275075 | Broken → repaired | Off-center: 3/5 | Centered: 5/5 | Caught: Stray glow | Sandbox self-test replay / 51.9x speed | Measured runtime 155.8s · seed 17 | PASS 5/5 | All five checks passed | 10/10 deliberately broken versions caught | Same seed. Same verdict. | JUDGE PROOF · 10/10 caught | Deliberately broken versions | G1 Frame | G2 Light | G3 Sweep | G4 Loop | G5 Rim | Cropped hero | Edge seam | Raised seam | Off-center hero | Drifting hero | Blue = pass. Orange = fail. | Too bright | Stray glow | Stray rim light | Backdrop seam | Incomplete turn | Blue = pass. Orange = fail. | Build it. Check it. Run it. | python3 run.py",
+    "understandable_muted": true,
+    "visual_quality_1_10": 8,
+    "wow_1_10": 6,
+    "clarity_1_10": 7,
+    "why": "It opens on a clean, well-lit Cycles render with a plain-language caption, and the PASS 5/5 card plus the blue/orange failure grid make the verdict easy to read with the sound off. The subject is a stock Suzanne turntable, though, and the motion barely changes from frame to frame, so it looks competent rather than surprising. Some judge panels also use tiny secondary text that a phone viewer cannot read.",
+    "fixes": [
+     "Enlarge or cut the tiny secondary text (the 'Change: 0.000296 / 0.275075' values, the 'Sandbox self-test replay / 51.9x speed' and 'Measured runtime 155.8s · seed 17' lines, and the G1-G5 sub-labels) so every caption is readable on a phone",
+     "Cut the second brief frame and shorten the 6 s of near-identical turntable footage so the judge's evidence arrives sooner",
+     "Make the turntable visibly rotate (faster spin or a camera orbit) so viewers can see the 'full turn' instead of a seemingly static hero",
+     "Put a small PASS badge on the opening render so frame 0 shows both the result and the verdict",
+     "Show the two 10/10 proof grids as a single 10-row table, or label them 1-5 and 6-10, so the '10/10 caught' total is obvious",
+     "Explain on screen what 'the judge' is (for example, an automated render checker) in plain words for non-specialists"
+    ]
+   }
+  },
+  {
+   "judge": "B",
+   "family": "independent vision model, second family",
+   "cut": "earlier 12-pose 30 s",
+   "raw": {
+    "frame0_what": "a finished 3D render of a glossy red monkey head (Suzanne) on a pedestal",
+    "hook_type": "finished-result",
+    "payoff_visible_by_s": 0,
+    "on_screen_text": "THE SPEC → RESULT | Center the hero | Keep highlights intact | Make the sweep smooth | Spin exactly 360° | Link rim to products | BBox: 0.1715 | REAL CYCLES / RED CAR PAINT CLOSE-UP | REAL TURNTABLE / 12 POSES · 6 fps playback | LIGHT LINKING / REAL 1080p A-B RENDERS | Products-only rim | Unlinked rim | Next: isolate direct rim light to measure the difference. | DIRECT RIM / PRODUCTS ONLY | Linked: PASS | Unlinked: FAIL | Backdrop Δ 0.000296 | Backdrop Δ 0.275975 | MUTANT → REPAIR / MEASURED JUDGE OUTPUT | Off-center: 3/5 | Centered: 5/5 | KILLED: unlinked halo | KILLED: overexposed | Sandbox self-test replay / 36.1x speed | Measured runtime 108.2s · seed 17 | PASS / 5 OF 5 GATES | 5 / 5 numeric gates | 10 / 10 mutants caught | Same seed: same JSON | Judge hashes unchanged | Loop diff: 0.000002 | Exposure mean: 0.4816 | JUDGE PROOF / 10 OF 10 MUTANTS CAUGHT | Blue = PASS. Orange = FAIL. Every row is measured. | G1 G2 G3 G4 G5 | clipped hero | filtered seam | high seam | off center | orbiting hero | overexposed | unlinked halo | unlinked rim | visible seam | wrong period | YOUR AGENT. REAL BLENDER. A REAL JUDGE. | python3 run.py",
+    "understandable_muted": true,
+    "visual_quality_1_10": 8,
+    "wow_1_10": 7,
+    "clarity_1_10": 8,
+    "why": "The video opens immediately on high-quality Cycles-rendered 3D assets with zero fluff, walking through specs, A-B light linking tests, and automated mutant testing gates entirely via clean, legible overlays. A viewer watching without sound can readily tell that an AI agent or test harness evaluates Blender 3D scene constraints and catches visual defects.",
+    "fixes": [
+     "Increase font size and line spacing on the mutant matrix table so it is legible on mobile screens without zooming",
+     "Show a brief terminal snippet or agent prompt side-by-side with the render in the opening 2 seconds to immediately clarify that an autonomous agent generated the Blender script",
+     "Slow down the A-B light comparison section slightly to give viewers more time to absorb the delta metrics"
+    ]
+   }
+  },
+  {
+   "judge": "A",
+   "family": "same as above",
+   "cut": "earlier 12-pose 30 s",
+   "raw": {
+    "frame0_what": "a finished photoreal render: glossy red Blender monkey head on a dark pedestal, with a glass sphere and a gold torus on a grey backdrop, with no caption",
+    "hook_type": "finished-result",
+    "payoff_visible_by_s": 0,
+    "on_screen_text": "THE SPEC → RESULT | Center the hero | Keep highlights intact | Make the sweep smooth | Spin exactly 360° | Link rim to products | BBox: 0.1715 | REAL CYCLES / RED CAR PAINT CLOSE-UP | REAL TURNTABLE / 12 POSES · 6 fps playback | LIGHT LINKING / REAL 1080p A–B RENDERS | Products-only rim | Unlinked rim | Next: isolate direct rim light to measure the difference. | DIRECT RIM / PRODUCTS ONLY | Linked: PASS | Unlinked: FAIL | Backdrop Δ 0.000296 | Backdrop Δ 0.275975 | MUTANT → REPAIR / MEASURED JUDGE OUTPUT | Off-center: 3/5 | Centered: 5/5 | KILLED: overexposed | KILLED: unlinked halo | Sandbox self-test replay / 36.1x speed | Measured runtime 108.2s · seed 17 | PASS / 5 OF 5 GATES | 5 / 5 numeric gates | 10 / 10 mutants caught | Same seed: same JSON | Judge hashes unchanged | Loop diff: 0.000002 | Exposure mean: 0.4816 | JUDGE PROOF / 10 OF 10 MUTANTS CAUGHT | Blue = PASS. Orange = FAIL. Every row is measured. | YOUR AGENT. REAL BLENDER. A REAL JUDGE. | python3 run.py",
+    "understandable_muted": true,
+    "visual_quality_1_10": 7,
+    "wow_1_10": 5,
+    "clarity_1_10": 6,
+    "why": "The video opens on a clean, well-lit Cycles render, and the large captions read fine at 1080p. The subject is the stock Suzanne monkey, though, and the 6 fps turntable looks choppy. The checking story is told in jargon ('mutants', 'BBox: 0.1715', 'light linking', 'Backdrop Δ'), so a non-specialist can tell that it passed but not really what was checked. The first two seconds have no caption saying what this is or that an agent made it.",
+    "fixes": [
+     "Add a one-line caption over the 0 s render, such as 'An AI agent built this in Blender, and an automatic judge checked it', so the hook explains itself",
+     "Replace jargon with plain words: drop 'BBox: 0.1715', and rename 'mutants' to 'deliberately broken versions' and 'light linking' to 'rim light hits only the products'",
+     "Render the turntable at 24 to 30 fps or interpolate it, because the 12-pose, 6 fps spin looks like stutter rather than a smooth sweep",
+     "Enlarge the JUDGE PROOF grid labels and the G1 to G5 headers, which are too small to read on a phone",
+     "Merge the two near-identical 'THE SPEC → RESULT' holds and the repeated end card to free time for a bigger, clearer PASS 5/5 moment",
+     "Use a more distinctive hero object than the default Suzanne monkey to raise the wow factor"
+    ]
+   }
+  }
+ ],
+ "next": "composition-only polish from judge A's fixes (faster visible spin, PASS badge at 0 s, larger secondary text, one 10-row proof table), then re-run both judges"
+}
