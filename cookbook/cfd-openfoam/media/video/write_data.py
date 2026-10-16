@@ -82,7 +82,8 @@ def main():
         },
         'agent': {
             'wallSeconds': int(round(wall)),
-            'speed': '%dx' % max(1, round(wall / 7.0)),
+            # wall-clock of all judge runs / the 5 s on-screen segment
+            'speed': '%dx' % max(1, round(wall / 5.0)),
         },
         'verdict': {
             'pass': bool(cav['all_gates_passed']

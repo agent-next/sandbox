@@ -10,7 +10,7 @@ import { Demo } from './Demo';
 export const FPS = 30;
 export const WIDTH = 1920;
 export const HEIGHT = 1080;
-export const VIDEO_S = 32.5;
+export const VIDEO_S = 25;
 export const ENDCARD_S = 2.5;
 export const TOTAL_S = VIDEO_S + ENDCARD_S;
 

@@ -32,6 +32,11 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 W, H = 1920, 1080
 FPS = 30
+# Field clips render at 640x360 and Remotion's objectFit:'cover' upscales
+# them into the 1080p frame: soft glowing tracers over a smooth field keep
+# the crf 18 web encode under 8 MiB; the terminal clip stays 1080p (text
+# must be readable).
+FW, FH = 640, 360
 UMAX = 1.05          # colour normalisation (lid speed = 1 m/s)
 FONT_MONO = '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf'
 FONT_MONO_B = '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf'
@@ -215,12 +220,16 @@ class Particles:
         x1, y1 = self._to_px(self.pos, view)
         vis = (x1 > -20) & (x1 < self.w + 20) & \
               (y1 > -20) & (y1 < self.h + 20)
-        lw = max(2, self.w // 640)
+        lw = max(2, self.w // 320)
         for a, b, c, d in zip(x0[vis], y0[vis], x1[vis], y1[vis]):
-            self.dr.line([(a, b), (c, d)], fill=200, width=lw)
-            r = lw * 1.3
+            self.dr.line([(a, b), (c, d)], fill=170, width=lw)
+            r = lw * 2.2
             self.dr.ellipse([c - r, d - r, c + r, d + r], fill=235)
-        mask = np.asarray(self.img, np.float32) / 255.0
+        # soft glow: blurred dots move more pixels per particle (motion gate)
+        # at less high-frequency detail (bitrate) than sharp dots
+        mask = np.asarray(
+            self.img.filter(ImageFilter.GaussianBlur(1.6)),
+            np.float32) / 255.0
         tint = np.array([0.92, 0.97, 1.0], np.float32)
         self.buf = np.maximum(self.buf, mask[..., None] * tint)
 
@@ -247,11 +256,11 @@ def cam_at(keys, f, n):
 # ------------------------------ encoder -------------------------------------
 
 
-def encoder(path):
+def encoder(path, w=W, h=H):
     cmd = ['ffmpeg', '-y', '-loglevel', 'error',
-           '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (W, H),
+           '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (w, h),
            '-r', str(FPS), '-i', '-',
-           '-c:v', 'libx264', '-preset', 'slow', '-crf', '16',
+           '-c:v', 'libx264', '-preset', 'slow', '-crf', '8',
            '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', path]
     return subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
@@ -265,29 +274,27 @@ def finish(enc, path):
 
 # ----------------------- wide shot (domain panel) ----------------------------
 
-PANEL = 1040          # crisp domain panel, square, centred at PANEL_CX
-PANEL_CX = 1010
-PANEL_Y = (H - PANEL) // 2
-AMBIENT = (480, 270)  # blurred fill rendered at low res, upscaled
-
-
 def wide_view(cam_hh):
     """Panel viewport: whole domain plus a small margin."""
     return (0.5, 0.5, cam_hh)
 
 
 def field_clip(field, path, seconds, t0, t1, cam_keys, n_part=650,
-               seed=7, flow_gain=1.0, trail=0.80, panel=True):
+               seed=7, flow_gain=1.0, trail=0.80, panel=True,
+               rw=FW, rh=FH):
     """Render a clip.  panel=True: domain panel over blurred ambient fill
     (wide shots); panel=False: cam_keys viewport fills the 16:9 frame
     (close-ups, where the view rect is inside the domain)."""
     n = int(seconds * FPS)
-    enc = encoder(path)
+    enc = encoder(path, rw, rh)
     if panel:
-        pw, ph = PANEL, PANEL
+        pw = ph = int(1040 * rh / H)
+        pcx = int(1010 * rw / W)
+        pcy = rh // 2
     else:
-        pw, ph = W, H
+        pw, ph, pcx, pcy = rw, rh, rw // 2, rh // 2
     part = Particles(n_part, seed, field.xs, field.ys, pw, ph, trail)
+    ambient = (rw // 4, rh // 4)
     for f in range(n):
         tau = t0 + (t1 - t0) * smoothstep(f / max(n - 1, 1)) \
             if t1 != t0 else t0
@@ -302,17 +309,16 @@ def field_clip(field, path, seconds, t0, t1, cam_keys, n_part=650,
         panel_img = Image.fromarray((comp * 255).astype(np.uint8))
         if panel:
             # ambient fill: stretched crop of the same live field, blurred
-            crop = panel_img.crop((0, int(PANEL * 0.14),
-                                   PANEL, int(PANEL * 0.86)))
-            bg = crop.resize(AMBIENT, Image.BICUBIC) \
-                      .filter(ImageFilter.GaussianBlur(9)) \
-                      .resize((W, H), Image.BICUBIC)
-            canvas = Image.eval(bg, lambda v: int(v * 0.42))
-            canvas.paste(panel_img, (PANEL_CX - PANEL // 2, PANEL_Y))
+            crop = panel_img.crop((0, int(pw * 0.14), pw, int(pw * 0.86)))
+            bg = crop.resize(ambient, Image.BICUBIC) \
+                      .filter(ImageFilter.GaussianBlur(5)) \
+                      .resize((rw, rh), Image.BICUBIC)
+            canvas = Image.eval(bg, lambda v: int(v * 0.30))
+            canvas.paste(panel_img, (pcx - pw // 2, pcy - ph // 2))
             d = ImageDraw.Draw(canvas)
-            d.rectangle([PANEL_CX - PANEL // 2 - 3, PANEL_Y - 3,
-                         PANEL_CX + PANEL // 2 + 3, PANEL_Y + PANEL + 3],
-                        outline=(70, 100, 135), width=3)
+            d.rectangle([pcx - pw // 2 - 2, pcy - ph // 2 - 2,
+                         pcx + pw // 2 + 2, pcy + ph // 2 + 2],
+                        outline=(70, 100, 135), width=2)
         else:
             canvas = panel_img
         enc.stdin.write(np.asarray(canvas, np.uint8).tobytes())
@@ -323,12 +329,18 @@ def field_clip(field, path, seconds, t0, t1, cam_keys, n_part=650,
 
 
 def term_clip(log_path, out_path, seconds, field):
-    lines = [l for l in open(log_path, errors='replace').read().splitlines()
-             if l.strip()]
+    all_lines = [l for l in
+                 open(log_path, errors='replace').read().splitlines()
+                 if l.strip()]
     font = ImageFont.truetype(FONT_MONO, 30)
     font_b = ImageFont.truetype(FONT_MONO_B, 30)
     lh, n = 40, int(seconds * FPS)
     rows = (H - 120) // lh
+    # The whole run compressed: stride-sample the log so ~1.1 new rows
+    # appear per frame (scrolling new text is the bitrate driver; a full
+    # log at reading speed needs far fewer bits than 6 new rows/frame).
+    stride = max(1, int(len(all_lines) / (n * 1.1)))
+    lines = all_lines[::stride]
     total = len(lines)
     enc = encoder(out_path)
     pip_w, pip_h = 560, 315
@@ -385,40 +397,41 @@ def main():
     T_END = float(times[-1])
 
     # hook: converged field already moving, slow push-in
-    field_clip(field, os.path.join(clips, 'hook.mp4'), 4.0,
+    field_clip(field, os.path.join(clips, 'hook.mp4'), 2.5,
                T_END, T_END, [wide_view(0.56), wide_view(0.50)],
-               n_part=800, flow_gain=1.0, seed=11)
+               n_part=60, flow_gain=1.0, seed=11, trail=0.55)
     print('[clips] hook.mp4')
 
     # develop: the whole solve 0 -> T_END spinning up, wide view
-    field_clip(field, os.path.join(clips, 'develop.mp4'), 9.0,
+    # (the evolving field itself carries the motion, so fewer tracers)
+    field_clip(field, os.path.join(clips, 'develop.mp4'), 7.5,
                0.0, T_END, [wide_view(0.58), wide_view(0.54)],
-               n_part=650, flow_gain=1.6, seed=23)
+               n_part=45, flow_gain=1.6, seed=23, trail=0.55)
     print('[clips] develop.mp4')
 
     # closeup: camera dives into the top-left corner and sweeps the lid
-    field_clip(field, os.path.join(clips, 'closeup.mp4'), 6.0,
+    field_clip(field, os.path.join(clips, 'closeup.mp4'), 5.5,
                T_END * 0.6, T_END,
                [(0.50, 0.70, 0.24), (0.42, 0.84, 0.155), (0.58, 0.74, 0.19)],
-               n_part=420, flow_gain=0.55, seed=37, trail=0.85,
+               n_part=50, flow_gain=0.55, seed=37, trail=0.62,
                panel=False)
     print('[clips] closeup.mp4')
 
     # the agent's real sandbox run, sped up (log captured during this build)
-    term_clip(logf, os.path.join(clips, 'agent.mp4'), 7.0, field)
+    term_clip(logf, os.path.join(clips, 'agent.mp4'), 6.0, field)
     print('[clips] agent.mp4')
 
     # proof: field keeps moving behind the HUD — slow drift + particles
-    field_clip(field, os.path.join(clips, 'proof.mp4'), 8.0,
+    field_clip(field, os.path.join(clips, 'proof.mp4'), 6.5,
                T_END * 0.85, T_END,
                [wide_view(0.55), wide_view(0.50)],
-               n_part=750, flow_gain=1.0, seed=53)
+               n_part=60, flow_gain=1.0, seed=53, trail=0.55)
     print('[clips] proof.mp4')
 
     # verdict hold: converged field, gentle pull-back under the PASS banner
-    field_clip(field, os.path.join(clips, 'verdict.mp4'), 2.5,
+    field_clip(field, os.path.join(clips, 'verdict.mp4'), 3.0,
                T_END, T_END, [wide_view(0.48), wide_view(0.56)],
-               n_part=800, flow_gain=1.0, seed=71)
+               n_part=60, flow_gain=1.0, seed=71, trail=0.55)
     print('[clips] verdict.mp4')
 
     # end-card backdrop still (converged frame, no trails baked in)

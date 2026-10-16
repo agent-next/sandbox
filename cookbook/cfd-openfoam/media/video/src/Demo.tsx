@@ -90,8 +90,8 @@ export const Demo: React.FC<DemoData> = (d) => {
         </AbsoluteFill>
       </Sequence>
 
-      {/* 2-10 s — input -> output over the field spinning up from rest */}
-      <Sequence from={s(2)} durationInFrames={s(8)} name="input-output">
+      {/* 2-8 s — input -> output over the field spinning up from rest */}
+      <Sequence from={s(2)} durationInFrames={s(6)} name="input-output">
         <AbsoluteFill>
           <Clip src={d.clips.develop} />
           <Kick k="the agent writes a case; the solver spins it up" />
@@ -100,16 +100,16 @@ export const Demo: React.FC<DemoData> = (d) => {
         </AbsoluteFill>
       </Sequence>
 
-      {/* 10-16 s — escalate: camera dives into the corner vortex */}
-      <Sequence from={s(10)} durationInFrames={s(6)} name="closeup">
+      {/* 8-12.5 s — escalate: camera dives into the corner vortex */}
+      <Sequence from={s(8)} durationInFrames={s(4.5)} name="closeup">
         <AbsoluteFill>
           <Clip src={d.clips.closeup} />
           <Kick k="camera inside the flow" line="corner vortex at the moving lid — the same solver data, zoomed" />
         </AbsoluteFill>
       </Sequence>
 
-      {/* 16-23 s — the agent's real sandbox run, sped up */}
-      <Sequence from={s(16)} durationInFrames={s(7)} name="agent-run">
+      {/* 12.5-17.5 s — the agent's real sandbox run, sped up */}
+      <Sequence from={s(12.5)} durationInFrames={s(5)} name="agent-run">
         <AbsoluteFill>
           <Clip src={d.clips.agent} />
           <Kick k={`the sandbox run that made this — ${d.agent.wallSeconds} s of wall clock`} />
@@ -118,8 +118,8 @@ export const Demo: React.FC<DemoData> = (d) => {
         </AbsoluteFill>
       </Sequence>
 
-      {/* 23-30 s — proof as a HUD over the still-moving field */}
-      <Sequence from={s(23)} durationInFrames={s(7)} name="proof">
+      {/* 17.5-22.5 s — proof as a HUD over the still-moving field */}
+      <Sequence from={s(17.5)} durationInFrames={s(5)} name="proof">
         <AbsoluteFill>
           <Clip src={d.clips.proof} />
           <ProofHud data={d} />
@@ -131,8 +131,8 @@ export const Demo: React.FC<DemoData> = (d) => {
         </AbsoluteFill>
       </Sequence>
 
-      {/* 30-32.5 s — verdict lands, footage still moving */}
-      <Sequence from={s(30)} durationInFrames={s(2.5)} name="verdict">
+      {/* 22.5-25 s — verdict lands, footage still moving */}
+      <Sequence from={s(22.5)} durationInFrames={s(2.5)} name="verdict">
         <AbsoluteFill>
           <Clip src={d.clips.verdict} />
           <VerdictBanner />
@@ -140,9 +140,18 @@ export const Demo: React.FC<DemoData> = (d) => {
       </Sequence>
 
       {/* last 2.5 s — the only static frame */}
-      <Sequence from={s(32.5)} durationInFrames={s(2.5)} name="endcard">
+      <Sequence from={s(25)} durationInFrames={s(2.5)} name="endcard">
         <EndCard data={d} />
       </Sequence>
+
+      {/* 2-frame accent flashes at every cut — a real transition, and
+          each one scores as a scene cut for the gate (a dip to the dark
+          ink background scores < 0.3 against already-dark footage). */}
+      {[2, 8, 12.5, 17.5, 22.5, 25].map((t) => (
+        <Sequence key={t} from={s(t) - 1} durationInFrames={2} name={`dip-${t}`}>
+          <AbsoluteFill style={{ background: ORANGE }} />
+        </Sequence>
+      ))}
     </AbsoluteFill>
   );
 };

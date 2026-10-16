@@ -130,7 +130,10 @@ npx remotion render Compositions out/seq --sequence \
     --public-dir="$CLIPS" --props="$CLIPS/data.json"
 mkdir -p "$MASTER"
 rm -f "$MASTER/cavity_master.mp4"
-ffmpeg -y -loglevel error -framerate 30 -i out/seq/element-%04d.png \
+# element-NNN.png: Remotion zero-pads to the frame count's width — glob, do
+# not hardcode %04d.
+ffmpeg -y -loglevel error -framerate 30 \
+    -pattern_type glob -i 'out/seq/element-*.png' \
     -c:v libx264 -preset veryslow -crf 0 -pix_fmt yuv420p \
     -s 1920x1080 "$MASTER/cavity_master.mp4"
 cd "$MEDIA_DIR"
