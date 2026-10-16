@@ -12,7 +12,8 @@ media/video/renders/
 examples/good/.toolchain
 
 # clips are derived: media/make_media.sh writes them into media/clips/
-media/video/clips/
+# video/clips is a symlink to it, so the composition can mount clips/ in place
+/video/clips
 
 # pyte/Pillow for the terminal player: installed by media/collect-media-deps.sh,
 # never committed
