@@ -135,18 +135,23 @@ def assert_physics(original, rendered):
 
 
 class Replay:
-    def __init__(self, name, offsamples="4", shadowsize="2048"):
+    def __init__(self, name, offsamples="4", shadowsize="2048",
+                 xml_prefix="render"):
         self.name = name
         self.scene = SCENES[name]
         self.rows = grade.parse_traj(DATA / self.scene["output"])
         source = (DATA / f"model_{name}.xml").read_text()
         self.original = mujoco.MjModel.from_xml_string(source)
-        self.model = visual_model(name, source, offsamples, shadowsize)
+        self.model = visual_model(name, source, offsamples, shadowsize,
+                                  DATA / f"{xml_prefix}_{name}.xml")
         assert_physics(self.original, self.model)
         self.data = mujoco.MjData(self.model)
         self.states = self.replay()
         np.save(DATA / f"state_{name}.npy", self.states, allow_pickle=False)
+        # One Renderer per output size, held for the whole recording.
+        self.renderers: dict[tuple[int, int], object] = {}
         self.renderer = None
+        self.live = None
         self.checked = 0
         self.camera = mujoco.MjvCamera()
         self.camera.type = mujoco.mjtCamera.mjCAMERA_FREE
@@ -189,9 +194,19 @@ class Replay:
         return np.asarray(states)
 
     def frame(self, index, width=1920, height=1080):
-        if self.renderer is None:
-            self.renderer = mujoco.Renderer(self.model, height, width)
-        assert (self.renderer.width, self.renderer.height) == (width, height)
+        # A MuJoCo Renderer owns its offscreen surface, so one is kept per
+        # (scene, size) and reused. Rebuilding mid-recording corrupts the
+        # OSMesa context - the 2x2 grid comes back as noise - so the first
+        # frame of a new size closes only the renderer it already held and
+        # opens one, and never again while that size is in use.
+        size = (int(width), int(height))
+        if self.renderers and size not in self.renderers:
+            self.live.close()
+            self.renderers.clear()
+        if not self.renderers:
+            self.renderers[size] = mujoco.Renderer(self.model, height, width)
+        self.live = self.renderers[size]
+        self.renderer = self.live
         self.data.qpos[:] = self.states[index]
         mujoco.mj_forward(self.model, self.data)
         assert_state(self.data.qpos, self.states[index], f"{self.name} frame {index} qpos")
@@ -209,9 +224,10 @@ class Replay:
         return Image.fromarray(self.renderer.render())
 
     def close(self):
-        if self.renderer is not None:
-            self.renderer.close()
-            self.renderer = None
+        for renderer in self.renderers.values():
+            renderer.close()
+        self.renderers.clear()
+        self.live = self.renderer = None
 
 
 TITLES = {"drop": "01  DROP / sphere meets floor",
@@ -287,7 +303,9 @@ def loop():
         label(image, (1350, y + 39), f"KILLED / {suffix}", 26)
     label(image, (70, 1080), "Pass line: all 4 scenes + every judge gate", 30, GREEN, True)
     label(image, (70, 1160), "1  Pendulum fails the oracle", 28)
-    label(image, (70, 1230), "2  Stick travel 38.88 mm exceeds 20 mm", 28)
+    label(image, (70, 1230),
+          f"2  Stick travel {history[1]['scenarios']['incline_stick']['travel_m'] * 1000:.2f} mm"
+          " exceeds 20 mm", 28)
     label(image, (70, 1300), "3  All five gates pass; judge intact", 28)
     label(image, (70, 1500), "Good must pass. Every broken mutant must fail. Self-test determinism: OK.",
           30, MUTED)
@@ -363,7 +381,6 @@ def main():
     replays = {name: Replay(name) for name in SCENES}
     result(replays)
     loop()
-    video(replays)
     checks = {n: {"graded_samples": len(r.states), "rendered_frames_checked": r.checked,
                   "max_state_tolerance": 1e-9} for n, r in replays.items()}
     (DATA / "render-checks.json").write_text(json.dumps(checks, indent=2) + "\n")

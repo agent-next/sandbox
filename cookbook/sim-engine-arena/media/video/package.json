@@ -1,0 +1,22 @@
+{
+  "name": "sim-engine-arena-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion composition for the sim-engine-arena demo: the recorded MuJoCo motion clips in media/clips/ plus the on-screen overlays. ffmpeg only encodes; it never composes a frame.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render src/index.ts Demo out/frames --sequence --every-frame",
+    "render:still": "remotion still"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.531",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.531"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "scenes": [
+    {
+      "key": "drop",
+      "title": "01 DROP",
+      "unit": "s",
+      "value": 0.4406,
+      "oracle": 0.4401,
+      "err_pct": 0.11,
+      "pass": true
+    },
+    {
+      "key": "incline_slide",
+      "title": "02 SLIDE 35",
+      "unit": "m/s2",
+      "value": 1.6082,
+      "oracle": 1.6088,
+      "err_pct": 0.04,
+      "pass": true
+    },
+    {
+      "key": "incline_stick",
+      "title": "03 STICK 20",
+      "unit": "mm",
+      "value": 1.8,
+      "oracle": 0.0,
+      "err_pct": null,
+      "pass": true,
+      "limit_mm": 20.0
+    },
+    {
+      "key": "pendulum",
+      "title": "04 PENDULUM",
+      "unit": "s",
+      "value": 2.0073,
+      "oracle": 2.0073,
+      "err_pct": 0.0,
+      "pass": true
+    }
+  ],
+  "kill_rate": "8/8",
+  "killed": 8,
+  "mutants": [
+    {
+      "name": "time_stretched",
+      "gates": [
+        "drop.csv_shape",
+        "incline_slide.csv_shape",
+        "incline_stick.csv_shape",
+        "pendulum.csv_shape"
+      ]
+    },
+    {
+      "name": "wrong_gravity",
+      "gates": [
+        "drop.oracle"
+      ]
+    },
+    {
+      "name": "friction_ignored",
+      "gates": [
+        "incline_slide.oracle",
+        "incline_stick.oracle"
+      ]
+    },
+    {
+      "name": "wrong_timestep",
+      "gates": [
+        "drop.csv_shape",
+        "incline_slide.csv_shape",
+        "incline_stick.csv_shape",
+        "pendulum.csv_shape"
+      ]
+    },
+    {
+      "name": "pendulum_length_off",
+      "gates": [
+        "pendulum.oracle"
+      ]
+    },
+    {
+      "name": "incline_sign_flip",
+      "gates": [
+        "incline_slide.oracle"
+      ]
+    },
+    {
+      "name": "crash",
+      "gates": [
+        "run"
+      ]
+    },
+    {
+      "name": "hardcoded_oracle",
+      "gates": [
+        "structure"
+      ]
+    }
+  ],
+  "loop": [
+    {
+      "i": 1,
+      "passed": false,
+      "failed": [
+        "pendulum"
+      ],
+      "change": "draft 1"
+    },
+    {
+      "i": 2,
+      "passed": false,
+      "failed": [
+        "incline_stick"
+      ],
+      "change": "draft 2"
+    },
+    {
+      "i": 3,
+      "passed": true,
+      "failed": [],
+      "change": "final"
+    }
+  ],
+  "speeds": {
+    "01_hook": {
+      "wall_s": 2.0,
+      "sim_s": 2.0,
+      "slowdown": 1.0
+    },
+    "02_drop": {
+      "wall_s": 2.5,
+      "sim_s": 1.5,
+      "slowdown": 1.67
+    },
+    "03_slide": {
+      "wall_s": 2.5,
+      "sim_s": 1.0,
+      "slowdown": 2.5
+    },
+    "04_stick": {
+      "wall_s": 2.5,
+      "sim_s": 1.0,
+      "slowdown": 2.5
+    },
+    "05_pendulum": {
+      "wall_s": 2.5,
+      "sim_s": 2.5,
+      "slowdown": 1.0
+    },
+    "08_closeup": {
+      "wall_s": 2.0,
+      "sim_s": 3.0,
+      "slowdown": 0.67
+    },
+    "09_proof": {
+      "wall_s": 6.5,
+      "sim_s": 6.5,
+      "slowdown": 1.0
+    },
+    "06_quad": {
+      "wall_s": 9.0,
+      "sim_s": 1.5,
+      "slowdown": 6.0
+    }
+  },
+  "agent_run": {
+    "receipt_total_s": 69,
+    "slot_s": 4.0,
+    "factor": 17.2,
+    "stages": [
+      {
+        "stage": "create",
+        "s": 2
+      },
+      {
+        "stage": "clone",
+        "s": 4
+      },
+      {
+        "stage": "setup",
+        "s": 36
+      },
+      {
+        "stage": "selftest",
+        "s": 17
+      },
+      {
+        "stage": "grade",
+        "s": 5
+      },
+      {
+        "stage": "kill",
+        "s": 2
+      }
+    ]
+  },
+  "timestep_s": 0.001,
+  "seed": 0,
+  "mujoco": "3.8.1"
+}
