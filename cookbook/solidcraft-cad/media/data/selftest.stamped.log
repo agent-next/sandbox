@@ -1,0 +1,51 @@
+0.02	selftest: unit tests (judge functions, run.py fault injection)
+20.12	Ran 16 tests in 19.578s
+20.17	
+20.19	OK
+20.21	selftest: grading known-good /home/user/w/cookbook/solidcraft-cad/examples/good/design-csg.json
+30.4	selftest: known-good PASSED all gates
+30.43	selftest: grading known-good /home/user/w/cookbook/solidcraft-cad/examples/good/design-renamed.json
+40.71	selftest: known-good PASSED all gates
+40.76	selftest: grading known-good /home/user/w/cookbook/solidcraft-cad/examples/good/design.json
+50.08	selftest: known-good PASSED all gates
+50.16	mutants: wrote hole_small
+50.2	mutants: wrote hole_off_pcd
+50.22	mutants: wrote hole_rotated
+50.24	mutants: wrote hole_missing
+50.26	mutants: wrote hole_extra
+50.3	mutants: wrote bore_missing
+50.32	mutants: wrote too_thick
+50.33	mutants: wrote boss_height
+50.35	mutants: wrote no_fillet
+50.38	mutants: wrote literal_thickness
+50.4	mutants: wrote broken_command
+50.43	mutants: wrote file_export
+50.48	mutants: wrote holes_all_rotated
+50.52	mutants: wrote font_outside
+50.55	mutants: wrote csg_bore_shifted
+50.57	mutants: wrote csg_corner_missing
+50.59	mutants: wrote csg_blocked_holes
+50.61	mutants: wrote csg_thin_web
+50.63	mutants: wrote csg_shift_on_rebuild
+56.82	selftest: killed    bore_missing (gate: volume)
+65.33	selftest: killed    boss_height (gate: occt_shape)
+65.51	selftest: killed    broken_command (gate: build)
+96.77	selftest: killed    csg_blocked_holes (gate: features)
+102.94	selftest: killed    csg_bore_shifted (gate: features)
+108.23	selftest: killed    csg_corner_missing (gate: volume)
+116.08	selftest: killed    csg_shift_on_rebuild (gate: parametric)
+146.58	selftest: killed    csg_thin_web (gate: features)
+146.72	selftest: killed    file_export (gate: build)
+146.86	selftest: killed    font_outside (gate: build)
+156.78	selftest: killed    hole_extra (gate: volume)
+166.52	selftest: killed    hole_missing (gate: volume)
+175.37	selftest: killed    hole_off_pcd (gate: features)
+185.23	selftest: killed    hole_rotated (gate: features)
+193.8	selftest: killed    hole_small (gate: volume)
+201.85	selftest: killed    holes_all_rotated (gate: features)
+210.57	selftest: killed    literal_thickness (gate: parametric)
+218.78	selftest: killed    no_fillet (gate: volume)
+230.3	selftest: killed    too_thick (gate: occt_shape)
+230.34	selftest: kill rate 19/19 = 100%
+255.12	selftest: determinism OK (two --seed 1 runs byte-identical outside timing)
+255.14	selftest: OK

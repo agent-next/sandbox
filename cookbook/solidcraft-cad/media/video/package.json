@@ -1,6 +1,9 @@
 {
+  "name": "solidcraft-cad-video",
+  "private": true,
+  "description": "HyperFrames composition for the solidcraft-cad demo video",
   "dependencies": {
-    "hyperframes": "^0.8.99",
-    "three": "^0.180.0"
+    "hyperframes": "0.8.99",
+    "three": "0.180.0"
   }
 }

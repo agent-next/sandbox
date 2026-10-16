@@ -21,10 +21,13 @@ Your machine stays clean, and the graded artifact is one small JSON file.
 
 ![Independent agent run and self-test kill rate](media/loop.png)
 
-[▶ demo.mp4](media/demo.mp4): 55 s. The video steps through the spec, then
-SolidCraft building the part step by step, the delivered views, a live
-`thickness` sweep (each frame a real SolidCraft rebuild), the judge verdict and
-the agent loop (1920×1080, H.264).
+[▶ demo.mp4](media/demo.mp4): 39 s, every second of it moving. The finished part
+turns full-frame, SolidCraft builds it through its real build stages, the faces
+explode and a section plane sweeps the bore, `judge/selftest.sh` replays from
+its stamped log at 51× speed, the `thickness` sweep rebuilds the part five
+times, and the PASS badge slides in over the still-turning part. Composed with
+HyperFrames from this run's own STEP geometry (see `media/video/README.md` and
+`media/STORYBOARD.md`; 1920×1080, H.264).
 
 Key numbers from the judge verdict on `examples/good/design.json`:
 

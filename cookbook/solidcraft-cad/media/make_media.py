@@ -357,17 +357,27 @@ def cmd_frames():
 def cmd_manifest():
     ff = run(["ffmpeg", "-version"]).stdout.split("\n")[0]
     import matplotlib
+    hf = run(["node", "-p",
+              "require('./video/node_modules/hyperframes/package.json').version"],
+             cwd=MEDIA).stdout.strip()
     files = {
         "result.png": ("Delivered part (SolidCraft render) + every judge pass rule as measured/limit, pass line at 1",
                        "bash media/make_media.sh (make_media.py figures)", "data/verdicts.json"),
         "loop.png": ("Independent agent's 12 designs: gates passed as recorded vs re-graded by this judge + self-test kills",
                      "bash media/make_media.sh (make_media.py figures)",
                      "data/agent_run.json, data/agent_run_recorded.json, data/agent_attempts/, data/verdicts.json"),
-        "demo.mp4": ("Spec -> SolidCraft build stages -> delivered views -> parametric sweep -> judge verdict -> loop",
-                     "bash media/make_media.sh (make_media.py frames + ffmpeg crf 0 master -> crf 18 web)",
-                     "data/*.json, data/renders/*.png"),
+        "demo.mp4": ("Animated cut of this run's own geometry: the graded part turning, its real "
+                     "SolidCraft build stages, an exploded view and a section sweep of the bore, "
+                     "selftest.sh replayed from its stamped log at 51x, the parametric thickness "
+                     "sweep, then the PASS badge over the still-moving part; composed by HyperFrames "
+                     "(media/video/), see media/STORYBOARD.md",
+                     "bash media/make_media.sh (export_glb.py + build_overlay_data.py + hyperframes "
+                     "render -> ffmpeg crf 18)",
+                     "data/verdicts.json, data/sweep.json, data/selftest.stamped.log, "
+                     "examples/good/design.json via video/assets/*.glb"),
     }
-    m = {"tools": {"solidcraft": "0.10.1", "matplotlib": matplotlib.__version__, "ffmpeg": ff},
+    m = {"tools": {"solidcraft": "0.10.1", "matplotlib": matplotlib.__version__, "ffmpeg": ff,
+                   "hyperframes": hf, "three": "0.180.0 (vendored in video/lib/, see lib/VENDORED.md)"},
          "files": {k: {"shows": a, "command": b, "source": c,
                        "sha256": hashlib.sha256((MEDIA / k).read_bytes()).hexdigest()}
                    for k, (a, b, c) in files.items()}}

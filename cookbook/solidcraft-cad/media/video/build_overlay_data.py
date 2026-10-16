@@ -20,6 +20,7 @@ re-labelling old footage.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -75,6 +76,16 @@ def _mm(expr) -> str:
     return expr.replace(" mm", "").strip() if isinstance(expr, str) else expr
 
 
+def export_stages() -> list[int]:
+    """The build-stage prefixes media/video/export_glb.py exports, so the
+    caption's 'stage N of M' is the same number the footage was cut from."""
+    spec = importlib.util.spec_from_file_location(
+        "export_glb", VIDEO / "export_glb.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return list(mod.STAGES)
+
+
 def proof() -> dict:
     verdicts = json.loads((MEDIA / "data" / "verdicts.json").read_text())
     good = verdicts["good"]
@@ -103,6 +114,12 @@ def proof() -> dict:
         "density_g_cm3": float(mass["density_g_cm3"]),
         "plate_mm": [float(spec["x1"]) - float(spec["x0"]),
                      float(spec["y1"]) - float(spec["y0"])],
+        # how long the graded script is and which prefix the plate footage
+        # shows, so the captions cannot drift from the design they describe
+        "commands_total": _count("commands", len(
+            json.loads((MEDIA.parent / "examples" / "good" / "design.json")
+                       .read_text())["commands"])),
+        "plate_stage": _count("plate_stage", export_stages()[0]),
         "thickness_mm": float(_mm(spec.get("thickness", "6"))),
         "bolt_holes": int(feat["bolt_holes"]),
         "bore_diameter_mm": float(feat["bore_diameter_mm"]),
@@ -160,7 +177,27 @@ def runlog(path: Path) -> dict:
         lines.append({"t": round(float(ts), 2), "text": text})
     if not lines:
         raise SystemExit(f"build_overlay_data: {path} held no timestamped lines")
-    return {"total_s": round(lines[-1]["t"], 1), "lines": lines}
+
+    # The unit-test count is read out of the run, never typed in: unittest
+    # prints "Ran N tests in Xs", and the replay shows that number.
+    ran = next((l["text"] for l in lines
+                if l["text"].startswith("Ran ") and " tests in " in l["text"]), None)
+    if ran is None:
+        raise SystemExit(f"build_overlay_data: {path} has no 'Ran N tests' line")
+    count = int(ran.split()[1])
+    if count <= 0:
+        raise SystemExit(f"build_overlay_data: unit-test count {count} from {ran!r}")
+    return {"total_s": round(lines[-1]["t"], 1), "unit_tests": count, "lines": lines}
+
+
+def renderer() -> dict:
+    """The pinned HyperFrames version, from package-lock.json (not the network)."""
+    lock = json.loads((VIDEO / "package-lock.json").read_text())
+    pkg = lock.get("packages", {}).get("node_modules/hyperframes")
+    if not pkg or not pkg.get("version"):
+        raise SystemExit("build_overlay_data: package-lock.json has no pinned hyperframes")
+    return {"name": "HyperFrames", "version": pkg["version"],
+            "source": "package-lock.json -> node_modules/hyperframes"}
 
 
 def main() -> int:
@@ -180,7 +217,8 @@ def main() -> int:
     body = body.replace("__PROOF__", json.dumps(proof()))
     body = body.replace("__SWEEP__", json.dumps(sweep()))
     body = body.replace("__RUNLOG__", json.dumps(runlog(args.selftest_log)))
-    for tok in ("__PROOF__", "__SWEEP__", "__RUNLOG__"):
+    body = body.replace("__RENDERER__", json.dumps(renderer()))
+    for tok in ("__PROOF__", "__SWEEP__", "__RUNLOG__", "__RENDERER__"):
         if tok in body:
             raise SystemExit(f"build_overlay_data: unresolved placeholder {tok}")
 

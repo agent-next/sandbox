@@ -18,8 +18,8 @@
 <script type="module">
 import { makeRig, loadFaces, placeCamera, span, easeInOut, THREE } from '../lib/part.js';
 
-const rig = makeRig(document.getElementById('stage'), { fov: 32, exposure: 1.2, background: 0x0b1018 });
-const model = loadFaces(rig, '../assets/part.glb');
+const rig = makeRig(document.getElementById('stage'), { look: 'dark', fov: 32, exposure: 1.2 });
+const model = loadFaces(rig, '../assets/part.glb', { look: 'dark' });
 
 const dirs = [];
 function prepare() {

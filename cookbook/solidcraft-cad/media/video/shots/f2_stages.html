@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <title>solidcraft-cad — footage: SolidCraft build stages</title>
 <style>
-  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #10151d; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #e9edf3; }
   #stage { position: absolute; inset: 0; }
 </style>
 </head>
@@ -19,13 +19,13 @@
 <script type="module">
 import { makeRig, loadFaces, placeCamera, span, easeOut } from '../lib/part.js';
 
-const rig = makeRig(document.getElementById('stage'), { fov: 30, exposure: 1.2, background: 0x10151d });
+const rig = makeRig(document.getElementById('stage'), { look: 'light', fov: 30, exposure: 1.2 });
 const BUILDS = [
   { n: 11, glb: '../assets/stage11.glb' },
   { n: 15, glb: '../assets/stage15.glb' },
   { n: 16, glb: '../assets/stage16.glb' },
 ];
-const loaded = BUILDS.map((b) => ({ ...b, model: loadFaces(rig, b.glb) }));
+const loaded = BUILDS.map((b) => ({ ...b, model: loadFaces(rig, b.glb, { look: 'light' }) }));
 const CUT = 5 / BUILDS.length;
 
 window.__timelines = {

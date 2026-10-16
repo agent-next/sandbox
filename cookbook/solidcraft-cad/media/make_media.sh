@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 # Regenerate every media file for the solidcraft-cad demo from real tool output.
-#   media/data/          SolidCraft renders (git-ignored) + judge verdicts (JSON)
+#   media/data/          SolidCraft renders + judge verdicts (JSON)
 #   media/result.png     delivered part + every judge pass rule vs its limit
 #   media/loop.png       the independent agent's 12 designs re-graded + self-test kills
-#   media/clips/         the 3D footage the demo.mp4 is cut from (git-ignored)
+#   media/clips/         the moving 3D footage the demo.mp4 is cut from (git-ignored)
 #   media/demo.mp4       the story as 1080p30 video: clips -> HyperFrames -> encode
 #   media/MANIFEST.json  what each file shows, its command and sha256
 #
 # The video is composed, not typeset: media/video/shots/*.html render the real
 # geometry (the STEP SolidCraft produced, exported to glb) as moving footage,
-# media/video/index.html composes those clips and adds the overlays, and
-# ffmpeg only encodes. HyperFrames does all the drawing.
+# media/video/index.html composes those clips and adds the overlays, and ffmpeg
+# only encodes. HyperFrames does all the drawing.
 #
 # Needs judge/setup.sh first (SolidCraft + the venv with the pinned OCP) and
-# media/video's npm dependencies (npm --prefix media/video ci).
+# media/video's npm dependencies (npm --prefix media/video ci). The pinned
+# HyperFrames is 0.8.99 (package-lock.json); it publishes >= 14 days before this
+# video was cut, and it needs Node >= 22 and a headless Chrome it can drive.
 # ffmpeg: distro build, version recorded in MANIFEST.json.
 set -euo pipefail
 
@@ -21,33 +23,56 @@ DEMO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MEDIA="$DEMO/media"
 VIDEO="$MEDIA/video"
 CLIPS="$MEDIA/clips"
+HF="$VIDEO/node_modules/.bin/hyperframes"
 PY="$HOME/.local/solidcraft-judge-venv/bin/python"
+WORK="${TMPDIR:-/tmp}/solidcraft-media"
+
 [ -x "$PY" ] || { echo "media: run judge/setup.sh first" >&2; exit 1; }
 if ! command -v ffmpeg >/dev/null; then
     sudo apt-get update -qq
     sudo apt-get install -y -qq ffmpeg
 fi
-if ! command -v npx >/dev/null; then
-    echo "media: node/npx not on PATH (install Node >= 22)" >&2
+if ! command -v node >/dev/null; then
+    echo "media: node not on PATH (install Node >= 22)" >&2
+    exit 1
+fi
+node_major="$(node -p 'process.versions.node.split(".")[0]')"
+if [ "$node_major" -lt 22 ]; then
+    echo "media: Node >= 22 required (got $(node --version))" >&2
+    exit 1
+fi
+# The renderer must come from the pinned install, never from an npx download.
+if [ ! -x "$HF" ]; then
+    echo "media: $HF missing; run: npm --prefix media/video ci" >&2
     exit 1
 fi
 
-mkdir -p "$CLIPS"
-work="$(mktemp -d)"
+mkdir -p "$CLIPS" "$WORK"
+# SolidCraft is not on PATH after judge/setup.sh (README says so).
+export PATH="$HOME/.local/solidcraft-0.10.1-linux-x86_64/bin:$PATH"
 
-# 1. the geometry the video shows: exports of the STEP files this run wrote.
-#    Thickness 6 mm is the graded build; stage11/15/16 are make_media.py's
-#    build-stage snapshots of the same design script.
-"$PY" "$VIDEO/export_glb.py" "$MEDIA/data/renders/part.step" "$VIDEO/assets/part.glb"
-for n in 11 15 16; do
-    "$PY" "$VIDEO/export_glb.py" "$MEDIA/data/renders/stage${n}.step" "$VIDEO/assets/stage${n}.glb"
-done
-for t in 6.0 6.5 7.0 7.5 8.0; do
-    "$PY" "$VIDEO/export_glb.py" "$MEDIA/data/renders/sweep_${t}.step" "$VIDEO/assets/sweep${t}.glb"
-done
+# 1. the geometry the video shows: the graded design and its real build stages
+#    and parametric rebuilds, run by SolidCraft exactly as the judge runs them
+#    and meshed by OpenCascade into the .glb the shots load.
+"$PY" "$VIDEO/export_glb.py"
 
-# 2. the numbers on screen, straight from this run's judge output.
+# 2. the numbers on screen, straight from this run's judge output. The stamped
+#    selftest log is what the "Nx speed" run clip replays, so it is written here
+#    if it is missing (a run of judge/selftest.sh, ~4-13 min depending on host).
+SELFTEST="$MEDIA/data/selftest.stamped.log"
+if [ ! -f "$SELFTEST" ]; then
+    echo "media: stamping judge/selftest.sh into $SELFTEST"
+    start="$(date +%s.%N)"
+    bash "$DEMO/judge/selftest.sh" > >(
+        while IFS= read -r line; do
+            printf '%s\t%s\n' \
+                "$($PY -c 'import sys;print(round(float(sys.argv[1])-float(sys.argv[2]),2))' \
+                        "$(date +%s.%N)" "$start")" "$line"
+        done > "$SELFTEST"
+    )
+fi
 "$PY" "$VIDEO/build_overlay_data.py"
+"$PY" "$VIDEO/build_overlay_data.py" --check
 
 # 3. the moving footage: one HyperFrames render per shot. This is the slow
 #    step (software GPU, one Chrome per shot); each clip is written to
@@ -55,8 +80,8 @@ done
 for shot in f1_turn f2_stages f3_plate f4_explode f5_section f6_run f7_sweep; do
     (
         cd "$VIDEO"
-        npx hyperframes render -c "shots/${shot}.html" -o "$CLIPS/${shot}.mp4" \
-            --no-browser-gpu --crf 16
+        "$HF" render -c "shots/${shot}.html" -o "$CLIPS/${shot}.mp4" \
+            --no-browser-gpu --crf 16 --quiet
     )
 done
 
@@ -64,7 +89,7 @@ done
 #    timeline, still the only component that draws anything.
 (
     cd "$VIDEO"
-    npx hyperframes render -o "$CLIPS/demo_composed.mp4" --no-browser-gpu --crf 16
+    "$HF" render -o "$CLIPS/demo_composed.mp4" --no-browser-gpu --crf 16 --quiet
 )
 
 # 5. encode: H.264 yuv420p, CRF 18, +faststart. ffmpeg builds no visuals here.

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <title>solidcraft-cad — footage: parametric thickness sweep</title>
 <style>
-  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0e131b; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #e9edf3; }
   #stage { position: absolute; inset: 0; }
   #stage canvas { position: absolute !important; left: 900px !important; top: 120px !important;
                   width: 920px !important; height: 860px !important; }
@@ -22,8 +22,8 @@
 import { makeRig, loadFaces, placeCamera, span, easeOut } from '../lib/part.js';
 import { SWEEP } from '../lib/run.js';
 
-const rig = makeRig(document.getElementById('stage'), { fov: 30, exposure: 1.2, background: 0x0e131b });
-const models = SWEEP.map((s) => ({ ...s, model: loadFaces(rig, `../assets/sweep${s.thickness_mm.toFixed(1)}.glb`) }));
+const rig = makeRig(document.getElementById('stage'), { look: 'light', fov: 30, exposure: 1.2 });
+const models = SWEEP.map((s) => ({ ...s, model: loadFaces(rig, `../assets/sweep${s.thickness_mm.toFixed(1)}.glb`, { look: 'light' }) }));
 
 const SLICE = 1 / SWEEP.length;
 

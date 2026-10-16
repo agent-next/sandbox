@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <title>solidcraft-cad — footage: the plate close-up</title>
 <style>
-  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #171d27; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #f2f5f9; }
   #stage { position: absolute; inset: 0; }
 </style>
 </head>
@@ -18,8 +18,8 @@
 <script type="module">
 import { makeRig, loadFaces, placeCamera } from '../lib/part.js';
 
-const rig = makeRig(document.getElementById('stage'), { fov: 30, exposure: 1.2, background: 0x171d27 });
-const model = loadFaces(rig, '../assets/stage11.glb');
+const rig = makeRig(document.getElementById('stage'), { look: 'light', fov: 30, exposure: 1.2 });
+const model = loadFaces(rig, '../assets/stage11.glb', { look: 'light' });
 
 window.__timelines = {
   'f3-plate': {

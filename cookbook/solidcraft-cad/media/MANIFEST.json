@@ -2,7 +2,9 @@
  "tools": {
   "solidcraft": "0.10.1",
   "matplotlib": "3.11.2",
-  "ffmpeg": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers"
+  "ffmpeg": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "hyperframes": "0.8.99",
+  "three": "0.180.0 (vendored in video/lib/, see lib/VENDORED.md)"
  },
  "files": {
   "result.png": {
@@ -18,10 +20,10 @@
    "sha256": "5d0a093e21952f324c1d54b723b617a605803d810a8d64122bee0cf0e8dfca72"
   },
   "demo.mp4": {
-   "shows": "Spec -> SolidCraft build stages -> delivered views -> parametric sweep -> judge verdict -> loop",
-   "command": "bash media/make_media.sh (make_media.py frames + ffmpeg crf 0 master -> crf 18 web)",
-   "source": "data/*.json, data/renders/*.png",
-   "sha256": "af8e8dcc58c2b6240593d12d038bf7d12c81bfa5c9721280f9c010461d78a0e9"
+   "shows": "Animated cut of this run's own geometry: the graded part turning, its real SolidCraft build stages, an exploded view and a section sweep of the bore, selftest.sh replayed from its stamped log at 51x, the parametric thickness sweep, then the PASS badge over the still-moving part; composed by HyperFrames (media/video/), see media/STORYBOARD.md",
+   "command": "bash media/make_media.sh (export_glb.py + build_overlay_data.py + hyperframes render -> ffmpeg crf 18)",
+   "source": "data/verdicts.json, data/sweep.json, data/selftest.stamped.log, examples/good/design.json via video/assets/*.glb",
+   "sha256": "d1383df1fba90cb3fb15f99f687df1d06a26d934dd5614a937fb93e76c9a1747"
   },
   "data/renders": {
    "shows": "SolidCraft snapshot PNGs used by the figures and video",
