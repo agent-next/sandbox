@@ -54,18 +54,18 @@ def panel(image, box, fill=BG):
     ImageDraw.Draw(image).rectangle(box, fill=fill)
 
 
-def hero():
-    return Image.open(SOURCE / "frame-01.png").convert("RGB")
+def hero(pose=1):
+    return Image.open(SOURCE / f"frame-{pose:02}.png").convert("RGB")
 
 
-def split_hero():
+def split_hero(pose=1):
     image = Image.new("RGB", (1920, 1080), BG)
-    image.paste(hero().crop((490, 0, 1450, 1080)), (960, 0))
+    image.paste(hero(pose).crop((490, 0, 1450, 1080)), (960, 0))
     return image
 
 
-def card(title, lines):
-    image = split_hero()
+def card(title, lines, pose=1):
+    image = split_hero(pose)
     draw = ImageDraw.Draw(image)
     text(draw, (60, 70), title, 80, BLUE)
     for i, line in enumerate(lines):
@@ -161,16 +161,20 @@ def prepare_media():
 
 def video_shots(data, capture):
     shots = []
-    hook = hero()
-    panel(hook, (0, 0, 1920, 130))
-    text(ImageDraw.Draw(hook), (40, 28),
-         "An AI agent built this in Blender. A judge checked it.", 64)
-    panel(hook, (1450, 900, 1880, 1035))
-    text(ImageDraw.Draw(hook), (1490, 925), "PASS 5/5", 64, BLUE)
-    shots.append((60, [hook]))
-    shots.append((60, [card("THE BRIEF", [
+
+    def hook(pose):
+        image = hero(pose)
+        panel(image, (0, 0, 1920, 130))
+        text(ImageDraw.Draw(image), (40, 28),
+             "An AI agent built this in Blender. A judge checked it.", 64)
+        panel(image, (1450, 900, 1880, 1035))
+        text(ImageDraw.Draw(image), (1490, 925), "PASS 5/5", 64, BLUE)
+        return image
+    # Held shots keep the real turntable spinning behind their captions.
+    shots.append((60, hook))
+    shots.append((60, lambda pose: card("THE BRIEF", [
         "Center the hero", "Keep the highlights", "Use a smooth backdrop",
-        "Make a full turn", "Rim light: products only"])]))
+        "Make a full turn", "Rim light: products only"], pose)))
     close = hero().crop((490, 190, 1450, 730)).resize(
         (1920, 1080), Image.Resampling.LANCZOS)
     panel(close, (0, 960, 1920, 1080))
@@ -198,17 +202,20 @@ def video_shots(data, capture):
     text(draw, (50, 920), "PASS", 84, BLUE)
     text(draw, (1010, 830), "Backdrop lights up:", 68)
     text(draw, (1010, 920), "FAIL", 84, ORANGE)
-    before_after = Image.new("RGB", (1920, 1080), BG)
-    before_after.paste(hero().resize((960, 540)), (0, 235))
-    before_after.paste(Image.open(SOURCE / "unlinked.png").convert("RGB").resize(
-        (960, 540)), (960, 235))
-    draw = ImageDraw.Draw(before_after)
-    text(draw, (60, 25), "The judge: an automatic render checker", 80, BLUE)
-    text(draw, (60, 130), "It measures the image.", 76)
-    text(draw, (50, 830), "Products only", 76, BLUE)
-    text(draw, (1010, 830), "Hits everything", 76, ORANGE)
-    text(draw, (50, 950), "Same scene. Only the rim light changes.", 64)
-    shots.append((90, [before_after]))
+    unlinked = Image.open(SOURCE / "unlinked.png").convert("RGB").resize((960, 540))
+
+    def before_after(pose):
+        image = Image.new("RGB", (1920, 1080), BG)
+        image.paste(hero(pose).resize((960, 540)), (0, 235))
+        image.paste(unlinked, (960, 235))
+        draw = ImageDraw.Draw(image)
+        text(draw, (60, 25), "The judge: an automatic render checker", 80, BLUE)
+        text(draw, (60, 130), "It measures the image.", 76)
+        text(draw, (50, 830), "Products only", 76, BLUE)
+        text(draw, (1010, 830), "Hits everything", 76, ORANGE)
+        text(draw, (50, 950), "Same scene. Only the rim light changes.", 64)
+        return image
+    shots.append((90, before_after))
     shots.append((60, [linking]))
 
     repair = Image.new("RGB", (1920, 1080), BG)
@@ -232,14 +239,16 @@ def video_shots(data, capture):
         text(ImageDraw.Draw(r), (55, 815), f"Caught: {FAILURE_LABELS[name]}", 64, BLUE)
         repairs.append(r)
     shots.append((90, repairs))
-    proof = split_hero()
-    draw = ImageDraw.Draw(proof)
-    text(draw, (55, 70), "PASS 5/5", 180, BLUE)
-    text(draw, (55, 295), "All five checks passed", 76)
-    text(draw, (55, 445), f"{data['killed']}/{data['total']} deliberately", 76)
-    text(draw, (55, 545), "broken versions caught", 76)
-    text(draw, (55, 705), "Same seed. Same verdict.", 64)
-    shots.append((90, [proof]))
+    def proof(pose):
+        image = split_hero(pose)
+        draw = ImageDraw.Draw(image)
+        text(draw, (55, 70), "PASS 5/5", 180, BLUE)
+        text(draw, (55, 295), "All five checks passed", 76)
+        text(draw, (55, 445), f"{data['killed']}/{data['total']} deliberately", 76)
+        text(draw, (55, 545), "broken versions caught", 76)
+        text(draw, (55, 705), "Same seed. Same verdict.", 64)
+        return image
+    shots.append((90, proof))
     shots.append((144, [kill_matrix(data)]))
     end = hero()
     panel(end, (0, 0, 1920, 340))
@@ -263,6 +272,8 @@ def main():
     proc = subprocess.Popen(command, stdin=subprocess.PIPE)
     try:
         for duration, images in shots:
+            if callable(images):
+                images = [images(pose) for pose in range(1, POSE_COUNT+1)]
             buffers = [image.tobytes() for image in images]
             for i in range(duration):
                 index = pose_index(i) if len(images) == POSE_COUNT else min(
