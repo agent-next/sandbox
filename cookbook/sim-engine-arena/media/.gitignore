@@ -12,3 +12,4 @@ data/render_*.xml
 data/render-checks.json
 video/node_modules/
 video/dist/
+.tools/lib/*.so*
