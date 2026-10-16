@@ -1,0 +1,12 @@
+{
+  "name": "firmware-qemu-demo-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HyperFrames composition for firmware-qemu demo.mp4: real QEMU boot, real build and real judge output with animated HUD overlays.",
+  "scripts": {
+    "render": "hyperframes render"
+  },
+  "dependencies": {
+    "hyperframes": "0.8.99"
+  }
+}

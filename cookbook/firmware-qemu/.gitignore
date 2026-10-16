@@ -4,3 +4,6 @@ __pycache__/
 media/.venv/
 media/frames/
 media/master/
+media/clips/
+media/video/node_modules/
+media/video/renders/

@@ -186,20 +186,25 @@ def mode_build():
     return rc
 
 
-def mode_grade():
+def mode_grade(hold=4.0):
+    """Run the judge for real, then hold the gate table on screen."""
     out("$ bash judge/grade.sh examples/good --seed %d" % SEED, color="gray")
     time.sleep(0.35)
     rc = subprocess.call(["bash", os.path.join(DEMO, "judge", "grade.sh"),
                           os.path.join(DEMO, "examples", "good"),
                           "--seed", str(SEED)])
-    time.sleep(0.4)
+    # The gate table is on screen from here; the hold is purely so the still
+    # can be read, and only affects cast timestamps, never the output.
+    time.sleep(hold)
     return rc
 
 
-def mode_selftest():
+def mode_selftest(hold=4.0):
+    """Run the real mutant self-test, then hold its summary on screen."""
     out("$ bash judge/selftest.sh", color="gray")
     time.sleep(0.35)
     rc = subprocess.call(["bash", os.path.join(DEMO, "judge", "selftest.sh")])
+    time.sleep(hold)
     return rc
 
 
