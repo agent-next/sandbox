@@ -8,9 +8,10 @@ customer does, no other route):
      (scenes/build_scenes.py) -> <scene>.tar.zst, each <= 300 MB
   2. POST {API}/sandboxes {"accel":{"vram_gb":6,"template":"omniverse",
      "reserve":"exec"}} -> 201 with a gl- lease id
-  3. PUT {API}/sandboxes/{id}/files/out/<scene>.tar.zst (raw body, capped
-     512 MiB); a capability probe settles whether PUT works or the job
-     must receive the bundles via an exec base64 fallback
+  3. PUT {API}/sandboxes/{id}/files/<scene>.tar.gz (raw body, capped
+     512 MiB — note: NO `out/` prefix, the gateway stores the name verbatim
+     under OUTPUT_DIR); a capability probe confirms it lands where exec
+     can read it, else the job gets the bundles via an exec base64 fallback
   4. POST {API}/sandboxes/{id}/exec {"code": <job source>, "timeout_s": ...}
      -> untar each bundle, run render/render_job.py (OVRTX RTX path
      tracer), write PNG frames + mp4s into OUTPUT_DIR
@@ -144,6 +145,19 @@ def valid_lease_id(sid) -> bool:
     """Only gateway-generated GPU ids may be interpolated into paths."""
     return (isinstance(sid, str) and sid.startswith("gl-")
             and all(c.isascii() and (c.isalnum() or c == "-") for c in sid))
+
+
+def _safe_component(name: str) -> bool:
+    """A listing name may be a relative path, never absolute or escaping.
+
+    The gateway echoes the names the job wrote, but a name arriving from the
+    network is still untrusted input: reject `..`, a leading `/` and any
+    NUL/backslash before it is joined into the local output tree."""
+    if not isinstance(name, str) or not name or name.startswith("/"):
+        return False
+    if "\\" in name or "\x00" in name:
+        return False
+    return all(part not in ("", ".", "..") for part in name.split("/"))
 
 
 def step(label: str, t0: float, extra: str = "") -> None:
@@ -299,19 +313,43 @@ def new_leases(key: str, url: str, before: set[str]) -> list[str]:
 
 
 def probe_upload(key: str, url: str, sid: str) -> bool:
-    """Probe whether PUT /files works on this plane; True => PUT route ok."""
+    """Probe whether PUT /files works on this plane; True => PUT route ok.
+
+    The probe writes a marker and then READS IT BACK through the exec's own
+    OUTPUT_DIR view: a 200 on the PUT alone proves nothing, because the
+    gateway will happily accept a name it then stores outside the
+    synced directory (see the out/ prefix trap, PRODUCT-FRICTION.md F5)."""
     status, _, _ = request(key, "PUT",
-                           f"{url}/sandboxes/{sid}/files/out/upload-probe",
-                           b"", timeout=60)
-    return status in (200, 201)
+                           f"{url}/sandboxes/{sid}/files/upload-probe",
+                           b"probe-bytes", timeout=60)
+    if status not in (200, 201):
+        return False
+    code = ("import os, pathlib;"
+            "p = pathlib.Path(OUTPUT_DIR) / 'upload-probe';"
+            "print('PROBE-OK' if p.exists() and p.read_bytes() == b'probe-bytes'"
+            " else 'PROBE-MISSING ' + str(sorted(x.name for x in "
+            "pathlib.Path(OUTPUT_DIR).iterdir())))")
+    status, body, _ = json_request(key, "POST", f"{url}/sandboxes/{sid}/exec",
+                                   {"code": code, "timeout_s": 120},
+                                   timeout=180)
+    if status != 200 or not isinstance(body, dict):
+        return False
+    stdout = str((body.get("result") or {}).get("stdout") or "")
+    return "PROBE-OK" in stdout
 
 
 def upload_bundle(key: str, url: str, sid: str, path: Path) -> dict:
-    """PUT <scene>.tar.zst under the workdir-relative out/ prefix."""
+    """PUT <scene>.tar.gz straight into the synced OUTPUT_DIR.
+
+    The path is `/files/<name>` with NO `out/` prefix: the gateway stores the
+    supplied name verbatim under OUTPUT_DIR, so the obvious
+    `/files/out/<name>` spelling silently lands at OUTPUT_DIR/out/<name>
+    where exec's cwd never looks (verified live, PRODUCT-FRICTION.md F5).
+    """
     t0 = time.monotonic()
     data = path.read_bytes()
     status, reply, elapsed = request(key, "PUT",
-                                     f"{url}/sandboxes/{sid}/files/out/{path.name}",
+                                     f"{url}/sandboxes/{sid}/files/{path.name}",
                                      data, timeout=1800)
     if status not in (200, 201):
         die(f"upload {path.name} to {sid}: HTTP {status}")
@@ -330,10 +368,10 @@ def render_program(bundles: dict, job_source: str, fallback_upload: bool = False
 
     The gateway injects OUTPUT_DIR (the synced directory GET /files
     serves) and `report` (a dict returned verbatim in the exec reply).
-    Files PUT under out/ land in OUTPUT_DIR, so the bundles are read from
-    there and frames written next to them.  With fallback_upload the
-    bundles are base64-embedded in the source instead (tiny bundles
-    only; the real ~50-110 MB scenes never go this way)."""
+    Bundles PUT to /files/<name> land at OUTPUT_DIR/<name> verbatim, so they
+    are read from there and the frames are written next to them.  With
+    fallback_upload the bundles are base64-embedded in the source instead
+    (tiny bundles only; the real 50-110 MB scenes never go this way)."""
     names = sorted(bundles)
     if fallback_upload:
         total = sum(Path(info["path"]).stat().st_size for info in bundles.values())
@@ -450,6 +488,12 @@ def download_outputs(key: str, url: str, sid: str, dest: Path,
     for r in rows:
         name = r.get("name", "")
         if not name:
+            continue
+        # The listing name IS the OUTPUT_DIR-relative path, so it is both the
+        # GET path and the local destination.  Only gateway-generated names
+        # may be interpolated into a path (they echo what the job wrote).
+        if not _safe_component(name):
+            errors.append(f"download {name}: unsafe name, refused")
             continue
         keep = (not name.startswith("frames/")
                 or _on_stride(name, want_png_stride))
