@@ -11,12 +11,16 @@ class NotFound(Exception):
     pass
 
 
+class InvalidArgument(Exception):
+    pass
+
+
 @pytest.fixture
 def sdk(monkeypatch):
     sandbox = Mock()
     sandbox.connect.return_value.files.get_info.return_value.type = "file"
     monkeypatch.setitem(sys.modules, "e2b", types.SimpleNamespace(
-        Sandbox=sandbox, NotFoundException=NotFound,
+        Sandbox=sandbox, NotFoundException=NotFound, InvalidArgumentException=InvalidArgument,
     ))
     monkeypatch.setenv("E2B_API_KEY", "e2b_test_copy_secret")
     monkeypatch.delenv("SBX_API_KEY", raising=False)
@@ -131,6 +135,22 @@ def test_missing_remote_source_preserves_local_target(sdk, tmp_path, capsys):
     assert cli.main(["cp", "sbx-1:/tmp/missing.bin", str(target)]) == 2
     assert "not found" in capsys.readouterr().err
     assert target.read_bytes() == b"keep this content"
+
+
+@pytest.mark.parametrize("upload,stage", [
+    (True, "get_info"), (False, "get_info"), (True, "write"), (False, "read"),
+])
+def test_sdk_directory_errors_are_handled(sdk, tmp_path, capsys, upload, stage):
+    local = tmp_path / "local.bin"
+    local.write_bytes(b"keep this content")
+    getattr(sdk.connect.return_value.files, stage).side_effect = InvalidArgument(
+        "path is a directory: /tmp",
+    )
+    endpoints = [str(local), "sbx-1:/tmp"]
+
+    assert cli.main(["cp", *(endpoints if upload else endpoints[::-1])]) == 2
+    assert "path is a directory" in capsys.readouterr().err
+    assert local.read_bytes() == b"keep this content"
 
 
 @pytest.mark.parametrize("stage", ["connect", "get_info", "read", "write"])
