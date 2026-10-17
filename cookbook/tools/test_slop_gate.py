@@ -10,6 +10,7 @@ Run:  pytest -q -s cookbook/tools     (from the repo root)
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -163,6 +164,15 @@ def test_unstaged_tracked_deletion_skipped(tmp_path):
     assert slop_gate.check_demo(d) == []
 
 
+def test_non_utf8_tracked_name_checked(tmp_path):
+    d = _demo(tmp_path, BASE)
+    big = os.fsencode(str(d)) + b"/oversized-\xff.bin"
+    with open(big, "wb") as f:
+        f.write(b"\0" * OVER_FILE)
+    _git(d, "add", "-A")
+    assert _rules(slop_gate.check_demo(d)) == ["file-size"]
+
+
 def test_plain_dir_walk(tmp_path):
     d = _demo(tmp_path, {**BASE, "big.bin": b"\0" * OVER_FILE}, git=False)
     assert _rules(slop_gate.check_demo(d)) == ["file-size"]
@@ -216,3 +226,18 @@ def test_main_demo_arg_exit_codes(tmp_path, capsys):
     dirty = _demo(tmp_path, {**BASE, "dump.csv": b"\0" * OVER_GENERATED})
     assert slop_gate.main([str(dirty)]) == 1
     assert "dump.csv" in capsys.readouterr().out
+
+
+def test_base_checks_source_of_cross_demo_rename(tmp_path, capsys):
+    repo = tmp_path / "repo"
+    (repo / "cookbook" / "old").mkdir(parents=True)
+    _git(repo, "init", "-q")
+    (repo / "cookbook" / "old" / "README.md").write_text("same\n")
+    (repo / "cookbook" / "old" / "NOTES.md").write_text("slop\n")
+    base = _commit(repo, "init")
+    (repo / "cookbook" / "new").mkdir()
+    (repo / "cookbook" / "old" / "README.md").rename(repo / "cookbook" / "new" / "README.md")
+    _commit(repo, "move")
+
+    assert slop_gate.main(["--base", base, "--repo", str(repo)]) == 1
+    assert "old/NOTES.md: root-markdown:" in capsys.readouterr().out

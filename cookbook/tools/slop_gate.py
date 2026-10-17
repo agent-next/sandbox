@@ -87,7 +87,7 @@ def _tracked_files(demo: Path) -> list[str]:
         )
         if r.returncode != 0:
             raise GateError(r.stderr.decode(errors="replace").strip())
-        return [p for p in r.stdout.decode(errors="replace").split("\0") if p]
+        return [os.fsdecode(p) for p in r.stdout.split(b"\0") if p]
     out = []
     for root, dirs, files in os.walk(demo):
         dirs[:] = [d for d in dirs if d != ".git"]
@@ -174,14 +174,14 @@ def _changed_demos(repo: Path, base: str) -> list[Path]:
     if mb.returncode != 0:
         raise GateError(mb.stderr.strip() or f"no merge base with {base}")
     r = subprocess.run(
-        ["git", "-C", str(repo), "diff", "--name-only", "-z",
+        ["git", "-C", str(repo), "diff", "--name-only", "--no-renames", "-z",
          mb.stdout.strip(), "--", "cookbook"],
         capture_output=True,
     )
     if r.returncode != 0:
         raise GateError(r.stderr.decode(errors="replace").strip())
     names = set()
-    for path in r.stdout.decode(errors="replace").split("\0"):
+    for path in map(os.fsdecode, r.stdout.split(b"\0")):
         parts = PurePosixPath(path).parts
         if len(parts) >= 3 and parts[0] == "cookbook" \
                 and parts[1] not in NON_DEMO_DIRS:
