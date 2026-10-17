@@ -437,6 +437,29 @@ def test_closed_pipe_exits_quietly(tmp_path):
     assert proc.returncode in (-signal.SIGPIPE, 1, 141)
 
 
+def test_small_output_exits_quietly_into_a_closed_pipe(tmp_path):
+    """`sbx --version` is small enough to sit in the buffer until shutdown;
+    a reader that is already gone must still exit quietly, not dump
+    BrokenPipeError at the interpreter's final flush."""
+    driver = tmp_path / "driver.py"
+    driver.write_text(
+        "import sys\n"
+        "from sbx.cli import main\n"
+        "sys.exit(main(['--version']))\n"
+    )
+    read_fd, write_fd = os.pipe()
+    proc = subprocess.Popen(
+        [sys.executable, str(driver)], stdout=write_fd, stderr=subprocess.PIPE
+    )
+    os.close(write_fd)
+    os.close(read_fd)  # the reader is gone before the child ever writes
+    _, err = proc.communicate(timeout=30)
+    assert b"Traceback" not in err
+    assert b"BrokenPipeError" not in err
+    assert b"Exception ignored" not in err
+    assert proc.returncode == 141
+
+
 def test_main_keeps_sigpipe_handler():
     """SIG_DFL would kill the process on a closed pipe before `finally` cleanup
     runs (runners.build_image kills its bake sandbox there)."""
