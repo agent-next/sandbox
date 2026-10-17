@@ -1,5 +1,6 @@
 import json
 import sys
+import time
 import types
 
 import pytest
@@ -279,3 +280,101 @@ def test_list_rejects_non_json_without_echoing_body(monkeypatch, capsys):
     output = capsys.readouterr()
     assert output.out == ""
     assert output.err == "sbx: GET /sandboxes returned invalid JSON\n"
+
+
+RESTART_503 = '503 {"error":"gateway is restarting","code":"restarting","retry_after_s":5}'
+
+
+class Restarting(Exception):
+    pass
+
+
+def test_kill_retries_while_the_gateway_restarts(monkeypatch, capsys):
+    # a realistic key length, so _scrub's redaction does not collide with
+    # ordinary words in the output (the autouse fixture uses "k")
+    monkeypatch.setenv("E2B_API_KEY", "k-very-secret-value")
+    calls = []
+
+    def flaky(cls, sid):
+        calls.append(sid)
+        if len(calls) < 3:
+            raise Restarting(RESTART_503)
+        return True
+
+    sleeps = []
+    monkeypatch.setattr(FakeSandbox, "kill", classmethod(flaky))
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["kill", "sbx-1"]) == 0
+    assert calls == ["sbx-1"] * 3
+    assert sleeps == [5, 5]
+    output = capsys.readouterr()
+    assert output.out == "killed sbx-1\n"
+
+
+def test_kill_caps_the_retry_wait(monkeypatch):
+    calls = []
+
+    def flaky(cls, sid):
+        calls.append(sid)
+        if len(calls) < 2:
+            raise Restarting('503 {"error":"gateway is restarting","code":"restarting","retry_after_s":999}')
+        return True
+
+    sleeps = []
+    monkeypatch.setattr(FakeSandbox, "kill", classmethod(flaky))
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["kill", "sbx-1"]) == 0
+    assert sleeps == [30]
+
+
+def test_kill_gives_up_after_bounded_retries(monkeypatch, capsys):
+    calls = []
+
+    def down(cls, sid):
+        calls.append(sid)
+        raise Restarting(RESTART_503)
+
+    monkeypatch.setattr(FakeSandbox, "kill", classmethod(down))
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    assert cli.main(["kill", "sbx-1"]) == 1
+    assert calls == ["sbx-1"] * 3
+    assert "503" in capsys.readouterr().err
+
+
+def test_kill_does_not_retry_other_failures(monkeypatch):
+    calls = []
+
+    def down(cls, sid):
+        calls.append(sid)
+        raise Restarting('500 {"error":"boom"}')
+
+    monkeypatch.setattr(FakeSandbox, "kill", classmethod(down))
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    assert cli.main(["kill", "sbx-1"]) == 1
+    assert calls == ["sbx-1"]
+
+
+def test_create_and_connect_retry_the_same_shape(monkeypatch):
+    create_calls = []
+
+    def flaky_create(cls, template=None, timeout=None):
+        create_calls.append(template)
+        if len(create_calls) == 1:
+            raise Restarting(RESTART_503)
+        return cls()
+
+    connect_calls = []
+
+    def flaky_connect(cls, sid):
+        connect_calls.append(sid)
+        if len(connect_calls) == 1:
+            raise Restarting(RESTART_503)
+        return cls(sid)
+
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(flaky_create))
+    monkeypatch.setattr(FakeSandbox, "connect", classmethod(flaky_connect))
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    assert cli.main(["create"]) == 0
+    assert create_calls == [None, None]
+    assert cli.main(["exec", "sbx-1", "true"]) == 0
+    assert connect_calls == ["sbx-1", "sbx-1"]
