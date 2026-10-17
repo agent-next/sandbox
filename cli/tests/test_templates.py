@@ -33,7 +33,11 @@ def test_templates_prints_cpu_aliases_one_per_line(api, capsys):
         {"templateID": "gpu-default", "aliases": ["gpu"], "accel": {}},
         {"templateID": "tpl-3", "aliases": []},
     ])
-    assert cli.main(["templates"]) == 0
+    try:
+        rc = cli.main(["templates"])
+    except SystemExit as exc:
+        rc = exc.code
+    assert rc == 0, "sbx templates must list CPU aliases"
     output = capsys.readouterr()
     assert output.out == "base\ndefault\nagent-full:standard\ntpl-3\n"
     assert output.err == ""
