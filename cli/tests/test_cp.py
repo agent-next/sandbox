@@ -216,6 +216,22 @@ def test_timeout_flag_rejects_non_positive_values(sdk, tmp_path, capsys, value):
     sdk.connect.assert_not_called()
 
 
+def test_file_calls_retry_while_the_gateway_restarts(sdk, tmp_path, monkeypatch):
+    # the SDK's text for an envd 503 (see test_restart_wait_reads_the_sdk_file_call_error)
+    restarting = Exception('{"code":"restarting","retry_after_s":5}: This error is likely due to sandbox timeout.')
+    local = tmp_path / "file.bin"
+    local.write_bytes(b"data")
+    files = sdk.connect.return_value.files
+    files.get_info.side_effect = [restarting, NotFound("no such file")]
+    files.write.side_effect = [restarting, None]
+    sleeps = []
+    monkeypatch.setattr(cli.time, "sleep", sleeps.append)
+
+    assert cli.main(["cp", str(local), "sbx-1:/tmp/file.bin"]) == 0
+    assert files.get_info.call_count == 2 and files.write.call_count == 2
+    assert sleeps == [5, 5]
+
+
 def test_local_write_error_is_handled(sdk, tmp_path, capsys):
     target = tmp_path / "missing-parent" / "file.bin"
     sdk.connect.return_value.files.read.return_value = b"data"

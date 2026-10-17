@@ -328,6 +328,20 @@ def test_kill_retries_while_the_gateway_restarts(monkeypatch, capsys):
     assert output.out == "killed sbx-1\n"
 
 
+def test_restart_wait_reads_the_sdk_file_call_error(monkeypatch):
+    """File calls go over envd RPC: the real SDK turns the 503 into a
+    TimeoutException whose text starts with the body and omits the status."""
+    monkeypatch.delitem(sys.modules, "e2b")
+    from e2b.envd.client_shared import plain_http_error
+    from e2b.envd.rpc import handle_rpc_exception
+
+    exc = handle_rpc_exception(plain_http_error(
+        503, "application/json", b'{"code":"restarting","retry_after_s":5}'
+    ))
+    assert "503" not in str(exc)
+    assert cli._gateway_restart_wait_s(exc) == 5
+
+
 def test_kill_caps_the_retry_wait(monkeypatch):
     calls = []
 
