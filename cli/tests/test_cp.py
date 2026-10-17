@@ -18,6 +18,10 @@ class NotFound(Exception):
     pass
 
 
+class Timeout(Exception):
+    pass
+
+
 class InvalidArgument(Exception):
     pass
 
@@ -28,6 +32,7 @@ def sdk(monkeypatch):
     sandbox.connect.return_value.files.get_info.return_value.type = FileType.FILE
     monkeypatch.setitem(sys.modules, "e2b", types.SimpleNamespace(
         Sandbox=sandbox, NotFoundException=NotFound, InvalidArgumentException=InvalidArgument, FileType=FileType,
+        TimeoutException=Timeout,
     ))
     monkeypatch.setenv("E2B_API_KEY", "e2b_test_copy_secret")
     monkeypatch.delenv("SBX_API_KEY", raising=False)
@@ -230,6 +235,19 @@ def test_file_calls_retry_while_the_gateway_restarts(sdk, tmp_path, monkeypatch)
     assert cli.main(["cp", str(local), "sbx-1:/tmp/file.bin"]) == 0
     assert files.get_info.call_count == 2 and files.write.call_count == 2
     assert sleeps == [5, 5]
+
+
+@pytest.mark.parametrize("upload", [True, False])
+def test_transfer_timeout_names_the_flag(sdk, tmp_path, capsys, upload):
+    local = tmp_path / "file.bin"
+    local.write_bytes(b"data")
+    files = sdk.connect.return_value.files
+    files.get_info.side_effect = NotFound("no such file") if upload else None
+    (files.write if upload else files.read).side_effect = Timeout("Request timed out")
+    endpoints = [str(local), "sbx-1:/tmp/file.bin"]
+
+    assert cli.main(["cp", "--timeout", "45", *(endpoints if upload else endpoints[::-1])]) == 2
+    assert "--timeout 45" in capsys.readouterr().err
 
 
 def test_local_write_error_is_handled(sdk, tmp_path, capsys):
