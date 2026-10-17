@@ -661,7 +661,9 @@ def main(argv: list[str] | None = None) -> int:
             except BrokenPipeError:
                 raise  # a stream without a real fd; handled by the outer catch
             except Exception as exc:  # SDK errors carry the gateway's message
-                _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
+                origin = type(exc).__module__.split(".")[0]
+                name = "" if origin == "e2b" else f"{type(exc).__name__}: "
+                _say(f"sbx: {name}{exc}", err=True)
                 rc = 1
             return rc
         finally:

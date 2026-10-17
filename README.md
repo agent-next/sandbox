@@ -73,6 +73,11 @@ It includes a Python client that checks a tiny GPU computation and destroys
 the lease. GPU-enabled keys and available capacity are required. This MIT
 repository contains the client kit; the hosted service's backend is separate.
 
+## Development
+
+Start with [AGENTS.md](AGENTS.md) for the check commands and acceptance rules.
+CLI setup and usage are in [cli/README.md](cli/README.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
