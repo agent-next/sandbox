@@ -116,9 +116,10 @@ def test_templates_rejects_non_list_response(api, capsys, payload, json_mode):
     {"aliases": [""]}, {"aliases": ["base\nextra"]}, {"aliases": ["base\x1b[31m"]},
     {"aliases": ["base alias"]}, {"templateID": 42},
 ])
-def test_templates_rejects_bad_entries_without_partial_output(api, capsys, entry):
+@pytest.mark.parametrize("json_mode", [False, True])
+def test_templates_rejects_bad_entries_without_partial_output(api, capsys, entry, json_mode):
     api[1][0] = httpx.Response(200, json=[{"aliases": ["base"]}, entry])
-    assert cli.main(["templates"]) == 2
+    assert cli.main(["templates"] + (["--json"] if json_mode else [])) == 2
     output = capsys.readouterr()
     assert output.out == "" and "invalid template" in output.err
 
