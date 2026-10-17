@@ -524,15 +524,35 @@ def _version() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    if hasattr(signal, "SIGPIPE"):
+        # die quietly, like a native tool, when a reader closes a pipe (`| head`);
+        # this also covers output flushed only at interpreter exit
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     try:
-        return args.func(args)
-    except SbxError as exc:
-        _say(f"sbx: {exc}", err=True)
-        return 2
-    except Exception as exc:  # SDK errors carry the gateway's message
-        _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
-        return 1
+        args = build_parser().parse_args(argv)
+        try:
+            return args.func(args)
+        except SbxError as exc:
+            _say(f"sbx: {exc}", err=True)
+            return 2
+        except BrokenPipeError:
+            raise  # a stream without a real fd; handled by the outer catch
+        except Exception as exc:  # SDK errors carry the gateway's message
+            _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
+            return 1
+    except BrokenPipeError:
+        # drop the rest of the output so shutdown flushes nowhere, and exit
+        # the way SIGPIPE would have ended the process
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        try:
+            for stream in (sys.stdout, sys.stderr):
+                try:
+                    os.dup2(devnull, stream.fileno())
+                except (AttributeError, OSError):
+                    pass
+        finally:
+            os.close(devnull)
+        return 141
 
 
 if __name__ == "__main__":
