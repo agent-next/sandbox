@@ -69,7 +69,9 @@ def _gateway_restart_wait_s(exc: BaseException) -> float | None:
     text = str(exc)
     brace = text.find("{")
     end = text.rfind("}")
-    if brace < 0 or end < brace or "503" not in text[:brace]:
+    # REST calls put the status first ("503: b'{...}'"); envd file calls raise
+    # a TimeoutException that starts with the body and has no status
+    if brace < 0 or end < brace or (brace and "503" not in text[:brace]):
         return None
     try:
         # the SDK appends the raw body as a bytes repr ("503: b'...'"), so the
