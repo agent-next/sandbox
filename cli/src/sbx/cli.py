@@ -178,7 +178,7 @@ def cmd_cp(args: argparse.Namespace) -> int:
         raise SbxError(f"cp: {exc}") from exc
 
     _credentials()
-    from e2b import NotFoundException
+    from e2b import InvalidArgumentException, NotFoundException
 
     try:
         sbx = _sdk_retry(_sandbox_cls().connect, sid)
@@ -194,7 +194,7 @@ def cmd_cp(args: argparse.Namespace) -> int:
             data = _sdk_retry(sbx.files.read, remote, format="bytes")
         else:
             _sdk_retry(sbx.files.write, remote, data)
-    except NotFoundException as exc:
+    except (InvalidArgumentException, NotFoundException) as exc:
         raise SbxError(f"cp: {exc}") from exc
 
     if source:
