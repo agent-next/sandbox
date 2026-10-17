@@ -82,6 +82,26 @@ def test_create_prints_id_and_converts_minutes(capsys):
     assert FakeSandbox.calls == [("create", None, 120)]
 
 
+def test_gateway_errors_drop_the_sdk_class_name(monkeypatch, capsys):
+    sandbox_error = type("SandboxException", (Exception,), {"__module__": "e2b.exceptions"})
+
+    def boom(*args, **kwargs):
+        raise sandbox_error("404: template 'no-such-template' not found")
+
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(boom))
+    assert cli.main(["create", "--template", "no-such-template"]) == 1
+    assert capsys.readouterr().err == "sbx: 404: template 'no-such-template' not found\n"
+
+
+def test_non_sdk_errors_keep_the_class_name(monkeypatch, capsys):
+    def boom(*args, **kwargs):
+        raise RuntimeError("local bug")
+
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(boom))
+    assert cli.main(["create"]) == 1
+    assert capsys.readouterr().err == "sbx: RuntimeError: local bug\n"
+
+
 def test_exec_passes_exit_code_and_streams(capsys):
     assert cli.main(["exec", "sbx-1", "echo hello"]) == 0
     assert capsys.readouterr().out == "hello\n"

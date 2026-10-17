@@ -52,6 +52,16 @@ cloud, not on the user's machine.
   `GET /v0/account` (and `quota_running` in `GET /v0/usage`). A create over
   the limit fails with `quota exceeded, retry in 5s`: kill finished
   sandboxes or wait, do not retry in a tight loop.
+- **A fresh sandbox lookup can lag creation.** If the first exec/files call
+  says `NOT_FOUND: sandbox not found`, check `sandboxes_list` for the exact
+  id. If it is still `running`, wait a few seconds and retry once before
+  abandoning it ([#23](https://github.com/agent-next/sandbox/issues/23)).
+  This does not apply to a missing file or job. A transport timeout or lost
+  reply does not prove a command failed to run: inspect its job before
+  repeating it.
+- **Capacity refusals need backoff.** `host disk nearly full ... retry in
+  5s` means new starts are temporarily refused. Wait at least the stated
+  interval; do not create repeatedly or assume the key is invalid.
 - **Check the exit code.** `sandbox_exec` returns `status: exited` with
   `exit_code` (0 included) when the command ends within `wait_s` (default
   and max 45). If it returns `status: running`, `exit_code` is null: call
