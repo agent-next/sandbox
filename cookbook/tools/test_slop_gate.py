@@ -84,6 +84,12 @@ def test_root_markdown_pass(tmp_path):
     assert slop_gate.check_demo(d) == []
 
 
+def test_root_markdown_complete_demo_layout_passes(tmp_path):
+    d = _demo(tmp_path, {**BASE, "RECEIPT.md": "runs\n",
+                         "REPRODUCE.md": "repro\n"})
+    assert slop_gate.check_demo(d) == []
+
+
 def test_root_markdown_fail(tmp_path):
     d = _demo(tmp_path, {**BASE, "NOTES.md": "prose\n", "PLAN.md": "more\n"})
     assert _rules(slop_gate.check_demo(d)) == ["root-markdown"] * 2
@@ -148,6 +154,12 @@ def test_untracked_files_ignored(tmp_path):
     (d / ".gitignore").write_text("scratch/\n")
     _git(d, "init", "-q")
     _git(d, "add", "-A")
+    assert slop_gate.check_demo(d) == []
+
+
+def test_unstaged_tracked_deletion_skipped(tmp_path):
+    d = _demo(tmp_path, BASE)
+    (d / "run.py").unlink()
     assert slop_gate.check_demo(d) == []
 
 
