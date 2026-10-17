@@ -207,22 +207,21 @@ def cmd_templates(args: argparse.Namespace) -> int:
         raise SbxError("GET /templates returned invalid JSON") from exc
     if not isinstance(items, list):
         raise SbxError("GET /templates returned an invalid template list")
-    if args.json:
-        _say(json.dumps(items))
-        return 0
     rows = []
     for item in items:
         if not isinstance(item, dict):
             raise SbxError("GET /templates returned an invalid template entry")
-        if item.get("accel") is not None:
-            continue
         aliases = item.get("aliases", [])
         if not isinstance(aliases, list):
             raise SbxError("GET /templates returned invalid template aliases")
         for alias in aliases or [item.get("templateID")]:
             if not isinstance(alias, str) or not alias or not alias.isprintable() or any(c.isspace() for c in alias):
                 raise SbxError("GET /templates returned an invalid template alias or id")
-            rows.append(alias)
+            if item.get("accel") is None:
+                rows.append(alias)
+    if args.json:
+        _say(json.dumps(items))
+        return 0
     for row in rows:
         _say(row)
     return 0
