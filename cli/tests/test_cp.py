@@ -24,7 +24,8 @@ def sdk(monkeypatch):
     return sandbox
 
 
-@pytest.mark.parametrize("data", [b"", bytes(range(256)) * 4096 + b"e2b_test_copy_secret"])
+@pytest.mark.parametrize("data", [b"", bytes(range(256)) * 4096 + b"e2b_test_copy_secret"],
+                         ids=["empty", "all-bytes"])
 def test_upload_preserves_every_byte(sdk, tmp_path, capsys, data):
     source = tmp_path / "source with spaces:1.bin"
     source.write_bytes(data)
@@ -39,7 +40,8 @@ def test_upload_preserves_every_byte(sdk, tmp_path, capsys, data):
     assert capsys.readouterr() == ("", "")
 
 
-@pytest.mark.parametrize("data", [b"", bytes(range(256)) * 4096 + b"e2b_test_copy_secret"])
+@pytest.mark.parametrize("data", [b"", bytes(range(256)) * 4096 + b"e2b_test_copy_secret"],
+                         ids=["empty", "all-bytes"])
 def test_download_preserves_every_byte_and_overwrites(sdk, tmp_path, capsys, data):
     target = tmp_path / "download with spaces:1.bin"
     target.write_bytes(b"old content that must be replaced")

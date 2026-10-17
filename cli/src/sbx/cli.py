@@ -9,6 +9,7 @@ import os
 import shlex
 import sys
 import time
+from pathlib import Path
 
 import httpx
 
@@ -149,6 +150,59 @@ def cmd_exec(args: argparse.Namespace) -> int:
     sys.stdout.write(_scrub(result.stdout))
     sys.stderr.write(_scrub(result.stderr))
     return result.exit_code
+
+
+def _cp_remote(value: str) -> tuple[str, str] | None:
+    sid, separator, path = value.partition(":")
+    if not separator or "/" in sid:
+        return None
+    if not sid or not path:
+        raise SbxError("cp: remote endpoint must be ID:PATH with a nonempty id and path")
+    return sid, path
+
+
+def cmd_cp(args: argparse.Namespace) -> int:
+    source, target = _cp_remote(args.source), _cp_remote(args.target)
+    if bool(source) == bool(target):
+        raise SbxError("cp: exactly one side must be ID:PATH")
+    sid, remote = source or target
+    local_name = args.target if source else args.source
+    if not local_name:
+        raise SbxError("cp: local path must not be empty")
+    local = Path(local_name)
+    try:
+        if local_name.endswith("/") or remote.endswith("/") or local.is_dir():
+            raise SbxError("cp: directories are not supported; give a file path on each side")
+        data = None if source else local.read_bytes()
+    except OSError as exc:
+        raise SbxError(f"cp: {exc}") from exc
+
+    _credentials()
+    from e2b import NotFoundException
+
+    try:
+        sbx = _sdk_retry(_sandbox_cls().connect, sid)
+        try:
+            info = _sdk_retry(sbx.files.get_info, remote)
+        except NotFoundException:
+            if source:
+                raise
+        else:
+            if info.type == "dir":
+                raise SbxError("cp: directories are not supported; give a file path on each side")
+        if source:
+            data = _sdk_retry(sbx.files.read, remote, format="bytes")
+        else:
+            _sdk_retry(sbx.files.write, remote, data)
+    except NotFoundException as exc:
+        raise SbxError(f"cp: {exc}") from exc
+
+    if source:
+        try:
+            local.write_bytes(data)
+        except OSError as exc:
+            raise SbxError(f"cp: {exc}") from exc
+    return 0
 
 
 def cmd_list(args: argparse.Namespace) -> int:
@@ -472,6 +526,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="command: one string is run as a shell line; put -- before it when it has several words or options",
     )
     p.set_defaults(func=cmd_exec)
+
+    p = sub.add_parser("cp", help="copy a file between the local machine and a sandbox")
+    p.add_argument("source", help="local file path or ID:PATH")
+    p.add_argument("target", help="local file path or ID:PATH")
+    p.set_defaults(func=cmd_cp)
 
     p = sub.add_parser("list", help="list live sandboxes held by this key")
     p.set_defaults(func=cmd_list)
