@@ -7,13 +7,17 @@ import json
 import math
 import os
 import shlex
+import signal
 import sys
+import time
 
 import httpx
 
 DEFAULT_DOMAIN = "sbx.agent-next.com"
 DEFAULT_TIMEOUT_MIN = 5
 MAX_TIMEOUT_MIN = 1440
+_RESTART_ATTEMPTS = 3
+_RESTART_MAX_WAIT_S = 30
 
 
 class SbxError(Exception):
@@ -60,11 +64,43 @@ def _sandbox_cls():
     return Sandbox
 
 
+def _gateway_restart_wait_s(exc: BaseException) -> float | None:
+    """Seconds the gateway asked for in a 503 'restarting' reply, else None."""
+    text = str(exc)
+    brace = text.find("{")
+    if brace < 0 or "503" not in text[:brace]:
+        return None
+    try:
+        body = json.loads(text[brace:])
+    except ValueError:
+        return None
+    if not isinstance(body, dict) or body.get("code") != "restarting":
+        return None
+    try:
+        wait = float(body.get("retry_after_s"))
+    except (TypeError, ValueError):
+        wait = 0.0
+    return min(max(wait, 1.0), _RESTART_MAX_WAIT_S)
+
+
+def _sdk_retry(fn, *args, **kwargs):
+    """Call an e2b SDK function, retrying the gateway's 503 'restarting' reply."""
+    for attempt in range(_RESTART_ATTEMPTS):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            wait = _gateway_restart_wait_s(exc)
+            if wait is None or attempt == _RESTART_ATTEMPTS - 1:
+                raise
+            _say(f"sbx: gateway is restarting; retrying in {wait:g}s", err=True)
+            time.sleep(wait)
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     _positive_seconds(args.timeout_min, "--timeout-min", MAX_TIMEOUT_MIN)
     _credentials()
-    sbx = _sandbox_cls().create(
-        args.template, timeout=max(1, round(args.timeout_min * 60))
+    sbx = _sdk_retry(
+        _sandbox_cls().create, args.template, timeout=max(1, round(args.timeout_min * 60))
     )
     _say(sbx.sandbox_id)
     return 0
@@ -82,7 +118,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
         raise SbxError("exec: no command given")
     line = command[0] if len(command) == 1 else shlex.join(command)
     try:
-        sbx = _sandbox_cls().connect(args.sandbox_id)
+        sbx = _sdk_retry(_sandbox_cls().connect, args.sandbox_id)
         try:
             result = sbx.commands.run(line, timeout=args.timeout)
         except CommandExitException as exc:
@@ -155,7 +191,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def cmd_kill(args: argparse.Namespace) -> int:
     _credentials()
-    killed = _sandbox_cls().kill(args.sandbox_id)
+    killed = _sdk_retry(_sandbox_cls().kill, args.sandbox_id)
     if killed:
         _say(f"killed {args.sandbox_id}")
     else:
@@ -342,7 +378,8 @@ def cmd_runners_debug(args: argparse.Namespace) -> int:
         _say(f"deleted snapshot {record['snapshot_id']} for job {record['job_id']}")
         return 0
     record = store.find(args.job)
-    sbx = _sandbox_cls().create(
+    sbx = _sdk_retry(
+        _sandbox_cls().create,
         record["snapshot_id"], timeout=max(1, round(args.timeout_min * 60)),
         metadata={"sbx-debug-job": str(record["job_id"])}, lifecycle={"on_timeout": "kill"},
     )
