@@ -41,6 +41,7 @@ read from the environment.
 | --- | --- |
 | `sbx create [--template T] [--timeout-min N]` | Start a sandbox and print its id. `--timeout-min` is the idle keep-alive in minutes (default 5); expiry deletes this CLI-created sandbox. |
 | `sbx exec ID [--timeout S] -- COMMAND...` | Run a command. One argument is a shell line; several are quoted and joined. Put `--` before the command so its own options (`ls -l`) are not read as `sbx` options. Exits with the command's exit code. |
+| `sbx cp [--timeout S] LOCAL ID:REMOTE` / `sbx cp [--timeout S] ID:REMOTE LOCAL` | Upload or download one file, preserving binary bytes and overwriting an existing file. `--timeout` (default 600) is the deadline for each transfer attempt (a gateway restart retries the attempt). Exactly one side must be `ID:PATH`; directories are not supported. Give the destination filename. Prefix a local path containing `:` with `./` (or use an absolute path). |
 | `sbx list` | List the live sandboxes held by your key (id, template, start time). |
 | `sbx templates [--json]` | List CPU template aliases, one per line (template id if no alias). `--json` prints the raw API list, including GPU entries. |
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |

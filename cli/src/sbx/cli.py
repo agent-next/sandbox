@@ -9,6 +9,7 @@ import os
 import shlex
 import sys
 import time
+from pathlib import Path
 
 import httpx
 
@@ -68,7 +69,9 @@ def _gateway_restart_wait_s(exc: BaseException) -> float | None:
     text = str(exc)
     brace = text.find("{")
     end = text.rfind("}")
-    if brace < 0 or end < brace or "503" not in text[:brace]:
+    # REST calls put the status first ("503: b'{...}'"); envd file calls raise
+    # a TimeoutException that starts with the body and has no status
+    if brace < 0 or end < brace or (brace and "503" not in text[:brace]):
         return None
     try:
         # the SDK appends the raw body as a bytes repr ("503: b'...'"), so the
@@ -149,6 +152,66 @@ def cmd_exec(args: argparse.Namespace) -> int:
     sys.stdout.write(_scrub(result.stdout))
     sys.stderr.write(_scrub(result.stderr))
     return result.exit_code
+
+
+def _cp_remote(value: str) -> tuple[str, str] | None:
+    sid, separator, path = value.partition(":")
+    if not separator or "/" in sid:
+        return None
+    if not sid or not path:
+        raise SbxError("cp: remote endpoint must be ID:PATH with a nonempty id and path")
+    return sid, path
+
+
+def cmd_cp(args: argparse.Namespace) -> int:
+    _positive_seconds(args.timeout, "--timeout")
+    source, target = _cp_remote(args.source), _cp_remote(args.target)
+    if bool(source) == bool(target):
+        raise SbxError("cp: exactly one side must be ID:PATH")
+    sid, remote = source or target
+    local_name = args.target if source else args.source
+    if not local_name:
+        raise SbxError("cp: local path must not be empty")
+    local = Path(local_name)
+    try:
+        if local_name.endswith("/") or remote.endswith("/") or local.is_dir():
+            raise SbxError("cp: directories are not supported; give a file path on each side")
+        data = None if source else local.read_bytes()
+    except OSError as exc:
+        raise SbxError(f"cp: {exc}") from exc
+
+    _credentials()
+    from e2b import FileType, InvalidArgumentException, NotFoundException, TimeoutException
+
+    try:
+        sbx = _sdk_retry(_sandbox_cls().connect, sid)
+        try:
+            info = _sdk_retry(sbx.files.get_info, remote)
+        except NotFoundException:
+            if source:
+                raise
+        else:
+            if info.type == FileType.DIR:
+                raise SbxError("cp: directories are not supported; give a file path on each side")
+        if source:
+            data = _sdk_retry(sbx.files.read, remote, format="bytes", request_timeout=args.timeout)
+        else:
+            _sdk_retry(sbx.files.write, remote, data, request_timeout=args.timeout)
+    except (InvalidArgumentException, NotFoundException) as exc:
+        raise SbxError(f"cp: {exc}") from exc
+    except (TimeoutException, httpx.TimeoutException) as exc:
+        # only a request deadline is ours; the SDK also raises TimeoutException
+        # for an expired sandbox and for a gateway restart it could not wait out
+        if isinstance(exc, TimeoutException) and not str(exc).startswith("Request timed out"):
+            raise
+        raise SbxError(f"cp: the transfer did not finish within --timeout {args.timeout:g} s") from exc
+
+    if source:
+        try:
+            local.write_bytes(data)
+        except OSError as exc:
+            raise SbxError(f"cp: {exc}") from exc
+    return 0
 
 
 def cmd_list(args: argparse.Namespace) -> int:
@@ -472,6 +535,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="command: one string is run as a shell line; put -- before it when it has several words or options",
     )
     p.set_defaults(func=cmd_exec)
+
+    p = sub.add_parser("cp", help="copy a file between the local machine and a sandbox")
+    p.add_argument("source", help="local file path or ID:PATH")
+    p.add_argument("target", help="local file path or ID:PATH")
+    p.add_argument("--timeout", type=float, default=600, help="deadline per transfer attempt in seconds (default 600)")
+    p.set_defaults(func=cmd_cp)
 
     p = sub.add_parser("list", help="list live sandboxes held by this key")
     p.set_defaults(func=cmd_list)
