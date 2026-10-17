@@ -10,8 +10,9 @@ With demo dirs, every listed dir is checked. With --base, the checked
 demos are the `cookbook/<name>/` dirs touched by `git diff <merge-base>`,
 i.e. committed and uncommitted tracked changes since the merge base;
 `cookbook/tools` and `cookbook/_template` are not demos and are skipped.
-The file set is `git ls-files` when the dir sits in a work tree, else the
-whole dir is walked (a `.git` dir inside it is skipped).
+The file set is `git ls-files` when the dir sits in a work tree (tracked
+files deleted from the work tree are skipped), else the whole dir is
+walked (a `.git` dir inside it is skipped).
 
 Rules per demo dir (the limits are the module constants below; tests
 import this module):
@@ -20,8 +21,8 @@ import this module):
   CODE_EXTS files, excluding anything under `examples/` or `media/clips/`
   (fixture artifacts and video helper clips are not demo code). Every
   line of the file counts, blanks and comments included.
-* root-markdown: only README.md and SPEC.md may sit at the demo root; any
-  other `*.md` there fails. Markdown in subdirs is not counted here.
+* root-markdown: only README.md, SPEC.md, RECEIPT.md and REPRODUCE.md
+  may sit at the demo root; any other `*.md` there fails. Markdown in subdirs is not counted here.
 * file-size: no tracked file larger than MAX_FILE_BYTES, except
   `media/demo.mp4` and `media/result.png`.
 * generated-output: no tracked `*.csv`, `*.jsonl`, `*.npz`,
@@ -55,7 +56,7 @@ CODE_EXTS = {
     ".glsl", ".vert", ".frag",
 }
 CODE_EXCLUDED_DIRS = (("examples",), ("media", "clips"))
-ALLOWED_ROOT_MARKDOWN = {"README.md", "SPEC.md"}
+ALLOWED_ROOT_MARKDOWN = {"README.md", "SPEC.md", "RECEIPT.md", "REPRODUCE.md"}
 MAX_FILE_BYTES = 50 * 1024
 SIZE_EXEMPT = {"media/demo.mp4", "media/result.png"}
 GENERATED_MAX_BYTES = 5 * 1024
@@ -123,6 +124,8 @@ def check_demo(demo: Path) -> list[str]:
     hashes: dict[str, list[str]] = {}
     for rel in files:
         p = PurePosixPath(rel)
+        if not (demo / rel).is_file():
+            continue
         data = (demo / rel).read_bytes()
 
         if p.suffix.lower() in CODE_EXTS and not _code_excluded(p):
@@ -132,7 +135,7 @@ def check_demo(demo: Path) -> list[str]:
                 and p.name not in ALLOWED_ROOT_MARKDOWN:
             v.append(
                 f"{loc(rel)}: root-markdown: {p.name} "
-                f"(only {' and '.join(sorted(ALLOWED_ROOT_MARKDOWN))} allowed)"
+                f"(only {', '.join(sorted(ALLOWED_ROOT_MARKDOWN))} allowed)"
             )
 
         if len(data) > MAX_FILE_BYTES and rel not in SIZE_EXEMPT:
