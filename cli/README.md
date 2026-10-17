@@ -13,9 +13,10 @@ pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 Needs Python 3.10 or newer. The PyPI name `agent-next-sandbox` is reserved
 for a later release; today, install from GitHub as above. If `pip` is
 missing, use `pip3` or `python3 -m pip`. If `sbx` is not on `PATH` after
-installing (pip may not warn), find the script directory with
-`python3 -c "import sysconfig; print(sysconfig.get_path('scripts'))"` and add
-it to `PATH` — or install with `python3 -m pip`, `pipx` or `uv tool install`.
+installing (pip may not warn), add pip's script directory to `PATH`: for a
+`--user` install that is `python3 -m site --user-base` plus `/bin`, otherwise
+`python3 -c "import sysconfig; print(sysconfig.get_path('scripts'))"`.
+Or install with `python3 -m pip`, `pipx` or `uv tool install`.
 
 ## Use
 
