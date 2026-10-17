@@ -181,7 +181,7 @@ def cmd_cp(args: argparse.Namespace) -> int:
         raise SbxError(f"cp: {exc}") from exc
 
     _credentials()
-    from e2b import FileType, InvalidArgumentException, NotFoundException
+    from e2b import FileType, InvalidArgumentException, NotFoundException, TimeoutException
 
     try:
         sbx = _sdk_retry(_sandbox_cls().connect, sid)
@@ -199,6 +199,10 @@ def cmd_cp(args: argparse.Namespace) -> int:
             _sdk_retry(sbx.files.write, remote, data, request_timeout=args.timeout)
     except (InvalidArgumentException, NotFoundException) as exc:
         raise SbxError(f"cp: {exc}") from exc
+    except TimeoutException as exc:
+        if _gateway_restart_wait_s(exc) is not None:
+            raise
+        raise SbxError(f"cp: the transfer did not finish within --timeout {args.timeout:g} s") from exc
 
     if source:
         try:
@@ -533,7 +537,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("cp", help="copy a file between the local machine and a sandbox")
     p.add_argument("source", help="local file path or ID:PATH")
     p.add_argument("target", help="local file path or ID:PATH")
-    p.add_argument("--timeout", type=float, default=600, help="transfer deadline in seconds (default 600)")
+    p.add_argument("--timeout", type=float, default=600, help="deadline per transfer attempt in seconds (default 600)")
     p.set_defaults(func=cmd_cp)
 
     p = sub.add_parser("list", help="list live sandboxes held by this key")
