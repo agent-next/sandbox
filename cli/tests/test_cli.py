@@ -397,7 +397,15 @@ def test_create_and_connect_retry_the_same_shape(monkeypatch):
     assert connect_calls == ["sbx-1", "sbx-1"]
 
 
-def test_closed_pipe_exits_quietly(tmp_path):
+@pytest.fixture
+def pipe_env():
+    env = os.environ.copy()
+    # pytest's sys.path overrides do not propagate to Python subprocesses.
+    env["PYTHONPATH"] = os.path.dirname(os.path.dirname(cli.__file__))
+    return env
+
+
+def test_closed_pipe_exits_quietly(tmp_path, pipe_env):
     """`sbx exec ID cmd | head -3` must exit quietly, not dump BrokenPipeError."""
     driver = tmp_path / "driver.py"
     # a realistic key, so _scrub does not mangle the word 'BrokenPipeError'
@@ -428,6 +436,7 @@ def test_closed_pipe_exits_quietly(tmp_path):
     proc = subprocess.Popen(
         [sys.executable, str(driver)],
         stdin=subprocess.PIPE, stdout=write_fd, stderr=subprocess.PIPE,
+        env=pipe_env,
     )
     os.close(write_fd)
     try:
@@ -445,7 +454,7 @@ def test_closed_pipe_exits_quietly(tmp_path):
     assert proc.returncode == 141
 
 
-def test_small_output_exits_quietly_into_a_closed_pipe(tmp_path):
+def test_small_output_exits_quietly_into_a_closed_pipe(tmp_path, pipe_env):
     """`sbx --version` is small enough to sit in the buffer until shutdown;
     a reader that is already gone must still exit quietly, not dump
     BrokenPipeError at the interpreter's final flush."""
@@ -458,7 +467,8 @@ def test_small_output_exits_quietly_into_a_closed_pipe(tmp_path):
     read_fd, write_fd = os.pipe()
     os.close(read_fd)  # no reader can survive until the child's first write
     proc = subprocess.Popen(
-        [sys.executable, str(driver)], stdout=write_fd, stderr=subprocess.PIPE
+        [sys.executable, str(driver)], stdout=write_fd, stderr=subprocess.PIPE,
+        env=pipe_env,
     )
     os.close(write_fd)
     try:
