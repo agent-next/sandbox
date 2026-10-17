@@ -336,3 +336,157 @@ def test_exec_timeout_max_accepted(api):
     api.on("POST", "/sandboxes/gl-1a-1/exec", 200, EXEC_OK)
     assert cli.main(["gpu", "exec", "gl-1a-1", "-c", "x", "--timeout", "3600"]) == 0
     assert api.calls[0][3]["timeout_s"] == 3600.0
+
+
+LIST_CPU = {
+    "sandboxID": "cpu-1", "templateID": "base", "state": "running",
+    "startedAt": "2026-10-17T10:00:00Z",
+}
+LIST_GPU = {
+    "sandboxID": "gl-1a-1", "templateID": "gpu-lease-v06", "state": "running",
+    "startedAt": "2026-10-17T11:00:00Z", "accel": {"vram_gb": 1.0, "phase": "resident"},
+}
+LIST_PAUSED = {
+    **LIST_GPU, "sandboxID": "gl-1a-2", "templateID": "mujoco", "state": "paused",
+    "accel": {"vram_gb": 0.5, "phase": "suspended"},
+}
+
+
+def _gpu_list(*flags):
+    # A missing subcommand must fail an assertion, rather than abort the test.
+    try:
+        return cli.main(["gpu", "list", *flags])
+    except SystemExit as exc:
+        return exc.code
+
+
+def test_list_gpu_rows_excludes_cpu_and_includes_paused(api, capsys):
+    api.on("GET", "/sandboxes", body=[LIST_CPU, LIST_GPU, LIST_PAUSED])
+    assert _gpu_list() == 0
+    out = capsys.readouterr()
+    assert out.err == ""
+    assert out.out.splitlines() == [
+        "gl-1a-1\tgpu-lease-v06\trunning\t1\t2026-10-17T11:00:00Z",
+        "gl-1a-2\tmujoco\tpaused\t0.5\t2026-10-17T11:00:00Z",
+    ]
+    assert api.calls[0][2]["X-API-Key"] == "k-secret"
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_list_json_preserves_raw_gpu_entries(api, capsys, wrapped):
+    items = [LIST_CPU, {**LIST_GPU, "metadata": {"lane": "mine"}}, LIST_PAUSED]
+    api.on("GET", "/sandboxes", body={"sandboxes": items} if wrapped else items)
+    assert _gpu_list("--json") == 0
+    assert json.loads(capsys.readouterr().out) == items[1:]
+
+
+@pytest.mark.parametrize("items", [[], [LIST_CPU]])
+def test_list_empty_is_success_in_both_modes(api, capsys, items):
+    api.on("GET", "/sandboxes", body=items)
+    assert _gpu_list() == 0
+    assert capsys.readouterr().out == ""
+    assert _gpu_list("--json") == 0
+    assert json.loads(capsys.readouterr().out) == []
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+def test_list_follows_encoded_cursor_before_output(api, capsys, flags):
+    api.on("GET", "/sandboxes", body=[LIST_CPU], headers={"X-Next-Token": "a+/="})
+    api.on("GET", "/sandboxes?nextToken=a%2B%2F%3D", body=[LIST_GPU, LIST_PAUSED])
+    assert _gpu_list(*flags) == 0
+    out = capsys.readouterr().out
+    if flags:
+        assert json.loads(out) == [LIST_GPU, LIST_PAUSED]
+    else:
+        assert len(out.splitlines()) == 2 and "gl-1a-2" in out
+    assert len(api.calls) == 2
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+@pytest.mark.parametrize("body", [None, {}, {"sandboxes": {}}, "bad", ["bad"]])
+def test_list_rejects_invalid_envelope_or_entry(api, capsys, flags, body):
+    api.on("GET", "/sandboxes", body=body)
+    assert _gpu_list(*flags) == 2
+    out = capsys.readouterr()
+    assert out.out == "" and "GET /sandboxes" in out.err
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+@pytest.mark.parametrize("patch", [
+    {"sandboxID": None}, {"sandboxID": "gl-1a-2\n"}, {"sandboxID": "gl-1a 2"},
+    {"sandboxID": "../unsafe"}, {"templateID": 3}, {"templateID": ""},
+    {"templateID": "bad\ttemplate"}, {"state": None}, {"state": "bad\x1bstate"},
+    {"startedAt": []}, {"startedAt": "bad\ntime"}, {"accel": None}, {"accel": []},
+    {"accel": {}}, {"accel": {"vram_gb": True}}, {"accel": {"vram_gb": "1"}},
+    {"accel": {"vram_gb": 0}}, {"accel": {"vram_gb": -1}},
+])
+def test_list_validates_later_entry_before_any_output(api, capsys, flags, patch):
+    api.on("GET", "/sandboxes", body=[LIST_GPU, {**LIST_PAUSED, **patch}])
+    assert _gpu_list(*flags) == 2
+    out = capsys.readouterr()
+    assert out.out == "" and "sbx:" in out.err
+    assert "invalid choice" not in out.err
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+@pytest.mark.parametrize("vram", ["NaN", "Infinity", "-Infinity"])
+def test_list_rejects_nonfinite_vram(api, monkeypatch, capsys, flags, vram):
+    body = json.dumps([LIST_GPU]).replace('"vram_gb": 1.0', '"vram_gb": ' + vram)
+    monkeypatch.setattr(httpx, "request", lambda *a, **k: httpx.Response(200, text=body))
+    assert _gpu_list(*flags) == 2
+    out = capsys.readouterr()
+    assert out.out == "" and "vram" in out.err.lower()
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+def test_list_validates_filtered_cpu_rows_too(api, capsys, flags):
+    api.on("GET", "/sandboxes", body=[LIST_GPU, {**LIST_CPU, "state": []}])
+    assert _gpu_list(*flags) == 2
+    out = capsys.readouterr()
+    assert out.out == "" and "GET /sandboxes" in out.err
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+def test_list_later_page_invalid_json_prints_nothing(api, monkeypatch, capsys, flags):
+    api.on("GET", "/sandboxes", body=[LIST_GPU], headers={"X-Next-Token": "page2"})
+
+    def request(method, url, **kwargs):
+        if "nextToken=" in url:
+            return httpx.Response(200, text="not json")
+        return api(method, url, **kwargs)
+
+    monkeypatch.setattr(httpx, "request", request)
+    assert _gpu_list(*flags) == 2
+    out = capsys.readouterr()
+    assert out.out == "" and "GET /sandboxes" in out.err
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+def test_list_repeated_cursor_is_handled_without_output(api, capsys, flags):
+    api.on("GET", "/sandboxes", body=[LIST_GPU], headers={"X-Next-Token": "same"})
+    api.on("GET", "/sandboxes?nextToken=same", body=[], headers={"X-Next-Token": "same"})
+    assert _gpu_list(*flags) == 2
+    out = capsys.readouterr()
+    assert out.out == "" and "cursor" in out.err
+
+
+@pytest.mark.parametrize("status,hint", [(401, "API key"), (403, "GPU access"), (503, "capacity")])
+def test_list_http_errors_are_handled(api, capsys, status, hint):
+    api.on("GET", "/sandboxes", status, {"message": "try later"})
+    assert _gpu_list() == 2
+    out = capsys.readouterr()
+    assert out.out == "" and hint in out.err and str(status) in out.err
+
+
+@pytest.mark.parametrize("exc,rc,hint", [
+    (httpx.ConnectError("offline"), 2, "unreachable"),
+    (RuntimeError("unexpected failure k-secret"), 1, "RuntimeError"),
+])
+def test_list_transport_and_unexpected_errors(api, monkeypatch, capsys, exc, rc, hint):
+    def boom(*a, **k):
+        raise exc
+
+    monkeypatch.setattr(httpx, "request", boom)
+    assert _gpu_list() == rc
+    out = capsys.readouterr()
+    assert out.out == "" and hint in out.err and "k-secret" not in out.err

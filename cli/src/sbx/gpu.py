@@ -6,6 +6,7 @@ import json
 import os
 import re
 from pathlib import Path
+from urllib.parse import urlencode
 
 import httpx
 
@@ -187,6 +188,51 @@ def cmd_kill(args) -> int:
     return 0
 
 
+def cmd_list(args) -> int:
+    leases, rows = [], []
+    path = "/sandboxes"
+    cursors = set()
+    while True:
+        resp, data = _call("GET", path)
+        items = data.get("sandboxes") if isinstance(data, dict) else data
+        if not isinstance(items, list):
+            raise SbxError("GET /sandboxes returned an invalid sandbox list")
+        for item in items:
+            if not isinstance(item, dict):
+                raise SbxError("GET /sandboxes returned an invalid sandbox entry")
+            sid = item.get("sandboxID")
+            if (not isinstance(sid, str) or not sid or not sid.isprintable()
+                    or any(c.isspace() for c in sid)):
+                raise SbxError("GET /sandboxes returned an invalid sandbox id")
+            for name in ("templateID", "state", "startedAt"):
+                value = item.get(name)
+                if not isinstance(value, str) or not value or not value.isprintable():
+                    raise SbxError(f"GET /sandboxes returned an invalid {name} column")
+            if not sid.startswith("gl-") and "accel" not in item:
+                continue
+            _lease_id(sid)
+            accel = item.get("accel")
+            vram = accel.get("vram_gb") if isinstance(accel, dict) else None
+            if type(vram) not in (int, float) or not VRAM_RANGE_GIB[0] <= vram <= VRAM_RANGE_GIB[1]:
+                raise SbxError("GET /sandboxes returned an invalid GPU vram_gb")
+            leases.append(item)
+            rows.append(f"{sid}\t{item['templateID']}\t{item['state']}\t{vram:g}\t{item['startedAt']}")
+        cursor = resp.headers.get("X-Next-Token")
+        if not cursor:
+            break
+        if cursor in cursors:
+            raise SbxError("GET /sandboxes returned a repeated pagination cursor")
+        cursors.add(cursor)
+        path = "/sandboxes?" + urlencode({"nextToken": cursor})
+    # Buffer every page so neither output mode can emit a partial inventory.
+    if args.json:
+        _emit_json(leases)
+    else:
+        for row in rows:
+            _say(row)
+    return 0
+
+
 def cmd_templates(args) -> int:
     _, data = _call("GET", "/gpu/templates")
     if args.json:
@@ -235,7 +281,7 @@ def register(sub, parser_class) -> None:
         p.set_defaults(func=func)
         return p
 
-    g = sub.add_parser("gpu", help="GPU leases: create, exec, pause, resume, kill")
+    g = sub.add_parser("gpu", help="GPU leases: create, list, exec, pause, resume, kill")
     gsub = g.add_subparsers(dest="gpu_cmd", required=True, parser_class=parser_class)
     p = verb(gsub, "create", "start a GPU lease and print its id", cmd_create, with_id=False)
     p.add_argument("--vram", type=float, default=None, help="VRAM slice in GiB, 0.5-32 (default 1)")
@@ -252,5 +298,6 @@ def register(sub, parser_class) -> None:
     verb(gsub, "pause", "release the GPU, keep state (between jobs only)", cmd_pause)
     verb(gsub, "resume", "take a seat again and restore state", cmd_resume)
     verb(gsub, "kill", "destroy the lease and confirm it is gone", cmd_kill)
+    verb(gsub, "list", "list GPU leases held by this key", cmd_list, with_id=False)
     verb(gsub, "templates", "list GPU templates on this plane", cmd_templates, with_id=False)
     verb(gsub, "info", "show phase, slice and billing meters", cmd_info)

@@ -45,6 +45,7 @@ read from the environment.
 | `sbx templates [--json]` | List CPU template aliases, one per line (template id if no alias). `--json` prints the raw API list, including GPU entries. |
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |
 | `sbx gpu create [--vram GiB] [--template NAME] [--class C]` | Start a GPU lease and print its id (`gl-...`). Needs a key with a GPU grant. |
+| `sbx gpu list [--json]` | List your GPU leases, including paused leases: id, template, state, VRAM in GiB, start time (tab-separated, one row per lease). Reads all pages and validates the inventory before printing; `--json` prints the raw GPU entries as a JSON array. |
 | `sbx gpu exec ID (--code FILE \| -c SRC) [--timeout S]` | Run Python source on the lease; prints the job's stdout, exits 1 if the job fails. `--json` prints the full reply with `report` and meters. `--timeout` (default 120, max 3600) is a hard wall: an overrun kills the lease. |
 | `sbx gpu pause ID` / `sbx gpu resume ID` | Release the GPU between jobs (state is kept) and take a seat again. A paused lease still counts toward your lease cap. |
 | `sbx gpu kill ID` | Destroy the lease and confirm it is gone. |
