@@ -1,3 +1,4 @@
+import enum
 import sys
 import types
 from unittest.mock import Mock
@@ -5,6 +6,12 @@ from unittest.mock import Mock
 import pytest
 
 from sbx import cli
+
+
+class FileType(enum.Enum):
+    """Mirrors e2b.FileType: a plain Enum, so FileType.DIR != "dir"."""
+    FILE = "file"
+    DIR = "dir"
 
 
 class NotFound(Exception):
@@ -18,9 +25,9 @@ class InvalidArgument(Exception):
 @pytest.fixture
 def sdk(monkeypatch):
     sandbox = Mock()
-    sandbox.connect.return_value.files.get_info.return_value.type = "file"
+    sandbox.connect.return_value.files.get_info.return_value.type = FileType.FILE
     monkeypatch.setitem(sys.modules, "e2b", types.SimpleNamespace(
-        Sandbox=sandbox, NotFoundException=NotFound, InvalidArgumentException=InvalidArgument,
+        Sandbox=sandbox, NotFoundException=NotFound, InvalidArgumentException=InvalidArgument, FileType=FileType,
     ))
     monkeypatch.setenv("E2B_API_KEY", "e2b_test_copy_secret")
     monkeypatch.delenv("SBX_API_KEY", raising=False)
@@ -98,7 +105,7 @@ def test_remote_directories_are_rejected_without_copying(sdk, tmp_path, capsys, 
     local = tmp_path / "local.bin"
     local.write_bytes(b"keep this content")
     files = sdk.connect.return_value.files
-    files.get_info.return_value.type = "dir"
+    files.get_info.return_value.type = FileType.DIR
     endpoints = [str(local), "sbx-1:/tmp"]
 
     assert cli.main(["cp", *(endpoints if upload else endpoints[::-1])]) == 2
