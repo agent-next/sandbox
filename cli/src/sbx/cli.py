@@ -525,32 +525,45 @@ def _version() -> str:
         return "0+unknown"
 
 
+def _dead_pipe_exit() -> int:
+    """Drop pending output so shutdown flushes nowhere, and exit the way
+    SIGPIPE would have ended the process."""
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    try:
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                os.dup2(devnull, stream.fileno())
+            except (AttributeError, OSError):
+                pass
+    finally:
+        os.close(devnull)
+    return 141
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
-        args = build_parser().parse_args(argv)
         try:
-            return args.func(args)
-        except SbxError as exc:
-            _say(f"sbx: {exc}", err=True)
-            return 2
-        except BrokenPipeError:
-            raise  # a stream without a real fd; handled by the outer catch
-        except Exception as exc:  # SDK errors carry the gateway's message
-            _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
-            return 1
-    except BrokenPipeError:
-        # drop the rest of the output so shutdown flushes nowhere, and exit
-        # the way SIGPIPE would have ended the process
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        try:
-            for stream in (sys.stdout, sys.stderr):
-                try:
-                    os.dup2(devnull, stream.fileno())
-                except (AttributeError, OSError):
-                    pass
+            args = build_parser().parse_args(argv)
+            try:
+                rc = args.func(args)
+            except SbxError as exc:
+                _say(f"sbx: {exc}", err=True)
+                rc = 2
+            except BrokenPipeError:
+                raise  # a stream without a real fd; handled by the outer catch
+            except Exception as exc:  # SDK errors carry the gateway's message
+                _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
+                rc = 1
+            return rc
         finally:
-            os.close(devnull)
-        return 141
+            # short writes stay buffered until interpreter shutdown, past the
+            # catch below; flush here so a closed pipe exits the same way a
+            # mid-stream one does (this also covers --version/--help, which
+            # leave through SystemExit)
+            sys.stdout.flush()
+            sys.stderr.flush()
+    except BrokenPipeError:
+        return _dead_pipe_exit()
 
 
 if __name__ == "__main__":
