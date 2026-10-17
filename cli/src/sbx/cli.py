@@ -199,8 +199,10 @@ def cmd_cp(args: argparse.Namespace) -> int:
             _sdk_retry(sbx.files.write, remote, data, request_timeout=args.timeout)
     except (InvalidArgumentException, NotFoundException) as exc:
         raise SbxError(f"cp: {exc}") from exc
-    except TimeoutException as exc:
-        if _gateway_restart_wait_s(exc) is not None:
+    except (TimeoutException, httpx.TimeoutException) as exc:
+        # only a request deadline is ours; the SDK also raises TimeoutException
+        # for an expired sandbox and for a gateway restart it could not wait out
+        if isinstance(exc, TimeoutException) and not str(exc).startswith("Request timed out"):
             raise
         raise SbxError(f"cp: the transfer did not finish within --timeout {args.timeout:g} s") from exc
 
