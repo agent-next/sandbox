@@ -285,7 +285,9 @@ def test_list_rejects_non_json_without_echoing_body(monkeypatch, capsys):
     assert output.err == "sbx: GET /sandboxes returned invalid JSON\n"
 
 
-RESTART_503 = '503 {"error":"gateway is restarting","code":"restarting","retry_after_s":5}'
+# The real e2b SDK raises ``f"{status}: {body_bytes}"`` — a bytes repr with a
+# trailing quote — for error bodies without a "message" field.
+RESTART_503 = """503: b'{"code":"restarting","retry_after_s":5}'"""
 
 
 class Restarting(Exception):
@@ -293,22 +295,34 @@ class Restarting(Exception):
 
 
 def test_kill_retries_while_the_gateway_restarts(monkeypatch, capsys):
-    # a realistic key length, so _scrub's redaction does not collide with
-    # ordinary words in the output (the autouse fixture uses "k")
-    monkeypatch.setenv("E2B_API_KEY", "k-very-secret-value")
+    """Drive kill through the real e2b SDK over a mocked transport, so the 503
+    text is whatever the SDK really raises rather than a fixture guess."""
+    monkeypatch.delitem(sys.modules, "e2b")
+    from e2b.api import ApiClient  # the real SDK; the fixture fakes "e2b"
+
+    # ConnectionConfig validates the key format, so it must look real; _scrub
+    # also redacts it from any output below.
+    monkeypatch.setenv("E2B_API_KEY", "e2b_" + "a" * 40)
     calls = []
 
-    def flaky(cls, sid):
-        calls.append(sid)
+    def gateway(request):
+        calls.append(f"{request.method} {request.url.path}")
         if len(calls) < 3:
-            raise Restarting(RESTART_503)
-        return True
+            return cli.httpx.Response(
+                503, content=b'{"code":"restarting","retry_after_s":5}'
+            )
+        return cli.httpx.Response(200)
 
+    monkeypatch.setattr(
+        "e2b.sandbox_sync.sandbox_api.get_api_client",
+        lambda config, **kw: ApiClient(
+            config, transport=cli.httpx.MockTransport(gateway), **kw
+        ),
+    )
     sleeps = []
-    monkeypatch.setattr(FakeSandbox, "kill", classmethod(flaky))
     monkeypatch.setattr(time, "sleep", sleeps.append)
     assert cli.main(["kill", "sbx-1"]) == 0
-    assert calls == ["sbx-1"] * 3
+    assert calls == ["DELETE /sandboxes/sbx-1"] * 3
     assert sleeps == [5, 5]
     output = capsys.readouterr()
     assert output.out == "killed sbx-1\n"
@@ -320,7 +334,7 @@ def test_kill_caps_the_retry_wait(monkeypatch):
     def flaky(cls, sid):
         calls.append(sid)
         if len(calls) < 2:
-            raise Restarting('503 {"error":"gateway is restarting","code":"restarting","retry_after_s":999}')
+            raise Restarting("""503: b'{"code":"restarting","retry_after_s":999}'""")
         return True
 
     sleeps = []
