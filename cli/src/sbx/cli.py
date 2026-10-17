@@ -67,10 +67,13 @@ def _gateway_restart_wait_s(exc: BaseException) -> float | None:
     """Seconds the gateway asked for in a 503 'restarting' reply, else None."""
     text = str(exc)
     brace = text.find("{")
-    if brace < 0 or "503" not in text[:brace]:
+    end = text.rfind("}")
+    if brace < 0 or end < brace or "503" not in text[:brace]:
         return None
     try:
-        body = json.loads(text[brace:])
+        # the SDK appends the raw body as a bytes repr ("503: b'...'"), so the
+        # JSON object ends at the last brace, not at the end of the string
+        body = json.loads(text[brace:end + 1])
     except ValueError:
         return None
     if not isinstance(body, dict) or body.get("code") != "restarting":
