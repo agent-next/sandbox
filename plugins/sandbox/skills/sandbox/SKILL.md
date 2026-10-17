@@ -68,8 +68,8 @@ cloud, not on the user's machine.
   (`small` 2 vCPU / 8 GiB, `standard` 4 / 16, `large` 8 / 32 where
   enabled), not an argument of `sandbox_create`.
 - **GPU leases are available through MCP.** Call `sandbox_templates` for
-  the live catalog, then `sandbox_create` with a GPU template (`gpu`,
-  `gpu-lease-v06`, `mujoco` or `kernel`) and `vram_gb` (default 4, range
+  the live catalog, then `sandbox_create` with a GPU template from it
+  (for example `gpu-lease-v06` or `mujoco`) and `vram_gb` (default 4, range
   0.5–32). GPU sandboxes support `sandbox_exec` and `sandbox_kill`, consume
   separate GPU credit, and have a hard VRAM cap. They cannot expose preview
   URLs or use the files tools. Through the `sbx gpu` CLI (below) a lease
