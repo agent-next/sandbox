@@ -1,4 +1,7 @@
 import json
+import os
+import signal
+import subprocess
 import sys
 import time
 import types
@@ -378,3 +381,43 @@ def test_create_and_connect_retry_the_same_shape(monkeypatch):
     assert create_calls == [None, None]
     assert cli.main(["exec", "sbx-1", "true"]) == 0
     assert connect_calls == ["sbx-1", "sbx-1"]
+
+
+def test_closed_pipe_exits_quietly(tmp_path):
+    """`sbx exec ID cmd | head -3` must exit quietly, not dump BrokenPipeError."""
+    driver = tmp_path / "driver.py"
+    # a realistic key, so _scrub does not mangle the word 'BrokenPipeError'
+    driver.write_text(
+        "import sys, types\n"
+        "mod = types.ModuleType('e2b')\n"
+        "mod.CommandExitException = type('CommandExitException', (Exception,), {})\n"
+        "mod.SandboxNotFoundException = type('SandboxNotFoundException', (Exception,), {})\n"
+        "mod.TimeoutException = type('TimeoutException', (Exception,), {})\n"
+        "class Sandbox:\n"
+        "    @classmethod\n"
+        "    def connect(cls, sid):\n"
+        "        box = cls()\n"
+        "        box.commands = box\n"
+        "        return box\n"
+        "    def run(self, line, timeout=None):\n"
+        "        return types.SimpleNamespace(stdout='y\\n' * 200000, stderr='', exit_code=0)\n"
+        "mod.Sandbox = Sandbox\n"
+        "sys.modules['e2b'] = mod\n"
+        "import os\n"
+        "os.environ['E2B_API_KEY'] = 'k-very-secret-value'\n"
+        "from sbx.cli import main\n"
+        "sys.exit(main(['exec', 'sbx-1', 'true']))\n"
+    )
+    read_fd, write_fd = os.pipe()
+    proc = subprocess.Popen(
+        [sys.executable, str(driver)], stdout=write_fd, stderr=subprocess.PIPE
+    )
+    os.close(write_fd)
+    with os.fdopen(read_fd, "rb") as reader:
+        for _ in range(3):
+            reader.readline()
+    _, err = proc.communicate(timeout=30)
+    assert b"Traceback" not in err
+    assert b"BrokenPipeError" not in err
+    assert b"Exception ignored" not in err
+    assert proc.returncode in (-signal.SIGPIPE, 1, 141)
