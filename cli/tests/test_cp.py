@@ -3,6 +3,7 @@ import sys
 import types
 from unittest.mock import Mock
 
+import httpx
 import pytest
 
 from sbx import cli
@@ -237,17 +238,32 @@ def test_file_calls_retry_while_the_gateway_restarts(sdk, tmp_path, monkeypatch)
     assert sleeps == [5, 5]
 
 
+@pytest.mark.parametrize("error", [
+    Timeout("Request timed out \u2014 the 'request_timeout' option can be used to increase this timeout"),
+    httpx.ReadTimeout("timed out"),
+], ids=["sdk-request-timeout", "httpx-read-timeout"])
 @pytest.mark.parametrize("upload", [True, False])
-def test_transfer_timeout_names_the_flag(sdk, tmp_path, capsys, upload):
+def test_transfer_timeout_names_the_flag(sdk, tmp_path, capsys, upload, error):
     local = tmp_path / "file.bin"
     local.write_bytes(b"data")
     files = sdk.connect.return_value.files
     files.get_info.side_effect = NotFound("no such file") if upload else None
-    (files.write if upload else files.read).side_effect = Timeout("Request timed out")
+    (files.write if upload else files.read).side_effect = error
     endpoints = [str(local), "sbx-1:/tmp/file.bin"]
 
     assert cli.main(["cp", "--timeout", "45", *(endpoints if upload else endpoints[::-1])]) == 2
     assert "--timeout 45" in capsys.readouterr().err
+
+
+def test_sandbox_expiry_is_not_reported_as_the_transfer_deadline(sdk, tmp_path, capsys):
+    local = tmp_path / "file.bin"
+    local.write_bytes(b"data")
+    files = sdk.connect.return_value.files
+    files.get_info.side_effect = NotFound("no such file")
+    files.write.side_effect = Timeout("sandbox gone: This error is likely due to sandbox timeout.")
+
+    assert cli.main(["cp", "--timeout", "45", str(local), "sbx-1:/tmp/file.bin"]) != 0
+    assert "--timeout 45" not in capsys.readouterr().err
 
 
 def test_local_write_error_is_handled(sdk, tmp_path, capsys):
