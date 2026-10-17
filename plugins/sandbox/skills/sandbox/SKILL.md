@@ -73,16 +73,18 @@ cloud, not on the user's machine.
   0.5–32). GPU sandboxes support `sandbox_exec` and `sandbox_kill`, consume
   separate GPU credit, and have a hard VRAM cap. They cannot expose preview
   URLs or use the files tools. Through the `sbx gpu` CLI (below) a lease
-  can also pause and resume between jobs (`suspend_mode:"none"` templates
-  such as the JAX `mujoco` one refuse pause). `timeout_min` is validated but is
-  not applied (`timeout_min_applied: false`): kill them explicitly when
-  done. Their maximum lease age appears as `end_at` in `sandboxes_list`.
+  can also pause and resume between jobs. Suspend behavior depends on the
+  template and live plane; `mujoco` can freeze despite `suspend_mode:"none"`.
+  Do not infer capacity release or stopped billing from that field alone.
+  `timeout_min` is validated but not applied (`timeout_min_applied: false`):
+  kill them explicitly when done. Their maximum lease age appears as
+  `end_at` in `sandboxes_list`.
 - **GPU recipe with the `sbx` CLI** (key needs a GPU grant):
   ```bash
   id=$(sbx gpu create --vram 4)            # prints gl-... ; add --template NAME (sbx gpu templates)
   sbx gpu exec "$id" -c 'import torch; print(torch.cuda.get_device_name(0))'
   sbx gpu exec "$id" --code job.py --json   # report dict + meters; exit 1 if the job raised
-  sbx gpu pause "$id"; sbx gpu resume "$id" # free the GPU between jobs
+  sbx gpu pause "$id"; sbx gpu resume "$id" # pause/resume between jobs
   sbx gpu kill "$id"                        # always; `sbx gpu info "$id"` shows billed_s
   ```
 - **Preview URLs are public by default.** Anyone with
@@ -96,6 +98,8 @@ cloud, not on the user's machine.
 - Keep secrets out of file contents and command lines where possible; if
   a job needs credentials, pass them as environment variables and do not
   echo them back.
-- Command output and tool results are truncated (256 KiB per stream, and
-  100000 bytes per poll); page through files with `sandbox_files_read`
-  instead of catting large outputs.
+- CPU `sandbox_exec` stdout/stderr are capped at 256 KiB per stream, plus
+  truncation markers; truncated results include `stdout_file` / `stderr_file`
+  paths. `sandbox_exec_output` returns at most 100000 bytes per stream per poll.
+  Read full text files with `sandbox_files_read` (no offset/limit arguments),
+  or page them with shell commands.
