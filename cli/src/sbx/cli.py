@@ -162,6 +162,7 @@ def _cp_remote(value: str) -> tuple[str, str] | None:
 
 
 def cmd_cp(args: argparse.Namespace) -> int:
+    _positive_seconds(args.timeout, "--timeout")
     source, target = _cp_remote(args.source), _cp_remote(args.target)
     if bool(source) == bool(target):
         raise SbxError("cp: exactly one side must be ID:PATH")
@@ -191,9 +192,9 @@ def cmd_cp(args: argparse.Namespace) -> int:
             if info.type == FileType.DIR:
                 raise SbxError("cp: directories are not supported; give a file path on each side")
         if source:
-            data = _sdk_retry(sbx.files.read, remote, format="bytes")
+            data = _sdk_retry(sbx.files.read, remote, format="bytes", request_timeout=args.timeout)
         else:
-            _sdk_retry(sbx.files.write, remote, data)
+            _sdk_retry(sbx.files.write, remote, data, request_timeout=args.timeout)
     except (InvalidArgumentException, NotFoundException) as exc:
         raise SbxError(f"cp: {exc}") from exc
 
@@ -530,6 +531,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("cp", help="copy a file between the local machine and a sandbox")
     p.add_argument("source", help="local file path or ID:PATH")
     p.add_argument("target", help="local file path or ID:PATH")
+    p.add_argument("--timeout", type=float, default=600, help="transfer deadline in seconds (default 600)")
     p.set_defaults(func=cmd_cp)
 
     p = sub.add_parser("list", help="list live sandboxes held by this key")
