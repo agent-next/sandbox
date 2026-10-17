@@ -7,7 +7,6 @@ import json
 import math
 import os
 import shlex
-import signal
 import sys
 import time
 
@@ -524,10 +523,6 @@ def _version() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    if hasattr(signal, "SIGPIPE"):
-        # die quietly, like a native tool, when a reader closes a pipe (`| head`);
-        # this also covers output flushed only at interpreter exit
-        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     try:
         args = build_parser().parse_args(argv)
         try:
