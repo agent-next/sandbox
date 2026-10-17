@@ -191,6 +191,42 @@ def cmd_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_templates(args: argparse.Namespace) -> int:
+    key, domain = _credentials()
+    base = os.environ.get("E2B_API_URL") or f"https://api.{domain}"
+    resp = httpx.get(
+        f"{base.rstrip('/')}/templates", headers={"X-API-Key": key}, timeout=30,
+    )
+    if resp.status_code == 401:
+        raise SbxError("the gateway rejected the API key (401)")
+    if resp.status_code != 200:
+        raise SbxError(f"GET /templates failed with HTTP {resp.status_code}")
+    try:
+        items = resp.json()
+    except ValueError as exc:
+        raise SbxError("GET /templates returned invalid JSON") from exc
+    if not isinstance(items, list):
+        raise SbxError("GET /templates returned an invalid template list")
+    rows = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise SbxError("GET /templates returned an invalid template entry")
+        aliases = item.get("aliases", [])
+        if not isinstance(aliases, list):
+            raise SbxError("GET /templates returned invalid template aliases")
+        for alias in aliases or [item.get("templateID")]:
+            if not isinstance(alias, str) or not alias or not alias.isprintable() or any(c.isspace() for c in alias):
+                raise SbxError("GET /templates returned an invalid template alias or id")
+            if item.get("accel") is None:
+                rows.append(alias)
+    if args.json:
+        _say(json.dumps(items))
+        return 0
+    for row in rows:
+        _say(row)
+    return 0
+
+
 def cmd_kill(args: argparse.Namespace) -> int:
     _credentials()
     killed = _sdk_retry(_sandbox_cls().kill, args.sandbox_id)
@@ -439,6 +475,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("list", help="list live sandboxes held by this key")
     p.set_defaults(func=cmd_list)
+
+    p = sub.add_parser("templates", help="list CPU template aliases")
+    p.add_argument("--json", action="store_true", help="print the raw template list (including GPU entries)")
+    p.set_defaults(func=cmd_templates)
 
     p = sub.add_parser("kill", help="kill a sandbox")
     p.add_argument("sandbox_id")

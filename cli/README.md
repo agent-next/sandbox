@@ -42,6 +42,7 @@ read from the environment.
 | `sbx create [--template T] [--timeout-min N]` | Start a sandbox and print its id. `--timeout-min` is the idle keep-alive in minutes (default 5); expiry deletes this CLI-created sandbox. |
 | `sbx exec ID [--timeout S] -- COMMAND...` | Run a command. One argument is a shell line; several are quoted and joined. Put `--` before the command so its own options (`ls -l`) are not read as `sbx` options. Exits with the command's exit code. |
 | `sbx list` | List the live sandboxes held by your key (id, template, start time). |
+| `sbx templates [--json]` | List CPU template aliases, one per line (template id if no alias). `--json` prints the raw API list, including GPU entries. |
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |
 | `sbx gpu create [--vram GiB] [--template NAME] [--class C]` | Start a GPU lease and print its id (`gl-...`). Needs a key with a GPU grant. |
 | `sbx gpu exec ID (--code FILE \| -c SRC) [--timeout S]` | Run Python source on the lease; prints the job's stdout, exits 1 if the job fails. `--json` prints the full reply with `report` and meters. `--timeout` (default 120, max 3600) is a hard wall: an overrun kills the lease. |
