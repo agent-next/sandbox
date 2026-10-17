@@ -82,3 +82,13 @@ This repo is public. No hostnames other than public `*.agent-next.com` endpoints
 ## Size
 
 Keep commits small. No tool tarballs, build trees, meshes over 1 MB, or result dumps in git; `.gitignore` them. Commit the small result numbers in RECEIPT.md instead.
+
+## Size and slop limits
+
+`cookbook/tools/slop_gate.py` mechanically enforces these per-demo limits on tracked files; CI runs it on every cookbook PR against the changed demo dirs:
+
+- at most 1500 lines of hand-written code (py/ts/js/sh/glsl family; `examples/` and `media/clips/` excluded);
+- at most 2 Markdown files at the demo root: `README.md` and `SPEC.md`;
+- no tracked file over 50 KB except `media/demo.mp4` and `media/result.png`;
+- no generated outputs over 5 KB: `*.csv`, `*.jsonl`, `*.npz`, `verdicts/*.json`, `judge_runs/**`;
+- no two tracked files with identical sha256.
