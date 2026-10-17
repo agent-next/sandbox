@@ -178,7 +178,7 @@ def cmd_cp(args: argparse.Namespace) -> int:
         raise SbxError(f"cp: {exc}") from exc
 
     _credentials()
-    from e2b import InvalidArgumentException, NotFoundException
+    from e2b import FileType, InvalidArgumentException, NotFoundException
 
     try:
         sbx = _sdk_retry(_sandbox_cls().connect, sid)
@@ -188,7 +188,7 @@ def cmd_cp(args: argparse.Namespace) -> int:
             if source:
                 raise
         else:
-            if info.type == "dir":
+            if info.type == FileType.DIR:
                 raise SbxError("cp: directories are not supported; give a file path on each side")
         if source:
             data = _sdk_retry(sbx.files.read, remote, format="bytes")
