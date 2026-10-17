@@ -1,5 +1,9 @@
 import json
+import os
+import signal
+import subprocess
 import sys
+import time
 import types
 
 import pytest
@@ -279,3 +283,189 @@ def test_list_rejects_non_json_without_echoing_body(monkeypatch, capsys):
     output = capsys.readouterr()
     assert output.out == ""
     assert output.err == "sbx: GET /sandboxes returned invalid JSON\n"
+
+
+# The real e2b SDK raises ``f"{status}: {body_bytes}"`` — a bytes repr with a
+# trailing quote — for error bodies without a "message" field.
+RESTART_503 = """503: b'{"code":"restarting","retry_after_s":5}'"""
+
+
+class Restarting(Exception):
+    pass
+
+
+def test_kill_retries_while_the_gateway_restarts(monkeypatch, capsys):
+    """Drive kill through the real e2b SDK over a mocked transport, so the 503
+    text is whatever the SDK really raises rather than a fixture guess."""
+    monkeypatch.delitem(sys.modules, "e2b")
+    from e2b.api import ApiClient  # the real SDK; the fixture fakes "e2b"
+
+    # ConnectionConfig validates the key format, so it must look real; _scrub
+    # also redacts it from any output below.
+    monkeypatch.setenv("E2B_API_KEY", "e2b_" + "a" * 40)
+    calls = []
+
+    def gateway(request):
+        calls.append(f"{request.method} {request.url.path}")
+        if len(calls) < 3:
+            return cli.httpx.Response(
+                503, content=b'{"code":"restarting","retry_after_s":5}'
+            )
+        return cli.httpx.Response(200)
+
+    monkeypatch.setattr(
+        "e2b.sandbox_sync.sandbox_api.get_api_client",
+        lambda config, **kw: ApiClient(
+            config, transport=cli.httpx.MockTransport(gateway), **kw
+        ),
+    )
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["kill", "sbx-1"]) == 0
+    assert calls == ["DELETE /sandboxes/sbx-1"] * 3
+    assert sleeps == [5, 5]
+    output = capsys.readouterr()
+    assert output.out == "killed sbx-1\n"
+
+
+def test_kill_caps_the_retry_wait(monkeypatch):
+    calls = []
+
+    def flaky(cls, sid):
+        calls.append(sid)
+        if len(calls) < 2:
+            raise Restarting("""503: b'{"code":"restarting","retry_after_s":999}'""")
+        return True
+
+    sleeps = []
+    monkeypatch.setattr(FakeSandbox, "kill", classmethod(flaky))
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["kill", "sbx-1"]) == 0
+    assert sleeps == [30]
+
+
+def test_kill_gives_up_after_bounded_retries(monkeypatch, capsys):
+    calls = []
+
+    def down(cls, sid):
+        calls.append(sid)
+        raise Restarting(RESTART_503)
+
+    monkeypatch.setattr(FakeSandbox, "kill", classmethod(down))
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    assert cli.main(["kill", "sbx-1"]) == 1
+    assert calls == ["sbx-1"] * 3
+    assert "503" in capsys.readouterr().err
+
+
+def test_kill_does_not_retry_other_failures(monkeypatch):
+    calls = []
+
+    def down(cls, sid):
+        calls.append(sid)
+        raise Restarting('500 {"error":"boom"}')
+
+    monkeypatch.setattr(FakeSandbox, "kill", classmethod(down))
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    assert cli.main(["kill", "sbx-1"]) == 1
+    assert calls == ["sbx-1"]
+
+
+def test_create_and_connect_retry_the_same_shape(monkeypatch):
+    create_calls = []
+
+    def flaky_create(cls, template=None, timeout=None):
+        create_calls.append(template)
+        if len(create_calls) == 1:
+            raise Restarting(RESTART_503)
+        return cls()
+
+    connect_calls = []
+
+    def flaky_connect(cls, sid):
+        connect_calls.append(sid)
+        if len(connect_calls) == 1:
+            raise Restarting(RESTART_503)
+        return cls(sid)
+
+    monkeypatch.setattr(FakeSandbox, "create", classmethod(flaky_create))
+    monkeypatch.setattr(FakeSandbox, "connect", classmethod(flaky_connect))
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    assert cli.main(["create"]) == 0
+    assert create_calls == [None, None]
+    assert cli.main(["exec", "sbx-1", "true"]) == 0
+    assert connect_calls == ["sbx-1", "sbx-1"]
+
+
+def test_closed_pipe_exits_quietly(tmp_path):
+    """`sbx exec ID cmd | head -3` must exit quietly, not dump BrokenPipeError."""
+    driver = tmp_path / "driver.py"
+    # a realistic key, so _scrub does not mangle the word 'BrokenPipeError'
+    driver.write_text(
+        "import sys, types\n"
+        "mod = types.ModuleType('e2b')\n"
+        "mod.CommandExitException = type('CommandExitException', (Exception,), {})\n"
+        "mod.SandboxNotFoundException = type('SandboxNotFoundException', (Exception,), {})\n"
+        "mod.TimeoutException = type('TimeoutException', (Exception,), {})\n"
+        "class Sandbox:\n"
+        "    @classmethod\n"
+        "    def connect(cls, sid):\n"
+        "        box = cls()\n"
+        "        box.commands = box\n"
+        "        return box\n"
+        "    def run(self, line, timeout=None):\n"
+        "        return types.SimpleNamespace(stdout='y\\n' * 200000, stderr='', exit_code=0)\n"
+        "mod.Sandbox = Sandbox\n"
+        "sys.modules['e2b'] = mod\n"
+        "import os\n"
+        "os.environ['E2B_API_KEY'] = 'k-very-secret-value'\n"
+        "from sbx.cli import main\n"
+        "sys.exit(main(['exec', 'sbx-1', 'true']))\n"
+    )
+    read_fd, write_fd = os.pipe()
+    proc = subprocess.Popen(
+        [sys.executable, str(driver)], stdout=write_fd, stderr=subprocess.PIPE
+    )
+    os.close(write_fd)
+    with os.fdopen(read_fd, "rb") as reader:
+        for _ in range(3):
+            reader.readline()
+    _, err = proc.communicate(timeout=30)
+    assert b"Traceback" not in err
+    assert b"BrokenPipeError" not in err
+    assert b"Exception ignored" not in err
+    assert proc.returncode in (-signal.SIGPIPE, 1, 141)
+
+
+def test_small_output_exits_quietly_into_a_closed_pipe(tmp_path):
+    """`sbx --version` is small enough to sit in the buffer until shutdown;
+    a reader that is already gone must still exit quietly, not dump
+    BrokenPipeError at the interpreter's final flush."""
+    driver = tmp_path / "driver.py"
+    driver.write_text(
+        "import sys\n"
+        "from sbx.cli import main\n"
+        "sys.exit(main(['--version']))\n"
+    )
+    read_fd, write_fd = os.pipe()
+    proc = subprocess.Popen(
+        [sys.executable, str(driver)], stdout=write_fd, stderr=subprocess.PIPE
+    )
+    os.close(write_fd)
+    os.close(read_fd)  # the reader is gone before the child ever writes
+    _, err = proc.communicate(timeout=30)
+    assert b"Traceback" not in err
+    assert b"BrokenPipeError" not in err
+    assert b"Exception ignored" not in err
+    assert proc.returncode == 141
+
+
+def test_main_keeps_sigpipe_handler():
+    """SIG_DFL would kill the process on a closed pipe before `finally` cleanup
+    runs (runners.build_image kills its bake sandbox there)."""
+    if not hasattr(signal, "SIGPIPE"):
+        pytest.skip("no SIGPIPE on this platform")
+    before = signal.getsignal(signal.SIGPIPE)
+    with pytest.raises(SystemExit):
+        cli.main(["list", "--help"])
+    assert signal.getsignal(signal.SIGPIPE) == before

@@ -11,8 +11,12 @@ pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 ```
 
 Needs Python 3.10 or newer. The PyPI name `agent-next-sandbox` is reserved
-for a later release; today, install from GitHub as above. If pip warns that
-`sbx` was installed outside `PATH`, add `~/.local/bin` to your `PATH`.
+for a later release; today, install from GitHub as above. If `pip` is
+missing, use `pip3` or `python3 -m pip`. If `sbx` is not on `PATH` after
+installing (pip may not warn), add pip's script directory to `PATH`: for a
+`--user` install that is `python3 -m site --user-base` plus `/bin`, otherwise
+`python3 -c "import sysconfig; print(sysconfig.get_path('scripts'))"`.
+Or install with `python3 -m pip`, `pipx` or `uv tool install`.
 
 ## Use
 
@@ -47,9 +51,29 @@ read from the environment.
 | `sbx runners image` | Bake a GitHub Actions runner snapshot (runner + Docker) and print its id. |
 | `sbx runners serve ...` | Serve GitHub Actions jobs from a warm pool of disposable sandboxes (see below). |
 | `sbx runners debug JOB [--exec CMD]` | Restore a failed job's snapshot and print access commands. `--list` lists retained jobs; `--delete JOB` deletes a snapshot. |
+| `sbx runners migrate --repo OWNER/REPO` | Propose moving the repo's ubuntu-* jobs onto sbx runners — a diff, or a pull request with `--apply`. |
+| `sbx runners stats --repo OWNER/REPO` | Job/step timing, runtime cost and hosted comparison (Actions read access). |
 
 Environment: `E2B_API_KEY` (or `SBX_API_KEY`) is required. `E2B_DOMAIN`
 defaults to `sbx.agent-next.com`.
+
+Exit codes: `0` on success (killing a sandbox that is already gone counts),
+`2` for bad input — a usage error, a missing API key, or a handled error
+such as a GPU lease that is not found — and `1` for an unexpected service
+or SDK error. `sbx exec` instead exits with the command's exit code (`1`
+when the sandbox is gone or `--timeout` expires).
+
+## Preview URLs
+
+Any port in a sandbox is reachable at
+`https://<port>-<sandbox-id>.sbx.agent-next.com` — public, with no sign-in,
+so do not serve secrets on it:
+
+```bash
+sbx exec "$id" 'nohup python3 -m http.server 8000 >/tmp/http.log 2>&1 &'
+sleep 2
+curl "https://8000-$id.sbx.agent-next.com/"
+```
 
 The CLI uses the SDK's kill-on-timeout mode (`autoPause=false`). Activity
 restarts the idle clock; this is not a fixed wall-clock deadline. When the

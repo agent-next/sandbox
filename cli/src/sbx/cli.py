@@ -8,12 +8,15 @@ import math
 import os
 import shlex
 import sys
+import time
 
 import httpx
 
 DEFAULT_DOMAIN = "sbx.agent-next.com"
 DEFAULT_TIMEOUT_MIN = 5
 MAX_TIMEOUT_MIN = 1440
+_RESTART_ATTEMPTS = 3
+_RESTART_MAX_WAIT_S = 30
 
 
 class SbxError(Exception):
@@ -60,11 +63,46 @@ def _sandbox_cls():
     return Sandbox
 
 
+def _gateway_restart_wait_s(exc: BaseException) -> float | None:
+    """Seconds the gateway asked for in a 503 'restarting' reply, else None."""
+    text = str(exc)
+    brace = text.find("{")
+    end = text.rfind("}")
+    if brace < 0 or end < brace or "503" not in text[:brace]:
+        return None
+    try:
+        # the SDK appends the raw body as a bytes repr ("503: b'...'"), so the
+        # JSON object ends at the last brace, not at the end of the string
+        body = json.loads(text[brace:end + 1])
+    except ValueError:
+        return None
+    if not isinstance(body, dict) or body.get("code") != "restarting":
+        return None
+    try:
+        wait = float(body.get("retry_after_s"))
+    except (TypeError, ValueError):
+        wait = 0.0
+    return min(max(wait, 1.0), _RESTART_MAX_WAIT_S)
+
+
+def _sdk_retry(fn, *args, **kwargs):
+    """Call an e2b SDK function, retrying the gateway's 503 'restarting' reply."""
+    for attempt in range(_RESTART_ATTEMPTS):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            wait = _gateway_restart_wait_s(exc)
+            if wait is None or attempt == _RESTART_ATTEMPTS - 1:
+                raise
+            _say(f"sbx: gateway is restarting; retrying in {wait:g}s", err=True)
+            time.sleep(wait)
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     _positive_seconds(args.timeout_min, "--timeout-min", MAX_TIMEOUT_MIN)
     _credentials()
-    sbx = _sandbox_cls().create(
-        args.template, timeout=max(1, round(args.timeout_min * 60))
+    sbx = _sdk_retry(
+        _sandbox_cls().create, args.template, timeout=max(1, round(args.timeout_min * 60))
     )
     _say(sbx.sandbox_id)
     return 0
@@ -82,7 +120,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
         raise SbxError("exec: no command given")
     line = command[0] if len(command) == 1 else shlex.join(command)
     try:
-        sbx = _sandbox_cls().connect(args.sandbox_id)
+        sbx = _sdk_retry(_sandbox_cls().connect, args.sandbox_id)
         try:
             result = sbx.commands.run(line, timeout=args.timeout)
         except CommandExitException as exc:
@@ -155,7 +193,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 def cmd_kill(args: argparse.Namespace) -> int:
     _credentials()
-    killed = _sandbox_cls().kill(args.sandbox_id)
+    killed = _sdk_retry(_sandbox_cls().kill, args.sandbox_id)
     if killed:
         _say(f"killed {args.sandbox_id}")
     else:
@@ -342,7 +380,8 @@ def cmd_runners_debug(args: argparse.Namespace) -> int:
         _say(f"deleted snapshot {record['snapshot_id']} for job {record['job_id']}")
         return 0
     record = store.find(args.job)
-    sbx = _sandbox_cls().create(
+    sbx = _sdk_retry(
+        _sandbox_cls().create,
         record["snapshot_id"], timeout=max(1, round(args.timeout_min * 60)),
         metadata={"sbx-debug-job": str(record["job_id"])}, lifecycle={"on_timeout": "kill"},
     )
@@ -486,16 +525,45 @@ def _version() -> str:
         return "0+unknown"
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+def _dead_pipe_exit() -> int:
+    """Drop pending output so shutdown flushes nowhere, and exit the way
+    SIGPIPE would have ended the process."""
+    devnull = os.open(os.devnull, os.O_WRONLY)
     try:
-        return args.func(args)
-    except SbxError as exc:
-        _say(f"sbx: {exc}", err=True)
-        return 2
-    except Exception as exc:  # SDK errors carry the gateway's message
-        _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
-        return 1
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                os.dup2(devnull, stream.fileno())
+            except (AttributeError, OSError):
+                pass
+    finally:
+        os.close(devnull)
+    return 141
+
+
+def main(argv: list[str] | None = None) -> int:
+    try:
+        try:
+            args = build_parser().parse_args(argv)
+            try:
+                rc = args.func(args)
+            except SbxError as exc:
+                _say(f"sbx: {exc}", err=True)
+                rc = 2
+            except BrokenPipeError:
+                raise  # a stream without a real fd; handled by the outer catch
+            except Exception as exc:  # SDK errors carry the gateway's message
+                _say(f"sbx: {type(exc).__name__}: {exc}", err=True)
+                rc = 1
+            return rc
+        finally:
+            # short writes stay buffered until interpreter shutdown, past the
+            # catch below; flush here so a closed pipe exits the same way a
+            # mid-stream one does (this also covers --version/--help, which
+            # leave through SystemExit)
+            sys.stdout.flush()
+            sys.stderr.flush()
+    except BrokenPipeError:
+        return _dead_pipe_exit()
 
 
 if __name__ == "__main__":
