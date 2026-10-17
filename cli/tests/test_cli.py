@@ -421,3 +421,14 @@ def test_closed_pipe_exits_quietly(tmp_path):
     assert b"BrokenPipeError" not in err
     assert b"Exception ignored" not in err
     assert proc.returncode in (-signal.SIGPIPE, 1, 141)
+
+
+def test_main_keeps_sigpipe_handler():
+    """SIG_DFL would kill the process on a closed pipe before `finally` cleanup
+    runs (runners.build_image kills its bake sandbox there)."""
+    if not hasattr(signal, "SIGPIPE"):
+        pytest.skip("no SIGPIPE on this platform")
+    before = signal.getsignal(signal.SIGPIPE)
+    with pytest.raises(SystemExit):
+        cli.main(["list", "--help"])
+    assert signal.getsignal(signal.SIGPIPE) == before
