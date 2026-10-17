@@ -39,6 +39,19 @@ jobs:
       - name: Test
         run: pytest -q -s cookbook/tools
 
+  slop-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Slop gate on changed demos
+        run: python3 cookbook/tools/slop_gate.py --base "origin/${{ github.base_ref }}"
+
   manifests:
     runs-on: ubuntu-latest
     steps:
