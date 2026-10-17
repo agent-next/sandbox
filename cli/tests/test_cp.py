@@ -46,7 +46,7 @@ def test_upload_preserves_every_byte(sdk, tmp_path, capsys, data):
     assert cli.main(["cp", str(source), "sbx-1:/tmp/remote file:1.bin"]) == 0
 
     sdk.connect.assert_called_once_with("sbx-1")
-    files.write.assert_called_once_with("/tmp/remote file:1.bin", data)
+    files.write.assert_called_once_with("/tmp/remote file:1.bin", data, request_timeout=600)
     assert source.read_bytes() == data
     assert capsys.readouterr() == ("", "")
 
@@ -62,7 +62,7 @@ def test_download_preserves_every_byte_and_overwrites(sdk, tmp_path, capsys, dat
     assert cli.main(["cp", "sbx-1:/tmp/remote file:1.bin", str(target)]) == 0
 
     sdk.connect.assert_called_once_with("sbx-1")
-    files.read.assert_called_once_with("/tmp/remote file:1.bin", format="bytes")
+    files.read.assert_called_once_with("/tmp/remote file:1.bin", format="bytes", request_timeout=600)
     assert target.read_bytes() == data
     assert capsys.readouterr() == ("", "")
 
@@ -192,8 +192,28 @@ def test_sbx_api_key_and_relative_paths_are_supported(sdk, tmp_path, monkeypatch
     (tmp_path / "local:1.bin").write_bytes(b"data")
 
     assert cli.main(["cp", "./local:1.bin", "sbx-1:relative:1.bin"]) == 0
-    sdk.connect.return_value.files.write.assert_called_once_with("relative:1.bin", b"data")
+    sdk.connect.return_value.files.write.assert_called_once_with("relative:1.bin", b"data", request_timeout=600)
     assert cli.os.environ["E2B_API_KEY"] == "alternative_copy_key"
+
+
+@pytest.mark.parametrize("upload", [True, False])
+def test_timeout_flag_sets_the_transfer_deadline(sdk, tmp_path, upload):
+    local = tmp_path / "file.bin"
+    local.write_bytes(b"data")
+    files = sdk.connect.return_value.files
+    files.read.return_value = b"data"
+    endpoints = [str(local), "sbx-1:/tmp/file.bin"]
+
+    assert cli.main(["cp", "--timeout", "1800", *(endpoints if upload else endpoints[::-1])]) == 0
+    call = files.write if upload else files.read
+    assert call.call_args.kwargs["request_timeout"] == 1800
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "nan"])
+def test_timeout_flag_rejects_non_positive_values(sdk, tmp_path, capsys, value):
+    assert cli.main(["cp", "--timeout", value, str(tmp_path / "f"), "sbx-1:/tmp/f"]) == 2
+    assert "--timeout" in capsys.readouterr().err
+    sdk.connect.assert_not_called()
 
 
 def test_local_write_error_is_handled(sdk, tmp_path, capsys):
