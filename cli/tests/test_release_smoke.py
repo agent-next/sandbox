@@ -98,6 +98,10 @@ if args[0] == "gpu":
     elif sub == "exec":
         if state.get("gpu_exec_bad_output"):
             print("not cuda")
+        elif state.get("gpu_exec_key_output"):
+            # the key lands 72 chars in, so an 80-char truncation applied
+            # before scrubbing leaks its first 8 characters
+            print("x" * 72 + os.environ.get("FAKE_SBX_ERROR_KEY", "test-key-value"))
         else:
             print("cuda ok")
     elif sub == "kill":
@@ -568,6 +572,24 @@ def test_gpu_exec_probe_verifies_output(fake_sbx, key, tmp_path, capsys):
     assert rc == 1
     entry = next(s for s in receipt["steps"] if s["name"] == "gpu-exec-check")
     assert entry["rc"] == 1
+
+
+def test_gpu_exec_error_scrubs_key_before_truncation(
+    fake_sbx, key, tmp_path, capsys
+):
+    # gpu exec prints the key 72 chars into its output: the 80-char error
+    # cut must scrub first, or the first 8 key characters survive in the
+    # receipt and on stdout
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "gpu_exec_key_output": 1}))
+    rc, receipt = run_smoke(tmp_path, "--gpu")
+    out = capsys.readouterr().out
+    assert rc == 1
+    entry = next(s for s in receipt["steps"] if s["name"] == "gpu-exec-check")
+    assert entry["rc"] == 1
+    for i in range(4, len("test-key-value") + 1):
+        assert "test-key-value"[:i] not in entry.get("error", "")
+    assert "test-key-value" not in out
+    assert "test-key-value" not in json.dumps(receipt)
 
 
 def test_runner_exception_still_writes_verdict_and_receipt(
