@@ -98,6 +98,10 @@ class Handler(BaseHTTPRequestHandler):
     require_stream_accept = False
     # When set, /mcp/v1 answers tools/list as text/event-stream.
     sse = False
+    # When set too, the SSE answer splits its JSON over two data lines.
+    sse_split = False
+    # When set too, a notification precedes the response event.
+    sse_notification = False
     # When set, authenticated paths answer 403 unless X-API-Key matches.
     required_key: str | None = None
 
@@ -155,8 +159,17 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps({"jsonrpc": "2.0", "id": request.get("id"),
                                "result": {"tools": [{"name": n} for n in self.tools]}})
             if self.sse:
-                self._send(200, f"event: message\ndata: {body}\n\n".encode(),
-                           "text/event-stream")
+                head = ""
+                if self.sse_notification:
+                    note = json.dumps({"jsonrpc": "2.0",
+                                       "method": "notifications/message"})
+                    head = f"data: {note}\n\n"
+                if self.sse_split:  # one event, its JSON over two data lines
+                    part, tail = body.split(", ", 1)
+                    body = f"data: {part},\ndata: {tail}\n\n"
+                else:
+                    body = f"event: message\ndata: {body}\n\n"
+                self._send(200, (head + body).encode(), "text/event-stream")
             else:
                 self._send(200, body.encode(), "application/json")
             return
@@ -176,6 +189,8 @@ def server(monkeypatch):
     Handler.require_stream_accept = False
     Handler.required_key = None
     Handler.sse = False
+    Handler.sse_split = False
+    Handler.sse_notification = False
     httpd = HTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -336,6 +351,30 @@ def test_mcp_fail_when_the_readme_states_no_tool_list(docs, service):
 def test_mcp_parses_an_sse_tools_list(docs, service):
     """The request advertises text/event-stream, so an SSE reply must be read."""
     Handler.sse = True
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.skip_reason is None, check.skip_reason
+    assert not check.failed, check.failed
+    assert any("equals" in line for line in check.ok)
+
+
+def test_mcp_parses_an_sse_tools_list_split_over_data_lines(docs, service):
+    """SSE permits one event's JSON over several data: lines; the lines
+    must be joined before parsing, not answered line by line."""
+    Handler.sse = True
+    Handler.sse_split = True
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.skip_reason is None, check.skip_reason
+    assert not check.failed, check.failed
+    assert any("equals" in line for line in check.ok)
+
+
+def test_mcp_reads_the_response_after_a_notification(docs, service):
+    """MCP may send notifications before the response; the parser must
+    skip them and read the response, not return the notification."""
+    Handler.sse = True
+    Handler.sse_notification = True
     Handler.tools = list(DOCUMENTED_TOOLS)
     check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
     assert check.skip_reason is None, check.skip_reason
