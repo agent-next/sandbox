@@ -1,0 +1,86 @@
+name: nightly-smoke
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Resolve latest tag
+        run: |
+          ref=$(git tag --sort=-v:refname | head -1)
+          if [ -z "$ref" ]; then
+            echo "no tags found; smoking the pushed ref instead"
+            ref="${{ github.sha }}"
+          fi
+          echo "smoke ref: $ref"
+          echo "ref=$ref" >> "$GITHUB_ENV"
+
+      - name: Run release smoke
+        env:
+          SBX_API_KEY: ${{ secrets.SBX_SMOKE_KEY }}
+        run: |
+          if [ -z "$SBX_API_KEY" ]; then
+            echo "::notice::SBX_SMOKE_KEY not set: live smoke skipped"
+          fi
+          python3 scripts/release_smoke.py --ref "$ref" --json smoke-report.json
+
+      - name: Upload smoke receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report
+          path: smoke-report.json
+          if-no-files-found: warn
+
+      - name: Open or update failure issue
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          body="Scheduled smoke of \`$ref\` failed on run ${{ github.run_id }}: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          existing=$(gh issue list --repo "${{ github.repository }}" --state open \
+            --search 'in:title "nightly smoke failed"' --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "${{ github.repository }}" --body "$body"
+            echo "commented on issue #$existing"
+          else
+            gh issue create --repo "${{ github.repository }}" --title "nightly smoke failed" --body "$body"
+            echo "opened new issue"
+          fi
+
+      - name: Close failure issue on recovery
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          existing=$(gh issue list --repo "${{ github.repository }}" --state open \
+            --search 'in:title "nightly smoke failed"' --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --repo "${{ github.repository }}" \
+              --comment "Smoke of \`$ref\` passed on run ${{ github.run_id }}; closing."
+            echo "closed issue #$existing"
+          else
+            echo "no open failure issue"
+          fi
