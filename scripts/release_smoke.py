@@ -86,7 +86,10 @@ def run(receipt, name, argv, env=None):
     if proc.returncode:
         detail = (proc.stderr or proc.stdout or "").strip()
         if detail:
-            entry["error"] = scrub(detail.splitlines()[-1][:300])
+            # scrub BEFORE truncating: the 300-char cut may land inside the
+            # key, so any surviving fragment stays secret. Keep the last line
+            # of the scrubbed text, then cut at 300 chars max.
+            entry["error"] = scrub(detail.splitlines()[-1])[:300]
     receipt["steps"].append(entry)
     print(f"[{name}] rc={proc.returncode} {entry['duration_s']}s", file=sys.stderr)
     return proc

@@ -48,7 +48,10 @@ def save(state):
 
 def maybe_fail(name):
     if os.environ.get("FAKE_SBX_FAIL") == name:
-        print("fake sbx: forced failure", file=sys.stderr)
+        key = os.environ.get("FAKE_SBX_ERROR_KEY", "test-key-value")
+        # straddle the key across the 300-char truncation boundary so a
+        # truncate-then-scrub implementation leaks at least 8 key characters
+        sys.stderr.write("x" * 292 + key + ": more\n")
         sys.exit(1)
 
 
@@ -192,6 +195,12 @@ def test_failing_step_still_kills(fake_sbx, key, tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out
     assert rc == 1
     assert out.startswith("FAIL")
+    # the key is scrubbed before truncation: no part of it may survive in
+    # the receipt, even when it straddles the 300-char boundary
+    entry = next(s for s in receipt["steps"] if s["name"] == "exec")
+    assert entry["rc"] == 1
+    for i in range(4, len("test-key-value") + 1):
+        assert "test-key-value"[:i] not in entry.get("error", "")
     kills = [s for s in receipt["steps"] if "kill" in s["name"]]
     assert any(s["rc"] != 0 for s in kills)
     assert kills[-1]["rc"] == 0
