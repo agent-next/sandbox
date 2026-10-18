@@ -363,7 +363,10 @@ def smoke(ref, gpu, receipt):
                           proc.returncode == 0 and "cuda ok" in proc.stdout,
                           None if proc.returncode == 0 and "cuda ok" in proc.stdout
                           else "gpu exec did not confirm cuda: printed "
-                               f"{proc.stdout.strip()[:80]!r}")
+                               # scrub BEFORE truncating: the 80-char cut may
+                               # land inside the key, so a fragment would
+                               # survive any later scrubbing
+                               f"{scrub(proc.stdout.strip())[:80]!r}")
                     proc = run(receipt, "gpu-kill",
                                [sbx, "gpu", "kill", lid], env=env)
                     if proc.returncode == 0:
