@@ -401,6 +401,15 @@ def test_gpu_pass_when_every_documented_template_is_live(docs, service):
     assert not check.failed, check.failed
 
 
+def test_each_live_check_sends_one_authenticated_request(docs, service):
+    """A check must not send its keyed request twice (once for the status, once for the body)."""
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    cc.check_gpu(docs, "k", f"http://127.0.0.1:{docs_port(service)}/gpu/templates")
+    assert Handler.statuses.count(("POST", "/mcp/v1")) == 1, Handler.statuses
+    assert Handler.statuses.count(("GET", "/gpu/templates")) == 1, Handler.statuses
+
+
 def test_gpu_fail_on_a_template_the_catalog_lacks(docs, service):
     """The docs naming a GPU template the live catalog lacks fails the check."""
     check = cc.check_gpu(docs, "k", f"http://127.0.0.1:{docs_port(service)}/gpu/templates")
