@@ -1,4 +1,5 @@
 import json
+import time
 
 import httpx
 import pytest
@@ -291,6 +292,61 @@ def test_missing_key(monkeypatch, api, capsys):
     monkeypatch.delenv("SBX_API_KEY", raising=False)
     assert cli.main(["gpu", "templates"]) == 2
     assert "no API key" in capsys.readouterr().err
+
+
+RESTARTING = {"error": "gateway is restarting", "code": "restarting", "retry_after_s": 5}
+
+
+def test_create_retries_two_restarting_503s_then_succeeds(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 503, dict(RESTARTING))
+    api.on("POST", "/sandboxes", 503, dict(RESTARTING))
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 0
+    assert capsys.readouterr().out == "gl-1a-1\n"
+    assert sleeps == [5, 5]
+    assert len(api.calls) == 3
+
+
+def test_non_restarting_503_is_not_retried(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 503, {"error": "gateway is restarting", "retry_after_s": 5})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 2
+    assert len(api.calls) == 1
+    assert sleeps == []
+    assert "GPU plane at capacity" in capsys.readouterr().err
+
+
+def test_500_is_not_retried(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 500, {"code": "restarting", "retry_after_s": 5})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 2
+    assert len(api.calls) == 1
+    assert sleeps == []
+
+
+def test_restart_retry_caps_each_wait_and_the_total_wait(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 503,
+           {"error": "gateway is restarting", "code": "restarting", "retry_after_s": 999})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 2
+    assert sleeps == [30, 30]  # each wait capped at 30 s, 60 s waited in total
+    assert len(api.calls) == 3
+    assert "GPU plane at capacity" in capsys.readouterr().err
+
+
+def test_restart_retry_message_names_the_wait_and_defaults_to_5s(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 503, {"error": "gateway is restarting", "code": "restarting"})
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 0
+    assert sleeps == [5]
+    assert capsys.readouterr().err == "gateway restarting, retrying in 5s\n"
 
 
 def test_api_url_override(api, monkeypatch):
