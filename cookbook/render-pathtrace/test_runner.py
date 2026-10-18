@@ -14,15 +14,20 @@ class RunnerTests(unittest.TestCase):
         return argparse.Namespace(keep=False, output=path, seed=17, skip_selftest=False)
 
     def exercise(self, root, *, exec_failure=False, cleanup_status=404, via_exec=False,
-                 image_numpy="2.2.6"):
+                 image_numpy="2.2.6", create_replies=None, stall_download=False):
         calls = []
-        def request(key, method, path, body=None):
+        download_timeouts = []
+        def request(key, method, path, body=None, timeout=None):
             calls.append((method, path))
+            if method == "GET" and "/files/" in path:
+                download_timeouts.append(timeout)
             if method == "POST" and path.endswith("/exec") and "image_numpy" in body["code"]:
                 return 200, json.dumps({"result": {"ok": True, "report": {
                     "image_numpy": image_numpy}}}).encode()
             if method == "POST" and path == "/sandboxes":
                 self.assertEqual(body["accel"]["template"], "browser")
+                if create_replies:
+                    return create_replies.pop(0)
                 return 201, b'{"sandboxID":"gl-test-1"}'
             if method == "PUT" and path.endswith("/upload-probe") and via_exec:
                 return 405, b""
@@ -36,12 +41,16 @@ class RunnerTests(unittest.TestCase):
             if path.endswith("/verdict.json"):
                 return 200, b'{"pass":true}'
             if path.endswith("/studio.npy"):
+                if stall_download:
+                    raise TimeoutError("The read operation timed out")
                 return 200, b"real-buffer-fixture"
             if method == "DELETE":
                 return 200, b"{}"
             if method == "GET":
                 return cleanup_status, b"{}"
             return 201, b"{}"
+        self.calls = calls
+        self.download_timeouts = download_timeouts
         with patch.object(run, "request", side_effect=request), \
              patch.object(run, "dependencies", return_value={"mutracer-0.1.1.tgz": b"m"}), \
              patch.object(run, "numpy_wheel", return_value=b"wheel"), \
@@ -79,6 +88,65 @@ class RunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "HTTP 409"):
                 self.exercise(output, exec_failure=True)
             self.assertEqual(json.loads((output / "runner.json").read_text())["cleanup_get_status"], 404)
+
+    def test_create_honors_the_409_retry_hint(self):
+        """#55: a 409 create whose body carries retry_after_s is retried, not discarded."""
+        replies = [(409, b'{"error":"concurrent_sandbox_limit",'
+                         b'"message":"account at concurrent-sandbox limit","retry_after_s":5}'),
+                   (409, b'{"error":"concurrent_sandbox_limit",'
+                         b'"message":"account at concurrent-sandbox limit","retry_after_s":7}')]
+        with tempfile.TemporaryDirectory() as temp, \
+             patch.object(run.time, "sleep") as sleep:
+            raised = None
+            try:
+                self.exercise(Path(temp) / "output", create_replies=replies)
+            except RuntimeError as exc:
+                raised = exc
+            self.assertIsNone(raised, f"create must recover via the hint: {raised}")
+            self.assertEqual([c.args for c in sleep.call_args_list], [(5,), (7,)])
+            self.assertEqual(self.calls[-2:], [("DELETE", "/sandboxes/gl-test-1"),
+                                               ("GET", "/sandboxes/gl-test-1")])
+
+    def test_create_409_hint_exhaustion_surfaces_the_hint(self):
+        """#55: when the hinted retries run out, the error keeps the gateway's hint."""
+        replies = [(409, b'{"error":"concurrent_sandbox_limit",'
+                         b'"message":"account at concurrent-sandbox limit",'
+                         b'"retry_after_s":999}')] * 3
+        with tempfile.TemporaryDirectory() as temp, \
+             patch.object(run.time, "sleep") as sleep:
+            raised = None
+            try:
+                self.exercise(Path(temp) / "output", create_replies=replies)
+            except RuntimeError as exc:
+                raised = exc
+            self.assertIsInstance(raised, RuntimeError)
+            self.assertIn("HTTP 409", str(raised))
+            self.assertIn("retry in 999s", str(raised))
+            self.assertEqual([c.args for c in sleep.call_args_list], [(30,), (30,)])
+            self.assertNotIn("DELETE", [method for method, _ in self.calls])
+
+    def test_stalled_download_raises_and_releases_the_lease(self):
+        """#55: a silent transfer must fail loudly within minutes, and drop the lease."""
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "output"
+            raised = None
+            try:
+                self.exercise(output, stall_download=True)
+            except (RuntimeError, TimeoutError, OSError) as exc:
+                raised = exc
+            self.assertIsInstance(raised, RuntimeError,
+                                  f"a stalled download must fail loudly, got {raised!r}")
+            self.assertIn("stalled", str(raised))
+            self.assertIn("studio.npy", str(raised))
+            receipt = json.loads((output / "runner.json").read_text())
+            self.assertEqual(receipt["delete_status"], 200)
+            self.assertEqual(receipt["cleanup_get_status"], 404)
+            self.assertEqual(self.calls[-2:], [("DELETE", "/sandboxes/gl-test-1"),
+                                               ("GET", "/sandboxes/gl-test-1")])
+            self.assertEqual(self.download_timeouts,
+                             [run.DOWNLOAD_STALL_TIMEOUT_S, run.DOWNLOAD_STALL_TIMEOUT_S])
+            self.assertLessEqual(run.DOWNLOAD_STALL_TIMEOUT_S, 300,
+                                 "the watchdog must fire in minutes, not the 3700s exec budget")
 
     def test_cleanup_must_be_404(self):
         with tempfile.TemporaryDirectory() as temp:
