@@ -6,7 +6,9 @@ import argparse
 import json
 import math
 import os
+import select
 import shlex
+import stat
 import sys
 import time
 from pathlib import Path
@@ -655,6 +657,24 @@ def _dead_pipe_exit() -> int:
     return 141
 
 
+def _pipe_reader_gone(stream) -> bool:
+    """True when stream is a pipe whose reader has already hung up. Unbuffered
+    stdout turns argparse's version/help write into a swallowed BrokenPipeError
+    (its _print_message catches OSError), so no flush ever raises and the dead
+    pipe must be found here instead."""
+    try:
+        fd = stream.fileno()
+        if not stat.S_ISFIFO(os.fstat(fd).st_mode):
+            return False
+    except (AttributeError, OSError, ValueError):
+        return False
+    if not hasattr(select, "poll"):
+        return False
+    poller = select.poll()
+    poller.register(fd, select.POLLERR | select.POLLHUP | select.POLLNVAL)
+    return bool(poller.poll(0))
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         try:
@@ -676,7 +696,10 @@ def main(argv: list[str] | None = None) -> int:
             # short writes stay buffered until interpreter shutdown, past the
             # catch below; flush here so a closed pipe exits the same way a
             # mid-stream one does (this also covers --version/--help, which
-            # leave through SystemExit)
+            # leave through SystemExit). With unbuffered stdout the write has
+            # already failed inside argparse, so check the pipe itself.
+            if _pipe_reader_gone(sys.stdout) or _pipe_reader_gone(sys.stderr):
+                raise BrokenPipeError
             sys.stdout.flush()
             sys.stderr.flush()
     except BrokenPipeError:
