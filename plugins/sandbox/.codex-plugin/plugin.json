@@ -1,6 +1,6 @@
 {
   "name": "sandbox",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Cloud sandboxes from agent-next: create, exec, read/write files, public preview URLs, kill.",
   "author": {
     "name": "agent-next",
