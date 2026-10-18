@@ -507,10 +507,12 @@ def test_closed_pipe_exits_quietly(tmp_path, pipe_env):
     assert proc.returncode == 141
 
 
-def test_small_output_exits_quietly_into_a_closed_pipe(tmp_path, pipe_env):
+@pytest.mark.parametrize("unbuffered", [None, "1"])
+def test_small_output_exits_quietly_into_a_closed_pipe(tmp_path, pipe_env, unbuffered):
     """`sbx --version` is small enough to sit in the buffer until shutdown;
     a reader that is already gone must still exit quietly, not dump
-    BrokenPipeError at the interpreter's final flush."""
+    BrokenPipeError at the interpreter's final flush -- in both buffered
+    and unbuffered stdout modes."""
     driver = tmp_path / "driver.py"
     driver.write_text(
         "import sys\n"
@@ -519,6 +521,10 @@ def test_small_output_exits_quietly_into_a_closed_pipe(tmp_path, pipe_env):
     )
     read_fd, write_fd = os.pipe()
     os.close(read_fd)  # no reader can survive until the child's first write
+    if unbuffered is not None:
+        pipe_env["PYTHONUNBUFFERED"] = unbuffered
+    else:
+        pipe_env.pop("PYTHONUNBUFFERED", None)
     proc = subprocess.Popen(
         [sys.executable, str(driver)], stdout=write_fd, stderr=subprocess.PIPE,
         env=pipe_env,
