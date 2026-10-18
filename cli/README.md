@@ -48,7 +48,7 @@ read from the environment.
 | `sbx gpu create [--vram GiB] [--template NAME] [--class C]` | Start a GPU lease and print its id (`gl-...`). Needs a key with a GPU grant. |
 | `sbx gpu list [--json]` | List your GPU leases, including paused leases: id, template, state, VRAM in GiB, start time (tab-separated, one row per lease). Reads all pages and validates the inventory before printing; `--json` prints the raw GPU entries as a JSON array. |
 | `sbx gpu exec ID (--code FILE \| -c SRC) [--timeout S]` | Run Python source on the lease; prints the job's stdout, exits 1 if the job fails. `--json` prints the full reply with `report` and meters. `--timeout` (default 120, max 3600) is a hard wall: an overrun kills the lease. |
-| `sbx gpu pause ID` / `sbx gpu resume ID` | Release the GPU between jobs (state is kept) and take a seat again. A paused lease still counts toward your lease cap. |
+| `sbx gpu pause ID` / `sbx gpu resume ID` | Release the GPU between jobs (state is spilled and kept; spilled time bills 0) and take a seat again. A lease that cannot be spilled is frozen instead: it keeps its seat and bills the frozen time. A paused lease still counts toward your lease cap; `kill` ends it. |
 | `sbx gpu kill ID` | Destroy the lease and confirm it is gone. |
 | `sbx gpu templates` / `sbx gpu info ID` | List GPU templates; show a lease's phase, slice and billing meters. |
 | `sbx runners image` | Bake a GitHub Actions runner snapshot (runner + Docker) and print its id. |
@@ -92,7 +92,7 @@ expires.
 ```bash
 id=$(sbx gpu create --vram 4)
 sbx gpu exec "$id" -c 'import torch; print(torch.cuda.get_device_name(0))'
-sbx gpu pause "$id"; sbx gpu resume "$id"     # optional: free the GPU between jobs
+sbx gpu pause "$id"; sbx gpu resume "$id"     # optional: release the GPU between jobs
 sbx gpu info "$id"                            # billed_s and the other meters
 sbx gpu kill "$id"
 ```
