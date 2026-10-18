@@ -367,5 +367,13 @@ def test_create_failure_with_printed_id_still_kills(
     # does not report anything left
     assert json.loads(fake_sbx.read_text())["cpu"] == []
     assert receipt["left"] == 0
-    kills = [s for s in receipt["steps"] if s["name"] == "cleanup-kill"]
-    assert kills, "a lost create reply must still reach cleanup-kill"
+    kill_steps = [s for s in receipt["steps"]
+                  if s["name"] in ("kill", "cleanup-kill")]
+    assert kill_steps, "a lost create reply must still be killed"
+    assert "sbx-fake-1" in " ".join(
+        step.get("error", "") for step in kill_steps) or any(
+        step["rc"] == 0 for step in kill_steps)
+    # create-id records why the run failed
+    entry = next(s for s in receipt["steps"] if s["name"] == "create-id")
+    assert entry["rc"] == 1
+    assert "allocated" in entry.get("error", "")
