@@ -11,7 +11,7 @@
         }
       },
       "IdempotencyKey": {
-        "description": "Optional exactly-once key for this create (CARD-03, boat-compatible): send your own opaque, key-unique value (a UUID) to make the call safe to retry after a lost response (network timeout, 5xx). The first request creates the sandbox and binds it to the key; every later request with the same account key, Idempotency-Key and request body returns that same sandbox instead of a second, billable one. Bindings are retained 24 h (GATEWAY_IDEMPOTENCY_RETENTION_S); a concurrent or early retry while the first create is still in flight returns 409 idempotency_in_progress (retry shortly, same key); reusing a key with a different body returns 409 idempotency_key_reused; a create that fails before the sandbox exists releases the key immediately so a retry can create. Omit the header to keep the default (non-idempotent) behavior.",
+        "description": "Optional exactly-once key for this create: send your own opaque, key-unique value (a UUID) to make the call safe to retry after a lost response (network timeout, 5xx). The first request creates the sandbox and binds it to the key; every later request with the same account key, Idempotency-Key and request body returns that same sandbox instead of a second, billable one. Bindings are retained 24 h (GATEWAY_IDEMPOTENCY_RETENTION_S); a concurrent or early retry while the first create is still in flight returns 409 idempotency_in_progress (retry shortly, same key); reusing a key with a different body returns 409 idempotency_key_reused; a create that fails before the sandbox exists releases the key immediately so a retry can create. Omit the header to keep the default (non-idempotent) behavior.",
         "in": "header",
         "name": "Idempotency-Key",
         "required": false,
@@ -1130,7 +1130,7 @@
             "type": "string"
           },
           "status": {
-            "description": "async creates (#420): pending until the upstream create lands, then ready/failed; on list items and the pending create answer",
+            "description": "async creates: pending until the upstream create lands, then ready/failed; on list items and the pending create answer",
             "enum": [
               "pending",
               "ready",
@@ -1473,7 +1473,7 @@
     }
   },
   "info": {
-    "description": "E2B-compatible multi-tenant front door for agent sandboxes. Point the stock e2b SDKs at it with E2B_DOMAIN=<domain> and E2B_API_KEY=<tenant key>; the gateway owns API keys, per-key quotas, sandbox tenancy, lifecycle metering and idle auto-pause.\n\nAuth: every tenant route takes the tenant API key in the `X-API-Key` header (the e2b SDK sends it from E2B_API_KEY). /healthz, /v1/waitlist, /v1/claim, /v1/tiers, the GitHub signup redirects and the discovery docs (/openapi.json, /llms.txt, /llms-full.txt) are unauthenticated.\n\nErrors use the E2B wire envelope {\"code\": <http status>, \"message\": \"...\"} with an optional machine-readable `error_code`; 429s that are safe to retry carry an integer `Retry-After` header.\n\nExcluded from this document on purpose: the internal listener (INTERNAL_LISTEN, default 127.0.0.1:8081) serves POST /internal/cpu-samples and GET /internal/metrics (both X-Node-Token), GET /metrics (Prometheus) and GET /readyz — node-facing only, never routed on the public listener. The operator web-console API /v1/admin/* is also excluded: it exists only when ADMIN_TOKEN is set, authenticates with `Authorization: Bearer <ADMIN_TOKEN>` (not the tenant key) and is not part of the E2B-compatible surface.",
+    "description": "E2B-compatible multi-tenant front door for agent sandboxes. Point the stock e2b SDKs at it with E2B_DOMAIN=<domain> and E2B_API_KEY=<tenant key>; the gateway owns API keys, per-key quotas, sandbox tenancy, lifecycle metering and idle auto-pause.\n\nAuth: every tenant route takes the tenant API key in the `X-API-Key` header (the e2b SDK sends it from E2B_API_KEY). /healthz, /v1/waitlist, /v1/claim, /v1/tiers, the GitHub signup redirects and the discovery docs (/openapi.json, /llms.txt, /llms-full.txt) are unauthenticated.\n\nErrors use the E2B wire envelope {\"code\": <http status>, \"message\": \"...\"} with an optional machine-readable `error_code`; 429s that are safe to retry carry an integer `Retry-After` header.\n\nExcluded from this document on purpose: node-facing endpoints (never routed on the public listener) and the operator web-console API /v1/admin/* (bearer-token auth, not the tenant key; not part of the E2B-compatible surface).",
     "title": "agent-next sandbox gateway"
   },
   "openapi": "3.1.0",
@@ -1568,7 +1568,7 @@
         },
         "security": [
           {
-            "apiKey": []
+            "ApiKeyAuth": []
           }
         ],
         "summary": "List the calling tenant's webhooks",
@@ -1577,7 +1577,7 @@
         ]
       },
       "post": {
-        "description": "compat/e2b v0.5 #20. Body: {name, url, events[], signatureSecret, enabled?} — events are sandbox.lifecycle.{created,killed,updated,paused,resumed,checkpointed,credit_warning}. Answers 201 with the registration. The url is validated (SSRF guard): https only on port 443 and it must resolve only to public unicast addresses (loopback, the 169.254.169.254 metadata service, RFC1918/CGNAT private and the IPv6 ULA range fc00::/7 are refused 400; a resolve slower than 5 s is refused 400 too). At most WEBHOOK_MAX_PER_KEY (default 20) endpoints per key; the create over the cap answers 409.",
+        "description": "compat/e2b v0.5. Body: {name, url, events[], signatureSecret, enabled?} — events are sandbox.lifecycle.{created,killed,updated,paused,resumed,checkpointed,credit_warning}. Answers 201 with the registration. The url is validated (SSRF guard): https only on port 443 and it must resolve only to public unicast addresses (loopback, the 169.254.169.254 metadata service, RFC1918/CGNAT private and the IPv6 ULA range fc00::/7 are refused 400; a resolve slower than 5 s is refused 400 too). At most WEBHOOK_MAX_PER_KEY (default 20) endpoints per key; the create over the cap answers 409.",
         "operationId": "createWebhook",
         "requestBody": {
           "content": {
@@ -1616,7 +1616,7 @@
         },
         "security": [
           {
-            "apiKey": []
+            "ApiKeyAuth": []
           }
         ],
         "summary": "Register a lifecycle webhook",
@@ -1655,7 +1655,7 @@
         },
         "security": [
           {
-            "apiKey": []
+            "ApiKeyAuth": []
           }
         ],
         "summary": "Delete a webhook (answers 200, per the E2B docs example)",
@@ -1692,7 +1692,7 @@
         },
         "security": [
           {
-            "apiKey": []
+            "ApiKeyAuth": []
           }
         ],
         "summary": "Fetch one webhook registration",
@@ -1749,7 +1749,7 @@
         },
         "security": [
           {
-            "apiKey": []
+            "ApiKeyAuth": []
           }
         ],
         "summary": "Update name/url/events/enabled/signatureSecret",
@@ -1789,7 +1789,7 @@
         },
         "security": [
           {
-            "apiKey": []
+            "ApiKeyAuth": []
           }
         ],
         "summary": "Delivery attempt log for one webhook",
@@ -1829,10 +1829,10 @@
         },
         "security": [
           {
-            "apiKey": []
+            "ApiKeyAuth": []
           }
         ],
-        "summary": "Rotate the signing secret (B-05)",
+        "summary": "Rotate the signing secret",
         "tags": [
           "webhooks"
         ]
@@ -1868,7 +1868,7 @@
         },
         "security": [
           {
-            "apiKey": []
+            "ApiKeyAuth": []
           }
         ],
         "summary": "Aggregate delivery counters for one webhook",
@@ -1985,7 +1985,7 @@
     },
     "/mcp": {
       "post": {
-        "description": "The permanent public MCP endpoint on the dedicated mcp.<apex> host (owner decision 2026-10-09: OpenAI treats the MCP origin as immutable once submitted). One handler with POST /mcp/v1 mounted twice — identical auth, gates and tools; see that operation for the full contract. The dedicated host proxies only this path, the OAuth protected-resource metadata and /.well-known/openai-apps-challenge.",
+        "description": "The permanent public MCP endpoint on the dedicated mcp.<apex> host (the MCP origin is treated as immutable once submitted). One handler with POST /mcp/v1 mounted twice — identical auth, gates and tools; see that operation for the full contract. The dedicated host proxies only this path, the OAuth protected-resource metadata and /.well-known/openai-apps-challenge.",
         "operationId": "sandboxMcpPermanent",
         "requestBody": {
           "content": {
@@ -2072,7 +2072,7 @@
     },
     "/mcp/v1": {
       "post": {
-        "description": "One remote MCP server over the existing sandbox planes: initialize -> tools/list -> tools/call (POST only, no server-initiated stream). Seven tools map onto the REST handlers and the data plane: sandboxes_list, sandbox_create, sandbox_exec, sandbox_files_read, sandbox_files_write, sandbox_preview_url, sandbox_kill. Exec/files run the data-plane handler, so the envd-token gate, suspension, admission/auto-resume and activity accounting are the data plane's own. Every tools/call result carries an in-band `meters` block (the key's credit summary). Auth: the tenant API key in `X-API-Key` or `Authorization: Bearer <key>`. Connect one-liners: docs/mcp-connect.md.",
+        "description": "One remote MCP server over the existing sandbox planes: initialize -> tools/list -> tools/call (POST only, no server-initiated stream). Seven tools map onto the REST handlers and the data plane: sandboxes_list, sandbox_create, sandbox_exec, sandbox_files_read, sandbox_files_write, sandbox_preview_url, sandbox_kill. Exec/files run the data-plane handler, so the envd-token gate, suspension, admission/auto-resume and activity accounting are the data plane's own. Every tools/call result carries an in-band `meters` block (the key's credit summary). Auth: the tenant API key in `X-API-Key` or `Authorization: Bearer <key>`. Connect one-liners: github.com/agent-next/sandbox (plugins/sandbox/README.md).",
         "operationId": "sandboxMcp",
         "requestBody": {
           "content": {
@@ -2181,11 +2181,11 @@
     },
     "/sandboxes": {
       "get": {
-        "description": "Proxied to the upstream, then intersected with the caller's owned set — another tenant's row can never appear. `envdAccessToken`/`trafficAccessToken` are stripped from every item (bulk surfaces carry no credentials). `state` is coerced into the SDK enum (running|paused) and `domain` rewritten to the gateway domain. The tenant-visible list is paginated gateway-side in deterministic (created_at, sandboxID) order: `order` (default desc), `limit` 1-100 (default 100) and the `nextToken` continuation cursor are enforced on both dialects; any upstream pagination headers are stripped and the gateway's own X-Next-Token / X-Total-Running are emitted instead. `metadata` filters the result (url-encoded k=v pairs, AND-ed against the stored create metadata) so a tenant can list what it owns; per-item `metadata` is filled from the stored copy when the upstream echo omits it, and `PUT /sandboxes/{sandbox_id}/metadata` merges lifecycle tags (kept_reason) into that stored copy.",
+        "description": "Proxied to the upstream, then intersected with the caller's owned set — another tenant's row can never appear. `envdAccessToken`/`trafficAccessToken` are stripped from every item (bulk surfaces carry no credentials). `state` is coerced into the SDK enum (running|paused) and `domain` rewritten to the gateway domain. The tenant-visible list is paginated gateway-side in deterministic (created_at, sandboxID) order: `order` (default desc), `limit` 1-100 (default 100) and the `nextToken` continuation cursor are enforced on both dialects; any upstream pagination headers are stripped and the gateway's own X-Next-Token / X-Total-Running are emitted instead. `metadata` filters the result (url-encoded k=v pairs, AND-ed against the stored create metadata) so a tenant can list what it owns; per-item `metadata` is filled from the stored copy when the upstream echo omits it, and `PUT /sandboxes/{sandbox_id}/metadata` merges lifecycle tags into that stored copy.",
         "operationId": "listSandboxes",
         "parameters": [
           {
-            "description": "url-encoded k=v pairs (metadata=owner_lane%3Dlane-a); every pair must match the stored create metadata — list what you own (OWNER RULE 2026-10-14)",
+            "description": "url-encoded k=v pairs (metadata=team%3Dinfra); every pair must match the stored create metadata — list what you own",
             "in": "query",
             "name": "metadata",
             "required": false,
@@ -2255,7 +2255,7 @@
         ]
       },
       "post": {
-        "description": "Passes auth, per-tenant running-quota (429 + Retry-After), credit (402), suspension (403), create-rate (429 + Retry-After) and node-capacity/host-disk admission (503 + Retry-After) gates, then forwards upstream. `templateID` resolves per tenant: own alias/id, a platform template, an owned snapshot id, or 404; omitted/`base` maps to the deployment's default template when one is configured. An omitted `timeout` defaults to 300 s, capped by SANDBOX_MAX_TIMEOUT_S; an omitted `secure` is injected `true` on secure-capable upstreams unless the deployment disabled it. A size request must take effect or fail (#427): `resourceClass` — or a `cpuCount`/`memoryMB` pair exactly matching a class spec — rewrites `templateID` to the template's SIZED_TEMPLATES variant and drops the sizing fields; a class with no variant for that template is a 400 naming the classes it does have, and any other raw pair is a 400 — unless the deployment set UPSTREAM_HONORS_CREATE_SIZING, which forwards raw values bounded by the node's template caps. SDK users cannot send `resourceClass`, so a `templateID` of the form `<alias>:<size>` (`agent-full:standard`) is the same request in the SDK dialect: it resolves to the variant that class would pick, is refused (disabled class 400, unknown size 404 naming the sizes that alias does offer, a disagreeing `resourceClass` 400) exactly as the field is, and is advertised by GET /templates; a ref that resolves on its own (a tenant's `name:tag` alias, a template id, an owned snapshot id) keeps resolving verbatim. A tenant's own template keeps its built size (a matching request is a no-op); a snapshot id never maps. The response reports the applied spec's `cpuCount`/`memoryMB` — the variant's upstream templateID never leaves the gateway. `diskSizeMB` stays bounded by the node's disk cap.",
+        "description": "Passes auth, per-tenant running-quota (429 + Retry-After), credit (402), suspension (403), create-rate (429 + Retry-After) and node-capacity/host-disk admission (503 + Retry-After) gates, then forwards upstream. `templateID` resolves per tenant: own alias/id, a platform template, an owned snapshot id, or 404; omitted/`base` maps to the deployment's default template when one is configured. An omitted `timeout` defaults to 300 s, capped by SANDBOX_MAX_TIMEOUT_S; an omitted `secure` is injected `true` on secure-capable upstreams unless the deployment disabled it. A size request must take effect or fail: `resourceClass` — or a `cpuCount`/`memoryMB` pair exactly matching a class spec — rewrites `templateID` to the template's SIZED_TEMPLATES variant and drops the sizing fields; a class with no variant for that template is a 400 naming the classes it does have, and any other raw pair is a 400 — unless the deployment set UPSTREAM_HONORS_CREATE_SIZING, which forwards raw values bounded by the node's template caps. SDK users cannot send `resourceClass`, so a `templateID` of the form `<alias>:<size>` (`agent-full:standard`) is the same request in the SDK dialect: it resolves to the variant that class would pick, is refused (disabled class 400, unknown size 404 naming the sizes that alias does offer, a disagreeing `resourceClass` 400) exactly as the field is, and is advertised by GET /templates; a ref that resolves on its own (a tenant's `name:tag` alias, a template id, an owned snapshot id) keeps resolving verbatim. A tenant's own template keeps its built size (a matching request is a no-op); a snapshot id never maps. The response reports the applied spec's `cpuCount`/`memoryMB` — the variant's upstream templateID never leaves the gateway. `diskSizeMB` stays bounded by the node's disk cap.",
         "operationId": "createSandbox",
         "parameters": [
           {
@@ -2790,7 +2790,7 @@
     },
     "/sandboxes/{sandbox_id}/metadata": {
       "put": {
-        "description": "Our extension beyond the E2B wire: merges the body's tags into the metadata stored at create (OWNER RULE 2026-10-14 — a sandbox KEPT after a failed push is tagged `kept_reason` so any list attributes it and the creator's lane reaper can clean it; the create copy is kept, the merge never replaces). The stored copy is the list `?metadata=` filter's authority, so a merge is visible to filtered lists immediately. Gateway-local state: no upstream call, so a paused sandbox is tagged the same as a running one. Answers 200 with the merged metadata. A non-object body, a body carrying the reserved `__gwIdemOp` key, or a merge that would push the stored metadata past 16 KiB is a 400 (refused, never truncated).",
+        "description": "Our extension beyond the E2B wire: merges the body's tags into the metadata stored at create (the create copy is kept; the merge never replaces). The stored copy is the list `?metadata=` filter's authority, so a merge is visible to filtered lists immediately. Gateway-local state: no upstream call, so a paused sandbox is tagged the same as a running one. Answers 200 with the merged metadata. A non-object body, a body carrying the reserved `__gwIdemOp` key, or a merge that would push the stored metadata past 16 KiB is a 400 (refused, never truncated).",
         "operationId": "updateSandboxMetadata",
         "parameters": [
           {
@@ -3235,7 +3235,7 @@
     },
     "/sandboxes/{sandbox_id}/refreshes": {
       "post": {
-        "description": "Renews the running sandbox's timeout (compat/e2b v0.4 #17). Ownership like pause; a refresh never pauses and counts as liveness for the idle reaper. Body mirrors the timeout route ({\"timeout\": seconds}). A key with a max_timeout_s cap has `duration` clamped to it.",
+        "description": "Renews the running sandbox's timeout (compat/e2b v0.4). Ownership like pause; a refresh never pauses and counts as liveness for the idle reaper. Body mirrors the timeout route ({\"timeout\": seconds}). A key with a max_timeout_s cap has `duration` clamped to it.",
         "operationId": "refreshSandbox",
         "responses": {
           "200": {
@@ -3352,7 +3352,7 @@
     },
     "/sandboxes/{sandbox_id}/snapshots": {
       "get": {
-        "description": "Served from the gateway's own snapshot records (the upstream list cannot filter per org), so a snapshot created out-of-band upstream is invisible here. Items carry a `status` (pending/ready/failed) — the poll surface for an async create (#420). `name`/`limit` (1-100, default 100) filter the set; `nextToken` is not implemented on this route and no `x-next-token` is emitted.",
+        "description": "Served from the gateway's own snapshot records (the upstream list cannot filter per org), so a snapshot created out-of-band upstream is invisible here. Items carry a `status` (pending/ready/failed) — the poll surface for an async create. `name`/`limit` (1-100, default 100) filter the set; `nextToken` is not implemented on this route and no `x-next-token` is emitted.",
         "operationId": "listSandboxSnapshots",
         "parameters": [
           {
@@ -3799,7 +3799,7 @@
         ]
       },
       "patch": {
-        "description": "Alias retag only (compat/e2b v0.4 #15). Body: {\"aliases\": [\"name\"]}; returns the updated template row.",
+        "description": "Alias retag only (compat/e2b v0.4). Body: {\"aliases\": [\"name\"]}; returns the updated template row.",
         "operationId": "retagTemplate",
         "responses": {
           "200": {
@@ -4691,7 +4691,7 @@
     },
     "/v2/templates": {
       "get": {
-        "description": "Same tenant scoping as GET /templates but each row omits buildID/buildStatus/buildCount (compat/e2b v0.4 #13).",
+        "description": "Same tenant scoping as GET /templates but each row omits buildID/buildStatus/buildCount (compat/e2b v0.4).",
         "operationId": "listTemplatesV2",
         "responses": {
           "200": {
@@ -4724,7 +4724,7 @@
     },
     "/v2/templates/{template_id}": {
       "patch": {
-        "description": "Alias retag only (compat/e2b v0.4 #15). Body: {\"aliases\": [\"name\"]}; returns the updated template row.",
+        "description": "Alias retag only (compat/e2b v0.4). Body: {\"aliases\": [\"name\"]}; returns the updated template row.",
         "operationId": "retagTemplate",
         "responses": {
           "200": {
