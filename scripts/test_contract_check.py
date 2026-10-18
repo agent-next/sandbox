@@ -96,6 +96,8 @@ class Handler(BaseHTTPRequestHandler):
     # The live MCP endpoint answers 401 to a POST that does not accept its
     # stream type; tests that need that behavior switch this on.
     require_stream_accept = False
+    # When set, /mcp/v1 answers tools/list as text/event-stream.
+    sse = False
     # When set, authenticated paths answer 403 unless X-API-Key matches.
     required_key: str | None = None
 
@@ -151,8 +153,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, b'{"error":"unknown method"}', "application/json")
                 return
             body = json.dumps({"jsonrpc": "2.0", "id": request.get("id"),
-                               "result": {"tools": [{"name": n} for n in self.tools]}}).encode()
-            self._send(200, body, "application/json")
+                               "result": {"tools": [{"name": n} for n in self.tools]}})
+            if self.sse:
+                self._send(200, f"event: message\ndata: {body}\n\n".encode(),
+                           "text/event-stream")
+            else:
+                self._send(200, body.encode(), "application/json")
             return
         self._send(404)
 
@@ -169,6 +175,7 @@ def server(monkeypatch):
     Handler.refused = {"/mcp/v1"}
     Handler.require_stream_accept = False
     Handler.required_key = None
+    Handler.sse = False
     httpd = HTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -311,6 +318,16 @@ def test_mcp_fail_when_the_readme_states_no_tool_list(docs, service):
     (docs / cc.PLUGIN_README).write_text("# sandbox plugin\n\nNo tools here.\n", encoding="utf-8")
     check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
     assert check.failed
+
+
+def test_mcp_parses_an_sse_tools_list(docs, service):
+    """The request advertises text/event-stream, so an SSE reply must be read."""
+    Handler.sse = True
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.skip_reason is None, check.skip_reason
+    assert not check.failed, check.failed
+    assert any("equals" in line for line in check.ok)
 
 
 def test_mcp_skips_when_the_service_refuses(docs, server):
