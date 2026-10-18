@@ -28,9 +28,17 @@ import json
 import os
 import shutil
 import sys
+import time
 
 state_file = os.environ["FAKE_SBX_STATE"]
 state_dir = os.path.dirname(state_file)
+
+leaks = [k for k in ("PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE")
+         if k in os.environ]
+leaks += [k for k in os.environ if k.startswith("PIP_")]
+if leaks:
+    print("env leak: " + ",".join(leaks), file=sys.stderr)
+    sys.exit(9)
 
 
 def load():
@@ -74,10 +82,20 @@ if args[0] == "gpu":
         state["gpu"].append(lid)
         save(state)
         print(lid)
+        if state.get("gpu_create_fails"):
+            # allocated remotely, then the reply was lost
+            print("fake sbx: gpu create lost", file=sys.stderr)
+            sys.exit(1)
     elif sub == "list":
-        print(json.dumps([{"sandboxID": i} for i in state["gpu"]]))
+        if state.get("empty_list"):
+            print("[]")
+        else:
+            print(json.dumps([{"sandboxID": i} for i in state["gpu"]]))
     elif sub == "exec":
-        print("cuda ok")
+        if state.get("gpu_exec_bad_output"):
+            print("not cuda")
+        else:
+            print("cuda ok")
     elif sub == "kill":
         if not os.environ.get("FAKE_SBX_KEEP"):
             state["gpu"] = [i for i in state["gpu"] if i != rest[0]]
@@ -91,7 +109,12 @@ state = load()
 if cmd == "templates":
     print("base")
 elif cmd == "list":
-    if state.get("bad_list_keys"):
+    if state.get("empty_list"):
+        print("[]")
+    elif state.get("whitespace_ids"):
+        # ids that carry no information: they must not count as verified
+        print(json.dumps([{"sandboxID": " "} for _ in state["cpu"]]))
+    elif state.get("bad_list_keys"):
         # entries carry an id under an unrecognized key
         print(json.dumps([{"id": i} for i in state["cpu"]]))
     elif state.get("nonlist"):
@@ -102,14 +125,27 @@ elif cmd == "create":
     sid = "sbx-fake-%d" % (len(state["cpu"]) + 1)
     state["cpu"].append(sid)
     save(state)
+    if state.get("create_fails_noid"):
+        # allocated remotely, then the reply was lost with no id printed
+        print("fake sbx: create lost, no id", file=sys.stderr)
+        sys.exit(1)
     print(sid)
+    if state.get("create_fails_after_print"):
+        # allocated remotely, id printed, then the reply was lost
+        print("fake sbx: create lost", file=sys.stderr)
+        sys.exit(1)
     if state.get("create_fails"):
         # allocated remotely, then the reply was lost: nonzero exit after
         # the id was already printed
         print("fake sbx: create lost", file=sys.stderr)
         sys.exit(1)
 elif cmd == "exec":
-    print("ok")
+    if state.get("hang"):
+        time.sleep(30)
+    if state.get("exec_bad_output"):
+        print("nope")
+    else:
+        print("ok")
 elif cmd == "cp":
     src, dst = rest[0], rest[1]
     sid, path = remote(src) or remote(dst)
@@ -377,3 +413,142 @@ def test_create_failure_with_printed_id_still_kills(
     entry = next(s for s in receipt["steps"] if s["name"] == "create-id")
     assert entry["rc"] == 1
     assert "allocated" in entry.get("error", "")
+
+
+def test_gpu_create_lost_reply_still_killed(fake_sbx, key, tmp_path, capsys):
+    # a GPU create that allocated, printed the lease id and then exited 1:
+    # the lease is ours, so cleanup must kill it and the run must fail
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "gpu_create_fails": 1}))
+    rc, receipt = run_smoke(tmp_path, "--gpu")
+    capsys.readouterr()
+    assert rc == 1
+    assert receipt["verdict"] == "fail"
+    assert json.loads(fake_sbx.read_text())["gpu"] == []
+    assert receipt["left"] == 0
+    entry = next(s for s in receipt["steps"] if s["name"] == "gpu-create-id")
+    assert entry["rc"] == 1
+    assert "allocated" in entry.get("error", "")
+
+
+def test_cpu_create_lost_reply_without_id_still_killed(
+    fake_sbx, key, tmp_path, capsys
+):
+    # a CPU create that allocated but lost its reply with no id printed: the
+    # sandbox must still be found (via the inventory taken while it is
+    # alive), killed, and reported, leaving nothing behind
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "create_fails_noid": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    capsys.readouterr()
+    assert rc == 1
+    assert receipt["verdict"] == "fail"
+    assert json.loads(fake_sbx.read_text())["cpu"] == []
+    assert receipt["left"] == 0
+    entry = next(s for s in receipt["steps"] if s["name"] == "create-id")
+    assert entry["rc"] == 1
+    kills = [s for s in receipt["steps"]
+             if s["name"] in ("kill", "cleanup-kill") and s["rc"] == 0]
+    assert kills, "the unprinted sandbox must still be killed"
+
+
+def test_invalid_id_strings_are_not_verified_inventory(
+    fake_sbx, key, tmp_path, capsys
+):
+    # ids that are blank/non-printable carry no information: an inventory
+    # made only of such ids is unverifiable, so the run must fail rather
+    # than treat the set difference as proof of absence
+    fake_sbx.write_text(json.dumps({"cpu": ["sbx-fake-1"], "gpu": [], "whitespace_ids": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "FAIL" in out
+    checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
+    assert checks and checks[-1]["rc"] == 1
+    assert receipt["verdict"] == "fail"
+
+
+def test_inventory_must_see_the_created_sandbox(fake_sbx, key, tmp_path, capsys):
+    # a list implementation that never shows the new sandbox (always [])
+    # can't prove anything about cleanup: the run must fail, not pass
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "empty_list": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    capsys.readouterr()
+    assert rc == 1
+    assert receipt["verdict"] == "fail"
+    checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
+    assert checks and checks[-1]["rc"] == 1
+
+
+def test_inventory_must_see_the_created_lease(fake_sbx, key, tmp_path, capsys):
+    # same rule for GPU leases: an empty gpu list during the run fails it
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "empty_list": 1}))
+    rc, receipt = run_smoke(tmp_path, "--gpu")
+    capsys.readouterr()
+    assert rc == 1
+    assert receipt["verdict"] == "fail"
+
+
+def test_exec_probe_verifies_output(fake_sbx, key, tmp_path, capsys):
+    # exec exits 0 but prints the wrong thing: the probe failed
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "exec_bad_output": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    capsys.readouterr()
+    assert rc == 1
+    entry = next(s for s in receipt["steps"] if s["name"] == "exec-check")
+    assert entry["rc"] == 1
+
+
+def test_gpu_exec_probe_verifies_output(fake_sbx, key, tmp_path, capsys):
+    # gpu exec exits 0 but never prints "cuda ok": the probe failed
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "gpu_exec_bad_output": 1}))
+    rc, receipt = run_smoke(tmp_path, "--gpu")
+    capsys.readouterr()
+    assert rc == 1
+    entry = next(s for s in receipt["steps"] if s["name"] == "gpu-exec-check")
+    assert entry["rc"] == 1
+
+
+def test_runner_exception_still_writes_verdict_and_receipt(
+    fake_sbx, key, tmp_path, capsys, monkeypatch
+):
+    # an unexpected exception (e.g. install produced no sbx entry point)
+    # must still end in a FAIL verdict and a receipt on disk
+    monkeypatch.setattr(
+        rs, "cmd_install",
+        lambda venv, ref: [str(Path(__file__).parent / "helper-missing.py")],
+    )
+    rc, receipt = run_smoke(tmp_path)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert out.startswith("FAIL")
+    assert receipt["verdict"] == "fail"
+    assert receipt["left"] == 0
+
+
+def test_hanging_step_is_killed_at_deadline(fake_sbx, key, tmp_path, capsys):
+    # a step that never exits is killed at the step deadline and recorded
+    # as a failure; the run still terminates and cleans up
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "hang": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "FAIL" in out
+    entry = next(s for s in receipt["steps"] if s["name"] == "exec")
+    assert entry["rc"] != 0
+    assert "timeout" in entry.get("error", "").lower()
+    assert json.loads(fake_sbx.read_text())["cpu"] == []
+    assert receipt["left"] == 0
+
+
+def test_python_env_is_scrubbed_for_sbx_calls(
+    fake_sbx, key, tmp_path, capsys, monkeypatch
+):
+    # inherited PYTHONPATH/PYTHONHOME/PYTHONUSERBASE/PIP_* must not leak
+    # into the fresh venv: the stub fails with rc 9 if it sees any of them
+    monkeypatch.setenv("PYTHONPATH", "/some/checkout/path")
+    monkeypatch.setenv("PYTHONHOME", "/some/other/python")
+    monkeypatch.setenv("PYTHONUSERBASE", "/some/user/site")
+    monkeypatch.setenv("PIP_INDEX_URL", "https://example.invalid/simple")
+    rc, receipt = run_smoke(tmp_path)
+    capsys.readouterr()
+    assert rc == 0
+    assert receipt["verdict"] == "pass" and receipt["left"] == 0
