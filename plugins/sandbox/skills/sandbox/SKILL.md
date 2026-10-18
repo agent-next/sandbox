@@ -89,6 +89,14 @@ the cached entries, start a new session) instead of retrying the tools.
   `mujoco`, `browser`, `blender`, `omniverse` and `robotsim` (`sbx gpu
   templates` lists it for the CLI); an unknown template name is refused,
   and `kernel` is not in it.
+- **`vram_gb` caps the whole vGPU slice, and part of it is not yours.**
+  Measured on a 1 GiB `gpu-lease-v06` lease (2026-10-15): the device
+  presents 1844 MiB with 756 MiB already used at rest (the vGPU baseline),
+  `torch.cuda.mem_get_info` saw ~590 MiB free, and a fresh process's CUDA
+  context (~0.3 GiB) counted against the slice too, so `torch.empty(500 MB)`
+  OOMed — roughly 0.3–0.6 GiB allocatable. Rule of thumb: expect
+  `vram_gb − 0.7 GiB baseline − ~0.3 GiB per CUDA process`, and size the
+  lease for workload plus that overhead, not for the workload alone.
 - **GPU leases have no internet by default.** The network is `none`;
   `internet` works only on nodes the operator opted in, and a create that
   asks for it elsewhere is refused with HTTP 400 (`gpu egress disabled on
@@ -112,7 +120,11 @@ the cached entries, start a new session) instead of retrying the tools.
 - Through the `sbx gpu` CLI a GPU lease can also pause and resume between
   jobs. Suspend behavior depends on the template and live plane;
   `mujoco` can freeze despite `suspend_mode:"none"`. Do not infer capacity
-  release or stopped billing from that field alone. `timeout_min` is
+  release or stopped billing from that field alone. An exec against a
+  transparently suspended lease can be refused with HTTP 503
+  `GPU plane at capacity` while its resume path waits for a free seat
+  (measured: `retry in 6s`); retry after the suggested delay, like the
+  other gateway retry hints. `timeout_min` is
   validated but not applied (`timeout_min_applied: false`): kill them
   explicitly when done. Their maximum lease age appears as `end_at` in
   `sandboxes_list`.

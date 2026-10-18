@@ -24,7 +24,11 @@ GPU leases have no idle auto-pause through the plugin. If you interrupt or
 lose the client, use `sandboxes_list` and `sandbox_kill` to release the id
 printed by the script. CPU `--timeout-min` does not apply to this lease.
 The CUDA allocation shown is the job's tensor allocation, not the enforced
-VRAM cap; the lease's requested slice is 1 GiB.
+VRAM cap. The requested 1 GiB slice caps the whole vGPU device: ~756 MiB is
+used at rest (the vGPU baseline, measured 2026-10-15 on gpu-lease-v06) and
+each CUDA process's context (~0.3 GiB) counts too, so only ~0.3–0.6 GiB is
+allocatable. Rule of thumb: `vram_gb − 0.7 GiB baseline − ~0.3 GiB per CUDA
+process`; this smoke check allocates ~4 KiB, which is why it fits.
 
 Cleanup uses `DELETE /sandboxes/{id}`, followed by `GET /sandboxes/{id}`.
 The check accepts HTTP 404 (absent), or HTTP 200 with `{"phase":"dead"}`

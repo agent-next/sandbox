@@ -127,7 +127,9 @@ mujoco_warp 3.8.1, scores the replays against the same oracles, and shows
 the GPU row in the summary — but the exit code never depends on it. The
 lease is always `DELETE`d in a `finally` and the delete confirmed with
 `GET` → 404. Warp kernels cold-compile ~25 s per fresh lease; that is
-reported as setup time, not sim time.
+reported as setup time, not sim time. The 4 GiB slice is a hard cap on the
+whole vGPU device, not a tensor budget: expect `vram_gb − 0.7 GiB baseline − ~0.3 GiB
+per CUDA process` of allocatable memory (measured 2026-10-15 on gpu-lease-v06).
 
 ## Limits, stated plainly
 
