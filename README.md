@@ -79,6 +79,10 @@ Start with [AGENTS.md](AGENTS.md) for the check commands and acceptance rules.
 CLI setup and usage are in [cli/README.md](cli/README.md). The release process
 is in [RELEASING.md](RELEASING.md).
 
+[nightly-smoke.yml](.github/workflows/nightly-smoke.yml) runs `scripts/release_smoke.py`
+against the latest tag each night and uploads its JSON receipt. Set the `SBX_SMOKE_KEY`
+secret for live checks (absent = keyless run); scheduled failures file a "nightly smoke failed" issue auto-closed on green.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
