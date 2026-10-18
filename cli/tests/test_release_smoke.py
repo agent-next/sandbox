@@ -91,7 +91,13 @@ state = load()
 if cmd == "templates":
     print("base")
 elif cmd == "list":
-    print(json.dumps([{"sandboxID": i} for i in state["cpu"]]))
+    if state.get("bad_list_keys"):
+        # entries carry an id under an unrecognized key
+        print(json.dumps([{"id": i} for i in state["cpu"]]))
+    elif state.get("nonlist"):
+        print(json.dumps({"oops": "not a list"}))
+    else:
+        print(json.dumps([{"sandboxID": i} for i in state["cpu"]]))
 elif cmd == "create":
     sid = "sbx-fake-%d" % (len(state["cpu"]) + 1)
     state["cpu"].append(sid)
@@ -314,3 +320,29 @@ def test_cp_verify_fails_when_download_produces_nothing(
     # the sandbox is still killed and nothing is left behind
     assert receipt["left"] == 0
     assert json.loads(fake_sbx.read_text())["cpu"] == []
+
+
+def test_unrecognized_inventory_is_not_absence(fake_sbx, key, tmp_path, capsys):
+    # an entry without a recognized id field: the inventory is UNKNOWN, so
+    # the run must fail ("cannot confirm cleanup"), never count as absence
+    fake_sbx.write_text(json.dumps({"cpu": ["sbx-fake-1"], "gpu": [], "bad_list_keys": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "FAIL" in out
+    checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
+    assert checks and checks[-1]["rc"] == 1
+    assert "could not" in checks[-1].get("error", "")
+    assert receipt["verdict"] == "fail"
+
+
+def test_nonlist_inventory_is_not_absence(fake_sbx, key, tmp_path, capsys):
+    # a list reply that is not a JSON list: same rule, unknown, fail
+    fake_sbx.write_text(json.dumps({"cpu": ["sbx-fake-1"], "gpu": [], "nonlist": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "FAIL" in out
+    checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
+    assert checks and checks[-1]["rc"] == 1
+    assert receipt["verdict"] == "fail"
