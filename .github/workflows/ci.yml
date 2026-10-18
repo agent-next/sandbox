@@ -32,11 +32,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Detect doc changes
+      - name: Detect contract changes
         id: docs
         if: github.event_name == 'pull_request'
         run: |
-          if git diff --name-only "origin/${{ github.base_ref }}..." -- '*.md' | grep -q .; then
+          if git diff --name-only "origin/${{ github.base_ref }}..." -- \
+              '*.md' 'scripts/contract_check.py' 'scripts/test_contract_check.py' \
+              '.github/workflows/ci.yml' | grep -q .; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/setup-python@v5
