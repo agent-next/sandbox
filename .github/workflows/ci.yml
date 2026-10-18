@@ -52,6 +52,14 @@ jobs:
       - name: Slop gate on changed demos
         run: python3 cookbook/tools/slop_gate.py --base "origin/${{ github.base_ref }}"
 
+  version-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version strings agree
+        run: python3 scripts/bump_version.py --check
+
   manifests:
     runs-on: ubuntu-latest
     steps:
