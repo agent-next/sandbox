@@ -372,6 +372,23 @@ def test_main_offline_skips_the_link_check(docs, service):
     assert cc.main(["--root", str(docs), "--offline"]) == 0
 
 
+def test_main_offline_touches_no_network_even_with_a_key(docs, service, monkeypatch, capsys):
+    """--offline must skip the live checks too, not run them with a key."""
+    monkeypatch.setenv("SBX_API_KEY", "k")
+    attempted: list[str] = []
+    real_open = cc._open
+
+    def watched_open(url, *args, **kwargs):
+        attempted.append(url)
+        return real_open(url, *args, **kwargs)
+
+    monkeypatch.setattr(cc, "_open", watched_open)
+    assert cc.main(["--root", str(docs), "--offline"]) == 0
+    assert attempted == [], "an --offline run attempted network access"
+    out = capsys.readouterr().out
+    assert "SKIP mcp" in out and "SKIP gpu" in out
+
+
 def test_main_fails_on_the_real_drifts(docs, service):
     assert cc.main(["--root", str(docs), "--api-key", "k",
                     "--mcp-url", f"http://127.0.0.1:{docs_port(service)}/mcp/v1",
