@@ -1,4 +1,4 @@
-"""`sbx gpu`: GPU leases over the REST lease plane (create, exec, pause, resume, kill)."""
+"""`sbx gpu`: GPU leases over the REST lease plane (create, list, exec, pause, resume, kill)."""
 
 from __future__ import annotations
 
@@ -295,7 +295,7 @@ def register(sub, parser_class) -> None:
         "--timeout", type=float, default=DEFAULT_EXEC_TIMEOUT_S,
         help=f"job budget in seconds, up to {MAX_EXEC_TIMEOUT_S}; overrun kills the lease (default {DEFAULT_EXEC_TIMEOUT_S})",
     )
-    verb(gsub, "pause", "release the GPU, keep state (between jobs only)", cmd_pause)
+    verb(gsub, "pause", "release the GPU, keep state (between jobs only; a lease that cannot be spilled is frozen and keeps billing)", cmd_pause)
     verb(gsub, "resume", "take a seat again and restore state", cmd_resume)
     verb(gsub, "kill", "destroy the lease and confirm it is gone", cmd_kill)
     verb(gsub, "list", "list GPU leases held by this key", cmd_list, with_id=False)
