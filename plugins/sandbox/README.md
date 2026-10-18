@@ -43,7 +43,7 @@ for name, section in ((".credentials.json", "mcpOAuth"), ("mcp-needs-auth-cache.
         continue
     data = json.loads(p.read_text())
     table = data.get(section, {}) if section else data
-    for key in [k for k in table if k.startswith("plugin:sandbox:sandbox")]:
+    for key in [k for k in table if k.split("|")[0] == "plugin:sandbox:sandbox"]:
         del table[key]
     tmp = p.with_name(f"{p.name}.{os.getpid()}.tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, p.stat().st_mode & 0o600)
