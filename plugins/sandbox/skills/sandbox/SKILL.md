@@ -23,6 +23,11 @@ cloud, not on the user's machine.
 - **Heavy dependencies** — compilers, GPU stacks, large toolchains that are
   impractical to install locally.
 
+If the `sandbox_*` tools are missing and the server shows `needs-auth`,
+Claude Code cached an OAuth challenge from a session started without
+`SBX_API_KEY`: follow "API key" in the plugin README (export the key, clear
+the cached entries, start a new session) instead of retrying the tools.
+
 ## Normal flow
 
 1. `sandbox_create` — pick a template; note the returned sandbox id.

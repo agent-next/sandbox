@@ -25,6 +25,34 @@ Create a key at <https://sbx.agent-next.com/console> and export it as
 Claude Code, if the variable is unset the literal `${SBX_API_KEY}` is sent and
 authentication fails.
 
+Export the key before the first Claude Code session that loads the plugin. A
+session started without it gets the server's OAuth challenge, and Claude Code
+caches that: the server then shows `needs-auth` (no sandbox tools, also in
+`claude -p`) even after you export the key, while `claude mcp list` may still
+say Connected. To recover, remove only the sandbox server's cached entries
+(from `~/.claude/.credentials.json` and `~/.claude/mcp-needs-auth-cache.json`,
+when those files exist) and start a new session:
+
+```bash
+python3 - <<'PY'
+import json, os, pathlib
+d = pathlib.Path.home() / ".claude"
+for name, section in ((".credentials.json", "mcpOAuth"), ("mcp-needs-auth-cache.json", None)):
+    p = d / name
+    if not p.exists():
+        continue
+    data = json.loads(p.read_text())
+    table = data.get(section, {}) if section else data
+    for key in [k for k in table if k.split("|")[0] == "plugin:sandbox:sandbox"]:
+        del table[key]
+    tmp = p.with_name(f"{p.name}.{os.getpid()}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, p.stat().st_mode & 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, p)
+PY
+```
+
 ## Privacy
 
 Sandbox contents, command output and retained files are governed by the
