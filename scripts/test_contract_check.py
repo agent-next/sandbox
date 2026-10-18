@@ -249,6 +249,13 @@ def test_links_count_a_refused_head_as_alive(docs, service):
     assert not check.failed
 
 
+def test_links_pass_on_a_docs_tree_without_any_url(tmp_path):
+    """No checkable URLs is a pass, not a crash."""
+    (tmp_path / "README.md").write_text("# docs with no links\n", encoding="utf-8")
+    check = cc.check_links(tmp_path)
+    assert check.ok == ["no checkable http(s) URLs in the docs"]
+
+
 # --- mcp: the tool-list drift ------------------------------------------
 
 def test_mcp_pass_when_the_lists_agree(docs, service):
