@@ -103,7 +103,12 @@ elif cmd == "cp":
         state_dir, hashlib.sha256((sid + ":" + path).encode()).hexdigest()
     )
     if remote(src):
-        shutil.copyfile(store, dst)
+        if state.get("corrupt_cp"):
+            shutil.copyfile(store, dst)
+            with open(dst, "a") as stream:
+                stream.write("corrupted\n")
+        else:
+            shutil.copyfile(store, dst)
     else:
         shutil.copyfile(src, store)
 elif cmd == "kill":
@@ -238,3 +243,44 @@ def test_version_mismatch_fails(fake_sbx, key, tmp_path, capsys):
     assert "FAIL" in capsys.readouterr().out
     entry = next(s for s in receipt["steps"] if s["name"] == "version-check")
     assert entry["rc"] == 1
+
+
+def test_passing_check_records_detail_not_error(fake_sbx, key, tmp_path, capsys):
+    # a passing check carries its text as `detail`; a failing one as `error`
+    rc, receipt = run_smoke(tmp_path, ref="v9.9.9")
+    entry = next(s for s in receipt["steps"] if s["name"] == "version-check")
+    assert entry["rc"] == 1
+    assert "error" in entry and "detail" not in entry
+
+    rc, receipt = run_smoke(tmp_path)
+    out = capsys.readouterr().out
+    assert rc == 0
+    entry = next(s for s in receipt["steps"] if s["name"] == "version-check")
+    assert entry["rc"] == 0
+    assert "detail" in entry and "error" not in entry
+    assert "error" not in json.dumps(receipt)
+    assert "version-check" not in out or "FAIL" not in out
+
+
+def test_sha_mismatch_error_only_on_failure(fake_sbx, key, tmp_path, capsys, monkeypatch):
+    # cp-up produces a wrong copy, so cp-verify fails with an error field and
+    # no error text is ever recorded for a passing cp-verify
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "corrupt_cp": 1}))
+    monkeypatch.setenv("FAKE_SBX_FAIL", "never")
+    rc, receipt = run_smoke(tmp_path)
+    assert rc == 1
+    entry = next(s for s in receipt["steps"] if s["name"] == "cp-verify")
+    assert entry["rc"] == 1
+    assert "sha256 mismatch" in entry.get("error", "")
+    assert "detail" not in entry
+
+    # and a passing cycle never records the sha text at all
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": []}))
+    monkeypatch.delenv("FAKE_SBX_FAIL")
+    rc, receipt = run_smoke(tmp_path)
+    out = capsys.readouterr().out
+    assert rc == 0
+    entry = next(s for s in receipt["steps"] if s["name"] == "cp-verify")
+    assert entry["rc"] == 0
+    assert "sha256" not in json.dumps(receipt)
+    assert "sha256" not in out
