@@ -186,14 +186,22 @@ def fetch_json(url: str, api_key: str, method: str = "GET",
     if payload is not None:
         body = json.dumps(payload).encode()
         headers["Content-Type"] = "application/json"
-    status, reason = _request(url, method, headers, body)
-    if status >= 400:
-        raise Skip(f"{method} {url} answered HTTP {status} {reason}".rstrip())
     req = urllib.request.Request(url, method=method, headers=headers, data=body)
+    last: Skip | None = None
+    for _ in range(RETRIES + 1):  # one keyed request, retried once on a transport error
+        try:
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_S) as resp:
+                raw, content_type = resp.read(), resp.headers.get("Content-Type", "")
+            break
+        except urllib.error.HTTPError as exc:
+            raise Skip(f"{method} {url} answered HTTP {exc.code} {exc.reason or ''}".rstrip()) from exc
+        except Exception as exc:  # refused, reset, timed out, bad TLS
+            last = Skip(f"{method} {url}: {type(exc).__name__}: {exc}")
+    else:
+        assert last is not None
+        raise last
     try:
-        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_S) as resp:
-            return payload_from_body(resp.read(), resp.headers.get("Content-Type", ""),
-                                     payload.get("id") if payload else None)
+        return payload_from_body(raw, content_type, payload.get("id") if payload else None)
     except Exception as exc:
         raise Skip(f"{method} {url}: body is not valid JSON "
                    f"({type(exc).__name__}: {exc})") from exc
