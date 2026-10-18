@@ -95,7 +95,7 @@ the cached entries, start a new session) instead of retrying the tools.
   `torch.cuda.mem_get_info` saw ~590 MiB free, and a fresh process's CUDA
   context (~0.3 GiB) counted against the slice too, so `torch.empty(500 MB)`
   OOMed — roughly 0.3–0.6 GiB allocatable. Rule of thumb: expect
-  `vram_gb − 0.7 GiB baseline − ~0.3 GiB per CUDA process`, and size the
+  `vram_gb − ~0.4 GiB` for the first CUDA process and ~0.3 GiB less per additional CUDA process, and size the
   lease for workload plus that overhead, not for the workload alone.
 - **GPU leases have no internet by default.** The network is `none`;
   `internet` works only on nodes the operator opted in, and a create that
