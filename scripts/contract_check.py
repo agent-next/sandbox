@@ -353,7 +353,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=ROOT,
                         help="repo root holding the docs (default: this repo)")
     parser.add_argument("--offline", action="store_true",
-                        help="skip the link check; no network is touched")
+                        help="skip every check that needs the network; "
+                             "no network is touched")
     parser.add_argument("--api-key", default=None,
                         help="service API key (default: SBX_API_KEY in the environment)")
     parser.add_argument("--mcp-url", default=MCP_URL,
@@ -365,23 +366,27 @@ def main(argv: list[str] | None = None) -> int:
 
     checks: list[Check] = []
     if args.offline:
+        # No network is touched at all: the link check and both live checks
+        # are skipped, and the key is not even read.
         checks.append(Check("links", skip_reason="--offline: no network is touched"))
+        checks.append(Check("mcp", skip_reason="--offline: no network is touched"))
+        checks.append(Check("gpu", skip_reason="--offline: no network is touched"))
     else:
         checks.append(check_links(root))
-    try:
-        key = args.api_key if args.api_key is not None else api_key()
-        skip_reason = None
-    except Skip as exc:
-        key, skip_reason = "", str(exc)
-    for name, run in (("mcp", lambda: check_mcp(root, key, args.mcp_url)),
-                      ("gpu", lambda: check_gpu(root, key, args.gpu_url))):
-        if skip_reason is not None:
-            checks.append(Check(name, skip_reason=skip_reason))
-            continue
         try:
-            checks.append(run())
+            key = args.api_key if args.api_key is not None else api_key()
+            skip_reason = None
         except Skip as exc:
-            checks.append(Check(name, skip_reason=str(exc)))
+            key, skip_reason = "", str(exc)
+        for name, run in (("mcp", lambda: check_mcp(root, key, args.mcp_url)),
+                          ("gpu", lambda: check_gpu(root, key, args.gpu_url))):
+            if skip_reason is not None:
+                checks.append(Check(name, skip_reason=skip_reason))
+                continue
+            try:
+                checks.append(run())
+            except Skip as exc:
+                checks.append(Check(name, skip_reason=str(exc)))
 
     print(f"contract check: {root}")
     passed = [check.report() for check in checks]
