@@ -137,24 +137,41 @@ def link_status(url: str) -> int:
     return status
 
 
-def payload_from_body(body: bytes, content_type: str) -> object:
-    """The JSON payload in a response body: JSON, or an SSE data line.
+def payload_from_body(body: bytes, content_type: str, request_id: object = None) -> object:
+    """The JSON payload in a response body: JSON, or an SSE event stream.
 
     The MCP request advertises text/event-stream, so a compliant server may
-    answer that way; each `data:` line carries one JSON message and the
-    first one that parses is used.
+    answer that way. SSE assembles one event from its `data:` lines (joined
+    by newlines), and MCP may interleave notifications, so every event is
+    parsed whole and the one matching the request's id is returned.
     """
-    text = body.decode()
-    if "text/event-stream" in content_type:
-        for line in text.splitlines():
-            line = line.strip()
-            if line.startswith("data:"):
-                try:
-                    return json.loads(line[len("data:"):].strip())
-                except ValueError:
-                    continue
-        raise ValueError("no parsable data: line in the SSE response")
-    return json.loads(text)
+    if "text/event-stream" not in content_type:
+        return json.loads(body.decode())
+    data_lines: list[str] = []
+    events: list[object] = []
+
+    def assemble() -> None:
+        """Parse one whole event, if it holds a JSON message."""
+        try:
+            events.append(json.loads("\n".join(data_lines)))
+        except ValueError:
+            pass
+        data_lines.clear()
+
+    for line in body.decode().splitlines():
+        if line.startswith("data:"):
+            data_lines.append(line[len("data:"):].strip())
+            continue
+        # Any other line ends the event; a parsable event is a candidate.
+        if data_lines:
+            assemble()
+    if data_lines:
+        assemble()  # the last event before EOF
+    responses = [event for event in events
+                 if isinstance(event, dict) and event.get("id") == request_id]
+    if responses:
+        return responses[0]
+    raise ValueError("the SSE response carries no JSON-RPC answer for the request")
 
 
 def fetch_json(url: str, api_key: str, method: str = "GET",
@@ -175,7 +192,8 @@ def fetch_json(url: str, api_key: str, method: str = "GET",
     req = urllib.request.Request(url, method=method, headers=headers, data=body)
     try:
         with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_S) as resp:
-            return payload_from_body(resp.read(), resp.headers.get("Content-Type", ""))
+            return payload_from_body(resp.read(), resp.headers.get("Content-Type", ""),
+                                     payload.get("id") if payload else None)
     except Exception as exc:
         raise Skip(f"{method} {url}: body is not valid JSON "
                    f"({type(exc).__name__}: {exc})") from exc
