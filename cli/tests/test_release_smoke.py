@@ -166,7 +166,9 @@ elif cmd == "create":
         sys.exit(1)
 elif cmd == "exec":
     if state.get("hang"):
-        time.sleep(30)
+        # long enough to outlive the 2s test deadline, short enough that a
+        # pre-deadline module finishes it and fails behaviorally (fast)
+        time.sleep(6)
     if state.get("exec_bad_output"):
         print("nope")
     else:
@@ -655,8 +657,11 @@ def test_hanging_step_is_killed_at_deadline(
     fake_sbx, key, tmp_path, capsys, monkeypatch
 ):
     # a step that never exits is killed at the step deadline and recorded
-    # as a failure; the run still terminates and cleans up
-    monkeypatch.setattr(rs, "STEP_TIMEOUT_S", 2)
+    # as a failure; the run still terminates and cleans up. raising=False
+    # lets the override apply to a module without the constant, so the
+    # red on pre-deadline code is the behavior (the hang outlives the
+    # deadline, exec exits 0, no timed-out error), not an AttributeError.
+    monkeypatch.setattr(rs, "STEP_TIMEOUT_S", 2, raising=False)
     fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "hang": 1}))
     rc, receipt = run_smoke(tmp_path)
     out = capsys.readouterr().out
