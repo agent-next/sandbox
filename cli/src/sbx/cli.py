@@ -678,7 +678,14 @@ def _pipe_reader_gone(stream) -> bool:
 def main(argv: list[str] | None = None) -> int:
     try:
         try:
-            args = build_parser().parse_args(argv)
+            try:
+                args = build_parser().parse_args(argv)
+            except SystemExit as exc:
+                # --version/--help write to stdout and exit 0; with unbuffered
+                # stdout argparse swallows the failed write, so check the pipe
+                if exc.code == 0 and _pipe_reader_gone(sys.stdout):
+                    raise BrokenPipeError from None
+                raise
             try:
                 rc = args.func(args)
             except SbxError as exc:
@@ -696,10 +703,7 @@ def main(argv: list[str] | None = None) -> int:
             # short writes stay buffered until interpreter shutdown, past the
             # catch below; flush here so a closed pipe exits the same way a
             # mid-stream one does (this also covers --version/--help, which
-            # leave through SystemExit). With unbuffered stdout the write has
-            # already failed inside argparse, so check the pipe itself.
-            if _pipe_reader_gone(sys.stdout) or _pipe_reader_gone(sys.stderr):
-                raise BrokenPipeError
+            # leave through SystemExit)
             sys.stdout.flush()
             sys.stderr.flush()
     except BrokenPipeError:
