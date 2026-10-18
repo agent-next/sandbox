@@ -273,8 +273,27 @@ def test_list_accepts_empty_and_populated_inventory(wrapped, items, monkeypatch,
     monkeypatch.setattr(cli.httpx, "get", lambda *a, **kw: cli.httpx.Response(200, json=payload))
     assert cli.main(["list"]) == 0
     output = capsys.readouterr()
+    assert output.out == "".join(
+        f"{item.get('sandboxID') or item.get('sandbox_id')}\t"
+        f"{item.get('alias') or item.get('templateID') or '-'}\t{item.get('startedAt') or '-'}\n"
+        for item in items
+    )
+    # An empty key still gets an explicit line (stderr), not silence.
+    assert ("no sandboxes" in output.err) if not items else (output.err == "")
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("items", [[], [
+    {"sandboxID": "sbx-1", "alias": "base", "startedAt": "2026-10-12T00:00:00Z"},
+    {"sandbox_id": "sbx-2", "templateID": "agent-full"},
+]])
+def test_list_json_prints_the_raw_validated_array(wrapped, items, monkeypatch, capsys):
+    payload = {"sandboxes": items} if wrapped else items
+    monkeypatch.setattr(cli.httpx, "get", lambda *a, **kw: cli.httpx.Response(200, json=payload))
+    assert cli.main(["list", "--json"]) == 0
+    output = capsys.readouterr()
     assert output.err == ""
-    assert output.out == ("sbx-1\tbase\t2026-10-12T00:00:00Z\nsbx-2\tagent-full\t-\n" if items else "")
+    assert json.loads(output.out) == items
 
 
 @pytest.mark.parametrize("payload", [
