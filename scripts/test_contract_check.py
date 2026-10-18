@@ -12,6 +12,7 @@ Run:  pytest -q scripts     (from the repo root)
 from __future__ import annotations
 
 import json
+import socket
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -23,6 +24,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import contract_check as cc  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(autouse=True)
+def no_external_network(monkeypatch):
+    """Fail the test on any attempt to connect outside 127.0.0.1.
+
+    The suite's contract is that it runs offline against the local stub;
+    this turns a stray production URL in a fixture into a loud failure.
+    """
+    real_connect = socket.socket.connect
+
+    def guarded_connect(self, address):
+        host = address[0] if isinstance(address, tuple) else address
+        if isinstance(host, str) and host not in ("127.0.0.1", "localhost", "::1"):
+            raise ConnectionRefusedError(
+                f"tests must not touch the network: connect to {host!r} blocked")
+        return real_connect(self, address)
+
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
 
 README = """# demo
 
@@ -209,6 +229,12 @@ def test_doc_urls_skips_fences_and_placeholders(tmp_path):
 
 
 # --- links: the dead-link drift ----------------------------------------
+
+def test_the_network_guard_blocks_other_hosts():
+    """The guard fixture answers any non-loopback connect with a refusal."""
+    with pytest.raises(ConnectionRefusedError):
+        socket.create_connection(("192.0.2.1", 80), timeout=1)
+
 
 def test_links_fail_on_a_dead_link(docs, service):
     """A doc URL that answers 404 fails the check and names the file and line."""
