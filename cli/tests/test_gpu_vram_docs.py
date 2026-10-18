@@ -21,8 +21,9 @@ SLICE_DOCS = [
     REPO / "cookbook/sim-engine-arena/README.md",
 ]
 
-# The issue's rule of thumb: ~vram_gb − 0.7 GiB baseline − ~0.3 GiB per CUDA process.
-RULE = re.compile(r"vram_gb\s*[−-]\s*0\.7\s*GiB\s+baseline[^\n]*?0\.3\s*GiB")
+# Measured rule of thumb (1 GiB lease -> ~0.6 GiB free to the first process, ~0.3 GiB to a second):
+# `vram_gb − ~0.4 GiB` for the first CUDA process, ~0.3 GiB less per additional one.
+RULE = re.compile(r"vram_gb\s*[−-]\s*~0\.4\s*GiB`\s+for the first CUDA\s+process\s+and\s+~0\.3\s*GiB\s+less\s+per\s+additional")
 
 
 @pytest.mark.parametrize("doc", SLICE_DOCS, ids=lambda p: str(p.relative_to(REPO)))
@@ -30,8 +31,8 @@ def test_slice_docs_state_the_allocatable_rule(doc):
     text = doc.read_text(encoding="utf-8")
     assert RULE.search(text), (
         f"must state the effective-allocatable rule for a vram_gb slice: "
-        "~vram_gb − 0.7 GiB vGPU baseline − ~0.3 GiB per CUDA process "
-        "sits inside the requested slice (issue #81)"
+        "`vram_gb − ~0.4 GiB` for the first CUDA process and ~0.3 GiB less per "
+        "additional CUDA process (issue #81)"
     )
 
 
