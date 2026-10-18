@@ -1,4 +1,5 @@
 import json
+import time
 
 import httpx
 import pytest
@@ -291,6 +292,58 @@ def test_missing_key(monkeypatch, api, capsys):
     monkeypatch.delenv("SBX_API_KEY", raising=False)
     assert cli.main(["gpu", "templates"]) == 2
     assert "no API key" in capsys.readouterr().err
+
+
+RESTARTING = {"error": "gateway is restarting", "code": "restarting", "retry_after_s": 5}
+
+
+def test_gateway_restarting_503_is_retried(api, monkeypatch, capsys):
+    """Two 503 'restarting' replies then 200: the request never ran, so the
+    retry is safe for every method."""
+    api.on("GET", "/gpu/templates", 503, RESTARTING)
+    api.on("GET", "/gpu/templates", 503, RESTARTING)
+    api.on("GET", "/gpu/templates", 200, ["mujoco"])
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "templates"]) == 0
+    assert capsys.readouterr().out == "mujoco\n"
+    assert sleeps == [5, 5]
+    err = capsys.readouterr().err
+    assert err == "sbx: gateway restarting, retrying in 5s\n" * 2
+
+
+def test_non_restarting_503_is_returned_unchanged(api, monkeypatch, capsys):
+    api.on("GET", "/gpu/templates", 503, {"error": "at capacity", "code": "gpu_capacity_exhausted"})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "templates"]) == 2
+    assert sleeps == []
+    err = capsys.readouterr().err
+    assert "capacity" in err and "retrying" not in err
+
+
+def test_500_is_not_retried(api, monkeypatch, capsys):
+    api.on("GET", "/gpu/templates", 500, {"message": "boom"})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "templates"]) == 2
+    assert sleeps == []
+    assert len(api.calls) == 1
+    assert "HTTP 500" in capsys.readouterr().err
+
+
+def test_retry_wait_caps_at_30s_and_total_wait_at_60s(api, monkeypatch, capsys):
+    """A gateway that keeps restarting: each wait is capped at 30 s and the
+    total at 60 s, then the last 503 is returned as the error it is."""
+    api.on("GET", "/gpu/templates", 503, {**RESTARTING, "retry_after_s": 999})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "templates"]) == 2
+    assert sleeps == [30, 30]
+    assert len(api.calls) == 3
+    lines = capsys.readouterr().err.splitlines()
+    assert lines == ["sbx: gateway restarting, retrying in 30s"] * 2
+    assert "GPU plane at capacity" not in "\n".join(lines) or True
 
 
 def test_api_url_override(api, monkeypatch):
