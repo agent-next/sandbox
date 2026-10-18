@@ -28,6 +28,9 @@ MUTRACER_SHA256 = "a84ec7913ae95e49b1172ea0cba45f20179f4a5d0cce08768d4812348e3e7
 MUTRACER_SHA512 = "iSqsI9GppKGPfDM7ntmZp5JZZjsIubh+aHVvyW516qTf2Hp64FPNzQwZIkF1LOA6aEk2JAisHBFAnpKUINyBBA=="
 NUMPY_SHA256 = "fd83c01228a688733f1ded5201c678f0c53ecc1006ffbc404db9f7a899ac6249"
 WHEEL = "numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+CREATE_ATTEMPTS = 3
+CREATE_MAX_WAIT_S = 30
+DOWNLOAD_STALL_TIMEOUT_S = 120
 
 
 def download(url):
@@ -64,14 +67,14 @@ def numpy_wheel():
     return data
 
 
-def request(key, method, path, body=None):
+def request(key, method, path, body=None, timeout=3700):
     headers = {"X-API-Key": key}
     if isinstance(body, dict):
         body = json.dumps(body).encode()
         headers["Content-Type"] = "application/json"
     req = Request(API + path, data=body, method=method, headers=headers)
     try:
-        with urlopen(req, timeout=3700) as response:
+        with urlopen(req, timeout=timeout) as response:
             return response.status, response.read()
     except HTTPError as exc:
         return exc.code, exc.read()
@@ -82,6 +85,32 @@ def json_request(key, method, path, body=None):
     if status not in (200, 201):
         raise RuntimeError(f"{method} {path}: HTTP {status}")
     return json.loads(data)
+
+
+def create_lease(key, body):
+    """POST /sandboxes, honoring the gateway's 409 retry_after_s hint (#55)."""
+    for attempt in range(CREATE_ATTEMPTS):
+        status, data = request(key, "POST", "/sandboxes", body)
+        if status in (200, 201):
+            return json.loads(data)
+        if status != 409:
+            raise RuntimeError(f"POST /sandboxes: HTTP {status}")
+        try:
+            reply = json.loads(data)
+        except ValueError:
+            reply = None
+        try:
+            wait = float(reply.get("retry_after_s", 0)) if isinstance(reply, dict) else 0.0
+        except (TypeError, ValueError):
+            wait = 0.0
+        hint = f"retry in {wait:g}s" if wait else "retry later"
+        if attempt == CREATE_ATTEMPTS - 1:
+            raise RuntimeError(f"POST /sandboxes: HTTP 409 after {CREATE_ATTEMPTS} attempts"
+                               f" ({hint}); free a sandbox slot and rerun")
+        wait = min(wait if wait > 0 else 1, CREATE_MAX_WAIT_S)
+        print(f"create: HTTP 409 ({hint}); retrying in {wait:g}s", flush=True)
+        time.sleep(wait)
+    raise RuntimeError("unreachable")
 
 
 def source_archive():
@@ -231,8 +260,8 @@ def gpu_run(args, key):
     sid = None
     receipt = {"selftest_skipped": args.skip_selftest}
     try:
-        created = json_request(key, "POST", "/sandboxes", {
-            "accel": {"template": "browser", "vram_gb": 2, "reserve": "exec"}})
+        created = create_lease(key, {"accel": {"template": "browser", "vram_gb": 2,
+                                               "reserve": "exec"}})
         sid = created.get("sandboxID")
         if not isinstance(sid, str) or not re.fullmatch(r"gl-[A-Za-z0-9-]+", sid):
             sid = None
@@ -285,8 +314,15 @@ def gpu_run(args, key):
             if len(path.parts) != 1 or path.suffix not in allowed:
                 continue
             for attempt in range(5):
-                status, data = request(key, "GET",
-                    f"/sandboxes/{sid}/files/{quote(name, safe='')}")
+                try:
+                    status, data = request(key, "GET",
+                        f"/sandboxes/{sid}/files/{quote(name, safe='')}",
+                        timeout=DOWNLOAD_STALL_TIMEOUT_S)
+                except (OSError, TimeoutError) as exc:
+                    # a silent transfer must not hold a billing lease for hours (#55)
+                    raise RuntimeError(
+                        f"download {name}: stalled ({exc.__class__.__name__}) after"
+                        f" {DOWNLOAD_STALL_TIMEOUT_S}s of silence; lease {sid} freed") from exc
                 if status == 200:
                     break
                 if status not in (404, 502, 503, 504) or attempt == 4:
