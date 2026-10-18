@@ -73,6 +73,16 @@ class Handler(BaseHTTPRequestHandler):
     tools: list[str] = []
     gpu_templates: list[str] = []
     statuses: list[tuple[str, str]] = []
+    # The live MCP endpoint answers 401 to a POST that does not accept its
+    # stream type; tests that need that behavior switch this on.
+    require_stream_accept = False
+    # When set, authenticated paths answer 403 unless X-API-Key matches.
+    required_key: str | None = None
+
+    def _authorized(self) -> bool:
+        if self.required_key is None:
+            return True
+        return self.headers.get("X-API-Key", "") == self.required_key
 
     def log_message(self, *args):  # keep pytest output readable
         pass
@@ -98,6 +108,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(405)  # the real endpoint refuses a plain GET, too
             return
         if self.path == "/gpu/templates":
+            if not self._authorized():
+                self._send(403, b'{"error":"bad key"}', "application/json")
+                return
             body = json.dumps({"templates": [{"name": n} for n in self.gpu_templates]}).encode()
             self._send(200, body, "application/json")
             return
@@ -108,6 +121,12 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         request = json.loads(self.rfile.read(length) or b"{}")
         if self.path == "/mcp/v1":
+            if not self._authorized():
+                self._send(403, b'{"error":"bad key"}', "application/json")
+                return
+            if self.require_stream_accept and "text/event-stream" not in self.headers.get("Accept", ""):
+                self._send(401, b'{"error":"stream type not accepted"}', "application/json")
+                return
             if request.get("method") != "tools/list":
                 self._send(400, b'{"error":"unknown method"}', "application/json")
                 return
@@ -128,6 +147,8 @@ def server(monkeypatch):
     monkeypatch.setattr(cc, "SKIP_URL_PARTS", ())
     Handler.links, Handler.tools, Handler.gpu_templates, Handler.statuses = {}, [], [], []
     Handler.refused = {"/mcp/v1"}
+    Handler.require_stream_accept = False
+    Handler.required_key = None
     httpd = HTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -324,6 +345,31 @@ def test_main_prints_a_reason_when_it_skips(docs, service, capsys):
 def test_main_skips_checks_2_and_3_without_a_key(docs, service):
     """No key: the link check still runs for real, the live ones say why."""
     assert cc.main(["--root", str(docs)]) == 0
+
+
+def test_main_uses_the_key_from_the_environment(docs, service, monkeypatch, capsys):
+    """SBX_API_KEY in the environment must run both live checks, not skip them."""
+    monkeypatch.setenv("SBX_API_KEY", "envkey")
+    Handler.required_key = "envkey"
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    (docs / cc.PLUGIN_SKILL).write_text(
+        PLUGIN_SKILL.replace("`kernel`", "`blender`"), encoding="utf-8")
+    port = docs_port(service)
+    assert cc.main(["--root", str(docs),
+                    "--mcp-url", f"http://127.0.0.1:{port}/mcp/v1",
+                    "--gpu-url", f"http://127.0.0.1:{port}/gpu/templates"]) == 0
+    out = capsys.readouterr().out
+    assert "SKIP mcp" not in out and "SKIP gpu" not in out
+    assert "PASS mcp" in out and "PASS gpu" in out
+
+
+def test_mcp_sends_the_event_stream_accept_header(docs, service):
+    """The MCP POST must accept the stream type; the endpoint 401s otherwise."""
+    Handler.require_stream_accept = True
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.skip_reason is None, check.skip_reason
+    assert not check.failed, check.failed
 
 
 def docs_port(base: str) -> int:
