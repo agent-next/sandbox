@@ -48,7 +48,11 @@ ALIVE_REFUSED = frozenset({405})
 SKIP_URL_PARTS = ("localhost", "127.0.0.1", "example.com", "example.org")
 # `<port>`, `{id}`, `$id`: placeholders, not links.
 PLACEHOLDER_RE = re.compile(r"[<{$]")
-URL_RE = re.compile(r"https?://[^\s<>\"'`)\]}]+")
+# The URL body admits `<...>` placeholder segments, so a URL like
+# https://host/sandboxes/<id>/files is matched whole and rejected by
+# PLACEHOLDER_RE — not matched up to the `<` and checked as a truncated,
+# plausible-looking route.
+URL_RE = re.compile(r"https?://[^\s<>\"'`)\]}]+(?:<[^>\s]+>[^\s<>\"'`)\]}]*)*")
 
 # plugins/sandbox/README.md lists the tools on one "Tools: `a`, `b`, ..."
 # entry that wraps over lines and ends right before "Server URL:".
