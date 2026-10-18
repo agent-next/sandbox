@@ -138,6 +138,9 @@ def fetch_json(url: str, api_key: str, method: str = "GET",
     """A JSON call to the service; bad status, transport or body raises Skip."""
     headers = {"User-Agent": USER_AGENT, "X-API-Key": api_key,
                "Accept": "application/json"}
+    if "/mcp/" in url:
+        # The MCP server refuses requests that do not accept its stream type.
+        headers["Accept"] = "application/json, text/event-stream"
     body = None
     if payload is not None:
         body = json.dumps(payload).encode()
@@ -341,11 +344,18 @@ def main(argv: list[str] | None = None) -> int:
         checks.append(Check("links", skip_reason="--offline: no network is touched"))
     else:
         checks.append(check_links(root))
-    for name, run in (("mcp", lambda: check_mcp(root, args.api_key or "", args.mcp_url)),
-                      ("gpu", lambda: check_gpu(root, args.api_key or "", args.gpu_url))):
+    try:
+        key = args.api_key if args.api_key is not None else api_key()
+        skip_reason = None
+    except Skip as exc:
+        key, skip_reason = "", str(exc)
+    for name, run in (("mcp", lambda: check_mcp(root, key, args.mcp_url)),
+                      ("gpu", lambda: check_gpu(root, key, args.gpu_url))):
+        if skip_reason is not None:
+            checks.append(Check(name, skip_reason=skip_reason))
+            continue
         try:
-            key = args.api_key if args.api_key is not None else api_key()
-            checks.append(run() if key else Check(name, skip_reason="no API key"))
+            checks.append(run())
         except Skip as exc:
             checks.append(Check(name, skip_reason=str(exc)))
 
