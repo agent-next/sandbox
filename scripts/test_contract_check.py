@@ -56,7 +56,7 @@ Tools: `sandboxes_list`, `sandbox_templates`,
 `sandbox_create`, `sandbox_exec`, `sandbox_exec_output`,
 `sandbox_files_read`, `sandbox_files_write`, `sandbox_preview_url`,
 `sandbox_workspace`, `sandbox_kill`. Server URL:
-`https://api.sbx.agent-next.com/mcp/v1`.
+`{base}/mcp/v1`.
 """
 
 PLUGIN_SKILL = """---
@@ -187,7 +187,8 @@ def docs(tmp_path: Path, server) -> Path:
     (tmp_path / "docs").mkdir()
     (tmp_path / "README.md").write_text(README.format(base=base), encoding="utf-8")
     (tmp_path / "cli" / "README.md").write_text(README.format(base=base), encoding="utf-8")
-    (tmp_path / cc.PLUGIN_README).write_text(PLUGIN_README, encoding="utf-8")
+    (tmp_path / cc.PLUGIN_README).write_text(PLUGIN_README.format(base=base),
+                                             encoding="utf-8")
     (tmp_path / cc.PLUGIN_SKILL).write_text(PLUGIN_SKILL, encoding="utf-8")
     (tmp_path / "docs" / "acceptance.md").write_text(
         f"See [{base}/alive]({base}/alive).\n", encoding="utf-8")
