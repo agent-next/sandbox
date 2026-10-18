@@ -105,6 +105,16 @@ def check(receipt, name, passed, detail=None):
     return passed
 
 
+def _first_error(*procs):
+    """First non-empty stderr/stdout line among failed steps, for the receipt."""
+    for proc in procs:
+        if proc.returncode:
+            text = (proc.stderr or proc.stdout or "").strip()
+            if text:
+                return ": " + text.splitlines()[-1]
+    return ""
+
+
 def skip(receipt, name, reason):
     receipt["steps"].append({"name": name, "skipped": True, "reason": reason})
     print(f"[{name}] skipped: {reason}", file=sys.stderr)
@@ -196,8 +206,14 @@ def smoke(ref, gpu, receipt):
                 back = Path(tmp) / "probe-back.txt"
                 down = run(receipt, "cp-down",
                            [sbx, "cp", remote, str(back)], env=env)
-                if up.returncode or down.returncode or not back.exists():
-                    skip(receipt, "cp-verify", "a cp step failed")
+                if up.returncode or down.returncode:
+                    check(receipt, "cp-verify", False,
+                          "a cp step failed" + _first_error(up, down))
+                elif not back.exists():
+                    # both copies reported success but produced nothing:
+                    # that is a failed round trip, never a skipped check
+                    check(receipt, "cp-verify", False,
+                          "cp-down exited 0 but " + str(back) + " is missing")
                 else:
                     a = hashlib.sha256(probe.read_bytes()).hexdigest()
                     b = hashlib.sha256(back.read_bytes()).hexdigest()

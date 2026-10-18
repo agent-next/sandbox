@@ -106,6 +106,8 @@ elif cmd == "cp":
         state_dir, hashlib.sha256((sid + ":" + path).encode()).hexdigest()
     )
     if remote(src):
+        if state.get("missing_cp"):
+            sys.exit(0)  # exit 0 but produce no downloaded file
         if state.get("corrupt_cp"):
             shutil.copyfile(store, dst)
             with open(dst, "a") as stream:
@@ -294,3 +296,21 @@ def test_sha_mismatch_error_only_on_failure(fake_sbx, key, tmp_path, capsys, mon
     assert entry["rc"] == 0
     assert "sha256" not in json.dumps(receipt)
     assert "sha256" not in out
+
+
+def test_cp_verify_fails_when_download_produces_nothing(
+    fake_sbx, key, tmp_path, capsys
+):
+    # cp-up and cp-down both exit 0 but cp-down writes no file: the round
+    # trip failed, so cp-verify must be a failed check, never skipped
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "missing_cp": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    capsys.readouterr()
+    assert rc == 1
+    entry = next(s for s in receipt["steps"] if s["name"] == "cp-verify")
+    assert "skipped" not in entry
+    assert entry["rc"] == 1
+    assert "missing" in entry.get("error", "")
+    # the sandbox is still killed and nothing is left behind
+    assert receipt["left"] == 0
+    assert json.loads(fake_sbx.read_text())["cpu"] == []
