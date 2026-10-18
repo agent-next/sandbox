@@ -201,6 +201,7 @@ def test_doc_urls_skips_fences_and_placeholders(tmp_path):
         "curl https://a.example/2\n"
         "```\n"
         "placeholder https://<port>-<id>.sbx.agent-next.com and https://a.example/$id\n"
+        "embedded https://api.vendor.test/sandboxes/<id>/files\n"
         "local http://localhost:8000/x and https://127.0.0.1:9/y\n"
         "example https://example.com/z\n",
         encoding="utf-8")
