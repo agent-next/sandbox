@@ -121,7 +121,12 @@ def skip(receipt, name, reason):
 
 
 def list_ids(proc):
-    """Sandbox or lease ids in a `* list --json` reply, or None when unusable."""
+    """Sandbox or lease ids in a `* list --json` reply, or None when unknown.
+
+    None means "cannot confirm the inventory": a non-list payload, or any
+    entry without a recognized id. Callers must treat None as a failure,
+    never as an empty list — a malformed reply must not count as absence.
+    """
     if proc.returncode:
         return None
     try:
@@ -134,10 +139,14 @@ def list_ids(proc):
         return None
     ids = set()
     for item in items:
+        sid = None
         if isinstance(item, dict):
             sid = item.get("sandboxID") or item.get("sandbox_id")
-            if isinstance(sid, str) and sid:
-                ids.add(sid)
+        if isinstance(sid, str) and sid:
+            ids.add(sid)
+        else:
+            # an entry we cannot identify makes the whole reply unknown
+            return None
     return ids
 
 
