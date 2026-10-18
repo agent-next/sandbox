@@ -28,8 +28,8 @@ VERSION_FILES = (
     "plugins/sandbox/.codex-plugin/plugin.json",
 )
 
-_SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
-_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+_SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
+_TAG = re.compile(r"v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 _TOML_VERSION = re.compile(r'^version\s*=\s*"([^"]*)"')
 _JSON_VERSION = re.compile(r'"version"(\s*:\s*)"([^"]*)"')
 
@@ -39,7 +39,7 @@ class BumpError(Exception):
 
 
 def parse_version(text):
-    m = _SEMVER.match(text)
+    m = _SEMVER.fullmatch(text)
     if not m:
         raise BumpError(f"invalid version {text!r}: expected x.y.z")
     return tuple(int(g) for g in m.groups())
@@ -125,13 +125,13 @@ def check(root, tag=None):
     problems = [
         f"{rel}: version {v!r} is not x.y.z"
         for rel, v in versions.items()
-        if not _SEMVER.match(v)
+        if not _SEMVER.fullmatch(v)
     ]
     if len(set(versions.values())) != 1:
         detail = ", ".join(f"{rel}={v}" for rel, v in versions.items())
         problems.append(f"version strings disagree: {detail}")
     if tag is not None:
-        if not _TAG.match(tag):
+        if not _TAG.fullmatch(tag):
             raise BumpError(f"invalid tag {tag!r}: expected vX.Y.Z")
         want = tag[1:]
         problems += [
