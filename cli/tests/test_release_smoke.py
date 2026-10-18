@@ -446,16 +446,18 @@ def test_cpu_create_lost_reply_without_id_still_killed(
     entry = next(s for s in receipt["steps"] if s["name"] == "create-id")
     assert entry["rc"] == 1
     kills = [s for s in receipt["steps"]
-             if s["name"] in ("kill", "cleanup-kill") and s["rc"] == 0]
+             if s["name"] in ("kill", "cleanup-kill") and s.get("rc") == 0]
     assert kills, "the unprinted sandbox must still be killed"
 
 
 def test_invalid_id_strings_are_not_verified_inventory(
-    fake_sbx, key, tmp_path, capsys
+    fake_sbx, key, tmp_path, capsys, monkeypatch
 ):
     # ids that are blank/non-printable carry no information: an inventory
     # made only of such ids is unverifiable, so the run must fail rather
-    # than treat the set difference as proof of absence
+    # than treat the set difference as proof of absence. keep-alive makes
+    # the kill a no-op, mirroring the reported pass-while-alive repro
+    monkeypatch.setenv("FAKE_SBX_KEEP", "1")
     fake_sbx.write_text(json.dumps({"cpu": ["sbx-fake-1"], "gpu": [], "whitespace_ids": 1}))
     rc, receipt = run_smoke(tmp_path)
     out = capsys.readouterr().out
@@ -464,6 +466,10 @@ def test_invalid_id_strings_are_not_verified_inventory(
     checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
     assert checks and checks[-1]["rc"] == 1
     assert receipt["verdict"] == "fail"
+    # the sandbox created by this run is reported as left (the pre-existing
+    # sbx-fake-1 was there before, so it is not this run's leftover)
+    assert receipt["left"] == 1
+    assert receipt["left_ids"] == ["sbx-fake-2"]
 
 
 def test_inventory_must_see_the_created_sandbox(fake_sbx, key, tmp_path, capsys):
@@ -524,9 +530,12 @@ def test_runner_exception_still_writes_verdict_and_receipt(
     assert receipt["left"] == 0
 
 
-def test_hanging_step_is_killed_at_deadline(fake_sbx, key, tmp_path, capsys):
+def test_hanging_step_is_killed_at_deadline(
+    fake_sbx, key, tmp_path, capsys, monkeypatch
+):
     # a step that never exits is killed at the step deadline and recorded
     # as a failure; the run still terminates and cleans up
+    monkeypatch.setattr(rs, "STEP_TIMEOUT_S", 2)
     fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "hang": 1}))
     rc, receipt = run_smoke(tmp_path)
     out = capsys.readouterr().out
@@ -534,7 +543,7 @@ def test_hanging_step_is_killed_at_deadline(fake_sbx, key, tmp_path, capsys):
     assert "FAIL" in out
     entry = next(s for s in receipt["steps"] if s["name"] == "exec")
     assert entry["rc"] != 0
-    assert "timeout" in entry.get("error", "").lower()
+    assert "timed out" in entry.get("error", "").lower()
     assert json.loads(fake_sbx.read_text())["cpu"] == []
     assert receipt["left"] == 0
 

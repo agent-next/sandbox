@@ -38,6 +38,23 @@ GPU_CHECK = (
     "assert torch.cuda.is_available(), 'torch.cuda.is_available() is False';"
     "print('cuda ok')"
 )
+# every child process gets a deadline: a hung step must never block the
+# verdict or the cleanup. install builds a wheel from git and may be slow;
+# gpu-exec wraps a remote job bounded by its own --timeout 300.
+STEP_TIMEOUT_S = 120
+INSTALL_TIMEOUT_S = 600
+GPU_EXEC_TIMEOUT_S = 360
+# python import/pip settings inherited from a developer's checkout would
+# defeat the fresh venv (an injected module can shadow the installed ref)
+_DROP_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE", "PYTHONSTARTUP")
+
+
+def strip_py_env(env):
+    """env minus the python/pip overrides, with PATH/HOME/proxy kept."""
+    return {
+        k: v for k, v in env.items()
+        if k not in _DROP_ENV and not k.startswith("PIP_")
+    }
 
 
 def scrub(text):
@@ -52,7 +69,7 @@ def scrub(text):
 def latest_tag():
     proc = subprocess.run(
         ["git", "describe", "--tags", "--abbrev=0"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, timeout=STEP_TIMEOUT_S,
     )
     if proc.returncode or not proc.stdout.strip():
         raise SystemExit("no --ref given and `git describe --tags` found no tag")
@@ -74,10 +91,20 @@ def cmd_install(venv, ref):
     ]
 
 
-def run(receipt, name, argv, env=None):
-    """Run one step, record rc and duration, and echo a progress line."""
+def run(receipt, name, argv, env=None, timeout=None):
+    """Run one step with a deadline, record rc and duration, echo progress."""
+    timeout = STEP_TIMEOUT_S if timeout is None else timeout
     started = time.monotonic()
-    proc = subprocess.run(argv, capture_output=True, text=True, env=env)
+    timed_out = False
+    try:
+        proc = subprocess.run(
+            argv, capture_output=True, text=True,
+            env=strip_py_env(env if env is not None else os.environ),
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        proc = subprocess.CompletedProcess(argv, 124, stdout="", stderr="")
     entry = {
         "name": name,
         "rc": proc.returncode,
@@ -85,6 +112,8 @@ def run(receipt, name, argv, env=None):
     }
     if proc.returncode:
         detail = (proc.stderr or proc.stdout or "").strip()
+        if not detail and timed_out:
+            detail = f"timed out after {timeout}s"
         if detail:
             # scrub BEFORE truncating: the 300-char cut may land inside the
             # key, so any surviving fragment stays secret. Keep the last line
@@ -120,6 +149,29 @@ def skip(receipt, name, reason):
     print(f"[{name}] skipped: {reason}", file=sys.stderr)
 
 
+def sweep_new_ids(receipt, name, before, argv, env, kind, alive, created):
+    """Register ids that appeared since `before` for cleanup. Returns True
+    when at least one new id was identified; False (including unreadable
+    inventories) leaves the leftover check unverifiable."""
+    during = list_ids(run(receipt, name, argv, env=env))
+    if before is None or during is None:
+        return False
+    found = False
+    for rid in sorted(during - before):
+        alive.append((kind, rid))
+        created.add(rid)
+        found = True
+    return found
+
+
+def _clean_id(sid):
+    """A usable resource id, or None: blank and non-printable strings carry
+    no information and must not count as verified inventory."""
+    if isinstance(sid, str) and sid.strip() and sid.isprintable():
+        return sid
+    return None
+
+
 def list_ids(proc):
     """Sandbox or lease ids in a `* list --json` reply, or None when unknown.
 
@@ -141,8 +193,8 @@ def list_ids(proc):
     for item in items:
         sid = None
         if isinstance(item, dict):
-            sid = item.get("sandboxID") or item.get("sandbox_id")
-        if isinstance(sid, str) and sid:
+            sid = _clean_id(item.get("sandboxID") or item.get("sandbox_id"))
+        if sid:
             ids.add(sid)
         else:
             # an entry we cannot identify makes the whole reply unknown
@@ -151,9 +203,9 @@ def list_ids(proc):
 
 
 def printed_id(proc):
-    """The id a create printed (last stdout line), or ''."""
+    """The valid id a create printed (last stdout line), or None."""
     lines = proc.stdout.strip().splitlines()
-    return lines[-1].strip() if lines else ""
+    return _clean_id(lines[-1].strip()) if lines else None
 
 
 def smoke(ref, gpu, receipt):
@@ -162,7 +214,8 @@ def smoke(ref, gpu, receipt):
         venv = Path(tmp) / "venv"
         if run(receipt, "venv", cmd_venv(venv)).returncode:
             return
-        if run(receipt, "install", cmd_install(venv, ref)).returncode:
+        if run(receipt, "install", cmd_install(venv, ref),
+               timeout=INSTALL_TIMEOUT_S).returncode:
             return
         sbx = str(venv_bin(venv) / "sbx")
         proc = run(receipt, "version", [sbx, "--version"])
@@ -184,7 +237,10 @@ def smoke(ref, gpu, receipt):
             "PATH": str(venv_bin(venv)) + os.pathsep + os.environ.get("PATH", ""),
         }
         alive = []  # (kind, id) we created and have not confirmed killed
+        created_cpu = set()  # cpu ids this run created, for unverifiable runs
+        created_gpu = set()
         before_cpu = before_gpu = None
+        cpu_visible = gpu_visible = None  # did the inventory see the create?
         try:
             run(receipt, "templates", [sbx, "templates"], env=env)
             before_cpu = list_ids(
@@ -193,27 +249,45 @@ def smoke(ref, gpu, receipt):
             sid = None
             proc = run(receipt, "create", [sbx, "create"], env=env)
             printed = printed_id(proc)
-            if proc.returncode == 0:
-                sid = printed
-                if sid:
-                    alive.append(("cpu", sid))
-                else:
-                    check(receipt, "create-id", False,
-                          "create exited 0 but printed no sandbox id")
-                    sid = None
-            elif printed:
-                # the request was served and the reply was lost: the sandbox
-                # is ours, so register it for cleanup before anything else
+            if printed:
                 sid = printed
                 alive.append(("cpu", sid))
+                created_cpu.add(sid)
+                if proc.returncode:
+                    # the request was served and the reply was lost: the
+                    # sandbox is ours, so register it for cleanup first
+                    check(receipt, "create-id", False,
+                          f"create exited {proc.returncode} but allocated {sid}; "
+                          "treating it as created by us and killing it")
+            else:
                 check(receipt, "create-id", False,
-                      f"create exited {proc.returncode} but allocated {sid}; "
-                      "treating it as created by us and killing it")
+                      f"create exited {proc.returncode} but printed no "
+                      "sandbox id; sweeping the inventory for what it left")
+                if sweep_new_ids(receipt, "list-during", before_cpu,
+                                 [sbx, "list", "--json"], env, "cpu", alive,
+                                 created_cpu):
+                    # the inventory did show the new resource, so it can be
+                    # trusted to report it gone after the kill
+                    cpu_visible = True
             if sid is None:
                 for name in ("exec", "cp-up", "cp-down", "cp-verify", "kill"):
                     skip(receipt, name, "no sandbox id")
             else:
-                run(receipt, "exec", [sbx, "exec", sid, "--", "echo ok"], env=env)
+                # the gate can only trust list-after cleanup if the
+                # inventory saw the sandbox while it was alive
+                during = list_ids(
+                    run(receipt, "list-during", [sbx, "list", "--json"], env=env)
+                )
+                cpu_visible = during is not None and sid in during
+                check(receipt, "inventory-visibility", cpu_visible,
+                      None if cpu_visible
+                      else f"inventory does not show the created sandbox {sid}")
+                proc = run(receipt, "exec", [sbx, "exec", sid, "--", "echo ok"],
+                           env=env)
+                check(receipt, "exec-check",
+                      proc.returncode == 0 and proc.stdout.strip() == "ok",
+                      None if proc.returncode == 0 and proc.stdout.strip() == "ok"
+                      else f"exec printed {proc.stdout.strip()!r}, expected 'ok'")
                 probe = Path(tmp) / "probe.txt"
                 probe.write_text(
                     f"release-smoke {ref} {datetime.now(timezone.utc).isoformat()}\n"
@@ -248,21 +322,46 @@ def smoke(ref, gpu, receipt):
                 lid = None
                 proc = run(receipt, "gpu-create",
                            [sbx, "gpu", "create", "--vram", "1"], env=env)
-                if proc.returncode == 0:
-                    lid = printed_id(proc)
-                    if lid:
-                        alive.append(("gpu", lid))
-                    else:
+                printed = printed_id(proc)
+                if printed:
+                    lid = printed
+                    alive.append(("gpu", lid))
+                    created_gpu.add(lid)
+                    if proc.returncode:
                         check(receipt, "gpu-create-id", False,
-                              "gpu create exited 0 but printed no lease id")
-                        lid = None
+                              f"gpu create exited {proc.returncode} but "
+                              f"allocated {lid}; treating it as created by "
+                              "us and killing it")
+                else:
+                    check(receipt, "gpu-create-id", False,
+                          f"gpu create exited {proc.returncode} but printed "
+                          "no lease id; sweeping the inventory for what it "
+                          "left")
+                    if sweep_new_ids(receipt, "gpu-list-during", before_gpu,
+                                     [sbx, "gpu", "list", "--json"], env,
+                                     "gpu", alive, created_gpu):
+                        gpu_visible = True
                 if lid is None:
                     for name in ("gpu-exec", "gpu-kill"):
                         skip(receipt, name, "no lease id")
                 else:
-                    run(receipt, "gpu-exec",
-                        [sbx, "gpu", "exec", lid, "-c", GPU_CHECK,
-                         "--timeout", "300"], env=env)
+                    during_gpu = list_ids(
+                        run(receipt, "gpu-list-during",
+                            [sbx, "gpu", "list", "--json"], env=env)
+                    )
+                    gpu_visible = during_gpu is not None and lid in during_gpu
+                    check(receipt, "gpu-inventory-visibility", gpu_visible,
+                          None if gpu_visible
+                          else f"inventory does not show the created lease {lid}")
+                    proc = run(receipt, "gpu-exec",
+                               [sbx, "gpu", "exec", lid, "-c", GPU_CHECK,
+                                "--timeout", "300"], env=env,
+                               timeout=GPU_EXEC_TIMEOUT_S)
+                    check(receipt, "gpu-exec-check",
+                          proc.returncode == 0 and "cuda ok" in proc.stdout,
+                          None if proc.returncode == 0 and "cuda ok" in proc.stdout
+                          else "gpu exec did not confirm cuda: printed "
+                               f"{proc.stdout.strip()[:80]!r}")
                     proc = run(receipt, "gpu-kill",
                                [sbx, "gpu", "kill", lid], env=env)
                     if proc.returncode == 0:
@@ -275,23 +374,35 @@ def smoke(ref, gpu, receipt):
         after_cpu = list_ids(
             run(receipt, "list-after", [sbx, "list", "--json"], env=env)
         )
-        if before_cpu is not None and after_cpu is not None:
-            left |= after_cpu - before_cpu
+        cpu_unverifiable = (
+            after_cpu is None
+            or (created_cpu and not cpu_visible)
+        )
+        if not cpu_unverifiable:
+            left |= after_cpu - (before_cpu or set())
         else:
+            # the inventory could not see the sandbox while it was alive (or
+            # cannot be read now), so it cannot prove absence afterwards
             left |= {rid for kind, rid in alive if kind == "cpu"}
+            left |= created_cpu
             check(receipt, "leftover-check", False,
-                  "could not diff `sbx list --json` before/after")
+                  "could not verify `sbx list --json` saw the sandbox alive")
         if gpu:
             after_gpu = list_ids(
                 run(receipt, "gpu-list-after",
                     [sbx, "gpu", "list", "--json"], env=env)
             )
-            if before_gpu is not None and after_gpu is not None:
-                left |= after_gpu - before_gpu
+            gpu_unverifiable = (
+                after_gpu is None
+                or (created_gpu and not gpu_visible)
+            )
+            if not gpu_unverifiable:
+                left |= after_gpu - (before_gpu or set())
             else:
                 left |= {rid for kind, rid in alive if kind == "gpu"}
+                left |= created_gpu
                 check(receipt, "leftover-check", False,
-                      "could not diff `sbx gpu list --json` before/after")
+                      "could not verify `sbx gpu list --json` saw the lease alive")
         receipt["left"] = len(left)
         if left:
             receipt["left_ids"] = sorted(left)
@@ -325,7 +436,10 @@ def main(argv=None):
         "left": 0,
     }
     started = time.monotonic()
-    smoke(ref, args.gpu, receipt)
+    try:
+        smoke(ref, args.gpu, receipt)
+    except Exception as exc:  # any bug must still leave a verdict + receipt
+        check(receipt, "run", False, f"unexpected {type(exc).__name__}: {exc}")
     receipt["duration_s"] = round(time.monotonic() - started, 3)
     failed = [s for s in receipt["steps"] if s.get("rc")]
     passed = not failed and not receipt["left"]
