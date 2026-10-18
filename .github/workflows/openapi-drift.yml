@@ -10,6 +10,13 @@ on:
     - cron: "23 6 * * *" # daily, off the hour
   workflow_dispatch:
 
+# Serialize runs: issue lookup and creation are separate steps, so two
+# overlapping runs could both see "no existing issue" and each create one.
+# Runs queue rather than cancel, keeping the single-issue guarantee.
+concurrency:
+  group: openapi-drift
+  cancel-in-progress: false
+
 permissions:
   issues: write
   contents: read
