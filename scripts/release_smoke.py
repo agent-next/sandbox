@@ -149,16 +149,16 @@ def skip(receipt, name, reason):
     print(f"[{name}] skipped: {reason}", file=sys.stderr)
 
 
-def sweep_new_ids(receipt, name, before, argv, env, kind, alive, created):
-    """Register ids that appeared since `before` for cleanup. Returns True
-    when at least one new id was identified; False (including unreadable
-    inventories) leaves the leftover check unverifiable."""
+def sweep_new_ids(receipt, name, before, argv, env, kind, created):
+    """Record ids that appeared since `before` as unattributed leftovers.
+    An id difference cannot prove the resource is ours (another client may
+    have created it in the same window), so nothing is registered for a
+    kill here; the run fails and the ids are reported for a human."""
     during = list_ids(run(receipt, name, argv, env=env))
     if before is None or during is None:
         return False
     found = False
     for rid in sorted(during - before):
-        alive.append((kind, rid))
         created.add(rid)
         found = True
     return found
@@ -262,12 +262,14 @@ def smoke(ref, gpu, receipt):
             else:
                 check(receipt, "create-id", False,
                       f"create exited {proc.returncode} but printed no "
-                      "sandbox id; sweeping the inventory for what it left")
+                      "sandbox id; recording unattributed new ids as "
+                      "leftovers for a human, killing nothing")
                 if sweep_new_ids(receipt, "list-during", before_cpu,
-                                 [sbx, "list", "--json"], env, "cpu", alive,
+                                 [sbx, "list", "--json"], env, "cpu",
                                  created_cpu):
-                    # the inventory did show the new resource, so it can be
-                    # trusted to report it gone after the kill
+                    # the inventory did show the new resource, so it can
+                    # verify absence afterwards — but ownership stays
+                    # unproven, so it is still only reported, never killed
                     cpu_visible = True
             if sid is None:
                 for name in ("exec", "cp-up", "cp-down", "cp-verify", "kill"):
@@ -335,11 +337,11 @@ def smoke(ref, gpu, receipt):
                 else:
                     check(receipt, "gpu-create-id", False,
                           f"gpu create exited {proc.returncode} but printed "
-                          "no lease id; sweeping the inventory for what it "
-                          "left")
+                          "no lease id; recording unattributed new ids as "
+                          "leftovers for a human, killing nothing")
                     if sweep_new_ids(receipt, "gpu-list-during", before_gpu,
                                      [sbx, "gpu", "list", "--json"], env,
-                                     "gpu", alive, created_gpu):
+                                     "gpu", created_gpu):
                         gpu_visible = True
                 if lid is None:
                     for name in ("gpu-exec", "gpu-kill"):
