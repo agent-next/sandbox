@@ -254,7 +254,7 @@ def check_links(root: Path) -> Check:
         for lineno, url in doc_urls(path):
             targets.setdefault(url, []).append(f"{rel}:{lineno}")
     if not targets:
-        check.ok("no checkable http(s) URLs in the docs")
+        check.ok.append("no checkable http(s) URLs in the docs")
         return check
     for url in sorted(targets):
         where = ", ".join(sorted(targets[url]))
