@@ -69,7 +69,7 @@ def test_bump_refuses_non_xyz(tmp_path, bad):
     assert versions(repo) == ["0.0.3"] * 3
 
 
-@pytest.mark.parametrize("bad", ["0.0.4\n", "0.0.04"])
+@pytest.mark.parametrize("bad", ["0.0.4\n", "0.0.04", "0.0.1\u0663", "0.0.1\uff14"])
 def test_bump_refuses_noncanonical_version(tmp_path, bad):
     repo = make_repo(tmp_path)
     assert bump_version.main([bad], root=repo) != 0
@@ -124,9 +124,10 @@ def test_check_refuses_malformed_tag(tmp_path):
     assert bump_version.main(["--check", "--tag", "0.0.3"], root=repo) != 0
 
 
-def test_check_refuses_noncanonical_tag(tmp_path):
-    repo = make_repo(tmp_path, cli="0.0.04", claude="0.0.04", codex="0.0.04")
-    assert bump_version.main(["--check", "--tag", "v0.0.04"], root=repo) != 0
+@pytest.mark.parametrize("tag", ["v0.0.04", "v0.0.1\u0663"])
+def test_check_refuses_noncanonical_tag(tmp_path, tag):
+    repo = make_repo(tmp_path, cli=tag[1:], claude=tag[1:], codex=tag[1:])
+    assert bump_version.main(["--check", "--tag", tag], root=repo) != 0
 
 
 def test_check_flags_noncanonical_stored_version(tmp_path):
