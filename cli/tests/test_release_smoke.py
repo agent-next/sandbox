@@ -81,6 +81,10 @@ if args[0] == "gpu":
         lid = "gl-fake-%d" % (len(state["gpu"]) + 1)
         state["gpu"].append(lid)
         save(state)
+        if state.get("gpu_create_fails_noid"):
+            # allocated remotely, then the reply was lost with no id printed
+            print("fake sbx: gpu create lost, no id", file=sys.stderr)
+            sys.exit(1)
         print(lid)
         if state.get("gpu_create_fails"):
             # allocated remotely, then the reply was lost
@@ -97,9 +101,10 @@ if args[0] == "gpu":
         else:
             print("cuda ok")
     elif sub == "kill":
+        state.setdefault("killed", []).append(rest[0])
         if not os.environ.get("FAKE_SBX_KEEP"):
             state["gpu"] = [i for i in state["gpu"] if i != rest[0]]
-            save(state)
+        save(state)
         print("killed " + rest[0])
     sys.exit(0)
 
@@ -125,6 +130,12 @@ elif cmd == "create":
     sid = "sbx-fake-%d" % (len(state["cpu"]) + 1)
     state["cpu"].append(sid)
     save(state)
+    if state.get("concurrent_client"):
+        # another client's sandbox appears while ours is being created:
+        # new ids in the inventory are not necessarily ours
+        state["cpu"].append("sbx-other-job")
+        del state["concurrent_client"]
+        save(state)
     if state.get("create_fails_noid"):
         # allocated remotely, then the reply was lost with no id printed
         print("fake sbx: create lost, no id", file=sys.stderr)
@@ -169,9 +180,10 @@ elif cmd == "kill":
         save(state)
         print("fake sbx: kill refused", file=sys.stderr)
         sys.exit(1)
+    state.setdefault("killed", []).append(rest[0])
     if not os.environ.get("FAKE_SBX_KEEP"):
         state["cpu"] = [i for i in state["cpu"] if i != rest[0]]
-        save(state)
+    save(state)
     print("killed " + rest[0])
 sys.exit(0)
 """
@@ -430,24 +442,69 @@ def test_gpu_create_lost_reply_still_killed(fake_sbx, key, tmp_path, capsys):
     assert "allocated" in entry.get("error", "")
 
 
-def test_cpu_create_lost_reply_without_id_still_killed(
+def test_cpu_create_lost_reply_without_id_is_reported_not_killed(
     fake_sbx, key, tmp_path, capsys
 ):
-    # a CPU create that allocated but lost its reply with no id printed: the
-    # sandbox must still be found (via the inventory taken while it is
-    # alive), killed, and reported, leaving nothing behind
+    # a CPU create that allocated but lost its reply without printing an id:
+    # ownership cannot be proven, so the run must kill nothing, fail, and
+    # report the unattributed sandbox as a leftover for a human
     fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "create_fails_noid": 1}))
     rc, receipt = run_smoke(tmp_path)
     capsys.readouterr()
     assert rc == 1
     assert receipt["verdict"] == "fail"
-    assert json.loads(fake_sbx.read_text())["cpu"] == []
-    assert receipt["left"] == 0
+    assert json.loads(fake_sbx.read_text())["cpu"] == ["sbx-fake-1"]
+    assert receipt["left"] == 1
+    assert receipt["left_ids"] == ["sbx-fake-1"]
     entry = next(s for s in receipt["steps"] if s["name"] == "create-id")
     assert entry["rc"] == 1
     kills = [s for s in receipt["steps"]
-             if s["name"] in ("kill", "cleanup-kill") and s.get("rc") == 0]
-    assert kills, "the unprinted sandbox must still be killed"
+             if s["name"] in ("kill", "cleanup-kill")
+             and not s.get("skipped")]
+    assert not kills, "an unattributed id must never be killed"
+
+
+def test_sweep_never_kills_unrelated_new_sandboxes(
+    fake_sbx, key, tmp_path, capsys
+):
+    # another client's sandbox appears in the inventory while our create
+    # fails without printing an id: the id difference cannot prove which
+    # new sandbox is ours, so the sweep must kill nothing; the run fails
+    # and every new id is reported as a leftover for a human instead
+    fake_sbx.write_text(json.dumps(
+        {"cpu": [], "gpu": [], "create_fails_noid": 1, "concurrent_client": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    capsys.readouterr()
+    assert rc == 1
+    assert receipt["verdict"] == "fail"
+    # nothing was destroyed: our lost create and the other client's sandbox
+    # are both still in the stub's inventory, and no kill ever ran
+    state = json.loads(fake_sbx.read_text())
+    assert state["cpu"] == ["sbx-fake-1", "sbx-other-job"]
+    assert state.get("killed", []) == []
+    # both new ids are reported as leftovers, never killed
+    assert receipt["left"] == 2
+    assert receipt["left_ids"] == ["sbx-fake-1", "sbx-other-job"]
+
+
+def test_gpu_create_lost_reply_without_id_is_reported_not_killed(
+    fake_sbx, key, tmp_path, capsys
+):
+    # same rule for GPU leases: a create with no printed id owns nothing,
+    # so the lease stays alive and is reported instead of swept and killed
+    fake_sbx.write_text(json.dumps(
+        {"cpu": [], "gpu": [], "gpu_create_fails_noid": 1}))
+    rc, receipt = run_smoke(tmp_path, "--gpu")
+    capsys.readouterr()
+    assert rc == 1
+    assert receipt["verdict"] == "fail"
+    state = json.loads(fake_sbx.read_text())
+    assert state["gpu"] == ["gl-fake-1"]
+    assert state.get("killed", []) == ["sbx-fake-1"]  # only the cpu sandbox died
+    assert receipt["left"] == 1
+    assert receipt["left_ids"] == ["gl-fake-1"]
+    entry = next(s for s in receipt["steps"] if s["name"] == "gpu-create-id")
+    assert entry["rc"] == 1
 
 
 def test_invalid_id_strings_are_not_verified_inventory(
