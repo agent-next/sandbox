@@ -102,7 +102,10 @@ non-zero: 402 no GPU credit, 403 no GPU access on this key, 409 conflict (job
 failed, job already running, lease cap), 429/503 busy or at capacity (the line
 carries the `Retry-After` seconds). A job that raises exits 1 with the error
 tail; the lease survives. Jobs run with no network access. Always `kill` what
-you create.
+you create. A 503 whose body says the gateway is `restarting` is retried after
+`retry_after_s` (default 5 s, capped at 30 s a wait and 60 s in all), one
+`gateway restarting, retrying in Ns` line per retry on stderr; any other 503 is
+not retried.
 
 ## GitHub Actions runners
 

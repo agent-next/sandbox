@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -83,14 +84,48 @@ def _error(resp: httpx.Response) -> SbxError:
     return GpuHttpError(": ".join(parts) + f" -- {hint}", status, message if isinstance(message, str) else None)
 
 
+_RESTART_ATTEMPTS = 3
+_RESTART_MAX_WAIT_S = 30
+_RESTART_MAX_TOTAL_S = 60
+_RESTART_DEFAULT_WAIT_S = 5
+
+
+def _restart_wait_s(resp: httpx.Response) -> float | None:
+    """Seconds to wait on a 503 'restarting' reply, else None (no retry).
+
+    The edge returns that code only when the app was not reachable, so the
+    request never ran and a retry is safe for every method.
+    """
+    if resp.status_code != 503:
+        return None
+    body = _body(resp)
+    if not isinstance(body, dict) or body.get("code") != "restarting":
+        return None
+    try:
+        wait = float(body.get("retry_after_s"))
+    except (TypeError, ValueError):
+        wait = _RESTART_DEFAULT_WAIT_S
+    return min(max(wait, _RESTART_DEFAULT_WAIT_S), _RESTART_MAX_WAIT_S)
+
+
 def _call(method: str, path: str, body: dict | None = None, timeout: float = 60, ok_missing: bool = False):
     key, _ = _credentials()
-    try:
-        resp = httpx.request(
-            method, f"{_base()}{path}", headers={"X-API-Key": key}, json=body, timeout=timeout
-        )
-    except httpx.HTTPError as exc:
-        raise SbxError(f"{method} {path}: gateway unreachable ({type(exc).__name__})") from exc
+    waited = 0.0
+    for attempt in range(_RESTART_ATTEMPTS):
+        try:
+            resp = httpx.request(
+                method, f"{_base()}{path}", headers={"X-API-Key": key}, json=body, timeout=timeout
+            )
+        except httpx.HTTPError as exc:
+            raise SbxError(f"{method} {path}: gateway unreachable ({type(exc).__name__})") from exc
+        wait = _restart_wait_s(resp)
+        # the last attempt, an exhausted wait budget or any other status/body
+        # falls through and is answered unchanged by the error mapping below
+        if wait is None or attempt == _RESTART_ATTEMPTS - 1 or waited + wait > _RESTART_MAX_TOTAL_S:
+            break
+        _say(f"gateway restarting, retrying in {wait:g}s", err=True)
+        time.sleep(wait)
+        waited += wait
     if resp.status_code == 404 and ok_missing:
         return resp, None
     if resp.status_code >= 400:
