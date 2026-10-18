@@ -1,0 +1,4939 @@
+{
+  "components": {
+    "parameters": {
+      "BuildId": {
+        "description": "build id (`bld-…`); must belong to the template",
+        "in": "path",
+        "name": "build_id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "IdempotencyKey": {
+        "description": "Optional exactly-once key for this create (CARD-03, boat-compatible): send your own opaque, key-unique value (a UUID) to make the call safe to retry after a lost response (network timeout, 5xx). The first request creates the sandbox and binds it to the key; every later request with the same account key, Idempotency-Key and request body returns that same sandbox instead of a second, billable one. Bindings are retained 24 h (GATEWAY_IDEMPOTENCY_RETENTION_S); a concurrent or early retry while the first create is still in flight returns 409 idempotency_in_progress (retry shortly, same key); reusing a key with a different body returns 409 idempotency_key_reused; a create that fails before the sandbox exists releases the key immediately so a retry can create. Omit the header to keep the default (non-idempotent) behavior.",
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": false,
+        "schema": {
+          "maxLength": 255,
+          "type": "string"
+        }
+      },
+      "Limit": {
+        "description": "max items; outside 1-100 or non-integer is a 400",
+        "in": "query",
+        "name": "limit",
+        "required": false,
+        "schema": {
+          "default": 100,
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "ListLimit": {
+        "description": "page size; outside 1-100 or non-integer is a 400",
+        "in": "query",
+        "name": "limit",
+        "required": false,
+        "schema": {
+          "default": 100,
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "ListOrder": {
+        "description": "sort by (created_at, sandboxID); any other value is a 400",
+        "in": "query",
+        "name": "order",
+        "required": false,
+        "schema": {
+          "default": "desc",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        }
+      },
+      "NextToken": {
+        "description": "continuation cursor from the previous page's X-Next-Token header — opaque, HMAC-signed, bound to the tenant and the `order` direction; a tampered, foreign or direction-mismatched value is a 400",
+        "in": "query",
+        "name": "nextToken",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PortPath": {
+        "description": "a data-plane port (1-65535); the envd port answers 400",
+        "in": "path",
+        "name": "port",
+        "required": true,
+        "schema": {
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "SandboxId": {
+        "description": "the `sandboxID` from create/list",
+        "in": "path",
+        "name": "sandbox_id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SnapshotId": {
+        "description": "the `snapshotID` from create/list, or one of its names",
+        "in": "path",
+        "name": "snapshot_id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "SnapshotName": {
+        "description": "match a snapshot id or one of its names",
+        "in": "query",
+        "name": "name",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "TemplateId": {
+        "description": "tenant template id (`tpl-…`)",
+        "in": "path",
+        "name": "template_id",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadGateway": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "upstream unreachable, malformed or refused"
+      },
+      "BadRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "invalid input"
+      },
+      "Capacity": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "node at capacity, admission queue full, or (on nodes with ADMISSION_DISK_PATH set) host disk below its free-space floor; integer Retry-After header",
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "ClientDisconnected": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "the client hung up while queued or mid-upstream-call; the gateway-side state was rolled back"
+      },
+      "Conflict": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "state conflict (e.g. paused, build already started, alias taken)"
+      },
+      "CreditExhausted": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "running-hours credit used up"
+      },
+      "GatewayTimeout": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "upstream did not respond in time"
+      },
+      "NotFound": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "not found (or owned by another tenant — same answer)"
+      },
+      "NotImplemented": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "an E2B feature the beta does not ship"
+      },
+      "QuotaExceeded": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "per-tenant quota (running or paused) exceeded; integer Retry-After header; body carries the current `running` count and the key's `limit`",
+        "headers": {
+          "Retry-After": {
+            "description": "seconds (the only Retry-After form the e2b SDK retries)",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "per-client-IP rate limit"
+      },
+      "Suspended": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "tenant suspended for an abuse-policy violation, or the sandbox is abuse-paused"
+      },
+      "TooLarge": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "request body over the cap"
+      },
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "missing, invalid or revoked API key"
+      }
+    },
+    "schemas": {
+      "Account": {
+        "properties": {
+          "created_at": {
+            "description": "epoch seconds",
+            "type": "number"
+          },
+          "key_id": {
+            "description": "key id prefix (first 12 characters)",
+            "type": "string"
+          },
+          "key_prefix": {
+            "description": "first 8 characters of the current secret",
+            "type": "string"
+          },
+          "limits": {
+            "properties": {
+              "credit_hours": {
+                "type": "number"
+              },
+              "gpu_credit_hours": {
+                "type": "number"
+              },
+              "max_concurrent": {
+                "type": "integer"
+              },
+              "max_paused": {
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "tenant": {
+            "type": "string"
+          },
+          "tier": {
+            "description": "null until the store carries a tier",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "key_id",
+          "key_prefix",
+          "tenant",
+          "created_at",
+          "limits",
+          "tier"
+        ],
+        "type": "object"
+      },
+      "BuildStatus": {
+        "properties": {
+          "buildID": {
+            "type": "string"
+          },
+          "logEntries": {
+            "items": {},
+            "type": "array"
+          },
+          "logs": {
+            "items": {},
+            "type": "array"
+          },
+          "reason": {
+            "description": "present only on status=error",
+            "properties": {
+              "message": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "waiting",
+              "building",
+              "ready",
+              "error"
+            ],
+            "type": "string"
+          },
+          "templateID": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ClaimRequest": {
+        "properties": {
+          "claim_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_token"
+        ],
+        "type": "object"
+      },
+      "ClaimResponse": {
+        "properties": {
+          "credit_hours": {
+            "type": "number"
+          },
+          "key": {
+            "description": "the tenant secret — returned exactly once, on `issued`",
+            "type": "string"
+          },
+          "key_id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "rejected",
+              "issued",
+              "claimed"
+            ],
+            "type": "string"
+          },
+          "tier": {
+            "description": "`free` for a GitHub signup; absent for a waitlist key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "ConnectSandboxV2": {
+        "additionalProperties": true,
+        "description": "on a v1-only upstream only `timeout` and `memory` survive translation — any other field is a 400",
+        "properties": {
+          "memory": {
+            "type": "boolean"
+          },
+          "timeout": {
+            "description": "keep-alive seconds; 300 when omitted; capped at the node's SANDBOX_MAX_TIMEOUT_S A key with its own max_timeout_s cap (set by the operator) is clamped to min(SANDBOX_MAX_TIMEOUT_S, that cap) instead of getting a 400, and the response reports the applied value in X-Sandbox-Timeout-Applied.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "CreateSnapshot": {
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "description": "optional name attached to the snapshot",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Error": {
+        "properties": {
+          "code": {
+            "description": "the HTTP status, repeated in the body (E2B wire envelope)",
+            "type": "integer"
+          },
+          "error_code": {
+            "description": "optional machine-readable discriminator, e.g. quota_running_exceeded / quota_paused_exceeded / idempotency_in_progress (a create with this Idempotency-Key is still in flight) / idempotency_key_reused (same Idempotency-Key, different body)",
+            "type": "string"
+          },
+          "error_id": {
+            "description": "present on 5xx answers: correlates the generic client body with the upstream detail in the server log",
+            "type": "string"
+          },
+          "limit": {
+            "description": "on a quota 429: the tenant key's limit that was hit",
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "running": {
+            "description": "on a quota_running_exceeded 429: the tenant's current running count",
+            "type": "integer"
+          },
+          "status": {
+            "description": "present on 5xx answers: the public status page URL",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "ForkResult": {
+        "description": "one entry per requested fork",
+        "properties": {
+          "error": {
+            "properties": {
+              "code": {
+                "type": "integer"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "sandbox": {
+            "$ref": "#/components/schemas/Sandbox"
+          }
+        },
+        "type": "object"
+      },
+      "ForkSandbox": {
+        "additionalProperties": false,
+        "description": "{timeout?, count?, <create fields>}; `count` is consumed gateway-side and only the listed fields reach each upstream fork call (with the create-timeout default applied, capped by SANDBOX_MAX_TIMEOUT_S) — any other key is a 400. A fork inherits the source sandbox's size: cpuCount/memoryMB/diskSizeMB/resourceClass are a 400 here too unless the deployment's upstream honors per-request sizing; timeout (SANDBOX_MAX_TIMEOUT_S) and network validation are applied exactly like a create. EGRESS_POLICY_ENABLED deployments: the network block may carry networkOff (translated like a create) and a body without allowOut/denyOut inherits the source's stored lists per side (an explicit internet allow in the body speaks for itself and inherits nothing; paired with an explicit deny-all it is a 400, as on create)",
+        "properties": {
+          "allowInternetAccess": {
+            "description": "camelCase twin of allow_internet_access; both accepted",
+            "type": "boolean"
+          },
+          "allow_internet_access": {
+            "type": "boolean"
+          },
+          "count": {
+            "default": 1,
+            "maximum": 128,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "cpuCount": {
+            "description": "refused — a fork inherits the source sandbox's size (forwarded bounded by TEMPLATE_MAX_CPU only when the deployment's upstream honors per-request sizing)",
+            "type": "integer"
+          },
+          "diskSizeMB": {
+            "description": "refused — a fork inherits the source sandbox's size (forwarded bounded by TEMPLATE_MAX_DISK_MB only when the deployment's upstream honors per-request sizing)",
+            "type": "integer"
+          },
+          "envVars": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "memoryMB": {
+            "description": "refused — a fork inherits the source sandbox's size (forwarded bounded by TEMPLATE_MAX_MEMORY_MB only when the deployment's upstream honors per-request sizing)",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "network": {
+            "description": "{allowOut?, denyOut?} egress policy — validated and canonicalised like PUT /sandboxes/{id}/network (see NetworkUpdate); under EGRESS_POLICY_ENABLED the block may also carry networkOff, and an explicit internet allow beside the canonical deny-all is a 400 (the pair has no single meaning)",
+            "type": "object"
+          },
+          "resourceClass": {
+            "description": "refused — a fork inherits the source sandbox's size (forwarded only when the deployment's upstream honors per-request sizing)",
+            "enum": [
+              "small",
+              "standard",
+              "large",
+              "xlarge"
+            ],
+            "type": "string"
+          },
+          "secure": {
+            "type": "boolean"
+          },
+          "timeout": {
+            "description": "keep-alive seconds; capped at the node's SANDBOX_MAX_TIMEOUT_S A key with its own max_timeout_s cap (set by the operator) is clamped to min(SANDBOX_MAX_TIMEOUT_S, that cap) instead of getting a 400, and the response reports the applied value in X-Sandbox-Timeout-Applied.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "GpuAccel": {
+        "description": "GPU lease request, flag-gated (the key needs a GPU grant or GPU-enabled tier; 403 without, 402 with an empty GPU bucket). A free-tier key is limited to its trial: by default a slice over 2 GiB, `network: internet`, a class other than nvidia.5090, a `template` other than the default or an `idle_timeout_s` of 0 or over 600 s is a 403 with error_code `gpu_free_tier_limit` (the body's `param` names the field), and the message says how to lift it. A body carrying `accel` creates a GPU lease (`gl-*` id, 201 -> {sandboxID, templateID, phase, accel}) instead of a CPU sandbox; the CPU fields above do not apply to it. Drive the lease with POST /sandboxes/{id}/exec ({code, timeout_s}), POST .../pause, POST .../resume, GET .../files, DELETE /sandboxes/{id}. A lease is killed by a timeout_s overrun, a VRAM over-cap kill, a dead worker or the maximum lease age. See https://sbx.agent-next.com/docs/.",
+        "properties": {
+          "class": {
+            "description": "GPU class to place the lease on: one the fleet serves now (GET /v0/gpu/capacity lists them, e.g. nvidia.5090). The lease lands only on a node that lists it, and the reply, GET and list report that class. A class nothing serves -> 400 `gpu_class_unavailable` with the available ones, nothing placed; while a node did not answer (it may serve the class) -> retryable 503 `gpu_node_unreachable`. A class the operator rents on demand that no node serves yet -> retryable 503 `gpu_class_provisioning` (Retry-After and `eta_s` are the seconds until a node should take leases), or 503 `gpu_class_no_supply` when the provider reported no stock (Retry-After 300, `alternatives` lists the classes served now). Omitted -> any node with a seat, and the reply names the class the lease got",
+            "pattern": "^(nvidia|amd|tpu|ascend)\\.[a-z0-9._-]+$",
+            "type": "string"
+          },
+          "reserve": {
+            "description": "hard-cap hosts only: what the worker does with its slice reserve between jobs. `exec` (default, for every template) hands the full slice to the job's own allocator; `hold` (an explicit opt-in) keeps it for the whole lease",
+            "enum": [
+              "hold",
+              "exec"
+            ],
+            "type": "string"
+          },
+          "template": {
+            "default": "default",
+            "description": "operator-allowlisted worker image name; an unknown name -> 400 listing the valid ones (discover with GET /gpu/templates). Never an image reference",
+            "type": "string"
+          },
+          "tier": {
+            "description": "fixed slice size: S 1, M 2, L 8, XL 32 GiB; an alternative to vram_gb (both given must agree, else 400). Nothing above the card's max_admit_gib (GET /v0/gpu/capacity) is admitted, so XL is not seatable on today's card",
+            "enum": [
+              "S",
+              "M",
+              "L",
+              "XL"
+            ],
+            "type": "string"
+          },
+          "vram_gb": {
+            "default": 1,
+            "description": "VRAM slice in GiB, enforced as a hard cap; out of range or non-numeric -> 400",
+            "maximum": 32,
+            "minimum": 0.5,
+            "type": "number"
+          },
+          "wait_s": {
+            "default": 0,
+            "description": "opt-in server-side wait for a GPU seat. 0 (default) refuses at once when the plane is full. With wait_s > 0 the create waits up to that many seconds (idle residents are suspended for the waiter) and returns 201 as soon as a seat is admitted, or the same typed `gpu_capacity_exhausted` refusal with Retry-After when the wait expires. A class rented on demand (`gpu_class_provisioning`) is waited for the same way; `gpu_class_no_supply` returns at once. Lease-cap, credit and fair-share refusals return at once. Outside [0, 120] -> 400",
+            "maximum": 120,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "ListedSandbox": {
+        "additionalProperties": true,
+        "description": "Sandbox minus the credential fields: envdAccessToken and trafficAccessToken are always stripped on bulk surfaces",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "clientID": {
+            "type": "string"
+          },
+          "cpuCount": {
+            "type": "integer"
+          },
+          "diskSizeMB": {
+            "type": "integer"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "envdVersion": {
+            "type": "string"
+          },
+          "memoryMB": {
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "sandboxID": {
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "paused"
+            ],
+            "type": "string"
+          },
+          "templateID": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "NetworkPolicy": {
+        "description": "GET /sandboxes/{id}/network's read-back of the stored egress policy (EGRESS_POLICY_ENABLED). No stored policy answers `{}`; otherwise both lists are the canonical entries the gateway last forwarded (empty list = that side was cleared) and `source` names the view's owner — the gateway's stored record, which an out-of-band upstream mutation could diverge from",
+        "properties": {
+          "allowOut": {
+            "description": "canonical allowOut entries (egress.py normalisation: CIDR/IP/hostname, presets already expanded)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "denyOut": {
+            "description": "canonical denyOut entries",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source": {
+            "description": "whose view of the policy this is: the gateway's stored record, not a live upstream read",
+            "enum": [
+              "gateway"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "NetworkUpdate": {
+        "additionalProperties": false,
+        "description": "{allowOut?, denyOut?, networkOff?}; an omitted list field clears that list. Only these keys are accepted — anything else is a 400. networkOff (EGRESS_POLICY_ENABLED deployments) is the one-call deny-all: true becomes denyOut [\"0.0.0.0/0\"] gateway-side (an explicit denyOut in the same body wins; combined with allowOut that is the allowlist pattern) and the key itself is never forwarded; false is consumed with no effect, and any non-boolean value (null included) is a 400",
+        "properties": {
+          "allowOut": {
+            "description": "CIDRs, bare IPs, domains (`*.example.com`) or the presets `@packages`/`@trusted`; presets expand gateway-side and the <=64-entry cap applies after expansion. Entries are canonicalised (hosts lowercased, trailing dot stripped; IPv4-mapped IPv6 must be written as IPv4) and must be public targets — loopback, link-local, RFC1918, CGNAT, multicast, reserved/unspecified ranges, local zones and numeric-host IP spellings are a 400, and the wide forms `*`, `0.0.0.0/0`, `::/0` need the node's ALLOW_TENANT_WIDE_EGRESS flag. Entries are capped at 253 BYTES (not characters) and must be valid UTF-8",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "denyOut": {
+            "description": "CIDRs/IPs/domains — presets are not valid here; entries are canonicalised like allowOut, and since a deny can only narrow egress, private targets and a `/0` deny-all stay valid; entries capped at 253 bytes",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "networkOff": {
+            "description": "true = turn this sandbox's egress off: translated to the canonical denyOut [\"0.0.0.0/0\"] before the hop, so the upstream only ever sees the lists",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "NewSandbox": {
+        "additionalProperties": true,
+        "description": "E2B v1 create body; unlisted fields pass through to the upstream untouched. cpuCount/memoryMB/resourceClass follow the take-effect-or-400 sizing contract (a SIZED_TEMPLATES variant applies the size; anything else is a 400 unless UPSTREAM_HONORS_CREATE_SIZING), diskSizeMB the node's disk cap, timeout SANDBOX_MAX_TIMEOUT_S, and network.allowOut/denyOut are validated and canonicalised before forwarding. Under EGRESS_POLICY_ENABLED the network block may also carry networkOff (translated to the canonical deny-all), and an explicit allow_internet_access: true beside that deny-all is a 400 — the pair has no single meaning",
+        "properties": {
+          "accel": {
+            "$ref": "#/components/schemas/GpuAccel"
+          },
+          "allow_internet_access": {
+            "type": "boolean"
+          },
+          "autoPause": {
+            "description": "consumed by the gateway: picks the idle reaper's action when the keep-alive lapses — true/omitted -> paused (never before the IDLE_PAUSE_SECONDS idle floor, default 300 s, and up to a reaper sweep late), false -> killed (E2B's lifecycle.onTimeout=kill)",
+            "type": "boolean"
+          },
+          "autoResume": {
+            "description": "data-plane auto-resume of a paused sandbox (default false — connect always resumes); true (or {\"enabled\": true}) lets data-plane traffic wake it",
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "cpuCount": {
+            "description": "vCPUs; applied only as a cpuCount+memoryMB pair equal to a class spec — mapped to the template's SIZED_TEMPLATES variant, else a 400 (forwarded bounded by TEMPLATE_MAX_CPU only when the deployment's upstream honors per-create sizing)",
+            "type": "integer"
+          },
+          "diskSizeMB": {
+            "description": "disk MiB; bounded by TEMPLATE_MAX_DISK_MB (default 30720)",
+            "type": "integer"
+          },
+          "envVars": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "memoryMB": {
+            "description": "memory MiB; applied only as a cpuCount+memoryMB pair equal to a class spec — mapped to the template's SIZED_TEMPLATES variant, else a 400 (forwarded bounded by TEMPLATE_MAX_MEMORY_MB only when the deployment's upstream honors per-create sizing)",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "description": "tenant metadata echoed back on get/list",
+            "type": "object"
+          },
+          "resourceClass": {
+            "description": "named size gated by the node's RESOURCE_CLASSES allowlist; applied via the template's SIZED_TEMPLATES variant — a class with no variant for the template is a 400 naming the available classes; cannot combine with cpuCount/memoryMB",
+            "enum": [
+              "small",
+              "standard",
+              "large",
+              "xlarge"
+            ],
+            "type": "string"
+          },
+          "secure": {
+            "description": "envd token enforcement; injected true when omitted and the upstream supports it",
+            "type": "boolean"
+          },
+          "templateID": {
+            "description": "template id, tenant alias, platform alias or owned snapshot id; omitted/`base` -> the deployment default. A `<alias>:<size>` ref (`agent-full:standard`) is the SDK dialect for `resourceClass` — the stock SDKs cannot send that field — and resolves to the same SIZED_TEMPLATES variant; a ref that resolves verbatim (the tenant's own `name:tag` alias, a template id) keeps its meaning, and a size the template does not offer is a 404 naming the sizes it does",
+            "type": "string"
+          },
+          "timeout": {
+            "description": "keep-alive seconds without activity before the expiry action (pause by default); 300 when omitted; capped at the node's SANDBOX_MAX_TIMEOUT_S (default 86400) A key with its own max_timeout_s cap (set by the operator) is clamped to min(SANDBOX_MAX_TIMEOUT_S, that cap) instead of getting a 400, and the response reports the applied value in X-Sandbox-Timeout-Applied.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "NewSandboxV2": {
+        "additionalProperties": true,
+        "description": "E2B v2 create body (NewSandboxV2). On a v1-only upstream, fields it cannot express (mcp, iam, volumeMounts, unknown keys — and a network block carrying anything but allowPublicTraffic, which is gateway-enforced) are a 400.",
+        "properties": {
+          "allowInternetAccess": {
+            "description": "camelCase twin of allow_internet_access; both accepted",
+            "type": "boolean"
+          },
+          "allow_internet_access": {
+            "type": "boolean"
+          },
+          "autoPause": {
+            "description": "picks the idle reaper's action when the keep-alive lapses: true/omitted -> paused (never before the IDLE_PAUSE_SECONDS idle floor, default 300 s, and up to a reaper sweep late), false -> killed (E2B's lifecycle.onTimeout=kill); the e2b SDK's lifecycle={\"on_timeout\": \"pause\"} maps to autoPause=true on the wire",
+            "type": "boolean"
+          },
+          "autoPauseMemory": {
+            "description": "pause snapshot kind; only full-memory (true/omitted) is expressible on a v1 upstream — false is a 400",
+            "type": "boolean"
+          },
+          "autoResume": {
+            "description": "data-plane auto-resume of a paused sandbox (default false — connect always resumes); true (or {\"enabled\": true}) lets data-plane traffic wake it",
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "cpuCount": {
+            "description": "vCPUs; applied only as a cpuCount+memoryMB pair equal to a class spec — mapped to the template's SIZED_TEMPLATES variant, else a 400 (forwarded bounded by TEMPLATE_MAX_CPU only when the deployment's upstream honors per-create sizing)",
+            "type": "integer"
+          },
+          "diskSizeMB": {
+            "description": "disk MiB; bounded by TEMPLATE_MAX_DISK_MB (a 400 unknown-field on a v1-only upstream)",
+            "type": "integer"
+          },
+          "envVars": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "memoryMB": {
+            "description": "memory MiB; applied only as a cpuCount+memoryMB pair equal to a class spec — mapped to the template's SIZED_TEMPLATES variant, else a 400 (forwarded bounded by TEMPLATE_MAX_MEMORY_MB only when the deployment's upstream honors per-create sizing)",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "resourceClass": {
+            "description": "named size gated by the RESOURCE_CLASSES allowlist; applied via the template's SIZED_TEMPLATES variant — a class with no variant for the template is a 400 naming the available classes",
+            "enum": [
+              "small",
+              "standard",
+              "large",
+              "xlarge"
+            ],
+            "type": "string"
+          },
+          "secure": {
+            "type": "boolean"
+          },
+          "templateID": {
+            "type": "string"
+          },
+          "timeout": {
+            "description": "keep-alive seconds; 300 when omitted; capped at the node's SANDBOX_MAX_TIMEOUT_S A key with its own max_timeout_s cap (set by the operator) is clamped to min(SANDBOX_MAX_TIMEOUT_S, that cap) instead of getting a 400, and the response reports the applied value in X-Sandbox-Timeout-Applied.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "RegisterTemplate": {
+        "additionalProperties": true,
+        "properties": {
+          "cpuCount": {
+            "description": "vCPUs (deployment cap derived from RESOURCE_CLASSES, 4 by default)",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "memoryMB": {
+            "description": "memory in MiB (deployment cap derived from RESOURCE_CLASSES, 16384 by default)",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "name": {
+            "description": "the alias; `base` and platform aliases are reserved",
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "type": "string"
+          },
+          "resourceClass": {
+            "description": "named size instead of cpuCount/memoryMB — small (2 vCPU / 8192 MiB), standard (4 / 16384), large (8 / 32768), xlarge (16 / 65536); gated by the node's RESOURCE_CLASSES allowlist (default small,standard), so a disabled or unknown name answers 400 and the field cannot be combined with cpuCount/memoryMB",
+            "enum": [
+              "small",
+              "standard",
+              "large",
+              "xlarge"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "ResumeSandbox": {
+        "additionalProperties": true,
+        "properties": {
+          "timeout": {
+            "description": "keep-alive seconds (send it — a bodiless resume can hit a short upstream default); capped at the node's SANDBOX_MAX_TIMEOUT_S A key with its own max_timeout_s cap (set by the operator) is clamped to min(SANDBOX_MAX_TIMEOUT_S, that cap) instead of getting a 400, and the response reports the applied value in X-Sandbox-Timeout-Applied.",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "RotatedKey": {
+        "properties": {
+          "api_key": {
+            "description": "the new secret, returned once and never logged",
+            "type": "string"
+          },
+          "key_id": {
+            "description": "key id prefix (first 12 characters)",
+            "type": "string"
+          },
+          "key_prefix": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key",
+          "key_id",
+          "key_prefix"
+        ],
+        "type": "object"
+      },
+      "Sandbox": {
+        "additionalProperties": true,
+        "description": "v1 sandbox object (upstream shape; `domain` rewritten to the gateway domain, `state` coerced to running|paused)",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "clientID": {
+            "type": "string"
+          },
+          "cpuCount": {
+            "type": "integer"
+          },
+          "diskSizeMB": {
+            "type": "integer"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "endAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "envdAccessToken": {
+            "description": "send as X-Access-Token on the envd port; upstream-provided or gateway-minted",
+            "type": "string"
+          },
+          "envdVersion": {
+            "description": "envd version as the upstream reported it; a deployment-declared version fills it only when omitted — never inflated",
+            "type": "string"
+          },
+          "memoryMB": {
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "sandboxID": {
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "paused"
+            ],
+            "type": "string"
+          },
+          "templateID": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SandboxMetrics": {
+        "additionalProperties": true,
+        "description": "per-sandbox metrics row relayed from the upstream (exact upstream schema is upstream-defined)",
+        "properties": {
+          "cpuUsed": {
+            "type": "number"
+          },
+          "memUsedMb": {
+            "type": "integer"
+          },
+          "sandboxID": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SandboxPort": {
+        "properties": {
+          "port": {
+            "type": "integer"
+          },
+          "public": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "token": {
+            "description": "the port's access token — accepted on the data plane as `?_gw_token=<token>` or `Authorization: Bearer <token>`; HMAC-derived per sandbox+port, never stored",
+            "type": "string"
+          },
+          "url": {
+            "description": "the port's data-plane base URL, https://<port>-<sandboxID>.<domain>",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SandboxPortUpdate": {
+        "additionalProperties": false,
+        "description": "{public, title?} — the port's registry flags; only these two keys are accepted — anything else is a 400",
+        "properties": {
+          "public": {
+            "description": "false opts the port into the token gate; true (and every unregistered port) serves open — unless the sandbox itself was created with network.allowPublicTraffic=false, which gates every port",
+            "type": "boolean"
+          },
+          "title": {
+            "description": "optional label for the port",
+            "maxLength": 128,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "public"
+        ],
+        "type": "object"
+      },
+      "SandboxV2": {
+        "additionalProperties": true,
+        "description": "v2 sandbox object: no v1-only fields like state/metadata/startedAt",
+        "properties": {
+          "clientID": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "envdAccessToken": {
+            "type": "string"
+          },
+          "envdVersion": {
+            "type": "string"
+          },
+          "sandboxID": {
+            "type": "string"
+          },
+          "templateID": {
+            "type": "string"
+          },
+          "trafficAccessToken": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SetTimeout": {
+        "additionalProperties": true,
+        "properties": {
+          "timeout": {
+            "description": "keep-alive seconds; capped at the node's SANDBOX_MAX_TIMEOUT_S — over it is a 400 A key with its own max_timeout_s cap (set by the operator) is clamped to min(SANDBOX_MAX_TIMEOUT_S, that cap) instead of getting a 400, and the response reports the applied value in X-Sandbox-Timeout-Applied.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "timeout"
+        ],
+        "type": "object"
+      },
+      "Snapshot": {
+        "additionalProperties": true,
+        "properties": {
+          "cpuCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "diskSizeMB": {
+            "type": "integer"
+          },
+          "error": {
+            "description": "client-safe failure reason, only on a failed snapshot",
+            "type": "string"
+          },
+          "memoryMB": {
+            "type": "integer"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "snapshotID": {
+            "type": "string"
+          },
+          "status": {
+            "description": "async creates (#420): pending until the upstream create lands, then ready/failed; on list items and the pending create answer",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StartBuild": {
+        "additionalProperties": true,
+        "properties": {
+          "fromImage": {
+            "description": "OCI image reference (name[:tag][@digest]); registry host must pass the deployment allowlist",
+            "type": "string"
+          },
+          "readyCmd": {
+            "type": "string"
+          },
+          "startCmd": {
+            "type": "string"
+          },
+          "steps": {
+            "description": "Build steps in the e2b SDK wire shape (what from_dockerfile / .run_cmd() post, parsed client-side): RUN/ENV/WORKDIR/USER, one arg each, ENV taking KEY/value pairs. `force` is forwarded. COPY/ADD, any other type, unknown keys, non-string args or over 64 KiB total args answer 400; another type or arity answers 400 naming the step. Refused entirely — 501 `build steps not supported yet; use from_image` — unless the deployment sets TEMPLATE_STEPS_ENABLED. Omit for a plain fromImage build.",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 200,
+            "type": "array"
+          }
+        },
+        "required": [
+          "fromImage"
+        ],
+        "type": "object"
+      },
+      "TemplateAlias": {
+        "properties": {
+          "public": {
+            "type": "boolean"
+          },
+          "templateID": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "templateID",
+          "public"
+        ],
+        "type": "object"
+      },
+      "TemplateListItem": {
+        "additionalProperties": true,
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "buildCount": {
+            "type": "integer"
+          },
+          "buildID": {
+            "type": "string"
+          },
+          "buildStatus": {
+            "enum": [
+              "waiting",
+              "building",
+              "ready",
+              "error"
+            ],
+            "type": "string"
+          },
+          "cpuCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "diskSizeMB": {
+            "type": "integer"
+          },
+          "lastSpawnedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memoryMB": {
+            "type": "integer"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "public": {
+            "type": "boolean"
+          },
+          "spawnCount": {
+            "type": "integer"
+          },
+          "templateID": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "TemplateRegistered": {
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "buildID": {
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "public": {
+            "enum": [
+              false
+            ],
+            "type": "boolean"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "templateID": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Tiers": {
+        "properties": {
+          "card_verification_enabled": {
+            "type": "boolean"
+          },
+          "signup_enabled": {
+            "type": "boolean"
+          },
+          "tiers": {
+            "items": {
+              "properties": {
+                "credit_hours": {
+                  "type": "number"
+                },
+                "gpu": {
+                  "type": "boolean"
+                },
+                "gpu_hours_monthly": {
+                  "description": "GPU-hours per UTC calendar month included on this tier (present when gpu is true)",
+                  "type": "number"
+                },
+                "gpu_leases": {
+                  "description": "simultaneous GPU leases on this tier (present when gpu is true)",
+                  "type": "integer"
+                },
+                "gpu_max_vram_gb": {
+                  "description": "largest GPU slice in GiB; free tier only, present when gpu is true",
+                  "type": "number"
+                },
+                "quota_paused": {
+                  "type": "integer"
+                },
+                "quota_running": {
+                  "type": "integer"
+                },
+                "tier": {
+                  "enum": [
+                    "free",
+                    "verified"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "UsageGroup": {
+        "properties": {
+          "cpu_seconds": {
+            "description": "host-measured CPU time fed by the node cpu-agent",
+            "type": "number"
+          },
+          "gpu_seconds": {
+            "description": "billed GPU time (busy+resume rows) attributed to this sandbox; sums to gpu_seconds_used",
+            "type": "number"
+          },
+          "group": {
+            "type": "string"
+          },
+          "paused_seconds": {
+            "type": "number"
+          },
+          "running_seconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "group",
+          "running_seconds",
+          "paused_seconds",
+          "cpu_seconds",
+          "gpu_seconds"
+        ],
+        "type": "object"
+      },
+      "UsageReport": {
+        "properties": {
+          "credit_hours": {
+            "type": "number"
+          },
+          "from": {
+            "type": "number"
+          },
+          "gpu_credit_hours": {
+            "description": "one-time free GPU grant, separate from credit_hours",
+            "type": "number"
+          },
+          "gpu_seconds_remaining": {
+            "type": "number"
+          },
+          "gpu_seconds_used": {
+            "type": "number"
+          },
+          "group_by": {
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/UsageGroup"
+            },
+            "type": "array"
+          },
+          "remaining_hours": {
+            "type": "number"
+          },
+          "tier": {
+            "description": "`free`, `verified`, or null for an operator/waitlist key",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "type": "number"
+          },
+          "used_hours": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "WaitlistJoin": {
+        "additionalProperties": true,
+        "properties": {
+          "email": {
+            "format": "email",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "org": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "use_case": {
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "type": "object"
+      },
+      "WaitlistJoined": {
+        "properties": {
+          "claim_token": {
+            "description": "one-time claim token (43-char urlsafe); redeem at POST /v1/claim after approval",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "received"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "claim_token"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "description": "tenant API key (the value of E2B_API_KEY; `e2b_…` secrets minted via waitlist claim or the admin CLI)",
+        "in": "header",
+        "name": "X-API-Key",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "description": "E2B-compatible multi-tenant front door for agent sandboxes. Point the stock e2b SDKs at it with E2B_DOMAIN=<domain> and E2B_API_KEY=<tenant key>; the gateway owns API keys, per-key quotas, sandbox tenancy, lifecycle metering and idle auto-pause.\n\nAuth: every tenant route takes the tenant API key in the `X-API-Key` header (the e2b SDK sends it from E2B_API_KEY). /healthz, /v1/waitlist, /v1/claim, /v1/tiers, the GitHub signup redirects and the discovery docs (/openapi.json, /llms.txt, /llms-full.txt) are unauthenticated.\n\nErrors use the E2B wire envelope {\"code\": <http status>, \"message\": \"...\"} with an optional machine-readable `error_code`; 429s that are safe to retry carry an integer `Retry-After` header.\n\nExcluded from this document on purpose: the internal listener (INTERNAL_LISTEN, default 127.0.0.1:8081) serves POST /internal/cpu-samples and GET /internal/metrics (both X-Node-Token), GET /metrics (Prometheus) and GET /readyz — node-facing only, never routed on the public listener. The operator web-console API /v1/admin/* is also excluded: it exists only when ADMIN_TOKEN is set, authenticates with `Authorization: Bearer <ADMIN_TOKEN>` (not the tenant key) and is not part of the E2B-compatible surface.",
+    "title": "agent-next sandbox gateway"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/.well-known/oauth-protected-resource": {
+      "get": {
+        "operationId": "oauthProtectedResource",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "resource + agent_auth block pointing at /auth.md"
+          }
+        },
+        "security": [],
+        "summary": "RFC 9728 discovery with an agent_auth extension",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/.well-known/openai-apps-challenge": {
+      "get": {
+        "description": "Serves the exact plain-text token shown in the OpenAI plugin portal so it can verify ownership of this MCP host (developers.openai.com/plugins/deploy/submission). The token is read from the OPENAI_APPS_CHALLENGE env var per request and stripped of surrounding whitespace; the route 404s while it is unset or blank, so the file only exists while a verification is active.",
+        "operationId": "openaiAppsChallenge",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "the verification token, verbatim"
+          },
+          "404": {
+            "description": "OPENAI_APPS_CHALLENGE is unset or blank"
+          }
+        },
+        "security": [],
+        "summary": "OpenAI plugin-directory domain verification token",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/auth.md": {
+      "get": {
+        "operationId": "authMd",
+        "responses": {
+          "200": {
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "the cold-start registration contract, markdown"
+          }
+        },
+        "security": [],
+        "summary": "Agent registration contract (auth.md)",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/events/webhooks": {
+      "get": {
+        "operationId": "listWebhooks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Webhook registrations"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the calling tenant's webhooks",
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "post": {
+        "description": "compat/e2b v0.5 #20. Body: {name, url, events[], signatureSecret, enabled?} — events are sandbox.lifecycle.{created,killed,updated,paused,resumed,checkpointed,credit_warning}. Answers 201 with the registration. The url is validated (SSRF guard): https only on port 443 and it must resolve only to public unicast addresses (loopback, the 169.254.169.254 metadata service, RFC1918/CGNAT private and the IPv6 ULA range fc00::/7 are refused 400; a resolve slower than 5 s is refused 400 too). At most WEBHOOK_MAX_PER_KEY (default 20) endpoints per key; the create over the cap answers 409.",
+        "operationId": "createWebhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The registered webhook"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Register a lifecycle webhook",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/events/webhooks/{webhook_id}": {
+      "delete": {
+        "operationId": "deleteWebhook",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "{deleted: true}"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not owned or unknown"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete a webhook (answers 200, per the E2B docs example)",
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "get": {
+        "operationId": "getWebhook",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The webhook"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not owned or unknown"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Fetch one webhook registration",
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "patch": {
+        "operationId": "patchWebhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The updated webhook"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not owned or unknown"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Update name/url/events/enabled/signatureSecret",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/events/webhooks/{webhook_id}/deliveries": {
+      "get": {
+        "description": "One row per attempt (up to 3 per event, at-least-once): delivery_id (stable across the delivery's retries — the receiver dedupe key), attempt_id (new per attempt), event_id, event_type, ts, attempt, status, ok.",
+        "operationId": "listWebhookDeliveries",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delivery rows"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not owned or unknown"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delivery attempt log for one webhook",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/events/webhooks/{webhook_id}/rotate": {
+      "post": {
+        "description": "Server-mints a new whsec_-style signing secret and returns it once, in signatureSecret. The replaced secret stays accepted for a grace window (WEBHOOK_ROTATION_GRACE_SECONDS, default 300s): deliveries dual-sign x-agent-next-signature 'v1=<new>,v1=<prev>' until it closes, so receivers should accept either token while they update their stored secret. The grace window covers only x-agent-next-signature — the legacy e2b-signature is a single value signed with the active secret and is never dual-signed, so migrate a legacy receiver to x-agent-next-signature BEFORE rotating. PATCH signatureSecret also replaces the secret but takes effect immediately with no grace.",
+        "operationId": "rotateWebhookSecret",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The webhook registration plus the new signing secret (signatureSecret, shown once)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not owned or unknown"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rotate the signing secret (B-05)",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/events/webhooks/{webhook_id}/stats": {
+      "get": {
+        "operationId": "webhookStats",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "{delivery_attempts, ok_attempts, failed_attempts, events_delivered}"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not owned or unknown"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Aggregate delivery counters for one webhook",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Plain-text 200, the path api.e2b.app serves.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "alive"
+          }
+        },
+        "security": [],
+        "summary": "E2B-style liveness",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "description": "The process is up and serving requests. Readiness lives on the internal listener's /readyz: DB and upstream checks must pass, and admission must not refuse starts for disk_admission (disk pressure) or capacity reasons.",
+        "operationId": "healthz",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "ok"
+                      ],
+                      "type": "string"
+                    },
+                    "version": {
+                      "description": "Release version (pyproject.toml project.version)",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "version"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "alive"
+          }
+        },
+        "security": [],
+        "summary": "Liveness",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/llms-full.txt": {
+      "get": {
+        "operationId": "llmsFullTxt",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "every public route in plain text"
+          }
+        },
+        "security": [],
+        "summary": "Full endpoint reference (llms-full.txt)",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/llms.txt": {
+      "get": {
+        "operationId": "llmsTxt",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "curated quickstart text"
+          }
+        },
+        "security": [],
+        "summary": "Short agent onboarding (llms.txt)",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/mcp": {
+      "post": {
+        "description": "The permanent public MCP endpoint on the dedicated mcp.<apex> host (owner decision 2026-10-09: OpenAI treats the MCP origin as immutable once submitted). One handler with POST /mcp/v1 mounted twice — identical auth, gates and tools; see that operation for the full contract. The dedicated host proxies only this path, the OAuth protected-resource metadata and /.well-known/openai-apps-challenge.",
+        "operationId": "sandboxMcpPermanent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "id": {},
+                  "jsonrpc": {
+                    "enum": [
+                      "2.0"
+                    ],
+                    "type": "string"
+                  },
+                  "method": {
+                    "enum": [
+                      "initialize",
+                      "tools/list",
+                      "tools/call"
+                    ],
+                    "type": "string"
+                  },
+                  "params": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "jsonrpc",
+                  "method"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "id": {},
+                    "jsonrpc": {
+                      "enum": [
+                        "2.0"
+                      ],
+                      "type": "string"
+                    },
+                    "result": {
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON-RPC response (result or error) for the request"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "sandbox-mcp: permanent public endpoint (alias of POST /mcp/v1)",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/mcp/v1": {
+      "post": {
+        "description": "One remote MCP server over the existing sandbox planes: initialize -> tools/list -> tools/call (POST only, no server-initiated stream). Seven tools map onto the REST handlers and the data plane: sandboxes_list, sandbox_create, sandbox_exec, sandbox_files_read, sandbox_files_write, sandbox_preview_url, sandbox_kill. Exec/files run the data-plane handler, so the envd-token gate, suspension, admission/auto-resume and activity accounting are the data plane's own. Every tools/call result carries an in-band `meters` block (the key's credit summary). Auth: the tenant API key in `X-API-Key` or `Authorization: Bearer <key>`. Connect one-liners: docs/mcp-connect.md.",
+        "operationId": "sandboxMcp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "id": {},
+                  "jsonrpc": {
+                    "enum": [
+                      "2.0"
+                    ],
+                    "type": "string"
+                  },
+                  "method": {
+                    "enum": [
+                      "initialize",
+                      "tools/list",
+                      "tools/call"
+                    ],
+                    "type": "string"
+                  },
+                  "params": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "jsonrpc",
+                  "method"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "id": {},
+                    "jsonrpc": {
+                      "enum": [
+                        "2.0"
+                      ],
+                      "type": "string"
+                    },
+                    "result": {
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON-RPC response (result or error) for the request"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "sandbox-mcp: remote MCP endpoint (JSON-RPC over streamable HTTP)",
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapiSpec",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "the spec, parsed once at startup and served as JSON"
+          }
+        },
+        "security": [],
+        "summary": "This OpenAPI document",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/sandboxes": {
+      "get": {
+        "description": "Proxied to the upstream, then intersected with the caller's owned set — another tenant's row can never appear. `envdAccessToken`/`trafficAccessToken` are stripped from every item (bulk surfaces carry no credentials). `state` is coerced into the SDK enum (running|paused) and `domain` rewritten to the gateway domain. The tenant-visible list is paginated gateway-side in deterministic (created_at, sandboxID) order: `order` (default desc), `limit` 1-100 (default 100) and the `nextToken` continuation cursor are enforced on both dialects; any upstream pagination headers are stripped and the gateway's own X-Next-Token / X-Total-Running are emitted instead. `metadata` filters the result (url-encoded k=v pairs, AND-ed against the stored create metadata) so a tenant can list what it owns; per-item `metadata` is filled from the stored copy when the upstream echo omits it, and `PUT /sandboxes/{sandbox_id}/metadata` merges lifecycle tags (kept_reason) into that stored copy.",
+        "operationId": "listSandboxes",
+        "parameters": [
+          {
+            "description": "url-encoded k=v pairs (metadata=owner_lane%3Dlane-a); every pair must match the stored create metadata — list what you own (OWNER RULE 2026-10-14)",
+            "in": "query",
+            "name": "metadata",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ListOrder"
+          },
+          {
+            "$ref": "#/components/parameters/ListLimit"
+          },
+          {
+            "$ref": "#/components/parameters/NextToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ListedSandbox"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "one page of owned sandboxes",
+            "headers": {
+              "X-Next-Token": {
+                "description": "present only when more pages remain; pass back verbatim as `nextToken` (opaque HMAC-signed cursor, bound to the tenant and the order direction)",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Total-Running": {
+                "description": "the tenant's total running sandbox count; present because no `state` filter excluded running",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List the calling tenant's sandboxes",
+        "tags": [
+          "sandboxes"
+        ]
+      },
+      "post": {
+        "description": "Passes auth, per-tenant running-quota (429 + Retry-After), credit (402), suspension (403), create-rate (429 + Retry-After) and node-capacity/host-disk admission (503 + Retry-After) gates, then forwards upstream. `templateID` resolves per tenant: own alias/id, a platform template, an owned snapshot id, or 404; omitted/`base` maps to the deployment's default template when one is configured. An omitted `timeout` defaults to 300 s, capped by SANDBOX_MAX_TIMEOUT_S; an omitted `secure` is injected `true` on secure-capable upstreams unless the deployment disabled it. A size request must take effect or fail (#427): `resourceClass` — or a `cpuCount`/`memoryMB` pair exactly matching a class spec — rewrites `templateID` to the template's SIZED_TEMPLATES variant and drops the sizing fields; a class with no variant for that template is a 400 naming the classes it does have, and any other raw pair is a 400 — unless the deployment set UPSTREAM_HONORS_CREATE_SIZING, which forwards raw values bounded by the node's template caps. SDK users cannot send `resourceClass`, so a `templateID` of the form `<alias>:<size>` (`agent-full:standard`) is the same request in the SDK dialect: it resolves to the variant that class would pick, is refused (disabled class 400, unknown size 404 naming the sizes that alias does offer, a disagreeing `resourceClass` 400) exactly as the field is, and is advertised by GET /templates; a ref that resolves on its own (a tenant's `name:tag` alias, a template id, an owned snapshot id) keeps resolving verbatim. A tenant's own template keeps its built size (a matching request is a no-op); a snapshot id never maps. The response reports the applied spec's `cpuCount`/`memoryMB` — the variant's upstream templateID never leaves the gateway. `diskSizeMB` stays bounded by the node's disk cap.",
+        "operationId": "createSandbox",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSandbox"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sandbox"
+                }
+              }
+            },
+            "description": "created sandbox; `envdAccessToken` is the upstream's token or a gateway-minted one — send it as `X-Access-Token` on envd-port data-plane calls",
+            "headers": {
+              "X-Sandbox-Timeout-Applied": {
+                "description": "present only for a key with a max_timeout_s cap: the keep-alive seconds applied to this request after clamping to min(SANDBOX_MAX_TIMEOUT_S, the key's cap)",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/CreditExhausted"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          },
+          "499": {
+            "$ref": "#/components/responses/ClientDisconnected"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Capacity"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Create a sandbox (E2B v1 dialect)",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/metrics": {
+      "get": {
+        "description": "E2B's bulk-metrics path. `sandbox_ids` is filtered to the calling tenant's own ids before relaying and the response is intersected with the owned set on the way back — foreign ids silently vanish from both directions. A request naming only foreign ids answers {\"sandboxes\": []} without an upstream call.",
+        "operationId": "bulkSandboxMetrics",
+        "parameters": [
+          {
+            "description": "comma-separated sandbox ids",
+            "in": "query",
+            "name": "sandbox_ids",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "sandboxes": {
+                      "items": {
+                        "$ref": "#/components/schemas/SandboxMetrics"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "sandboxes"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "per-sandbox metrics rows for owned ids"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Bulk runtime metrics for owned sandboxes",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}": {
+      "delete": {
+        "description": "Upstream delete under the kill bound and the sandbox lock; an upstream 404 is the desired end state — the sandbox is recorded dead either way. The upstream response is relayed verbatim (204 on success).",
+        "operationId": "deleteSandbox",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "killed"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Kill a sandbox",
+        "tags": [
+          "sandboxes"
+        ]
+      },
+      "get": {
+        "description": "Proxied upstream after the ownership check; a 404 upstream also records the sandbox dead locally. The owner-facing body carries the current `envdAccessToken` (re-injected when gateway-minted).",
+        "operationId": "getSandbox",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sandbox"
+                }
+              }
+            },
+            "description": "the sandbox"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Sandbox details",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/connect": {
+      "post": {
+        "description": "The e2b SDK's connect path. On a paused sandbox this is a start: the same capacity/disk admission, running-quota and credit gates as resume apply. On a running sandbox the upstream call is serialized with the other token writers and the response carries the current `envdAccessToken`. The request body is optional: a missing body or non-JSON Content-Type is accepted and an omitted `timeout` defaults to the sandbox's stored keep-alive (the create/resume timeout, 300 s by default). An unknown or killed id answers 404 'sandbox <id> not found'.",
+        "operationId": "connectSandbox",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeSandbox"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sandbox"
+                }
+              }
+            },
+            "description": "the sandbox, running",
+            "headers": {
+              "X-Sandbox-Timeout-Applied": {
+                "description": "present only for a key with a max_timeout_s cap: the keep-alive seconds applied to this request after clamping to min(SANDBOX_MAX_TIMEOUT_S, the key's cap)",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/CreditExhausted"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          },
+          "499": {
+            "$ref": "#/components/responses/ClientDisconnected"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Capacity"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Connect to a sandbox, resuming it when paused",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/events": {
+      "get": {
+        "operationId": "listPromptEvents",
+        "parameters": [
+          {
+            "description": "return only events with seq > after",
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "events page"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "The sandbox's managed-prompt event log (ordered, cursor-paginated)",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/files/{name}": {
+      "put": {
+        "description": "Available only when the local accel plane or GPU node mode is enabled, for owned gl-* leases with container-backed public execution. A GPU lease has no network unless it was created with accel.network \"internet\". Streams the raw body in chunks, creates parent directories inside OUTPUT_DIR, and atomically replaces the file after completion. The name is relative to the job's OUTPUT_DIR (<workdir>/out): the job reads it there, and GET /sandboxes/{id}/files[/{name}] lists and downloads it back. Same path validation as GPU downloads: no absolute paths, empty/dot/dot-dot components, backslashes, NUL, components over 255 characters, names over 1024 characters, or more than five components. Symlinked roots, parents and existing destinations are refused. Both front and node enforce GATEWAY_GPU_MAX_UPLOAD_BYTES (default 512 MiB) on actual streamed bytes, regardless of Content-Length. Paused, frozen or transitioning leases return 409 without resuming; dead, unknown and foreign leases return 404. Leases have no dedicated disk quota; disk-write failure returns 507.",
+        "operationId": "uploadGpuLeaseFile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "description": "Workdir-relative file path; nested components may be separated by /.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "size": {
+                      "description": "Bytes written",
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "size",
+                    "sha256"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Atomic upload completed"
+          },
+          "400": {
+            "description": "Invalid relative file name"
+          },
+          "401": {
+            "description": "Missing or revoked API key"
+          },
+          "402": {
+            "description": "Credit exhausted"
+          },
+          "403": {
+            "description": "Tenant suspended or not entitled"
+          },
+          "404": {
+            "description": "Unknown, foreign or dead lease, or unsafe file path"
+          },
+          "409": {
+            "description": "Lease paused, frozen or transitioning"
+          },
+          "413": {
+            "description": "Upload exceeds the front or node byte cap"
+          },
+          "502": {
+            "description": "Invalid or interrupted node upload receipt"
+          },
+          "503": {
+            "description": "Node unreachable or node build lacks file uploads"
+          },
+          "507": {
+            "description": "Could not write upload"
+          }
+        },
+        "summary": "Upload raw bytes into a GPU lease OUTPUT_DIR",
+        "tags": [
+          "sandboxes"
+        ],
+        "x-gateway-feature": "gpu"
+      }
+    },
+    "/sandboxes/{sandbox_id}/fork": {
+      "post": {
+        "description": "Each fork is a new sandbox passing the create gate (running quota 429, credit 402, create rate limit) and recorded as the tenant's own. The upstream forks one sandbox per call, so `count` fans out into per-fork upstream calls; a first-fork upstream refusal is the whole request's answer. A paused source forks from its pause checkpoint: the upstream refuses to fork or snapshot a paused sandbox, so the gateway resumes it, snapshots it, pauses it again and creates from that snapshot behind the same call (`count` honored; the source ends paused under its original pause label but runs, and is metered, for the checkpoint, and needs a free running-sandbox slot like a resume). When the checkpoint cannot be taken it is a 409 and the source is paused again.",
+        "operationId": "forkSandbox",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForkSandbox"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ForkResult"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "one entry per requested fork — `sandbox` on success, `error` once the per-fork pipeline failed (later forks share the verdict)",
+            "headers": {
+              "X-Sandbox-Timeout-Applied": {
+                "description": "present only for a key with a max_timeout_s cap: the keep-alive seconds applied to this request after clamping to min(SANDBOX_MAX_TIMEOUT_S, the key's cap)",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/CreditExhausted"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          },
+          "499": {
+            "$ref": "#/components/responses/ClientDisconnected"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Capacity"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Fork a sandbox into N clones (E2B v4 shape)",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/metadata": {
+      "put": {
+        "description": "Our extension beyond the E2B wire: merges the body's tags into the metadata stored at create (OWNER RULE 2026-10-14 — a sandbox KEPT after a failed push is tagged `kept_reason` so any list attributes it and the creator's lane reaper can clean it; the create copy is kept, the merge never replaces). The stored copy is the list `?metadata=` filter's authority, so a merge is visible to filtered lists immediately. Gateway-local state: no upstream call, so a paused sandbox is tagged the same as a running one. Answers 200 with the merged metadata. A non-object body, a body carrying the reserved `__gwIdemOp` key, or a merge that would push the stored metadata past 16 KiB is a 400 (refused, never truncated).",
+        "operationId": "updateSandboxMetadata",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "tags to merge into the stored metadata (free-form keys, JSON-safe values)",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "metadata": {
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "the merged metadata"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Merge lifecycle tags into a sandbox's stored metadata",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/network": {
+      "get": {
+        "description": "Available only when the deployment enables EGRESS_POLICY_ENABLED (absent otherwise — the path then falls through to the generic sandbox subpath proxy). Gateway-local: the gateway answers from the allowOut/denyOut lists it stored at create time and on PUT network — no upstream call, so a paused sandbox answers too, and an out-of-band upstream mutation could diverge from this view (source says whose it is). No stored policy answers `{}` — no stored policy, not a promise of open: an explicit `allow_internet_access: false` (or its camelCase twin on the v2 create and fork dialects, which document it) stores the deny-all it means, but the camelCase spelling on the v1 create dialect is not that dialect's field — forwarded verbatim, ignored upstream, stored as nothing.",
+        "operationId": "getNetwork",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkPolicy"
+                }
+              }
+            },
+            "description": "the stored egress policy"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Read back the sandbox's stored egress policy",
+        "tags": [
+          "sandboxes"
+        ],
+        "x-gateway-feature": "egress-policy"
+      },
+      "patch": {
+        "description": "See POST.",
+        "operationId": "updateNetworkPatch",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "E2B network controls — not supported",
+        "tags": [
+          "sandboxes"
+        ]
+      },
+      "post": {
+        "description": "E2B's update_network route; the beta does not ship it, so it answers a clear 501 (after auth) instead of a 404/405.",
+        "operationId": "updateNetworkPost",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "E2B network controls — not supported",
+        "tags": [
+          "sandboxes"
+        ]
+      },
+      "put": {
+        "description": "Our extension beyond the E2B wire (AgentENV deployments; an nvx upstream answers 405): the upstream replaces the sandbox's egress rules with the body's `allowOut`/`denyOut` lists — omitting a field clears it, so `{}` reopens all egress. `allowOut` entries are CIDRs, bare IPs, domains (`*.example.com`) or the presets `@packages` (language/OS package + container registries) and `@trusted` (@packages + git hosts, the Hugging Face hub, big-three cloud SDK endpoints, the gateway's own API/MCP hosts): the gateway expands presets into concrete host lists before the hop, an unknown `@name` answers 400, and the <=64-entry/<=253-byte caps are checked after expansion. A paused sandbox answers 409; the response is the upstream's.",
+        "operationId": "updateNetworkPut",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NetworkUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "egress rules replaced (the upstream's answer)"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Replace a running sandbox's egress rules",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/pause": {
+      "post": {
+        "description": "Draws a pause slot, re-checks state under the sandbox lock, enforces the per-tenant paused quota (429 `quota_paused_exceeded` + Retry-After 5), then forwards upstream. Re-asserting pause on an already-paused sandbox marks it user-paused; whether data-plane traffic wakes it is the create's `autoResume` (default false — 502 not-found; `connect` always resumes).",
+        "operationId": "pauseSandbox",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "paused (upstream status relayed)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Pause a running sandbox",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/ports": {
+      "get": {
+        "description": "Every registered port of this sandbox, sorted by port (our extension beyond the E2B wire). Each entry carries the port's `public` flag, `title`, access `token` (HMAC-derived per sandbox+port — the row itself never stores credential material) and the data-plane `url` it unlocks. A port only appears here after PUT /sandboxes/{id}/ports/{port}: non-envd ports serve open by default (E2B parity) — a `public:false` row is what engages the token gate.",
+        "operationId": "listSandboxPorts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SandboxPort"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the registered ports"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List the sandbox's data-plane port registry",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/ports/{port}": {
+      "put": {
+        "description": "Our extension beyond the E2B wire: registers (or updates) the port's `public` flag and optional `title`. Non-envd ports serve open by default — E2B parity, `network.allowPublicTraffic` defaults true — so `public:false` is the opt-in that engages the gate: the port's <port>-<sandbox_id>.<domain> URL then answers 401 without a credential (the port's `token` as `?_gw_token=<token>` or `Authorization: Bearer <token>`, or the sandbox's `trafficAccessToken` as the E2B `e2b-traffic-access-token` header; a recognized gateway credential is consumed on every non-envd forward, open port or gated). A sandbox created with `network.allowPublicTraffic=false` is gated on EVERY non-envd port regardless of this flag. The response carries the derived `token` and the `url`; the token is HMAC-derived, never stored. The envd port (its own fixed token gate) and out-of-range port values answer 400. Gateway-local metadata: no upstream call, so a paused sandbox's registry still updates.",
+        "operationId": "putSandboxPort",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "$ref": "#/components/parameters/PortPath"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxPortUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxPort"
+                }
+              }
+            },
+            "description": "the registered port"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Set a data-plane port's public flag and title",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/prompt": {
+      "post": {
+        "description": "Runs agent-prompt <harness> -- <task> inside the sandbox via the envd data plane; envs apply to that run only and are never stored. Start-gated like create (402 credit, 403 suspended, 429 rate / live-prompt cap); done requires an observed exit 0. Observe with GET /sandboxes/{sandbox_id}/events.",
+        "operationId": "postPrompt",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "envs": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "maxItems": 32,
+                    "type": "object"
+                  },
+                  "harness": {
+                    "default": "codex",
+                    "maxLength": 32,
+                    "type": "string"
+                  },
+                  "task": {
+                    "maxLength": 65536,
+                    "type": "string"
+                  },
+                  "timeout_s": {
+                    "default": 600,
+                    "maximum": 3600,
+                    "minimum": 1,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "task"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "prompt queued"
+          },
+          "400": {
+            "description": "invalid body (task/harness/envs/timeout_s)"
+          },
+          "401": {
+            "description": "missing or invalid API key"
+          },
+          "402": {
+            "$ref": "#/components/responses/CreditExhausted"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "description": "sandbox not found (or not yours)"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Queue a headless agent task on a sandbox (managed prompt)",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/prompts/{prompt_id}": {
+      "get": {
+        "operationId": "getPromptStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "prompt status"
+          },
+          "404": {
+            "description": "prompt or sandbox not found (or not yours)"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "One managed prompt's state",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/refreshes": {
+      "post": {
+        "description": "Renews the running sandbox's timeout (compat/e2b v0.4 #17). Ownership like pause; a refresh never pauses and counts as liveness for the idle reaper. Body mirrors the timeout route ({\"timeout\": seconds}). A key with a max_timeout_s cap has `duration` clamped to it.",
+        "operationId": "refreshSandbox",
+        "responses": {
+          "200": {
+            "description": "refreshed (upstream response forwarded)",
+            "headers": {
+              "X-Sandbox-Timeout-Applied": {
+                "description": "present only for a key with a max_timeout_s cap: the keep-alive seconds applied to this request after clamping to min(SANDBOX_MAX_TIMEOUT_S, the key's cap)",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Renew a sandbox's timeout",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/resume": {
+      "post": {
+        "description": "A resume adds a running sandbox: suspended (403), abuse-paused (403), quota (429), credit (402) and the capacity/disk admission gates (503 + Retry-After) all apply. An empty body is accepted (E2B shape): the sandbox timeout is filled in, invalid JSON answers 400. An upstream 409 'already running' is reconciled to a 200-class answer, not an error. The response carries the current `envdAccessToken`.",
+        "operationId": "resumeSandbox",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeSandbox"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sandbox"
+                }
+              }
+            },
+            "description": "the sandbox, running",
+            "headers": {
+              "X-Sandbox-Timeout-Applied": {
+                "description": "present only for a key with a max_timeout_s cap: the keep-alive seconds applied to this request after clamping to min(SANDBOX_MAX_TIMEOUT_S, the key's cap)",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/CreditExhausted"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          },
+          "499": {
+            "$ref": "#/components/responses/ClientDisconnected"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Capacity"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Resume a paused sandbox",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/snapshots": {
+      "get": {
+        "description": "Served from the gateway's own snapshot records (the upstream list cannot filter per org), so a snapshot created out-of-band upstream is invisible here. Items carry a `status` (pending/ready/failed) — the poll surface for an async create (#420). `name`/`limit` (1-100, default 100) filter the set; `nextToken` is not implemented on this route and no `x-next-token` is emitted.",
+        "operationId": "listSandboxSnapshots",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "$ref": "#/components/parameters/SnapshotName"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Snapshot"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the tenant's snapshots for this sandbox"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List this sandbox's snapshots (tenant-owned records)",
+        "tags": [
+          "snapshots"
+        ]
+      },
+      "post": {
+        "description": "Snapshotting is incremental upstream (~9 s/GB), so the create does not ride one long request: the gateway records a pending snapshot under a minted id and runs the upstream call on its own budget. Within a short inline window the finished answer is relayed (201, the snapshot object); past it the answer is still 201 with the pending snapshot and `status: \"pending\"` — 201 is what the e2b SDK's create_snapshot parses, and pending-then-poll is E2B's own async build pattern. Poll the GET lists for `status` `ready`/`failed` (the SDK's SnapshotInfo drops the field — an SDK client probes readiness by attempting the restore, which 409s while pending); a `pending` snapshot is not yet a valid `templateID` (409). The snapshot id is recorded against the calling tenant because the upstream list has no per-org filter. A paused source is left to the upstream to decide, except an abuse-paused one (403).",
+        "operationId": "createSnapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSnapshot"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            },
+            "description": "the new snapshot — ready when the inline window covered the create, `status: \"pending\"` otherwise (poll the lists)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "too many snapshots already pending for this key (Retry-After)"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Snapshot a sandbox's disk",
+        "tags": [
+          "snapshots"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/timeout": {
+      "post": {
+        "description": "Proxied upstream for a running sandbox. A paused sandbox answers 409 without an upstream call (AgentENV would 500); an upstream 'non-running state' 5xx is translated to the same 409.",
+        "operationId": "setSandboxTimeout",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTimeout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "timeout updated (upstream status relayed)",
+            "headers": {
+              "X-Sandbox-Timeout-Applied": {
+                "description": "present only for a key with a max_timeout_s cap: the keep-alive seconds applied to this request after clamping to min(SANDBOX_MAX_TIMEOUT_S, the key's cap)",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Set the sandbox keep-alive timeout",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/sandboxes/{sandbox_id}/{rest}": {
+      "get": {
+        "description": "Read-only fallback for SDK calls like /sandboxes/{id}/logs or /metrics. After the ownership check the cleaned sub-path is proxied upstream; dot segments, empty segments, ';', '%' and backslashes are refused 400 rather than normalized. The upstream's status and body are relayed.",
+        "operationId": "sandboxSubpath",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "description": "sub-path under /sandboxes/{sandbox_id}/ (multi-segment)",
+            "in": "path",
+            "name": "rest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "whatever the upstream sub-path returns (relayed)"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Read-only sandbox sub-path (SDK logs, metrics, …)",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/snapshots": {
+      "get": {
+        "description": "Served from the gateway's records like the sandbox-scoped list; `sandboxID` narrows it to one sandbox. Items carry a `status` (pending/ready/failed). A `ready` snapshot id is a valid `templateID` on sandbox create (E2B's restore path) for the owning tenant.",
+        "operationId": "listSnapshots",
+        "parameters": [
+          {
+            "description": "restrict the list to one sandbox",
+            "in": "query",
+            "name": "sandboxID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SnapshotName"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Snapshot"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the tenant's snapshots"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List the calling tenant's snapshots",
+        "tags": [
+          "snapshots"
+        ]
+      }
+    },
+    "/snapshots/{snapshot_id}": {
+      "delete": {
+        "description": "Deletes the calling tenant's own snapshot: the delete is forwarded upstream in the namespace a snapshot id lives in (DELETE /templates/{id}, carrying the upstream id the tenant never holds) and the tenant's record is dropped, so the lists stop serving it. The identifier may be the snapshotID or one of its names (the same match GET /snapshots?name= applies). A foreign or unknown id answers the same 404 with no upstream call; an upstream 409/502 is forwarded and keeps the record. The e2b SDK's delete_snapshot instead calls DELETE /templates/{snapshotID}, which resolves the same way.",
+        "operationId": "deleteSnapshot",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SnapshotId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Delete one of the tenant's snapshots",
+        "tags": [
+          "snapshots"
+        ]
+      }
+    },
+    "/templates": {
+      "get": {
+        "description": "Tenant-scoped, served from the gateway's records (never a raw upstream proxy — that leaked every tenant's templates). Every platform template's SIZED_TEMPLATES variants are listed too, as `<alias>:<size>` rows (`agent-full:standard`) carrying the class spec — the refs an SDK create can use to pick a size, restricted to the node's enabled classes.",
+        "operationId": "listTemplates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateListItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the tenant's templates followed by platform templates"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List the tenant's templates plus platform templates",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/templates/aliases/{alias}": {
+      "get": {
+        "description": "The tenant's own alias or a platform alias; everything else is the same 404 (foreign aliases are not revealed). A listed `<alias>:<size>` ref resolves to itself.",
+        "operationId": "resolveTemplateAlias",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "alias",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateAlias"
+                }
+              }
+            },
+            "description": "the resolved template"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Resolve a template alias to a templateID",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/templates/{template_id}": {
+      "delete": {
+        "description": "Deletes the upstream template too when one was imported; an upstream 409 (template in use) and 5xx are mapped to 409/502. A path id that is not one of the tenant's templates but is one of its snapshots (id or name) deletes that snapshot instead — this is the route the e2b SDK's delete_snapshot calls (DELETE /templates/{snapshotID}); a foreign or unknown id answers the same 404.",
+        "operationId": "deleteTemplate",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Delete a tenant template",
+        "tags": [
+          "templates"
+        ]
+      },
+      "get": {
+        "description": "Tenant-scoped detail (TemplateWithBuilds = listing row + buildID/buildStatus/buildCount); 404 for another tenant's or an unknown id. A listed `<alias>:<size>` ref resolves to its synthetic row.",
+        "operationId": "getTemplate",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateListItem"
+                }
+              }
+            },
+            "description": "TemplateWithBuilds"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get one template with its builds",
+        "tags": [
+          "templates"
+        ]
+      },
+      "patch": {
+        "description": "Alias retag only (compat/e2b v0.4 #15). Body: {\"aliases\": [\"name\"]}; returns the updated template row.",
+        "operationId": "retagTemplate",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateListItem"
+                }
+              }
+            },
+            "description": "updated template row"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Retag a template's alias",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/templates/{template_id}/builds/{build_id}/status": {
+      "get": {
+        "description": "The tenant's own build row; a `building` row with an upstream id is refreshed from the upstream before answering.",
+        "operationId": "templateBuildStatus",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          },
+          {
+            "$ref": "#/components/parameters/BuildId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildStatus"
+                }
+              }
+            },
+            "description": "build state"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Build status (polled by the SDK's Template build)",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/v0/account": {
+      "get": {
+        "description": "Read-only; identifiers by prefix only, never the secret or its hash. Browser-callable from SITE_ORIGIN.",
+        "operationId": "getAccount",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            },
+            "description": "account"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Caller's key facts: tenant, limits, tier (gateway-only route)",
+        "tags": [
+          "usage"
+        ]
+      }
+    },
+    "/v0/usage": {
+      "get": {
+        "description": "Windowed per-group usage reconstructed from the sandbox lifecycle events, plus the lifetime credit summary (the budget does not reset). `group_by` is `sandbox` or `metadata.<key>`; anything else is a 400.",
+        "operationId": "getUsage",
+        "parameters": [
+          {
+            "description": "window start: epoch seconds or ISO-8601 (default 0)",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "window end: epoch seconds or ISO-8601 (default now)",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`sandbox` or `metadata.<key>`",
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "sandbox",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageReport"
+                }
+              }
+            },
+            "description": "usage groups and the credit summary"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Usage report + lifetime credit balance (gateway-only route)",
+        "tags": [
+          "usage"
+        ]
+      }
+    },
+    "/v1/billing/orders/{order_id}/refund-request": {
+      "post": {
+        "description": "Idempotent per account order. Records a request only; does not send a refund or change usage credit. Suspended users may still access their payment records. Requires a currently assigned signup key.",
+        "operationId": "requestPaymentRefund",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "reason": {
+                    "maxLength": 500,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing or newly recorded refund request"
+          },
+          "400": {
+            "description": "Invalid request or order is not refundable"
+          },
+          "401": {
+            "description": "Missing or revoked API key"
+          },
+          "404": {
+            "description": "No linked payment account"
+          },
+          "413": {
+            "description": "Request body exceeds 4096 bytes"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Request review of the remaining paid amount",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/billing/statement": {
+      "get": {
+        "description": "Account-scoped payments and confirmed refunds, separate from usage credit and tax invoices. JSON returns the latest 200 rows per table; CSV returns the latest 1000 receipts. Unlinked legacy keys return empty activity. Responses are not cached.",
+        "operationId": "paymentActivity",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Account payment activity"
+          },
+          "401": {
+            "description": "Missing or revoked API key"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Read recent account payment activity",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/billing/statement.csv": {
+      "get": {
+        "description": "Account-scoped payments and confirmed refunds, separate from usage credit and tax invoices. JSON returns the latest 200 rows per table; CSV returns the latest 1000 receipts. Unlinked legacy keys return empty activity. Responses are not cached.",
+        "operationId": "paymentActivityCsv",
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Account payment activity"
+          },
+          "401": {
+            "description": "Missing or revoked API key"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Download recent payment activity as CSV",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/billing/verify-card": {
+      "post": {
+        "description": "Creates a Stripe Checkout Session in setup mode (no charge) for the calling key and returns its URL. After the signed webhook confirms the card the key moves to the verified tier: the credit difference is added once and concurrency rises. One card fingerprint upgrades at most one account.",
+        "operationId": "verifyCard",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stripe Checkout URL"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "not configured on this gateway (no silent fallback)"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Start $0 card verification (free tier -> verified)",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/claim": {
+      "post": {
+        "description": "Once an operator approved the signup, the first claim mints the key and returns the secret exactly once (`issued`); later claims answer `claimed` with the key id only. Pending/rejected signups answer 200 with their status. Unknown tokens also answer 200 {\"status\": \"pending\"}, identical to an unapproved claim, so repeat signup tokens do not disclose whether an email is stored. The body may be form-encoded (`curl -d claim_token=...`); the answer is always JSON.",
+        "operationId": "claimKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimRequest"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description": "claim outcome"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [],
+        "summary": "Redeem a waitlist claim token for the tenant key (no auth)",
+        "tags": [
+          "signup"
+        ]
+      }
+    },
+    "/v1/keys/rotate": {
+      "post": {
+        "description": "Authenticated by the current key. The tenant keeps its credit, usage, sandboxes, snapshots and webhooks; the old secret stops working in the same commit and the new one is returned once. A second rotation with the already-replaced key answers 401. Browser-callable from SITE_ORIGIN.",
+        "operationId": "rotateKey",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RotatedKey"
+                }
+              }
+            },
+            "description": "the new key"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Replace the caller's API key (gateway-only route)",
+        "tags": [
+          "usage"
+        ]
+      }
+    },
+    "/v1/signup/github": {
+      "get": {
+        "description": "302 to GitHub's OAuth authorize page with a state bound to a short-lived cookie. One account per GitHub id; this is the no-human abuse control. 503 when the GitHub OAuth app or SITE_ORIGIN is not configured.",
+        "operationId": "signupGithub",
+        "responses": {
+          "302": {
+            "description": "redirect to GitHub"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "not configured on this gateway (no silent fallback)"
+          }
+        },
+        "security": [],
+        "summary": "Start GitHub signup (browser redirect, no auth)",
+        "tags": [
+          "signup"
+        ]
+      }
+    },
+    "/v1/signup/github/callback": {
+      "get": {
+        "description": "Verifies the state cookie, exchanges the code, records the GitHub id and redirects to the site console with a one-time claim token in the URL fragment (`#claim=...`), which POST /v1/claim redeems for the free-tier key (`issued`, shown once). A GitHub id that already claimed its key is redirected with `#signup=exists`.",
+        "operationId": "signupGithubCallback",
+        "responses": {
+          "302": {
+            "description": "redirect to the console"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "not configured on this gateway (no silent fallback)"
+          }
+        },
+        "security": [],
+        "summary": "GitHub OAuth callback (browser redirect, no auth)",
+        "tags": [
+          "signup"
+        ]
+      }
+    },
+    "/v1/stripe/webhook": {
+      "post": {
+        "description": "Authenticated by the `Stripe-Signature` header (HMAC-SHA256 with the webhook secret, 5 minute tolerance), not by an API key. Handled: `checkout.session.completed` (setup mode) and `setup_intent.succeeded`; other events are acknowledged. A provider failure answers 500 so Stripe retries.",
+        "operationId": "stripeWebhook",
+        "responses": {
+          "200": {
+            "description": "acknowledged"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "500": {
+            "description": "processing failed; Stripe retries"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "not configured on this gateway (no silent fallback)"
+          }
+        },
+        "security": [],
+        "summary": "Stripe webhook (Stripe-Signature auth)",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/tiers": {
+      "get": {
+        "description": "The live free and verified tier numbers (credit hours, concurrent running / paused sandboxes, GPU flag and, when GPU is on, the monthly GPU-hour allowance, the lease cap and on the free tier the largest slice) and whether signup and card verification are enabled on this gateway.",
+        "operationId": "getTiers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tiers"
+                }
+              }
+            },
+            "description": "tier table"
+          }
+        },
+        "security": [],
+        "summary": "Self-serve tier limits (no auth)",
+        "tags": [
+          "signup"
+        ]
+      }
+    },
+    "/v1/waitlist": {
+      "post": {
+        "description": "Per-client-IP rate-limited (429) and body-capped (413). The 202 is identical for a new and an already-stored email — it never reveals whether an address is known — but its `claim_token` only redeems for the first signup of an address; only the token's sha256 is stored. The body may also be form-encoded (`application/x-www-form-urlencoded`, e.g. `curl -d email=...` or a plain HTML form post, no JavaScript needed); a form post that sends `Accept: text/html` (a browser) gets a self-contained HTML page with the claim token and the claim command instead of JSON, for the 202 and for the 400/413/429 refusals.",
+        "operationId": "joinWaitlist",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitlistJoin"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitlistJoin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistJoined"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "accepted (or indistinguishably accepted)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "invalid input"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "request body over the cap"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "per-client-IP rate limit"
+          }
+        },
+        "security": [],
+        "summary": "Waitlist signup (no auth)",
+        "tags": [
+          "signup"
+        ]
+      }
+    },
+    "/v2/sandboxes": {
+      "get": {
+        "description": "Same tenancy filtering and gateway-side pagination as GET /sandboxes. On a v1-only upstream the gateway also applies the v2 filters itself after fetching: `state`, `template`, `metadata`, `startedAfter`, `order` — an unparseable value is a 400. On a v2-capable upstream those params are relayed and the upstream validates, but `limit` and `nextToken` are always the gateway's own (none of the proxied upstreams paginate).",
+        "operationId": "listSandboxesV2",
+        "parameters": [
+          {
+            "description": "comma-separated subset of `running`,`paused`; anything else is a 400 when the gateway filters",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "upstream template id (compares ids, not tenant aliases)",
+            "in": "query",
+            "name": "template",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "url-encoded k=v pairs; every pair must match the stored create metadata",
+            "in": "query",
+            "name": "metadata",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "epoch seconds or ISO-8601 timestamp; unparseable is a 400",
+            "in": "query",
+            "name": "startedAfter",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ListOrder"
+          },
+          {
+            "$ref": "#/components/parameters/ListLimit"
+          },
+          {
+            "$ref": "#/components/parameters/NextToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ListedSandbox"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "one page of owned sandboxes after filtering",
+            "headers": {
+              "X-Next-Token": {
+                "description": "present only when more pages remain; pass back verbatim as `nextToken`",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Total-Running": {
+                "description": "the tenant's total running count; present when running sandboxes were requested (no `state` filter, or one including running)",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List the calling tenant's sandboxes (v2 list params)",
+        "tags": [
+          "sandboxes"
+        ]
+      },
+      "post": {
+        "description": "The same auth/quota/admission/metering pipeline as POST /sandboxes. Forwarded verbatim to a v2-capable upstream; on a v1-only upstream it is translated to the v1 create and fields the v1 upstream cannot express are refused with 400 naming them: `network`, `mcp`, `iam`, `volumeMounts`, unknown fields, non-boolean `autoPause`/`secure`/`autoPauseMemory`, `autoPauseMemory: false`, a malformed `autoResume`. Both `allow_internet_access` and `allowInternetAccess` are accepted inbound; an explicit internet allow paired with the canonical deny-all network block (`networkOff: true`-equivalent) is a 400 under EGRESS_POLICY_ENABLED — the pair has no single meaning. `cpuCount`/`memoryMB`/`resourceClass` follow the same take-effect-or-400 sizing contract as POST /sandboxes (a SIZED_TEMPLATES variant applies the size; otherwise a 400) — including the `<alias>:<size>` templateID ref.",
+        "operationId": "createSandboxV2",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSandboxV2"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxV2"
+                }
+              }
+            },
+            "description": "created sandbox (v2 shape)",
+            "headers": {
+              "X-Sandbox-Timeout-Applied": {
+                "description": "present only for a key with a max_timeout_s cap: the keep-alive seconds applied to this request after clamping to min(SANDBOX_MAX_TIMEOUT_S, the key's cap)",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/CreditExhausted"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          },
+          "499": {
+            "$ref": "#/components/responses/ClientDisconnected"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Capacity"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Create a sandbox (E2B v2 dialect, e2b SDK >= 2.51)",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/v2/sandboxes/{sandbox_id}/connect": {
+      "post": {
+        "description": "Same connect flow as POST /sandboxes/{id}/connect with the v2 request/response dialect: forwarded verbatim to a v2-capable upstream, translated to the v1 connect body otherwise (an omitted `timeout` becomes 300 s). A paused sandbox passes the running-quota/credit start gate and queues for a start slot like a resume.",
+        "operationId": "connectSandboxV2",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectSandboxV2"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxV2"
+                }
+              }
+            },
+            "description": "the sandbox, running (v2 shape)",
+            "headers": {
+              "X-Sandbox-Timeout-Applied": {
+                "description": "present only for a key with a max_timeout_s cap: the keep-alive seconds applied to this request after clamping to min(SANDBOX_MAX_TIMEOUT_S, the key's cap)",
+                "schema": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/CreditExhausted"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          },
+          "499": {
+            "$ref": "#/components/responses/ClientDisconnected"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Capacity"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Connect to a sandbox, resuming it when paused (v2 dialect)",
+        "tags": [
+          "sandboxes"
+        ]
+      }
+    },
+    "/v2/templates": {
+      "get": {
+        "description": "Same tenant scoping as GET /templates but each row omits buildID/buildStatus/buildCount (compat/e2b v0.4 #13).",
+        "operationId": "listTemplatesV2",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateListItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "array of Template rows"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List templates (v2 shape)",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/v2/templates/{template_id}": {
+      "patch": {
+        "description": "Alias retag only (compat/e2b v0.4 #15). Body: {\"aliases\": [\"name\"]}; returns the updated template row.",
+        "operationId": "retagTemplate",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateListItem"
+                }
+              }
+            },
+            "description": "updated template row"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Retag a template's alias",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/v2/templates/{template_id}/builds/{build_id}": {
+      "post": {
+        "description": "`fromImage` is the only source: a public OCI reference whose registry host passes the deployment allowlist (SSRF guard; localhost/private IPs refused even if the regex would allow them). `fromTemplate` and `fromImageRegistry` answer 501 `build steps not supported yet; use from_image`. `steps` (RUN/ENV/WORKDIR/USER) is accepted only on a deployment that sets TEMPLATE_STEPS_ENABLED, then validated and run on the upstream build node; else the same 501. A second start on a claimed build is a 409.",
+        "operationId": "startTemplateBuild",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TemplateId"
+          },
+          {
+            "$ref": "#/components/parameters/BuildId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartBuild"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "build started"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Start the OCI image import for a registered template",
+        "tags": [
+          "templates"
+        ]
+      }
+    },
+    "/v3/templates": {
+      "post": {
+        "description": "Creates the tenant's template row (status `waiting`) and its build id; start the build with POST /v2/templates/{templateID}/builds/{buildID}. `name` is 1-128 chars of [A-Za-z0-9_-] (name:tag and `tags` are refused). `cpuCount`/`memoryMB` bound every sandbox created from the template (deployment caps; defaults 4 / 8192). Rate limits: 403 over the live-template cap, 429 + Retry-After over the hourly build budget.",
+        "operationId": "registerTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterTemplate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateRegistered"
+                }
+              }
+            },
+            "description": "registered; build pending a start call"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Suspended"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/QuotaExceeded"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Register a template (name = alias)",
+        "tags": [
+          "templates"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "sandbox lifecycle (E2B v1 and v2 dialects)",
+      "name": "sandboxes"
+    },
+    {
+      "description": "pause-time disk snapshots and fork",
+      "name": "snapshots"
+    },
+    {
+      "description": "tenant-scoped template builds from an OCI image",
+      "name": "templates"
+    },
+    {
+      "description": "self-serve metering and credit balance",
+      "name": "usage"
+    },
+    {
+      "description": "unauthenticated waitlist signup and key claim",
+      "name": "signup"
+    },
+    {
+      "description": "liveness and agent-facing discovery docs",
+      "name": "meta"
+    },
+    {
+      "description": "card verification (free -> verified tier) and the Stripe webhook",
+      "name": "billing"
+    },
+    {
+      "description": "sandbox-mcp: remote MCP (JSON-RPC streamable-HTTP) over the sandbox planes",
+      "name": "mcp"
+    }
+  ],
+  "x-excluded-routes": [
+    {
+      "auth": "X-Node-Token",
+      "listener": "internal",
+      "reason": "node-facing metrics ingest; never mounted on the public listener",
+      "route": "POST /internal/cpu-samples"
+    },
+    {
+      "auth": "X-Node-Token",
+      "listener": "internal",
+      "reason": "node-facing capacity/admission counters; never mounted on the public listener",
+      "route": "GET /internal/metrics"
+    },
+    {
+      "auth": "loopback bind only",
+      "listener": "internal",
+      "reason": "Prometheus scrape endpoint; the internal listener's bind address is the access control",
+      "route": "GET /metrics"
+    },
+    {
+      "auth": "loopback bind only",
+      "listener": "internal",
+      "reason": "readiness probe hits upstream on every call; kept off the public listener",
+      "route": "GET /readyz"
+    },
+    {
+      "auth": "Authorization: Bearer <ADMIN_TOKEN>",
+      "listener": "public",
+      "reason": "operator console API; routes exist only when ADMIN_TOKEN is set and are not part of the tenant E2B surface",
+      "route": "/v1/admin/*"
+    }
+  ]
+}
