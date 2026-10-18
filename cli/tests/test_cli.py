@@ -549,3 +549,28 @@ def test_main_keeps_sigpipe_handler():
     with pytest.raises(SystemExit):
         cli.main(["list", "--help"])
     assert signal.getsignal(signal.SIGPIPE) == before
+
+
+@pytest.mark.parametrize("unbuffered", [None, "1"], ids=["buffered", "unbuffered"])
+def test_closed_unused_stderr_keeps_version_output(tmp_path, pipe_env, unbuffered):
+    """A closed pipe on a stream the command never writes must not swallow
+    the real output or change the exit code."""
+    driver = tmp_path / "driver.py"
+    driver.write_text(
+        "import sys\n"
+        "from sbx.cli import main\n"
+        "sys.exit(main(['--version']))\n"
+    )
+    read_fd, write_fd = os.pipe()
+    os.close(read_fd)
+    if unbuffered is not None:
+        pipe_env["PYTHONUNBUFFERED"] = unbuffered
+    else:
+        pipe_env.pop("PYTHONUNBUFFERED", None)
+    proc = subprocess.run(
+        [sys.executable, str(driver)], stdout=subprocess.PIPE, stderr=write_fd,
+        env=pipe_env, timeout=30,
+    )
+    os.close(write_fd)
+    assert proc.returncode == 0
+    assert proc.stdout.strip() != b""
