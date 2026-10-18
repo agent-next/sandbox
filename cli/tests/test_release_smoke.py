@@ -248,6 +248,7 @@ def test_version_mismatch_fails(fake_sbx, key, tmp_path, capsys):
 def test_passing_check_records_detail_not_error(fake_sbx, key, tmp_path, capsys):
     # a passing check carries its text as `detail`; a failing one as `error`
     rc, receipt = run_smoke(tmp_path, ref="v9.9.9")
+    capsys.readouterr()
     entry = next(s for s in receipt["steps"] if s["name"] == "version-check")
     assert entry["rc"] == 1
     assert "error" in entry and "detail" not in entry
@@ -266,8 +267,8 @@ def test_sha_mismatch_error_only_on_failure(fake_sbx, key, tmp_path, capsys, mon
     # cp-up produces a wrong copy, so cp-verify fails with an error field and
     # no error text is ever recorded for a passing cp-verify
     fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "corrupt_cp": 1}))
-    monkeypatch.setenv("FAKE_SBX_FAIL", "never")
     rc, receipt = run_smoke(tmp_path)
+    capsys.readouterr()
     assert rc == 1
     entry = next(s for s in receipt["steps"] if s["name"] == "cp-verify")
     assert entry["rc"] == 1
@@ -276,7 +277,7 @@ def test_sha_mismatch_error_only_on_failure(fake_sbx, key, tmp_path, capsys, mon
 
     # and a passing cycle never records the sha text at all
     fake_sbx.write_text(json.dumps({"cpu": [], "gpu": []}))
-    monkeypatch.delenv("FAKE_SBX_FAIL")
+    monkeypatch.delenv("FAKE_SBX_FAIL", raising=False)
     rc, receipt = run_smoke(tmp_path)
     out = capsys.readouterr().out
     assert rc == 0

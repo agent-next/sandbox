@@ -92,11 +92,11 @@ def run(receipt, name, argv, env=None):
     return proc
 
 
-def check(receipt, name, passed, error=None):
+def check(receipt, name, passed, detail=None):
     """Record an assertion as a step with rc 0/1."""
     entry = {"name": name, "rc": 0 if passed else 1, "duration_s": 0.0}
-    if error:
-        entry["error"] = scrub(error)
+    if detail:
+        entry["detail" if passed else "error"] = scrub(detail)
     receipt["steps"].append(entry)
     print(f"[{name}] rc={entry['rc']}", file=sys.stderr)
     return passed
@@ -199,7 +199,7 @@ def smoke(ref, gpu, receipt):
                     a = hashlib.sha256(probe.read_bytes()).hexdigest()
                     b = hashlib.sha256(back.read_bytes()).hexdigest()
                     check(receipt, "cp-verify", a == b,
-                          f"sha256 mismatch: {a} != {b}")
+                          None if a == b else f"sha256 mismatch: {a} != {b}")
                 proc = run(receipt, "kill", [sbx, "kill", sid], env=env)
                 if proc.returncode == 0:
                     alive.remove(("cpu", sid))
