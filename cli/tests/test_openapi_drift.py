@@ -7,6 +7,7 @@ mutated copy of the snapshot or from a loopback HTTP server, and any
 connection attempt outside loopback fails the test.
 """
 
+import copy
 import http.server
 import importlib.util
 import json
@@ -248,3 +249,154 @@ def test_snapshot_not_modified_on_drift(tmp_path):
     live = write_live(tmp_path / "live.json", new)
     assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
     assert snapshot.read_text(encoding="utf-8") == before
+
+
+def with_component_params(doc):
+    doc["components"]["parameters"] = {
+        "SandboxId": {"in": "path", "name": "sandbox_id", "required": True,
+                      "schema": {"type": "string"}},
+        "IdempotencyKey": {"in": "header", "name": "Idempotency-Key", "required": False,
+                           "schema": {"type": "string"}},
+    }
+    doc["paths"]["/sandboxes/{sandbox_id}/kill"] = {"post": {
+        "operationId": "killSandbox",
+        "parameters": [{"$ref": "#/components/parameters/SandboxId"},
+                       {"$ref": "#/components/parameters/IdempotencyKey"}],
+        "responses": {"200": {"description": "ok"}},
+    }}
+    return doc
+
+
+def test_changed_parameter_schema_exits_one(tmp_path, capsys):
+    new = make_doc()
+    new["paths"]["/sandboxes"]["get"]["parameters"][0]["schema"] = {"type": "integer"}
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "parameter changed: status (query)" in capsys.readouterr().out
+
+
+def test_removed_referenced_parameter_exits_one(tmp_path, capsys):
+    base = with_component_params(make_doc())
+    new = copy.deepcopy(base)
+    new["paths"]["/sandboxes/{sandbox_id}/kill"]["post"]["parameters"].pop()
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "parameter removed: Idempotency-Key (header)" in capsys.readouterr().out
+
+
+def test_replaced_parameter_reference_exits_one(tmp_path, capsys):
+    base = with_component_params(make_doc())
+    base["components"]["parameters"]["AliasId"] = {
+        "in": "path", "name": "alias_id", "required": True, "schema": {"type": "string"}}
+    new = copy.deepcopy(base)
+    new["paths"]["/sandboxes/{sandbox_id}/kill"]["post"]["parameters"] = [
+        {"$ref": "#/components/parameters/AliasId"}]
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    out = capsys.readouterr().out
+    assert "parameter removed: sandbox_id (path)" in out
+    assert "parameter added: alias_id (path)" in out
+
+
+def test_request_body_required_change_exits_one(tmp_path, capsys):
+    new = make_doc()
+    new["paths"]["/sandboxes"]["post"]["requestBody"]["required"] = True
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "POST /sandboxes request.required: added" in capsys.readouterr().out
+
+
+def test_removed_request_media_type_exits_one(tmp_path, capsys):
+    new = make_doc()
+    del new["paths"]["/sandboxes"]["post"]["requestBody"]["content"]["application/json"]
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "POST /sandboxes request: media type removed: application/json" in capsys.readouterr().out
+
+
+def test_changed_response_ref_exits_one(tmp_path, capsys):
+    base = make_doc()
+    base["components"]["responses"] = {"Unauthorized": {"description": "bad key"},
+                                       "Forbidden": {"description": "denied"}}
+    base["paths"]["/sandboxes"]["get"]["responses"]["401"] = {
+        "$ref": "#/components/responses/Unauthorized"}
+    new = copy.deepcopy(base)
+    new["paths"]["/sandboxes"]["get"]["responses"]["401"] = {
+        "$ref": "#/components/responses/Forbidden"}
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "response 401.$ref: changed" in capsys.readouterr().out
+
+
+def test_removed_response_header_exits_one(tmp_path, capsys):
+    base = make_doc()
+    base["paths"]["/sandboxes"]["get"]["responses"]["200"]["headers"] = {
+        "X-Total-Running": {"schema": {"type": "integer"}}}
+    new = copy.deepcopy(base)
+    del new["paths"]["/sandboxes"]["get"]["responses"]["200"]["headers"]
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "response 200.headers: removed" in capsys.readouterr().out
+
+
+def test_schema_level_constraint_change_exits_one(tmp_path, capsys):
+    base = make_doc()
+    base["components"]["schemas"]["NewSandbox"]["additionalProperties"] = True
+    new = copy.deepcopy(base)
+    new["components"]["schemas"]["NewSandbox"]["additionalProperties"] = False
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "schema NewSandbox.additionalProperties: changed (true -> false)" in capsys.readouterr().out
+
+
+def test_path_item_summary_equal_documents_no_drift(tmp_path, capsys):
+    base = make_doc()
+    base["paths"]["/sandboxes"]["summary"] = "Sandbox collection"
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(copy.deepcopy(base)))
+    live = write_live(tmp_path / "live.json", base)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 0
+    assert "no drift" in capsys.readouterr().out
+
+
+def test_path_level_parameter_change_exits_one(tmp_path, capsys):
+    base = make_doc()
+    base["paths"]["/sandboxes"]["parameters"] = [
+        {"name": "X-API-Version", "in": "header", "schema": {"type": "string"}}]
+    new = copy.deepcopy(base)
+    new["paths"]["/sandboxes"]["parameters"][0]["schema"] = {"type": "integer"}
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "parameter changed: X-API-Version (header)" in capsys.readouterr().out
+
+
+def test_local_null_document_exits_two(tmp_path, capsys):
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
+    (tmp_path / "null.json").write_text("null", encoding="utf-8")
+    assert drift.main(["--file", str(tmp_path / "null.json"),
+                       "--snapshot", str(snapshot)]) == 2
+    assert "error:" in capsys.readouterr().err
+
+
+def test_local_invalid_utf8_exits_two(tmp_path, capsys):
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
+    (tmp_path / "bad.json").write_bytes(b"\xff\xfe\x00")
+    assert drift.main(["--file", str(tmp_path / "bad.json"),
+                       "--snapshot", str(snapshot)]) == 2
+    assert "error:" in capsys.readouterr().err
+
+
+def test_live_null_document_exits_two(tmp_path, capsys, loopback_server):
+    url, server = loopback_server
+    server.body = b"null"
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
+    assert drift.main(["--url", url, "--snapshot", str(snapshot)]) == 2
+    assert "not a JSON object" in capsys.readouterr().err
