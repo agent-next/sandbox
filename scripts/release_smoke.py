@@ -192,14 +192,23 @@ def smoke(ref, gpu, receipt):
             )
             sid = None
             proc = run(receipt, "create", [sbx, "create"], env=env)
+            printed = printed_id(proc)
             if proc.returncode == 0:
-                sid = printed_id(proc)
+                sid = printed
                 if sid:
                     alive.append(("cpu", sid))
                 else:
                     check(receipt, "create-id", False,
                           "create exited 0 but printed no sandbox id")
                     sid = None
+            elif printed:
+                # the request was served and the reply was lost: the sandbox
+                # is ours, so register it for cleanup before anything else
+                sid = printed
+                alive.append(("cpu", sid))
+                check(receipt, "create-id", False,
+                      f"create exited {proc.returncode} but allocated {sid}; "
+                      "treating it as created by us and killing it")
             if sid is None:
                 for name in ("exec", "cp-up", "cp-down", "cp-verify", "kill"):
                     skip(receipt, name, "no sandbox id")
