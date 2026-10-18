@@ -42,6 +42,11 @@ VOLATILE_FIELDS = ("info.version", "servers")
 # whole document cannot bury the structural findings.
 OTHER_CAP = 40
 
+# Path Item keys that hold an operation object. Everything else on a path
+# item (summary, description, servers, parameters, x-... extensions) is path
+# metadata, not a method, and must not be diffed as one.
+OPERATIONS = ("delete", "get", "head", "options", "patch", "post", "put", "trace")
+
 
 class FetchError(Exception):
     """The live document could not be retrieved or parsed."""
@@ -83,9 +88,12 @@ def fetch(url, timeout=30):
     except Exception as exc:
         raise FetchError(f"{url}: {exc}") from exc
     try:
-        return json.loads(body)
+        doc = json.loads(body)
     except ValueError as exc:
         raise FetchError(f"{url}: invalid JSON ({exc})") from exc
+    if not isinstance(doc, dict):
+        raise FetchError(f"{url}: not a JSON object")
+    return doc
 
 
 def load_json_file(path):
@@ -93,10 +101,15 @@ def load_json_file(path):
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
         raise InputError(f"{path}: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise InputError(f"{path}: not UTF-8 ({exc})") from exc
     try:
-        return json.loads(text)
+        doc = json.loads(text)
     except ValueError as exc:
         raise InputError(f"{path}: invalid JSON ({exc})") from exc
+    if not isinstance(doc, dict):
+        raise InputError(f"{path}: not a JSON object")
+    return doc
 
 
 def _short(value, limit=90):
@@ -121,7 +134,7 @@ def _required(schema):
 
 
 def schema_key_changes(label, old_schema, new_schema, out):
-    """Report added/removed property names, required-list and per-property changes."""
+    """Report property, required-list and schema-level constraint changes."""
     old_props, new_props = _properties(old_schema), _properties(new_schema)
     for name in sorted(set(new_props) - set(old_props)):
         out.append(f"{label}: property added: {name}")
@@ -134,8 +147,21 @@ def schema_key_changes(label, old_schema, new_schema, out):
     for name in sorted(set(old_props) & set(new_props)):
         if old_props[name] != new_props[name]:
             generic_diff(f"{label}.{name}", old_props[name], new_props[name], out)
-    if not old_props and not new_props and old_schema != new_schema:
-        generic_diff(f"{label}.schema", old_schema, new_schema, out)
+    if not (isinstance(old_schema, dict) and isinstance(new_schema, dict)):
+        if old_schema != new_schema:
+            out.append(f"{label}: schema changed ({_short(old_schema)} -> {_short(new_schema)})")
+        return
+    # Schema-level constraints (type, enum, additionalProperties, description,
+    # allOf/anyOf/oneOf, ...) matter even when a properties block is present.
+    for key in sorted(set(old_schema) | set(new_schema)):
+        if key in ("properties", "required"):
+            continue
+        if key not in old_schema:
+            out.append(f"{label}.{key}: added ({_short(new_schema[key])})")
+        elif key not in new_schema:
+            out.append(f"{label}.{key}: removed (was {_short(old_schema[key])})")
+        elif old_schema[key] != new_schema[key]:
+            generic_diff(f"{label}.{key}", old_schema[key], new_schema[key], out)
 
 
 def generic_diff(prefix, old, new, out):
@@ -169,18 +195,88 @@ def _content_schemas(node):
     }
 
 
-def diff_operation(path, method, old_op, new_op, request_lines, response_lines, other_lines):
+def _diff_content_node(label, old_node, new_node, out):
+    """Diff a requestBody/response: media-type schemas plus every other field."""
+    if not (isinstance(old_node, dict) and isinstance(new_node, dict)):
+        if old_node != new_node:
+            out.append(f"{label}: changed ({_short(old_node)} -> {_short(new_node)})")
+        return
+    old_types = _content_schemas(old_node)
+    new_types = _content_schemas(new_node)
+    for media_type in sorted(old_types.keys() - new_types.keys()):
+        out.append(f"{label}: media type removed: {media_type}")
+    for media_type in sorted(new_types.keys() - old_types.keys()):
+        out.append(f"{label}: media type added: {media_type}")
+    for media_type in sorted(old_types.keys() & new_types.keys()):
+        schema_key_changes(f"{label} [{media_type}]", old_types[media_type],
+                           new_types[media_type], out)
+    # required, description, headers, a whole-node $ref, ... are contract too.
+    for key in sorted(set(old_node) | set(new_node)):
+        if key == "content":
+            continue
+        if key not in old_node:
+            out.append(f"{label}.{key}: added ({_short(new_node[key])})")
+        elif key not in new_node:
+            out.append(f"{label}.{key}: removed (was {_short(old_node[key])})")
+        elif old_node[key] != new_node[key]:
+            generic_diff(f"{label}.{key}", old_node[key], new_node[key], out)
+
+
+def _resolve_param(param, components):
+    """Inline definition of a parameter entry, following #/components/parameters."""
+    if isinstance(param, dict):
+        ref = param.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/components/parameters/"):
+            table = components.get("parameters") if isinstance(components, dict) else None
+            target = table.get(ref.rsplit("/", 1)[1]) if isinstance(table, dict) else None
+            if isinstance(target, dict):
+                return target
+    return param
+
+
+def _param_map(params, components):
+    """Map each parameter's resolved identity (in, name) to its definition."""
+    if not isinstance(params, list):
+        return {}
+    out = {}
+    for param in params:
+        resolved = _resolve_param(param, components)
+        if isinstance(resolved, dict) and (resolved.get("in") is not None
+                                           or resolved.get("name") is not None):
+            out.setdefault((resolved.get("in"), resolved.get("name")), resolved)
+        elif isinstance(param, dict) and isinstance(param.get("$ref"), str):
+            out.setdefault(("$ref", param["$ref"]), resolved)
+    return out
+
+
+def _param_label(key):
+    in_, name = key
+    return f"{name} ({in_})"
+
+
+def _diff_parameters(label, old_op, new_op, old_components, new_components, out):
+    """Report parameter add/remove/change by resolved (in, name) identity."""
+    old_map = _param_map(old_op.get("parameters"), old_components)
+    new_map = _param_map(new_op.get("parameters"), new_components)
+    for key in sorted(old_map.keys() - new_map.keys(), key=str):
+        out.append(f"{label}: parameter removed: {_param_label(key)}")
+    for key in sorted(new_map.keys() - old_map.keys(), key=str):
+        out.append(f"{label}: parameter added: {_param_label(key)}")
+    for key in sorted(old_map.keys() & new_map.keys(), key=str):
+        if old_map[key] != new_map[key]:
+            out.append(f"{label}: parameter changed: {_param_label(key)}")
+
+
+def diff_operation(path, method, old_op, new_op, old_components, new_components,
+                   request_lines, response_lines, other_lines):
     label = f"{method.upper()} {path}"
     if "requestBody" not in old_op and "requestBody" in new_op:
         request_lines.append(f"{label}: request body added")
     elif "requestBody" in old_op and "requestBody" not in new_op:
         request_lines.append(f"{label}: request body removed")
     elif "requestBody" in old_op:
-        old_types = _content_schemas(old_op["requestBody"])
-        new_types = _content_schemas(new_op["requestBody"])
-        for media_type in sorted(set(old_types) & set(new_types)):
-            schema_key_changes(f"{label} request [{media_type}]", old_types[media_type],
-                               new_types[media_type], request_lines)
+        _diff_content_node(f"{label} request", old_op["requestBody"], new_op["requestBody"],
+                           request_lines)
 
     old_responses = old_op.get("responses") if isinstance(old_op.get("responses"), dict) else {}
     new_responses = new_op.get("responses") if isinstance(new_op.get("responses"), dict) else {}
@@ -189,24 +285,10 @@ def diff_operation(path, method, old_op, new_op, request_lines, response_lines, 
     for code in sorted(set(old_responses) - set(new_responses), key=str):
         response_lines.append(f"{label}: response {code} removed")
     for code in sorted(set(old_responses) & set(new_responses), key=str):
-        old_types = _content_schemas(old_responses[code])
-        new_types = _content_schemas(new_responses[code])
-        for media_type in sorted(set(old_types) & set(new_types)):
-            schema_key_changes(f"{label} response {code} [{media_type}]", old_types[media_type],
-                               new_types[media_type], response_lines)
+        _diff_content_node(f"{label} response {code}", old_responses[code], new_responses[code],
+                           response_lines)
 
-    # Parameters compared by their identity (in, name); everything else about
-    # an operation falls into the catch-all section.
-    def param_ids(op):
-        params = op.get("parameters")
-        if not isinstance(params, list):
-            return set()
-        return {(p.get("in"), p.get("name")) for p in params if isinstance(p, dict)}
-
-    for in_, name in sorted(param_ids(old_op) - param_ids(new_op)):
-        other_lines.append(f"{label}: parameter removed: {name} ({in_})")
-    for in_, name in sorted(param_ids(new_op) - param_ids(old_op)):
-        other_lines.append(f"{label}: parameter added: {name} ({in_})")
+    _diff_parameters(label, old_op, new_op, old_components, new_components, other_lines)
 
     structural = ("requestBody", "responses", "parameters")
     for key in sorted(set(old_op) | set(new_op)):
@@ -233,6 +315,9 @@ def diff_docs(old, new):
         elif old[key] != new[key]:
             generic_diff(key, old[key], new[key], lines)
 
+    old_components = old.get("components") if isinstance(old.get("components"), dict) else {}
+    new_components = new.get("components") if isinstance(new.get("components"), dict) else {}
+
     old_paths = old.get("paths") if isinstance(old.get("paths"), dict) else {}
     new_paths = new.get("paths") if isinstance(new.get("paths"), dict) else {}
     if added := sorted(set(new_paths) - set(old_paths)):
@@ -242,20 +327,34 @@ def diff_docs(old, new):
 
     method_lines, request_lines, response_lines, other_lines = [], [], [], []
     for path in sorted(set(old_paths) & set(new_paths)):
-        old_methods, new_methods = old_paths[path], new_paths[path]
-        if not isinstance(old_methods, dict) or not isinstance(new_methods, dict):
-            other_lines.append(f"{path}: path item changed ({_short(old_methods)} -> {_short(new_methods)})")
+        old_item, new_item = old_paths[path], new_paths[path]
+        if not isinstance(old_item, dict) or not isinstance(new_item, dict):
+            other_lines.append(f"{path}: path item changed ({_short(old_item)} -> {_short(new_item)})")
             continue
-        for method in sorted(set(new_methods) - set(old_methods)):
-            method_lines.append(f"{path}: method added: {method.upper()}")
-        for method in sorted(set(old_methods) - set(new_methods)):
-            method_lines.append(f"{path}: method removed: {method.upper()}")
-        for method in sorted(set(old_methods) & set(new_methods)):
-            diff_operation(path, method, old_methods[method], new_methods[method],
-                           request_lines, response_lines, other_lines)
+        for key in sorted(set(new_item) - set(old_item)):
+            if key in OPERATIONS:
+                method_lines.append(f"{path}: method added: {key.upper()}")
+            else:
+                other_lines.append(f"{path}.{key}: added ({_short(new_item[key])})")
+        for key in sorted(set(old_item) - set(new_item)):
+            if key in OPERATIONS:
+                method_lines.append(f"{path}: method removed: {key.upper()}")
+            else:
+                other_lines.append(f"{path}.{key}: removed (was {_short(old_item[key])})")
+        for key in sorted(set(old_item) & set(new_item)):
+            if key not in OPERATIONS:
+                if old_item[key] != new_item[key]:
+                    if key == "parameters":
+                        _diff_parameters(path, old_item, new_item, old_components,
+                                         new_components, other_lines)
+                    else:
+                        generic_diff(f"{path}.{key}", old_item[key], new_item[key], other_lines)
+            elif isinstance(old_item[key], dict) and isinstance(new_item[key], dict):
+                diff_operation(path, key, old_item[key], new_item[key], old_components,
+                               new_components, request_lines, response_lines, other_lines)
+            elif old_item[key] != new_item[key]:
+                other_lines.append(f"{path}.{key}: changed ({_short(old_item[key])} -> {_short(new_item[key])})")
 
-    old_components = old.get("components") if isinstance(old.get("components"), dict) else {}
-    new_components = new.get("components") if isinstance(new.get("components"), dict) else {}
     old_schemas = old_components.get("schemas") if isinstance(old_components.get("schemas"), dict) else {}
     new_schemas = new_components.get("schemas") if isinstance(new_components.get("schemas"), dict) else {}
     schema_lines = []
