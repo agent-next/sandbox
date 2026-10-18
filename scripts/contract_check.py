@@ -137,6 +137,26 @@ def link_status(url: str) -> int:
     return status
 
 
+def payload_from_body(body: bytes, content_type: str) -> object:
+    """The JSON payload in a response body: JSON, or an SSE data line.
+
+    The MCP request advertises text/event-stream, so a compliant server may
+    answer that way; each `data:` line carries one JSON message and the
+    first one that parses is used.
+    """
+    text = body.decode()
+    if "text/event-stream" in content_type:
+        for line in text.splitlines():
+            line = line.strip()
+            if line.startswith("data:"):
+                try:
+                    return json.loads(line[len("data:"):].strip())
+                except ValueError:
+                    continue
+        raise ValueError("no parsable data: line in the SSE response")
+    return json.loads(text)
+
+
 def fetch_json(url: str, api_key: str, method: str = "GET",
                payload: dict | None = None) -> object:
     """A JSON call to the service; bad status, transport or body raises Skip."""
@@ -155,7 +175,7 @@ def fetch_json(url: str, api_key: str, method: str = "GET",
     req = urllib.request.Request(url, method=method, headers=headers, data=body)
     try:
         with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_S) as resp:
-            return json.loads(resp.read().decode())
+            return payload_from_body(resp.read(), resp.headers.get("Content-Type", ""))
     except Exception as exc:
         raise Skip(f"{method} {url}: body is not valid JSON "
                    f"({type(exc).__name__}: {exc})") from exc
