@@ -103,6 +103,11 @@ elif cmd == "create":
     state["cpu"].append(sid)
     save(state)
     print(sid)
+    if state.get("create_fails"):
+        # allocated remotely, then the reply was lost: nonzero exit after
+        # the id was already printed
+        print("fake sbx: create lost", file=sys.stderr)
+        sys.exit(1)
 elif cmd == "exec":
     print("ok")
 elif cmd == "cp":
@@ -346,3 +351,21 @@ def test_nonlist_inventory_is_not_absence(fake_sbx, key, tmp_path, capsys):
     checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
     assert checks and checks[-1]["rc"] == 1
     assert receipt["verdict"] == "fail"
+
+
+def test_create_failure_with_printed_id_still_kills(
+    fake_sbx, key, tmp_path, capsys
+):
+    # create allocated remotely, printed the id, then exited 1 (lost reply):
+    # the sandbox is ours, so cleanup must kill it and the run must fail
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "create_fails": 1}))
+    rc, receipt = run_smoke(tmp_path)
+    capsys.readouterr()
+    assert rc == 1
+    assert receipt["verdict"] == "fail"
+    # the sandbox was killed: the stub's inventory ends empty and the run
+    # does not report anything left
+    assert json.loads(fake_sbx.read_text())["cpu"] == []
+    assert receipt["left"] == 0
+    kills = [s for s in receipt["steps"] if s["name"] == "cleanup-kill"]
+    assert kills, "a lost create reply must still reach cleanup-kill"
