@@ -249,8 +249,13 @@ def cmd_list(args: argparse.Namespace) -> int:
         template = item.get("alias") or item.get("templateID") or "-"
         started = item.get("startedAt") or "-"
         rows.append(f"{sid}\t{template}\t{started}")
-    for row in rows:
-        _say(row)
+    if args.json:
+        _say(json.dumps(items))
+    elif rows:
+        for row in rows:
+            _say(row)
+    else:
+        _say("no sandboxes", err=True)
     return 0
 
 
@@ -543,6 +548,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_cp)
 
     p = sub.add_parser("list", help="list live sandboxes held by this key")
+    p.add_argument("--json", action="store_true", help="print the raw sandbox list as a JSON array")
     p.set_defaults(func=cmd_list)
 
     p = sub.add_parser("templates", help="list CPU template aliases")
