@@ -28,8 +28,8 @@ VERSION_FILES = (
     "plugins/sandbox/.codex-plugin/plugin.json",
 )
 
-_SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
-_TAG = re.compile(r"v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
+_SEMVER = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+_TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 _TOML_VERSION = re.compile(r'^version\s*=\s*"([^"]*)"')
 _JSON_VERSION = re.compile(r'"version"(\s*:\s*)"([^"]*)"')
 

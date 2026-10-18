@@ -22,7 +22,7 @@ jobs:
       - name: Install the tag in a fresh venv
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install "git+https://github.com/${{ github.repository }}@$GITHUB_REF_NAME#subdirectory=cli"
+          "$RUNNER_TEMP/venv/bin/pip" install "git+https://github.com/${{ github.repository }}@$GITHUB_SHA#subdirectory=cli"
       - name: Verify sbx --version matches the tag
         run: |
           got=$("$RUNNER_TEMP/venv/bin/sbx" --version)
