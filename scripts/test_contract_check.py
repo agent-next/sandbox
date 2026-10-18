@@ -221,6 +221,19 @@ def test_the_repo_docs_parse():
     assert templates == ["gpu-lease-v06", "mujoco", "browser", "blender", "omniverse", "robotsim"]
 
 
+def test_the_ci_gate_triggers_on_checker_and_workflow_changes():
+    """The PR gate runs when markdown changes — it must also run when the
+    checker, its tests or its workflow change."""
+    text = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    at = next(i for i, line in enumerate(lines) if "git diff --name-only" in line)
+    end = next(i for i in range(at, len(lines)) if "grep -q" in lines[i])
+    diff = "".join(lines[at:end + 1])  # the pathspecs may wrap over lines
+    for pathspec in ("'*.md'", "'scripts/contract_check.py'",
+                     "'scripts/test_contract_check.py'", "'.github/workflows/ci.yml'"):
+        assert pathspec in diff, f"the gate must also trigger on {pathspec}"
+
+
 def test_doc_urls_skips_fences_and_placeholders(tmp_path):
     page = tmp_path / "page.md"
     page.write_text(
