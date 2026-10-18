@@ -85,15 +85,37 @@ the cached entries, start a new session) instead of retrying the tools.
 - **GPU leases are available through MCP.** Call `sandbox_templates` for
   the live catalog, then `sandbox_create` with a GPU template from it
   (for example `gpu-lease-v06` or `mujoco`) and `vram_gb` (default 4, range
-  0.5–32). GPU sandboxes support `sandbox_exec` and `sandbox_kill`, consume
-  separate GPU credit, and have a hard VRAM cap. They cannot expose preview
-  URLs or use the files tools. Through the `sbx gpu` CLI (below) a lease
-  can also pause and resume between jobs. Suspend behavior depends on the
-  template and live plane; `mujoco` can freeze despite `suspend_mode:"none"`.
-  Do not infer capacity release or stopped billing from that field alone.
-  `timeout_min` is validated but not applied (`timeout_min_applied: false`):
-  kill them explicitly when done. Their maximum lease age appears as
-  `end_at` in `sandboxes_list`.
+  0.5–32). The catalog on the live service today is `gpu-lease-v06`,
+  `mujoco`, `browser`, `blender`, `omniverse` and `robotsim` (`sbx gpu
+  templates` lists it for the CLI); an unknown template name is refused,
+  and `kernel` is not in it.
+- **GPU leases have no internet by default.** The network is `none`;
+  `internet` works only on nodes the operator opted in, and a create that
+  asks for it elsewhere is refused with HTTP 400 (`gpu egress disabled on
+  ...`). Do not plan pip, dataset or model downloads. Bring code and data
+  in over REST instead: `PUT /sandboxes/{id}/files/{name}` (raw body, 512 MiB
+  cap by default) writes into the job's `OUTPUT_DIR`, where the job can read it.
+- **Billing depends on the template.** A lease from a `suspend_mode:
+  "none"` template (the docs' words: it "keeps its seat and bills its whole
+  residency") bills every second of its lifetime — measured billed seconds
+  equal running seconds on an 18.7 s `mujoco` lease — while the default
+  torch template bills busy time only. Create, work, then kill without idle
+  gaps for `mujoco` and `blender`. GPU sandboxes support `sandbox_exec`
+  and `sandbox_kill`, consume separate GPU credit, and have a hard VRAM
+  cap. They cannot expose preview URLs or use the MCP files tools (use the
+  REST files endpoints above).
+- **MuJoCo Warp is baked into the `mujoco` and `robotsim` templates** —
+  `import mujoco_warp, warp, mujoco.mjx` and `mujoco_playground` all
+  succeed on the live service. The templates' offline package tree has no
+  dist-info, so `pip list` and `importlib.metadata` do not list these
+  packages: test them with an import, not with `pip list`.
+- Through the `sbx gpu` CLI a GPU lease can also pause and resume between
+  jobs. Suspend behavior depends on the template and live plane;
+  `mujoco` can freeze despite `suspend_mode:"none"`. Do not infer capacity
+  release or stopped billing from that field alone. `timeout_min` is
+  validated but not applied (`timeout_min_applied: false`): kill them
+  explicitly when done. Their maximum lease age appears as `end_at` in
+  `sandboxes_list`.
 - **GPU recipe with the `sbx` CLI** (key needs a GPU grant):
   ```bash
   id=$(sbx gpu create --vram 4)            # prints gl-... ; add --template NAME (sbx gpu templates)
