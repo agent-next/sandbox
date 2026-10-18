@@ -91,7 +91,12 @@ if args[0] == "gpu":
             print("fake sbx: gpu create lost", file=sys.stderr)
             sys.exit(1)
     elif sub == "list":
-        if state.get("empty_list"):
+        if state.get("gpu_bad_first_list"):
+            # the first gpu list reply is unknown-shaped; later replies valid
+            state["gpu_bad_first_list"] = False
+            save(state)
+            print(json.dumps({"oops": "not a list"}))
+        elif state.get("empty_list"):
             print("[]")
         else:
             print(json.dumps([{"sandboxID": i} for i in state["gpu"]]))
@@ -118,7 +123,12 @@ state = load()
 if cmd == "templates":
     print("base")
 elif cmd == "list":
-    if state.get("empty_list"):
+    if state.get("bad_first_list"):
+        # the first list reply is unknown-shaped; later replies are valid
+        state["bad_first_list"] = False
+        save(state)
+        print(json.dumps({"oops": "not a list"}))
+    elif state.get("empty_list"):
         print("[]")
     elif state.get("whitespace_ids"):
         # ids that carry no information: they must not count as verified
@@ -540,6 +550,38 @@ def test_inventory_must_see_the_created_sandbox(fake_sbx, key, tmp_path, capsys)
     rc, receipt = run_smoke(tmp_path)
     capsys.readouterr()
     assert rc == 1
+    assert receipt["verdict"] == "fail"
+    checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
+    assert checks and checks[-1]["rc"] == 1
+
+
+def test_unknown_before_inventory_fails_the_run(
+    fake_sbx, key, tmp_path, capsys
+):
+    # list-before replies with an unknown-shaped object while every later
+    # reply is valid: without a verified baseline the leftover diff is
+    # meaningless, so the run must fail, never PASS
+    fake_sbx.write_text(json.dumps({"cpu": [], "gpu": [], "bad_first_list": True}))
+    rc, receipt = run_smoke(tmp_path)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert out.startswith("FAIL")
+    assert receipt["verdict"] == "fail"
+    checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
+    assert checks and checks[-1]["rc"] == 1
+    assert "baseline" in checks[-1].get("error", "")
+
+
+def test_unknown_before_gpu_inventory_fails_the_run(
+    fake_sbx, key, tmp_path, capsys
+):
+    # same rule for the gpu list baseline
+    fake_sbx.write_text(json.dumps(
+        {"cpu": [], "gpu": [], "gpu_bad_first_list": True}))
+    rc, receipt = run_smoke(tmp_path, "--gpu")
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert out.startswith("FAIL")
     assert receipt["verdict"] == "fail"
     checks = [s for s in receipt["steps"] if s["name"] == "leftover-check"]
     assert checks and checks[-1]["rc"] == 1
