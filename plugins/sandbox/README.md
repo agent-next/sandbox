@@ -15,8 +15,18 @@ Contents:
 
 Tools: `sandboxes_list`, `sandbox_templates`, `sandbox_create`,
 `sandbox_exec`, `sandbox_exec_output`, `sandbox_files_read`,
-`sandbox_files_write`, `sandbox_preview_url`, `sandbox_kill`. Server URL:
+`sandbox_files_write`, `sandbox_preview_url`, `sandbox_workspace`,
+`sandbox_kill`. Server URL:
 `https://api.sbx.agent-next.com/mcp/v1`.
+
+`sandbox_workspace` shows what a sandbox holds right now without
+changing anything: the ports listening inside it (each with its preview
+URL), the newest files under `/home/user` (images up to 256 KiB come
+back as thumbnails), the background jobs started with `sandbox_exec`,
+and the key's other sandboxes. Without `sandbox_id` it probes the most
+recently started running sandbox, and with no running sandbox it
+returns an empty workspace. In MCP clients that support it, the result
+also renders as an interactive workspace card.
 
 ## API key
 
@@ -56,4 +66,4 @@ PY
 ## Privacy
 
 Sandbox contents, command output and retained files are governed by the
-agent-next privacy policy: <https://agent-next.com/privacy>.
+agent-next privacy policy: <https://sbx.agent-next.com/legal/privacy/>.

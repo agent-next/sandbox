@@ -11,6 +11,6 @@
   "mcpServers": "./codex.mcp.json",
   "interface": {
     "displayName": "agent-next sandbox",
-    "privacyPolicyURL": "https://agent-next.com/privacy"
+    "privacyPolicyURL": "https://sbx.agent-next.com/legal/privacy/"
   }
 }
