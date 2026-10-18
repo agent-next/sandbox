@@ -380,25 +380,28 @@ def smoke(ref, gpu, receipt):
             run(receipt, "list-after", [sbx, "list", "--json"], env=env)
         )
         cpu_unverifiable = (
-            after_cpu is None
+            before_cpu is None
+            or after_cpu is None
             or (created_cpu and not cpu_visible)
         )
         if not cpu_unverifiable:
             left |= after_cpu - (before_cpu or set())
         else:
-            # the inventory could not see the sandbox while it was alive (or
-            # cannot be read now), so it cannot prove absence afterwards
+            # the baseline or the current inventory is unknown, or it could
+            # not see the sandbox while it was alive: without a verified
+            # baseline the leftover diff is meaningless
             left |= {rid for kind, rid in alive if kind == "cpu"}
             left |= created_cpu
             check(receipt, "leftover-check", False,
-                  "could not verify `sbx list --json` saw the sandbox alive")
+                  "could not verify the inventory baseline `sbx list --json`")
         if gpu:
             after_gpu = list_ids(
                 run(receipt, "gpu-list-after",
                     [sbx, "gpu", "list", "--json"], env=env)
             )
             gpu_unverifiable = (
-                after_gpu is None
+                before_gpu is None
+                or after_gpu is None
                 or (created_gpu and not gpu_visible)
             )
             if not gpu_unverifiable:
@@ -407,7 +410,8 @@ def smoke(ref, gpu, receipt):
                 left |= {rid for kind, rid in alive if kind == "gpu"}
                 left |= created_gpu
                 check(receipt, "leftover-check", False,
-                      "could not verify `sbx gpu list --json` saw the lease alive")
+                      "could not verify the inventory baseline "
+                      "`sbx gpu list --json`")
         receipt["left"] = len(left)
         if left:
             receipt["left_ids"] = sorted(left)
