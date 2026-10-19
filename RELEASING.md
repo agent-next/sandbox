@@ -16,7 +16,7 @@ Patch versions only (`0.0.x`) unless the maintainers approve a minor bump.
 4. **Release workflow** (`.github/workflows/release.yml`) checks the versions,
    installs from the tag, runs the tests, and publishes the release from the
    notes file.
-5. **Smoke test.** Run `scripts/release_smoke.py --ref vX.Y.Z` (with a key in
+5. **Smoke test.** Run `python3 scripts/release_smoke.py --ref vX.Y.Z` (with a key in
    the environment; add `--gpu` for GPU changes) and attach its verdict to the
    release.
 
