@@ -1,0 +1,11 @@
+# Judge dependencies: none. The judge (grade.sh/_grade.py, selftest.sh,
+# mutants.py) is Python-standard-library only, and its interpreter is the
+# venv created by setup.sh, which therefore pins an empty closure. This
+# file exists so "pinned pip versions" has an explicit answer: there is
+# nothing to install, and a future dependency must be added here with a
+# pinned version (and hashes, where pip supports them for the resolver
+# mode in use) rather than slipping in unpinned.
+#
+# Verified by setup.sh: it records `pip list --format=freeze` into
+# VERSIONS.txt after creating the venv; the list is exactly pip + setuptools
+# (+ wheel on some CPythons), the venv's own tooling, nothing else.

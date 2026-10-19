@@ -1,0 +1,367 @@
+#!/usr/bin/env python3
+"""Draw the untrusted-code-isolation media from real judge outputs.
+
+Inputs (all produced by run.py --artifacts + the repo):
+  verdict.json   the judge's verdict for the known-good runner
+  selftest.log   the judge self-test (mutant kill list, kill rate)
+  ../judge/policy.json  the runtime policy (bounds)
+
+Outputs (written next to this script):
+  result.png  measured containment vs the judge's numeric bounds
+  loop.png    self-test kill rate per mutant + the gate pass vector
+  master/frame_%06d.png  lossless video frames (gitignored)
+  MANIFEST.json  what each file shows, its command, source data, sha256
+
+Figures show measured numbers only; every value plotted is read from the
+verdict JSON or the self-test log of a real run.
+"""
+
+import hashlib
+import json
+import os
+import re
+import sys
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+# Okabe-Ito colour-blind-safe palette.
+BLUE, SKY, GREEN, VERMILLION, YELLOW = ("#0072B2", "#56B4E9", "#009E73",
+                                        "#D55E00", "#E69F00")
+INK = "#222222"
+
+GATE_ORDER = ("fork_bomb", "memory_balloon", "infinite_loop", "disk_filler",
+              "huge_stdout", "sleep_forever")
+EFFECT_ORDER = ("read_shadow", "write_outside", "outbound_socket",
+                "background_daemon")
+GATE_LABEL = {
+    "fork_bomb": "fork bomb", "memory_balloon": "memory balloon",
+    "infinite_loop": "CPU spinner", "disk_filler": "disk filler",
+    "huge_stdout": "stdout flood", "sleep_forever": "eternal sleep",
+    "read_shadow": "/etc/shadow read", "write_outside": "write outside",
+    "outbound_socket": "outbound socket", "background_daemon": "background daemon",
+}
+EFFECT_TEXT = {
+    "read_shadow": "no shadow entry in stdout",
+    "write_outside": "canary byte-identical",
+    "outbound_socket": "no connection reached the probe",
+    "background_daemon": "no process survived the run",
+}
+
+
+def die(msg):
+    sys.stderr.write("figures.py: %s\n" % msg)
+    raise SystemExit(1)
+
+
+def load(artifacts):
+    with open(os.path.join(artifacts, "verdict.json")) as fh:
+        verdict = json.load(fh)
+    with open(os.path.join(HERE, "..", "judge", "policy.json")) as fh:
+        policy = json.load(fh)
+    log_path = os.path.join(artifacts, "selftest.log")
+    if not os.path.isfile(log_path):
+        die("no selftest.log in %s (run run.py --artifacts %s)"
+            % (artifacts, artifacts))
+    with open(log_path) as fh:
+        selftest = fh.read()
+    return verdict, policy, selftest
+
+
+def numeric_rows(verdict, policy):
+    """(label, measured, bound, unit text) for the numerically bounded gates."""
+    runs, measured = verdict.get("runs", {}), verdict.get("measured", {})
+    effects = verdict.get("gates", {}).get("containment", {}).get("effects", {})
+    wall = float(policy["wall_s"])
+    rows = [
+        ("fork bomb",
+         measured.get("fork_bomb_peak_proc_delta"),
+         2.0 * float(policy["nproc"]), "processes above baseline"),
+        ("memory balloon",
+         (measured.get("memory_balloon_maxrss_kb") or 0) / 1024.0,
+         512.0, "peak RSS, MiB"),
+        ("CPU spinner",
+         measured.get("infinite_loop_judge_wall_s"),
+         0.85 * wall, "judge-measured wall, s"),
+        ("disk filler",
+         (effects.get("largest_file_bytes")
+          or runs.get("disk_filler", {}).get("largest_file_bytes") or 0)
+         / (1024.0 * 1024.0),
+         1.10 * float(policy["fsize_bytes"]) / (1024.0 * 1024.0),
+         "largest file left, MiB"),
+        ("stdout flood",
+         (measured.get("huge_stdout_stdout_bytes") or 0) / (1024.0 * 1024.0),
+         1.05 * float(policy["output_cap_bytes"]) / (1024.0 * 1024.0),
+         "stdout captured, MiB"),
+        ("eternal sleep",
+         measured.get("sleep_forever_runner_wall_s"),
+         2.5 * wall, "runner wall, s"),
+    ]
+    out = []
+    for label, got, bound, unit in rows:
+        if got is None:
+            die("verdict JSON lacks the measured value for %r; regenerate "
+                "from a run of the current judge" % label)
+        out.append((label, float(got), float(bound), unit))
+    return out
+
+
+def parse_selftest(text):
+    """(good_pass, [(mutant, killed, gate)...], kill_rate_str) from the log."""
+    good = re.search(r"selftest: known-good: PASS", text) is not None
+    mutants = []
+    for match in re.finditer(
+            r"selftest: mutant ([\w-]+): (killed|SURVIVED)(?: \(gate: ([\w,./-]+)\))?",
+            text):
+        mutants.append((match.group(1), match.group(2) == "killed",
+                        match.group(3) or "-"))
+    rate = re.search(r"selftest: kill rate: (\d+/\d+ = \d+%)", text)
+    return good, mutants, (rate.group(1) if rate else "?")
+
+
+def _fmt(value):
+    """A short, honest number for an axis annotation."""
+    if abs(value) >= 10:
+        return "%.0f" % value
+    if abs(value) >= 1:
+        return "%.1f" % value
+    return "%.2f" % value
+
+
+def draw_result(fig, verdict, policy, rows, stage=1.0, show_effects=True):
+    """The containment figure. `stage` animates bar growth (0..1)."""
+    fig.clf()
+    ax = fig.add_axes([0.20, 0.13, 0.44, 0.75])
+    labels = [r[0] for r in rows][::-1]
+    full = [min(r[1] / r[2], 1.6) for r in rows][::-1]
+    ratios = [f * stage for f in full]
+    ys = list(range(len(rows)))
+    passed = [r[1] <= r[2] for r in rows][::-1]
+    ax.barh(ys, ratios, height=0.6,
+            color=[BLUE if p else VERMILLION for p in passed])
+    ax.axvline(1.0, color=VERMILLION, lw=2.2, ls="--")
+    ax.set_yticks(ys)
+    ax.set_yticklabels(labels, fontsize=13.5)
+    ax.set_xlim(0, 1.62)
+    ax.set_xticks([0, 0.5, 1.0, 1.5])
+    ax.tick_params(colors=INK, labelsize=12)
+    ax.set_xlabel("measured effect / judge bound   (pass at ≤ 1.0)",
+                  fontsize=12.5, color=INK)
+    ax.text(1.0, len(rows) - 0.45, "judge bound", color=VERMILLION,
+            fontsize=11, va="bottom", ha="center", weight="bold")
+    # The bars are long and their labels end mid-plot, so the value and the
+    # unit are printed as two words and each is kept short enough that no
+    # row's words collide with the next row's tick label.
+    for y, (label, got, bound, unit), r in zip(ys, rows[::-1], ratios):
+        value = _fmt(got)
+        if r >= 0.5:                       # long bar: label inside it
+            ax.text(r - 0.03, y, value, fontsize=10.5, va="center",
+                    color="white", ha="right")
+            ax.text(r + 0.03, y, unit, fontsize=10.5, va="center",
+                    color=INK, ha="left")
+        else:                              # short bar: label after it
+            ax.text(r + 0.03, y, "%s / %s  %s" % (value, _fmt(bound), unit),
+                    fontsize=10.5, va="center", color=INK, ha="left")
+    fig.text(0.02, 0.965, "Hostile snippets: measured effect vs the "
+             "judge's bound", fontsize=15, color=INK, weight="bold",
+             va="top")
+
+    if show_effects:
+        fig.text(0.68, 0.905, "Effect gates (binary)", fontsize=12.5,
+                 weight="bold", color=INK, va="top")
+        y = 0.84
+        for i, name in enumerate(EFFECT_ORDER):
+            run = verdict.get("runs", {}).get(name, {})
+            ok = bool(run.get("pass"))
+            fig.text(0.685, y, "✔" if ok else "✘", fontsize=13,
+                     color=GREEN if ok else VERMILLION, va="center",
+                     weight="bold")
+            fig.text(0.715, y, "%s — %s" % (GATE_LABEL[name],
+                                            run.get("reason", "?")),
+                     fontsize=10, color=INK, va="center")
+            y -= 0.055
+        fig.text(0.685, y - 0.02, "scored from effects the runner",
+                 fontsize=9.5, color="#666666", style="italic", va="top")
+        fig.text(0.685, y - 0.055, "does not control:",
+                 fontsize=9.5, color="#666666", style="italic", va="top")
+        fig.text(0.685, y - 0.105, "\n".join(EFFECT_TEXT[n] for n in
+                                             EFFECT_ORDER),
+                 fontsize=9.5, color="#666666", style="italic", va="top",
+                 linespacing=1.6)
+    return fig
+
+
+def draw_loop(fig, verdict, good, mutants, rate, stage=1.0):
+    fig.clf()
+    ax = fig.add_axes([0.10, 0.28, 0.54, 0.54])
+    names = [m[0].replace("_", "\n") for m in mutants]
+    vals = [(1.0 if m[1] else 0.0) * stage for m in mutants]
+    ax.bar(range(len(mutants)), vals, color=[BLUE if m[1] else VERMILLION
+                                             for m in mutants], width=0.7)
+    ax.axhline(0.9, color=VERMILLION, lw=2.0, ls="--")
+    ax.text(len(mutants) - 0.5, 0.86, "required kill rate ≥ 90%",
+            color=VERMILLION, fontsize=10, ha="right", weight="bold",
+            bbox=dict(facecolor="white", edgecolor="none", pad=1.0))
+    ax.set_xticks(range(len(mutants)))
+    ax.set_xticklabels(names, fontsize=8.5, rotation=45, ha="right")
+    ax.set_ylim(0, 1.08)
+    ax.set_yticks([0, 1])
+    ax.set_yticklabels(["survived", "killed"], fontsize=11.5)
+    ax.tick_params(colors=INK)
+    fig.text(0.03, 0.955, "Self-test: single-edit mutants of the good runner",
+             fontsize=14.5, weight="bold", color=INK, va="top")
+    fig.text(0.03, 0.90, "kill rate %s" % rate, fontsize=11.5,
+             color="#666666", va="top")
+
+    fig.text(0.72, 0.955, "Judge gates", fontsize=14.5, weight="bold",
+             color=INK, va="top")
+    fig.text(0.72, 0.90, "known-good runner: %s" % ("PASS" if good
+                                                    else "FAIL"),
+             fontsize=11.5, color="#666666", va="top")
+    gates = sorted(verdict.get("gates", {}).items())
+    y = 0.80
+    for name, g in gates:
+        ok = bool(g.get("pass")) and stage >= 1.0
+        fig.text(0.725, y, "✔" if ok else "✘", fontsize=13,
+                 color=GREEN if ok else VERMILLION, va="center",
+                 weight="bold")
+        fig.text(0.755, y, name, fontsize=11.5, color=INK, va="center")
+        note = ""
+        if name == "containment" and g.get("total"):
+            note = "%d/%d contained" % (g.get("contained", 0), g.get("total"))
+        if name == "benign" and g.get("total"):
+            note = "%d/%d exact" % (g.get("matched", 0), g.get("total"))
+        if note:
+            fig.text(0.86, y, note, fontsize=9.5, color="#666666",
+                     va="center")
+        y -= 0.072
+    return fig
+
+
+def sha256_file(path):
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def write_manifest(artifacts, extra):
+    files = {
+        "result.png": {
+            "shows": "Measured containment of the 6 numerically bounded "
+                     "hostile snippets against the judge's bounds (pass "
+                     "line at 1.0), plus the 4 binary effect gates.",
+            "command": "media/make_media.sh %s" % artifacts,
+            "source_data": ["verdict.json (runs, measured, "
+                            "gates.containment.effects)",
+                            "judge/policy.json (bounds)"],
+            "sha256": sha256_file(os.path.join(HERE, "result.png"))},
+        "loop.png": {
+            "shows": "Self-test kill results for the 10 single-edit mutants "
+                     "with the required 90% kill-rate line, and the five "
+                     "gate results for the known-good runner.",
+            "command": "media/make_media.sh %s" % artifacts,
+            "source_data": ["selftest.log (mutant kill lines, kill rate)",
+                            "verdict.json (gates)"],
+            "sha256": sha256_file(os.path.join(HERE, "loop.png"))},
+        "demo.mp4": {
+            "shows": "Step-through: containment bars growing to their "
+                     "measured ratios against the pass line, the effect "
+                     "gates, the mutant kill rate and the final verdict.",
+            "command": "media/make_media.sh %s" % artifacts,
+            "source_data": ["verdict.json", "selftest.log",
+                            "judge/policy.json"],
+            "sha256": sha256_file(os.path.join(HERE, "demo.mp4"))},
+    }
+    files.update(extra)
+    with open(os.path.join(HERE, "MANIFEST.json"), "w") as fh:
+        json.dump({"demo": "untrusted-code-isolation",
+                   "generated_by": "media/make_media.sh",
+                   "artifacts_from": artifacts,
+                   "files": files}, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+
+
+def main():
+    artifacts = sys.argv[1]
+    mode = sys.argv[2] if len(sys.argv) > 2 else "stills"
+    verdict, policy, selftest = load(artifacts)
+    rows = numeric_rows(verdict, policy)
+    good, mutants, rate = parse_selftest(selftest)
+
+    fig = plt.figure(figsize=(10.0, 5.6))
+    if mode == "stills":
+        draw_result(fig, verdict, policy, rows)
+        fig.savefig(os.path.join(HERE, "result.png"), dpi=200,
+                    facecolor="white")
+        draw_loop(fig, verdict, good, mutants, rate)
+        fig.savefig(os.path.join(HERE, "loop.png"), dpi=200,
+                    facecolor="white")
+        plt.close(fig)
+    elif mode == "manifest":
+        write_manifest(artifacts, {})
+    elif mode == "frames":
+        master = os.path.join(HERE, "master")
+        os.makedirs(master, exist_ok=True)
+        fps = 30
+        scenes = [("title", 3.5 * fps), ("bars", 7 * fps),
+                  ("effects", 6 * fps), ("kill", 8 * fps), ("verdict",
+                                                            5 * fps)]
+        n = 0
+        for scene, frames in scenes:
+            for i in range(int(frames)):
+                t = i / float(frames)
+                fig.clf()
+                if scene == "title":
+                    fig.text(0.5, 0.60, "Untrusted code isolation",
+                             ha="center", fontsize=34, weight="bold",
+                             color=INK)
+                    fig.text(0.5, 0.47, "10 hostile snippets · one "
+                             "runner · a judge that reads the process "
+                             "table", ha="center", fontsize=17, color=INK)
+                    fig.text(0.5, 0.36, "run.py --ref sbx/demo-"
+                             "untrusted-code-isolation", ha="center",
+                             fontsize=13, color="#666666", family="monospace")
+                    ease = min(1.0, t * 3)
+                    fig.text(0.5, 0.22, "measured on a real agent-next "
+                             "sandbox" + "." * int(3 * ease),
+                             ha="center", fontsize=12, color="#999999")
+                elif scene == "bars":
+                    draw_result(fig, verdict, policy, rows, stage=t,
+                                show_effects=t > 0.7)
+                elif scene == "effects":
+                    draw_result(fig, verdict, policy, rows, stage=1.0,
+                                show_effects=True)
+                elif scene == "kill":
+                    draw_loop(fig, verdict, good, mutants, rate,
+                              stage=min(1.0, t * 2.2))
+                else:
+                    ok = all(g.get("pass")
+                             for g in verdict.get("gates", {}).values())
+                    fig.text(0.5, 0.62, "VERDICT: " + ("PASS" if ok
+                                                        else "FAIL"),
+                             ha="center", fontsize=44, weight="bold",
+                             color=GREEN if ok else VERMILLION)
+                    fig.text(0.5, 0.48, "kill rate %s · %d/%d hostile "
+                             "contained · %d/%d benign exact"
+                             % (rate,
+                                verdict["gates"]["containment"]["contained"],
+                                verdict["gates"]["containment"]["total"],
+                                verdict["gates"]["benign"]["matched"],
+                                verdict["gates"]["benign"]["total"]),
+                             ha="center", fontsize=18, color=INK)
+                    fig.text(0.5, 0.38, "judge/ checksums unchanged: %s"
+                             % verdict.get("judge_intact"), ha="center",
+                             fontsize=15, color="#666666")
+                n += 1
+                fig.savefig(os.path.join(master, "frame_%06d.png" % n),
+                            dpi=200, facecolor="white")
+        plt.close(fig)
+        print("frames: %d" % n)
+    else:
+        die("unknown mode %r (stills|frames)" % mode)
+
+
+if __name__ == "__main__":
+    main()
