@@ -1,0 +1,27 @@
+{
+  "artifact": "media/data/mutants/figure-not-written/",
+  "failed_gate": "artifact",
+  "gates": {
+    "_meta": {
+      "artifact": "media/data/mutants/figure-not-written/",
+      "passed": true,
+      "python": "/home/user/glacier-venv/bin/python",
+      "seed": 20261015,
+      "spec_constants": {
+        "L0": 15000.0,
+        "V0_continuum_km3": 6.0,
+        "V0_mask_km3": 6.0
+      }
+    },
+    "artifact": {
+      "passed": false,
+      "reason": "model.py does not parse: expected an indented block after 'if' statement on line 128 (model.py, line 130)"
+    }
+  },
+  "passed": false,
+  "reason": "model.py does not parse: expected an indented block after 'if' statement on line 128 (model.py, line 130)",
+  "seed": 20261015,
+  "timing": {
+    "total_seconds": 0.01
+  }
+}

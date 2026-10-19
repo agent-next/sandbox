@@ -1,0 +1,28 @@
+{
+  "artifact": "media/data/loop/iter1",
+  "failed_gate": "artifact",
+  "gates": {
+    "_meta": {
+      "artifact": "media/data/loop/iter1",
+      "passed": true,
+      "python": "/home/user/glacier-venv/bin/python",
+      "seed": 20261015,
+      "spec_constants": {
+        "L0": 15000.0,
+        "V0_continuum_km3": 6.0,
+        "V0_mask_km3": 6.0
+      }
+    },
+    "artifact": {
+      "passed": false,
+      "reason": "model.py wrote outside --out: volumes.csv.bak"
+    }
+  },
+  "passed": false,
+  "reason": "model.py wrote outside --out: volumes.csv.bak",
+  "seed": 20261015,
+  "timing": {
+    "first_run_seconds": 3.94,
+    "total_seconds": 3.96
+  }
+}

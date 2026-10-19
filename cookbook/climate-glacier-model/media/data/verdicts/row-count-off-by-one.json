@@ -1,0 +1,28 @@
+{
+  "artifact": "media/data/mutants/row-count-off-by-one/",
+  "failed_gate": "artifact",
+  "gates": {
+    "_meta": {
+      "artifact": "media/data/mutants/row-count-off-by-one/",
+      "passed": true,
+      "python": "/home/user/glacier-venv/bin/python",
+      "seed": 20261015,
+      "spec_constants": {
+        "L0": 15000.0,
+        "V0_continuum_km3": 6.0,
+        "V0_mask_km3": 6.0
+      }
+    },
+    "artifact": {
+      "passed": false,
+      "reason": "model.py exited 1: Traceback (most recent call last):\n  File \"/tmp/glacier-judge-k1ma0k4w/artifact/model.py\", line 156, in <module>\n    main()\n  File \"/tmp/glacier-judge-k1ma0k4w/artifact/model.py\", line 121, in main\n    np.interp(year, range(YEARS + 1), volumes))\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/glacier-venv/lib/python3.12/site-packages/numpy/lib/_function_base_impl.py\", line 1642, in interp\n    return interp_func(x, xp, fp, left, right)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: fp and xp are not of the same length."
+    }
+  },
+  "passed": false,
+  "reason": "model.py exited 1: Traceback (most recent call last):\n  File \"/tmp/glacier-judge-k1ma0k4w/artifact/model.py\", line 156, in <module>\n    main()\n  File \"/tmp/glacier-judge-k1ma0k4w/artifact/model.py\", line 121, in main\n    np.interp(year, range(YEARS + 1), volumes))\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/glacier-venv/lib/python3.12/site-packages/numpy/lib/_function_base_impl.py\", line 1642, in interp\n    return interp_func(x, xp, fp, left, right)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: fp and xp are not of the same length.",
+  "seed": 20261015,
+  "timing": {
+    "first_run_seconds": 1.27,
+    "total_seconds": 1.28
+  }
+}

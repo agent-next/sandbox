@@ -1,0 +1,44 @@
+{
+  "demo": "cookbook/climate-glacier-model",
+  "files": {
+    "demo.mp4": {
+      "bytes": 2021752,
+      "command": "bash media/make_media.sh",
+      "sha256": "caec54a1db58c40a682ae990959eb9f0c43d8f2f01b7dcc6d387c3201a8197aa",
+      "shows": "The sweep the judge graded, in five moving shots cut on black: (1) one pass per scenario, a playhead sweeping the 100 years while the measured volume fills in behind it and the 50 %-crossing marker pops; (2) zoomed crossings, the 50 % rule line sweeping down and locking each measured year in; (3) the judge's shape gate drawn live against the +-2 % band; (4) the self-test kill matrix scanned row by row (13/13); (5) a static end card with the verdict. 26.2 s, 30 fps, 1920x1080, H.264 (-crf 18). A lossless master (-crf 0) is written to media/master/ (git-ignored).",
+      "sources": [
+        "data/run/good/volumes.csv",
+        "data/verdicts/good.json"
+      ]
+    },
+    "loop.png": {
+      "bytes": 224079,
+      "command": "$HOME/glacier-venv/bin/python media/fig_loop.py .",
+      "sha256": "905ef9dbce3bce5f59c7c42deb8fd345892837bad93ab064a9fdbdf54670c743",
+      "shows": "Agent loop and self-test. Left: gates still failing per iteration of a real fix sequence (data/loop/iter1..5, each graded by judge/grade.sh); the label is the gate the judge failed that iteration on (artifact -> zero_melt -> final_volume -> figure -> PASS). Right: the self-test kill matrix, known-good vs the 13 single-edit mutants, each row the gate that killed it.",
+      "sources": [
+        "data/verdicts/good.json",
+        "data/verdicts/*.json (13 mutants)",
+        "data/loop/iter1.json .. iter5.json"
+      ]
+    },
+    "result.png": {
+      "bytes": 292259,
+      "command": "$HOME/glacier-venv/bin/python media/fig_result.py .",
+      "sha256": "74dff83df731837b3e47969219ee439ff41edf823c0b3bc9329459d5dfadfcfd",
+      "shows": "Key figure. Left: the three scenario volume curves from the judge's own run of examples/good (solid) against the analytic oracle V_exact(t) (dashed), the 50 %-of-V(0) crossing rule line, and each measured crossing year. Right: the shape gate's measured deviation from the analytic volume at every year against the +-2 % pass band; the band is the pass line. Worst deviation 0.38 %.",
+      "sources": [
+        "data/run/good/volumes.csv",
+        "data/verdicts/good.json"
+      ]
+    }
+  },
+  "kill_rate": "13/13",
+  "regenerate": "bash media/make_media.sh",
+  "seed": 20261015,
+  "tools": {
+    "ffmpeg": "distro build (see RECEIPT.md)",
+    "python": "judge/requirements.txt (numpy 2.2.6, matplotlib 3.10.6; the venv judge/setup.sh creates)"
+  },
+  "verdict_passed": true
+}
