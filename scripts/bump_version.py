@@ -147,8 +147,19 @@ def bump(root, new_text, allow_minor=False):
         for tmp, _ in staged:
             os.unlink(tmp)
         raise
-    for tmp, p in staged:
-        os.replace(tmp, p)
+    originals = [(p, p.read_text()) for _, p in staged]
+    done = 0
+    try:
+        for tmp, p in staged:
+            os.replace(tmp, p)
+            done += 1
+    except BaseException:
+        # Put back the files already replaced and drop the unused temps.
+        for p, text in originals[:done]:
+            os.replace(_write(p, text), p)
+        for tmp, _ in staged[done:]:
+            os.unlink(tmp)
+        raise
     return paths
 
 
