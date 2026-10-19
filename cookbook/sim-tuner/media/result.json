@@ -1,0 +1,212 @@
+{
+  "schema": "agent-next/result@1",
+  "demo": "sim-tuner",
+  "headline": "Tuning cuts held-out error from 0.118495 to 0.02206.",
+  "verdict": "PASS",
+  "gates": [
+    {
+      "name": "G1 ranges",
+      "pass": true,
+      "measured": "five finite in-range parameters",
+      "threshold": "strict JSON, exact keys"
+    },
+    {
+      "name": "G3 absolute error",
+      "pass": true,
+      "measured": 0.02206,
+      "threshold": "< 0.025"
+    },
+    {
+      "name": "G3 fraction of default",
+      "pass": true,
+      "measured": 0.1862,
+      "threshold": "< 0.3"
+    },
+    {
+      "name": "G4 agreement",
+      "pass": true,
+      "measured": "abs 2.3e-05, rel 0.001441",
+      "threshold": "abs <= 0.003, rel <= 0.1"
+    }
+  ],
+  "numbers": [
+    {
+      "label": "Held-out error",
+      "value": 0.02206,
+      "unit": "normalized RMS",
+      "source": "media/data/run-1.json (python3 cookbook/sim-tuner/run.py --seed 7)"
+    },
+    {
+      "label": "Default error",
+      "value": 0.118495,
+      "unit": "normalized RMS",
+      "source": "media/data/run-1.json (python3 cookbook/sim-tuner/run.py --seed 7)"
+    },
+    {
+      "label": "GPU train error",
+      "value": 0.016322,
+      "unit": "normalized RMS",
+      "source": "media/data/run-1.json (python3 cookbook/sim-tuner/run.py --seed 7)"
+    },
+    {
+      "label": "CPU train error",
+      "value": 0.016299,
+      "unit": "normalized RMS",
+      "source": "media/data/run-1.json (python3 cookbook/sim-tuner/run.py --seed 7)"
+    },
+    {
+      "label": "Mutant kill rate",
+      "value": "18/18 = 100%",
+      "unit": "",
+      "source": "media/data/run-1.json (python3 cookbook/sim-tuner/run.py --seed 7)"
+    },
+    {
+      "label": "default mu",
+      "value": 0.5,
+      "unit": "coefficient",
+      "source": "media/data/replay.json roles.default.mu; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "default solref_tc",
+      "value": 0.01,
+      "unit": "s",
+      "source": "media/data/replay.json roles.default.solref_tc; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "default solref_dr",
+      "value": 1.0,
+      "unit": "ratio",
+      "source": "media/data/replay.json roles.default.solref_dr; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "default damping",
+      "value": 0.15,
+      "unit": "N*m*s/rad",
+      "source": "media/data/replay.json roles.default.damping; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "default armature",
+      "value": 0.02,
+      "unit": "kg*m^2",
+      "source": "media/data/replay.json roles.default.armature; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned mu",
+      "value": 0.61875,
+      "unit": "coefficient",
+      "source": "media/data/replay.json roles.tuned.mu; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned solref_tc",
+      "value": 0.018484,
+      "unit": "s",
+      "source": "media/data/replay.json roles.tuned.solref_tc; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned solref_dr",
+      "value": 1.354557,
+      "unit": "ratio",
+      "source": "media/data/replay.json roles.tuned.solref_dr; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned damping",
+      "value": 0.168593,
+      "unit": "N*m*s/rad",
+      "source": "media/data/replay.json roles.tuned.damping; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "tuned armature",
+      "value": 0.021237,
+      "unit": "kg*m^2",
+      "source": "media/data/replay.json roles.tuned.armature; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth mu",
+      "value": 0.61882,
+      "unit": "coefficient",
+      "source": "media/data/replay.json roles.truth.mu; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth solref_tc",
+      "value": 0.01846,
+      "unit": "s",
+      "source": "media/data/replay.json roles.truth.solref_tc; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth solref_dr",
+      "value": 1.42055,
+      "unit": "ratio",
+      "source": "media/data/replay.json roles.truth.solref_dr; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth damping",
+      "value": 0.09432,
+      "unit": "N*m*s/rad",
+      "source": "media/data/replay.json roles.truth.damping; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "truth armature",
+      "value": 0.02151,
+      "unit": "kg*m^2",
+      "source": "media/data/replay.json roles.truth.armature; collect.py inside seed-7 CPU regrade"
+    },
+    {
+      "label": "Presentation test 1/4 maximum default box gap",
+      "value": 6.97802225949656,
+      "unit": "cm",
+      "source": "media/data/replay.json presentation_order; source recording 3/4; max(100*abs(default_x-truth_x))"
+    },
+    {
+      "label": "Presentation test 2/4 maximum default box gap",
+      "value": 5.96190563869419,
+      "unit": "cm",
+      "source": "media/data/replay.json presentation_order; source recording 4/4; max(100*abs(default_x-truth_x))"
+    },
+    {
+      "label": "Presentation test 3/4 maximum default box gap",
+      "value": 3.7086996153894436,
+      "unit": "cm",
+      "source": "media/data/replay.json presentation_order; source recording 1/4; max(100*abs(default_x-truth_x))"
+    },
+    {
+      "label": "Presentation test 4/4 maximum default box gap",
+      "value": 2.7539365964996954,
+      "unit": "cm",
+      "source": "media/data/replay.json presentation_order; source recording 2/4; max(100*abs(default_x-truth_x))"
+    },
+    {
+      "label": "Animated box miss readouts",
+      "value": "100 * abs(role_qpos[k,0] - truth_qpos[k,0]), rounded to 0.001 cm",
+      "unit": "cm",
+      "source": "media/data/trajectories.npz; SHA-256 in media/data/render-checks.json; exact state k in shots"
+    },
+    {
+      "label": "Slow-motion playback",
+      "value": 0.06,
+      "unit": "x real time",
+      "source": "media/data/render-checks.json: 30 fps * one captured 0.002 s step per frame"
+    }
+  ],
+  "hero": {
+    "kind": "image",
+    "path": "media/result.png",
+    "caption": "Default, tuned and hidden truth: real graded MuJoCo states."
+  },
+  "gallery": [
+    {
+      "kind": "video",
+      "path": "media/demo.mp4",
+      "poster": "media/result.png"
+    },
+    {
+      "kind": "image",
+      "path": "media/loop.png"
+    }
+  ],
+  "launch": {
+    "command": "python3 cookbook/sim-tuner/run.py",
+    "ask_agent": "Fit the five rig parameters from six training recordings; grade on four held-out commands and require CPU/GPU agreement. See README.md."
+  },
+  "receipt": "RECEIPT.md",
+  "sandbox_commit": "73128bc3b3f9cd87158434e01737badabe3ef319"
+}

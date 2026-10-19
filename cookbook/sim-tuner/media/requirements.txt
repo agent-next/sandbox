@@ -1,0 +1,2 @@
+# Physics dependencies are hash-pinned in ../judge/requirements.lock.
+pillow==11.3.0
