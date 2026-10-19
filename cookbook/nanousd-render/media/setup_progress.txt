@@ -1,0 +1,19 @@
+[setup] apt-get update (must fetch lists; an empty apt cache is not OK)
+[setup] apt-get install build deps
+[setup] downloading cmake 3.31.6
+[setup] downloading omniverse-labs @ ea045a027c4d0cc717174ed92f13ba56fffeb39d
+[setup] building nanousd (compliance tests on)
+[setup] running nanousd compliance_test
+[setup] building nanousd-opengl-renderer (Ptex off, MDL off; pulls its own pinned MaterialX v1.39.4 + meshoptimizer v0.24 via FetchContent)
+[setup] apt-get update (must fetch lists; an empty apt cache is not OK)
+[setup] apt-get install build deps
+[setup] cmake 3.31.6 already installed
+[setup] omniverse-labs @ ea045a02 already present
+[setup] nanousd already built
+[setup] building nanousd-opengl-renderer (Ptex off, MDL off; pulls its own pinned MaterialX v1.39.4 + meshoptimizer v0.24 via FetchContent)
+[setup] compiling judge C drivers
+[setup] renderer smoke: headless EGL on llvmpipe
+[setup] creating venv
+[setup] installing pinned python wheels
+[setup] wrote /home/user/w/cookbook/nanousd-render/judge/VERSIONS.txt
+[setup] setup done -> /home/user/.nanousd-render
