@@ -130,6 +130,26 @@ def test_a_failed_bump_leaves_all_three_versions_untouched(root, monkeypatch):
     assert versions(root) == ["0.0.4"] * 3
 
 
+def test_a_failed_replace_rolls_back_the_files_already_replaced(root, monkeypatch):
+    """A rename that dies after the first file moved must put that file
+    back and leave no temp files behind."""
+    real_replace = bv.os.replace
+    calls = []
+
+    def failing_replace(src, dst):
+        calls.append(dst)
+        if len(calls) == 2:
+            raise OSError("no space left on device")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(bv.os, "replace", failing_replace)
+    with pytest.raises(OSError):
+        bv.bump(root, "0.0.5")
+    monkeypatch.setattr(bv.os, "replace", real_replace)
+    assert versions(root) == ["0.0.4"] * 3
+    assert list(root.rglob("*.tmp")) == []
+
+
 # --- finding 5: an empty --tag ---------------------------------------------
 
 def test_bump_rejects_an_empty_tag(root):
