@@ -1,0 +1,93 @@
+{
+ "good_verdict": "PASS",
+ "good_metrics": {
+  "final_equity": 0.9470302914437041,
+  "total_return": -0.0529697085562959,
+  "n_days": 2517.0,
+  "n_trades": 101.0,
+  "max_drawdown": 0.4177213784209337,
+  "sharpe": 0.036536587479012825,
+  "volatility_ann": 0.1471606200700388,
+  "mean_daily_ret": 2.1336297097836283e-05,
+  "risk_free_rate": 0.0,
+  "cost_bps": 10.0,
+  "lookahead_shift": 1.0,
+  "reference": {
+   "final_equity": 0.9470302914437041,
+   "total_return": -0.0529697085562959,
+   "max_drawdown": 0.4177213784209337,
+   "sharpe": 0.03653658747901288,
+   "n_trades": 101,
+   "n_days": 2517,
+   "lookahead_shift": 1
+  }
+ },
+ "mutants": {
+  "cost-tamper": {
+   "verdict": "FAIL",
+   "failed": [
+    "G6_schema_sanity"
+   ]
+  },
+  "equity-tamper": {
+   "verdict": "FAIL",
+   "failed": [
+    "G2_final_equity_oracle"
+   ]
+  },
+  "fixture-drift": {
+   "verdict": "FAIL",
+   "failed": [
+    "G1_fixture_integrity"
+   ]
+  },
+  "lookahead-shift": {
+   "verdict": "FAIL",
+   "failed": [
+    "G2_final_equity_oracle"
+   ]
+  },
+  "lookahead-signal": {
+   "verdict": "FAIL",
+   "failed": [
+    "G3_sharpe_consistency"
+   ]
+  },
+  "mdd-tamper": {
+   "verdict": "FAIL",
+   "failed": [
+    "G4_max_drawdown"
+   ]
+  },
+  "returns-drift": {
+   "verdict": "FAIL",
+   "failed": [
+    "G3_sharpe_consistency"
+   ]
+  },
+  "sharpe-tamper": {
+   "verdict": "FAIL",
+   "failed": [
+    "G3_sharpe_consistency"
+   ]
+  },
+  "shift-0-declare": {
+   "verdict": "FAIL",
+   "failed": [
+    "G6_schema_sanity"
+   ]
+  },
+  "short-history": {
+   "verdict": "FAIL",
+   "failed": [
+    "G6_schema_sanity"
+   ]
+  },
+  "tiny-figure": {
+   "verdict": "FAIL",
+   "failed": [
+    "G6_schema_sanity"
+   ]
+  }
+ }
+}
