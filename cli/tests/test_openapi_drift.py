@@ -400,3 +400,35 @@ def test_live_null_document_exits_two(tmp_path, capsys, loopback_server):
     snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
     assert drift.main(["--url", url, "--snapshot", str(snapshot)]) == 2
     assert "not a JSON object" in capsys.readouterr().err
+
+
+def test_removed_schema_less_response_media_type_exits_one(tmp_path, capsys):
+    base = make_doc()
+    base["paths"]["/sandboxes"]["get"]["responses"]["200"]["content"]["text/plain"] = {}
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", make_doc())
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "GET /sandboxes response 200: media type removed: text/plain" in capsys.readouterr().out
+
+
+def test_removed_schema_less_request_media_type_exits_one(tmp_path, capsys):
+    base = make_doc()
+    base["paths"]["/sandboxes"]["post"]["requestBody"]["content"]["text/plain"] = {}
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", make_doc())
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "POST /sandboxes request: media type removed: text/plain" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("field, value", [
+    ("encoding", {"templateID": {"contentType": "text/plain"}}),
+    ("example", {"templateID": "base"}),
+    ("examples", {"base": {"value": {"templateID": "base"}}}),
+])
+def test_added_request_media_type_field_exits_one(tmp_path, capsys, field, value):
+    new = make_doc()
+    new["paths"]["/sandboxes"]["post"]["requestBody"]["content"]["application/json"][field] = value
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert f"POST /sandboxes request [application/json].{field}: added" in capsys.readouterr().out
