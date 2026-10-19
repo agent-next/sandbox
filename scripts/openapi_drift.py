@@ -221,6 +221,11 @@ def _resolve_param(param, components):
     return param
 
 
+def _hashable(value):
+    """The value when it can key a dict, else its canonical JSON text."""
+    return value if isinstance(value, (str, int, float, bool, type(None))) else json.dumps(value, sort_keys=True)
+
+
 def _param_map(params, components):
     """Map each parameter's resolved identity (in, name) to its definition."""
     if not isinstance(params, list):
@@ -230,7 +235,8 @@ def _param_map(params, components):
         resolved = _resolve_param(param, components)
         if isinstance(resolved, dict) and (resolved.get("in") is not None
                                            or resolved.get("name") is not None):
-            out.setdefault((resolved.get("in"), resolved.get("name")), resolved)
+            out.setdefault((_hashable(resolved.get("in")), _hashable(resolved.get("name"))),
+                           resolved)
         elif isinstance(param, dict) and isinstance(param.get("$ref"), str):
             out.setdefault(("$ref", param["$ref"]), resolved)
     return out
