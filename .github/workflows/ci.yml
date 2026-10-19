@@ -2,7 +2,14 @@ name: ci
 
 on:
   push:
+    branches: [main]
   pull_request:
+  schedule:
+    # Weekly, Monday 03:07 UTC: the docs can drift from the live service
+    # without any PR touching this repo.
+    - cron: "7 3 * * 1"
+    # Nightly full suite: the safety net under PR test selection.
+    - cron: "23 4 * * *"
 
 jobs:
   cli:
@@ -13,14 +20,81 @@ jobs:
         python: ["3.10", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # A PR head checks out as a merge commit: depth 2 holds it and its
+          # base parent, all the diff needs.
+          fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
       - name: Install
         run: pip install "./cli[test]"
+      - name: Select tests
+        id: select
+        run: |
+          # PRs run the tests their change can reach; pushes to main and the
+          # schedules run everything. A selector failure runs ALL: it must
+          # never turn into "no tests".
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] && T=$(python3 scripts/ci/affected.py --base HEAD^1 --format args); then
+            echo "tests=$T" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests=ALL" >> "$GITHUB_OUTPUT"
+          fi
       - name: Test
-        run: pytest -q
         working-directory: cli
+        env:
+          TESTS: ${{ steps.select.outputs.tests }}
+        run: |
+          set -f  # test paths reach pytest as positional arguments, never as shell source
+          case $TESTS in
+            ALL)
+              python3 ../scripts/ci/run_parallel.py --runner pytest ALL ;;
+            *)
+              selected=""
+              for t in $TESTS; do
+                case $t in
+                  cli/*) selected="$selected ${t#cli/}" ;;
+                esac
+              done
+              if [ -n "$selected" ]; then
+                python3 ../scripts/ci/run_parallel.py --runner pytest $selected
+              else
+                echo "cli: no tests selected for this change"
+              fi ;;
+          esac
+
+  contract:
+    runs-on: ubuntu-latest
+    # The nightly full-suite schedule must not also make this live check
+    # daily: it keeps the weekly cadence it was given; other events as before.
+    if: github.event_name != 'schedule' || github.event.schedule == '7 3 * * 1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect contract changes
+        id: docs
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}..." -- \
+              '*.md' 'scripts/contract_check.py' 'scripts/test_contract_check.py' \
+              '.github/workflows/ci.yml' | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-python@v5
+        if: github.event_name != 'pull_request' || steps.docs.outputs.changed == 'true'
+        with:
+          python-version: "3.10"
+      - name: Unit tests (no network)
+        if: github.event_name != 'pull_request' || steps.docs.outputs.changed == 'true'
+        run: |
+          pip install pytest
+          pytest -q -s scripts
+      - name: Contract check on this tree
+        if: github.event_name != 'pull_request' || steps.docs.outputs.changed == 'true'
+        env:
+          SBX_API_KEY: ${{ secrets.SBX_SMOKE_KEY }}
+        run: python3 scripts/contract_check.py
 
   video-gate:
     runs-on: ubuntu-latest
@@ -51,6 +125,14 @@ jobs:
           python-version: "3.10"
       - name: Slop gate on changed demos
         run: python3 cookbook/tools/slop_gate.py --base "origin/${{ github.base_ref }}"
+
+  version-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version strings agree
+        run: python3 scripts/bump_version.py --check
 
   manifests:
     runs-on: ubuntu-latest

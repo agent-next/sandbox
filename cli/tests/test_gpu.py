@@ -1,4 +1,5 @@
 import json
+import time
 
 import httpx
 import pytest
@@ -293,6 +294,61 @@ def test_missing_key(monkeypatch, api, capsys):
     assert "no API key" in capsys.readouterr().err
 
 
+RESTARTING = {"error": "gateway is restarting", "code": "restarting", "retry_after_s": 5}
+
+
+def test_create_retries_two_restarting_503s_then_succeeds(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 503, dict(RESTARTING))
+    api.on("POST", "/sandboxes", 503, dict(RESTARTING))
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 0
+    assert capsys.readouterr().out == "gl-1a-1\n"
+    assert sleeps == [5, 5]
+    assert len(api.calls) == 3
+
+
+def test_non_restarting_503_is_not_retried(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 503, {"error": "gateway is restarting", "retry_after_s": 5})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 2
+    assert len(api.calls) == 1
+    assert sleeps == []
+    assert "GPU plane at capacity" in capsys.readouterr().err
+
+
+def test_500_is_not_retried(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 500, {"code": "restarting", "retry_after_s": 5})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 2
+    assert len(api.calls) == 1
+    assert sleeps == []
+
+
+def test_restart_retry_caps_each_wait_and_the_total_wait(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 503,
+           {"error": "gateway is restarting", "code": "restarting", "retry_after_s": 999})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 2
+    assert sleeps == [30, 30]  # each wait capped at 30 s, 60 s waited in total
+    assert len(api.calls) == 3
+    assert "GPU plane at capacity" in capsys.readouterr().err
+
+
+def test_restart_retry_message_names_the_wait_and_defaults_to_5s(api, capsys, monkeypatch):
+    api.on("POST", "/sandboxes", 503, {"error": "gateway is restarting", "code": "restarting"})
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    sleeps = []
+    monkeypatch.setattr(time, "sleep", sleeps.append)
+    assert cli.main(["gpu", "create"]) == 0
+    assert sleeps == [5]
+    assert capsys.readouterr().err == "gateway restarting, retrying in 5s\n"
+
+
 def test_api_url_override(api, monkeypatch):
     monkeypatch.setenv("E2B_API_URL", "https://api.sbx.agent-next.com/")
     api.on("GET", "/gpu/templates", 200, [])
@@ -325,6 +381,56 @@ def test_vram_range_enforced_client_side(api, capsys, vram, code):
     assert cli.main(["gpu", "create", "--vram", vram]) == code
     if code:
         assert "--vram" in capsys.readouterr().err and api.calls == []
+
+
+def _gpu_create(*flags):
+    # Without --wait argparse exits 2 on the unknown flag; return that code so
+    # the behavior assertions below fail, rather than the parser abort the test.
+    try:
+        return cli.main(["gpu", "create", *flags])
+    except SystemExit as exc:
+        return exc.code
+
+
+def test_create_wait_sends_accel_wait_s(api, capsys):
+    # the GPU guide documents accel.wait_s in [0, 120]: the create holds the
+    # request for a seat instead of answering gpu_capacity_exhausted at once
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    assert _gpu_create("--vram", "4", "--wait", "30") == 0
+    method, path, headers, body, timeout = api.calls[0]
+    assert body == {"accel": {"vram_gb": 4.0, "wait_s": 30.0}}
+    assert timeout > 30  # the request outlives the gateway-side wait
+
+
+def test_create_wait_zero_is_sent(api, capsys):
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    assert _gpu_create("--wait", "0") == 0
+    assert api.calls[0][3] == {"accel": {"wait_s": 0.0}}
+
+
+def test_create_wait_extends_the_request_deadline(api, capsys):
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    assert _gpu_create("--wait", "120") == 0
+    assert api.calls[0][4] > 120  # a seat may open only at the end of the wait
+
+
+@pytest.mark.parametrize("bad", ["121", "-1", "nan", "inf"])
+def test_create_rejects_out_of_range_wait(api, capsys, bad):
+    assert _gpu_create("--wait", bad) == 2
+    assert "--wait must be a number of seconds from 0 to 120" in capsys.readouterr().err
+    assert api.calls == []
+
+
+def test_readme_gpu_create_row_mentions_the_wait_flag():
+    from pathlib import Path
+
+    rows = [line for line in (Path(__file__).resolve().parents[2] / "cli/README.md")
+            .read_text(encoding="utf-8").splitlines() if line.startswith("| `sbx gpu create")]
+    assert rows and "--wait" in rows[0], (
+        "cli/README.md's gpu create row must document --wait: the capacity-full "
+        "409 line says retry, and the documented way to wait is accel.wait_s "
+        "(launch finding G2)"
+    )
 
 
 def test_exec_409_already_running_is_not_job_failure(api, capsys):

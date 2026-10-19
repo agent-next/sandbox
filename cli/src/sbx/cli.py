@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import os
+import re
 import shlex
 import sys
 import time
@@ -18,6 +19,15 @@ DEFAULT_TIMEOUT_MIN = 5
 MAX_TIMEOUT_MIN = 1440
 _RESTART_ATTEMPTS = 3
 _RESTART_MAX_WAIT_S = 30
+_CREATE_LAG_ATTEMPTS = 3
+_CREATE_LAG_FIRST_WAIT_S = 3.0
+# GPU lease ids (gl-..., the namespace `sbx gpu create` prints) live on the
+# lease plane, not the CPU sandbox plane these verbs drive.
+LEASE_ID = re.compile(r"gl-[A-Za-z0-9-]+")
+
+
+def _is_lease_id(value: str) -> bool:
+    return bool(LEASE_ID.fullmatch(value))
 
 
 class SbxError(Exception):
@@ -101,6 +111,28 @@ def _sdk_retry(fn, *args, **kwargs):
             time.sleep(wait)
 
 
+def _connect_sandbox(sandbox_id: str):
+    """Connect by id, retrying the create lag: the first lookup after create
+    can answer not found while the sandbox is running (#23), so exec and cp
+    wait and retry instead of reporting a live sandbox as gone."""
+    from e2b import SandboxNotFoundException
+
+    wait = _CREATE_LAG_FIRST_WAIT_S
+    for attempt in range(_CREATE_LAG_ATTEMPTS):
+        try:
+            return _sdk_retry(_sandbox_cls().connect, sandbox_id)
+        except SandboxNotFoundException:
+            if attempt == _CREATE_LAG_ATTEMPTS - 1:
+                raise
+            _say(
+                f"sbx: sandbox {sandbox_id} not found yet (a create can lag); "
+                f"retrying in {wait:g}s",
+                err=True,
+            )
+            time.sleep(wait)
+            wait *= 2
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     _positive_seconds(args.timeout_min, "--timeout-min", MAX_TIMEOUT_MIN)
     _credentials()
@@ -112,6 +144,13 @@ def cmd_create(args: argparse.Namespace) -> int:
 
 
 def cmd_exec(args: argparse.Namespace) -> int:
+    if _is_lease_id(args.sandbox_id):
+        # A live lease is not a missing CPU sandbox; the CPU plane cannot
+        # serve a gl- id, so no connect (or create-lag retry) can help.
+        raise SbxError(
+            f"exec: {args.sandbox_id} is a GPU lease, not a CPU sandbox; "
+            "run the job with `sbx gpu exec` instead"
+        )
     from e2b import CommandExitException, SandboxNotFoundException, TimeoutException
 
     _positive_seconds(args.timeout, "--timeout")
@@ -123,7 +162,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
         raise SbxError("exec: no command given")
     line = command[0] if len(command) == 1 else shlex.join(command)
     try:
-        sbx = _sdk_retry(_sandbox_cls().connect, args.sandbox_id)
+        sbx = _connect_sandbox(args.sandbox_id)
         try:
             result = sbx.commands.run(line, timeout=args.timeout)
         except CommandExitException as exc:
@@ -169,6 +208,11 @@ def cmd_cp(args: argparse.Namespace) -> int:
     if bool(source) == bool(target):
         raise SbxError("cp: exactly one side must be ID:PATH")
     sid, remote = source or target
+    if _is_lease_id(sid):
+        raise SbxError(
+            f"cp: {sid} is a GPU lease, not a CPU sandbox; lease files move "
+            "over the REST files API or `sbx gpu exec`, not sbx cp"
+        )
     local_name = args.target if source else args.source
     if not local_name:
         raise SbxError("cp: local path must not be empty")
@@ -184,7 +228,7 @@ def cmd_cp(args: argparse.Namespace) -> int:
     from e2b import FileType, InvalidArgumentException, NotFoundException, TimeoutException
 
     try:
-        sbx = _sdk_retry(_sandbox_cls().connect, sid)
+        sbx = _connect_sandbox(sid)
         try:
             info = _sdk_retry(sbx.files.get_info, remote)
         except NotFoundException:

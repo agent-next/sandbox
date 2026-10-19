@@ -1,0 +1,518 @@
+"""Tests for scripts/contract_check.py.
+
+Fixtures are docs trees built in tmp_path, served to the checks by an
+http.server on 127.0.0.1 (started here, not downloaded). The three real
+drifts the contract exists to catch are each reproduced: a GPU template the
+docs name and the live catalog lacks, a documented tool list that disagrees
+with the server's, and a doc link that 404s.
+
+Run:  pytest -q scripts     (from the repo root)
+"""
+
+from __future__ import annotations
+
+import json
+import socket
+import sys
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import contract_check as cc  # noqa: E402
+
+REPO = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(autouse=True)
+def no_external_network(monkeypatch):
+    """Fail the test on any attempt to connect outside 127.0.0.1.
+
+    The suite's contract is that it runs offline against the local stub;
+    this turns a stray production URL in a fixture into a loud failure.
+    """
+    real_connect = socket.socket.connect
+
+    def guarded_connect(self, address):
+        host = address[0] if isinstance(address, tuple) else address
+        if isinstance(host, str) and host not in ("127.0.0.1", "localhost", "::1"):
+            raise ConnectionRefusedError(
+                f"tests must not touch the network: connect to {host!r} blocked")
+        return real_connect(self, address)
+
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+
+README = """# demo
+
+See [the console]({base}/console) and
+[the docs]({base}/docs/page).
+"""
+
+PLUGIN_README = """# sandbox plugin
+
+Tools: `sandboxes_list`, `sandbox_templates`,
+`sandbox_create`, `sandbox_exec`, `sandbox_exec_output`,
+`sandbox_files_read`, `sandbox_files_write`, `sandbox_preview_url`,
+`sandbox_workspace`, `sandbox_kill`. Server URL:
+`{base}/mcp/v1`.
+"""
+
+PLUGIN_SKILL = """---
+name: sandbox
+---
+
+# Use the sandbox
+
+GPU: call `sandbox_templates` for the live catalog. The catalog on the live
+service today is `gpu-lease-v06`, `mujoco`, `kernel` (`sbx gpu templates`
+lists it for the CLI); an unknown template name is refused.
+"""
+
+# The tool list the plugin README documents (10 entries), and the catalog the
+# skill documents. The server's lists differ from both, as in the real drifts.
+DOCUMENTED_TOOLS = ["sandboxes_list", "sandbox_templates", "sandbox_create",
+                    "sandbox_exec", "sandbox_exec_output", "sandbox_files_read",
+                    "sandbox_files_write", "sandbox_preview_url",
+                    "sandbox_workspace", "sandbox_kill"]
+LIVE_TOOLS = ["sandboxes_list", "sandbox_templates", "sandbox_create",
+              "sandbox_exec", "sandbox_exec_output", "sandbox_files_read",
+              "sandbox_files_write", "sandbox_preview_url", "sandbox_workspace",
+              "sandbox_kill", "sandbox_workspace_logs"]
+LIVE_GPU_TEMPLATES = ["gpu-lease-v06", "mujoco", "browser", "blender",
+                      "omniverse", "robotsim"]
+
+
+class Handler(BaseHTTPRequestHandler):
+    """Answers the links check, the MCP tools/list call and the GPU catalog."""
+
+    links: dict[str, int] = {}
+    # Paths that answer 405 to HEAD and GET, as the live MCP endpoint does.
+    refused: set[str] = {"/mcp/v1"}
+    tools: list[str] = []
+    gpu_templates: list[str] = []
+    statuses: list[tuple[str, str]] = []
+    # The live MCP endpoint answers 401 to a POST that does not accept its
+    # stream type; tests that need that behavior switch this on.
+    require_stream_accept = False
+    # When set, /mcp/v1 answers tools/list as text/event-stream.
+    sse = False
+    # When set too, the SSE answer splits its JSON over two data lines.
+    sse_split = False
+    # When set too, a notification precedes the response event.
+    sse_notification = False
+    # When set, authenticated paths answer 403 unless X-API-Key matches.
+    required_key: str | None = None
+
+    def _authorized(self) -> bool:
+        if self.required_key is None:
+            return True
+        return self.headers.get("X-API-Key", "") == self.required_key
+
+    def log_message(self, *args):  # keep pytest output readable
+        pass
+
+    def _send(self, status: int, body: bytes = b"", content_type: str = "text/plain"):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if body:
+            self.wfile.write(body)
+
+    def do_HEAD(self):
+        self.statuses.append(("HEAD", self.path))
+        if self.path in self.refused:
+            self._send(405)
+            return
+        self._send(self.links.get(self.path, 404))  # the stub serves exactly what the test declared
+
+    def do_GET(self):
+        self.statuses.append(("GET", self.path))
+        if self.path in self.refused:
+            self._send(405)  # the real endpoint refuses a plain GET, too
+            return
+        if self.path == "/gpu/templates":
+            if not self._authorized():
+                self._send(403, b'{"error":"bad key"}', "application/json")
+                return
+            body = json.dumps({"templates": [{"name": n} for n in self.gpu_templates]}).encode()
+            self._send(200, body, "application/json")
+            return
+        self._send(self.links.get(self.path, 404))
+
+    def do_POST(self):
+        self.statuses.append(("POST", self.path))
+        length = int(self.headers.get("Content-Length") or 0)
+        request = json.loads(self.rfile.read(length) or b"{}")
+        if self.path == "/mcp/v1":
+            if not self._authorized():
+                self._send(403, b'{"error":"bad key"}', "application/json")
+                return
+            if self.require_stream_accept and "text/event-stream" not in self.headers.get("Accept", ""):
+                self._send(401, b'{"error":"stream type not accepted"}', "application/json")
+                return
+            if request.get("method") != "tools/list":
+                self._send(400, b'{"error":"unknown method"}', "application/json")
+                return
+            body = json.dumps({"jsonrpc": "2.0", "id": request.get("id"),
+                               "result": {"tools": [{"name": n} for n in self.tools]}})
+            if self.sse:
+                head = ""
+                if self.sse_notification:
+                    note = json.dumps({"jsonrpc": "2.0",
+                                       "method": "notifications/message"})
+                    head = f"data: {note}\n\n"
+                if self.sse_split:  # one event, its JSON over two data lines
+                    part, tail = body.split(", ", 1)
+                    body = f"data: {part},\ndata: {tail}\n\n"
+                else:
+                    body = f"event: message\ndata: {body}\n\n"
+                self._send(200, (head + body).encode(), "text/event-stream")
+            else:
+                self._send(200, body.encode(), "application/json")
+            return
+        self._send(404)
+
+
+@pytest.fixture
+def server(monkeypatch):
+    """A stub service on 127.0.0.1; every test gets a fresh one.
+
+    The links check skips localhost URLs by design; these tests exercise it
+    against this stub, so the skip list is emptied for the run.
+    """
+    monkeypatch.setattr(cc, "SKIP_URL_PARTS", ())
+    Handler.links, Handler.tools, Handler.gpu_templates, Handler.statuses = {}, [], [], []
+    Handler.refused = {"/mcp/v1"}
+    Handler.require_stream_accept = False
+    Handler.required_key = None
+    Handler.sse = False
+    Handler.sse_split = False
+    Handler.sse_notification = False
+    httpd = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    yield httpd
+    httpd.shutdown()
+    httpd.server_close()
+    thread.join(timeout=5)
+
+
+@pytest.fixture
+def docs(tmp_path: Path, server) -> Path:
+    """A docs tree whose links point at the stub, with the real drift cases."""
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    (tmp_path / "cli").mkdir()
+    (tmp_path / "plugins" / "sandbox" / "skills" / "sandbox").mkdir(parents=True)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "README.md").write_text(README.format(base=base), encoding="utf-8")
+    (tmp_path / "cli" / "README.md").write_text(README.format(base=base), encoding="utf-8")
+    (tmp_path / cc.PLUGIN_README).write_text(PLUGIN_README.format(base=base),
+                                             encoding="utf-8")
+    (tmp_path / cc.PLUGIN_SKILL).write_text(PLUGIN_SKILL, encoding="utf-8")
+    (tmp_path / "docs" / "acceptance.md").write_text(
+        f"See [{base}/alive]({base}/alive).\n", encoding="utf-8")
+    return tmp_path
+
+
+@pytest.fixture
+def service(docs, server):
+    """The base URL of the stub the docs tree points at, with drift data loaded."""
+    Handler.links = {"/alive": 200, "/console": 200, "/docs/page": 200}
+    Handler.tools = list(LIVE_TOOLS)
+    Handler.gpu_templates = list(LIVE_GPU_TEMPLATES)
+    return f"http://127.0.0.1:{server.server_address[1]}"
+
+
+# --- the doc sources ----------------------------------------------------
+
+def test_the_repo_docs_parse():
+    """The real docs yield the tool list and the catalog the checks compare."""
+    names = cc.documented_tool_names((REPO / cc.PLUGIN_README).read_text(encoding="utf-8"))
+    assert names == DOCUMENTED_TOOLS
+    templates = cc.documented_gpu_templates((REPO / cc.PLUGIN_SKILL).read_text(encoding="utf-8"))
+    assert templates == ["gpu-lease-v06", "mujoco", "browser", "blender", "omniverse", "robotsim"]
+
+
+def test_the_ci_gate_triggers_on_checker_and_workflow_changes():
+    """The PR gate runs when markdown changes — it must also run when the
+    checker, its tests or its workflow change."""
+    text = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    lines = text.splitlines()
+    at = next(i for i, line in enumerate(lines) if "git diff --name-only" in line)
+    end = next(i for i in range(at, len(lines)) if "grep -q" in lines[i])
+    diff = "".join(lines[at:end + 1])  # the pathspecs may wrap over lines
+    for pathspec in ("'*.md'", "'scripts/contract_check.py'",
+                     "'scripts/test_contract_check.py'", "'.github/workflows/ci.yml'"):
+        assert pathspec in diff, f"the gate must also trigger on {pathspec}"
+
+
+def test_doc_urls_skips_fences_and_placeholders(tmp_path):
+    page = tmp_path / "page.md"
+    page.write_text(
+        "real https://a.example/1\n"
+        "```\n"
+        "curl https://a.example/2\n"
+        "```\n"
+        "placeholder https://<port>-<id>.sbx.agent-next.com and https://a.example/$id\n"
+        "embedded https://api.vendor.test/sandboxes/<id>/files\n"
+        "local http://localhost:8000/x and https://127.0.0.1:9/y\n"
+        "example https://example.com/z\n",
+        encoding="utf-8")
+    assert cc.doc_urls(page) == [(1, "https://a.example/1")]
+
+
+# --- links: the dead-link drift ----------------------------------------
+
+def test_the_network_guard_blocks_other_hosts():
+    """The guard fixture answers any non-loopback connect with a refusal."""
+    with pytest.raises(ConnectionRefusedError):
+        socket.create_connection(("192.0.2.1", 80), timeout=1)
+
+
+def test_links_fail_on_a_dead_link(docs, service):
+    """A doc URL that answers 404 fails the check and names the file and line."""
+    Handler.links["/docs/page"] = 404
+    check = cc.check_links(docs)
+    assert check.failed, "a 404 in the docs must fail the links check"
+    assert any("/page" in line and "404" in line for line in check.failed)
+
+
+def test_links_fail_names_the_doc_and_line(docs, service):
+    dead = docs / "docs" / "dead.md"
+    dead.write_text(f"[dead]({service}/gone)\n", encoding="utf-8")
+    Handler.links["/gone"] = 404
+    check = cc.check_links(docs)
+    assert any("docs/dead.md:1" in line for line in check.failed)
+
+
+def test_links_pass_when_every_url_answers(docs, service):
+    check = cc.check_links(docs)
+    assert not check.failed
+    assert any("/alive" in line for line in check.ok)
+
+
+def test_links_retry_a_refused_head(docs, service):
+    """A server that refuses HEAD but serves GET is not a dead link."""
+    base = docs_port(service)
+    (docs / "docs" / "post.md").write_text(f"[x](http://127.0.0.1:{base}/mcp/v1)\n",
+                                           encoding="utf-8")
+    check = cc.check_links(docs)
+    assert any("refuses GET/HEAD" in line for line in check.ok)
+    assert any(method == "HEAD" for method, _ in Handler.statuses)
+
+
+def test_links_count_a_refused_head_as_alive(docs, service):
+    base = docs_port(service)
+    (docs / "docs" / "mcp.md").write_text(f"[x](http://127.0.0.1:{base}/mcp/v1)\n",
+                                          encoding="utf-8")
+    check = cc.check_links(docs)
+    assert not check.failed
+
+
+def test_links_count_an_endpoint_that_wants_a_key_as_alive(docs, service):
+    """A 401 is an API route that answered and asked for credentials (the
+    v0.0.1 notes link GET /templates); the link resolves."""
+    base = docs_port(service)
+    Handler.links["/templates"] = 401
+    (docs / "docs" / "keyed.md").write_text(f"[x](http://127.0.0.1:{base}/templates)\n",
+                                            encoding="utf-8")
+    check = cc.check_links(docs)
+    assert not check.failed
+    assert any("/templates" in line and "401" in line for line in check.ok)
+
+
+def test_links_pass_on_a_docs_tree_without_any_url(tmp_path):
+    """No checkable URLs is a pass, not a crash."""
+    (tmp_path / "README.md").write_text("# docs with no links\n", encoding="utf-8")
+    check = cc.check_links(tmp_path)
+    assert check.ok == ["no checkable http(s) URLs in the docs"]
+
+
+# --- mcp: the tool-list drift ------------------------------------------
+
+def test_mcp_pass_when_the_lists_agree(docs, service):
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert not check.failed, check.failed
+    assert any("equals" in line for line in check.ok)
+
+
+def test_mcp_fail_on_a_documented_tool_the_server_lacks(docs, service):
+    """The README naming a tool the server does not expose fails the check."""
+    Handler.tools = [n for n in DOCUMENTED_TOOLS if n != "sandbox_workspace"]
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert any("sandbox_workspace" in line and "does not expose" in line for line in check.failed)
+
+
+def test_mcp_fail_on_a_server_tool_the_readme_lacks(docs, service):
+    """The server exposing a tool the README omits fails the check."""
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert any("sandbox_workspace_logs" in line and "does not document" in line
+               for line in check.failed)
+
+
+def test_mcp_fail_when_the_readme_states_no_tool_list(docs, service):
+    (docs / cc.PLUGIN_README).write_text("# sandbox plugin\n\nNo tools here.\n", encoding="utf-8")
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.failed
+
+
+def test_mcp_parses_an_sse_tools_list(docs, service):
+    """The request advertises text/event-stream, so an SSE reply must be read."""
+    Handler.sse = True
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.skip_reason is None, check.skip_reason
+    assert not check.failed, check.failed
+    assert any("equals" in line for line in check.ok)
+
+
+def test_mcp_parses_an_sse_tools_list_split_over_data_lines(docs, service):
+    """SSE permits one event's JSON over several data: lines; the lines
+    must be joined before parsing, not answered line by line."""
+    Handler.sse = True
+    Handler.sse_split = True
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.skip_reason is None, check.skip_reason
+    assert not check.failed, check.failed
+    assert any("equals" in line for line in check.ok)
+
+
+def test_mcp_reads_the_response_after_a_notification(docs, service):
+    """MCP may send notifications before the response; the parser must
+    skip them and read the response, not return the notification."""
+    Handler.sse = True
+    Handler.sse_notification = True
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.skip_reason is None, check.skip_reason
+    assert not check.failed, check.failed
+    assert any("equals" in line for line in check.ok)
+
+
+def test_mcp_skips_when_the_service_refuses(docs, server):
+    """A service error is a SKIP that says why, never a silent pass."""
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    (docs / "docs" / "mcp.md").write_text(f"[x]({base}/mcp/v1)\n", encoding="utf-8")
+    Handler.tools = []
+    check = cc.check_mcp(docs, "bad-key", base)  # nothing serves the bare path
+    assert check.skip_reason is not None
+    assert "404" in check.skip_reason or "refused" in check.skip_reason
+
+
+# --- gpu: the template drift -------------------------------------------
+
+def test_gpu_pass_when_every_documented_template_is_live(docs, service):
+    (docs / cc.PLUGIN_SKILL).write_text(
+        PLUGIN_SKILL.replace("`kernel`", "`blender`"), encoding="utf-8")
+    check = cc.check_gpu(docs, "k", f"http://127.0.0.1:{docs_port(service)}/gpu/templates")
+    assert not check.failed, check.failed
+
+
+def test_each_live_check_sends_one_authenticated_request(docs, service):
+    """A check must not send its keyed request twice (once for the status, once for the body)."""
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    cc.check_gpu(docs, "k", f"http://127.0.0.1:{docs_port(service)}/gpu/templates")
+    assert Handler.statuses.count(("POST", "/mcp/v1")) == 1, Handler.statuses
+    assert Handler.statuses.count(("GET", "/gpu/templates")) == 1, Handler.statuses
+
+
+def test_gpu_fail_on_a_template_the_catalog_lacks(docs, service):
+    """The docs naming a GPU template the live catalog lacks fails the check."""
+    check = cc.check_gpu(docs, "k", f"http://127.0.0.1:{docs_port(service)}/gpu/templates")
+    assert any("kernel" in line and "catalog lacks" in line for line in check.failed)
+
+
+def test_gpu_fail_when_the_skill_states_no_catalog(docs, service):
+    (docs / cc.PLUGIN_SKILL).write_text("# Use the sandbox\n", encoding="utf-8")
+    check = cc.check_gpu(docs, "k", f"http://127.0.0.1:{docs_port(service)}/gpu/templates")
+    assert check.failed
+
+
+def test_gpu_template_payload_accepts_id_and_template_id(docs, service):
+    payload = {"templates": [{"templateID": "mujoco"}, {"id": "browser"}, "blender"]}
+    assert cc.gpu_templates_from_payload(payload) == ["mujoco", "browser", "blender"]
+
+
+# --- the entry point ----------------------------------------------------
+
+def test_main_offline_skips_the_link_check(docs, service):
+    assert cc.main(["--root", str(docs), "--offline"]) == 0
+
+
+def test_main_offline_touches_no_network_even_with_a_key(docs, service, monkeypatch, capsys):
+    """--offline must skip the live checks too, not run them with a key."""
+    monkeypatch.setenv("SBX_API_KEY", "k")
+    attempted: list[str] = []
+    real_open = cc._open
+
+    def watched_open(url, *args, **kwargs):
+        attempted.append(url)
+        return real_open(url, *args, **kwargs)
+
+    monkeypatch.setattr(cc, "_open", watched_open)
+    assert cc.main(["--root", str(docs), "--offline"]) == 0
+    assert attempted == [], "an --offline run attempted network access"
+    out = capsys.readouterr().out
+    assert "SKIP mcp" in out and "SKIP gpu" in out
+
+
+def test_main_fails_on_the_real_drifts(docs, service):
+    assert cc.main(["--root", str(docs), "--api-key", "k",
+                    "--mcp-url", f"http://127.0.0.1:{docs_port(service)}/mcp/v1",
+                    "--gpu-url", f"http://127.0.0.1:{docs_port(service)}/gpu/templates"]) == 1
+
+
+def test_main_passes_when_the_docs_match_the_service(docs, service):
+    (docs / cc.PLUGIN_SKILL).write_text(
+        PLUGIN_SKILL.replace("`kernel`", "`blender`"), encoding="utf-8")
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    assert cc.main(["--root", str(docs), "--api-key", "k",
+                    "--mcp-url", f"http://127.0.0.1:{docs_port(service)}/mcp/v1",
+                    "--gpu-url", f"http://127.0.0.1:{docs_port(service)}/gpu/templates"]) == 0
+
+
+def test_main_prints_a_reason_when_it_skips(docs, service, capsys):
+    cc.main(["--root", str(docs)])
+    out = capsys.readouterr().out
+    assert "SKIP mcp:" in out and "SBX_API_KEY" in out
+    assert "SKIP gpu:" in out and "SBX_API_KEY" in out
+
+
+def test_main_skips_checks_2_and_3_without_a_key(docs, service):
+    """No key: the link check still runs for real, the live ones say why."""
+    assert cc.main(["--root", str(docs)]) == 0
+
+
+def test_main_uses_the_key_from_the_environment(docs, service, monkeypatch, capsys):
+    """SBX_API_KEY in the environment must run both live checks, not skip them."""
+    monkeypatch.setenv("SBX_API_KEY", "envkey")
+    Handler.required_key = "envkey"
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    (docs / cc.PLUGIN_SKILL).write_text(
+        PLUGIN_SKILL.replace("`kernel`", "`blender`"), encoding="utf-8")
+    port = docs_port(service)
+    assert cc.main(["--root", str(docs),
+                    "--mcp-url", f"http://127.0.0.1:{port}/mcp/v1",
+                    "--gpu-url", f"http://127.0.0.1:{port}/gpu/templates"]) == 0
+    out = capsys.readouterr().out
+    assert "SKIP mcp" not in out and "SKIP gpu" not in out
+    assert "PASS mcp" in out and "PASS gpu" in out
+
+
+def test_mcp_sends_the_event_stream_accept_header(docs, service):
+    """The MCP POST must accept the stream type; the endpoint 401s otherwise."""
+    Handler.require_stream_accept = True
+    Handler.tools = list(DOCUMENTED_TOOLS)
+    check = cc.check_mcp(docs, "k", f"http://127.0.0.1:{docs_port(service)}/mcp/v1")
+    assert check.skip_reason is None, check.skip_reason
+    assert not check.failed, check.failed
+
+
+def docs_port(base: str) -> int:
+    return int(base.rsplit(":", 1)[1])

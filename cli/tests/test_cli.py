@@ -227,6 +227,9 @@ def test_exec_missing_sandbox_names_the_id_without_sdk_wording(monkeypatch, caps
         raise FakeNotFound(f"Paused sandbox {sid} not found")
 
     monkeypatch.setattr(FakeSandbox, "connect", classmethod(missing))
+    # exec retries a not-found id for the create lag (#23); drop the waits so
+    # this stays a unit test — the assertions below are the same either way.
+    monkeypatch.setattr(time, "sleep", lambda s: None)
     assert cli.main(["exec", "sbx-gone", "echo hi"]) == 1
     err = capsys.readouterr().err
     assert "sbx-gone" in err

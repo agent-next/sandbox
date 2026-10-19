@@ -15,8 +15,12 @@ it describes, manifest check, link check, etc.).
 
 Copied from `.github/workflows/ci.yml`:
 
-- `cli` job (matrix Python 3.10, 3.13): `pip install "./cli[test]"`, then
-  `pytest -q` with working-directory `cli`.
+- `cli` job (matrix Python 3.10, 3.13): `pip install "./cli[test]"`, then with
+  working-directory `cli`: on a pull_request, the cli-suite test files selected
+  by `python3 scripts/ci/affected.py --base HEAD^1 --format args` (a selector
+  failure selects ALL), run as
+  `python3 ../scripts/ci/run_parallel.py --runner pytest <files>`; on pushes to
+  main and on the schedules, the same runner over ALL.
 - `manifests` job: for every `git ls-files '*.json'`, `python -m json.tool
   "$f"` must pass; the marketplace plugin path check (the source in
   `.claude-plugin/marketplace.json` must be a directory containing
