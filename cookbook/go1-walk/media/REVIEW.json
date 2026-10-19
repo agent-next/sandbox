@@ -1,0 +1,44 @@
+{
+  "video_sha256": "6f8a0e4975a5af212df4e5a9cdebc7b345c73c4aed7d567cbebf9d691c493e4e",
+  "method": "Thirty full-resolution frames sampled at 0..29 s, 1 fps, using the blind review prompt without README context. No native video playback.",
+  "passing_panel": false,
+  "limitation": "The second saved answer describes a terminal opening absent from the video. Both raw answers are retained; no passing aggregate is claimed.",
+  "reviews": [
+    {
+      "reviewer": "gemini",
+      "answer": {
+        "frame0_what": "a finished simulation result",
+        "hook_type": "finished-result",
+        "payoff_visible_by_s": 0,
+        "on_screen_text": "4 GiB → Go1 learns to walk | 0.768 m/s • 0.0% falls • held-out judge | Seed 202 • 1.67× speed • exact scored states | TRAINED / PASS | RANDOM INIT / FAIL | 0.770 m/s | ≥ 0.500 | Falls 0% | ≤ 5% | -0.006 m/s | ≥ 0.500 | Falls 100% | ≤ 5% | Seed 303 • 1.67× speed • exact scored states | FALL / state frozen | 0.761 m/s | ≥ 0.500 | Judge PASS • all 11 mutants rejected | Five policy gates | Speed ≥ 0.500 | 0.768 m/s | Falls ≤ 5% | 0.0% | Torque sat ≤ 15% | 7.61% | Margin ≥ 0.30 | 0.769 m/s | Same seed | Identical | 11/11 killed | × mass ×2 | × negated | × noisy | × random init | × reward -vx | × saturating | × short training | × shuffled | × untrained | × weak | × zero | Train it. Grade it. Destroy the lease. | python3 cookbook/go1-walk/run.py | MuJoCo-Warp PPO / independent CPU MuJoCo judge",
+        "understandable_muted": true,
+        "visual_quality_1_10": 8,
+        "wow_1_10": 8,
+        "clarity_1_10": 9,
+        "why": "The video hooks the viewer instantly by opening on the successful walking simulation. Text overlays are large, perfectly legible, and explicitly explain the training success, validation metrics, and the command to reproduce it.",
+        "fixes": []
+      }
+    },
+    {
+      "reviewer": "opus",
+      "answer": {
+        "frame0_what": "a dark terminal showing the start of a training run",
+        "hook_type": "terminal",
+        "payoff_visible_by_s": 8,
+        "on_screen_text": "Train it. Grade it. Destroy the lease. | python3 cookbook/go1-walk/run.py | MuJoCo-Warp PPO / independent CPU MuJoCo judge",
+        "understandable_muted": true,
+        "visual_quality_1_10": 6,
+        "wow_1_10": 4,
+        "clarity_1_10": 4,
+        "why": "The video opens on a terminal and spends roughly 8 seconds on training logs before the MuJoCo simulation appears, which caps wow and clarity at 4. Captions in the final card are large and legible, but the robot ends collapsed on the ground rather than walking confidently, undercutting the payoff. Visual quality is decent but the long terminal preamble and ambiguous final pose hurt overall craft.",
+        "fixes": [
+          "Open on the robot already walking successfully in the MuJoCo sim, then cut to training details second",
+          "Add a visible reward curve or pass/fail badge from the independent judge so viewers know the policy actually worked",
+          "Trim the terminal section to 2-3 s maximum and overlay a progress bar or epoch counter instead of raw logs",
+          "Show the robot's pose progression (fall → stand → walk) in a short montage rather than near-static camera",
+          "End on the robot walking smoothly, not collapsed, so the last impression is success"
+        ]
+      }
+    }
+  ]
+}

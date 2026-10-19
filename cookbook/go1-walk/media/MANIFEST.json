@@ -1,0 +1,171 @@
+{
+  "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+  "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+  "files": {
+    "data/render.json": {
+      "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+      "sha256": "ed67621559fd611a18cffa8f017c2bbcd3d3bf6404235b5abb9c8d6c6ba1c139",
+      "what": "Machine-produced evidence"
+    },
+    "data/selftest.json": {
+      "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+      "sha256": "f25bc31ded894f7ea0b1a50deb1e1af151f9307a7323118e054e93feb1ae7fe1",
+      "what": "Machine-produced evidence"
+    },
+    "data/trained.json": {
+      "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+      "sha256": "601022b370038364334aa74dd13834d338ba38b7153b28710421e5db61bc0c08",
+      "what": "Machine-produced evidence"
+    },
+    "data/untrained.json": {
+      "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+      "sha256": "b42216e68ca4bc266a66174e97ec0f7c822e85d3e90b6d20220279aba0283d65",
+      "what": "Machine-produced evidence"
+    },
+    "demo.mp4": {
+      "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+      "sha256": "50f499e860e68ac79e7bb06f812f2737958eb1aba172b62432ed7a2a2d690589",
+      "source_data": [
+        "data/trained.json",
+        "data/untrained.json",
+        "data/*.npz"
+      ],
+      "what": "Close trunk-tracking replay, real fall, animated judge checks; one 2.5 s end card"
+    },
+    "loop.png": {
+      "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+      "sha256": "1273f0c4054e97a9c1dc4ab8614b497eebc7edc9315917666263f9597c9132db",
+      "source_data": [
+        "../examples/good/curve.json",
+        "../examples/good/loop.json",
+        "data/selftest.json"
+      ],
+      "what": "PPO reward curve, independently graded checkpoints, real mutation kills"
+    },
+    "result.json": {
+      "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+      "sha256": "f9b5793d4a42e71ef314f7b7cd55658227aac156c0567a932da1141f5d11b0f8",
+      "source_data": [
+        "data/trained.json",
+        "data/selftest.json",
+        "../examples/good/curve.json"
+      ],
+      "what": "Shared gallery/result-card numbers written from the real grade"
+    },
+    "result.png": {
+      "command": "bash cookbook/go1-walk/media/make_media.sh --render-only",
+      "sha256": "45fb3b2bcbbdacf58dd3427828575744e97e86cd2f55da15a9e35c3ab70e9dde",
+      "source_data": [
+        "data/trained.json",
+        "data/untrained.json",
+        "data/*.npz"
+      ],
+      "what": "Six real 3D states, trained versus untrained, with per-seed judge limits"
+    }
+  },
+  "python": "3.12.3",
+  "render": {
+    "backend": "egl",
+    "camera": "MuJoCo tracking camera, trackbodyid=trunk, distance 0.98\u20131.15 m",
+    "duration_s": 30,
+    "episode_selection": "episode 0, fixed before grading",
+    "fps": 30,
+    "frames": 900,
+    "graphics": {
+      "renderer": "NVIDIA GeForce RTX 5090/PCIe/SSE2",
+      "vendor": "NVIDIA Corporation",
+      "version": "4.6.0 NVIDIA 580.95.05"
+    },
+    "height": 1080,
+    "lighting": "render-only world lights follow robot xy for shadow-map coverage",
+    "model_sha256": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90",
+    "render_model_sha256": "2a14edaf88fa45bdc8fcad01944b201ee96aced52a5206efbb9330e968e371d4",
+    "scenes": [
+      {
+        "frames": 150,
+        "name": "hook"
+      },
+      {
+        "frames": 90,
+        "name": "train"
+      },
+      {
+        "frames": 58,
+        "name": "fall"
+      },
+      {
+        "frames": 122,
+        "name": "walk-202"
+      },
+      {
+        "frames": 120,
+        "name": "walk-303"
+      },
+      {
+        "frames": 165,
+        "name": "gates"
+      },
+      {
+        "frames": 120,
+        "name": "selftest"
+      },
+      {
+        "frames": 75,
+        "name": "end"
+      }
+    ],
+    "state_checks": {
+      "trained-101": 241,
+      "trained-202": 243,
+      "trained-303": 286,
+      "untrained-101": 1,
+      "untrained-202": 59,
+      "untrained-303": 1
+    },
+    "width": 1920
+  },
+  "source_sha256": {
+    "env.py": "6812bdfcde6f03d0434820136b9f73e0788ad90f65898339a00d98033f6e833f",
+    "examples/good/curve.json": "204d1c23c7459f5b956bda1e9194ca73bc843e03b79fae9cd609b98f4c0510a4",
+    "examples/good/loop.json": "9b7dc608d4d48a3e7d3259b95fb5d548e2301d281b72fbfc913451bc4a9b3b5a",
+    "examples/good/policy.npz": "fceee5a28ccf99ee3063291431634d46d587716a815bf9d37dbe1f2ea65e9f02",
+    "examples/good/reward-flipped.npz": "00d0d9d69b9ff72f4b607c11a3e134f88388d93484af61fc1ece245449419c73",
+    "examples/good/short.npz": "0327ae597ea8eeda6646af7d6f75c8d31087bc2fadfdee232358d9f64a8e4639",
+    "examples/good/step0.npz": "5829740ffc92ab418b8440239f39c526ada1c665aa7e91c5632608c675de1f81",
+    "examples/good/train_config.json": "3db0718f92953c41b577bdf79ee6ae469cc027c61001da198f90f2e3e1ca1c3f",
+    "judge/_eval.py": "27e13a6910656c24c5a61e82d270a6f47b4a3fe8f7503f4e2b923283ca5df986",
+    "judge/grade.py": "8a440a04ad73eada43ceb20298807a8b40efc46975b36087636af3057debfb90",
+    "judge/mutants.py": "c5eecf5e4381cd5414e4ba5e09bc38030fa6ea5f30533611c692287e9769f27b",
+    "judge/selftest.py": "1e8fea1a8b39b3ecfe661fcda9a9bbaaccfc8c65416c2d49a906ccd7bcb8a7bf",
+    "media/STORYBOARD.md": "e8b6734bb74d1f8444ea10665a5edb6a03a851cb1feb4d3c242590055be49d9e",
+    "media/collect.py": "fbcf391e72276fbce91276e6c1edd2bbe6483beca732334fcdbdcef8fcc2e6a7",
+    "media/data/trained-101.npz": "26f8ec54c101d6835e0dd2304ab9e3b228a13668ca4ec4bbabb5914120ffeae9",
+    "media/data/trained-202.npz": "8267ae46b8af5fd29a75c8beeeffc9f5e99007a305441984c9de20428385d5d8",
+    "media/data/trained-303.npz": "4fd80a7eb692fd47f10326bb551164dbb8272f1a77c7508a0dfd89edb249ea44",
+    "media/data/untrained-101.npz": "eb0fe0889c404f9c149b50938ec30321828395cad28611c266dbf0f4cba11adf",
+    "media/data/untrained-202.npz": "7be256b3b2666c501d8d0655e39066983b56099750410ca5b5568a67fe091830",
+    "media/data/untrained-303.npz": "777598488ada6e877566a0bc37b8e1754ed4e0a473fef6af33f3040d36e24a81",
+    "media/data/untrained-policy.npz": "1eea981e4d736af98595dff55eb938db92b0556927337b2cbf8ebdab6b47d854",
+    "media/make_media.sh": "16d0fa509d73446b29061bb6e033ca98b54324fb7ce0e22774ade0e421af6794",
+    "media/manifest.py": "cbdf2f00671814a4359f6ce032b824cc77abdb7c990def1f1af5bdcbba73ba0e",
+    "media/render.py": "cc6d299e92b04313cc5776ff14eceaa23a2d186116e602db40c03e0940d9d744",
+    "media/requirements.lock": "39c8f1ad9c5893b4f18854cafe9dd0e77372dce865793e45609db2f6a03959c7",
+    "model/go1_meshless.xml": "1a8174762926e860e28dff93c20c5eb5cef0606daf2b3e6a19159a751dbe1e90"
+  },
+  "tools": {
+    "Pillow": "11.3.0",
+    "PyOpenGL": "3.1.10",
+    "mujoco": "3.8.1",
+    "numpy": "2.2.6"
+  },
+  "video": {
+    "bytes": 7262402,
+    "codec": "h264",
+    "duration_s": 30.0,
+    "fps": 30,
+    "height": 1080,
+    "master": "media/master/demo.mp4 (ignored, CRF 0)",
+    "web_encode": "-crf 22 -preset slow -tune animation -pix_fmt yuv420p -movflags +faststart",
+    "width": 1920
+  }
+}
