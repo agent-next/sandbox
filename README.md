@@ -76,7 +76,8 @@ repository contains the client kit; the hosted service's backend is separate.
 ## Development
 
 Start with [AGENTS.md](AGENTS.md) for the check commands and acceptance rules.
-CLI setup and usage are in [cli/README.md](cli/README.md).
+CLI setup and usage are in [cli/README.md](cli/README.md). The release process
+is in [RELEASING.md](RELEASING.md).
 
 ## License
 
