@@ -8,8 +8,10 @@ The release version lives in three files, which must always agree:
     plugins/sandbox/.codex-plugin/plugin.json    "version": "x.y.z"
 
 Usage:
-    bump_version.py X.Y.Z [--allow-minor]   rewrite all three to X.Y.Z
+    bump_version.py X.Y.Z [--allow-minor]   rewrite all three to X.Y.Z and
+                                           scaffold docs/releases/vX.Y.Z.md
     bump_version.py --check [--tag vX.Y.Z]  exit non-zero when they disagree
+                                           (or the tag's notes file is missing)
 """
 
 import argparse
@@ -28,6 +30,33 @@ VERSION_FILES = (
     "plugins/sandbox/.claude-plugin/plugin.json",
     "plugins/sandbox/.codex-plugin/plugin.json",
 )
+
+# The release workflow publishes the GitHub release from this file
+# (.github/workflows/release.yml: `test -f docs/releases/$TAG.md`).
+def notes_rel(version):
+    return f"docs/releases/v{version}.md"
+
+
+# The notes follow the template in RELEASING.md; fill in and expand before
+# merging the bump PR.
+_NOTES_TEMPLATE = """\
+<!-- docs/releases template for v{version}: fill in and expand before the
+     bump PR is merged; the release workflow publishes this file verbatim. -->
+TODO: one-paragraph summary of what this release is for.
+
+## What is new
+
+- **Thing**: what changed and why (#PR).
+
+## Install
+
+TODO: copy the Install section from the previous notes file and update the tag.
+
+## Known limits
+
+TODO: copy from the previous notes file; remove what this release fixed,
+add anything new.
+"""
 
 _SEMVER = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 _TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
@@ -168,6 +197,15 @@ def bump(root, new_text, allow_minor=False):
         raise
     for bak in backups:
         os.unlink(bak)
+    # Keep RELEASING.md's "notes in the same PR as the bump" convention
+    # mechanically: scaffold the notes file the release workflow will
+    # publish from, never overwriting one already written.
+    notes = root / notes_rel(new_text)
+    if not notes.exists():
+        notes.parent.mkdir(parents=True, exist_ok=True)
+        with open(notes, "x", encoding="utf-8") as f:
+            f.write(_NOTES_TEMPLATE.format(version=new_text))
+        paths.append(notes)
     return paths
 
 
@@ -191,6 +229,12 @@ def check(root, tag=None):
             for rel, v in versions.items()
             if v != want
         ]
+        # release.yml's final step fails on this exact missing file; catch
+        # it here so the tag push dies before the install and test steps
+        # instead of after them.
+        notes = root / notes_rel(want)
+        if not notes.is_file():
+            problems.append(f"missing release notes: {notes_rel(want)}")
     return problems
 
 

@@ -111,6 +111,7 @@ def test_check_fails_when_versions_disagree(tmp_path, capsys):
 
 def test_check_with_matching_tag(tmp_path):
     repo = make_repo(tmp_path)
+    make_notes(repo, "0.0.3")
     assert bump_version.main(["--check", "--tag", "v0.0.3"], root=repo) == 0
 
 

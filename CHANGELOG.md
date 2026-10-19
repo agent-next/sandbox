@@ -4,6 +4,14 @@ Every released version, newest first. Generated from the release notes in
 [`docs/releases/`](docs/releases/); edit the notes file for the version and
 regenerate this file from it.
 
+## v0.0.4 — What is new
+
+- **`sbx gpu`**: GPU REST calls retry through a gateway restart 503 instead of surfacing it as a failure (#127).
+- **CI**: a contract check runs the kit docs against the live service — weekly, and on PRs that touch docs — so the docs cannot drift silently (#121).
+- **GPU docs**: the allocatable VRAM inside a `vram_gb` slice is now stated, so lease sizes can be planned from the docs alone (#126).
+- **`render-pathtrace`**: the demo honours 409 retry hints and bounds its GPU downloads (#125).
+- **Releasing**: `scripts/release_smoke.py` gates a tag with a real-sandbox smoke run; attach its verdict to the release (#120).
+
 ## v0.0.3 — What is new
 
 - **`sbx list`**: prints `no sandboxes` (on stderr) when the key holds none. `--json` prints the raw list (`[]` when empty) (#114).
