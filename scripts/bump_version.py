@@ -138,28 +138,36 @@ def bump(root, new_text, allow_minor=False):
         raise BumpError(
             f"{_fmt(cur)} -> {new_text} is a minor/major bump; pass --allow-minor"
         )
-    # Stage all three before replacing any, so a failed write moves none.
-    staged = []
+    # Stage all three temps and hard-link backups of the originals before
+    # replacing any: a failure while staging moves nothing, and a failed
+    # replace rolls back by rename alone, which needs no free space.
+    staged, backups = [], []
     try:
         for p, text in rendered:
             staged.append((_write(p, text), p))
+        for _, p in staged:
+            bak = p.with_name(p.name + ".bak")
+            os.link(p, bak)
+            backups.append(bak)
     except BaseException:
-        for tmp, _ in staged:
-            os.unlink(tmp)
+        for f in [tmp for tmp, _ in staged] + backups:
+            os.unlink(f)
         raise
-    originals = [(p, p.read_text()) for _, p in staged]
     done = 0
     try:
         for tmp, p in staged:
             os.replace(tmp, p)
             done += 1
     except BaseException:
-        # Put back the files already replaced and drop the unused temps.
-        for p, text in originals[:done]:
-            os.replace(_write(p, text), p)
+        for (_, p), bak in zip(staged[:done], backups):
+            os.replace(bak, p)
         for tmp, _ in staged[done:]:
             os.unlink(tmp)
+        for bak in backups[done:]:
+            os.unlink(bak)
         raise
+    for bak in backups:
+        os.unlink(bak)
     return paths
 
 
