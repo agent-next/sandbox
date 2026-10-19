@@ -39,10 +39,10 @@ PLUGIN_SKILL = "plugins/sandbox/skills/sandbox/SKILL.md"
 MCP_URL = "https://api.sbx.agent-next.com/mcp/v1"
 GPU_URL = "https://api.sbx.agent-next.com/gpu/templates"
 
-# A status the links check treats as alive even though it is >= 400: the
-# server answered and named the route's method set, which is what "the link
-# resolves" means for an API endpoint that only accepts POST.
-ALIVE_REFUSED = frozenset({405})
+# Statuses the links check treats as alive even though they are >= 400: the
+# server answered for the route, which is what "the link resolves" means for
+# an API endpoint that only accepts POST (405) or wants a key (401).
+ALIVE_REFUSED = {405: "refuses GET/HEAD", 401: "needs a key"}
 
 # URLs that never resolve for anyone and say nothing about the docs.
 SKIP_URL_PARTS = ("localhost", "127.0.0.1", "example.com", "example.org")
@@ -316,7 +316,7 @@ def check_links(root: Path) -> Check:
         if status < 400:
             check.ok.append(f"{url} ({where}) HTTP {status}")
         elif status in ALIVE_REFUSED:
-            check.ok.append(f"{url} ({where}) HTTP {status} (alive; refuses GET/HEAD)")
+            check.ok.append(f"{url} ({where}) HTTP {status} (alive; {ALIVE_REFUSED[status]})")
         else:
             check.failed.append(f"{url} ({where}) HTTP {status}")
     return check
