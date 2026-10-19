@@ -119,6 +119,24 @@ def _short(value, limit=90):
     return text
 
 
+def _d(value):
+    """The value when it is a dict, else an empty one."""
+    return value if isinstance(value, dict) else {}
+
+
+def _diff_keys(prefix, old, new, out, skip=()):
+    """Report each key added, removed or changed between two dicts."""
+    for key in sorted(set(old) | set(new)):
+        if key in skip:
+            continue
+        if key not in old:
+            out.append(f"{prefix}{key}: added ({_short(new[key])})")
+        elif key not in new:
+            out.append(f"{prefix}{key}: removed (was {_short(old[key])})")
+        elif old[key] != new[key]:
+            generic_diff(f"{prefix}{key}", old[key], new[key], out)
+
+
 def _properties(schema):
     if not isinstance(schema, dict):
         return {}
@@ -153,41 +171,20 @@ def schema_key_changes(label, old_schema, new_schema, out):
         return
     # Schema-level constraints (type, enum, additionalProperties, description,
     # allOf/anyOf/oneOf, ...) matter even when a properties block is present.
-    for key in sorted(set(old_schema) | set(new_schema)):
-        if key in ("properties", "required"):
-            continue
-        if key not in old_schema:
-            out.append(f"{label}.{key}: added ({_short(new_schema[key])})")
-        elif key not in new_schema:
-            out.append(f"{label}.{key}: removed (was {_short(old_schema[key])})")
-        elif old_schema[key] != new_schema[key]:
-            generic_diff(f"{label}.{key}", old_schema[key], new_schema[key], out)
+    _diff_keys(f"{label}.", old_schema, new_schema, out, skip=("properties", "required"))
 
 
 def generic_diff(prefix, old, new, out):
     """Collect changed leaf paths under `prefix` as one-line summaries."""
     if isinstance(old, dict) and isinstance(new, dict):
-        for key in sorted(set(old) | set(new)):
-            if key not in old:
-                out.append(f"{prefix}.{key}: added ({_short(new[key])})")
-            elif key not in new:
-                out.append(f"{prefix}.{key}: removed (was {_short(old[key])})")
-            else:
-                generic_diff(f"{prefix}.{key}", old[key], new[key], out)
-        return
-    if isinstance(old, list) and isinstance(new, list):
-        if old != new:
-            out.append(f"{prefix}: changed ({_short(old)} -> {_short(new)})")
-        return
-    if old != new:
+        _diff_keys(f"{prefix}.", old, new, out)
+    elif old != new:
         out.append(f"{prefix}: changed ({_short(old)} -> {_short(new)})")
 
 
 def _content_schemas(node):
     """Map media_type -> schema for a requestBody/response node."""
-    content = node.get("content", {}) if isinstance(node, dict) else {}
-    if not isinstance(content, dict):
-        return {}
+    content = _d(_d(node).get("content"))
     return {
         media_type: content[media_type].get("schema")
         for media_type in sorted(content)
@@ -211,15 +208,7 @@ def _diff_content_node(label, old_node, new_node, out):
         schema_key_changes(f"{label} [{media_type}]", old_types[media_type],
                            new_types[media_type], out)
     # required, description, headers, a whole-node $ref, ... are contract too.
-    for key in sorted(set(old_node) | set(new_node)):
-        if key == "content":
-            continue
-        if key not in old_node:
-            out.append(f"{label}.{key}: added ({_short(new_node[key])})")
-        elif key not in new_node:
-            out.append(f"{label}.{key}: removed (was {_short(old_node[key])})")
-        elif old_node[key] != new_node[key]:
-            generic_diff(f"{label}.{key}", old_node[key], new_node[key], out)
+    _diff_keys(f"{label}.", old_node, new_node, out, skip=("content",))
 
 
 def _resolve_param(param, components):
@@ -227,8 +216,7 @@ def _resolve_param(param, components):
     if isinstance(param, dict):
         ref = param.get("$ref")
         if isinstance(ref, str) and ref.startswith("#/components/parameters/"):
-            table = components.get("parameters") if isinstance(components, dict) else None
-            target = table.get(ref.rsplit("/", 1)[1]) if isinstance(table, dict) else None
+            target = _d(_d(components).get("parameters")).get(ref.rsplit("/", 1)[1])
             if isinstance(target, dict):
                 return target
     return param
@@ -278,8 +266,7 @@ def diff_operation(path, method, old_op, new_op, old_components, new_components,
         _diff_content_node(f"{label} request", old_op["requestBody"], new_op["requestBody"],
                            request_lines)
 
-    old_responses = old_op.get("responses") if isinstance(old_op.get("responses"), dict) else {}
-    new_responses = new_op.get("responses") if isinstance(new_op.get("responses"), dict) else {}
+    old_responses, new_responses = _d(old_op.get("responses")), _d(new_op.get("responses"))
     for code in sorted(set(new_responses) - set(old_responses), key=str):
         response_lines.append(f"{label}: response {code} added")
     for code in sorted(set(old_responses) - set(new_responses), key=str):
@@ -290,36 +277,16 @@ def diff_operation(path, method, old_op, new_op, old_components, new_components,
 
     _diff_parameters(label, old_op, new_op, old_components, new_components, other_lines)
 
-    structural = ("requestBody", "responses", "parameters")
-    for key in sorted(set(old_op) | set(new_op)):
-        if key in structural:
-            continue
-        if key not in old_op:
-            other_lines.append(f"{label}.{key}: added ({_short(new_op[key])})")
-        elif key not in new_op:
-            other_lines.append(f"{label}.{key}: removed (was {_short(old_op[key])})")
-        elif old_op[key] != new_op[key]:
-            generic_diff(f"{label}.{key}", old_op[key], new_op[key], other_lines)
+    _diff_keys(f"{label}.", old_op, new_op, other_lines,
+               skip=("requestBody", "responses", "parameters"))
 
 
 def diff_docs(old, new):
     """Return a list of human-readable drift lines (empty when equal)."""
     lines = []
-    for key in sorted(set(old) | set(new)):
-        if key in ("paths", "components"):
-            continue
-        if key not in old:
-            lines.append(f"{key}: added ({_short(new[key])})")
-        elif key not in new:
-            lines.append(f"{key}: removed (was {_short(old[key])})")
-        elif old[key] != new[key]:
-            generic_diff(key, old[key], new[key], lines)
-
-    old_components = old.get("components") if isinstance(old.get("components"), dict) else {}
-    new_components = new.get("components") if isinstance(new.get("components"), dict) else {}
-
-    old_paths = old.get("paths") if isinstance(old.get("paths"), dict) else {}
-    new_paths = new.get("paths") if isinstance(new.get("paths"), dict) else {}
+    _diff_keys("", old, new, lines, skip=("paths", "components"))
+    old_components, new_components = _d(old.get("components")), _d(new.get("components"))
+    old_paths, new_paths = _d(old.get("paths")), _d(new.get("paths"))
     if added := sorted(set(new_paths) - set(old_paths)):
         lines.append("paths added: " + ", ".join(added))
     if removed := sorted(set(old_paths) - set(new_paths)):
@@ -355,8 +322,7 @@ def diff_docs(old, new):
             elif old_item[key] != new_item[key]:
                 other_lines.append(f"{path}.{key}: changed ({_short(old_item[key])} -> {_short(new_item[key])})")
 
-    old_schemas = old_components.get("schemas") if isinstance(old_components.get("schemas"), dict) else {}
-    new_schemas = new_components.get("schemas") if isinstance(new_components.get("schemas"), dict) else {}
+    old_schemas, new_schemas = _d(old_components.get("schemas")), _d(new_components.get("schemas"))
     schema_lines = []
     for name in sorted(set(new_schemas) - set(old_schemas)):
         schema_lines.append(f"component schema added: {name}")
@@ -399,37 +365,21 @@ def main(argv=None):
                         help="compare this file to the snapshot instead of fetching")
     args = parser.parse_args(argv)
 
-    if args.update:
-        try:
-            doc = fetch(args.url)
-        except FetchError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 2
-        args.snapshot.parent.mkdir(parents=True, exist_ok=True)
-        args.snapshot.write_text(canon(normalize(doc)), encoding="utf-8")
-        print(f"snapshot updated: {args.snapshot}")
-        return 0
-
     try:
+        if args.update:
+            doc = fetch(args.url)
+            args.snapshot.parent.mkdir(parents=True, exist_ok=True)
+            args.snapshot.write_text(canon(normalize(doc)), encoding="utf-8")
+            print(f"snapshot updated: {args.snapshot}")
+            return 0
         snapshot = normalize(load_json_file(args.snapshot))
-    except InputError as exc:
+        if args.file is not None:
+            live, source = load_json_file(args.file), str(args.file)
+        else:
+            live, source = fetch(args.url), args.url
+    except (FetchError, InputError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-
-    if args.file is not None:
-        try:
-            live = load_json_file(args.file)
-        except InputError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 2
-        source = str(args.file)
-    else:
-        try:
-            live = fetch(args.url)
-        except FetchError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 2
-        source = args.url
 
     lines = diff_docs(snapshot, normalize(live))
     if not lines:
