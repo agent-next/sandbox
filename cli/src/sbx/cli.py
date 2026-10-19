@@ -18,6 +18,8 @@ DEFAULT_TIMEOUT_MIN = 5
 MAX_TIMEOUT_MIN = 1440
 _RESTART_ATTEMPTS = 3
 _RESTART_MAX_WAIT_S = 30
+_CREATE_LAG_ATTEMPTS = 3
+_CREATE_LAG_FIRST_WAIT_S = 3.0
 
 
 class SbxError(Exception):
@@ -101,6 +103,28 @@ def _sdk_retry(fn, *args, **kwargs):
             time.sleep(wait)
 
 
+def _connect_sandbox(sandbox_id: str):
+    """Connect by id, retrying the create lag: the first lookup after create
+    can answer not found while the sandbox is running (#23), so exec and cp
+    wait and retry instead of reporting a live sandbox as gone."""
+    from e2b import SandboxNotFoundException
+
+    wait = _CREATE_LAG_FIRST_WAIT_S
+    for attempt in range(_CREATE_LAG_ATTEMPTS):
+        try:
+            return _sdk_retry(_sandbox_cls().connect, sandbox_id)
+        except SandboxNotFoundException:
+            if attempt == _CREATE_LAG_ATTEMPTS - 1:
+                raise
+            _say(
+                f"sbx: sandbox {sandbox_id} not found yet (a create can lag); "
+                f"retrying in {wait:g}s",
+                err=True,
+            )
+            time.sleep(wait)
+            wait *= 2
+
+
 def cmd_create(args: argparse.Namespace) -> int:
     _positive_seconds(args.timeout_min, "--timeout-min", MAX_TIMEOUT_MIN)
     _credentials()
@@ -123,7 +147,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
         raise SbxError("exec: no command given")
     line = command[0] if len(command) == 1 else shlex.join(command)
     try:
-        sbx = _sdk_retry(_sandbox_cls().connect, args.sandbox_id)
+        sbx = _connect_sandbox(args.sandbox_id)
         try:
             result = sbx.commands.run(line, timeout=args.timeout)
         except CommandExitException as exc:
@@ -184,7 +208,7 @@ def cmd_cp(args: argparse.Namespace) -> int:
     from e2b import FileType, InvalidArgumentException, NotFoundException, TimeoutException
 
     try:
-        sbx = _sdk_retry(_sandbox_cls().connect, sid)
+        sbx = _connect_sandbox(sid)
         try:
             info = _sdk_retry(sbx.files.get_info, remote)
         except NotFoundException:

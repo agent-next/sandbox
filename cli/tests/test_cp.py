@@ -19,6 +19,10 @@ class NotFound(Exception):
     pass
 
 
+class SandboxNotFound(NotFound):
+    """The SDK's connect-by-id 404, a NotFoundException (see test_sdk_contract)."""
+
+
 class Timeout(Exception):
     pass
 
@@ -32,7 +36,8 @@ def sdk(monkeypatch):
     sandbox = Mock()
     sandbox.connect.return_value.files.get_info.return_value.type = FileType.FILE
     monkeypatch.setitem(sys.modules, "e2b", types.SimpleNamespace(
-        Sandbox=sandbox, NotFoundException=NotFound, InvalidArgumentException=InvalidArgument, FileType=FileType,
+        Sandbox=sandbox, NotFoundException=NotFound, SandboxNotFoundException=SandboxNotFound,
+        InvalidArgumentException=InvalidArgument, FileType=FileType,
         TimeoutException=Timeout,
     ))
     monkeypatch.setenv("E2B_API_KEY", "e2b_test_copy_secret")
