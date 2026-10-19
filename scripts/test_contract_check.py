@@ -312,6 +312,18 @@ def test_links_count_a_refused_head_as_alive(docs, service):
     assert not check.failed
 
 
+def test_links_count_an_endpoint_that_wants_a_key_as_alive(docs, service):
+    """A 401 is an API route that answered and asked for credentials (the
+    v0.0.1 notes link GET /templates); the link resolves."""
+    base = docs_port(service)
+    Handler.links["/templates"] = 401
+    (docs / "docs" / "keyed.md").write_text(f"[x](http://127.0.0.1:{base}/templates)\n",
+                                            encoding="utf-8")
+    check = cc.check_links(docs)
+    assert not check.failed
+    assert any("/templates" in line and "401" in line for line in check.ok)
+
+
 def test_links_pass_on_a_docs_tree_without_any_url(tmp_path):
     """No checkable URLs is a pass, not a crash."""
     (tmp_path / "README.md").write_text("# docs with no links\n", encoding="utf-8")
