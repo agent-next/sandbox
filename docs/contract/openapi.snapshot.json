@@ -481,7 +481,7 @@
             "type": "number"
           },
           "mcp_tools": {
-            "description": "names in the remote MCP tools/list answer (gateway/src/gateway/sandbox_mcp.py _TOOLS)",
+            "description": "names in the remote MCP tools/list answer",
             "items": {
               "type": "string"
             },
@@ -2222,7 +2222,7 @@
     },
     "/mcp": {
       "post": {
-        "description": "The permanent public MCP endpoint on the dedicated mcp.<apex> host (owner decision 2026-10-09: OpenAI treats the MCP origin as immutable once submitted). One handler with POST /mcp/v1 mounted twice — identical auth, gates and tools; see that operation for the full contract. The dedicated host proxies only this path, the OAuth protected-resource metadata and /.well-known/openai-apps-challenge.",
+        "description": "The permanent public MCP endpoint on the dedicated mcp.<apex> host (OpenAI treats the MCP origin as immutable once submitted). One handler with POST /mcp/v1 mounted twice — identical auth, gates and tools; see that operation for the full contract. The dedicated host proxies only this path, the OAuth protected-resource metadata and /.well-known/openai-apps-challenge.",
         "operationId": "sandboxMcpPermanent",
         "requestBody": {
           "content": {
@@ -2418,11 +2418,11 @@
     },
     "/sandboxes": {
       "get": {
-        "description": "Proxied to the upstream, then intersected with the caller's owned set — another tenant's row can never appear. `envdAccessToken`/`trafficAccessToken` are stripped from every item (bulk surfaces carry no credentials). `state` is coerced into the SDK enum (running|paused) and `domain` rewritten to the gateway domain. The tenant-visible list is paginated gateway-side in deterministic (created_at, sandboxID) order: `order` (default desc), `limit` 1-100 (default 100) and the `nextToken` continuation cursor are enforced on both dialects; any upstream pagination headers are stripped and the gateway's own X-Next-Token / X-Total-Running are emitted instead. `metadata` filters the result (url-encoded k=v pairs, AND-ed against the stored create metadata) so a tenant can list what it owns; per-item `metadata` is filled from the stored copy when the upstream echo omits it, and `PUT /sandboxes/{sandbox_id}/metadata` merges lifecycle tags (kept_reason) into that stored copy.",
+        "description": "Proxied to the upstream, then intersected with the caller's owned set — another tenant's row can never appear. `envdAccessToken`/`trafficAccessToken` are stripped from every item (bulk surfaces carry no credentials). `state` is coerced into the SDK enum (running|paused) and `domain` rewritten to the gateway domain. The tenant-visible list is paginated gateway-side in deterministic (created_at, sandboxID) order: `order` (default desc), `limit` 1-100 (default 100) and the `nextToken` continuation cursor are enforced on both dialects; any upstream pagination headers are stripped and the gateway's own X-Next-Token / X-Total-Running are emitted instead. `metadata` filters the result (url-encoded k=v pairs, AND-ed against the stored create metadata) so a tenant can list what it owns; per-item `metadata` is filled from the stored copy when the upstream echo omits it, and `PUT /sandboxes/{sandbox_id}/metadata` merges lifecycle tags into that stored copy.",
         "operationId": "listSandboxes",
         "parameters": [
           {
-            "description": "url-encoded k=v pairs (metadata=owner_lane%3Dlane-a); every pair must match the stored create metadata — list what you own",
+            "description": "url-encoded k=v pairs (metadata=team%3Dalpha); every pair must match the stored create metadata — list what you own",
             "in": "query",
             "name": "metadata",
             "required": false,
