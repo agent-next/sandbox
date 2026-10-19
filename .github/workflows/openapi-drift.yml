@@ -1,0 +1,77 @@
+name: openapi-drift
+
+# Detect within 24h when the live service API changes so the kit docs get
+# updated: compare the live /openapi.json to the committed snapshot daily.
+# On drift, create or update ONE issue; a fetch failure fails the run without
+# filing anything (drift and outage are different signals).
+
+on:
+  schedule:
+    - cron: "23 6 * * *" # daily, off the hour
+  workflow_dispatch:
+
+# Serialize runs: issue lookup and creation are separate steps, so two
+# overlapping runs could both see "no existing issue" and each create one.
+# Runs queue rather than cancel, keeping the single-issue guarantee.
+concurrency:
+  group: openapi-drift
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compare live openapi.json to the kit snapshot
+        id: check
+        run: |
+          set +e
+          python3 scripts/openapi_drift.py > drift_summary.txt 2> drift_error.txt
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          cat drift_summary.txt
+          if [ -s drift_error.txt ]; then cat drift_error.txt >&2; fi
+          case "$code" in
+            0) echo "no drift";;
+            1) echo "drift detected";;
+            2) echo "::error::openapi fetch/read failed (exit 2); not filing a drift issue"; exit 1;;
+            *) echo "::error::unexpected exit code $code"; exit 1;;
+          esac
+
+      - name: Create or update the single drift issue
+        if: steps.check.outputs.code == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: "API drift: live openapi differs from kit snapshot"
+        run: |
+          {
+            echo "The daily openapi-drift run found the live \`/openapi.json\` differs from \`docs/contract/openapi.snapshot.json\`."
+            echo ""
+            echo "Run: $RUN_URL"
+            echo "Detected: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo ""
+            echo 'Update the kit docs, then regenerate the snapshot with `python3 scripts/openapi_drift.py --update` and commit it.'
+            echo ""
+            echo '```'
+            cat drift_summary.txt
+            echo '```'
+          } > issue_body.md
+          existing_number=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number // empty')
+          if [ -n "$existing_number" ]; then
+            gh issue comment "$existing_number" --body-file issue_body.md
+            echo "updated existing issue #$existing_number"
+          else
+            gh issue create --title "$TITLE" --body-file issue_body.md
+            echo "created new issue"
+          fi
