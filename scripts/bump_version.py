@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import re
+import stat
 import sys
 import tempfile
 from pathlib import Path
@@ -30,7 +31,7 @@ VERSION_FILES = (
 
 _SEMVER = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 _TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
-_TOML_VERSION = re.compile(r'^version\s*=\s*"([^"]*)"')
+_TOML_VERSION = re.compile(r"""^version\s*=\s*(["'])([^"']*)\1(.*)$""")
 _JSON_VERSION = re.compile(r'"version"(\s*:\s*)"([^"]*)"')
 
 
@@ -60,7 +61,7 @@ def read_version(path):
             elif section == "[project]":
                 m = _TOML_VERSION.match(s)
                 if m:
-                    return m.group(1)
+                    return m.group(2)
         raise BumpError(f"{path}: no [project] version found")
     try:
         version = json.loads(text)["version"]
@@ -80,26 +81,49 @@ def _new_text(path, version):
             s = line.strip()
             if s.startswith("["):
                 section = s
-            elif section == "[project]" and _TOML_VERSION.match(s):
+            elif section == "[project]" and (m := _TOML_VERSION.match(s)):
                 indent = line[: len(line) - len(line.lstrip())]
-                lines[i] = f'{indent}version = "{version}"\n'
+                lines[i] = f'{indent}version = "{version}"{m.group(3)}\n'
                 return "".join(lines)
         raise BumpError(f"{path}: no [project] version found")
-    new, n = _JSON_VERSION.subn(rf'"version"\g<1>"{version}"', text, count=1)
-    if n != 1:
-        raise BumpError(f"{path}: no version field found")
-    return new
+    # Only the top-level key is ours; a nested object may carry its own.
+    for m in _JSON_VERSION.finditer(text):
+        if _json_depth(text, m.start()) == 1:
+            return f'{text[:m.start()]}"version"{m.group(1)}"{version}"{text[m.end():]}'
+    raise BumpError(f"{path}: no top-level version field found")
+
+
+def _json_depth(text, end):
+    """Object/array nesting depth at text[end]; -1 inside a string."""
+    depth, in_str, esc = 0, False, False
+    for ch in text[:end]:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "{[":
+            depth += 1
+        elif ch in "}]":
+            depth -= 1
+    return -1 if in_str else depth
 
 
 def _write(path, text):
+    """Stage text next to path with path's mode; return the temp file."""
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name, suffix=".tmp")
     try:
         with os.fdopen(fd, "w") as f:
             f.write(text)
-        os.replace(tmp, path)
+        os.chmod(tmp, stat.S_IMODE(path.stat().st_mode))
     except BaseException:
         os.unlink(tmp)
         raise
+    return tmp
 
 
 def bump(root, new_text, allow_minor=False):
@@ -114,8 +138,17 @@ def bump(root, new_text, allow_minor=False):
         raise BumpError(
             f"{_fmt(cur)} -> {new_text} is a minor/major bump; pass --allow-minor"
         )
-    for p, text in rendered:
-        _write(p, text)
+    # Stage all three before replacing any, so a failed write moves none.
+    staged = []
+    try:
+        for p, text in rendered:
+            staged.append((_write(p, text), p))
+    except BaseException:
+        for tmp, _ in staged:
+            os.unlink(tmp)
+        raise
+    for tmp, p in staged:
+        os.replace(tmp, p)
     return paths
 
 
@@ -175,7 +208,7 @@ def main(argv=None, root=ROOT):
             suffix = f" and match tag {args.tag}" if args.tag else ""
             print(f"ok: all version strings agree{suffix}")
             return 0
-        if args.tag:
+        if args.tag is not None:
             ap.error("--tag is only valid with --check")
         if not args.version:
             ap.error("NEW_VERSION required (or use --check)")

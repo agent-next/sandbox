@@ -122,7 +122,7 @@ def test_a_failed_bump_leaves_all_three_versions_untouched(root, monkeypatch):
             seen.append(path)
             raise OSError("disk full")
         seen.append(path)
-        real_write(path, text)
+        return real_write(path, text)
 
     monkeypatch.setattr(bv, "_write", failing_write)
     with pytest.raises(OSError):
