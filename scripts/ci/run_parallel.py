@@ -184,8 +184,11 @@ def main(argv=None):
             return 1
         env = {**os.environ, "PYTHONPATH": os.pathsep.join(
             [*roots, *([os.environ["PYTHONPATH"]] if os.environ.get("PYTHONPATH") else [])])}
-        # -P: no implicit cwd ahead of PYTHONPATH, so children import from the roots in collection order
-        cmd = [sys.executable, *(["-P"] if sys.version_info >= (3, 11) else []), "-m", "unittest", "-q"]
+        # no implicit cwd ahead of PYTHONPATH, so children import from the roots in collection order:
+        # -P on 3.11+; before that, drop sys.path[0] by hand and run unittest's own entry point
+        cmd = ([sys.executable, "-P", "-m", "unittest", "-q"] if sys.version_info >= (3, 11) else
+               [sys.executable, "-c", "import sys, unittest; del sys.path[0]; sys.argv[0] = 'python -m unittest'; "
+                "unittest.main(module=None)", "-q"])
         units = [(u, [*cmd, u], alone) for u, alone in names]
         if hook:
             print(f"{hook} names load_tests: {args.start_dir} runs as one `unittest discover`")
