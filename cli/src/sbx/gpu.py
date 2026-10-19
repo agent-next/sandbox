@@ -11,12 +11,12 @@ from urllib.parse import urlencode
 
 import httpx
 
-from .cli import SbxError, _credentials, _positive_seconds, _say
+from .cli import LEASE_ID, SbxError, _credentials, _positive_seconds, _say
 
 MAX_EXEC_TIMEOUT_S = 3600
 VRAM_RANGE_GIB = (0.5, 32)
 DEFAULT_EXEC_TIMEOUT_S = 120
-_LEASE_ID = re.compile(r"gl-[A-Za-z0-9-]+")
+
 _JOB_FAILED = re.compile(r"\bjob \d+ failed:")
 
 # status -> (label, what to do); the server message is appended when present
@@ -42,7 +42,7 @@ def _base() -> str:
 
 
 def _lease_id(value: str) -> str:
-    if not _LEASE_ID.fullmatch(value):
+    if not LEASE_ID.fullmatch(value):
         raise SbxError(f"invalid lease id {value!r}: GPU lease ids look like gl-1a2b3c-1")
     return value
 
@@ -150,7 +150,7 @@ def cmd_create(args) -> int:
         accel["class"] = args.gpu_class
     _, data = _call("POST", "/sandboxes", {"accel": accel})
     sid = data.get("sandboxID") if isinstance(data, dict) else None
-    if not isinstance(sid, str) or not _LEASE_ID.fullmatch(sid):
+    if not isinstance(sid, str) or not LEASE_ID.fullmatch(sid):
         raise SbxError("GPU create returned an invalid lease id; inspect your inventory")
     _emit_json(data) if args.json else _say(sid)
     return 0
