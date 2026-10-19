@@ -1,0 +1,6 @@
+{
+  "status": "not done",
+  "reason": "Two blind vision-model reviews from different model families are required. This session has no tool that submits video to those models. No builder-generated scores are substituted.",
+  "prompt": "cookbook/tools/video_review_prompt.md",
+  "reviews": []
+}

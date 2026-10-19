@@ -1,0 +1,134 @@
+{
+  "failed_gate": "edl",
+  "gates": {
+    "dissolve": {
+      "errors": [],
+      "measured": 0.041486,
+      "pass": true,
+      "threshold": "max ramp error <=0.20; endpoints <=0.15 and >=0.85; decrease <=0.05",
+      "weights": [
+        0.0,
+        0.041137,
+        0.082828,
+        0.113051,
+        0.154188,
+        0.205476,
+        0.236137,
+        0.27517,
+        0.315983,
+        0.35712,
+        0.398256,
+        0.439948,
+        0.481085,
+        0.518915,
+        0.559289,
+        0.601304,
+        0.639458,
+        0.683254,
+        0.724391,
+        0.763423,
+        0.793761,
+        0.841627,
+        0.882764,
+        0.916848,
+        0.958863
+      ]
+    },
+    "ducking": {
+      "measured": 11.948775,
+      "pass": true,
+      "rms_inside": 0.03609479,
+      "rms_outside": 0.14309144,
+      "threshold": ">=8.0 dB; outside music RMS >1e-5",
+      "window_depths_db": [
+        11.948775,
+        11.97804
+      ]
+    },
+    "edl": {
+      "blend_barcode_limit": 0.12,
+      "blend_barcode_max_error": 0.008642,
+      "checked_frames": 225,
+      "errors": [
+        "frame 200: barcode (1, 100), expected clip 2 frame 50"
+      ],
+      "measured": 1,
+      "pass": false,
+      "threshold": "0 mismatched output frames"
+    },
+    "format": {
+      "measured": {
+        "audio": {
+          "channels": 2,
+          "codec_name": "aac",
+          "sample_rate": "48000"
+        },
+        "codec_name": "h264",
+        "field_order": "progressive",
+        "height": 720,
+        "nb_read_frames": "225",
+        "pix_fmt": "yuv420p",
+        "r_frame_rate": "25/1",
+        "sample_aspect_ratio": "1:1",
+        "width": 1280
+      },
+      "pass": true,
+      "threshold": {
+        "acodec": "aac",
+        "channels": 2,
+        "fps_den": 1,
+        "fps_num": 25,
+        "frames": 225,
+        "height": 720,
+        "sample_rate": 48000,
+        "vcodec": "h264",
+        "width": 1280
+      }
+    },
+    "integrity": {
+      "measured": 0,
+      "pass": true,
+      "threshold": "0 changed judge files"
+    },
+    "logo": {
+      "measured": {
+        "max_off": 0.079241,
+        "min_on": 0.999981
+      },
+      "pass": true,
+      "threshold": "on >=0.85, off <0.30 on every frame"
+    },
+    "loudness": {
+      "measured": {
+        "integrated_lufs": -16.0,
+        "true_peak_dbtp": -8.5
+      },
+      "pass": true,
+      "threshold": {
+        "lufs": [
+          -17.0,
+          -15.0
+        ],
+        "true_peak_max_dbtp": -1.0
+      }
+    },
+    "power": {
+      "frames": 450,
+      "measured": 0,
+      "pass": true,
+      "threshold": "0 barcode errors across 450 raw frames"
+    },
+    "security": {
+      "measured": 0,
+      "pass": true,
+      "threshold": "0 unsafe XML constructs"
+    }
+  },
+  "passed": false,
+  "schema": "video-edit-mlt/verdict@1",
+  "seed": 1,
+  "timing": {
+    "total_s": 120.504
+  },
+  "verdict": "FAIL"
+}
