@@ -445,3 +445,15 @@ def test_non_hashable_parameter_identity_exits_one(tmp_path, capsys, field):
     out = capsys.readouterr().out
     assert "parameter removed: status (query)" in out
     assert "parameter added:" in out
+
+
+def test_non_hashable_parameter_name_does_not_collide_with_literal(tmp_path, capsys):
+    base = make_doc()
+    base["paths"]["/sandboxes"]["get"]["parameters"][0]["name"] = "{}"
+    new = copy.deepcopy(base)
+    new["paths"]["/sandboxes"]["get"]["parameters"].append(
+        {"name": {}, "in": "query", "schema": {"type": "string"}})
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    assert "parameter added:" in capsys.readouterr().out
