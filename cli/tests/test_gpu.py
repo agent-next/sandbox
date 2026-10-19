@@ -383,6 +383,47 @@ def test_vram_range_enforced_client_side(api, capsys, vram, code):
         assert "--vram" in capsys.readouterr().err and api.calls == []
 
 
+def test_create_wait_sends_accel_wait_s(api, capsys):
+    # the GPU guide documents accel.wait_s in [0, 120]: the create holds the
+    # request for a seat instead of answering gpu_capacity_exhausted at once
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    assert cli.main(["gpu", "create", "--vram", "4", "--wait", "30"]) == 0
+    method, path, headers, body, timeout = api.calls[0]
+    assert body == {"accel": {"vram_gb": 4.0, "wait_s": 30.0}}
+    assert timeout > 30  # the request outlives the gateway-side wait
+
+
+def test_create_wait_zero_is_sent(api, capsys):
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    assert cli.main(["gpu", "create", "--wait", "0"]) == 0
+    assert api.calls[0][3] == {"accel": {"wait_s": 0.0}}
+
+
+def test_create_wait_extends_the_request_deadline(api, capsys):
+    api.on("POST", "/sandboxes", 201, {"sandboxID": "gl-1a-1"})
+    assert cli.main(["gpu", "create", "--wait", "120"]) == 0
+    assert api.calls[0][4] > 120  # a seat may open only at the end of the wait
+
+
+@pytest.mark.parametrize("bad", ["121", "-1", "nan", "inf"])
+def test_create_rejects_out_of_range_wait(api, capsys, bad):
+    assert cli.main(["gpu", "create", "--wait", bad]) == 2
+    assert "--wait" in capsys.readouterr().err
+    assert api.calls == []
+
+
+def test_readme_gpu_create_row_mentions_the_wait_flag():
+    from pathlib import Path
+
+    rows = [line for line in (Path(__file__).resolve().parents[2] / "cli/README.md")
+            .read_text(encoding="utf-8").splitlines() if line.startswith("| `sbx gpu create")]
+    assert rows and "--wait" in rows[0], (
+        "cli/README.md's gpu create row must document --wait: the capacity-full "
+        "409 line says retry, and the documented way to wait is accel.wait_s "
+        "(launch finding G2)"
+    )
+
+
 def test_exec_409_already_running_is_not_job_failure(api, capsys):
     api.on("POST", "/sandboxes/gl-1a-1/exec", 409, {"message": "lease gl-1a-1 job already running, failed to start"})
     assert cli.main(["gpu", "exec", "gl-1a-1", "-c", "x"]) == 2
