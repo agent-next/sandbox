@@ -400,3 +400,139 @@ def test_live_null_document_exits_two(tmp_path, capsys, loopback_server):
     snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(make_doc()))
     assert drift.main(["--url", url, "--snapshot", str(snapshot)]) == 2
     assert "not a JSON object" in capsys.readouterr().err
+
+
+def _media_drift_pair(case):
+    base = make_doc()
+    request = base["paths"]["/sandboxes"]["post"]["requestBody"]["content"]
+    response = base["paths"]["/sandboxes"]["get"]["responses"]["200"]["content"]
+    if case.startswith("encoding_"):
+        request["multipart/form-data"] = {"schema": {"type": "object"}}
+    elif case == "response_example_change":
+        response["text/plain"] = {"example": "before"}
+    elif case == "request_examples_change":
+        request["text/plain"] = {"examples": {"sample": {"value": "before"}}}
+    new = copy.deepcopy(base)
+    new_request = new["paths"]["/sandboxes"]["post"]["requestBody"]["content"]
+    new_response = new["paths"]["/sandboxes"]["get"]["responses"]["200"]["content"]
+    if case.startswith("request_") and case.endswith(("_add", "_remove")):
+        new_request["text/plain"] = {}
+    elif case.startswith("response_") and case.endswith(("_add", "_remove")):
+        new_response["text/plain"] = {}
+    elif case.startswith("encoding_"):
+        new_request["multipart/form-data"]["encoding"] = {
+            "file": {"contentType": "application/octet-stream"}}
+    elif case == "response_example_change":
+        new_response["text/plain"]["example"] = "after"
+    elif case == "request_examples_change":
+        new_request["text/plain"]["examples"]["sample"]["value"] = "after"
+    else:
+        raise AssertionError(f"unknown media regression case: {case}")
+    return (new, base) if case.endswith("_remove") else (base, new)
+
+
+@pytest.mark.parametrize("case,tokens", [
+    ("request_add", ("POST /sandboxes request", "media type added: text/plain")),
+    ("request_remove", ("POST /sandboxes request", "media type removed: text/plain")),
+    ("response_add", ("GET /sandboxes response 200", "media type added: text/plain")),
+    ("response_remove", ("GET /sandboxes response 200", "media type removed: text/plain")),
+    ("encoding_add", ("POST /sandboxes request", "multipart/form-data", "encoding")),
+    ("encoding_remove", ("POST /sandboxes request", "multipart/form-data", "encoding")),
+    ("response_example_change", ("GET /sandboxes response 200", "text/plain", "example")),
+    ("request_examples_change", ("POST /sandboxes request", "text/plain", "examples")),
+], ids=["request_add", "request_remove", "response_add", "response_remove",
+        "encoding_add", "encoding_remove", "response_example_change", "request_examples_change"])
+def test_media_entry_drift_detected(case, tokens, tmp_path, capsys):
+    base, new = _media_drift_pair(case)
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    original = snapshot.read_bytes(), live.read_bytes()
+    assert drift.main(["--snapshot", str(snapshot), "--file", str(live)]) == 1, case
+    captured = capsys.readouterr()
+    assert captured.out.startswith("API drift: "), case
+    assert any(all(token in line for token in tokens)
+               for line in captured.out.splitlines()[1:]), case
+    assert "no drift" not in captured.out, case
+    assert not captured.err, case
+    assert (snapshot.read_bytes(), live.read_bytes()) == original, case
+
+
+@pytest.mark.parametrize("old_present,old_entry,new_present,new_entry", [
+    (False, None, True, None),
+    (True, None, False, None),
+    (True, None, True, {}),
+    (True, {}, True, None),
+    (True, {}, True, {"schema": None}),
+    (True, {"schema": None}, True, {}),
+    (True, {"schema": None}, True, {"schema": {}}),
+    (True, {"schema": {}}, True, {"schema": None}),
+    (True, {}, True, {"schema": {}}),
+    (True, {"schema": {}}, True, {}),
+], ids=["missing_to_null", "null_to_missing", "null_to_empty", "empty_to_null",
+        "absent_schema_to_null", "null_schema_to_absent", "null_schema_to_empty",
+        "empty_schema_to_null", "absent_schema_to_empty", "empty_schema_to_absent"])
+def test_media_entry_state_distinctions(old_present, old_entry, new_present, new_entry,
+                                       tmp_path, capsys):
+    base, new = make_doc(), make_doc()
+    for doc, present, entry in ((base, old_present, old_entry), (new, new_present, new_entry)):
+        if present:
+            doc["paths"]["/sandboxes"]["post"]["requestBody"]["content"]["text/plain"] = entry
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    original = snapshot.read_bytes(), live.read_bytes()
+    assert drift.main(["--snapshot", str(snapshot), "--file", str(live)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out.startswith("API drift: ")
+    assert any("POST /sandboxes request" in line and "text/plain" in line
+               for line in captured.out.splitlines()[1:])
+    assert "no drift" not in captured.out
+    assert not captured.err
+    assert (snapshot.read_bytes(), live.read_bytes()) == original
+
+
+@pytest.mark.parametrize("old_present,old_content,new_present,new_content", [
+    (False, None, True, None),
+    (True, None, False, None),
+    (True, None, True, {}),
+    (True, {}, True, None),
+    (False, None, True, {}),
+    (True, {}, False, None),
+], ids=["missing_to_null", "null_to_missing", "null_to_empty", "empty_to_null",
+        "missing_to_empty", "empty_to_missing"])
+def test_content_container_state_distinctions(old_present, old_content,
+                                             new_present, new_content, tmp_path, capsys):
+    base, new = make_doc(), make_doc()
+    for doc, present, content in ((base, old_present, old_content),
+                                 (new, new_present, new_content)):
+        node = doc["paths"]["/sandboxes"]["post"]["requestBody"]
+        if present:
+            node["content"] = content
+        else:
+            node.pop("content")
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    original = snapshot.read_bytes(), live.read_bytes()
+    assert drift.main(["--snapshot", str(snapshot), "--file", str(live)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out.startswith("API drift: ")
+    assert "POST /sandboxes request.content:" in captured.out
+    assert "no drift" not in captured.out
+    assert not captured.err
+    assert (snapshot.read_bytes(), live.read_bytes()) == original
+
+
+@pytest.mark.parametrize("entry", [
+    {}, None, {"schema": None}, {"schema": {}}, {"example": "unchanged"},
+], ids=["empty", "null", "null_schema", "empty_schema", "example"])
+def test_unchanged_media_entry_not_drift(entry, tmp_path, capsys):
+    base = make_doc()
+    base["paths"]["/sandboxes"]["post"]["requestBody"]["content"]["text/plain"] = entry
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", base)
+    original = snapshot.read_bytes(), live.read_bytes()
+    assert drift.main(["--snapshot", str(snapshot), "--file", str(live)]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.startswith("no drift: ")
+    assert "API drift:" not in captured.out
+    assert not captured.err
+    assert (snapshot.read_bytes(), live.read_bytes()) == original

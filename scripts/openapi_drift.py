@@ -183,30 +183,40 @@ def generic_diff(prefix, old, new, out):
 
 
 def _content_schemas(node):
-    """Map media_type -> schema for a requestBody/response node."""
+    """Map media_type -> complete entry, including entries without a schema."""
     content = _d(_d(node).get("content"))
-    return {
-        media_type: content[media_type].get("schema")
-        for media_type in sorted(content)
-        if isinstance(content[media_type], dict) and content[media_type].get("schema") is not None
-    }
+    return {media_type: content[media_type] for media_type in sorted(content)}
 
 
 def _diff_content_node(label, old_node, new_node, out):
-    """Diff a requestBody/response: media-type schemas plus every other field."""
+    """Diff a requestBody/response, including complete media entries."""
     if not (isinstance(old_node, dict) and isinstance(new_node, dict)):
         if old_node != new_node:
             out.append(f"{label}: changed ({_short(old_node)} -> {_short(new_node)})")
         return
-    old_types = _content_schemas(old_node)
-    new_types = _content_schemas(new_node)
-    for media_type in sorted(old_types.keys() - new_types.keys()):
-        out.append(f"{label}: media type removed: {media_type}")
-    for media_type in sorted(new_types.keys() - old_types.keys()):
-        out.append(f"{label}: media type added: {media_type}")
-    for media_type in sorted(old_types.keys() & new_types.keys()):
-        schema_key_changes(f"{label} [{media_type}]", old_types[media_type],
-                           new_types[media_type], out)
+    if "content" not in old_node and "content" in new_node:
+        out.append(f"{label}.content: added ({_short(new_node['content'])})")
+    elif "content" in old_node and "content" not in new_node:
+        out.append(f"{label}.content: removed (was {_short(old_node['content'])})")
+    elif isinstance(old_node.get("content"), dict) and isinstance(new_node.get("content"), dict):
+        old_types = _content_schemas(old_node)
+        new_types = _content_schemas(new_node)
+        for media_type in sorted(old_types.keys() - new_types.keys()):
+            out.append(f"{label}: media type removed: {media_type}")
+        for media_type in sorted(new_types.keys() - old_types.keys()):
+            out.append(f"{label}: media type added: {media_type}")
+        for media_type in sorted(old_types.keys() & new_types.keys()):
+            media_label = f"{label} [{media_type}]"
+            old_entry, new_entry = old_types[media_type], new_types[media_type]
+            if not (isinstance(old_entry, dict) and isinstance(new_entry, dict)):
+                generic_diff(media_label, old_entry, new_entry, out)
+                continue
+            skip = ("schema",) if "schema" in old_entry and "schema" in new_entry else ()
+            if skip:
+                schema_key_changes(media_label, old_entry["schema"], new_entry["schema"], out)
+            _diff_keys(f"{media_label}.", old_entry, new_entry, out, skip=skip)
+    else:
+        generic_diff(f"{label}.content", old_node.get("content"), new_node.get("content"), out)
     # required, description, headers, a whole-node $ref, ... are contract too.
     _diff_keys(f"{label}.", old_node, new_node, out, skip=("content",))
 
