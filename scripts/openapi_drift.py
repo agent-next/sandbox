@@ -182,31 +182,30 @@ def generic_diff(prefix, old, new, out):
         out.append(f"{prefix}: changed ({_short(old)} -> {_short(new)})")
 
 
-def _content_schemas(node):
-    """Map media_type -> schema for a requestBody/response node."""
-    content = _d(_d(node).get("content"))
-    return {
-        media_type: content[media_type].get("schema")
-        for media_type in sorted(content)
-        if isinstance(content[media_type], dict) and content[media_type].get("schema") is not None
-    }
-
-
 def _diff_content_node(label, old_node, new_node, out):
-    """Diff a requestBody/response: media-type schemas plus every other field."""
+    """Diff a requestBody/response: every media-type entry plus every other field."""
     if not (isinstance(old_node, dict) and isinstance(new_node, dict)):
         if old_node != new_node:
             out.append(f"{label}: changed ({_short(old_node)} -> {_short(new_node)})")
         return
-    old_types = _content_schemas(old_node)
-    new_types = _content_schemas(new_node)
+    old_types = _d(old_node.get("content"))
+    new_types = _d(new_node.get("content"))
     for media_type in sorted(old_types.keys() - new_types.keys()):
         out.append(f"{label}: media type removed: {media_type}")
     for media_type in sorted(new_types.keys() - old_types.keys()):
         out.append(f"{label}: media type added: {media_type}")
     for media_type in sorted(old_types.keys() & new_types.keys()):
-        schema_key_changes(f"{label} [{media_type}]", old_types[media_type],
-                           new_types[media_type], out)
+        old_entry, new_entry = old_types[media_type], new_types[media_type]
+        if old_entry == new_entry:
+            continue
+        entry_label = f"{label} [{media_type}]"
+        if not (isinstance(old_entry, dict) and isinstance(new_entry, dict)):
+            out.append(f"{entry_label}: changed ({_short(old_entry)} -> {_short(new_entry)})")
+            continue
+        if old_entry.get("schema") != new_entry.get("schema"):
+            schema_key_changes(entry_label, old_entry.get("schema"), new_entry.get("schema"), out)
+        # encoding, example(s) and extensions are media-type contract too.
+        _diff_keys(f"{entry_label}.", old_entry, new_entry, out, skip=("schema",))
     # required, description, headers, a whole-node $ref, ... are contract too.
     _diff_keys(f"{label}.", old_node, new_node, out, skip=("content",))
 
