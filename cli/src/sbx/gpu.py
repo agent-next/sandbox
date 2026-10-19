@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import time
@@ -16,6 +17,9 @@ from .cli import LEASE_ID, SbxError, _credentials, _positive_seconds, _say
 MAX_EXEC_TIMEOUT_S = 3600
 VRAM_RANGE_GIB = (0.5, 32)
 DEFAULT_EXEC_TIMEOUT_S = 120
+# The GPU guide documents accel.wait_s in [0, 120]: a create can wait for a
+# seat instead of answering gpu_capacity_exhausted at once.
+MAX_CREATE_WAIT_S = 120
 
 _JOB_FAILED = re.compile(r"\bjob \d+ failed:")
 
@@ -148,7 +152,14 @@ def cmd_create(args) -> int:
         accel["template"] = args.template
     if args.gpu_class:
         accel["class"] = args.gpu_class
-    _, data = _call("POST", "/sandboxes", {"accel": accel})
+    if args.wait is not None:
+        if not math.isfinite(args.wait) or not 0 <= args.wait <= MAX_CREATE_WAIT_S:
+            raise SbxError(f"--wait must be a number of seconds from 0 to {MAX_CREATE_WAIT_S:g}")
+        accel["wait_s"] = args.wait
+    # A wait can hold the request for the whole wait_s before a seat opens or
+    # the 409 arrives, so the deadline must outlive the wait.
+    request_timeout = 60 if args.wait is None else max(60, args.wait + 30)
+    _, data = _call("POST", "/sandboxes", {"accel": accel}, timeout=request_timeout)
     sid = data.get("sandboxID") if isinstance(data, dict) else None
     if not isinstance(sid, str) or not LEASE_ID.fullmatch(sid):
         raise SbxError("GPU create returned an invalid lease id; inspect your inventory")
@@ -320,6 +331,11 @@ def register(sub, parser_class) -> None:
     gsub = g.add_subparsers(dest="gpu_cmd", required=True, parser_class=parser_class)
     p = verb(gsub, "create", "start a GPU lease and print its id", cmd_create, with_id=False)
     p.add_argument("--vram", type=float, default=None, help="VRAM slice in GiB, 0.5-32 (default 1)")
+    p.add_argument(
+        "--wait", type=float, default=None, metavar="S",
+        help=f"wait up to S seconds (0-{MAX_CREATE_WAIT_S:g}) for a free GPU seat "
+        "instead of answering capacity-full at once (accel.wait_s)",
+    )
     p.add_argument("--template", default=None, help="GPU template (see `sbx gpu templates`)")
     p.add_argument("--class", dest="gpu_class", default=None, help="GPU class, e.g. nvidia.5090")
     p = verb(gsub, "exec", "run Python source on a lease; exit 1 if the job fails", cmd_exec)

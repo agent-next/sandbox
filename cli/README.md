@@ -45,7 +45,7 @@ read from the environment.
 | `sbx list [--json]` | List the live sandboxes held by your key (id, template, start time). An empty key prints `no sandboxes` on stderr. `--json` prints the raw API list as a JSON array. |
 | `sbx templates [--json]` | List CPU template aliases, one per line (template id if no alias). `--json` prints the raw API list, including GPU entries. |
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |
-| `sbx gpu create [--vram GiB] [--template NAME] [--class C]` | Start a GPU lease and print its id (`gl-...`). Needs a key with a GPU grant. |
+| `sbx gpu create [--vram GiB] [--template NAME] [--class C] [--wait S]` | Start a GPU lease and print its id (`gl-...`). Needs a key with a GPU grant. `--wait S` (0-120 s) has the create hold the request for a free seat (`accel.wait_s`) instead of answering capacity-full (409) at once. |
 | `sbx gpu list [--json]` | List your GPU leases, including paused leases: id, template, state, VRAM in GiB, start time (tab-separated, one row per lease). Reads all pages and validates the inventory before printing; `--json` prints the raw GPU entries as a JSON array. |
 | `sbx gpu exec ID (--code FILE \| -c SRC) [--timeout S]` | Run Python source on the lease; prints the job's stdout, exits 1 if the job fails. `--json` prints the full reply with `report` and meters. `--timeout` (default 120, max 3600) is a hard wall: an overrun kills the lease. |
 | `sbx gpu pause ID` / `sbx gpu resume ID` | Release the GPU between jobs (state is spilled and kept; spilled time bills 0) and take a seat again. A lease that cannot be spilled is frozen instead: it keeps its seat and bills the frozen time. A paused lease still counts toward your lease cap; `kill` ends it. |
@@ -99,8 +99,9 @@ sbx gpu kill "$id"
 
 Every `gpu` verb takes `--json`. Failures print one line with a hint and exit
 non-zero: 402 no GPU credit, 403 no GPU access on this key, 409 conflict (job
-failed, job already running, lease cap), 429/503 busy or at capacity (the line
-carries the `Retry-After` seconds). A job that raises exits 1 with the error
+failed, job already running, lease cap, or GPU capacity full — create again
+with `--wait` to hold the request for a seat), 429/503 busy or at capacity
+(the line carries the `Retry-After` seconds). A job that raises exits 1 with the error
 tail; the lease survives. Jobs run with no network access. Always `kill` what
 you create. A 503 whose body says the gateway is `restarting` is retried after
 `retry_after_s` (default 5 s, capped at 30 s a wait and 60 s in all), one
