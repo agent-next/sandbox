@@ -432,3 +432,16 @@ def test_added_request_media_type_field_exits_one(tmp_path, capsys, field, value
     live = write_live(tmp_path / "live.json", new)
     assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
     assert f"POST /sandboxes request [application/json].{field}: added" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("field", ["in", "name"])
+def test_non_hashable_parameter_identity_exits_one(tmp_path, capsys, field):
+    base = make_doc()
+    new = copy.deepcopy(base)
+    new["paths"]["/sandboxes"]["get"]["parameters"][0][field] = {}
+    snapshot = write_doc(tmp_path / "snapshot.json", drift.normalize(base))
+    live = write_live(tmp_path / "live.json", new)
+    assert drift.main(["--file", str(live), "--snapshot", str(snapshot)]) == 1
+    out = capsys.readouterr().out
+    assert "parameter removed: status (query)" in out
+    assert "parameter added:" in out
