@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import os
+import re
 import shlex
 import sys
 import time
@@ -20,6 +21,13 @@ _RESTART_ATTEMPTS = 3
 _RESTART_MAX_WAIT_S = 30
 _CREATE_LAG_ATTEMPTS = 3
 _CREATE_LAG_FIRST_WAIT_S = 3.0
+# GPU lease ids (gl-..., the namespace `sbx gpu create` prints) live on the
+# lease plane, not the CPU sandbox plane these verbs drive.
+LEASE_ID = re.compile(r"gl-[A-Za-z0-9-]+")
+
+
+def _is_lease_id(value: str) -> bool:
+    return bool(LEASE_ID.fullmatch(value))
 
 
 class SbxError(Exception):
@@ -136,6 +144,13 @@ def cmd_create(args: argparse.Namespace) -> int:
 
 
 def cmd_exec(args: argparse.Namespace) -> int:
+    if _is_lease_id(args.sandbox_id):
+        # A live lease is not a missing CPU sandbox; the CPU plane cannot
+        # serve a gl- id, so no connect (or create-lag retry) can help.
+        raise SbxError(
+            f"exec: {args.sandbox_id} is a GPU lease, not a CPU sandbox; "
+            "run the job with `sbx gpu exec` instead"
+        )
     from e2b import CommandExitException, SandboxNotFoundException, TimeoutException
 
     _positive_seconds(args.timeout, "--timeout")
@@ -193,6 +208,11 @@ def cmd_cp(args: argparse.Namespace) -> int:
     if bool(source) == bool(target):
         raise SbxError("cp: exactly one side must be ID:PATH")
     sid, remote = source or target
+    if _is_lease_id(sid):
+        raise SbxError(
+            f"cp: {sid} is a GPU lease, not a CPU sandbox; lease files move "
+            "over the REST files API or `sbx gpu exec`, not sbx cp"
+        )
     local_name = args.target if source else args.source
     if not local_name:
         raise SbxError("cp: local path must not be empty")

@@ -40,12 +40,12 @@ read from the environment.
 | command | what it does |
 | --- | --- |
 | `sbx create [--template T] [--timeout-min N]` | Start a sandbox and print its id. `--timeout-min` is the idle keep-alive in minutes (default 5); expiry deletes this CLI-created sandbox. |
-| `sbx exec ID [--timeout S] -- COMMAND...` | Run a command. One argument is a shell line; several are quoted and joined. Put `--` before the command so its own options (`ls -l`) are not read as `sbx` options. Exits with the command's exit code. A sandbox created moments ago can answer not found while it registers; that is retried after 3 s and again after 6 s before exec reports the sandbox gone (#23). |
-| `sbx cp [--timeout S] LOCAL ID:REMOTE` / `sbx cp [--timeout S] ID:REMOTE LOCAL` | Upload or download one file, preserving binary bytes and overwriting an existing file. `--timeout` (default 600) is the deadline for each transfer attempt (a gateway restart retries the attempt). Exactly one side must be `ID:PATH`; directories are not supported. Give the destination filename. Prefix a local path containing `:` with `./` (or use an absolute path). A just-created sandbox that answers not found is retried like exec's (#23). |
+| `sbx exec ID [--timeout S] -- COMMAND...` | Run a command. One argument is a shell line; several are quoted and joined. Put `--` before the command so its own options (`ls -l`) are not read as `sbx` options. Exits with the command's exit code. A sandbox created moments ago can answer not found while it registers; that is retried after 3 s and again after 6 s before exec reports the sandbox gone (#23). exec runs on CPU sandboxes: a GPU lease id (`gl-...`) is refused with a pointer to `sbx gpu exec`. |
+| `sbx cp [--timeout S] LOCAL ID:REMOTE` / `sbx cp [--timeout S] ID:REMOTE LOCAL` | Upload or download one file, preserving binary bytes and overwriting an existing file. `--timeout` (default 600) is the deadline for each transfer attempt (a gateway restart retries the attempt). Exactly one side must be `ID:PATH`; directories are not supported. Give the destination filename. Prefix a local path containing `:` with `./` (or use an absolute path). A just-created sandbox that answers not found is retried like exec's (#23). cp runs on CPU sandboxes: a GPU lease id (`gl-...`) is refused with a pointer to `sbx gpu exec` (lease files move over the REST files API). |
 | `sbx list [--json]` | List the live sandboxes held by your key (id, template, start time). An empty key prints `no sandboxes` on stderr. `--json` prints the raw API list as a JSON array. |
 | `sbx templates [--json]` | List CPU template aliases, one per line (template id if no alias). `--json` prints the raw API list, including GPU entries. |
 | `sbx kill ID` | Kill a sandbox. A sandbox that is already gone is not an error. |
-| `sbx gpu create [--vram GiB] [--template NAME] [--class C]` | Start a GPU lease and print its id (`gl-...`). Needs a key with a GPU grant. |
+| `sbx gpu create [--vram GiB] [--template NAME] [--class C] [--wait S]` | Start a GPU lease and print its id (`gl-...`). Needs a key with a GPU grant. `--wait S` (0-120 s) has the create hold the request for a free seat (`accel.wait_s`) instead of answering capacity-full (409) at once. |
 | `sbx gpu list [--json]` | List your GPU leases, including paused leases: id, template, state, VRAM in GiB, start time (tab-separated, one row per lease). Reads all pages and validates the inventory before printing; `--json` prints the raw GPU entries as a JSON array. |
 | `sbx gpu exec ID (--code FILE \| -c SRC) [--timeout S]` | Run Python source on the lease; prints the job's stdout, exits 1 if the job fails. `--json` prints the full reply with `report` and meters. `--timeout` (default 120, max 3600) is a hard wall: an overrun kills the lease. |
 | `sbx gpu pause ID` / `sbx gpu resume ID` | Release the GPU between jobs (state is spilled and kept; spilled time bills 0) and take a seat again. A lease that cannot be spilled is frozen instead: it keeps its seat and bills the frozen time. A paused lease still counts toward your lease cap; `kill` ends it. |
@@ -99,8 +99,9 @@ sbx gpu kill "$id"
 
 Every `gpu` verb takes `--json`. Failures print one line with a hint and exit
 non-zero: 402 no GPU credit, 403 no GPU access on this key, 409 conflict (job
-failed, job already running, lease cap), 429/503 busy or at capacity (the line
-carries the `Retry-After` seconds). A job that raises exits 1 with the error
+failed, job already running, lease cap, or GPU capacity full — create again
+with `--wait` to hold the request for a seat), 429/503 busy or at capacity
+(the line carries the `Retry-After` seconds). A job that raises exits 1 with the error
 tail; the lease survives. Jobs run with no network access. Always `kill` what
 you create. A 503 whose body says the gateway is `restarting` is retried after
 `retry_after_s` (default 5 s, capped at 30 s a wait and 60 s in all), one
