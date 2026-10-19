@@ -222,8 +222,10 @@ def _resolve_param(param, components):
 
 
 def _hashable(value):
-    """The value when it can key a dict, else its canonical JSON text."""
-    return value if isinstance(value, (str, int, float, bool, type(None))) else json.dumps(value, sort_keys=True)
+    """The value when it can key a dict, else its JSON text tagged so it cannot equal a string."""
+    if isinstance(value, (str, int, float, bool, type(None))):
+        return value
+    return ("json", json.dumps(value, sort_keys=True))
 
 
 def _param_map(params, components):
