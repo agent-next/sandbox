@@ -1,0 +1,90 @@
+{
+  "artifact": "/home/user/w/cookbook/ctf-flag-hunt/media/judge_runs/mutants/traversal-fixed",
+  "demo": "ctf-flag-hunt",
+  "failed_gate": "flags",
+  "gates": {
+    "blast_radius": {
+      "added": [],
+      "changed": [],
+      "files_after": 6,
+      "files_before": 6,
+      "passed": true,
+      "removed": []
+    },
+    "build": {
+      "compiled": [
+        "notes",
+        "retrieve",
+        "token",
+        "status",
+        "admin"
+      ],
+      "errors": {},
+      "missing": [],
+      "passed": true,
+      "warnings": {}
+    },
+    "flags": {
+      "captured": 4,
+      "matches": {
+        "c1": true,
+        "c2": false,
+        "c3": true,
+        "c4": true,
+        "c5": true
+      },
+      "passed": false,
+      "planted_sha256": {
+        "c1": "b44bc9d5703e374d398252861549cbf74089cb1fe07de3d18f5eb2322773f35f",
+        "c2": "9da7c7040baec0f3e836984b8dd8122f2c1a615ca420668fc2f43206ac2f7fe7",
+        "c3": "6bb2c5216648296aeabc4919c8cac0685bdd76978d4cb7d0d519ee368a564b21",
+        "c4": "d6695f001e7d01f5a62764d0ae34ef218055c1decbf211c9894d0e7e6caffdce",
+        "c5": "fa29e8cb36801e84947535fe7aa15f69ac94e2f2fe7ca429c1a8579e60be21fc"
+      },
+      "required": 5,
+      "sha256": {
+        "c1": "b44bc9d5703e374d398252861549cbf74089cb1fe07de3d18f5eb2322773f35f",
+        "c2": "907ba78b4545338d3539683e63ecb51cf51c10adc9dabd86e92bd52339f298b9",
+        "c3": "6bb2c5216648296aeabc4919c8cac0685bdd76978d4cb7d0d519ee368a564b21",
+        "c4": "d6695f001e7d01f5a62764d0ae34ef218055c1decbf211c9894d0e7e6caffdce",
+        "c5": "fa29e8cb36801e84947535fe7aa15f69ac94e2f2fe7ca429c1a8579e60be21fc"
+      }
+    },
+    "negative_control": {
+      "captured": 0,
+      "leaked_by": {},
+      "passed": true,
+      "required": 0,
+      "sweep_hits": [],
+      "sweep_required": 0
+    },
+    "oracle": {
+      "checks": {
+        "c1": true,
+        "c2": true,
+        "c3": true,
+        "c4": true,
+        "c5": true
+      },
+      "detail": {
+        "c1": "in-bounds[0]='note-0-25734332' oob='error'",
+        "c2": "served='public doc e5d466e2' direct='public doc e5d466e2'",
+        "c3": "printed_matches_recomputed=True accepts_judge_token=True rejects_stale=True",
+        "c4": "version='version=1.4.2' build='build=r2026'",
+        "c5": "modes 1/2 -> ['mode=1 content=denied', 'mode=2 content=denied']"
+      },
+      "passed": true,
+      "required": 5
+    }
+  },
+  "passed": false,
+  "reason": "flags: captured 4/5 (missing c2)",
+  "seed": 20261015,
+  "timing": {
+    "blast_radius_s": 0.004,
+    "build_s": 1.278,
+    "c3_forge_t": 1792095547,
+    "exploit_s": 0.143,
+    "total_s": 1.427
+  }
+}

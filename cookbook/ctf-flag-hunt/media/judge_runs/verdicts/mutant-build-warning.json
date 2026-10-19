@@ -1,0 +1,28 @@
+{
+  "artifact": "/home/user/w/cookbook/ctf-flag-hunt/media/judge_runs/mutants/build-warning",
+  "demo": "ctf-flag-hunt",
+  "failed_gate": "build",
+  "gates": {
+    "build": {
+      "compiled": [
+        "retrieve",
+        "token",
+        "status",
+        "admin"
+      ],
+      "errors": {},
+      "missing": [],
+      "passed": false,
+      "warnings": {
+        "notes": "notes.c: In function \u2018main\u2019:\nnotes.c:39:9: warning: unused variable \u2018unused\u2019 [-Wunused-variable]\n   39 |     int unused;\n      |         ^~~~~~"
+      }
+    }
+  },
+  "passed": false,
+  "reason": "the five services did not all compile warning-free",
+  "seed": 20261015,
+  "timing": {
+    "build_s": 0.777,
+    "total_s": 0.778
+  }
+}

@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+# media master renders are regenerated, never committed (media/ is a later task)
+media/master/
