@@ -138,3 +138,45 @@ def test_check_flags_noncanonical_stored_version(tmp_path):
 def test_check_fails_on_non_xyz_version(tmp_path):
     repo = make_repo(tmp_path, cli="dev", claude="dev", codex="dev")
     assert bump_version.main(["--check"], root=repo) == 1
+
+
+# --- the release notes the release workflow publishes from (#129) ---------
+
+def make_notes(repo, version):
+    path = repo / "docs" / "releases" / f"v{version}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"Release v{version}.\n")
+    return path
+
+
+def test_check_with_tag_fails_when_notes_file_is_missing(tmp_path, capsys):
+    # release.yml's last step is `test -f docs/releases/$TAG.md`; --check
+    # --tag (what the workflow runs first) must catch the missing file
+    # before everything passes and the release step dies.
+    repo = make_repo(tmp_path)
+    assert bump_version.main(["--check", "--tag", "v0.0.3"], root=repo) == 1
+    assert "docs/releases/v0.0.3.md" in capsys.readouterr().err
+
+
+def test_check_with_tag_passes_when_notes_file_exists(tmp_path, capsys):
+    repo = make_repo(tmp_path)
+    make_notes(repo, "0.0.3")
+    assert bump_version.main(["--check", "--tag", "v0.0.3"], root=repo) == 0
+
+
+def test_bump_scaffolds_the_release_notes_file(tmp_path, capsys):
+    # RELEASING.md requires the bump PR to add docs/releases/vX.Y.Z.md in
+    # the same PR; the bump must create the file so the convention holds
+    # mechanically.
+    repo = make_repo(tmp_path)
+    assert bump_version.main(["0.0.4"], root=repo) == 0
+    notes = repo / "docs" / "releases" / "v0.0.4.md"
+    assert "0.0.4" in notes.read_text()
+    assert str(notes) in capsys.readouterr().out
+
+
+def test_bump_leaves_an_existing_notes_file_alone(tmp_path):
+    repo = make_repo(tmp_path)
+    make_notes(repo, "0.0.4")
+    assert bump_version.main(["0.0.4"], root=repo) == 0
+    assert (repo / "docs" / "releases" / "v0.0.4.md").read_text() == "Release v0.0.4.\n"
