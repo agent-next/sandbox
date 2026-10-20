@@ -70,16 +70,35 @@ def write_result_manifest(verdict, ok, commit):
     spec.loader.exec_module(mod)
     demo_dir = Path(__file__).resolve().parent
     out = demo_dir / "media" / "result.json"
+    gates = _gates_from_verdict(verdict)
+    timing = verdict.get("timing", {})
+    store_ratio = timing.get("store_ratio")
+    baseline = next((g for g in gates if g.get("name") == "winner-green"), {})
+    passing = str(baseline.get("measured", "")).split(" ")[0] or "?"
+    headline = (
+        f"8 agents race to fix an injected express bug on copy-on-write "
+        f"LayerFS branches; the Store holds {store_ratio}x the source tree and "
+        f"a judge that re-runs the suite itself proves the winner green"
+    )
     mod.write_result(
         out,
         demo=demo_dir.name,
-        headline="TODO: one sentence naming the measured hero result.",
+        headline=headline,
         verdict="PASS" if ok else "FAIL",
-        gates=_gates_from_verdict(verdict),
-        numbers=[{"label": "TODO: hero number", "value": "TODO", "unit": "",
-                  "source": "TODO: command or receipt line"}],
+        gates=gates,
+        numbers=[
+            {"label": "suite passing on published main",
+             "value": passing, "unit": "tests",
+             "source": "judge/grade.sh examples/good verdict (winner-green)"},
+            {"label": "Store bytes / source bytes",
+             "value": str(store_ratio), "unit": "ratio",
+             "source": "grade verdict timing.store_ratio"},
+            {"label": "median branch.fork (judge, forks 2-8)",
+             "value": str(timing.get("fork_median_s")), "unit": "s",
+             "source": "grade verdict timing.fork_median_s"},
+        ],
         hero={"kind": "image", "path": "media/result.png",
-              "caption": "TODO: what the hero frame shows"},
+              "caption": "judge verdict: gates and mutant kill matrix"},
         gallery=[
             {"kind": "image", "path": "media/loop.png",
              "caption": "agent loop + self-test kill rate"},
@@ -87,7 +106,10 @@ def write_result_manifest(verdict, ok, commit):
              "poster": "media/result.png", "caption": "demo video"},
         ],
         launch={"command": f"python3 cookbook/{demo_dir.name}/run.py",
-                "ask_agent": "TODO: the README \"Ask your agent\" prompt"},
+                "ask_agent": "Clone https://github.com/agent-next/sandbox into this sandbox, run "
+                             "`bash cookbook/layerfs-race/judge/setup.sh`, write an artifact like "
+                             "examples/good/race.mjs (contract: SPEC.md) and iterate with "
+                             "`judge/grade.sh <dir>` until it prints \"PASS\"."},
         receipt="RECEIPT.md",
         sandbox_commit=commit if len(commit) == 40 else "0" * 40,
     )
@@ -97,10 +119,13 @@ def write_result_manifest(verdict, ok, commit):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--ref", default="main", help="git ref to clone (default: main)")
+    ap.add_argument("--local", action="store_true",
+                    help="upload the local checkout instead of cloning "
+                         "(for testing unpushed changes; --ref is ignored)")
     ap.add_argument("--keep", action="store_true",
                     help="leave the sandbox running and print its id")
-    ap.add_argument("--timeout-min", type=int, default=30,
-                    help="sandbox lifetime in minutes (default: 30)")
+    ap.add_argument("--timeout-min", type=int, default=60,
+                    help="sandbox lifetime in minutes (default: 60)")
     args = ap.parse_args()
 
     if not shutil.which("sbx"):
@@ -128,16 +153,35 @@ def main():
                 sys.exit(rc)
             return out
 
-        step("clone", f"git clone --depth 1 -b {args.ref} {REPO} /tmp/repo")
-        # The numbers are produced by the clone's judge, so the manifest
-        # records the clone's commit — not the caller's local HEAD.
-        out = step("clone-commit", "git -C /tmp/repo rev-parse HEAD")
-        commit = out.split()[-1] if out.split() else ""
+        if args.local:
+            # Upload the local demo dir as a tarball (base64 through sbx
+            # exec), for testing changes that are not pushed yet.
+            import base64
+            import tarfile
+            import tempfile
+
+            demo_dir = Path(__file__).resolve().parent
+            with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tf:
+                with tarfile.open(tf.name, "w:gz") as tar:
+                    tar.add(demo_dir, arcname=demo_dir.name)
+                payload = base64.b64encode(Path(tf.name).read_bytes()).decode()
+            step("upload", "mkdir -p /tmp/repo/cookbook && "
+                 f"echo {payload} | base64 -d > /tmp/demo.tar.gz && "
+                 "tar xzf /tmp/demo.tar.gz -C /tmp/repo/cookbook")
+            p = subprocess.run(["git", "-C", str(demo_dir), "rev-parse", "HEAD"],
+                               capture_output=True, text=True)
+            commit = p.stdout.strip()
+        else:
+            step("clone", f"git clone --depth 1 -b {args.ref} {REPO} /tmp/repo")
+            # The numbers are produced by the clone's judge, so the manifest
+            # records the clone's commit — not the caller's local HEAD.
+            out = step("clone-commit", "git -C /tmp/repo rev-parse HEAD")
+            commit = out.split()[-1] if out.split() else ""
         d = f"/tmp/repo/{DEMO}"
         step("setup", f"cd {d} && bash judge/setup.sh")
         selftest_out = step("selftest", f"cd {d} && bash judge/selftest.sh")
         for line in selftest_out.splitlines():
-            if line.startswith(("mutant ", "kill rate:", "determinism:")):
+            if "mutant KILLED" in line or "kill rate" in line or "determinism" in line:
                 print(f"    {line}")
         out = step("grade", f"cd {d} && bash judge/grade.sh examples/good")
         verdict = json.loads(out[out.index("{"):])
