@@ -290,3 +290,40 @@ left to the maintainer.
 - Gate 4 resamples the artifact's own inlet profile onto each refinement
   level (the earlier draft overwrote it with the analytic parabola, which
   would have graded the judge's input, not the artifact's).
+
+## 2026-10-20: two actual fresh cloud runs
+
+The public one-command path was rerun twice with `sbx` installed in a fresh
+manager sandbox. Each invocation created a separate new CPU sandbox and
+ran the unchanged judge at source commit
+`e7ad78b6a0f65b4cfdba7d55414d9d504ccb2b6e`.
+Both `run.py` invocations exited 0, printed `PASS`, killed their sandbox,
+and confirmed its id absent from `sbx list`.
+
+| Step | Fresh run 1 | Fresh run 2 |
+| --- | ---: | ---: |
+| Create | 2.4 s | 1.2 s |
+| Clone | 4.1 s | 3.9 s |
+| Pinned setup | 23.8 s | 23.9 s |
+| Self-test | 64.9 s | 68.0 s |
+| Grade Poiseuille | 6.5 s | 8.0 s |
+| Grade cavity | 7.4 s | 9.2 s |
+| Destroy and confirm | 1.6 s | 3.8 s |
+
+Both fresh runs killed 10/10 mutants. Their full verdict JSONs are equal
+when the `timing` objects are removed (seed 0). Poiseuille profile error
+was 0.004253; cavity max errors were 0.003261 and 0.007316. Every gate passed.
+These two runs verify the CLI lifecycle and judge, replacing the earlier
+package-purge approximation noted above. They were run by the media builder;
+they do not substitute for independent reproduction or blind visual review
+of the new tracer video.
+
+
+The replacement media recipe was run end to end in the same cloud sandbox,
+regenerating its solver traces and all grades. Its manifest records shipped
+artifact hashes and a digest over saved cavity velocity fields. The final
+video gate passed (motion 1.0, cuts 1.4286/10s); the old video measured motion
+0.014 and zero cuts. See `media/REVIEW.md` for the exact replacement hash and
+remaining acceptance boundaries. The movie shows passive tracer advection
+through saved solver fields; these particles are visualization probes and
+are not additional solver accuracy measurements.
