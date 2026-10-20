@@ -55,7 +55,7 @@ def _gates_from_verdict(verdict):
             "measured": g.get("measured", g.get("detail", "")),
             "threshold": g.get("threshold", g.get("tolerance", "")),
         })
-    return gates or [{"name": "TODO", "pass": False,
+    return gates or [{"name": "unparsed-verdict", "pass": False,
                       "measured": "", "threshold": ""}]
 
 
