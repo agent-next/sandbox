@@ -431,6 +431,10 @@ def main(argv=None):
         help="also create a 1 GiB GPU lease and run a torch cuda check",
     )
     parser.add_argument(
+        "--require-live", action="store_true",
+        help="fail if no API key is configured instead of checking install only",
+    )
+    parser.add_argument(
         "--json", dest="receipt_path", metavar="FILE",
         help="also write the JSON receipt to FILE",
     )
@@ -446,7 +450,11 @@ def main(argv=None):
     }
     started = time.monotonic()
     try:
-        smoke(ref, args.gpu, receipt)
+        if args.require_live and receipt["keyless"]:
+            check(receipt, "live-credentials", False,
+                  "live smoke requires SBX_API_KEY or E2B_API_KEY")
+        else:
+            smoke(ref, args.gpu, receipt)
     except Exception as exc:  # any bug must still leave a verdict + receipt
         check(receipt, "run", False, f"unexpected {type(exc).__name__}: {exc}")
     receipt["duration_s"] = round(time.monotonic() - started, 3)
@@ -457,7 +465,7 @@ def main(argv=None):
         f"{'PASS' if passed else 'FAIL'} ref={ref} "
         f"steps={len(receipt['steps'])} left={receipt['left']}"
     )
-    if receipt["keyless"]:
+    if receipt["keyless"] and not failed:
         line += " (keyless: install and version only; set SBX_API_KEY or E2B_API_KEY for the full gate)"
     elif failed:
         line += f" first-failure={failed[0]['name']}"

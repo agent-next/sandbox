@@ -18,9 +18,15 @@ Patch versions only (`0.0.x`) unless the maintainers approve a minor bump.
    and the notes file (`bump_version.py --check --tag` fails a tag whose
    `docs/releases/vX.Y.Z.md` is missing), installs from the tag, runs the
    tests, and publishes the release from the notes file.
-5. **Smoke test.** Run `python3 scripts/release_smoke.py --ref vX.Y.Z` (with a key in
+5. **Smoke test.** Run `python3 scripts/release_smoke.py --ref vX.Y.Z --require-live` (with a key in
    the environment; add `--gpu` for GPU changes) and attach its verdict to the
    release.
+
+The nightly workflow also requires live credentials (`SBX_SMOKE_KEY`). Without
+them it fails and uploads its receipt; an install-only run cannot close a
+nightly failure issue. Local runs without `--require-live` can still check
+installation and version without a key; their receipts have `keyless: true`
+and do not establish live readiness.
 
 ## Notes template
 

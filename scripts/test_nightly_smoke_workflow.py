@@ -64,6 +64,40 @@ def test_failure_issue_is_closed_only_on_success():
     assert cond == "success()"
 
 
+def test_nightly_requires_live_verification():
+    _, script = step("Run release smoke")
+    assert "--require-live" in script, "nightly must require a live service check"
+
+
+@pytest.mark.parametrize("key_var", [None, "SBX_API_KEY", "E2B_API_KEY"])
+def test_nightly_recovers_only_with_credentials(tmp_path, key_var):
+    # Execute the workflow's real shell; the real smoke argument parser and
+    # credential check run, while install is stubbed to avoid network access.
+    root = WORKFLOW.parents[2]
+    runner = tmp_path / "python3"
+    runner.write_text(
+        '#!/usr/bin/env python\n'
+        'import sys\n'
+        f'sys.path.insert(0, {str(root / "scripts")!r})\n'
+        'import release_smoke as rs\n'
+        'rs.smoke = lambda *args: None\n'
+        'sys.exit(rs.main(sys.argv[2:]))\n'
+    )
+    runner.chmod(0o755)
+    env = dict(os.environ, PATH=f"{tmp_path}:{os.environ['PATH']}", ref="v0.0.4")
+    for name in ("SBX_API_KEY", "E2B_API_KEY"):
+        env.pop(name, None)
+    if key_var:
+        env[key_var] = "test-only-key"
+    _, script = step("Run release smoke")
+    result = subprocess.run(["bash", "-e", "-c", script], cwd=tmp_path,
+                            env=env, capture_output=True, text=True)
+    expected = 0 if key_var else 1
+    assert result.returncode == expected, "only configured live smoke may recover"
+    verdict = "pass" if key_var else "fail"
+    assert f'"verdict": "{verdict}"' in result.stdout
+
+
 def test_failure_comments_on_the_open_issue(tmp_path):
     calls = run_step(tmp_path, "Open or update failure issue", existing="17")
     assert len(calls) == 1

@@ -22,6 +22,34 @@ spec = importlib.util.spec_from_file_location("release_smoke", SCRIPT)
 rs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rs)
 
+
+def test_required_live_smoke_fails_before_install_without_key(tmp_path, monkeypatch):
+    for name in rs.KEY_VARS:
+        monkeypatch.delenv(name, raising=False)
+    called = []
+    monkeypatch.setattr(rs, "smoke", lambda *args: called.append(args))
+    receipt_path = tmp_path / "smoke.json"
+    rc = rs.main(["--ref", "v0.0.4", "--require-live", "--json", str(receipt_path)])
+    assert rc == 1, "a required live gate must fail without a key"
+    receipt = json.loads(receipt_path.read_text())
+    assert receipt["verdict"] == "fail"
+    assert receipt["keyless"] is True
+    assert receipt["steps"][0]["name"] == "live-credentials"
+    assert not called, "missing live credentials must fail before installing"
+
+
+@pytest.mark.parametrize("key_var", rs.KEY_VARS)
+def test_required_live_smoke_runs_with_either_key(tmp_path, monkeypatch, key_var):
+    for name in rs.KEY_VARS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(key_var, "test-only-key")
+    called = []
+    monkeypatch.setattr(rs, "smoke", lambda *args: called.append(args))
+    receipt_path = tmp_path / "smoke.json"
+    assert rs.main(["--ref", "v0.0.4", "--require-live", "--json", str(receipt_path)]) == 0
+    assert len(called) == 1
+    assert json.loads(receipt_path.read_text())["keyless"] is False
+
 STUB = r"""#!/usr/bin/env python3
 import hashlib
 import json
