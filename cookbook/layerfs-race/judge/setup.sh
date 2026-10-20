@@ -99,12 +99,24 @@ if [ "${SEND_VER}" != "1.1.0" ]; then
   log "pinning send@1.1.0 (was ${SEND_VER})"
   ( cd "${EXP}" && npm install --no-save --no-audit --no-fund send@1.1.0 )
 fi
-if [ ! -f "${PREFIX}/resolved-deps.txt" ]; then
-  # express's .npmrc sets package-lock=false — there is no lockfile; the
-  # resolved dependency tree is recorded instead.
-  ( cd "${EXP}" && npm ls --all > "${PREFIX}/resolved-deps.txt" 2>/dev/null || npm ls > "${PREFIX}/resolved-deps.txt" )
-  sha256sum "${PREFIX}/resolved-deps.txt" | awk '{print $1}' > "${PREFIX}/resolved-deps.sha256"
-fi
+# express's .npmrc sets package-lock=false — there is no lockfile; the full
+# resolved dependency tree is recorded instead, one name@version per line,
+# with its complete sha256 (committed snapshot: judge/resolved-deps.txt).
+# npm ls can exit non-zero on peer/invalid notes while still printing the tree
+( cd "${EXP}" && npm ls --all --json || true ) | node -e '
+  const data = JSON.parse(require("fs").readFileSync(0, "utf8"));
+  const lines = [];
+  const walk = (name, node) => {
+    if (!node || !node.version) return;
+    lines.push(`${name}@${node.version}`);
+    for (const [n, dep] of Object.entries(node.dependencies ?? {})) walk(n, dep);
+  };
+  if (data.name && data.version) lines.push(`${data.name}@${data.version}`);
+  for (const [n, dep] of Object.entries(data.dependencies ?? {})) walk(n, dep);
+  console.log([...new Set(lines)].sort().join("\n"));
+' > "${PREFIX}/resolved-deps.txt"
+DEPS_SHA="$(sha256sum "${PREFIX}/resolved-deps.txt" | awk '{print $1}')"
+echo "${DEPS_SHA}  resolved-deps.txt" > "${PREFIX}/resolved-deps.sha256"
 
 # --- clean-baseline pass count ---------------------------------------------
 if [ ! -f "${PREFIX}/baseline.json" ]; then
@@ -133,10 +145,22 @@ BASELINE_PASS="${BASELINE_PASS}"
 CORRECT_INDEX="3"
 EOF
 
+# --- per-run versions record (what this install actually resolved) ---------
+cat > "${PREFIX}/VERSIONS.txt" <<EOF
+layerfs   ${LAYERFS_TAG} ${LFS_HEAD}
+rust      ${RUST}
+image     ${LAYERFS_IMAGE}
+express   ${EXPRESS_TAG} ${EXP_HEAD}
+baseline  ${BASELINE_PASS} passing / 0 failing
+deps      ${PREFIX}/resolved-deps.txt ($(wc -l < "${PREFIX}/resolved-deps.txt") packages)
+deps-sha256 ${DEPS_SHA}
+EOF
+
 log "done."
 echo "  layerfs   -> ${LFS} (${LAYERFS_TAG} ${LFS_HEAD})"
 echo "  daemon    -> ${LAYERFS_DAEMON}"
 echo "  image     -> ${LAYERFS_IMAGE}"
 echo "  express   -> ${EXP} (${EXPRESS_TAG} ${EXP_HEAD})"
 echo "  baseline  -> ${BASELINE_PASS} passing / 0 failing"
+echo "  deps      -> ${PREFIX}/resolved-deps.txt (sha256 ${DEPS_SHA})"
 echo "  env       -> ${PREFIX}/env.sh"
