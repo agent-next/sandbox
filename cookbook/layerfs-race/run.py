@@ -17,6 +17,7 @@ import importlib.util
 import json
 import os
 import shutil
+import re
 import subprocess
 import sys
 import time
@@ -74,7 +75,8 @@ def write_result_manifest(verdict, ok, commit):
     timing = verdict.get("timing", {})
     store_ratio = timing.get("store_ratio")
     baseline = next((g for g in gates if g.get("name") == "winner-green"), {})
-    passing = str(baseline.get("measured", "")).split(" ")[0] or "?"
+    m = re.search(r"(\d+)\s+passing", str(baseline.get("measured", "")))
+    passing = m.group(1) if m else "?"
     headline = (
         f"8 agents race to fix an injected express bug on copy-on-write "
         f"LayerFS branches; the Store holds {store_ratio}x the source tree and "
@@ -144,7 +146,11 @@ def main():
         print(f"[{time.time()-t0:5.1f}s] sandbox {sid}")
 
         def step(name, command, step_timeout=120):
-            out, rc, el = sbx_exec(sid, command, step_timeout)
+            # Redirect step output to a file and cat it back: detached children
+            # (e.g. `start-docker`'s sudo+dockerd) inherit the exec's stdout fd
+            # and hold the stream open forever, which makes sbx exec time out.
+            cmd = f"({command}) > /tmp/step-{name}.log 2>&1; rc=$?; cat /tmp/step-{name}.log; exit $rc"
+            out, rc, el = sbx_exec(sid, cmd, step_timeout)
             status = "ok" if rc == 0 else f"FAILED rc={rc}"
             print(f"[{el:6.1f}s] {name}: {status}")
             if rc != 0:
