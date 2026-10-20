@@ -53,12 +53,13 @@ and leaves the project and its Store volume for the judge.
 4. **losers-red** — for each of the other 7 branches the judge runs the
    suite on that branch: >= 1 failing test each.
 5. **main-isolation** — at the Layer before publish, `main` equals the bugged
-   source tree (bugged file byte-identical); no `agent-*` commit touched
-   `main` except through `branch.publish`.
+   source tree (bugged file byte-identical; the whole tree is checked by
+   `base-intact`); no `agent-*` commit touched `main` except through
+   `branch.publish`.
 6. **conflict-refused** — a judge-run `branch.merge` of two candidates
    that edit the same hunk is refused with code `Conflict`, naming the file.
 7. **storage** — Store volume bytes (`du -sb`) after the race <= 0.25 x
-   K x source-tree bytes (measured 2026-10-19: 0.036).
+   K x source-tree bytes (measured 2026-10-20: 0.037).
 8. **fork-latency** — median `branch.fork` time over forks 2..8 <= 0.050 s
    (measured 2026-10-19: 0.001 s).
 
@@ -76,13 +77,20 @@ The oracle is protected from the artifact: the judge runs mocha with
 `--no-config --no-package` on an explicit, judge-fixed test file list, and
 the `oracle-intact` gate fails when any agent branch or `main` changes
 anything outside `lib/` versus the bugged base (the judge diffs every ref
-against a branch forked from the pre-publish layer). A submitted
-`.mocharc`, test edit or `node_modules` swap cannot rig the result. The
-suite's exit status is preserved and `winner-green` requires exit 0 *and*
-0 failing *and* the baseline passing count. The artifact runs in a staged
-directory without the grader; the grader itself runs from a private copy
-whose sha256 is checked before and after, and a non-zero artifact or
-grader exit forces an overall FAIL.
+against a branch forked from the pre-publish layer, paging through all
+diff entries). The `base-intact` gate additionally recomputes a full-tree
+digest of that pre-publish layer — and of the source dir the artifact was
+given — against the digest `setup.sh` recorded for the judge's own bugged
+checkout, so an artifact that inits from a tampered tree also fails. A
+submitted `.mocharc`, test edit or `node_modules` swap cannot rig the
+result. The suite's exit status is preserved and `winner-green` requires
+exit 0 *and* 0 failing *and* the baseline passing count. The artifact runs
+in a staged directory without the grader and in its own session whose
+process group is killed when it exits or times out; the grader runs from a
+private copy whose sha256 is checked before and after, writes its verdict
+into a directory created only after the artifact's process group is dead,
+and exits non-zero if it cannot write — a non-zero artifact or grader exit
+forces an overall FAIL.
 
 ## Self-test
 
@@ -92,8 +100,10 @@ single edits of `race.mjs`, at least: publish a losing branch; publish
 nothing; write the fix to `main` with `fs.write` instead of a branch;
 claim the wrong winner in `race.json`; skip `exec` (write files with
 `fs.write` only); plain `cp -a` copies instead of LayerFS branches; merge
-with markers left in and publish that. Two grades of `examples/good`
-must give byte-identical verdict JSON outside `timing`.
+with markers left in and publish that; init from a doctored copy of the
+source tree (an added `.mocharc.js` outside `lib/`). Two grades of
+`examples/good` under the same seed must give byte-identical verdict JSON
+outside `timing`.
 
 ## Tolerances for reproduction
 

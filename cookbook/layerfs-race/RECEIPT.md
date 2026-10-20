@@ -2,67 +2,92 @@
 
 Fresh end-to-end run of `python3 cookbook/layerfs-race/run.py --local`
 from the host (the branch is not pushed, so the run packages and uploads the
-worktree demo). Local commit at run time: `a370a5386e928a89f518542041c284f4ffd584fa`.
+worktree demo). Local commit at run time: `f551e9df5f5ab203efd90652249d0e8f79938ea3`.
 Each run: create sandbox -> upload -> setup -> selftest -> grade -> kill + confirm.
 
-## Run — sandbox `01a1575a-cf2d-7213-9e12-24ea239cb5b0` (removed after)
+## Run — sandbox `01a157a9-d402-7a72-bd16-7315a55b9c04` (removed after proofs)
 
 ```
-[  0.5s] sandbox 01a1575a-cf2d-7213-9e12-24ea239cb5b0
+[  0.4s] sandbox 01a157a9-d402-7a72-bd16-7315a55b9c04
 [   0.9s] upload: ok
-[ 282.4s] setup: ok
-[2874.3s] selftest: ok
+[ 289.8s] setup: ok
+[3309.3s] selftest: ok
     selftest: mutant KILLED: claim-wrong-winner (failing gates: winner-is-a-branch)
     selftest: mutant KILLED: cp-a (failing gates: artifact,artifact-exit)
+    selftest: mutant KILLED: doctored-base (failing gates: base-intact)
     selftest: mutant KILLED: fix-main-fs (failing gates: artifact,artifact-exit)
     selftest: mutant KILLED: fs-write-only (failing gates: branches)
     selftest: mutant KILLED: lie-volume (failing gates: artifact)
     selftest: mutant KILLED: merge-markers (failing gates: winner-green)
-    selftest: mutant KILLED: publish-loser (failing gates: main-isolation,winner-is-a-branch,oracle-intact,winner-green,losers-red)
-    selftest: mutant KILLED: publish-nothing (failing gates: main-isolation,winner-is-a-branch,oracle-intact,winner-green,losers-red)
+    selftest: mutant KILLED: publish-loser (failing gates: main-isolation,winner-is-a-branch,oracle-intact,base-intact,winner-green,losers-red)
+    selftest: mutant KILLED: publish-nothing (failing gates: main-isolation,winner-is-a-branch,oracle-intact,base-intact,winner-green,losers-red)
     selftest: mutant KILLED: seven-branches (failing gates: branches,oracle-intact,losers-red)
-    selftest: mutant KILLED: shift-candidates (failing gates: main-isolation,winner-is-a-branch,oracle-intact)
-    selftest: kill rate: 10/10 (100%)
+    selftest: mutant KILLED: shift-candidates (failing gates: main-isolation,winner-is-a-branch,oracle-intact,base-intact)
+    selftest: kill rate: 11/11 (100%)
     selftest: determinism PASS (same seed -> identical verdict outside timing)
-[ 317.3s] grade: ok
+[ 331.3s] grade: ok
 verdict: PASS
-sandbox 01a1575a-cf2d-7213-9e12-24ea239cb5b0 removed
 ```
 
 ## Verdict (current run)
 
-All eleven gates pass: artifact, bug-scope (2 failing on the bugged tree,
+All twelve gates pass: artifact, bug-scope (2 failing on the bugged tree,
 allowed 1-50), branches (`agent-0..7`, each with `via:exec` commits),
 main-isolation (main moved only via publish; pre-publish layer holds the
 bugged `lib/application.js` byte-identical), winner-is-a-branch (empty diff
 vs main: agent-3 only; claimed agent-3; expected agent-3), oracle-intact
 (every branch/main change vs the bugged base confined to `/lib/`),
-winner-green (main re-run: 1238 passing / 0 failing, suite exit 0 = clean
-baseline), losers-red
+base-intact (pre-publish base tree byte-identical to the judge's bugged
+tree, full-tree digest), winner-green (main re-run: 1238 passing /
+0 failing, suite exit 0 = clean baseline), losers-red
 (`agent-0:3 agent-1:2 agent-2:5 agent-4:5 agent-5:5 agent-6:5 agent-7:2`),
-storage, conflict-refused (`Conflict` on `/lib/application.js`), fork-latency.
+storage, conflict-refused (`Conflict` on `/lib/application.js`),
+fork-latency.
+
+Mutant-attribution honesty: `cp-a` and `fix-main-fs` are still killed only
+on `artifact,artifact-exit` — their artifacts crash before the grader
+runs, so the tree/branch gates are never exercised by them. The other 9
+mutants die on functional gates. `doctored-base` (new) is killed solely by
+`base-intact`, which is the only gate that sees a poisoned shared base.
+
+## Anti-tamper proofs (scratch, same sandbox)
+
+- Planted verdict: a scratch artifact that writes a read-only
+  `{"verdict":"PASS"}` at the judge's old verdict path
+  (`dirname($RACE_OUT)/verdict.json`, chmod 444) and exits 0 -> `grade.sh`
+  exited 1 and printed a real FAIL (`artifact` gate: race.json missing).
+  The verdict is written to a fresh random dir created after the
+  artifact's process group is dead, so the plant is ignored.
+- Unwritable verdict: `grader.mjs` pointed at a chmod-555 output dir exits
+  1 (previously the `uncaughtException -> finish -> exit(0)` path exited
+  0), so `grade.sh` force-fails on `grader-exit`.
 
 ## Measured numbers (current run)
 
 | metric | value |
 |---|---|
 | source tree | 47,682,104 B |
-| Store volume | 14,394,520 B |
-| Store / source | 0.3019 |
+| Store volume | 14,262,776 B |
+| Store / source | 0.2991 |
 | median `branch.fork` (forks 2-8, judge) | 0.0007 s |
 | main suite (judge re-run) | 1238 passing / 0 failing, suite exit 0 |
 | resolved-deps.txt sha256 | `d933663706754058430b15f1823b38686b142a720299c99d89023a9c6f79ad5f` (matches committed `judge/resolved-deps.txt`) |
-| per-agent suite (artifact) | 16.4-32.7 s |
-| wall: setup / selftest / grade | 282.4 / 2874.3 / 317.3 s (~58 min total) |
+| bugged tree sha256 | `6fcba3551c1d9dc385e327d2866fc5c7f23559e48735edd4ff43aba8b1076553` |
+| per-agent suite (artifact) | 15.5-31.1 s |
+| wall: setup / selftest / grade | 289.8 / 3309.3 / 331.3 s (~66 min total) |
 
 ## Pre-fix runs (superseded)
 
-Two earlier end-to-end `run.py --local` runs (local commit
-`120997b36ccb247f853c3198b55de582bd4b2440`) passed with the pre-hardening
-judge: verdict PASS, kill rate 10/10, Store/source 0.2997 / 0.2985, wall
-setup / selftest / grade 291.5 / 1795.8 / 207.0 s and
-290.1 / 1797.7 / 206.6 s. Their gate set lacked `oracle-intact` and the
-artifact/grader exit checks; the current run above is authoritative.
+- Hardened-judge run at local commit `a370a538` (pre-round-2 fixes):
+  verdict PASS, kill rate 10/10, Store/source 0.3019, wall
+  setup / selftest / grade 282.4 / 2874.3 / 317.3 s. Its gate set lacked
+  `base-intact` and the planted-verdict defense; the current run above is
+  authoritative.
+- Two earlier end-to-end `run.py --local` runs (local commit
+  `120997b36ccb247f853c3198b55de582bd4b2440`) passed with the
+  pre-hardening judge: verdict PASS, kill rate 10/10, Store/source
+  0.2997 / 0.2985, wall setup / selftest / grade 291.5 / 1795.8 / 207.0 s
+  and 290.1 / 1797.7 / 206.6 s.
 
 ## Deviations
 
@@ -96,9 +121,15 @@ artifact/grader exit checks; the current run above is authoritative.
   cat /tmp/step-*.log` so the stream ends with the step.
 - **`npx mocha --exit`** — without it the suite can sit on open handles after
   the last test (ep_poll) and never exit.
-- **oracle/diff walls add ~2 min per grade** — the `oracle-intact` and
+- **oracle/diff walls add ~4 min per grade** — the `oracle-intact` and
   `winner-is-a-branch` gates diff nine Store refs each against a
-  judge-forked base (`diffs` + `oracle` wall_s ≈ 220 s per grade), which is
-  why the self-test now takes ~48 min.
+  judge-forked base (`diffs` + `oracle` wall_s ≈ 226 s per grade) plus the
+  `base-intact` digest (~13 s), which is why the self-test now takes ~55 min.
+- **verdict lives in a post-artifact random dir** — `grade.sh` creates
+  `${RUN}/verdict.XXXXXX` only after the artifact's process group is dead
+  (`setsid` + `kill -- -PGID`), so a planted or read-only verdict file
+  cannot win. Residual: an artifact that escapes its session entirely
+  (`setsid`'s own grandchild) could still race a late re-plant; the judge
+  then refuses to print bytes that changed after grading, forcing FAIL.
 - **no media** — figures and video are out of scope for this entry; the
   scaffold's placeholder media files were removed rather than shipped.
