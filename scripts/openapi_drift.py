@@ -202,12 +202,17 @@ def _diff_content_node(label, old_node, new_node, out):
         if not (isinstance(old_entry, dict) and isinstance(new_entry, dict)):
             out.append(f"{entry_label}: changed ({_short(old_entry)} -> {_short(new_entry)})")
             continue
-        if old_entry.get("schema") != new_entry.get("schema"):
-            schema_key_changes(entry_label, old_entry.get("schema"), new_entry.get("schema"), out)
+        both_schemas = "schema" in old_entry and "schema" in new_entry
+        if both_schemas and old_entry["schema"] != new_entry["schema"]:
+            schema_key_changes(entry_label, old_entry["schema"], new_entry["schema"], out)
         # encoding, example(s) and extensions are media-type contract too.
-        _diff_keys(f"{entry_label}.", old_entry, new_entry, out, skip=("schema",))
+        _diff_keys(f"{entry_label}.", old_entry, new_entry, out,
+                   skip=("schema",) if both_schemas else ())
     # required, description, headers, a whole-node $ref, ... are contract too.
-    _diff_keys(f"{label}.", old_node, new_node, out, skip=("content",))
+    both_contents = (isinstance(old_node.get("content"), dict) and
+                     isinstance(new_node.get("content"), dict))
+    _diff_keys(f"{label}.", old_node, new_node, out,
+               skip=("content",) if both_contents else ())
 
 
 def _resolve_param(param, components):
