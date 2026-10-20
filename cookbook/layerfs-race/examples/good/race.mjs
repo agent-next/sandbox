@@ -111,4 +111,7 @@ try {
   }, null, 1));
 } finally {
   for (const id of sandboxes) await lf.sandbox.close(id).catch(() => {});
+  // also close the service Sandbox so node can exit
+  for (const id of [...lf.sandboxes]) await lf.sandbox.close(id).catch(() => {});
 }
+process.exit(0);

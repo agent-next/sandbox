@@ -210,3 +210,7 @@ timing.fork_median_s = median;
 gate("fork-latency", median <= FORK_MEDIAN_MAX, `median fork <= ${FORK_MEDIAN_MAX} s`);
 
 await finish();
+
+// close the service Sandbox connection so node can exit
+for (const id of [...lf.sandboxes]) await lf.sandbox.close(id).catch(() => {});
+process.exit(0);
