@@ -24,13 +24,16 @@ lets shipped results stand in for a real run. Gates and thresholds are in
 
 ![Replayed agent loop and self-test kill rate](media/loop.png)
 
-▶ **[media/demo.mp4](media/demo.mp4)** — the cavity flow developing over
-pseudo-time (|U| field from a real icoFoam run, gate-2 residual convergence
-alongside), 33 s, 1080p. Media is regenerated from live judge output by
-[`media/make_media.sh`](media/make_media.sh); provenance in
-[media/MANIFEST.json](media/MANIFEST.json) and
-[media/REVIEW.md](media/REVIEW.md). Verdicts below are from the *replayed*
-grading in that pipeline (seed 42, media/judge_runs/replay/).
+▶ **[media/demo.mp4](media/demo.mp4)** — continuous tracer advection
+through the actual graded OpenFOAM velocity fields, with fixed views of the
+cavity, driven lid and return flow. A Remotion HUD shows physical time and
+measured gate-5 errors while the flow keeps moving; only the final two-second
+launch card is static. Media is regenerated from live judge output by
+[`media/make_media.sh`](media/make_media.sh); provenance is recorded in
+[media/MANIFEST.json](media/MANIFEST.json). The tracers visualize interpolated
+solver output; they do not introduce an additional accuracy claim. The verdict
+HUD reports the final graded case at solver time 30 s, while the playback
+clock labels the earlier evolving flow.
 
 - Poiseuille profile error **L2 = 0.0043** vs the analytic parabola — gate 3
   pass line 0.02.
@@ -106,6 +109,9 @@ and figures.
 - **Debian 12 (bookworm)** — the pinned OpenFOAM packages are from this
   release.
 - **passwordless `sudo`** — `judge/setup.sh` calls `apt-get install`.
+- **Node.js 18+ and npm** — media composition installs pinned Remotion
+  4.0.280 and React 18.3.1 in a temporary directory and removes it on exit.
+  Set `CHROME_EXECUTABLE` to reuse an installed headless Chromium.
 - **`ffmpeg`** — required by `media/make_media.sh` for video encoding
   (pinned version recorded in `judge/VERSIONS.txt`).
 - **Python 3.11+** with the **pinned media venv** — install via:
@@ -136,7 +142,7 @@ and figures.
 
 ## Independent reproduction
 
-Independently reproduced: bit-identical media and metrics — see
+The original judge metrics were independently reproduced — see
 [REPRODUCE.md](REPRODUCE.md).
 
 ## Limits

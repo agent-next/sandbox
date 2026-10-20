@@ -15,3 +15,8 @@ examples/bad/
 examples/good/poiseuille_*x*/
 __pycache__/
 *.pyc
+
+# Reproducible media intermediates remain local to the rendering sandbox.
+media/judge_runs/
+media/master/
+media/clips/
