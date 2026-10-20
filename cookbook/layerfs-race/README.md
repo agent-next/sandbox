@@ -15,14 +15,6 @@ fool it.
 each of the 7 losing branches independently red, Store = 0.30× the source
 tree, median `branch.fork` 0.0006 s (see RECEIPT.md).
 
-## Results
-
-![judge verdict: gates and the self-test kill matrix](media/result.png)
-![agent loop + self-test kill rate](media/loop.png)
-
-[media/demo.mp4](media/demo.mp4) — 45 s: the 8-branch race live in the
-sandbox, per-agent test results, the judge's mutant kill matrix, end card.
-
 ## Ask your agent
 
 > Clone https://github.com/agent-next/sandbox into this sandbox and run
@@ -71,6 +63,12 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
   byte-identical outside `timing`.
 
 ## Limits
+
+- No figures or video yet: this entry ships the judge, the one-command run
+  and the receipts only.
+- Time-to-result is about 38 min on the default 2 vCPU sandbox (setup ~5 min
+  builds LayerFS from source; the 10-mutant self-test ~30 min), well over the
+  5 min cookbook target, because LayerFS 0.1.7 publishes no binaries.
 
 - The demo fixes deterministic patches — no LLM writes candidate fixes; the
   demo shows the branching substrate, not patch generation.

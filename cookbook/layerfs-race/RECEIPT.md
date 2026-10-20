@@ -107,5 +107,5 @@ storage, conflict-refused (`Conflict` on `/lib/application.js`), fork-latency.
   cat /tmp/step-*.log` so the stream ends with the step.
 - **`npx mocha --exit`** — without it the suite can sit on open handles after
   the last test (ep_poll) and never exit.
-- **media are placeholders** — `media/*.png`/`demo.mp4` are scaffold slots;
-  video/figure generation is explicitly out of scope for this pass.
+- **no media** — figures and video are out of scope for this entry; the
+  scaffold's placeholder media files were removed rather than shipped.
