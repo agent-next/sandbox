@@ -79,7 +79,7 @@ info "kill rate: ${killed}/${nmut} (${rate}%)"
 [ "${rate}" -ge 90 ] || fail "kill rate ${rate}% < 90%"
 
 # --- 3. determinism: same seed -> identical verdict outside "timing" ---------
-bash "${HERE}/grade.sh" "${GOOD}" --seed 424242 --json "${WORK}/det2.json" \
+bash "${HERE}/grade.sh" "${GOOD}" --json "${WORK}/det2.json" \
   >"${WORK}/det2.out" 2>"${WORK}/det2.err" || fail "second good grade failed"
 node -e '
   const fs = require("fs");

@@ -9,7 +9,7 @@ always kills the sandbox afterwards.
 Needs the sbx CLI and SBX_API_KEY (or E2B_API_KEY) in the environment:
   pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"
 
-Usage: run.py [--ref GIT_REF] [--keep] [--timeout-min N]
+Usage: run.py [--ref GIT_REF] [--local] [--keep] [--timeout-min N]
 """
 
 import argparse
@@ -49,8 +49,8 @@ def main():
                          "(for testing unpushed changes; --ref is ignored)")
     ap.add_argument("--keep", action="store_true",
                     help="leave the sandbox running and print its id")
-    ap.add_argument("--timeout-min", type=int, default=60,
-                    help="sandbox lifetime in minutes (default: 60)")
+    ap.add_argument("--timeout-min", type=int, default=120,
+                    help="sandbox lifetime in minutes (default: 120)")
     args = ap.parse_args()
 
     if not shutil.which("sbx"):
@@ -95,9 +95,24 @@ def main():
             demo_dir = Path(__file__).resolve().parent
             archive = Path(tempfile.NamedTemporaryFile(
                 suffix=".tar.gz", delete=False).name)
+            # gitignored paths (e.g. __pycache__, .venv) stay out of the tarball
+            ign = subprocess.run(
+                ["git", "-C", str(demo_dir), "ls-files", "-o", "-i",
+                 "--exclude-standard", "--directory"],
+                capture_output=True, text=True).stdout
+            ignored = {p.rstrip("/") for p in ign.splitlines() if p}
+
+            def _keep(ti):
+                rel = ti.name.partition("/")[2]
+                parts = rel.split("/") if rel else []
+                if any("/".join(parts[:i]) in ignored
+                       for i in range(1, len(parts) + 1)):
+                    return None
+                return ti
+
             try:
                 with tarfile.open(archive, "w:gz") as tar:
-                    tar.add(demo_dir, arcname=demo_dir.name)
+                    tar.add(demo_dir, arcname=demo_dir.name, filter=_keep)
                 payload = base64.b64encode(archive.read_bytes()).decode()
                 step("upload", "mkdir -p /tmp/repo/cookbook && "
                      f"echo {payload} | base64 -d > /tmp/demo.tar.gz && "
