@@ -1,0 +1,12 @@
+diff --git a/lib/application.js b/lib/application.js
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -95,7 +95,7 @@ app.defaultConfiguration = function defaultConfiguration() {
+   this.set('etag', 'weak');
+   this.set('env', env);
+   this.set('query parser', 'simple')
+-  this.set('subdomain offset', 2);
++  this.set('subdomain offset', 3);
+   this.set('trust proxy', false);
+ 
+   // trust proxy inherit back-compat

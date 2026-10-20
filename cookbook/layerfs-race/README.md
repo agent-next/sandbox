@@ -1,0 +1,100 @@
+# layerfs-race — 8 agents race on copy-on-write LayerFS branches; the Store holds 0.30× the source and the judge re-runs the suite itself
+
+Eight agents race to fix the same injected bug in a real express checkout
+(pinned tag), each on its own copy-on-write branch inside one LayerFS Store
+in a disposable agent-next sandbox. Each agent mounts its branch in a
+LayerFS Sandbox, applies its candidate patch, runs the full pinned mocha
+suite (1238 tests), and commits. The run publishes the one green branch to
+`main`. The judge then reads the Store through the SDK — it never trusts
+`race.json` — forks `main`, re-runs the suite on the published tree and on
+every losing branch, checks the layer chain, the merge-conflict refusal,
+Store bytes and fork latency. A manifest that only *claims* a winner cannot
+fool it.
+
+**Hero result:** judge verdict PASS — `main` re-tested at 1238/1238 passing,
+each of the 7 losing branches independently red, Store = 0.30× the source
+tree, median `branch.fork` 0.0007 s (see RECEIPT.md).
+
+## Ask your agent
+
+> Clone https://github.com/agent-next/sandbox into this sandbox and run
+> `bash cookbook/layerfs-race/judge/setup.sh`. Then write a LayerFS SDK
+> script like `examples/good/race.mjs` (contract: SPEC.md — init the bugged
+> repo, fork `agent-0..7`, mount each in its own Sandbox, apply the
+> candidate patch, run the suite, commit, publish the green one, write
+> `race.json`). Iterate with `judge/grade.sh <dir>` until it prints `"PASS"`.
+
+## One-command run
+
+```bash
+python3 run.py            # clones this repo at main into a fresh sandbox
+python3 run.py --ref my-branch --keep
+python3 run.py --local    # upload the local checkout (no push needed)
+```
+
+Needs the `sbx` CLI (`pip install "git+https://github.com/agent-next/sandbox#subdirectory=cli"`)
+and `SBX_API_KEY` (or `E2B_API_KEY`) in the environment.
+
+Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
+
+| step | wall time |
+|---|---|
+| setup (rust build + express clone + baseline) | ~5 min |
+| selftest (11 mutants + determinism) | ~55 min |
+| grade the good artifact | ~5.5 min |
+| **time-to-result (README -> hero)** | ~66 min |
+
+## How the judge works
+
+- `judge/setup.sh` — builds LayerFS v0.1.7 from source (Rust 1.85.1, offline
+  locked build), builds the runtime image (`node:24.21.0-bookworm` pinned by
+  digest), clones express v5.2.1 (commit-verified), installs deps (resolved
+  tree recorded; `send` pinned to 1.1.0), and measures the clean-baseline
+  pass count.
+- `judge/grade.sh <artifact-dir>` — applies `examples/bug.patch` to a copy
+  of the pinned tree, runs `race.mjs` in a staged dir that does not contain
+  the grader, then runs `judge/grader.mjs` from a private sha256-checked
+  copy against a fresh Store volume. The grader checks all 8 SPEC gates +
+  artifact/manifest, bug-scope, oracle-intact and base-intact gates through
+  the SDK (list_commits, diff_branches, inspect.snapshot, fs.read, merge,
+  publish, its own Sandboxes) and re-runs the suite itself — mocha with
+  `--no-config --no-package` on a judge-fixed file list — on `main` and
+  every losing branch. The artifact runs in its own session and its process
+  group is killed after it exits; the grader's verdict reaches `grade.sh`
+  on stdout and never touches a file. An artifact or grader crash forces
+  FAIL. Prints
+  exactly one JSON verdict line on stdout.
+- `judge/selftest.sh` — the good artifact must pass, each of the 11
+  single-edit mutants from `judge/mutants.py` must fail ≥1 gate (kill rate
+  100% here; ≥90% required), and two grades of the good artifact are
+  byte-identical outside `timing`.
+
+## Limits
+
+- No figures or video yet: this entry ships the judge, the one-command run
+  and the receipts only.
+- The artifact runs as the same user as the judge, with the Docker socket.
+  Its process group is killed when it exits, but a child that deliberately
+  starts its own session survives and could interfere with the Store or the
+  judge's LayerFS Sandboxes while grading runs. The judge is built against
+  mistaken or careless artifacts, not one designed to attack the host.
+- Time-to-result is about 66 min on the default 2 vCPU sandbox (setup ~5 min
+  builds LayerFS from source; the 11-mutant self-test ~55 min), well over the
+  5 min cookbook target, because LayerFS 0.1.7 publishes no binaries.
+
+- The demo fixes deterministic patches — no LLM writes candidate fixes; the
+  demo shows the branching substrate, not patch generation.
+- LayerFS 0.1.7 is a preview: no durability/crash-recovery/multi-host Store
+  claims (upstream marks these unsupported). The Store here is Disposable
+  profile — it lives only for one sandbox run.
+- Store bytes and timings are measured on a 2 vCPU sandbox; absolute numbers
+  vary with hardware. Gates use SPEC-fixed thresholds, not the measured
+  receipt values.
+
+## Credits
+
+- [LayerFS](https://github.com/Ephemeral-AI-Lab/layerfs) v0.1.7 (commit
+  `e7713d03`), MIT; `judge/runtime/Dockerfile` is vendored from upstream
+  commit `0d49d64c` (see `judge/runtime/LICENSE`).
+- [express](https://github.com/expressjs/express) v5.2.1, MIT; cloned at
+  setup, not vendored.

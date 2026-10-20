@@ -1,0 +1,46 @@
+# Tool versions pinned for cookbook/layerfs-race judge
+# Recorded from a real `bash judge/setup.sh` run (2026-10-19, 2 vCPU sandbox).
+
+## LayerFS (MIT) — built from source
+# Repo: https://github.com/Ephemeral-AI-Lab/layerfs
+# Tag: v0.1.7 (commit e7713d034b029c358c657959b7737e8d23c9d1e7, clone-verified)
+# Built: cargo +1.85.1 build --manifest-path core/Cargo.toml --offline --locked
+#        --release -p layerfs-node -p layerfs-daemon  (~4 min on 2 vCPU)
+# Products: core/target/release/liblayerfs_node.so -> sdk/js/native/layerfs.node
+#           core/target/release/layerfs-daemon
+
+## Rust
+# rustup toolchain 1.85.1-x86_64-unknown-linux-gnu (cargo 1.85.1 d73d2caf9)
+
+## Runtime image (LayerFS Sandbox image)
+# judge/runtime/Dockerfile — vendored from upstream dsh/tools/history/runtime
+# at commit 0d49d64cd35bc4ac8954ab136ce8c3cf85fccae8 (not in tag v0.1.7;
+# upstream MIT licence kept beside it in judge/runtime/LICENSE);
+# base node:24.21.0-bookworm pinned by digest
+#   sha256:3d27e5c11e5786e309ec3e03f93ae536eb36e6e5eb3714d5eb3300a36157add0
+# Built image id recorded per-run in $HOME/layerfs-race/env.sh (LAYERFS_IMAGE).
+
+## Repository under test — express (MIT)
+# Repo: https://github.com/expressjs/express
+# Tag: v5.2.1 (commit dbac741a49a5a64336b70c06e85c2e2706e36336, clone-verified;
+# v5.3.0 skipped: published <14 days before the pin date)
+# Deps: `npm install` (the tag ships .npmrc package-lock=false — no lockfile);
+# the full resolved tree is recorded per run as name@version lines in
+# $HOME/layerfs-race/resolved-deps.txt with a complete sha256 in
+# $HOME/layerfs-race/VERSIONS.txt; a committed snapshot of that file lives in
+# judge/resolved-deps.txt. express floats send@^1.1.0 and the current
+# send@1.2.x breaks 55 res.sendFile/res.download tests at this tag —
+# send is pinned to 1.1.0 (npm install --no-save send@1.1.0).
+# Suite: `npx mocha --exit --require test/support/env --reporter dot
+#        --check-leaks test/ test/acceptance/` = 1238 tests (~3 s)
+
+## Injected bug
+# examples/bug.patch: lib/application.js subdomain offset 2 -> 3
+# Measured: exactly 2 failing tests (SPEC allows 1-50).
+
+## Host tools (Debian bookworm sandbox image)
+# node v24.21.0, npm 11.19.0, docker server 29.9.0, git 2.39.5, python3, patch, sudo
+
+## Judge constants
+# CORRECT_INDEX=3 (candidate-3.patch is the only green fix)
+# Baseline: 1238 passing / 0 failing (clean tree, measured in setup.sh)
