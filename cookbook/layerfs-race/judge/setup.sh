@@ -134,8 +134,10 @@ cp -a "${EXP}" "${BUGGED}"
   || { echo "[setup] ERROR: bug.patch does not apply to ${EXP##*/}" >&2; exit 1; }
 grep -q "subdomain offset', 3" "${BUGGED}/lib/application.js" \
   || { echo "[setup] ERROR: bug.patch did not inject the bug" >&2; exit 1; }
-BUGGED_SHA="$(cd "${BUGGED}" && find . -path ./.git -prune -o -type f -print0 \
-  | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+# Same digest as grader.mjs TREE_DIGEST: contents of every regular file plus
+# type, mode and target of every file and symlink (a retargeted
+# node_modules/.bin link changes it).
+BUGGED_SHA="$(cd "${BUGGED}" && { find . -path ./.git -prune -o \( -type f -o -type l \) -printf "%y %m %p -> %l\\n" | LC_ALL=C sort; find . -path ./.git -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; } | sha256sum | cut -d" " -f1)"
 
 # --- clean-baseline pass count ---------------------------------------------
 if [ ! -f "${PREFIX}/baseline.json" ]; then

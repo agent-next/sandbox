@@ -79,17 +79,18 @@ the `oracle-intact` gate fails when any agent branch or `main` changes
 anything outside `lib/` versus the bugged base (the judge diffs every ref
 against a branch forked from the pre-publish layer, paging through all
 diff entries). The `base-intact` gate additionally recomputes a full-tree
-digest of that pre-publish layer — and of the source dir the artifact was
+digest (file contents plus the type, mode and target of every file and
+symlink) of that pre-publish layer — and of the source dir the artifact was
 given — against the digest `setup.sh` recorded for the judge's own bugged
 checkout, so an artifact that inits from a tampered tree also fails. A
-submitted `.mocharc`, test edit or `node_modules` swap cannot rig the
-result. The suite's exit status is preserved and `winner-green` requires
+submitted `.mocharc`, test edit, `node_modules` swap or retargeted
+`node_modules/.bin` link fails a gate. The suite's exit status is preserved and `winner-green` requires
 exit 0 *and* 0 failing *and* the baseline passing count. The artifact runs
 in a staged directory without the grader and in its own session whose
 process group is killed when it exits or times out; the grader runs from a
-private copy whose sha256 is checked before and after, writes its verdict
-into a directory created only after the artifact's process group is dead,
-and exits non-zero if it cannot write — a non-zero artifact or grader exit
+private copy whose sha256 is checked before and after and passes its
+verdict to `grade.sh` on stdout, held in memory and never written to a file
+the artifact could plant or swap — a non-zero artifact or grader exit
 forces an overall FAIL.
 
 ## Self-test

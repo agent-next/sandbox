@@ -125,12 +125,14 @@ mutants die on functional gates. `doctored-base` (new) is killed solely by
   `winner-is-a-branch` gates diff nine Store refs each against a
   judge-forked base (`diffs` + `oracle` wall_s ≈ 226 s per grade) plus the
   `base-intact` digest (~13 s), which is why the self-test now takes ~55 min.
-- **verdict lives in a post-artifact random dir** — `grade.sh` creates
-  `${RUN}/verdict.XXXXXX` only after the artifact's process group is dead
-  (`setsid` + `kill -- -PGID`), so a planted or read-only verdict file
-  cannot win. Residual: an artifact that escapes its session entirely
-  (`setsid`'s own grandchild) could still race a late re-plant; the judge
-  then refuses to print bytes that changed after grading, forcing FAIL.
+- **verdict never touches a file** (after the round-3 review) — the run
+  above wrote the verdict into a post-artifact random dir, which a child
+  that escapes the artifact's session could still swap. The grader now
+  prints it on stdout as one `VERDICT_JSON` line that `grade.sh` keeps in
+  memory, and the `base-intact` digest now also covers file types, modes and
+  symlink targets (a retargeted `node_modules/.bin/mocha` was invisible to
+  the contents-only digest). Residual risk, stated in README Limits: an
+  escaped child still runs during grading with the Docker socket.
 - **no media** — figures and video are out of scope for this entry; the
   scaffold's placeholder media files were removed rather than shipped.
 - **dependencies now install from a committed lockfile.** A `run.py --ref` at

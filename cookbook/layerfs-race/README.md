@@ -60,8 +60,9 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
   publish, its own Sandboxes) and re-runs the suite itself — mocha with
   `--no-config --no-package` on a judge-fixed file list — on `main` and
   every losing branch. The artifact runs in its own session and its process
-  group is killed after it exits; the verdict is written to a directory
-  created only then. An artifact or grader crash forces FAIL. Prints
+  group is killed after it exits; the grader's verdict reaches `grade.sh`
+  on stdout and never touches a file. An artifact or grader crash forces
+  FAIL. Prints
   exactly one JSON verdict line on stdout.
 - `judge/selftest.sh` — the good artifact must pass, each of the 11
   single-edit mutants from `judge/mutants.py` must fail ≥1 gate (kill rate
@@ -72,6 +73,11 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
 
 - No figures or video yet: this entry ships the judge, the one-command run
   and the receipts only.
+- The artifact runs as the same user as the judge, with the Docker socket.
+  Its process group is killed when it exits, but a child that deliberately
+  starts its own session survives and could interfere with the Store or the
+  judge's LayerFS Sandboxes while grading runs. The judge is built against
+  mistaken or careless artifacts, not one designed to attack the host.
 - Time-to-result is about 66 min on the default 2 vCPU sandbox (setup ~5 min
   builds LayerFS from source; the 11-mutant self-test ~55 min), well over the
   5 min cookbook target, because LayerFS 0.1.7 publishes no binaries.

@@ -14,8 +14,8 @@
 # is killed so detached children cannot plant files or watch the judge.
 # The grader runs from a private copy whose sha256 is checked before and
 # after the artifact run; judge/ itself is also checksummed before and
-# after, and the verdict is written into a directory created only after
-# the artifact's process group is dead, so a planted verdict cannot win.
+# after, and the verdict is passed from the grader on stdout and held in
+# memory, never in a file the artifact could plant or swap.
 # An artifact that exits non-zero, a tampered grader copy, a grader crash,
 # or a grader that cannot write its verdict all force a FAIL verdict and
 # a non-zero exit.
@@ -131,21 +131,18 @@ if [ "${ART_RC}" -ne 0 ]; then
   tail -20 "${RUN}/artifact.log" >&2 || true
 fi
 
-# the verdict lives in a fresh, randomly-named directory created only now —
-# after the artifact's process group is dead — so the artifact (which knows
-# RUN via RACE_OUT) cannot have planted or pre-created it.
-chmod u+rwx "${RUN}" 2>/dev/null || true
-VDIR="$(mktemp -d "${RUN}/verdict.XXXXXX")"
-rm -f "${VDIR}/verdict.json"
-
 GRADER_SHA_AFTER="$(sha256sum "${JSTAGE}/grader.mjs" 2>/dev/null | cut -d' ' -f1 || echo missing)"
 GRADER_INTACT=0
 [ "${GRADER_SHA_AFTER}" = "${GRADER_SHA_BEFORE}" ] && GRADER_INTACT=1
 
+# The verdict never touches the filesystem: the grader prints it as one
+# "VERDICT_JSON {...}" line on stdout and it is held in memory here, so a
+# leftover artifact process cannot plant or swap a verdict file.
 GRADER_RC=0
+GRADER_OUT=""
 if [ "${GRADER_INTACT}" -eq 1 ]; then
-  ( cd "${JSTAGE}" && timeout 900 node grader.mjs "${RACE_OUT}" "${VDIR}/verdict.json" ) \
-    >"${RUN}/grader.log" 2>&1 || GRADER_RC=$?
+  GRADER_OUT="$(cd "${JSTAGE}" && timeout 900 node grader.mjs "${RACE_OUT}" - 2>"${RUN}/grader.log")" \
+    || GRADER_RC=$?
   if [ "${GRADER_RC}" -ne 0 ]; then
     log "grader exited ${GRADER_RC} (last log lines follow)"
     tail -20 "${RUN}/grader.log" >&2 || true
@@ -153,26 +150,19 @@ if [ "${GRADER_INTACT}" -eq 1 ]; then
 else
   log "private grader copy changed during the artifact run — refusing to run it"
 fi
-
-chmod -R u+rwX "${VDIR}" 2>/dev/null || true
-if [ ! -f "${VDIR}/verdict.json" ]; then
-  printf '{"schema":"agent-next/layerfs-race-verdict@1","verdict":"FAIL","gates":[{"name":"judge-error","pass":false,"detail":"grader produced no verdict"}],"timing":{}}\n' \
-    > "${VDIR}/verdict.json"
-fi
+VERDICT="$(printf '%s\n' "${GRADER_OUT}" | sed -n 's/^VERDICT_JSON //p' | tail -1)"
+[ -n "${VERDICT}" ] || VERDICT='{"schema":"agent-next/layerfs-race-verdict@1","verdict":"FAIL","gates":[{"name":"judge-error","pass":false,"detail":"grader produced no verdict"}],"timing":{}}'
 
 force_fail() {
   # $1 = gate name, $2 = detail: append a failing gate and force FAIL.
-  # rmSync first: a planted read-only verdict cannot block the rewrite.
-  node -e '
-    const fs = require("fs");
+  VERDICT="$(printf '%s' "${VERDICT}" | node -e '
     let v;
-    try { v = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+    try { v = JSON.parse(require("fs").readFileSync(0, "utf8")); }
     catch { v = { schema: "agent-next/layerfs-race-verdict@1", verdict: "FAIL", gates: [], timing: {} }; }
-    v.gates.push({ name: process.argv[2], pass: false, detail: process.argv[3] });
+    v.gates.push({ name: process.argv[1], pass: false, detail: process.argv[2] });
     v.verdict = "FAIL";
-    fs.rmSync(process.argv[1]);
-    fs.writeFileSync(process.argv[1], JSON.stringify(v, null, 1));
-  ' "${VDIR}/verdict.json" "$1" "$2"
+    process.stdout.write(JSON.stringify(v));
+  ' "$1" "$2")"
 }
 
 [ "${ART_RC}" -eq 0 ] || force_fail "artifact-exit" "artifact exited ${ART_RC}"
@@ -194,16 +184,7 @@ if [ "${SDK_BEFORE}" != "${SDK_AFTER}" ]; then
 fi
 
 # stdout carries exactly one JSON verdict line; everything else is stderr.
-# A leftover artifact process could still swap the file afterwards — refuse
-# to print anything but the bytes we just wrote.
-VSHA="$(sha256sum "${VDIR}/verdict.json" | cut -d' ' -f1)"
-chmod -R u+rwX "${VDIR}" 2>/dev/null || true
-if [ "$(sha256sum "${VDIR}/verdict.json" | cut -d' ' -f1)" != "${VSHA}" ]; then
-  log "verdict file changed after grading — forcing FAIL"
-  printf '{"schema":"agent-next/layerfs-race-verdict@1","verdict":"FAIL","gates":[{"name":"judge-error","pass":false,"detail":"verdict file changed after grading"}],"timing":{}}\n' \
-    > "${VDIR}/verdict.json"
-fi
-node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))) + "\n")' \
-  "${VDIR}/verdict.json"
-[ -n "${JSON_OUT}" ] && cp "${VDIR}/verdict.json" "${JSON_OUT}"
-grep -qE '"verdict": ?"PASS"' "${VDIR}/verdict.json"
+VERDICT="$(printf '%s' "${VERDICT}" | node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(0, "utf8"))))')"
+printf '%s\n' "${VERDICT}"
+[ -n "${JSON_OUT}" ] && printf '%s\n' "${VERDICT}" > "${JSON_OUT}"
+printf '%s' "${VERDICT}" | grep -qE '"verdict": ?"PASS"'

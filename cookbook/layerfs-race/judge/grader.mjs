@@ -30,9 +30,10 @@ const SUITE = `npx mocha --no-config --no-package --exit --require test/support/
 const SUITE_CMD = `rm -f /tmp/judge-suite-$$.log; ${SUITE} > /tmp/judge-suite-$$.log 2>&1; rc=$?; grep -E "[0-9]+ (passing|failing)" /tmp/judge-suite-$$.log | tail -5; echo "SUITE_EXIT:$rc"; rm -f /tmp/judge-suite-$$.log; exit $rc`;
 const BUGGED_FILE = "lib/application.js";
 // Full-tree digest of the bugged checkout (test/, node_modules, everything
-// except .git); setup.sh computes it on the pristine tree and the grader
-// recomputes it on the source dir and on a mount of the pre-publish layer.
-const TREE_DIGEST = `find . -path ./.git -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1`;
+// except .git): file contents plus type, mode and symlink target. setup.sh
+// computes it on the pristine tree and the grader recomputes it on the source
+// dir and on a mount of the pre-publish layer.
+const TREE_DIGEST = `{ find . -path ./.git -prune -o \\( -type f -o -type l \\) -printf "%y %m %p -> %l\\n" | LC_ALL=C sort; find . -path ./.git -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; } | sha256sum | cut -d" " -f1`;
 const WANT_TREE_SHA = process.env.RACE_TREE_SHA ?? "";
 const STORE_THRESHOLD = 0.25 * K; // x source bytes (SPEC gate 7)
 const FORK_MEDIAN_MAX = 0.05;     // s (SPEC gate 8)
@@ -60,7 +61,8 @@ const wall = async (name, fn) => {
 const verdict = { schema: "agent-next/layerfs-race-verdict@1", verdict: "FAIL", gates, timing };
 const finish = () => {
   verdict.verdict = gates.every((g) => g.pass) ? "PASS" : "FAIL";
-  writeFileSync(OUT_PATH, JSON.stringify(verdict, null, 1));
+  if (OUT_PATH === "-") process.stdout.write(`VERDICT_JSON ${JSON.stringify(verdict)}\n`);
+  else writeFileSync(OUT_PATH, JSON.stringify(verdict, null, 1));
 };
 const die = (e) => {
   gates.push({ name: "judge-error", pass: false, detail: `${e?.code ?? "error"} ${e?.message ?? e}` });

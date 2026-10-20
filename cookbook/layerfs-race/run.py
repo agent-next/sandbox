@@ -128,7 +128,7 @@ def main():
             commit = p.stdout.split()[-1] if p.stdout.split() else ""
         d = f"/tmp/repo/{DEMO}"
         step("setup", f"cd {d} && bash judge/setup.sh", 2700)
-        selftest_out = step("selftest", f"cd {d} && bash judge/selftest.sh", 3600)
+        selftest_out = step("selftest", f"cd {d} && bash judge/selftest.sh", 5400)
         for line in selftest_out.stdout.splitlines():
             if "mutant KILLED" in line or "kill rate" in line or "determinism" in line:
                 print(f"    {line}")
