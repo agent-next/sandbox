@@ -133,6 +133,24 @@ def mut_seven_branches(src):
                "seven-branches")
 
 
+def mut_doctored_base(src):
+    # inits the project from a doctored copy of the source — an extra
+    # .mocharc.js outside lib/ — so every branch shares a poisoned base and
+    # the diff-vs-base gates see nothing. The base-intact full-tree digest
+    # gate must kill it.
+    new = '''[v, steps.init_s] = await timed(async () => {
+    const { execSync } = await import("node:child_process");
+    const { mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const d = mkdtempSync(join(tmpdir(), "doctored-"));
+    execSync(`cp -a ${SRC}/. ${d}/`);
+    writeFileSync(join(d, ".mocharc.js"), "module.exports = {};\\n");
+    return lf.project.init(d);
+  });'''
+    return sub(src, "[v, steps.init_s] = await timed(() => lf.project.init(SRC));",
+               new, "doctored-base")
+
+
 def mut_shift_candidates(src):
     # every agent gets the next candidate's patch; the fix lands off-index
     return sub(src,
@@ -151,6 +169,7 @@ MUTANTS = [
     ("merge-markers", mut_merge_markers),
     ("lie-volume", mut_lie_volume),
     ("seven-branches", mut_seven_branches),
+    ("doctored-base", mut_doctored_base),
     ("shift-candidates", mut_shift_candidates),
 ]
 

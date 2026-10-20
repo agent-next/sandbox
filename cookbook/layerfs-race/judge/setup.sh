@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # cookbook/layerfs-race: install the pinned toolchain idempotently into
-# $HOME/.layerfs-race. Rules (cookbook/DEMO-STANDARD.md): exact versions,
+# $HOME/layerfs-race. Rules (cookbook/DEMO-STANDARD.md): exact versions,
 # sha/commit-verified downloads, no "latest", nothing published in the last
-# two weeks. What was installed is recorded in judge/VERSIONS.txt.
+# two weeks. What was installed is recorded in $PREFIX/VERSIONS.txt.
 #
 #   LayerFS v0.1.7 (commit e7713d03..., MIT) built from source with Rust 1.85.1
 #   runtime image node:24.21.0-bookworm pinned by digest (judge/runtime/)
 #   express v5.2.1 (commit dbac741a...) + npm install (no upstream lockfile;
-#   the resolved tree is recorded in judge/resolved-deps.txt)
+#   the resolved tree must match judge/resolved-deps.txt)
 #   clean-baseline mocha pass count -> $PREFIX/baseline.json
 #
 # Usage: bash judge/setup.sh
@@ -117,6 +117,29 @@ fi
 ' > "${PREFIX}/resolved-deps.txt"
 DEPS_SHA="$(sha256sum "${PREFIX}/resolved-deps.txt" | awk '{print $1}')"
 echo "${DEPS_SHA}  resolved-deps.txt" > "${PREFIX}/resolved-deps.sha256"
+# dependency drift breaks the pinned-suite oracle: refuse to go on when the
+# freshly resolved tree differs from the committed snapshot.
+if ! cmp -s "${PREFIX}/resolved-deps.txt" "${HERE}/resolved-deps.txt"; then
+  echo "[setup] ERROR: resolved deps differ from judge/resolved-deps.txt:" >&2
+  diff "${HERE}/resolved-deps.txt" "${PREFIX}/resolved-deps.txt" | head -20 >&2 || true
+  exit 1
+fi
+
+# --- pristine bugged checkout + full-tree digest (oracle reference) --------
+# express + the injected bug, digested over every file except .git
+# (test/ and node_modules included). grade.sh copies this tree for the
+# artifact and the grader re-digests the pre-publish base layer the same
+# way, so an artifact that inits from a tampered tree fails base-intact.
+BUGGED="${PREFIX}/bugged"
+log "building the pristine bugged checkout"
+rm -rf "${BUGGED}"
+cp -a "${EXP}" "${BUGGED}"
+( cd "${BUGGED}" && git apply --whitespace=nowarn "${HERE}/../examples/bug.patch" ) \
+  || { echo "[setup] ERROR: bug.patch does not apply to ${EXP##*/}" >&2; exit 1; }
+grep -q "subdomain offset', 3" "${BUGGED}/lib/application.js" \
+  || { echo "[setup] ERROR: bug.patch did not inject the bug" >&2; exit 1; }
+BUGGED_SHA="$(cd "${BUGGED}" && find . -path ./.git -prune -o -type f -print0 \
+  | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
 
 # --- clean-baseline pass count ---------------------------------------------
 if [ ! -f "${PREFIX}/baseline.json" ]; then
@@ -141,6 +164,8 @@ LAYERFS_DAEMON="${LAYERFS_DAEMON}"
 LAYERFS_IMAGE="${LAYERFS_IMAGE}"
 LAYERFS_DOCKER="/var/run/docker.sock"
 EXPRESS_SRC="${EXP}"
+BUGGED_SRC="${BUGGED}"
+BUGGED_SHA="${BUGGED_SHA}"
 BASELINE_PASS="${BASELINE_PASS}"
 CORRECT_INDEX="3"
 EOF
@@ -154,6 +179,7 @@ express   ${EXPRESS_TAG} ${EXP_HEAD}
 baseline  ${BASELINE_PASS} passing / 0 failing
 deps      ${PREFIX}/resolved-deps.txt ($(wc -l < "${PREFIX}/resolved-deps.txt") packages)
 deps-sha256 ${DEPS_SHA}
+bugged-sha256 ${BUGGED_SHA}
 EOF
 
 log "done."
@@ -163,4 +189,5 @@ echo "  image     -> ${LAYERFS_IMAGE}"
 echo "  express   -> ${EXP} (${EXPRESS_TAG} ${EXP_HEAD})"
 echo "  baseline  -> ${BASELINE_PASS} passing / 0 failing"
 echo "  deps      -> ${PREFIX}/resolved-deps.txt (sha256 ${DEPS_SHA})"
+echo "  bugged    -> ${BUGGED} (tree sha256 ${BUGGED_SHA})"
 echo "  env       -> ${PREFIX}/env.sh"

@@ -29,6 +29,11 @@ const SUITE = `npx mocha --no-config --no-package --exit --require test/support/
 // output, the summary is grepped out, and SUITE_EXIT carries mocha's code.
 const SUITE_CMD = `rm -f /tmp/judge-suite-$$.log; ${SUITE} > /tmp/judge-suite-$$.log 2>&1; rc=$?; grep -E "[0-9]+ (passing|failing)" /tmp/judge-suite-$$.log | tail -5; echo "SUITE_EXIT:$rc"; rm -f /tmp/judge-suite-$$.log; exit $rc`;
 const BUGGED_FILE = "lib/application.js";
+// Full-tree digest of the bugged checkout (test/, node_modules, everything
+// except .git); setup.sh computes it on the pristine tree and the grader
+// recomputes it on the source dir and on a mount of the pre-publish layer.
+const TREE_DIGEST = `find . -path ./.git -prune -o -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1`;
+const WANT_TREE_SHA = process.env.RACE_TREE_SHA ?? "";
 const STORE_THRESHOLD = 0.25 * K; // x source bytes (SPEC gate 7)
 const FORK_MEDIAN_MAX = 0.05;     // s (SPEC gate 8)
 
@@ -57,14 +62,15 @@ const finish = () => {
   verdict.verdict = gates.every((g) => g.pass) ? "PASS" : "FAIL";
   writeFileSync(OUT_PATH, JSON.stringify(verdict, null, 1));
 };
-process.on("uncaughtException", (e) => {
-  gates.push({ name: "judge-error", pass: false, detail: `${e.code ?? "error"} ${e.message}` });
-  try { finish(); } finally { process.exit(0); }
-});
-process.on("unhandledRejection", (e) => {
+const die = (e) => {
   gates.push({ name: "judge-error", pass: false, detail: `${e?.code ?? "error"} ${e?.message ?? e}` });
-  try { finish(); } finally { process.exit(0); }
-});
+  // a grader that cannot write its verdict exits non-zero, so grade.sh
+  // applies a forced FAIL instead of trusting whatever is at OUT_PATH
+  try { finish(); } catch { process.exit(1); }
+  process.exit(0);
+};
+process.on("uncaughtException", die);
+process.on("unhandledRejection", die);
 
 // --- artifact gate: the run completed and produced a consistent manifest ---
 let race = null;
@@ -156,6 +162,14 @@ gate("winner-is-a-branch",
 // artifact itself writes nothing outside candidate-patch edits, so any other
 // changed path fails. (branch.fork accepts a Layer id, so the judge forks
 // the pre-publish layer into "judge-base" and diffs every ref against it.)
+const diffAll = async (a, b) => {
+  const out = [];
+  for (let off = 0; ; off += 500) {
+    const { items } = await lf.branch.diff_branches(a, b, 500, off);
+    out.push(...items);
+    if (items.length < 500) return out;
+  }
+};
 const oracle = await wall("oracle", async () => {
   if (!baseLayerId) return { ok: false, bad: ["no pre-publish base layer found"] };
   try {
@@ -166,8 +180,7 @@ const oracle = await wall("oracle", async () => {
   const bad = [];
   for (const r of ["main", ...[...Array(K).keys()].map((i) => `agent-${i}`)]) {
     try {
-      const { items } = await lf.branch.diff_branches("judge-base", r, 500, 0);
-      for (const it of items) {
+      for (const it of await diffAll("judge-base", r)) {
         if (!String(it.path ?? "").startsWith("/lib/")) bad.push(`${r}:${it.kind ?? "?"}${it.path ?? "?"}`);
       }
     } catch (e) {
@@ -180,6 +193,41 @@ gate("oracle-intact", oracle.ok,
   oracle.ok
     ? "every branch/main change vs the bugged base is confined to /lib/"
     : `changes outside /lib/: ${oracle.bad.slice(0, 8).join("; ")}${oracle.bad.length > 8 ? ` (+${oracle.bad.length - 8} more)` : ""}`);
+
+// --- base-intact: the pre-publish base layer is byte-identical to the
+// judge's own bugged tree (full-tree digest, computed by setup.sh). This
+// catches an artifact that inits from a tampered tree — an edited test,
+// an added .mocharc, a swapped node_modules — which diff-vs-base cannot
+// see because every ref then shares the same poisoned base.
+const baseIntact = await wall("base-intact", async () => {
+  if (!baseLayerId) return { ok: false, bad: ["no pre-publish base layer found"] };
+  if (!WANT_TREE_SHA) return { ok: false, bad: ["RACE_TREE_SHA unset (re-run setup.sh)"] };
+  const bad = [];
+  try {
+    const srcSha = execSync(`cd ${SRC} && ${TREE_DIGEST}`, { encoding: "utf8" }).trim();
+    if (srcSha !== WANT_TREE_SHA) bad.push(`source tree changed after init (sha ${srcSha.slice(0, 12)})`);
+  } catch (e) {
+    bad.push(`source digest failed: ${e.message ?? e}`);
+  }
+  const id = await lf.sandbox.create();
+  let m;
+  try {
+    m = await lf.sandbox.mount(id, "judge-base");
+    const r = await lf.sandbox.exec(id, m.path, `cd "${m.path}" && ${TREE_DIGEST}`, "digest the pre-publish base tree");
+    const sha = String(r.stdout ?? "").trim();
+    if (sha !== WANT_TREE_SHA) bad.push(`base layer differs from the bugged tree (sha ${sha.slice(0, 12)})`);
+  } catch (e) {
+    bad.push(`base-layer digest failed: ${e.code ?? e.message ?? e}`);
+  } finally {
+    if (m) await lf.sandbox.unmount(id, m.path, { discard: true }).catch(() => {});
+    await lf.sandbox.close(id).catch(() => {});
+  }
+  return { ok: bad.length === 0, bad };
+});
+gate("base-intact", baseIntact.ok,
+  baseIntact.ok
+    ? "pre-publish base tree byte-identical to the judge's bugged tree (full-tree digest)"
+    : baseIntact.bad.join("; "));
 
 // --- the judge re-runs the pinned suite on main and every losing branch ---
 // main is a published Layer, not a mountable Branch: fork judge-main off it
