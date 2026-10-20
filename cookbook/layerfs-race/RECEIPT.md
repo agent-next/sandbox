@@ -133,3 +133,11 @@ mutants die on functional gates. `doctored-base` (new) is killed solely by
   then refuses to print bytes that changed after grading, forcing FAIL.
 - **no media** — figures and video are out of scope for this entry; the
   scaffold's placeholder media files were removed rather than shipped.
+- **dependencies now install from a committed lockfile.** A `run.py --ref` at
+  2494bdb8 failed setup on the drift check: `electron-to-chromium` moved from
+  1.5.459 to 1.5.460 on npm after the run above, because express v5.2.1 ships
+  no lockfile and `npm install` floats. `judge/express-package-lock.json`
+  (generated with `npm install --package-lock-only`, then `send@1.1.0`;
+  express's `package.json` unchanged) is now installed with `npm ci`, and
+  `judge/resolved-deps.txt` was regenerated from it (only that one line
+  changed). The run above predates this; its deps sha256 is the old snapshot.

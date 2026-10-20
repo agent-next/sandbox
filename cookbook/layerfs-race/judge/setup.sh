@@ -6,8 +6,8 @@
 #
 #   LayerFS v0.1.7 (commit e7713d03..., MIT) built from source with Rust 1.85.1
 #   runtime image node:24.21.0-bookworm pinned by digest (judge/runtime/)
-#   express v5.2.1 (commit dbac741a...) + npm install (no upstream lockfile;
-#   the resolved tree must match judge/resolved-deps.txt)
+#   express v5.2.1 (commit dbac741a...) + npm ci from judge/express-package-lock.json
+#   (upstream has no lockfile; the resolved tree must match judge/resolved-deps.txt)
 #   clean-baseline mocha pass count -> $PREFIX/baseline.json
 #
 # Usage: bash judge/setup.sh
@@ -88,19 +88,15 @@ EXP_HEAD="$(git -C "${EXP}" rev-parse HEAD)"
   echo "[setup] ERROR: express HEAD ${EXP_HEAD} != pinned ${EXPRESS_COMMIT}" >&2
   exit 1
 }
+# express v5.2.1 ships no lockfile (.npmrc package-lock=false), so a plain
+# npm install floats; install from the committed lockfile instead. It pins
+# the tag-era send@1.1.0 (send@1.2.x breaks 55 res.sendFile/res.download tests).
 if [ ! -d "${EXP}/node_modules" ]; then
-  log "npm install (express has no lockfile at ${EXPRESS_TAG}; resolved tree recorded)"
-  ( cd "${EXP}" && npm install --no-audit --no-fund )
+  log "npm ci from judge/express-package-lock.json"
+  cp "${HERE}/express-package-lock.json" "${EXP}/package-lock.json"
+  ( cd "${EXP}" && npm ci --package-lock=true --no-audit --no-fund )
 fi
-# express@5.2.1 floats send@^1.1.0; send@1.2.x (current) breaks 55
-# res.sendFile/res.download tests. Pin the tag-era send@1.1.0.
-SEND_VER="$(cd "${EXP}" && node -e 'console.log(require("send/package.json").version)' 2>/dev/null || echo none)"
-if [ "${SEND_VER}" != "1.1.0" ]; then
-  log "pinning send@1.1.0 (was ${SEND_VER})"
-  ( cd "${EXP}" && npm install --no-save --no-audit --no-fund send@1.1.0 )
-fi
-# express's .npmrc sets package-lock=false — there is no lockfile; the full
-# resolved dependency tree is recorded instead, one name@version per line,
+# The full resolved dependency tree is recorded, one name@version per line,
 # with its complete sha256 (committed snapshot: judge/resolved-deps.txt).
 # npm ls can exit non-zero on peer/invalid notes while still printing the tree
 ( cd "${EXP}" && npm ls --all --json || true ) | node -e '
