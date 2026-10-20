@@ -1,6 +1,6 @@
 [project]
 name = "agent-next-sandbox"
-version = "0.0.4"
+version = "0.0.5"
 description = "sbx: create, exec and kill agent-next cloud sandboxes from the shell"
 readme = "README.md"
 license = "MIT"
