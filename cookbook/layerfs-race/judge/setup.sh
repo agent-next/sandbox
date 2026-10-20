@@ -6,7 +6,7 @@
 #
 #   LayerFS v0.1.7 (commit e7713d03..., MIT) built from source with Rust 1.85.1
 #   runtime image node:24.21.0-bookworm pinned by digest (judge/runtime/)
-#   express v5.2.1 (commit dbac741a...) + npm ci from judge/express-package-lock.json
+#   express v5.2.1 (commit dbac741a...) + npm install --before a fixed date
 #   (upstream has no lockfile; the resolved tree must match judge/resolved-deps.txt)
 #   clean-baseline mocha pass count -> $PREFIX/baseline.json
 #
@@ -89,12 +89,18 @@ EXP_HEAD="$(git -C "${EXP}" rev-parse HEAD)"
   exit 1
 }
 # express v5.2.1 ships no lockfile (.npmrc package-lock=false), so a plain
-# npm install floats; install from the committed lockfile instead. It pins
-# the tag-era send@1.1.0 (send@1.2.x breaks 55 res.sendFile/res.download tests).
+# npm install floats; --before resolves only versions published before a
+# fixed date. send is pinned to the tag-era 1.1.0 (send@1.2.x breaks 55
+# res.sendFile/res.download tests).
+NPM_BEFORE="2026-10-19T00:00:00Z"
 if [ ! -d "${EXP}/node_modules" ]; then
-  log "npm ci from judge/express-package-lock.json"
-  cp "${HERE}/express-package-lock.json" "${EXP}/package-lock.json"
-  ( cd "${EXP}" && npm ci --package-lock=true --no-audit --no-fund )
+  log "npm install --before=${NPM_BEFORE}"
+  ( cd "${EXP}" && npm install --before="${NPM_BEFORE}" --no-audit --no-fund )
+fi
+SEND_VER="$(cd "${EXP}" && node -e 'console.log(require("send/package.json").version)' 2>/dev/null || echo none)"
+if [ "${SEND_VER}" != "1.1.0" ]; then
+  log "pinning send@1.1.0 (was ${SEND_VER})"
+  ( cd "${EXP}" && npm install --no-save --before="${NPM_BEFORE}" --no-audit --no-fund send@1.1.0 )
 fi
 # The full resolved dependency tree is recorded, one name@version per line,
 # with its complete sha256 (committed snapshot: judge/resolved-deps.txt).

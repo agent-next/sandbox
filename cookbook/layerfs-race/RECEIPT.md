@@ -135,11 +135,12 @@ mutants die on functional gates. `doctored-base` (new) is killed solely by
   escaped child still runs during grading with the Docker socket.
 - **no media** — figures and video are out of scope for this entry; the
   scaffold's placeholder media files were removed rather than shipped.
-- **dependencies now install from a committed lockfile.** A `run.py --ref` at
-  2494bdb8 failed setup on the drift check: `electron-to-chromium` moved from
-  1.5.459 to 1.5.460 on npm after the run above, because express v5.2.1 ships
-  no lockfile and `npm install` floats. `judge/express-package-lock.json`
-  (generated with `npm install --package-lock-only`, then `send@1.1.0`;
-  express's `package.json` unchanged) is now installed with `npm ci`, and
-  `judge/resolved-deps.txt` was regenerated from it (only that one line
-  changed). The run above predates this; its deps sha256 is the old snapshot.
+- **dependencies resolve as of a fixed date.** A `run.py --ref` at 2494bdb8
+  failed setup on the drift check: `electron-to-chromium` moved from 1.5.459
+  to 1.5.460 on npm after the run above, because express v5.2.1 ships no
+  lockfile and `npm install` floats. A committed lockfile (180 KB) is over
+  the cookbook's 50 KB file limit, so setup now runs
+  `npm install --before=2026-10-19T00:00:00Z` (and pins `send@1.1.0` the same
+  way); `judge/resolved-deps.txt` was regenerated from that resolution (3
+  build-tool lines changed; the suite is still 1238 passing). The run above
+  predates this; its deps sha256 is the old snapshot.
