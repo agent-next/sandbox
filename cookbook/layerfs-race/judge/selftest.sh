@@ -20,11 +20,23 @@ info() { echo "selftest: $*"; }
 
 JHASH_BEFORE="$(find "${HERE}" -type f -exec sha256sum {} + | sort | sha256sum | cut -d' ' -f1)"
 
-failing_gates() {
+# A mutant counts as killed only when grade.sh fails AND leaves a valid
+# verdict JSON with verdict == "FAIL" and at least one gate with
+# pass == false. Anything else (no verdict, unreadable verdict, verdict not
+# FAIL, no failing gate) is an infrastructure error, not a kill.
+kill_status() {
   node -e '
-    const v = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
-    console.log(v.gates.filter((g) => !g.pass).map((g) => g.name).join(",") || "none");
-  ' "$1"
+    const fs = require("fs");
+    let v;
+    try { v = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+    catch { console.log("invalid-verdict"); process.exit(0); }
+    const failing = (v.gates || []).filter((g) => g.pass === false).map((g) => g.name);
+    if (v.verdict === "FAIL" && failing.length > 0) {
+      console.log("killed:" + failing.join(","));
+    } else {
+      console.log("inconsistent-verdict");
+    }
+  ' "$1" 2>/dev/null || echo "invalid-verdict"
 }
 
 # --- 1. known-good must pass -------------------------------------------------
@@ -39,17 +51,26 @@ python3 "${HERE}/mutants.py" "${GOOD}" "${WORK}/mutants" >/dev/null
 
 nmut=0
 killed=0
+infra=""
 for m in "${WORK}"/mutants/*/; do
   name="$(basename "$m")"
   nmut=$((nmut + 1))
   if bash "${HERE}/grade.sh" "$m" --json "${WORK}/${name}.json" >"${WORK}/${name}.out" 2>"${WORK}/${name}.err"; then
     fail "mutant ESCAPED: ${name} (judge passed on a bad artifact)"
-  else
-    gates="$(failing_gates "${WORK}/${name}.json" 2>/dev/null || echo "?")"
-    info "mutant KILLED: ${name} (failing gates: ${gates})"
-    killed=$((killed + 1))
   fi
+  status="$(kill_status "${WORK}/${name}.json")"
+  case "${status}" in
+    killed:*)
+      info "mutant KILLED: ${name} (failing gates: ${status#killed:})"
+      killed=$((killed + 1))
+      ;;
+    *)
+      info "mutant NOT KILLED (infrastructure): ${name} — ${status}"
+      infra="${infra} ${name}(${status})"
+      ;;
+  esac
 done
+[ -z "${infra}" ] || info "infrastructure errors (not kills):${infra}"
 
 rate=0
 [ "${nmut}" -gt 0 ] && rate=$((100 * killed / nmut))

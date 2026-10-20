@@ -11,10 +11,6 @@ import shutil
 import sys
 from pathlib import Path
 
-APPLY_EXEC = """    [r, s] = await timed(() => lf.sandbox.exec(id, path,
-      `echo ${b64} | base64 -d > /tmp/candidate.patch && (patch -s -p1 < /tmp/candidate.patch || git apply -p1 /tmp/candidate.patch)`,
-      `apply ${CANDIDATES[i]}`));"""
-
 PUBLISH = "lf.branch.publish(winner)"
 
 
@@ -59,13 +55,37 @@ def mut_claim_wrong_winner(src):
 
 
 def mut_fs_write_only(src):
-    # skips exec for the edit: the patch lands via fs.write, not the Sandbox
-    new = ('    [r, s] = await timed(() => lf.fs.write(agent, "/lib/application.js", '
-           'readFileSync(join(SRC, "lib/application.js"), "utf8")'
-           '.replace(/^.*subdomain offset.*$/m, '
-           '/^\\+(.*)$/m.exec(readFileSync(join(HERE, "candidates", CANDIDATES[i]), "utf8"))[1]), '
-           '"apply via fs.write"));')
-    return sub(src, APPLY_EXEC, new, "fs-write-only")
+    # the patch lands via fs.write on the branch (via:"fs"), never through a
+    # sandbox exec — so no branch earns a via:"exec" commit and the branches
+    # gate must kill it. The suite still runs on a mount of each branch.
+    new = '''
+  steps.agents = await Promise.all(sandboxes.map(async (id, i) => {
+    const agent = `agent-${i}`;
+    const o = { agent, candidate: CANDIDATES[i] };
+    let r, s;
+    [r, s] = await timed(() => lf.fs.write(agent, "/lib/application.js",
+      readFileSync(join(SRC, "lib/application.js"), "utf8")
+        .replace(/^.*subdomain offset.*$/m,
+          readFileSync(join(HERE, "candidates", CANDIDATES[i]), "utf8")
+            .split("\\n").find((l) => /^\\+(?!\\+\\+)/.test(l)).slice(1)),
+      `apply ${CANDIDATES[i]} via fs.write`));
+    o.apply_s = s;
+    [r, s] = await timed(() => lf.sandbox.mount(id, agent));
+    o.mount_s = s;
+    const path = r.path;
+    [r, s] = await timed(() => lf.sandbox.exec(id, path,
+      `${SUITE} 2>&1 | grep -E "[0-9]+ (passing|failing)" | tail -5`,
+      "run the pinned suite"));
+    o.test_s = s;
+    o.test_exit = r.exitCode;
+    o.passing = +(/(\\d+) passing/.exec(r.stdout || "")?.[1] ?? -1);
+    o.failing = +(/(\\d+) failing/.exec(r.stdout || "")?.[1] ?? 0);
+    [r, s] = await timed(() => lf.sandbox.unmount(id, path));
+    o.unmount_s = s;
+    return o;
+  }));
+'''
+    return region(src, "  // [[agents]]", "  // [[/agents]]", new, "fs-write-only")
 
 
 def mut_cp_a(src):
@@ -103,8 +123,14 @@ def mut_lie_volume(src):
 
 
 def mut_seven_branches(src):
-    # only 7 agents race; agent-7 never exists
-    return sub(src, "const K = 8;", "const K = 7;", "seven-branches")
+    # only 7 agents race; agent-7 is never forked. One patch is dropped too,
+    # so the candidate-count preflight passes and the run reaches the SDK —
+    # the kill must come from the missing-branch check, not the artifact gate.
+    src = sub(src, "const K = 8;", "const K = 7;", "seven-branches")
+    return sub(src,
+               '.filter((f) => f.endsWith(".patch")).sort();',
+               '.filter((f) => f.endsWith(".patch")).sort().slice(0, 7);',
+               "seven-branches")
 
 
 def mut_shift_candidates(src):
