@@ -1,8 +1,10 @@
 # Runtime image for the LayerFS Sandboxes in this demo.
-# Vendored from github.com/Ephemeral-AI-Lab/layerfs (MIT),
-# dsh/tools/history/runtime/Dockerfile — it is not in tag v0.1.7, so a copy
-# is kept here. Only the base image matters for the race: Node 24 bookworm
-# pinned by digest, with git/patch/python3 from the Debian buildpack base.
+# Vendored from github.com/Ephemeral-AI-Lab/layerfs (MIT — see LICENSE beside
+# this file), dsh/tools/history/runtime/Dockerfile at upstream commit
+# 0d49d64cd35bc4ac8954ab136ce8c3cf85fccae8 — it is not in tag v0.1.7, so a
+# copy is kept here. Only the base image matters for the race: Node 24
+# bookworm pinned by digest, with git/patch/python3 from the Debian
+# buildpack base.
 FROM node:24.21.0-bookworm@sha256:3d27e5c11e5786e309ec3e03f93ae536eb36e6e5eb3714d5eb3300a36157add0
 
 ENV COREPACK_HOME=/opt/corepack \
