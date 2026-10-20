@@ -20,7 +20,14 @@ const HOME_DIR = process.env.LAYERFS_HOME;
 const BASELINE_PASS = Number(process.env.BASELINE_PASS);
 const CORRECT = Number(process.env.CORRECT_INDEX);
 const K = 8;
-const SUITE = "npx mocha --exit --require test/support/env --reporter dot --check-leaks test/ test/acceptance/";
+// The oracle: the pinned suite on a judge-fixed file list (RACE_TEST_FILES is
+// set by grade.sh before the artifact runs) with config/package loading off,
+// so the artifact cannot rig the run through .mocharc, package.json, or added
+// and removed test files.
+const SUITE = `npx mocha --no-config --no-package --exit --require test/support/env --reporter dot --check-leaks ${process.env.RACE_TEST_FILES ?? "test/ test/acceptance/"}`;
+// The suite command preserves the mocha exit status: the log keeps the full
+// output, the summary is grepped out, and SUITE_EXIT carries mocha's code.
+const SUITE_CMD = `rm -f /tmp/judge-suite-$$.log; ${SUITE} > /tmp/judge-suite-$$.log 2>&1; rc=$?; grep -E "[0-9]+ (passing|failing)" /tmp/judge-suite-$$.log | tail -5; echo "SUITE_EXIT:$rc"; rm -f /tmp/judge-suite-$$.log; exit $rc`;
 const BUGGED_FILE = "lib/application.js";
 const STORE_THRESHOLD = 0.25 * K; // x source bytes (SPEC gate 7)
 const FORK_MEDIAN_MAX = 0.05;     // s (SPEC gate 8)
@@ -29,6 +36,10 @@ const du = (p) => Number(execSync(`sudo du -sb ${p}`).toString().split("\t")[0])
 const counts = (stdout) => ({
   passing: +(/(\d+) passing/.exec(stdout || "")?.[1] ?? -1),
   failing: +(/(\d+) failing/.exec(stdout || "")?.[1] ?? 0),
+});
+const parseSuite = (stdout) => ({
+  ...counts(stdout),
+  exit: +(/SUITE_EXIT:(\d+)/.exec(stdout || "")?.[1] ?? -1),
 });
 
 const gates = [];
@@ -74,9 +85,12 @@ const op = new LayerFSOperator(lf);
 // --- bug-scope: the injected bug breaks 1..50 tests of the pinned suite ---
 const bugged = await wall("bugged_suite", () => {
   try {
-    const out = execSync(`cd ${SRC} && ${SUITE} 2>&1 | grep -E "[0-9]+ (passing|failing)" | tail -5 || true`, { encoding: "utf8" });
-    return counts(out);
-  } catch (e) { return { passing: -1, failing: -1 }; }
+    const out = execSync(`cd ${SRC} && ${SUITE_CMD}`, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+    return parseSuite(out);
+  } catch (e) {
+    // a non-zero suite exit lands here; the marker still carries the code
+    return parseSuite((e.stdout ?? "").toString());
+  }
 });
 gate("bug-scope", bugged.failing >= 1 && bugged.failing <= 50,
   `${bugged.failing} failing on the bugged tree (allowed 1-50)`);
@@ -100,6 +114,7 @@ gate("branches", branchProblems.length === 0,
 
 // --- main-isolation: only publish touched main; the pre-publish layer is
 // --- the bugged tree, byte-identical --------------------------------------
+let baseLayerId = null;
 const iso = await wall("isolation", async () => {
   const snap = await op.inspect.snapshot();
   const main = snap.branches.find((b) => b.name === "main");
@@ -110,6 +125,7 @@ const iso = await wall("isolation", async () => {
     return { ok: false, detail };
   }
   const parent = snap.layers.find((l) => l.id === layer.parent);
+  baseLayerId = parent?.id ?? null;
   let before = "";
   try { before = (await lf.fs.read(parent.id, `/${BUGGED_FILE}`)).text; } catch { /* stays empty */ }
   return { ok: before === buggedText, detail: { ...detail, prePublishByteIdentical: before === buggedText } };
@@ -134,6 +150,37 @@ gate("winner-is-a-branch",
   measuredWinner === CORRECT && race.claimed_winner === `agent-${CORRECT}` && race.published === `agent-${CORRECT}`,
   `empty diff vs main: ${matches.map((i) => `agent-${i}`).join(", ") || "none"}; claimed ${race.claimed_winner}; expected agent-${CORRECT}`);
 
+// --- oracle-intact: vs the bugged base layer, no agent branch and no main
+// may change anything outside /lib/ — protects the test oracle (test files,
+// .mocharc-style configs, package.json, node_modules) from the artifact. The
+// artifact itself writes nothing outside candidate-patch edits, so any other
+// changed path fails. (branch.fork accepts a Layer id, so the judge forks
+// the pre-publish layer into "judge-base" and diffs every ref against it.)
+const oracle = await wall("oracle", async () => {
+  if (!baseLayerId) return { ok: false, bad: ["no pre-publish base layer found"] };
+  try {
+    await lf.branch.fork("judge-base", baseLayerId);
+  } catch (e) {
+    return { ok: false, bad: [`judge-base fork failed: ${e.code ?? e.message ?? e}`] };
+  }
+  const bad = [];
+  for (const r of ["main", ...[...Array(K).keys()].map((i) => `agent-${i}`)]) {
+    try {
+      const { items } = await lf.branch.diff_branches("judge-base", r, 500, 0);
+      for (const it of items) {
+        if (!String(it.path ?? "").startsWith("/lib/")) bad.push(`${r}:${it.kind ?? "?"}${it.path ?? "?"}`);
+      }
+    } catch (e) {
+      bad.push(`${r}: diff failed (${e.code ?? e.message ?? e})`);
+    }
+  }
+  return { ok: bad.length === 0, bad };
+});
+gate("oracle-intact", oracle.ok,
+  oracle.ok
+    ? "every branch/main change vs the bugged base is confined to /lib/"
+    : `changes outside /lib/: ${oracle.bad.slice(0, 8).join("; ")}${oracle.bad.length > 8 ? ` (+${oracle.bad.length - 8} more)` : ""}`);
+
 // --- the judge re-runs the pinned suite on main and every losing branch ---
 // main is a published Layer, not a mountable Branch: fork judge-main off it
 // (zero-copy, identical tree) and mount that.
@@ -150,8 +197,8 @@ const suites = await wall("suites", async () => {
       let m;
       try {
         m = await lf.sandbox.mount(id, ref === "main" ? "judge-main" : ref);
-        const r = await lf.sandbox.exec(id, m.path, `${SUITE} 2>&1 | grep -E "[0-9]+ (passing|failing)" | tail -5`, "judge re-runs the suite");
-        Object.assign(out, counts(r.stdout), { exit: r.exitCode });
+        const r = await lf.sandbox.exec(id, m.path, SUITE_CMD, "judge re-runs the suite");
+        Object.assign(out, parseSuite(r.stdout), { exec_exit: r.exitCode });
       } catch (e) {
         out.error = e.code ?? String(e.message ?? e);
       }
@@ -165,8 +212,8 @@ const suites = await wall("suites", async () => {
 });
 const mainSuite = suites.find((s) => s.ref === "main") ?? {};
 gate("winner-green",
-  mainSuite.failing === 0 && mainSuite.passing === BASELINE_PASS,
-  `main: ${mainSuite.passing ?? "error"} passing / ${mainSuite.failing ?? "?"} failing (baseline ${BASELINE_PASS})`);
+  mainSuite.exit === 0 && mainSuite.failing === 0 && mainSuite.passing === BASELINE_PASS,
+  `main: ${mainSuite.passing ?? "error"} passing / ${mainSuite.failing ?? "?"} failing, suite exit ${mainSuite.exit ?? "?"} (baseline ${BASELINE_PASS})`);
 const redReport = suites.filter((s) => s.ref !== "main").map((s) => `${s.ref}:${s.failing ?? s.error}`);
 gate("losers-red",
   loserIdx.length >= 7 && suites.filter((s) => s.ref !== "main").every((s) => (s.failing ?? 0) >= 1),
