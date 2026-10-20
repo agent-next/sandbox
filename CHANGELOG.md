@@ -1,8 +1,16 @@
 # Changelog
 
-Every released version, newest first. Generated from the release notes in
+Versions, newest first. The newest entry may be an unreleased candidate. Generated from the release notes in
 [`docs/releases/`](docs/releases/); edit the notes file for the version and
 regenerate this file from it.
+
+## v0.0.5 (unreleased) — What is new
+
+- **CPU startup**: `sbx exec` and `sbx cp` retry a just-created sandbox that has not become visible yet (#132).
+- **GPU commands**: `sbx exec` and `sbx cp` recognize GPU lease IDs and point to the GPU command; `sbx gpu create --wait S` waits up to 120 seconds for capacity (#136).
+- **API contract**: a checked-in OpenAPI snapshot and daily drift check detect changes in schemas, complete media-type entries and unusual parameter identities (#124, #137, #139). Protected API links returning 401 are treated as reachable (#133).
+- **Nightly verification**: the latest release is installed and exercised against the live service. Missing credentials fail with a JSON receipt, so an install-only check cannot close a live-service failure issue (#145).
+- **Release tooling**: version bumps scaffold release notes, tag checks require them, and affected-test selection reduces PR verification time (#119, #130, #134, #135).
 
 ## v0.0.4 — What is new
 

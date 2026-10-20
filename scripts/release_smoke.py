@@ -2,7 +2,7 @@
 """Release smoke gate: install the sbx CLI from a git ref into a fresh venv
 and exercise it the way an outsider with a key would.
 
-    python scripts/release_smoke.py [--ref TAG_OR_SHA] [--gpu] [--json FILE]
+    python scripts/release_smoke.py [--ref TAG_OR_SHA] [--gpu] [--require-live] [--json FILE]
 
 Every run makes a temp venv, pip-installs the cli package from the ref and
 checks `sbx --version` (against the tag name when --ref is a vX.Y.Z tag).
@@ -11,7 +11,8 @@ and live sandboxes, creates a CPU sandbox, runs `echo ok`, copies a file up
 and back and compares sha256, and kills it; --gpu adds a 1 GiB GPU lease that
 runs a torch cuda check. Anything the run created is killed even when a step
 fails, and any id alive at the end that was not in the before-list fails the
-gate ("left N"). Without a key only the install and version steps run.
+gate ("left N"). Without a key only the install and version steps run,
+unless --require-live is set: then missing credentials fail before install.
 
 Prints a one-line verdict and a JSON receipt (steps, durations, rc, left
 count); --json also writes the receipt to a file. Exit 0 on PASS, 1 on FAIL.
@@ -431,6 +432,10 @@ def main(argv=None):
         help="also create a 1 GiB GPU lease and run a torch cuda check",
     )
     parser.add_argument(
+        "--require-live", action="store_true",
+        help="fail if no API key is configured instead of checking install only",
+    )
+    parser.add_argument(
         "--json", dest="receipt_path", metavar="FILE",
         help="also write the JSON receipt to FILE",
     )
@@ -446,7 +451,11 @@ def main(argv=None):
     }
     started = time.monotonic()
     try:
-        smoke(ref, args.gpu, receipt)
+        if args.require_live and receipt["keyless"]:
+            check(receipt, "live-credentials", False,
+                  "live smoke requires SBX_API_KEY or E2B_API_KEY")
+        else:
+            smoke(ref, args.gpu, receipt)
     except Exception as exc:  # any bug must still leave a verdict + receipt
         check(receipt, "run", False, f"unexpected {type(exc).__name__}: {exc}")
     receipt["duration_s"] = round(time.monotonic() - started, 3)
@@ -457,7 +466,7 @@ def main(argv=None):
         f"{'PASS' if passed else 'FAIL'} ref={ref} "
         f"steps={len(receipt['steps'])} left={receipt['left']}"
     )
-    if receipt["keyless"]:
+    if receipt["keyless"] and not failed:
         line += " (keyless: install and version only; set SBX_API_KEY or E2B_API_KEY for the full gate)"
     elif failed:
         line += f" first-failure={failed[0]['name']}"

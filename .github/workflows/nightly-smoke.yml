@@ -41,10 +41,7 @@ jobs:
         env:
           SBX_API_KEY: ${{ secrets.SBX_SMOKE_KEY }}
         run: |
-          if [ -z "$SBX_API_KEY" ]; then
-            echo "::notice::SBX_SMOKE_KEY not set: live smoke skipped"
-          fi
-          python3 scripts/release_smoke.py --ref "$ref" --json smoke-report.json
+          python3 scripts/release_smoke.py --ref "$ref" --require-live --json smoke-report.json
 
       - name: Upload smoke receipt
         if: always()
