@@ -87,9 +87,10 @@ storage, conflict-refused (`Conflict` on `/lib/application.js`), fork-latency.
   send@1.2.x breaks 55 `res.sendFile`/`res.download` tests at this tag. The
   tag-era `send@1.1.0` is installed (`--no-save`) and recorded in the
   resolved-deps snapshot.
-- **`--local` receipt runs** — the branch is not pushed, so both receipt runs
-  used `run.py --local` (tar + upload). They record the local commit SHA
-  above; `run.py --ref` is for the post-push re-run by the lead.
+- **`--local` receipt runs** — the branch was not pushed at receipt time, so
+  the runs used `run.py --local` (tar + upload). They record the local
+  commit SHA above; `run.py --ref <ref>` runs the same pipeline from a
+  pushed git ref.
 - **judge mounts `judge-main`, a fork of `main`** — `main` after publish is a
   Layer pointer, not a mountable Branch (`sandbox.mount` refuses it with
   `NoSuchBranch`). The judge forks `judge-main` off `main` (zero-copy,

@@ -14,7 +14,9 @@
 
 ## Runtime image (LayerFS Sandbox image)
 # judge/runtime/Dockerfile — vendored from upstream dsh/tools/history/runtime
-# (not in tag v0.1.7); base node:24.21.0-bookworm pinned by digest
+# at commit 0d49d64cd35bc4ac8954ab136ce8c3cf85fccae8 (not in tag v0.1.7;
+# upstream MIT licence kept beside it in judge/runtime/LICENSE);
+# base node:24.21.0-bookworm pinned by digest
 #   sha256:3d27e5c11e5786e309ec3e03f93ae536eb36e6e5eb3714d5eb3300a36157add0
 # Built image id recorded per-run in $HOME/layerfs-race/env.sh (LAYERFS_IMAGE).
 
@@ -23,9 +25,11 @@
 # Tag: v5.2.1 (commit dbac741a49a5a64336b70c06e85c2e2706e36336, clone-verified;
 # v5.3.0 skipped: published <14 days before the pin date)
 # Deps: `npm install` (the tag ships .npmrc package-lock=false — no lockfile);
-# resolved tree recorded in $HOME/layerfs-race/resolved-deps.txt
-# (621 lines, sha256 ef1b4f9668414722...). express floats send@^1.1.0 and the
-# current send@1.2.x breaks 55 res.sendFile/res.download tests at this tag —
+# the full resolved tree is recorded per run as name@version lines in
+# $HOME/layerfs-race/resolved-deps.txt with a complete sha256 in
+# $HOME/layerfs-race/VERSIONS.txt; a committed snapshot of that file lives in
+# judge/resolved-deps.txt. express floats send@^1.1.0 and the current
+# send@1.2.x breaks 55 res.sendFile/res.download tests at this tag —
 # send is pinned to 1.1.0 (npm install --no-save send@1.1.0).
 # Suite: `npx mocha --exit --require test/support/env --reporter dot
 #        --check-leaks test/ test/acceptance/` = 1238 tests (~3 s)

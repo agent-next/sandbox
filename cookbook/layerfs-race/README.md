@@ -39,10 +39,10 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
 
 | step | wall time |
 |---|---|
-| setup (rust build + express clone + baseline) | ~9 min |
-| selftest (10 mutants + determinism) | ~25 min |
-| grade the good artifact | ~3 min |
-| **time-to-result (README -> hero)** | ~12 min |
+| setup (rust build + express clone + baseline) | ~5 min |
+| selftest (10 mutants + determinism) | ~30 min |
+| grade the good artifact | ~3.5 min |
+| **time-to-result (README -> hero)** | ~38 min |
 
 ## How the judge works
 
@@ -52,11 +52,15 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
   tree recorded; `send` pinned to 1.1.0), and measures the clean-baseline
   pass count.
 - `judge/grade.sh <artifact-dir>` — applies `examples/bug.patch` to a copy
-  of the pinned tree, runs `race.mjs` against a fresh Store volume, then
-  `judge/grader.mjs` checks all 8 SPEC gates + artifact/manifest and
-  bug-scope gates through the SDK (list_commits, diff_branches,
-  inspect.snapshot, fs.read, merge, publish, its own Sandboxes) and re-runs
-  the suite on `main` and every losing branch. Prints one JSON verdict.
+  of the pinned tree, runs `race.mjs` in a staged dir that does not contain
+  the grader, then runs `judge/grader.mjs` from a private sha256-checked
+  copy against a fresh Store volume. The grader checks all 8 SPEC gates +
+  artifact/manifest, bug-scope and oracle-intact gates through the SDK
+  (list_commits, diff_branches, inspect.snapshot, fs.read, merge, publish,
+  its own Sandboxes) and re-runs the suite itself — mocha with
+  `--no-config --no-package` on a judge-fixed file list — on `main` and
+  every losing branch. An artifact or grader crash forces FAIL. Prints
+  exactly one JSON verdict line on stdout.
 - `judge/selftest.sh` — the good artifact must pass, each of the 10
   single-edit mutants from `judge/mutants.py` must fail ≥1 gate (kill rate
   100% here; ≥90% required), and two grades of the good artifact are
@@ -82,6 +86,7 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
 ## Credits
 
 - [LayerFS](https://github.com/Ephemeral-AI-Lab/layerfs) v0.1.7 (commit
-  `e7713d03`), MIT; `judge/runtime/Dockerfile` is vendored from it.
+  `e7713d03`), MIT; `judge/runtime/Dockerfile` is vendored from upstream
+  commit `0d49d64c` (see `judge/runtime/LICENSE`).
 - [express](https://github.com/expressjs/express) v5.2.1, MIT; cloned at
   setup, not vendored.

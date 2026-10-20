@@ -72,6 +72,18 @@ on each losing branch, plus the clean-baseline pass count from an unbugged
 checkout measured in `setup.sh`. The manifest's claimed winner is checked
 against the Store, never trusted.
 
+The oracle is protected from the artifact: the judge runs mocha with
+`--no-config --no-package` on an explicit, judge-fixed test file list, and
+the `oracle-intact` gate fails when any agent branch or `main` changes
+anything outside `lib/` versus the bugged base (the judge diffs every ref
+against a branch forked from the pre-publish layer). A submitted
+`.mocharc`, test edit or `node_modules` swap cannot rig the result. The
+suite's exit status is preserved and `winner-green` requires exit 0 *and*
+0 failing *and* the baseline passing count. The artifact runs in a staged
+directory without the grader; the grader itself runs from a private copy
+whose sha256 is checked before and after, and a non-zero artifact or
+grader exit forces an overall FAIL.
+
 ## Self-test
 
 `judge/selftest.sh` requires `examples/good` to pass and >= 90 % of the
