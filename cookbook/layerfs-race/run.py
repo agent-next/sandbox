@@ -32,7 +32,7 @@ def sbx(*argv):
     return (p.stdout + p.stderr).strip(), p.returncode
 
 
-def sbx_exec(sid, command, step_timeout=900):
+def sbx_exec(sid, command, step_timeout=120):
     t0 = time.time()
     p = subprocess.run(["sbx", "exec", sid, "--timeout", str(step_timeout),
                         "--", "bash", "-lc", command],
@@ -143,9 +143,8 @@ def main():
         sid = out.splitlines()[-1].strip()
         print(f"[{time.time()-t0:5.1f}s] sandbox {sid}")
 
-        def step(name, command):
-            t0 = time.time()
-            out, rc, el = sbx_exec(sid, command)
+        def step(name, command, step_timeout=120):
+            out, rc, el = sbx_exec(sid, command, step_timeout)
             status = "ok" if rc == 0 else f"FAILED rc={rc}"
             print(f"[{el:6.1f}s] {name}: {status}")
             if rc != 0:
@@ -178,12 +177,12 @@ def main():
             out = step("clone-commit", "git -C /tmp/repo rev-parse HEAD")
             commit = out.split()[-1] if out.split() else ""
         d = f"/tmp/repo/{DEMO}"
-        step("setup", f"cd {d} && bash judge/setup.sh")
-        selftest_out = step("selftest", f"cd {d} && bash judge/selftest.sh")
+        step("setup", f"cd {d} && bash judge/setup.sh", 2700)
+        selftest_out = step("selftest", f"cd {d} && bash judge/selftest.sh", 3600)
         for line in selftest_out.splitlines():
             if "mutant KILLED" in line or "kill rate" in line or "determinism" in line:
                 print(f"    {line}")
-        out = step("grade", f"cd {d} && bash judge/grade.sh examples/good")
+        out = step("grade", f"cd {d} && bash judge/grade.sh examples/good", 1200)
         verdict = json.loads(out[out.index("{"):])
         print(json.dumps(verdict, indent=2))
         ok = verdict.get("verdict") == "PASS"
