@@ -40,9 +40,9 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
 | step | wall time |
 |---|---|
 | setup (rust build + express clone + baseline) | ~5 min |
-| selftest (10 mutants + determinism) | ~30 min |
-| grade the good artifact | ~3.5 min |
-| **time-to-result (README -> hero)** | ~38 min |
+| selftest (10 mutants + determinism) | ~48 min |
+| grade the good artifact | ~5.5 min |
+| **time-to-result (README -> hero)** | ~58 min |
 
 ## How the judge works
 
@@ -70,8 +70,8 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
 
 - No figures or video yet: this entry ships the judge, the one-command run
   and the receipts only.
-- Time-to-result is about 38 min on the default 2 vCPU sandbox (setup ~5 min
-  builds LayerFS from source; the 10-mutant self-test ~30 min), well over the
+- Time-to-result is about 58 min on the default 2 vCPU sandbox (setup ~5 min
+  builds LayerFS from source; the 10-mutant self-test ~48 min), well over the
   5 min cookbook target, because LayerFS 0.1.7 publishes no binaries.
 
 - The demo fixes deterministic patches — no LLM writes candidate fixes; the

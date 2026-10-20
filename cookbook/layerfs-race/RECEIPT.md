@@ -1,80 +1,68 @@
 # RECEIPT — layerfs-race
 
-Two fresh end-to-end runs of `python3 cookbook/layerfs-race/run.py --local`
-from the host (the local branch is not pushed, so runs package and upload the
-worktree demo). Local commit at run time: `120997b36ccb247f853c3198b55de582bd4b2440`.
+Fresh end-to-end run of `python3 cookbook/layerfs-race/run.py --local`
+from the host (the branch is not pushed, so the run packages and uploads the
+worktree demo). Local commit at run time: `a370a5386e928a89f518542041c284f4ffd584fa`.
 Each run: create sandbox -> upload -> setup -> selftest -> grade -> kill + confirm.
 
-## Run A — sandbox `01a156ed-0f84-7ca0-9236-8c946585094a` (removed after)
+## Run — sandbox `01a1575a-cf2d-7213-9e12-24ea239cb5b0` (removed after)
 
 ```
-[  0.6s] sandbox 01a156ed-0f84-7ca0-9236-8c946585094a
+[  0.5s] sandbox 01a1575a-cf2d-7213-9e12-24ea239cb5b0
 [   0.9s] upload: ok
-[ 291.5s] setup: ok
-[1795.8s] selftest: ok
+[ 282.4s] setup: ok
+[2874.3s] selftest: ok
     selftest: mutant KILLED: claim-wrong-winner (failing gates: winner-is-a-branch)
-    selftest: mutant KILLED: cp-a (failing gates: artifact)
-    selftest: mutant KILLED: fix-main-fs (failing gates: artifact)
-    selftest: mutant KILLED: fs-write-only (failing gates: artifact)
+    selftest: mutant KILLED: cp-a (failing gates: artifact,artifact-exit)
+    selftest: mutant KILLED: fix-main-fs (failing gates: artifact,artifact-exit)
+    selftest: mutant KILLED: fs-write-only (failing gates: branches)
     selftest: mutant KILLED: lie-volume (failing gates: artifact)
     selftest: mutant KILLED: merge-markers (failing gates: winner-green)
-    selftest: mutant KILLED: publish-loser (failing gates: main-isolation,winner-is-a-branch,winner-green,losers-red)
-    selftest: mutant KILLED: publish-nothing (failing gates: main-isolation,winner-is-a-branch,winner-green,losers-red)
-    selftest: mutant KILLED: seven-branches (failing gates: artifact)
-    selftest: mutant KILLED: shift-candidates (failing gates: main-isolation,winner-is-a-branch)
+    selftest: mutant KILLED: publish-loser (failing gates: main-isolation,winner-is-a-branch,oracle-intact,winner-green,losers-red)
+    selftest: mutant KILLED: publish-nothing (failing gates: main-isolation,winner-is-a-branch,oracle-intact,winner-green,losers-red)
+    selftest: mutant KILLED: seven-branches (failing gates: branches,oracle-intact,losers-red)
+    selftest: mutant KILLED: shift-candidates (failing gates: main-isolation,winner-is-a-branch,oracle-intact)
     selftest: kill rate: 10/10 (100%)
     selftest: determinism PASS (same seed -> identical verdict outside timing)
-[ 207.0s] grade: ok
+[ 317.3s] grade: ok
 verdict: PASS
-sandbox 01a156ed-0f84-7ca0-9236-8c946585094a removed
+sandbox 01a1575a-cf2d-7213-9e12-24ea239cb5b0 removed
 ```
 
-## Run B — sandbox `01a156ed-0f2c-7280-a236-bfb2f4066e34` (removed after)
+## Verdict (current run)
 
-```
-[  0.5s] sandbox 01a156ed-0f2c-7280-a236-bfb2f4066e34
-[   0.9s] upload: ok
-[ 290.1s] setup: ok
-[1797.7s] selftest: ok
-    selftest: mutant KILLED: claim-wrong-winner (failing gates: winner-is-a-branch)
-    selftest: mutant KILLED: cp-a (failing gates: artifact)
-    selftest: mutant KILLED: fix-main-fs (failing gates: artifact)
-    selftest: mutant KILLED: fs-write-only (failing gates: artifact)
-    selftest: mutant KILLED: lie-volume (failing gates: artifact)
-    selftest: mutant KILLED: merge-markers (failing gates: winner-green)
-    selftest: mutant KILLED: publish-loser (failing gates: main-isolation,winner-is-a-branch,winner-green,losers-red)
-    selftest: mutant KILLED: publish-nothing (failing gates: main-isolation,winner-is-a-branch,winner-green,losers-red)
-    selftest: mutant KILLED: seven-branches (failing gates: artifact)
-    selftest: mutant KILLED: shift-candidates (failing gates: main-isolation,winner-is-a-branch)
-    selftest: kill rate: 10/10 (100%)
-    selftest: determinism PASS (same seed -> identical verdict outside timing)
-[ 206.6s] grade: ok
-verdict: PASS
-sandbox 01a156ed-0f2c-7280-a236-bfb2f4066e34 removed
-```
-
-## Verdict (Run A — Run B identical modulo timing)
-
-All ten gates pass: artifact, bug-scope (2 failing on the bugged tree,
+All eleven gates pass: artifact, bug-scope (2 failing on the bugged tree,
 allowed 1-50), branches (`agent-0..7`, each with `via:exec` commits),
 main-isolation (main moved only via publish; pre-publish layer holds the
 bugged `lib/application.js` byte-identical), winner-is-a-branch (empty diff
-vs main: agent-3 only; claimed agent-3; expected agent-3), winner-green
-(main re-run: 1238 passing / 0 failing = clean baseline), losers-red
+vs main: agent-3 only; claimed agent-3; expected agent-3), oracle-intact
+(every branch/main change vs the bugged base confined to `/lib/`),
+winner-green (main re-run: 1238 passing / 0 failing, suite exit 0 = clean
+baseline), losers-red
 (`agent-0:3 agent-1:2 agent-2:5 agent-4:5 agent-5:5 agent-6:5 agent-7:2`),
 storage, conflict-refused (`Conflict` on `/lib/application.js`), fork-latency.
 
-## Measured numbers (Run A / Run B)
+## Measured numbers (current run)
 
-| metric | A | B |
-|---|---|---|
-| source tree | 47,682,104 B | 47,682,104 B |
-| Store volume | 14,291,328 B | 14,233,888 B |
-| Store / source | 0.2997 | 0.2985 |
-| median `branch.fork` (forks 2-8, judge) | 0.0006 s | 0.0007 s |
-| main suite (judge re-run) | 1238/0 | 1238/0 |
-| per-agent suite (artifact) | 17.8-35.0 s | 17.4-35.0 s |
-| wall: setup / selftest / grade | 291.5 / 1795.8 / 207.0 s | 290.1 / 1797.7 / 206.6 s |
+| metric | value |
+|---|---|
+| source tree | 47,682,104 B |
+| Store volume | 14,394,520 B |
+| Store / source | 0.3019 |
+| median `branch.fork` (forks 2-8, judge) | 0.0007 s |
+| main suite (judge re-run) | 1238 passing / 0 failing, suite exit 0 |
+| resolved-deps.txt sha256 | `d933663706754058430b15f1823b38686b142a720299c99d89023a9c6f79ad5f` (matches committed `judge/resolved-deps.txt`) |
+| per-agent suite (artifact) | 16.4-32.7 s |
+| wall: setup / selftest / grade | 282.4 / 2874.3 / 317.3 s (~58 min total) |
+
+## Pre-fix runs (superseded)
+
+Two earlier end-to-end `run.py --local` runs (local commit
+`120997b36ccb247f853c3198b55de582bd4b2440`) passed with the pre-hardening
+judge: verdict PASS, kill rate 10/10, Store/source 0.2997 / 0.2985, wall
+setup / selftest / grade 291.5 / 1795.8 / 207.0 s and
+290.1 / 1797.7 / 206.6 s. Their gate set lacked `oracle-intact` and the
+artifact/grader exit checks; the current run above is authoritative.
 
 ## Deviations
 
@@ -108,5 +96,9 @@ storage, conflict-refused (`Conflict` on `/lib/application.js`), fork-latency.
   cat /tmp/step-*.log` so the stream ends with the step.
 - **`npx mocha --exit`** — without it the suite can sit on open handles after
   the last test (ep_poll) and never exit.
+- **oracle/diff walls add ~2 min per grade** — the `oracle-intact` and
+  `winner-is-a-branch` gates diff nine Store refs each against a
+  judge-forked base (`diffs` + `oracle` wall_s ≈ 220 s per grade), which is
+  why the self-test now takes ~48 min.
 - **no media** — figures and video are out of scope for this entry; the
   scaffold's placeholder media files were removed rather than shipped.
