@@ -78,3 +78,10 @@ Measured on a 2 vCPU / 4 GB sandbox (see RECEIPT.md):
 - Store bytes and timings are measured on a 2 vCPU sandbox; absolute numbers
   vary with hardware. Gates use SPEC-fixed thresholds, not the measured
   receipt values.
+
+## Credits
+
+- [LayerFS](https://github.com/Ephemeral-AI-Lab/layerfs) v0.1.7 (commit
+  `e7713d03`), MIT; `judge/runtime/Dockerfile` is vendored from it.
+- [express](https://github.com/expressjs/express) v5.2.1, MIT; cloned at
+  setup, not vendored.
